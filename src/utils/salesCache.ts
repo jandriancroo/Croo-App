@@ -5,8 +5,8 @@ const LIVE_SALES_CACHE_KEY = 'qu_live_sales_';
 const HOURLY_PATTERN_CACHE_KEY = 'qu_hourly_pattern_';
 const CACHE_VERSION = 9;
 
-// 5-minute TTL for live sales data
-const LIVE_SALES_TTL_MS = 5 * 60 * 1000;
+// 3-minute TTL for live sales data (shared cache for all loads including manual refresh)
+const LIVE_SALES_TTL_MS = 3 * 60 * 1000;
 
 interface CachedSalesData {
   version: number;
@@ -132,7 +132,7 @@ export function setCachedSalesData(
 
 // === LIVE SALES CACHE (5-minute TTL for stale-while-revalidate) ===
 
-export function getCachedLiveSales(locationId: string): { data: any; isStale: boolean } | null {
+export function getCachedLiveSales(locationId: string): { data: any; isStale: boolean; isFresh: boolean; cachedAt: Date | null } | null {
   try {
     const key = getLiveSalesCacheKey(locationId);
     const cached = localStorage.getItem(key);
@@ -146,9 +146,12 @@ export function getCachedLiveSales(locationId: string): { data: any; isStale: bo
     
     const cachedTime = new Date(parsed.cachedAt).getTime();
     const now = Date.now();
-    const isStale = (now - cachedTime) > LIVE_SALES_TTL_MS;
+    const ageMs = now - cachedTime;
+    const isStale = ageMs > LIVE_SALES_TTL_MS;
+    // Fresh means within the 3-minute window - don't make API calls
+    const isFresh = ageMs <= LIVE_SALES_TTL_MS;
     
-    return { data: parsed.data, isStale };
+    return { data: parsed.data, isStale, isFresh, cachedAt: new Date(parsed.cachedAt) };
   } catch {
     return null;
   }

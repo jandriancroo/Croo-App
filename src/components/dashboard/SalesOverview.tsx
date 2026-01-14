@@ -641,6 +641,20 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: async () => {
+      // For today, check if we have fresh cached data (< 3 min old)
+      // If so, skip the API call entirely - this applies to ALL loads including manual refresh
+      if (isTodayQuery && currentLocation?.id) {
+        const cached = getCachedLiveSales(currentLocation.id);
+        if (cached?.isFresh && cached.data) {
+          console.log('[SalesOverview] Using fresh cached data (< 3 min old), skipping API call');
+          // Update the fetch timestamp to reflect cached data age
+          if (cached.cachedAt) {
+            setLastFetchTimestamp(cached.cachedAt);
+          }
+          return cached.data;
+        }
+      }
+      
       const data = await fetchSalesData();
       // Track when we last fetched live data
       if (isTodayQuery && data) {
@@ -649,9 +663,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       return data;
     },
     enabled: !!currentLocation?.id,
-    staleTime: isTodayQuery ? 15 * 60 * 1000 : 0, // 15 min stale time for today, historical always refetch
+    staleTime: isTodayQuery ? 3 * 60 * 1000 : 0, // 3 min stale time matches cache TTL
     gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
-    refetchOnWindowFocus: true, // Refresh when user tabs back
+    refetchOnWindowFocus: true, // Refresh when user tabs back (but will use cache if fresh)
     initialData,
     initialDataUpdatedAt
   });
@@ -677,7 +691,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     if (!currentLocation?.id || !isSameDay(targetDate, new Date())) return;
     
     const cached = getCachedLiveSales(currentLocation.id);
-    if (cached?.isStale && !isBackgroundRefreshing.current) {
+    // Only refetch if cache exists but is stale (> 3 min old) - not if it's fresh
+    if (cached?.isStale && !cached?.isFresh && !isBackgroundRefreshing.current) {
       isBackgroundRefreshing.current = true;
       refetch().finally(() => {
         isBackgroundRefreshing.current = false;
@@ -690,7 +705,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   useEffect(() => {
     if (!currentLocation?.id) return;
 
-    const VISIBILITY_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    const VISIBILITY_REFRESH_INTERVAL = 3 * 60 * 1000; // 3 minutes - matches cache TTL
 
     const handleVisibilityChange = () => {
       // Clear any existing interval
@@ -701,9 +716,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
 
       // If page becomes visible and we're viewing today, start refresh interval
       if (document.visibilityState === 'visible' && isSameDay(targetDate, new Date())) {
-        // Check if data is stale and refresh immediately if so
-        const timeSinceLastFetch = lastFetchTimestamp ? Date.now() - lastFetchTimestamp.getTime() : Infinity;
-        if (timeSinceLastFetch > VISIBILITY_REFRESH_INTERVAL) {
+        // Check if cache is stale (> 3 min) - if fresh, don't refresh yet
+        const cached = getCachedLiveSales(currentLocation.id);
+        if (!cached?.isFresh) {
           refetch();
         }
 
@@ -740,7 +755,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         clearInterval(visibilityRefreshInterval.current);
       }
     };
-  }, [currentLocation?.id, targetDate, refetch, lastFetchTimestamp]);
+  }, [currentLocation?.id, targetDate, refetch]);
 
   // Manual refresh handler
   const handleManualRefresh = useCallback(async () => {
