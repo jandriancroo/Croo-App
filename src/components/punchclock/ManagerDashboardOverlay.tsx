@@ -326,7 +326,6 @@ export function ManagerDashboardOverlay({
       timeZone: timezone,
       hour: 'numeric',
       minute: '2-digit',
-      second: '2-digit',
       hour12: true,
     }).format(time);
   };
@@ -404,20 +403,50 @@ export function ManagerDashboardOverlay({
         </div>
 
         <div className="relative h-full p-6 overflow-auto">
-          {/* Header with time */}
+          {/* Header with time - Liquid Glass effect */}
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
             className="text-center mb-8"
           >
-            <div className="flex items-center justify-center gap-4 mb-2">
-              <Clock className="h-10 w-10 text-primary" />
-              <span className="text-6xl font-semibold text-white tracking-wide" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-                {formatTimeDisplay(currentTime)}
-              </span>
+            <div className="relative inline-block mx-auto">
+              {/* Liquid Glass container */}
+              <div className="relative px-12 py-6 rounded-3xl overflow-hidden">
+                {/* Glass background layers */}
+                <div className="absolute inset-0 bg-white/[0.08] backdrop-blur-2xl rounded-3xl" />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/5 rounded-3xl" />
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/[0.03] to-white/10 rounded-3xl" />
+                
+                {/* Inner glow effect */}
+                <div className="absolute inset-[1px] rounded-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),inset_0_-1px_1px_rgba(0,0,0,0.1)]" />
+                
+                {/* Subtle border */}
+                <div className="absolute inset-0 rounded-3xl border border-white/20" />
+                
+                {/* Light reflection */}
+                <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+                
+                {/* Content */}
+                <div className="relative flex items-center justify-center gap-5">
+                  <Clock className="h-12 w-12 text-white/80 drop-shadow-lg" />
+                  <span 
+                    className="text-8xl font-light text-white tracking-tight drop-shadow-2xl"
+                    style={{ 
+                      fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      textShadow: '0 2px 20px rgba(255,255,255,0.15)'
+                    }}
+                  >
+                    {formatTimeDisplay(currentTime)}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Ambient glow behind the glass */}
+              <div className="absolute -inset-4 bg-primary/20 rounded-full blur-3xl -z-10 opacity-50" />
             </div>
-            <p className="text-white/60 text-lg">
+            
+            <p className="text-white/50 text-lg mt-4 font-light tracking-wide">
               {format(currentTime, 'EEEE, MMMM d, yyyy')}
             </p>
           </motion.div>
