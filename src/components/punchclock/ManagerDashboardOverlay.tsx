@@ -531,22 +531,22 @@ export function ManagerDashboardOverlay({
               className="flex-1 flex flex-col gap-3"
             >
               {/* Sales Cards Row */}
-              <div className="grid grid-cols-3 gap-1 sm:gap-2">
+              <div className="grid grid-cols-3 gap-1 sm:gap-2 lg:gap-3 xl:gap-4">
                 {/* Total Sales */}
                 <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                  <CardContent className="p-2 sm:p-3 text-center">
-                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-green-400" />
-                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">Total Sales</p>
-                    <p className="text-base sm:text-xl font-bold text-white">{formatCurrency(totalSales)}</p>
+                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
+                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-400" />
+                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">Total Sales</p>
+                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-white">{formatCurrency(totalSales)}</p>
                   </CardContent>
                 </Card>
 
                 {/* EOD Goal */}
                 <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                  <CardContent className="p-2 sm:p-3 text-center">
-                    <Target className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-blue-400" />
-                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">EOD Goal</p>
-                    <p className="text-base sm:text-xl font-bold text-white">{formatCurrency(eodGoal)}</p>
+                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
+                    <Target className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-blue-400" />
+                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">EOD Goal</p>
+                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-white">{formatCurrency(eodGoal)}</p>
                   </CardContent>
                 </Card>
 
@@ -554,55 +554,55 @@ export function ManagerDashboardOverlay({
                 <Card className={`bg-white/10 backdrop-blur-xl border-white/20 ${
                   paceStatus === 'fire' ? 'ring-2 ring-orange-500/50' : ''
                 }`}>
-                  <CardContent className="p-2 sm:p-3 text-center">
+                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
                     {paceStatus === 'fire' ? (
-                      <Flame className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-orange-500 animate-pulse" />
+                      <Flame className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-orange-500 animate-pulse" />
                     ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-red-400" />
+                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-red-400" />
                     ) : (
-                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-green-400" />
+                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-400" />
                     )}
-                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">Pace</p>
-                    <p className="text-base sm:text-xl font-bold text-amber-400">{formatCurrency(paceAdjusted)}</p>
+                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">Pace</p>
+                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-amber-400">{formatCurrency(paceAdjusted)}</p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Hourly Chart */}
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1">
-                <CardContent className="p-2 sm:p-4 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
+              <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px]">
+                <CardContent className="p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+                  <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold mb-2 lg:mb-4 flex items-center gap-2">
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
                     Last 4 Hours
                   </h3>
                   {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
-                    <div className="flex items-end justify-around gap-1 sm:gap-2 flex-1 min-h-0">
-                      {last4Hours.map((hour, i) => (
-                        <motion.div
-                          key={hour.hour}
-                          initial={{ height: 0 }}
-                          animate={{ height: 'auto' }}
-                          transition={{ delay: 0.3 + i * 0.1 }}
-                          className="flex flex-col items-center flex-1 h-full justify-end"
-                        >
-                          <span className="text-white font-bold text-[10px] sm:text-xs mb-1">
-                            {formatCurrency(hour.sales)}
-                          </span>
-                          <div className="w-full bg-white/10 rounded-t-lg overflow-hidden flex-1 max-h-16 flex flex-col justify-end">
-                            <motion.div
-                              initial={{ height: 0 }}
-                              animate={{ height: `${(hour.sales / maxHourlySale) * 100}%` }}
-                              transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
-                              className="w-full bg-gradient-to-t from-primary to-primary/60"
-                            />
+                    <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 flex-1 pb-2">
+                      {last4Hours.map((hour, i) => {
+                        const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
+                        return (
+                          <div
+                            key={hour.hour}
+                            className="flex flex-col items-center flex-1 h-full"
+                          >
+                            <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
+                              {formatCurrency(hour.sales)}
+                            </span>
+                            <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-hidden relative min-h-[50px]">
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: `${barHeightPercent}%` }}
+                                transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
+                                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg"
+                              />
+                            </div>
+                            <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2">{hour.label}</span>
                           </div>
-                          <span className="text-white/60 text-[10px] sm:text-xs mt-1">{hour.label}</span>
-                        </motion.div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
-                      <p className="text-white/40 text-xs sm:text-sm">No hourly data yet</p>
+                      <p className="text-white/40 text-xs sm:text-sm lg:text-base xl:text-lg">No hourly data yet</p>
                     </div>
                   )}
                 </CardContent>
@@ -727,21 +727,21 @@ export function ManagerDashboardOverlay({
               initial={{ x: 20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="flex-1 flex flex-col gap-2 sm:gap-3"
+              className="flex-1 flex flex-col gap-2 sm:gap-3 lg:gap-4"
             >
               {/* Active Shifts */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1">
-                <CardContent className="p-2 sm:p-3 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 h-full flex flex-col">
+                  <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold mb-1 sm:mb-2 lg:mb-3 flex items-center gap-1 sm:gap-2">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
                     On The Clock
-                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs">
+                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs lg:text-sm">
                       {activeShifts.length}
                     </Badge>
                   </h3>
-                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto">
+                  <div className="space-y-1 sm:space-y-1.5 lg:space-y-2 xl:space-y-3 flex-1 overflow-y-auto">
                     {activeShifts.length === 0 ? (
-                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm">No one clocked in</p>
+                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm lg:text-base">No one clocked in</p>
                     ) : (
                       activeShifts.map((shift) => {
                         const cut = getCutForEmployee(shift.userId);
@@ -763,7 +763,7 @@ export function ManagerDashboardOverlay({
                           >
                             <PopoverTrigger asChild>
                               <div
-                                className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
+                                className={`flex items-center gap-2 lg:gap-3 p-1.5 lg:p-2 xl:p-3 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
                                   shift.isOnBreak 
                                     ? 'bg-amber-500/20' 
                                     : cut 
@@ -771,21 +771,21 @@ export function ManagerDashboardOverlay({
                                       : 'bg-white/5'
                                 }`}
                               >
-                                <Avatar className="h-7 w-7">
+                                <Avatar className="h-7 w-7 lg:h-9 lg:w-9 xl:h-11 xl:w-11">
                                   <AvatarImage src={shift.profilePhoto || undefined} />
-                                  <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                                  <AvatarFallback className="bg-primary/20 text-primary text-xs lg:text-sm xl:text-base">
                                     {shift.fullName.charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1">
-                                    <p className="text-white text-xs font-medium truncate">
+                                  <div className="flex items-center gap-1 lg:gap-2">
+                                    <p className="text-white text-xs lg:text-sm xl:text-base font-medium truncate">
                                       {shift.fullName.split(' ')[0]}
                                     </p>
                                     {cut && (
                                       <Badge 
                                         variant="secondary" 
-                                        className="bg-red-500/30 text-red-300 text-[10px] px-1 py-0"
+                                        className="bg-red-500/30 text-red-300 text-[10px] lg:text-xs px-1 py-0"
                                       >
                                         -{cut.minutesCut}m
                                       </Badge>
@@ -793,9 +793,9 @@ export function ManagerDashboardOverlay({
                                   </div>
                                 </div>
                                 {shift.isOnBreak && shift.breakStartTime ? (
-                                  <div className="flex items-center gap-1">
-                                    <Coffee className="h-3 w-3 text-amber-400" />
-                                    <span className={`text-[10px] font-bold ${
+                                  <div className="flex items-center gap-1 lg:gap-2">
+                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 xl:h-5 xl:w-5 text-amber-400" />
+                                    <span className={`text-[10px] lg:text-xs xl:text-sm font-bold ${
                                       getBreakReturnTime(shift.breakStartTime).isOverdue 
                                         ? 'text-red-400' 
                                         : 'text-amber-300'
@@ -804,7 +804,7 @@ export function ManagerDashboardOverlay({
                                     </span>
                                   </div>
                                 ) : (
-                                  <Scissors className="h-3 w-3 text-white/40" />
+                                  <Scissors className="h-3 w-3 lg:h-4 lg:w-4 xl:h-5 xl:w-5 text-white/40" />
                                 )}
                               </div>
                             </PopoverTrigger>
