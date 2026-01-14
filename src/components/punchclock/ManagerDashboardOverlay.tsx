@@ -295,7 +295,7 @@ export function ManagerDashboardOverlay({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales')
+        .select('net_sales, hourly_data, projected_sales, pizza_count')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();
@@ -499,13 +499,16 @@ export function ManagerDashboardOverlay({
     };
   }>(['qubeyond-sales', locationId, todayStr]);
   
-  // Get pizza count from cached data
+  // Get pizza count from cached data OR from DB query
   const pizzaCount = useMemo(() => {
+    // First try React Query cache from SalesOverview
     const pc = cachedSalesOverviewData?.pizzaCount;
-    if (typeof pc === 'number') return pc;
-    if (typeof pc === 'object' && pc?.daily) return pc.daily;
-    return 0;
-  }, [cachedSalesOverviewData]);
+    if (typeof pc === 'number' && pc > 0) return pc;
+    if (typeof pc === 'object' && pc?.daily && pc.daily > 0) return pc.daily;
+    
+    // Fall back to direct DB query result
+    return Number(salesData?.pizza_count) || 0;
+  }, [cachedSalesOverviewData, salesData?.pizza_count]);
   
   // EOD Goal: use SalesOverview's cached todayProjected
   const eodGoal = useMemo(() => {
