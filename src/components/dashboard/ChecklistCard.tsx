@@ -3,7 +3,7 @@ import { ClipboardCheck, Check, GripVertical, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
-export interface ChecklistCubeProps {
+export interface ChecklistCardProps {
   checklistId: string;
   title: string;
   completed: number;
@@ -17,7 +17,7 @@ export interface ChecklistCubeProps {
   lockUntilTime?: string;
 }
 
-export function ChecklistCube({ 
+export function ChecklistCard({ 
   checklistId,
   title, 
   completed, 
@@ -29,7 +29,7 @@ export function ChecklistCube({
   isOverdue = false,
   isLocked = false,
   lockUntilTime,
-}: ChecklistCubeProps) {
+}: ChecklistCardProps) {
   const navigate = useNavigate();
   const isOled = useIsOledTheme();
   const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;

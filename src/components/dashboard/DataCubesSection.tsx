@@ -6,7 +6,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
 import { Settings2 } from 'lucide-react';
 import { DataCube, MetricType, SalesDataForCubes } from './DataCube';
-import { ChecklistCube } from './ChecklistCube';
+import { ChecklistCard } from './ChecklistCard';
 import { TaskCube } from './TaskCube';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
