@@ -14,6 +14,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
+import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -185,6 +186,13 @@ export default function PunchClock() {
   const currentCustomText = customOverlayTexts.length > 0 
     ? customOverlayTexts[customSlideIndex % customOverlayTexts.length] 
     : customOverlayText;
+
+  // Manager Dashboard state
+  const MANAGER_DASHBOARD_CODE = '9999';
+  const [showManagerDashboard, setShowManagerDashboard] = useState(false);
+  const [showManagerPinVerification, setShowManagerPinVerification] = useState(false);
+  const [managerPin, setManagerPin] = useState('');
+  const [managerPinError, setManagerPinError] = useState(false);
 
   const MASTER_EXIT_CODE = '0223';
 
@@ -544,6 +552,13 @@ export default function PunchClock() {
       return;
     }
 
+    // Check for manager dashboard code
+    if (pinValue === MANAGER_DASHBOARD_CODE) {
+      setPin('');
+      setShowManagerPinVerification(true);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -589,6 +604,61 @@ export default function PunchClock() {
       .eq('user_id', data.id)
       .single();
     setCurrentUserRole(roleData?.role || 'team_member');
+  };
+
+  // Verify manager PIN for dashboard access
+  const verifyManagerPin = async () => {
+    if (managerPin.length !== 4) return;
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('employee_pin', managerPin)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error || !profile) {
+      setManagerPinError(true);
+      setManagerPin('');
+      playErrorSound();
+      setTimeout(() => setManagerPinError(false), 2000);
+      return;
+    }
+
+    // Check if user has shift_manager or higher role
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', profile.id)
+      .single();
+
+    const role = roleData?.role || 'team_member';
+    const managerRoles = ['shift_manager', 'manager', 'admin', 'org_admin', 'brand_admin', 'super_admin'];
+
+    if (!managerRoles.includes(role)) {
+      setManagerPinError(true);
+      setManagerPin('');
+      playErrorSound();
+      toast.error('Manager access required');
+      setTimeout(() => setManagerPinError(false), 2000);
+      return;
+    }
+
+    // Success - show dashboard
+    playSuccessSound();
+    setShowManagerPinVerification(false);
+    setManagerPin('');
+    setShowManagerDashboard(true);
+  };
+
+  const handleManagerPinInput = (num: string) => {
+    if (managerPin.length < 4) {
+      const newPin = managerPin + num;
+      setManagerPin(newPin);
+      if (newPin.length === 4) {
+        setTimeout(() => verifyManagerPin(), 100);
+      }
+    }
   };
 
   const checkTodayShift = async () => {
@@ -1261,6 +1331,86 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Manager PIN Verification Dialog */}
+      <Dialog open={showManagerPinVerification} onOpenChange={setShowManagerPinVerification}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-white/20">
+          <DialogHeader>
+            <DialogTitle className="text-center text-white text-xl">Manager Dashboard Access</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6 py-4">
+            <p className="text-white/60 text-center text-sm">
+              Enter your manager PIN to view the dashboard
+            </p>
+            
+            {/* PIN Display */}
+            <div className="flex gap-3 mb-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={`w-12 h-12 rounded-lg border-2 flex items-center justify-center text-2xl font-bold transition-all ${
+                    managerPinError
+                      ? 'border-red-500 bg-red-500/20'
+                      : managerPin.length > i
+                        ? 'border-primary bg-primary/20 text-white'
+                        : 'border-white/30 bg-white/5'
+                  }`}
+                >
+                  {managerPin.length > i ? '•' : ''}
+                </div>
+              ))}
+            </div>
+
+            {managerPinError && (
+              <p className="text-red-400 text-sm font-medium">Invalid PIN or insufficient access</p>
+            )}
+
+            {/* Keypad */}
+            <div className="grid grid-cols-3 gap-3 w-full max-w-xs">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '←'].map((key) => (
+                <Button
+                  key={key || 'empty'}
+                  variant="outline"
+                  className={`h-14 text-xl font-semibold ${
+                    key === '' ? 'invisible' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                  }`}
+                  onClick={() => {
+                    if (key === '←') {
+                      setManagerPin(prev => prev.slice(0, -1));
+                    } else if (key) {
+                      handleManagerPinInput(key);
+                    }
+                  }}
+                  disabled={key === ''}
+                >
+                  {key}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="ghost" 
+              className="w-full text-white/60"
+              onClick={() => {
+                setShowManagerPinVerification(false);
+                setManagerPin('');
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manager Dashboard Overlay */}
+      {showManagerDashboard && currentLocation?.id && timezone && (
+        <ManagerDashboardOverlay
+          locationId={currentLocation.id}
+          timezone={timezone}
+          onClose={() => setShowManagerDashboard(false)}
+        />
       )}
     </>
   );
