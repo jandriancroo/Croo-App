@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes, differenceInHours, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,7 +39,7 @@ import { Input } from '@/components/ui/input';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import type { AppRole } from '@/hooks/useUserRole';
-import { getCachedLiveSales, getCachedProjections } from '@/utils/salesCache';
+
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
@@ -337,62 +337,42 @@ export function ManagerDashboardOverlay({
     },
   });
 
-  // Get ALL sales data from localStorage cache (same source as SalesOverview)
-  // This ensures Dynamic Dash shows EXACTLY the same numbers as Dashboard
-  const cachedLiveSales = getCachedLiveSales(locationId);
-  const cachedProjections = getCachedProjections(locationId);
+  // Calculate sales metrics from DB (actual sales from sales_cache table)
+  const totalSales = Number(salesData?.net_sales) || 0;
+  const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
+
+  // Get pace and projections from React Query cache (same cache SalesOverview uses)
+  // This ensures Dynamic Dash shows EXACTLY the same pace as Dashboard
+  const queryClient = useQueryClient();
   
-  // Calculate sales metrics - prioritize localStorage cache over DB
-  const totalSales = useMemo(() => {
-    // First try cached live sales (same source as SalesOverview)
-    const liveDailySales = cachedLiveSales?.data?.daily;
-    if (liveDailySales && liveDailySales > 0) return liveDailySales;
-    
-    // Fall back to sales_cache table
-    return Number(salesData?.net_sales) || 0;
-  }, [cachedLiveSales, salesData?.net_sales]);
+  // Read from the same React Query cache key that SalesOverview uses
+  const cachedSalesOverviewData = queryClient.getQueryData<{
+    daily: number;
+    projections?: {
+      todayProjected: number;
+      todayPaceAdjusted?: number;
+    };
+  }>(['qubeyond-sales', locationId, todayStr]);
   
-  const hourlyData = useMemo(() => {
-    // First try cached live sales (same source as SalesOverview)
-    const liveHourly = cachedLiveSales?.data?.hourly;
-    if (liveHourly && liveHourly.length > 0) {
-      return liveHourly.map((h: { hour: string; sales: number }) => ({
-        hour: h.hour,
-        sales: h.sales
-      }));
-    }
-    
-    // Fall back to sales_cache table
-    return (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
-  }, [cachedLiveSales, salesData?.hourly_data]);
-  
-  // EOD Goal: prefer cachedLiveSales.projections.todayProjected
+  // EOD Goal: use SalesOverview's cached todayProjected
   const eodGoal = useMemo(() => {
-    // First try cached live sales (same source as SalesOverview)
-    const liveProjected = cachedLiveSales?.data?.projections?.todayProjected;
+    // First try React Query cache (same source as SalesOverview)
+    const liveProjected = cachedSalesOverviewData?.projections?.todayProjected;
     if (liveProjected && liveProjected > 0) return liveProjected;
-    
-    // Then try projection cache
-    const cachedProjected = cachedProjections?.todayProjected;
-    if (cachedProjected && cachedProjected > 0) return cachedProjected;
     
     // Fall back to sales_cache.projected_sales
     return Number(salesData?.projected_sales) || 0;
-  }, [cachedLiveSales, cachedProjections, salesData?.projected_sales]);
+  }, [cachedSalesOverviewData, salesData?.projected_sales]);
   
-  // Pace Adjusted: get from cache (same source as SalesOverview)
+  // Pace Adjusted: use SalesOverview's cached todayPaceAdjusted
   const paceAdjusted = useMemo(() => {
-    // First try cached live sales (same source as SalesOverview)
-    const livePace = cachedLiveSales?.data?.projections?.todayPaceAdjusted;
+    // First try React Query cache (same source as SalesOverview)
+    const livePace = cachedSalesOverviewData?.projections?.todayPaceAdjusted;
     if (livePace && livePace > 0) return livePace;
-    
-    // Then try projection cache
-    const cachedPace = cachedProjections?.todayPaceAdjusted;
-    if (cachedPace && cachedPace > 0) return cachedPace;
     
     // Fall back to actual sales if no pace data
     return totalSales;
-  }, [cachedLiveSales, cachedProjections, totalSales]);
+  }, [cachedSalesOverviewData, totalSales]);
 
   // Get last 4 hours of sales
   const currentHour = new Date(currentTime.toLocaleString('en-US', { timeZone: timezone })).getHours();
