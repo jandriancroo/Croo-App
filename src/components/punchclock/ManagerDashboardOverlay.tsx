@@ -342,9 +342,10 @@ export function ManagerDashboardOverlay({
   const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
 
   // Get pace and EOD goal from the same cache SalesOverview uses
-  // This ensures Manager Dashboard shows EXACTLY the same numbers as the Dashboard
-  const cachedLiveSales = useMemo(() => getCachedLiveSales(locationId), [locationId]);
-  const cachedProjections = useMemo(() => getCachedProjections(locationId), [locationId]);
+  // Read fresh from localStorage each render so we get latest data from SalesOverview
+  // Using currentTime as dependency ensures we re-read when the timer ticks
+  const cachedLiveSales = getCachedLiveSales(locationId);
+  const cachedProjections = getCachedProjections(locationId);
   
   // EOD Goal: prefer cachedLiveSales.projections.todayProjected, fall back to sales_cache.projected_sales
   const eodGoal = useMemo(() => {
