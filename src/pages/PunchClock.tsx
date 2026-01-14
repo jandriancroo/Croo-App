@@ -859,7 +859,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
+        <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote or Birthday Message */}
