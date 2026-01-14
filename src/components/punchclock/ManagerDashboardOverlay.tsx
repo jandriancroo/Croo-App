@@ -57,6 +57,7 @@ interface ActiveShift {
   breakType: string | null;
   position?: string;
   hourlyWage?: number;
+  scheduledEndTime?: string; // HH:mm format from shift template
 }
 
 interface HourlySale {
@@ -208,18 +209,22 @@ export function ManagerDashboardOverlay({
         .select('id, full_name, profile_photo_url, hourly_wage')
         .in('id', userIds);
 
-      // Get today's shifts for positions
+      // Get today's shifts for positions and end times
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
-        .select('user_id, template:shift_templates(position)')
+        .select('user_id, template:shift_templates(position, end_time)')
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-      const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.position]));
+      const shiftMap = new Map((shifts || []).map(s => [s.user_id, { 
+        position: s.template?.position, 
+        endTime: s.template?.end_time 
+      }]));
 
       return activeUsers.map(u => {
         const profile = profileMap.get(u.userId);
+        const shiftInfo = shiftMap.get(u.userId);
         return {
           userId: u.userId,
           fullName: profile?.full_name || 'Unknown',
@@ -228,8 +233,9 @@ export function ManagerDashboardOverlay({
           isOnBreak: u.isOnBreak,
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
-          position: shiftMap.get(u.userId) || undefined,
+          position: shiftInfo?.position || undefined,
           hourlyWage: profile?.hourly_wage || 16, // Default to $16/hr if not set
+          scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
       }).sort((a, b) => a.fullName.localeCompare(b.fullName));
     },
@@ -380,6 +386,26 @@ export function ManagerDashboardOverlay({
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  // Calculate new clock-out time based on scheduled end and cut minutes
+  const getNewClockOutTime = (scheduledEndTime: string | undefined, minutesCut: number): string | null => {
+    if (!scheduledEndTime) return null;
+    
+    // Parse the scheduled end time (HH:mm format)
+    const [hours, minutes] = scheduledEndTime.split(':').map(Number);
+    const endDate = new Date();
+    endDate.setHours(hours, minutes, 0, 0);
+    
+    // Subtract the cut minutes
+    endDate.setMinutes(endDate.getMinutes() - minutesCut);
+    
+    // Format as time display
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(endDate);
   };
 
   // Find max hourly sale for scaling
@@ -787,7 +813,10 @@ export function ManagerDashboardOverlay({
                                         variant="secondary" 
                                         className="bg-red-500/30 text-red-300 text-[10px] lg:text-xs px-1 py-0"
                                       >
-                                        -{cut.minutesCut}m
+                                        {cutsSaved && shift.scheduledEndTime 
+                                          ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `−${cut.minutesCut}m`}`
+                                          : `−${cut.minutesCut}m`
+                                        }
                                       </Badge>
                                     )}
                                   </div>
