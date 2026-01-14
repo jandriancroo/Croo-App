@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { ClipboardCheck, Check, GripVertical } from "lucide-react";
+import { ClipboardCheck, Check, GripVertical, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
@@ -13,6 +13,8 @@ export interface ChecklistCubeProps {
   dragHandleProps?: any;
   isDragging?: boolean;
   isOverdue?: boolean;
+  isLocked?: boolean;
+  lockUntilTime?: string;
 }
 
 export function ChecklistCube({ 
@@ -25,6 +27,8 @@ export function ChecklistCube({
   dragHandleProps,
   isDragging = false,
   isOverdue = false,
+  isLocked = false,
+  lockUntilTime,
 }: ChecklistCubeProps) {
   const navigate = useNavigate();
   const isOled = useIsOledTheme();
@@ -114,7 +118,21 @@ export function ChecklistCube({
         
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center">
-          {isComplete ? (
+          {isLocked ? (
+            <>
+              <div 
+                className="flex items-center justify-center w-12 h-12 rounded-full mb-2 shadow-lg bg-muted"
+              >
+                <Lock 
+                  className="h-6 w-6 text-muted-foreground" 
+                  strokeWidth={2.5}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground font-medium text-center">
+                {lockUntilTime ? `Until ${lockUntilTime}` : 'Locked'}
+              </div>
+            </>
+          ) : isComplete ? (
             <>
               <div 
                 className="flex items-center justify-center w-12 h-12 rounded-full mb-2 shadow-lg"
