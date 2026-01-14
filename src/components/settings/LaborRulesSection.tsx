@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LaborRulesSectionProps {
@@ -31,7 +32,12 @@ interface LaborRule {
   auto_punch_out_time: string | null;
   pay_period_type: string;
   pay_period_start_date: string | null;
+  allow_unscheduled_clock_in: boolean;
+  allow_early_clock_in: boolean;
+  early_clock_in_minutes: number;
 }
+
+const EARLY_CLOCK_IN_PRESETS = [5, 10, 15, 30];
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const [rules, setRules] = useState<LaborRule[]>([]);
@@ -54,6 +60,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     auto_punch_out_time: null,
     pay_period_type: 'biweekly',
     pay_period_start_date: null,
+    allow_unscheduled_clock_in: true,
+    allow_early_clock_in: true,
+    early_clock_in_minutes: 30,
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
@@ -121,6 +130,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             auto_punch_out_time: formData.auto_punch_out_time,
             pay_period_type: formData.pay_period_type,
             pay_period_start_date: formData.pay_period_start_date,
+            allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
+            allow_early_clock_in: formData.allow_early_clock_in,
+            early_clock_in_minutes: formData.early_clock_in_minutes,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRule.id);
@@ -147,6 +159,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             auto_punch_out_time: formData.auto_punch_out_time,
             pay_period_type: formData.pay_period_type,
             pay_period_start_date: formData.pay_period_start_date,
+            allow_unscheduled_clock_in: formData.allow_unscheduled_clock_in,
+            allow_early_clock_in: formData.allow_early_clock_in,
+            early_clock_in_minutes: formData.early_clock_in_minutes,
           });
 
         if (error) throw error;
@@ -412,6 +427,88 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </div>
 
                 <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Clock-In Restrictions
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Control when employees can clock in at this location
+                  </p>
+                  
+                  <div className="space-y-4">
+                    {/* Clock In When Not Scheduled */}
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allow-unscheduled" className="text-sm font-medium">
+                          Clock In When Not Scheduled
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Allow employees to clock in without a scheduled shift (flagged for payroll review)
+                        </p>
+                      </div>
+                      <Switch
+                        id="allow-unscheduled"
+                        checked={formData.allow_unscheduled_clock_in}
+                        onCheckedChange={(checked) => setFormData({...formData, allow_unscheduled_clock_in: checked})}
+                      />
+                    </div>
+
+                    {/* Clock In Early */}
+                    <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="allow-early" className="text-sm font-medium">
+                            Clock In Early
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Allow employees to clock in before their scheduled shift start time
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-early"
+                          checked={formData.allow_early_clock_in}
+                          onCheckedChange={(checked) => setFormData({...formData, allow_early_clock_in: checked})}
+                        />
+                      </div>
+                      
+                      {formData.allow_early_clock_in && (
+                        <div className="pt-2 border-t">
+                          <Label className="text-sm mb-2 block">How early can they clock in?</Label>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {EARLY_CLOCK_IN_PRESETS.map((mins) => (
+                              <Button
+                                key={mins}
+                                type="button"
+                                size="sm"
+                                variant={formData.early_clock_in_minutes === mins ? "default" : "outline"}
+                                onClick={() => setFormData({...formData, early_clock_in_minutes: mins})}
+                              >
+                                {mins} min
+                              </Button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="custom-early" className="text-xs text-muted-foreground whitespace-nowrap">
+                              Custom:
+                            </Label>
+                            <Input
+                              id="custom-early"
+                              type="number"
+                              min="1"
+                              max="120"
+                              className="w-20"
+                              value={formData.early_clock_in_minutes}
+                              onChange={(e) => setFormData({...formData, early_clock_in_minutes: parseInt(e.target.value) || 30})}
+                            />
+                            <span className="text-xs text-muted-foreground">minutes</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
                   <h4 className="font-semibold mb-3">Auto Punch-Out</h4>
                   <div className="bg-muted/50 rounded-lg p-3">
                     <p className="text-sm text-muted-foreground">
@@ -507,6 +604,14 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                       <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
                     </div>
                   )}
+                  <div className="col-span-2 border-t pt-2 mt-2">
+                    <span className="text-muted-foreground">Clock-In:</span>{' '}
+                    {rule.allow_unscheduled_clock_in ? 'Allowed without schedule' : 'Requires scheduled shift'}
+                    {' • '}
+                    {rule.allow_early_clock_in 
+                      ? `Up to ${rule.early_clock_in_minutes} min early` 
+                      : 'No early clock-in'}
+                  </div>
                   <div className="col-span-2 text-xs text-muted-foreground italic">
                     Auto punch-out: Close time + 3 hours (from Business Hours)
                   </div>

@@ -147,6 +147,12 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  // Labor rules for clock-in restrictions
+  const [laborRules, setLaborRules] = useState<{
+    allow_unscheduled_clock_in: boolean;
+    allow_early_clock_in: boolean;
+    early_clock_in_minutes: number;
+  } | null>(null);
   // Master exit code - reserved, cannot be used as employee PIN
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
@@ -246,10 +252,36 @@ export default function PunchClock() {
     detectBrightness();
   }, [customBackground, currentImageIndex, customSlideIndex, currentNatureImage, currentHistoricalImage, currentCustomImage, customBackgroundUrls.length]);
 
-  // Fetch punch clock settings and check birthdays on mount
+  // Fetch punch clock settings, labor rules, and check birthdays on mount
   useEffect(() => {
     fetchPunchClockSettings();
+    fetchLaborRules();
   }, [currentLocation?.id]);
+
+  const fetchLaborRules = async () => {
+    if (!currentLocation?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('labor_rules')
+        .select('allow_unscheduled_clock_in, allow_early_clock_in, early_clock_in_minutes')
+        .eq('location_id', currentLocation.id)
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setLaborRules({
+          allow_unscheduled_clock_in: data.allow_unscheduled_clock_in ?? true,
+          allow_early_clock_in: data.allow_early_clock_in ?? true,
+          early_clock_in_minutes: data.early_clock_in_minutes ?? 30,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching labor rules:', error);
+    }
+  };
 
   useEffect(() => {
     if (birthdayEventsEnabled) {
@@ -651,14 +683,26 @@ export default function PunchClock() {
   const canClockIn = () => {
     if (lastPunch?.punch_type === 'clock_in') return false;
     
-    // Allow clocking in without a schedule (will be flagged in payroll)
-    if (!todayShift) return true;
+    // Check if clocking in without a schedule is allowed
+    if (!todayShift) {
+      // Use labor rules setting, default to true if not configured
+      return laborRules?.allow_unscheduled_clock_in ?? true;
+    }
     
+    // Check if early clock-in is allowed
     const now = new Date();
     const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
-    const thirtyMinsBefore = new Date(shiftStart.getTime() - 30 * 60000);
     
-    return now >= thirtyMinsBefore;
+    if (!laborRules?.allow_early_clock_in) {
+      // Early clock-in disabled - can only clock in at or after shift start
+      return now >= shiftStart;
+    }
+    
+    // Early clock-in allowed - use configured minutes
+    const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
+    const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
+    
+    return now >= earliestClockIn;
   };
 
   const handleClockIn = async () => {
@@ -667,15 +711,33 @@ export default function PunchClock() {
       return;
     }
 
-    // Check if clocking in early for a scheduled shift
-    if (todayShift) {
+    // Check if clocking in without a scheduled shift
+    if (!todayShift) {
+      if (laborRules && !laborRules.allow_unscheduled_clock_in) {
+        toast.error('You do not have a shift scheduled today. Please contact your manager.');
+        return;
+      }
+      // Allowed - will be flagged for payroll review
+    } else {
+      // Check if clocking in early for a scheduled shift
       const now = new Date();
       const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
-      const thirtyMinsBefore = new Date(shiftStart.getTime() - 30 * 60000);
       
-      if (now < thirtyMinsBefore) {
-        toast.error('You cannot clock in yet. Please wait until 30 minutes before your shift.');
-        return;
+      if (!laborRules?.allow_early_clock_in) {
+        // Early clock-in disabled
+        if (now < shiftStart) {
+          toast.error('You cannot clock in early. Please wait until your shift starts.');
+          return;
+        }
+      } else {
+        // Early clock-in allowed with configured limit
+        const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
+        const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
+        
+        if (now < earliestClockIn) {
+          toast.error(`You cannot clock in yet. Please wait until ${earlyMinutes} minutes before your shift.`);
+          return;
+        }
       }
     }
 
