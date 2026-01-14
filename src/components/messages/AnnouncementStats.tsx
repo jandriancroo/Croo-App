@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, XCircle, Bell, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Bell, Loader2, Clock } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 interface AnnouncementStatsProps {
   chatId: string;
@@ -30,6 +31,7 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
   const [reads, setReads] = useState<Read[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingReminder, setSendingReminder] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -57,7 +59,7 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
 
   const fetchStats = async () => {
     try {
-      const [membersRes, readsRes] = await Promise.all([
+      const [membersRes, readsRes, messagesRes] = await Promise.all([
         supabase
           .from('chat_members')
           .select('user_id, profiles(full_name, profile_photo_url)')
@@ -65,7 +67,14 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
         supabase
           .from('announcement_reads')
           .select('user_id, opened_at')
+          .eq('chat_id', chatId),
+        // Get the first message to check if it's scheduled
+        supabase
+          .from('messages')
+          .select('scheduled_at')
           .eq('chat_id', chatId)
+          .order('created_at', { ascending: true })
+          .limit(1)
       ]);
 
       if (membersRes.error) throw membersRes.error;
@@ -73,6 +82,7 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
 
       setMembers(membersRes.data as Member[]);
       setReads(readsRes.data || []);
+      setScheduledAt(messagesRes.data?.[0]?.scheduled_at || null);
     } catch (error: any) {
       console.error('Error fetching announcement stats:', error);
     } finally {
@@ -114,6 +124,9 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
   const readUserIds = new Set(reads.map(r => r.user_id));
   const readMembers = members.filter(m => readUserIds.has(m.user_id));
   const unreadMembers = members.filter(m => !readUserIds.has(m.user_id));
+  
+  // Check if announcement is scheduled for the future
+  const isScheduledForFuture = scheduledAt && new Date(scheduledAt) > new Date();
 
   if (loading) return null;
 
@@ -126,6 +139,14 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
             {readMembers.length} of {members.length} read
           </div>
         </div>
+
+        {/* Show scheduled notice if future-dated */}
+        {isScheduledForFuture && (
+          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-500/10 rounded-lg p-2">
+            <Clock className="h-4 w-4" />
+            <span>Scheduled for {format(new Date(scheduledAt), 'MMM d, h:mm a')}</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Collapsible>
@@ -173,7 +194,8 @@ export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementSta
           </Collapsible>
         </div>
 
-        {unreadMembers.length > 0 && (
+        {/* Only show reminder button if not scheduled for future AND there are unread members */}
+        {unreadMembers.length > 0 && !isScheduledForFuture && (
           <Button
             onClick={handleSendReminder}
             disabled={sendingReminder}
