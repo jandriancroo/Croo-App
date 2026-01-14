@@ -1098,11 +1098,11 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           {/* Swap to Dashboard Button - Bottom Center */}
           {currentLocation?.id && timezone && (
             <button
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 transition-all group"
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 px-6 py-3 rounded-full bg-primary/90 backdrop-blur-xl border border-primary hover:bg-primary transition-all group shadow-lg"
               onClick={() => setShowManagerDashboard(true)}
             >
-              <ArrowLeftRight className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" />
-              <span className="text-white/70 group-hover:text-white text-sm font-medium transition-colors">Dashboard</span>
+              <ArrowLeftRight className="h-5 w-5 text-primary-foreground" />
+              <span className="text-primary-foreground text-sm font-medium">Dashboard</span>
             </button>
           )}
         </div>
