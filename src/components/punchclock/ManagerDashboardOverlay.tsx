@@ -275,12 +275,17 @@ export function ManagerDashboardOverlay({
     };
   }).filter(h => h.hour >= 0 && h.hour <= 23);
 
-  // Calculate pace
+  // Calculate pace - based on expected sales at this hour
+  const openHour = 10; // Assume store opens at 10am
+  const closeHour = 24; // Midnight
+  const hoursOpen = closeHour - openHour; // 14 hours
+  const hoursSinceOpen = Math.max(0, Math.min(currentHour - openHour, hoursOpen));
+  const expectedSalesNow = eodGoal > 0 ? (hoursSinceOpen / hoursOpen) * eodGoal : 0;
+  const salesPaceDiff = totalSales - expectedSalesNow;
   const pacePercentage = eodGoal > 0 ? (totalSales / eodGoal) * 100 : 0;
-  const expectedPaceAtThisHour = eodGoal > 0 ? (currentHour / 14) * 100 : 0; // Assuming 14-hour day
-  const paceStatus = pacePercentage >= expectedPaceAtThisHour + 10 
+  const paceStatus = salesPaceDiff >= eodGoal * 0.1 
     ? 'fire' 
-    : pacePercentage >= expectedPaceAtThisHour - 5 
+    : salesPaceDiff >= -eodGoal * 0.05 
       ? 'good' 
       : 'cold';
 
@@ -434,7 +439,9 @@ export function ManagerDashboardOverlay({
                     )}
                     <p className="text-white/60 text-sm mb-1">Sales Pace</p>
                     <div className="flex items-center justify-center gap-2">
-                      <p className="text-3xl font-bold text-white">{pacePercentage.toFixed(0)}%</p>
+                      <p className={`text-2xl font-bold ${salesPaceDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {salesPaceDiff >= 0 ? '+' : ''}{formatCurrency(salesPaceDiff)}
+                      </p>
                       <Badge 
                         variant={paceStatus === 'fire' ? 'default' : paceStatus === 'cold' ? 'secondary' : 'outline'}
                         className={`${
