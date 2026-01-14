@@ -6,7 +6,7 @@ import { markChatAsRead } from '@/hooks/useUnreadMessages';
 import { Button } from '@/components/ui/button';
 import { MentionInput } from './MentionInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
+import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users, Loader2, Clock } from 'lucide-react';
 import { GifPicker } from './GifPicker';
 import { toast } from 'sonner';
 import { format, isSameDay } from 'date-fns';
@@ -52,6 +52,7 @@ interface Message {
   attachment_url: string | null;
   attachment_type: string | null;
   created_at: string;
+  scheduled_at: string | null;
   parent_message_id: string | null;
   profiles?: {
     full_name: string;
@@ -466,6 +467,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       attachment_url: null,
       attachment_type: null,
       created_at: new Date().toISOString(),
+      scheduled_at: null,
       parent_message_id: replyTo?.id || null,
       parent_message: replyTo ? { 
         content: replyTo.content, 
@@ -951,6 +953,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     <span className="text-xs text-muted-foreground">
                       {isPending ? 'Sending...' : format(new Date(message.created_at), 'h:mm a')}
                     </span>
+                    {/* Show scheduled time for sender on announcements */}
+                    {message.scheduled_at && isOwnMessage && (
+                      <span className="text-xs text-amber-500 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Scheduled: {format(new Date(message.scheduled_at), 'MMM d, h:mm a')}
+                      </span>
+                    )}
                     {!isPending && (
                       <ReadReceipts
                         messageId={message.id}
