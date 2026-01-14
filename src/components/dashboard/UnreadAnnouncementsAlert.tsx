@@ -33,7 +33,7 @@ export function UnreadAnnouncementsAlert() {
             is_announcement,
             created_at,
             created_by,
-            messages(content, created_at)
+            messages(content, created_at, scheduled_at)
           )
         `)
         .eq('user_id', user.id)
@@ -63,7 +63,9 @@ export function UnreadAnnouncementsAlert() {
 
       const readChatIds = new Set(reads?.map(r => r.chat_id) || []);
 
-      // Filter to unread announcements
+      const now = new Date();
+      
+      // Filter to unread announcements, excluding future-scheduled ones
       const unread: UnreadAnnouncement[] = memberChats
         .filter(m => !readChatIds.has(m.chat_id))
         .map(m => {
@@ -78,8 +80,11 @@ export function UnreadAnnouncementsAlert() {
             title: chat.title || 'Announcement',
             preview: latestMessage?.content?.substring(0, 80) || '',
             createdAt: latestMessage?.created_at || chat.created_at,
+            scheduledAt: latestMessage?.scheduled_at || null,
           };
         })
+        // Filter out future-scheduled announcements
+        .filter(a => !a.scheduledAt || new Date(a.scheduledAt) <= now)
         // Sort by most recent first
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         // Limit to 3 most recent
