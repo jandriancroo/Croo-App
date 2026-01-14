@@ -4821,6 +4821,7 @@ export type Database = {
         Returns: number
       }
       get_unread_chat_count: { Args: { _user_id: string }; Returns: number }
+      get_user_location_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
