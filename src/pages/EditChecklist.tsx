@@ -211,17 +211,39 @@ export default function EditChecklist() {
     }
   }, [isAdmin, id]);
 
+  const normalizeTimeForInput = (value: string | null | undefined) => {
+    if (!value) return '';
+    // DB may store HH:mm:ss while <input type="time"> expects HH:mm
+    return value.slice(0, 5);
+  };
+
+  const normalizeTimeForDb = (value: string | null | undefined) => {
+    if (!value) return null;
+    // Ensure HH:mm:ss for consistency (Postgres accepts HH:mm too, but we standardize)
+    if (/^\d{2}:\d{2}$/.test(value)) return `${value}:00`;
+    return value;
+  };
+
   const fetchChecklist = async () => {
     try {
       setLoading(true);
-      
+
       const { data: checklist, error: checklistError } = await supabase
         .from('checklists')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (checklistError) throw checklistError;
+      if (!checklist) {
+        toast({
+          title: 'Not found',
+          description: 'Checklist was not found (or you do not have access).',
+          variant: 'destructive',
+        });
+        navigate('/tasks');
+        return;
+      }
 
       const { data: checklistItems, error: itemsError } = await supabase
         .from('checklist_items')
@@ -242,19 +264,22 @@ export default function EditChecklist() {
       setTitle(checklist.title);
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
-      setDueByTime(checklist.due_by_time || '');
-      const savedLockTime = checklist.lock_until_time || '';
+      setDueByTime(normalizeTimeForInput(checklist.due_by_time));
+
+      const savedLockTimeRaw = checklist.lock_until_time;
+      const savedLockTime = normalizeTimeForInput(savedLockTimeRaw);
       setLockUntilTime(savedLockTime);
       setLockTimeEnabled(!!savedLockTime);
+
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
-      setItems(checklistItems.map(item => {
+      setItems((checklistItems || []).map(item => {
         // Map legacy 'temperature' type to 'image' with requires_temperature_validation
         const itemType = item.item_type === 'temperature' ? 'image' : item.item_type;
         const requiresTempValidation = item.item_type === 'temperature' || item.requires_temperature_validation || false;
-        
+
         return {
           id: item.id,
           question: item.question,
@@ -271,11 +296,11 @@ export default function EditChecklist() {
           manager_shift: (item as any).manager_shift || null,
         };
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching checklist:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load checklist',
+        description: error?.message || 'Failed to load checklist',
         variant: 'destructive',
       });
       navigate('/tasks');
@@ -297,41 +322,56 @@ export default function EditChecklist() {
     try {
       setSaving(true);
 
+      const lockDb = lockTimeEnabled ? normalizeTimeForDb(lockUntilTime) : null;
+      const dueDb = normalizeTimeForDb(dueByTime);
+
       // Update checklist
+      const checklistUpdate = {
+        title,
+        description,
+        frequency,
+        due_by_time: dueDb,
+        lock_until_time: lockDb,
+        template_type: templateType,
+        visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
+        enable_am_pm_division: enableAmPmDivision,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('[EditChecklist] Saving checklist update:', { id, ...checklistUpdate });
+
       const { error: checklistError } = await supabase
         .from('checklists')
-        .update({
-          title,
-          description,
-          frequency,
-          due_by_time: dueByTime || null,
-          lock_until_time: lockTimeEnabled && lockUntilTime ? lockUntilTime : null,
-          template_type: templateType,
-          visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
-          enable_am_pm_division: enableAmPmDivision,
-          updated_at: new Date().toISOString(),
-        })
+        .update(checklistUpdate)
         .eq('id', id);
 
       if (checklistError) throw checklistError;
 
-      // Get existing item IDs to determine which to delete
-      const existingItemIds = items.filter(item => item.id).map(item => item.id);
-      
-      // Delete items that were removed (not in current items list)
-      if (existingItemIds.length > 0) {
+      // Delete items that were removed (query DB ids → delete missing)
+      const currentIds = new Set(items.filter(i => i.id).map(i => i.id as string));
+      const { data: dbItems, error: dbItemsError } = await supabase
+        .from('checklist_items')
+        .select('id')
+        .eq('checklist_id', id);
+
+      if (dbItemsError) throw dbItemsError;
+
+      const removedIds = (dbItems || [])
+        .map(r => r.id)
+        .filter((dbId) => !currentIds.has(dbId));
+
+      if (removedIds.length > 0) {
         const { error: deleteError } = await supabase
           .from('checklist_items')
           .delete()
-          .eq('checklist_id', id)
-          .not('id', 'in', `(${existingItemIds.join(',')})`);
+          .in('id', removedIds);
 
         if (deleteError) throw deleteError;
       }
 
       // Filter out empty items before saving
       const validItems = items.filter(item => item.question.trim() !== '');
-      
+
       // Update existing items and insert new ones
       for (let index = 0; index < validItems.length; index++) {
         const item = validItems[index];
@@ -352,7 +392,6 @@ export default function EditChecklist() {
         };
 
         if (item.id) {
-          // Update existing item
           const { error: updateError } = await supabase
             .from('checklist_items')
             .update(itemData)
@@ -360,7 +399,6 @@ export default function EditChecklist() {
 
           if (updateError) throw updateError;
         } else {
-          // Insert new item
           const { error: insertError } = await supabase
             .from('checklist_items')
             .insert(itemData);
@@ -397,11 +435,11 @@ export default function EditChecklist() {
       });
 
       navigate('/tasks');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating checklist:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update checklist',
+        description: error?.message || error?.details || 'Failed to update checklist',
         variant: 'destructive',
       });
     } finally {
