@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes, differenceInHours, parseISO } from 'date-fns';
@@ -72,12 +72,146 @@ interface SelectedHourInfo {
   label: string;
   sales: number;
   projected: number;
+  estimatedPizzas: number;
 }
 
 interface LaborCut {
   userId: string;
   minutesCut: number;
   customEndTime?: string;
+}
+
+interface HourlyChartData {
+  hour: number;
+  label: string;
+  sales: number;
+  projected: number;
+  estimatedPizzas: number;
+}
+
+interface HourlyChartProps {
+  hours: HourlyChartData[];
+  maxHourlySale: number;
+  selectedHour: SelectedHourInfo | null;
+  setSelectedHour: (hour: SelectedHourInfo | null) => void;
+  formatCurrency: (value: number) => string;
+}
+
+// Separate component for the hourly chart with SVG line
+function HourlyChart({ hours, maxHourlySale, selectedHour, setSelectedHour, formatCurrency }: HourlyChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dotRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [linePath, setLinePath] = useState<string>('');
+  const [lineReady, setLineReady] = useState(false);
+  
+  // Calculate line path from dot positions after render
+  useEffect(() => {
+    const calculatePath = () => {
+      if (!containerRef.current) return;
+      
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const points: { x: number; y: number }[] = [];
+      
+      dotRefs.current.forEach((dot, i) => {
+        if (dot && hours[i]?.projected > 0) {
+          const dotRect = dot.getBoundingClientRect();
+          // Get center of dot relative to container
+          const x = dotRect.left - containerRect.left + dotRect.width / 2;
+          const y = dotRect.top - containerRect.top + dotRect.height / 2;
+          points.push({ x, y });
+        }
+      });
+      
+      if (points.length >= 2) {
+        const pathStr = points.map((p, i) => 
+          `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+        ).join(' ');
+        setLinePath(pathStr);
+        setLineReady(true);
+      }
+    };
+    
+    // Small delay to ensure dots are positioned
+    const timer = setTimeout(calculatePath, 800);
+    return () => clearTimeout(timer);
+  }, [hours]);
+  
+  return (
+    <div ref={containerRef} className="relative flex-1 pb-2">
+      {/* Chart container with bars and projection line */}
+      <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 h-full relative">
+        {hours.map((hour, i) => {
+          const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
+          const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
+          const isSelected = selectedHour?.hour === hour.hour;
+          return (
+            <div
+              key={hour.hour}
+              className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
+                isSelected ? 'scale-105' : 'hover:scale-102'
+              }`}
+              onClick={() => setSelectedHour(isSelected ? null : {
+                hour: hour.hour,
+                label: hour.label,
+                sales: hour.sales,
+                projected: hour.projected,
+                estimatedPizzas: hour.estimatedPizzas,
+              })}
+            >
+              <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
+                {formatCurrency(hour.sales)}
+              </span>
+              <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-visible relative min-h-[50px]">
+                {/* Sales bar */}
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${barHeightPercent}%` }}
+                  transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
+                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg ${
+                    isSelected ? 'ring-2 ring-white/50' : ''
+                  }`}
+                />
+                {/* Projection dot */}
+                {hour.projected > 0 && (
+                  <motion.div
+                    ref={el => dotRefs.current[i] = el}
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
+                    className="absolute left-1/2 -translate-x-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-white/40 shadow-lg z-10"
+                    style={{ bottom: `${projectedHeightPercent}%`, transform: 'translateX(-50%) translateY(50%)' }}
+                  />
+                )}
+              </div>
+              <span className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2 ${
+                isSelected ? 'text-white font-semibold' : 'text-white/60'
+              }`}>{hour.label}</span>
+            </div>
+          );
+        })}
+        
+        {/* Projection line connecting dots */}
+        {hours.some(h => h.projected > 0) && linePath && (
+          <svg 
+            className="absolute inset-0 pointer-events-none overflow-visible" 
+            style={{ zIndex: 5 }}
+          >
+            <motion.path
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: lineReady ? 1 : 0, opacity: lineReady ? 1 : 0 }}
+              transition={{ duration: 0.6 }}
+              d={linePath}
+              fill="none"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ManagerDashboardOverlay({ 
@@ -393,24 +527,57 @@ export function ManagerDashboardOverlay({
     return totalSales;
   }, [cachedSalesOverviewData, totalSales]);
 
-  // Get last 4 hours of sales with projections from cached SalesOverview data
+  // Get hourly sales with projections from cached SalesOverview data
+  // Only show hours that have actual sales recorded (not empty hours)
   const currentHour = new Date(currentTime.toLocaleString('en-US', { timeZone: timezone })).getHours();
   const cachedHourly = cachedSalesOverviewData?.hourly || hourlyData;
   
-  const last4Hours = Array.from({ length: 4 }, (_, i) => {
-    const hour = currentHour - 3 + i;
-    const hourStr = `${String(hour).padStart(2, '0')}:00`;
-    // Try cached data first, then fall back to DB data
-    const cachedHourData = cachedHourly?.find(h => h.hour.startsWith(String(hour).padStart(2, '0')) || h.hour === hourStr);
-    const dbHourData = hourlyData.find(h => h.hour === hourStr);
-    const hourData = cachedHourData || dbHourData;
-    return {
-      hour: hour,
-      label: hour >= 12 ? `${hour === 12 ? 12 : hour - 12}PM` : `${hour === 0 ? 12 : hour}AM`,
-      sales: hourData?.sales || 0,
-      projected: hourData?.projected || 0,
-    };
-  }).filter(h => h.hour >= 0 && h.hour <= 23);
+  // Calculate total hourly sales for pizza distribution (matching SalesOverview logic)
+  const totalHourlySales = useMemo(() => {
+    return cachedHourly?.reduce((sum, h) => sum + (h.sales || 0), 0) || 0;
+  }, [cachedHourly]);
+  
+  // Get last 4 hours with actual sales (filter out empty hours)
+  const last4Hours = useMemo(() => {
+    // Build a list of all hours up to current hour that have sales
+    const hoursWithSales: Array<{
+      hour: number;
+      label: string;
+      sales: number;
+      projected: number;
+      estimatedPizzas: number;
+    }> = [];
+    
+    // Look at recent hours (from store open to current hour)
+    for (let h = 0; h <= currentHour; h++) {
+      const hourStr = `${String(h).padStart(2, '0')}:00`;
+      const cachedHourData = cachedHourly?.find(
+        hd => hd.hour.startsWith(String(h).padStart(2, '0')) || hd.hour === hourStr
+      );
+      const dbHourData = hourlyData.find(hd => hd.hour === hourStr);
+      const hourData = cachedHourData || dbHourData;
+      
+      // Only include hours with actual sales recorded
+      if (hourData && hourData.sales > 0) {
+        const sales = hourData.sales || 0;
+        // Calculate estimated pizzas proportionally (matching SalesOverview)
+        const estimatedPizzas = totalHourlySales > 0 && pizzaCount > 0
+          ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
+          : 0;
+        
+        hoursWithSales.push({
+          hour: h,
+          label: h >= 12 ? `${h === 12 ? 12 : h - 12}PM` : `${h === 0 ? 12 : h}AM`,
+          sales,
+          projected: hourData.projected || 0,
+          estimatedPizzas,
+        });
+      }
+    }
+    
+    // Return last 4 hours with sales
+    return hoursWithSales.slice(-4);
+  }, [currentHour, cachedHourly, hourlyData, totalHourlySales, pizzaCount]);
 
   // Calculate pace delta and status
   const paceDelta = eodGoal > 0 ? paceAdjusted - eodGoal : 0;
@@ -763,8 +930,10 @@ export function ManagerDashboardOverlay({
                             </p>
                           </div>
                           <div className="text-center">
-                            <p className="text-white/60 text-[10px] sm:text-xs">🍕 Today</p>
-                            <p className="text-white/80 font-bold text-sm sm:text-lg">{pizzaCount || '—'}</p>
+                            <p className="text-white/60 text-[10px] sm:text-xs">🍕 Pizzas</p>
+                            <p className="text-white/80 font-bold text-sm sm:text-lg">
+                              {selectedHour.estimatedPizzas > 0 ? selectedHour.estimatedPizzas : '—'}
+                            </p>
                           </div>
                         </div>
                       </motion.div>
@@ -772,97 +941,13 @@ export function ManagerDashboardOverlay({
                   </AnimatePresence>
                   
                   {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
-                    <div className="relative flex-1 pb-2">
-                      {/* Chart container with bars and projection line */}
-                      <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 h-full relative">
-                        {last4Hours.map((hour, i) => {
-                          const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
-                          const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
-                          const isSelected = selectedHour?.hour === hour.hour;
-                          return (
-                            <div
-                              key={hour.hour}
-                              className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
-                                isSelected ? 'scale-105' : 'hover:scale-102'
-                              }`}
-                              onClick={() => setSelectedHour(isSelected ? null : {
-                                hour: hour.hour,
-                                label: hour.label,
-                                sales: hour.sales,
-                                projected: hour.projected,
-                              })}
-                            >
-                              <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
-                                {formatCurrency(hour.sales)}
-                              </span>
-                              <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-visible relative min-h-[50px]">
-                                {/* Sales bar */}
-                                <motion.div
-                                  initial={{ height: 0 }}
-                                  animate={{ height: `${barHeightPercent}%` }}
-                                  transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
-                                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg ${
-                                    isSelected ? 'ring-2 ring-white/50' : ''
-                                  }`}
-                                />
-                                {/* Projection dot */}
-                                {hour.projected > 0 && (
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
-                                    className="absolute left-1/2 -translate-x-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-white/40 shadow-lg z-10"
-                                    style={{ bottom: `${projectedHeightPercent}%`, transform: 'translateX(-50%) translateY(50%)' }}
-                                  />
-                                )}
-                              </div>
-                              <span className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2 ${
-                                isSelected ? 'text-white font-semibold' : 'text-white/60'
-                              }`}>{hour.label}</span>
-                            </div>
-                          );
-                        })}
-                        
-                        {/* Projection line connecting dots */}
-                        {last4Hours.some(h => h.projected > 0) && (
-                          <svg 
-                            className="absolute inset-0 pointer-events-none overflow-visible" 
-                            style={{ zIndex: 5 }}
-                            preserveAspectRatio="none"
-                          >
-                            <motion.path
-                              initial={{ pathLength: 0, opacity: 0 }}
-                              animate={{ pathLength: 1, opacity: 1 }}
-                              transition={{ delay: 0.8, duration: 0.6 }}
-                              d={(() => {
-                                const points = last4Hours.map((hour, i) => {
-                                  const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 
-                                    ? (hour.projected / maxHourlySale) * 100 
-                                    : null;
-                                  if (projectedHeightPercent === null) return null;
-                                  // Calculate x position: center of each bar
-                                  const barWidth = 100 / last4Hours.length;
-                                  const x = (i + 0.5) * barWidth;
-                                  // Y position from bottom (SVG y increases downward)
-                                  const y = 100 - projectedHeightPercent;
-                                  return { x, y };
-                                }).filter(Boolean) as { x: number; y: number }[];
-                                
-                                if (points.length < 2) return '';
-                                return points.map((p, i) => 
-                                  `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`
-                                ).join(' ');
-                              })()}
-                              fill="none"
-                              stroke="rgba(255,255,255,0.6)"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
+                    <HourlyChart 
+                      hours={last4Hours} 
+                      maxHourlySale={maxHourlySale}
+                      selectedHour={selectedHour}
+                      setSelectedHour={setSelectedHour}
+                      formatCurrency={formatCurrency}
+                    />
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
                       <p className="text-white/40 text-xs sm:text-sm lg:text-base xl:text-lg">No hourly data yet</p>
