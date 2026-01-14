@@ -531,22 +531,22 @@ export function ManagerDashboardOverlay({
               className="flex-1 flex flex-col gap-3"
             >
               {/* Sales Cards Row */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1 sm:gap-2">
                 {/* Total Sales */}
                 <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                  <CardContent className="p-3 text-center">
-                    <DollarSign className="h-6 w-6 mx-auto mb-1 text-green-400" />
-                    <p className="text-white/60 text-xs mb-0.5">Total Sales</p>
-                    <p className="text-xl font-bold text-white">{formatCurrency(totalSales)}</p>
+                  <CardContent className="p-2 sm:p-3 text-center">
+                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-green-400" />
+                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">Total Sales</p>
+                    <p className="text-base sm:text-xl font-bold text-white">{formatCurrency(totalSales)}</p>
                   </CardContent>
                 </Card>
 
                 {/* EOD Goal */}
                 <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                  <CardContent className="p-3 text-center">
-                    <Target className="h-6 w-6 mx-auto mb-1 text-blue-400" />
-                    <p className="text-white/60 text-xs mb-0.5">EOD Goal</p>
-                    <p className="text-xl font-bold text-white">{formatCurrency(eodGoal)}</p>
+                  <CardContent className="p-2 sm:p-3 text-center">
+                    <Target className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-blue-400" />
+                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">EOD Goal</p>
+                    <p className="text-base sm:text-xl font-bold text-white">{formatCurrency(eodGoal)}</p>
                   </CardContent>
                 </Card>
 
@@ -554,51 +554,57 @@ export function ManagerDashboardOverlay({
                 <Card className={`bg-white/10 backdrop-blur-xl border-white/20 ${
                   paceStatus === 'fire' ? 'ring-2 ring-orange-500/50' : ''
                 }`}>
-                  <CardContent className="p-3 text-center">
+                  <CardContent className="p-2 sm:p-3 text-center">
                     {paceStatus === 'fire' ? (
-                      <Flame className="h-6 w-6 mx-auto mb-1 text-orange-500 animate-pulse" />
+                      <Flame className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-orange-500 animate-pulse" />
                     ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-6 w-6 mx-auto mb-1 text-red-400" />
+                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-red-400" />
                     ) : (
-                      <TrendingUp className="h-6 w-6 mx-auto mb-1 text-green-400" />
+                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 mx-auto mb-0.5 sm:mb-1 text-green-400" />
                     )}
-                    <p className="text-white/60 text-xs mb-0.5">Pace</p>
-                    <p className="text-xl font-bold text-amber-400">{formatCurrency(paceAdjusted)}</p>
+                    <p className="text-white/60 text-[10px] sm:text-xs mb-0.5">Pace</p>
+                    <p className="text-base sm:text-xl font-bold text-amber-400">{formatCurrency(paceAdjusted)}</p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Hourly Chart */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1">
-                <CardContent className="p-4 h-full flex flex-col">
-                  <h3 className="text-white/80 text-sm font-semibold mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
+                <CardContent className="p-2 sm:p-4 h-full flex flex-col">
+                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                     Last 4 Hours
                   </h3>
-                  <div className="flex items-end justify-around gap-2 flex-1 min-h-0">
-                    {last4Hours.map((hour, i) => (
-                      <motion.div
-                        key={hour.hour}
-                        initial={{ height: 0 }}
-                        animate={{ height: 'auto' }}
-                        transition={{ delay: 0.3 + i * 0.1 }}
-                        className="flex flex-col items-center flex-1 h-full justify-end"
-                      >
-                        <span className="text-white font-bold text-xs mb-1">
-                          {formatCurrency(hour.sales)}
-                        </span>
-                        <div className="w-full bg-white/10 rounded-t-lg overflow-hidden flex-1 max-h-16 flex flex-col justify-end">
-                          <motion.div
-                            initial={{ height: 0 }}
-                            animate={{ height: `${(hour.sales / maxHourlySale) * 100}%` }}
-                            transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
-                            className="w-full bg-gradient-to-t from-primary to-primary/60"
-                          />
-                        </div>
-                        <span className="text-white/60 text-xs mt-1">{hour.label}</span>
-                      </motion.div>
-                    ))}
-                  </div>
+                  {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
+                    <div className="flex items-end justify-around gap-1 sm:gap-2 flex-1 min-h-0">
+                      {last4Hours.map((hour, i) => (
+                        <motion.div
+                          key={hour.hour}
+                          initial={{ height: 0 }}
+                          animate={{ height: 'auto' }}
+                          transition={{ delay: 0.3 + i * 0.1 }}
+                          className="flex flex-col items-center flex-1 h-full justify-end"
+                        >
+                          <span className="text-white font-bold text-[10px] sm:text-xs mb-1">
+                            {formatCurrency(hour.sales)}
+                          </span>
+                          <div className="w-full bg-white/10 rounded-t-lg overflow-hidden flex-1 max-h-16 flex flex-col justify-end">
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: `${(hour.sales / maxHourlySale) * 100}%` }}
+                              transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
+                              className="w-full bg-gradient-to-t from-primary to-primary/60"
+                            />
+                          </div>
+                          <span className="text-white/60 text-[10px] sm:text-xs mt-1">{hour.label}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-white/40 text-xs sm:text-sm">No hourly data yet</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -612,7 +618,7 @@ export function ManagerDashboardOverlay({
             >
               <div className="relative">
                 {/* Liquid Glass container */}
-                <div className="relative px-10 py-5 rounded-3xl overflow-hidden">
+                <div className="relative px-6 sm:px-10 py-3 sm:py-5 rounded-3xl overflow-hidden">
                   {/* Glass background layers */}
                   <div className="absolute inset-0 bg-white/[0.08] backdrop-blur-2xl rounded-3xl" />
                   <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/5 rounded-3xl" />
@@ -628,11 +634,11 @@ export function ManagerDashboardOverlay({
                   <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
                   
                   {/* Content */}
-                  <div className="relative flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-4">
-                      <Clock className="h-10 w-10 text-white/80 drop-shadow-lg" />
+                  <div className="relative flex flex-col items-center gap-1 sm:gap-2">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                      <Clock className="h-6 w-6 sm:h-10 sm:w-10 text-white/80 drop-shadow-lg" />
                       <span 
-                        className="text-7xl font-light text-white tracking-tight drop-shadow-2xl"
+                        className="text-4xl sm:text-7xl font-light text-white tracking-tight drop-shadow-2xl"
                         style={{ 
                           fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                           textShadow: '0 2px 20px rgba(255,255,255,0.15)'
@@ -641,7 +647,7 @@ export function ManagerDashboardOverlay({
                         {formatTimeDisplay(currentTime)}
                       </span>
                     </div>
-                    <p className="text-white/50 text-sm font-light tracking-wide">
+                    <p className="text-white/50 text-xs sm:text-sm font-light tracking-wide">
                       {format(currentTime, 'EEEE, MMMM d')}
                     </p>
                   </div>
@@ -721,21 +727,21 @@ export function ManagerDashboardOverlay({
               initial={{ x: 20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="flex-1 flex flex-col gap-3"
+              className="flex-1 flex flex-col gap-2 sm:gap-3"
             >
               {/* Active Shifts */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1">
-                <CardContent className="p-3 h-full flex flex-col">
-                  <h3 className="text-white/80 text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Users className="h-4 w-4" />
+                <CardContent className="p-2 sm:p-3 h-full flex flex-col">
+                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                     On The Clock
-                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-xs">
+                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs">
                       {activeShifts.length}
                     </Badge>
                   </h3>
-                  <div className="space-y-1.5 flex-1 overflow-y-auto">
+                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto">
                     {activeShifts.length === 0 ? (
-                      <p className="text-white/40 text-center py-4 text-sm">No one clocked in</p>
+                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm">No one clocked in</p>
                     ) : (
                       activeShifts.map((shift) => {
                         const cut = getCutForEmployee(shift.userId);
@@ -894,27 +900,27 @@ export function ManagerDashboardOverlay({
 
               {/* Quick Tasks */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                <CardContent className="p-3">
-                  <h3 className="text-white/80 text-sm font-semibold mb-2 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
+                <CardContent className="p-2 sm:p-3">
+                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
+                    <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Tasks
                   </h3>
                   <div className="space-y-1">
                     {quickTasks.length === 0 ? (
-                      <p className="text-white/40 text-center py-2 text-xs">No tasks today</p>
+                      <p className="text-white/40 text-center py-2 text-[10px] sm:text-xs">No tasks today</p>
                     ) : (
                       quickTasks.slice(0, 3).map((task: any) => (
                         <div
                           key={task.id}
-                          className="flex items-center gap-2 p-1.5 rounded bg-white/5"
+                          className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 rounded bg-white/5"
                         >
-                          <div className="w-0.5 h-5 rounded-full bg-primary" />
+                          <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-medium truncate">
+                            <p className="text-white text-[10px] sm:text-xs font-medium truncate">
                               {task.event_name}
                             </p>
                           </div>
-                          <span className="text-white/40 text-[10px]">
+                          <span className="text-white/40 text-[9px] sm:text-[10px]">
                             {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
                           </span>
                         </div>
