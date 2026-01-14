@@ -86,7 +86,10 @@ export default function BreakOverlay() {
   const seconds = breakInfo.remaining % 60;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 flex flex-col items-center justify-center p-6 text-white">
+    <div 
+      className="fixed inset-0 z-50 bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 flex flex-col items-center justify-center p-6 text-white cursor-pointer"
+      onClick={() => setDismissed(true)}
+    >
       {/* Dismiss button */}
       <Button
         variant="ghost"
@@ -122,7 +125,7 @@ export default function BreakOverlay() {
 
       {/* Decorative elements */}
       <div className="absolute bottom-8 text-center opacity-60">
-        <p className="text-sm">Tap the X to continue using the app</p>
+        <p className="text-sm">Tap anywhere to continue using the app</p>
       </div>
     </div>
   );
