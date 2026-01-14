@@ -96,6 +96,7 @@ interface DayPunch {
   breakEndTime: string | null;
   breakType: string | null;
   isActive: boolean;
+  isOnBreak: boolean;
   profile: Profile;
   hoursWorked: number;
   createdByName: string | null; // Name of manager who created punch if different from employee
@@ -304,6 +305,7 @@ export function MobileScheduleView({
             breakEndTime: breakEnd?.punch_time || null,
             breakType: breakStart?.notes || null,
             isActive: isClockedIn,
+            isOnBreak,
             profile: profile || { id: userId, full_name: 'Unknown', profile_photo_url: null },
             hoursWorked,
             createdByName,
@@ -528,15 +530,24 @@ export function MobileScheduleView({
                             <AvatarImage src={punch.profile.profile_photo_url || undefined} />
                             <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
                           </Avatar>
-                          {punch.isActive && (
+                          {punch.isOnBreak ? (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" title="On Break" />
+                          ) : punch.isActive ? (
                             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
-                          )}
+                          ) : null}
                         </div>
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-semibold truncate">{punch.profile.full_name}</span>
-                            <span className={`text-base font-bold shrink-0 ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-semibold truncate">{punch.profile.full_name}</span>
+                              {punch.isOnBreak && (
+                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs shrink-0">
+                                  On Break
+                                </Badge>
+                              )}
+                            </div>
+                            <span className={`text-base font-bold shrink-0 ${punch.isOnBreak ? "text-amber-600" : punch.isActive ? "text-green-600" : "text-foreground"}`}>
                               {punch.hoursWorked.toFixed(1)}h
                             </span>
                           </div>
