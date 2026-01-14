@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Bell, Loader2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface AnnouncementStatsProps {
   chatId: string;
+  announcementTitle?: string;
 }
 
 interface Member {
@@ -23,10 +25,11 @@ interface Read {
   opened_at: string;
 }
 
-export function AnnouncementStats({ chatId }: AnnouncementStatsProps) {
+export function AnnouncementStats({ chatId, announcementTitle }: AnnouncementStatsProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [reads, setReads] = useState<Read[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -74,6 +77,37 @@ export function AnnouncementStats({ chatId }: AnnouncementStatsProps) {
       console.error('Error fetching announcement stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendReminder = async () => {
+    if (unreadMembers.length === 0) {
+      toast.info('Everyone has read this announcement!');
+      return;
+    }
+
+    setSendingReminder(true);
+    try {
+      const unreadUserIds = unreadMembers.map(m => m.user_id);
+      
+      const { error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          user_ids: unreadUserIds,
+          title: 'Reminder: Unread Announcement',
+          body: announcementTitle || 'You have an unread announcement',
+          notification_type: 'announcements',
+          data: { chatId },
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success(`Reminder sent to ${unreadUserIds.length} team member${unreadUserIds.length === 1 ? '' : 's'}`);
+    } catch (error: any) {
+      console.error('Error sending reminder:', error);
+      toast.error('Failed to send reminder');
+    } finally {
+      setSendingReminder(false);
     }
   };
 
@@ -138,6 +172,22 @@ export function AnnouncementStats({ chatId }: AnnouncementStatsProps) {
             </CollapsibleContent>
           </Collapsible>
         </div>
+
+        {unreadMembers.length > 0 && (
+          <Button
+            onClick={handleSendReminder}
+            disabled={sendingReminder}
+            variant="secondary"
+            className="w-full gap-2"
+          >
+            {sendingReminder ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Bell className="h-4 w-4" />
+            )}
+            Send Reminder to {unreadMembers.length} Unread
+          </Button>
+        )}
       </div>
     </Card>
   );

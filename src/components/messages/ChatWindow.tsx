@@ -1065,7 +1065,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       {chatDetails?.is_announcement && isAdmin && (
         <div className="px-4 pb-2 opacity-60">
           <div className="scale-90 origin-bottom">
-            <AnnouncementStats chatId={chatId} />
+            <AnnouncementStats chatId={chatId} announcementTitle={chatDetails.title || undefined} />
           </div>
         </div>
       )}
