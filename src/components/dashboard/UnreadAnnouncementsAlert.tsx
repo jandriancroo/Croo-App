@@ -22,7 +22,7 @@ export function UnreadAnnouncementsAlert() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Get all announcement chats user is a member of
+      // Get all announcement chats user is a member of (exclude ones they created)
       const { data: memberChats, error: memberError } = await supabase
         .from('chat_members')
         .select(`
@@ -32,11 +32,13 @@ export function UnreadAnnouncementsAlert() {
             title,
             is_announcement,
             created_at,
+            created_by,
             messages(content, created_at)
           )
         `)
         .eq('user_id', user.id)
-        .eq('chats.is_announcement', true);
+        .eq('chats.is_announcement', true)
+        .neq('chats.created_by', user.id); // Exclude announcements created by this user
 
       if (memberError) {
         console.error('Error fetching announcement memberships:', memberError);
