@@ -30,12 +30,22 @@ There are **4 punch types** stored in the `punch_type` column:
 
 ## Clock In Rules
 
+These rules are now **configurable per-location** in Settings → Labor Rules:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `allow_unscheduled_clock_in` | `true` | Can employees clock in without a scheduled shift? |
+| `allow_early_clock_in` | `true` | Can employees clock in before shift start? |
+| `early_clock_in_minutes` | `30` | How many minutes early (only if early clock-in enabled) |
+
 | Condition | Result |
 |-----------|--------|
 | Employee already clocked in (last punch = `clock_in`) | ❌ Cannot clock in again |
-| No scheduled shift for today | ✅ Can clock in (flagged for payroll review) |
-| Scheduled shift exists, more than 30 mins before start | ❌ Cannot clock in yet |
-| Scheduled shift exists, within 30 mins of start | ✅ Can clock in |
+| No scheduled shift + `allow_unscheduled_clock_in: false` | ❌ Cannot clock in |
+| No scheduled shift + `allow_unscheduled_clock_in: true` | ✅ Can clock in (flagged for payroll review) |
+| Scheduled shift + `allow_early_clock_in: false` + before shift start | ❌ Cannot clock in yet |
+| Scheduled shift + `allow_early_clock_in: true` + more than X mins before start | ❌ Cannot clock in yet |
+| Scheduled shift + within allowed early window or after start | ✅ Can clock in |
 
 ### What Happens on Clock In:
 - Inserts a `clock_in` punch with current timestamp

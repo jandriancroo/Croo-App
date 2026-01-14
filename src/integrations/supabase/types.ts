@@ -2046,11 +2046,14 @@ export type Database = {
       }
       labor_rules: {
         Row: {
+          allow_early_clock_in: boolean
+          allow_unscheduled_clock_in: boolean
           auto_punch_out_time: string | null
           created_at: string | null
           daily_double_time_threshold: number | null
           daily_overtime_threshold: number | null
           double_time_multiplier: number | null
+          early_clock_in_minutes: number
           id: string
           location_id: string
           meal_break_duration: number | null
@@ -2066,11 +2069,14 @@ export type Database = {
           weekly_overtime_threshold: number | null
         }
         Insert: {
+          allow_early_clock_in?: boolean
+          allow_unscheduled_clock_in?: boolean
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
+          early_clock_in_minutes?: number
           id?: string
           location_id: string
           meal_break_duration?: number | null
@@ -2086,11 +2092,14 @@ export type Database = {
           weekly_overtime_threshold?: number | null
         }
         Update: {
+          allow_early_clock_in?: boolean
+          allow_unscheduled_clock_in?: boolean
           auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
+          early_clock_in_minutes?: number
           id?: string
           location_id?: string
           meal_break_duration?: number | null
