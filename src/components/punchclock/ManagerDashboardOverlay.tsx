@@ -79,12 +79,55 @@ export function ManagerDashboardOverlay({
 }: ManagerDashboardOverlayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [countdown, setCountdown] = useState(60);
-  const [laborCuts, setLaborCuts] = useState<LaborCut[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
   const [showCutOptions, setShowCutOptions] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
-  const [cutsSaved, setCutsSaved] = useState(false);
+
+  // Build storage key for labor cuts persistence
+  const laborCutsStorageKey = useMemo(() => 
+    `labor-cuts-${locationId}-${getTodayInTimezone(timezone)}`, 
+    [locationId, timezone]
+  );
+
+  // Load labor cuts and saved state from localStorage on mount
+  const [laborCuts, setLaborCuts] = useState<LaborCut[]>(() => {
+    try {
+      const stored = localStorage.getItem(laborCutsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.cuts || [];
+      }
+    } catch (e) {
+      console.error('Failed to load labor cuts:', e);
+    }
+    return [];
+  });
+
+  const [cutsSaved, setCutsSaved] = useState(() => {
+    try {
+      const stored = localStorage.getItem(laborCutsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.saved || false;
+      }
+    } catch (e) {
+      console.error('Failed to load labor cuts saved state:', e);
+    }
+    return false;
+  });
+
+  // Persist labor cuts to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(laborCutsStorageKey, JSON.stringify({
+        cuts: laborCuts,
+        saved: cutsSaved,
+      }));
+    } catch (e) {
+      console.error('Failed to save labor cuts:', e);
+    }
+  }, [laborCuts, cutsSaved, laborCutsStorageKey]);
 
   // Update time every second
   useEffect(() => {
@@ -454,6 +497,12 @@ export function ManagerDashboardOverlay({
     setCutsSaved(false);
     setShowPreviewModal(false);
     setCountdown(60);
+    // Clear from localStorage
+    try {
+      localStorage.removeItem(laborCutsStorageKey);
+    } catch (e) {
+      console.error('Failed to clear labor cuts:', e);
+    }
   };
 
   const handleSaveCuts = () => {
