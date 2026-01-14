@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2, AlertTriangle } from 'lucide-react';
+import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2, AlertTriangle, Lock } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
@@ -58,6 +58,7 @@ interface Checklist {
   template_type: string | null;
   visible_days_before_month_end: number | null;
   due_by_time: string | null;
+  lock_until_time: string | null;
 }
 interface ChecklistStats {
   checklist_id: string;
@@ -651,6 +652,27 @@ export default function Dashboard() {
           return now > dueTime;
         })();
         
+        // Check if checklist is locked (has lock_until_time and current time is before unlock)
+        const isLocked = (() => {
+          if (!checklist.lock_until_time) return false;
+          const now = new Date();
+          const nowFormatted = now.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Los_Angeles'
+          });
+          return nowFormatted < checklist.lock_until_time;
+        })();
+        
+        // Format lock time for display
+        const formatLockTime = (time: string) => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const period = hours >= 12 ? 'PM' : 'AM';
+          const displayHours = hours % 12 || 12;
+          return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+        };
+        
         // Determine button text: Review (complete), Continue (started), Start Checklist (not started)
         const getButtonText = () => {
           if (isComplete) return 'Review';
@@ -682,17 +704,25 @@ export default function Dashboard() {
             {/* Combined Status Button with Progress Bar */}
             <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
               <button 
-                className="relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden bg-muted"
-                onClick={() => navigate(`/complete/${checklist.id}`)}
+                className={`relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden bg-muted ${isLocked ? 'cursor-not-allowed opacity-75' : ''}`}
+                onClick={() => !isLocked && navigate(`/complete/${checklist.id}`)}
+                disabled={isLocked}
               >
                 {/* Progress fill background */}
-                <div 
-                  className="absolute inset-y-0 left-0 bg-primary transition-all duration-300 rounded-lg"
-                  style={{ width: `${Math.max(completionRate, hasStarted ? 45 : 0)}%` }}
-                />
+                {!isLocked && (
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-primary transition-all duration-300 rounded-lg"
+                    style={{ width: `${Math.max(completionRate, hasStarted ? 45 : 0)}%` }}
+                  />
+                )}
                 {/* Content */}
                 <div className="relative z-10 flex items-center justify-between px-4 h-full">
-                  {isComplete ? (
+                  {isLocked ? (
+                    <div className="w-full flex items-center justify-center gap-2 text-muted-foreground font-medium">
+                      <Lock className="h-4 w-4" />
+                      <span>Locked until {formatLockTime(checklist.lock_until_time!)}</span>
+                    </div>
+                  ) : isComplete ? (
                     <>
                       <div className="flex items-center gap-2 text-primary-foreground">
                         <Check className="h-4 w-4" strokeWidth={3} />
