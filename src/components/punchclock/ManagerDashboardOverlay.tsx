@@ -451,7 +451,18 @@ export function ManagerDashboardOverlay({
     }).format(endDate);
   };
 
-  // Find max hourly sale for scaling
+  // Format custom time (HH:mm) to display format (e.g., "4:30 PM")
+  const formatCustomTime = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  };
+
   const maxHourlySale = Math.max(...last4Hours.map(h => h.sales), 1);
 
   // Labor Cut Functions
@@ -476,15 +487,50 @@ export function ManagerDashboardOverlay({
 
   const handleCustomCut = (employee: ActiveShift) => {
     if (!customTime) return;
-    const now = new Date();
-    const [hours, minutes] = customTime.split(':').map(Number);
-    const endTime = new Date(now);
-    endTime.setHours(hours, minutes, 0, 0);
     
-    const minutesCut = differenceInMinutes(now, endTime);
-    if (minutesCut > 0) {
-      handleAddCut(employee, minutesCut);
+    // Parse the custom end time
+    const [customHours, customMinutes] = customTime.split(':').map(Number);
+    const customEnd = new Date();
+    customEnd.setHours(customHours, customMinutes, 0, 0);
+    
+    // If we have a scheduled end time, calculate minutes cut from that
+    if (employee.scheduledEndTime) {
+      const [schedHours, schedMinutes] = employee.scheduledEndTime.split(':').map(Number);
+      const schedEnd = new Date();
+      schedEnd.setHours(schedHours, schedMinutes, 0, 0);
+      
+      const minutesCut = differenceInMinutes(schedEnd, customEnd);
+      if (minutesCut > 0) {
+        // Store both the minutes cut and the custom end time for display
+        setLaborCuts(prev => {
+          const existing = prev.find(c => c.userId === employee.userId);
+          if (existing) {
+            return prev.map(c => c.userId === employee.userId 
+              ? { ...c, minutesCut, customEndTime: customTime } 
+              : c
+            );
+          }
+          return [...prev, { userId: employee.userId, minutesCut, customEndTime: customTime }];
+        });
+      }
+    } else {
+      // No scheduled end time - just store a minimal cut with the custom time
+      setLaborCuts(prev => {
+        const existing = prev.find(c => c.userId === employee.userId);
+        if (existing) {
+          return prev.map(c => c.userId === employee.userId 
+            ? { ...c, minutesCut: 0, customEndTime: customTime } 
+            : c
+          );
+        }
+        return [...prev, { userId: employee.userId, minutesCut: 0, customEndTime: customTime }];
+      });
     }
+    
+    setShowCutOptions(false);
+    setSelectedEmployee(null);
+    setCustomTime('');
+    setCountdown(60);
   };
 
   const handleRemoveCut = (userId: string) => {
@@ -862,8 +908,12 @@ export function ManagerDashboardOverlay({
                                         variant="secondary" 
                                         className="bg-red-500/30 text-red-300 text-[10px] lg:text-xs px-1 py-0"
                                       >
-                                        {cutsSaved && shift.scheduledEndTime 
-                                          ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `−${cut.minutesCut}m`}`
+                                        {cutsSaved 
+                                          ? cut.customEndTime 
+                                            ? `Out @ ${formatCustomTime(cut.customEndTime)}`
+                                            : shift.scheduledEndTime
+                                              ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `−${cut.minutesCut}m`}`
+                                              : `−${cut.minutesCut}m`
                                           : `−${cut.minutesCut}m`
                                         }
                                       </Badge>
