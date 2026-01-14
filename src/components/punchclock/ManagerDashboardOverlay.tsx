@@ -45,6 +45,7 @@ interface ActiveShift {
 interface HourlySale {
   hour: string;
   sales: number;
+  projected?: number;
 }
 
 export function ManagerDashboardOverlay({ 
@@ -275,17 +276,30 @@ export function ManagerDashboardOverlay({
     };
   }).filter(h => h.hour >= 0 && h.hour <= 23);
 
-  // Calculate pace - based on expected sales at this hour
-  const openHour = 10; // Assume store opens at 10am
-  const closeHour = 24; // Midnight
-  const hoursOpen = closeHour - openHour; // 14 hours
-  const hoursSinceOpen = Math.max(0, Math.min(currentHour - openHour, hoursOpen));
-  const expectedSalesNow = eodGoal > 0 ? (hoursSinceOpen / hoursOpen) * eodGoal : 0;
-  const salesPaceDiff = totalSales - expectedSalesNow;
-  const pacePercentage = eodGoal > 0 ? (totalSales / eodGoal) * 100 : 0;
-  const paceStatus = salesPaceDiff >= eodGoal * 0.1 
+  // Calculate pace-adjusted projection using hourly data
+  // Logic: actual sales so far + remaining hourly projections
+  const calculatePaceAdjusted = () => {
+    if (!hourlyData.length || eodGoal <= 0) return totalSales;
+    
+    // Sum up remaining projected sales for hours after current hour
+    let remainingProjected = 0;
+    for (let hr = currentHour + 1; hr <= 23; hr++) {
+      const hourStr = `${String(hr).padStart(2, '0')}:00`;
+      const hourData = hourlyData.find(h => h.hour === hourStr);
+      if (hourData?.projected) {
+        remainingProjected += hourData.projected;
+      }
+    }
+    
+    // Pace = actual sales + remaining projected (clamped to at least actual)
+    return Math.max(totalSales + remainingProjected, totalSales);
+  };
+  
+  const paceAdjusted = calculatePaceAdjusted();
+  const paceDelta = paceAdjusted - eodGoal;
+  const paceStatus = paceDelta >= eodGoal * 0.1 
     ? 'fire' 
-    : salesPaceDiff >= -eodGoal * 0.05 
+    : paceDelta >= -eodGoal * 0.05 
       ? 'good' 
       : 'cold';
 
@@ -438,10 +452,17 @@ export function ManagerDashboardOverlay({
                       <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-400" />
                     )}
                     <p className="text-white/60 text-sm mb-1">Sales Pace</p>
-                    <div className="flex items-center justify-center gap-2">
-                      <p className={`text-2xl font-bold ${salesPaceDiff >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {salesPaceDiff >= 0 ? '+' : ''}{formatCurrency(salesPaceDiff)}
-                      </p>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold text-amber-400">
+                          {formatCurrency(paceAdjusted)}
+                        </span>
+                        {paceDelta !== 0 && (
+                          <span className={`text-sm font-semibold ${paceDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {paceDelta >= 0 ? '+' : ''}{formatCurrency(paceDelta)}
+                          </span>
+                        )}
+                      </div>
                       <Badge 
                         variant={paceStatus === 'fire' ? 'default' : paceStatus === 'cold' ? 'secondary' : 'outline'}
                         className={`${
