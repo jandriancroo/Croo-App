@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -63,6 +64,8 @@ export default function Messages() {
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support'>('chats');
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlChatIdProcessed = useRef(false);
 
   // Use user.id from auth context
   const currentUserId = user?.id || null;
@@ -388,6 +391,44 @@ export default function Messages() {
       supabase.removeChannel(channel);
     };
   }, [currentLocation, fetchChats, debouncedFetchChats]);
+
+  // Handle URL chat parameter - auto-open the chat from URL
+  useEffect(() => {
+    const urlChatId = searchParams.get('chat');
+    if (!urlChatId || urlChatIdProcessed.current || loading || chats.length === 0) return;
+
+    // Find the chat in our list to determine if it's an announcement
+    const targetChat = chats.find(c => c.id === urlChatId);
+    
+    if (targetChat) {
+      // Switch to correct view mode
+      if (targetChat.is_announcement && viewMode !== 'announcements') {
+        setViewMode('announcements');
+        applyViewFilter(chats, 'announcements');
+      } else if (!targetChat.is_announcement && viewMode !== 'chats') {
+        setViewMode('chats');
+        applyViewFilter(chats, 'chats');
+      }
+      
+      // Select the chat
+      setSelectedChatId(urlChatId);
+      setShowChatList(false); // On mobile, show the chat window
+      urlChatIdProcessed.current = true;
+      
+      // Clear the URL param after processing
+      setSearchParams({}, { replace: true });
+    } else {
+      // Chat not in our list - might be a chat we need to fetch directly
+      // Check if it's the marketplace
+      if (urlChatId === marketplaceChatId) {
+        setViewMode('marketplace');
+        setSelectedChatId(urlChatId);
+        setShowChatList(false);
+        urlChatIdProcessed.current = true;
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, chats, loading, viewMode, marketplaceChatId, setSearchParams]);
 
   return (
     <Layout>

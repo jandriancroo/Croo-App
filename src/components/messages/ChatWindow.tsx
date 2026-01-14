@@ -338,6 +338,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               chat_id: chatId,
               user_id: currentUserId
             });
+          // Invalidate dashboard unread announcements query
+          queryClient.invalidateQueries({ queryKey: ['unread-announcements-dashboard'] });
         } catch (err: any) {
           if (!err.message?.includes('duplicate')) {
             console.error('Error marking announcement as opened:', err);
@@ -346,7 +348,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       };
       markAsOpened();
     }
-  }, [chatId, chatDetails, currentUserId]);
+  }, [chatId, chatDetails, currentUserId, queryClient]);
 
   // Mark chat as read IMMEDIATELY on chat open (not waiting for messages)
   useEffect(() => {
