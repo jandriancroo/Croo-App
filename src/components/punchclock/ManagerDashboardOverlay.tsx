@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, differenceInMinutes } from 'date-fns';
+import { format, differenceInMinutes, differenceInHours, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
@@ -14,12 +14,28 @@ import {
   Coffee,
   CheckCircle2,
   X,
-  Gauge
+  Gauge,
+  Scissors,
+  Calculator,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import type { AppRole } from '@/hooks/useUserRole';
@@ -40,12 +56,19 @@ interface ActiveShift {
   breakStartTime: string | null;
   breakType: string | null;
   position?: string;
+  hourlyWage?: number;
 }
 
 interface HourlySale {
   hour: string;
   sales: number;
   projected?: number;
+}
+
+interface LaborCut {
+  userId: string;
+  minutesCut: number;
+  customEndTime?: string;
 }
 
 export function ManagerDashboardOverlay({ 
@@ -55,6 +78,12 @@ export function ManagerDashboardOverlay({
 }: ManagerDashboardOverlayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [countdown, setCountdown] = useState(60);
+  const [laborCuts, setLaborCuts] = useState<LaborCut[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
+  const [showCutOptions, setShowCutOptions] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [customTime, setCustomTime] = useState('');
+  const [cutsSaved, setCutsSaved] = useState(false);
 
   // Update time every second
   useEffect(() => {
@@ -176,7 +205,7 @@ export function ManagerDashboardOverlay({
       const userIds = activeUsers.map(u => u.userId);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, profile_photo_url')
+        .select('id, full_name, profile_photo_url, hourly_wage')
         .in('id', userIds);
 
       // Get today's shifts for positions
@@ -200,6 +229,7 @@ export function ManagerDashboardOverlay({
           breakStartTime: u.breakStartTime,
           breakType: u.breakType,
           position: shiftMap.get(u.userId) || undefined,
+          hourlyWage: profile?.hourly_wage || 16, // Default to $16/hr if not set
         } as ActiveShift;
       }).sort((a, b) => a.fullName.localeCompare(b.fullName));
     },
@@ -354,6 +384,91 @@ export function ManagerDashboardOverlay({
 
   // Find max hourly sale for scaling
   const maxHourlySale = Math.max(...last4Hours.map(h => h.sales), 1);
+
+  // Labor Cut Functions
+  const getCutForEmployee = (userId: string): LaborCut | undefined => {
+    return laborCuts.find(c => c.userId === userId);
+  };
+
+  const handleAddCut = (employee: ActiveShift, minutes: number) => {
+    setLaborCuts(prev => {
+      const existing = prev.find(c => c.userId === employee.userId);
+      if (existing) {
+        return prev.map(c => c.userId === employee.userId ? { ...c, minutesCut: minutes } : c);
+      }
+      return [...prev, { userId: employee.userId, minutesCut: minutes }];
+    });
+    setShowCutOptions(false);
+    setSelectedEmployee(null);
+    setCustomTime('');
+    // Reset countdown when interacting
+    setCountdown(60);
+  };
+
+  const handleCustomCut = (employee: ActiveShift) => {
+    if (!customTime) return;
+    const now = new Date();
+    const [hours, minutes] = customTime.split(':').map(Number);
+    const endTime = new Date(now);
+    endTime.setHours(hours, minutes, 0, 0);
+    
+    const minutesCut = differenceInMinutes(now, endTime);
+    if (minutesCut > 0) {
+      handleAddCut(employee, minutesCut);
+    }
+  };
+
+  const handleRemoveCut = (userId: string) => {
+    setLaborCuts(prev => prev.filter(c => c.userId !== userId));
+    setCountdown(60);
+  };
+
+  const handleClearAllCuts = () => {
+    setLaborCuts([]);
+    setCutsSaved(false);
+    setShowPreviewModal(false);
+    setCountdown(60);
+  };
+
+  const handleSaveCuts = () => {
+    setCutsSaved(true);
+    setShowPreviewModal(false);
+    setCountdown(60);
+  };
+
+  // Calculate labor savings
+  const calculateLaborSavings = useMemo(() => {
+    let totalMinutesSaved = 0;
+    let totalCostSaved = 0;
+    
+    laborCuts.forEach(cut => {
+      const employee = activeShifts.find(s => s.userId === cut.userId);
+      if (employee) {
+        totalMinutesSaved += cut.minutesCut;
+        const hoursSaved = cut.minutesCut / 60;
+        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
+      }
+    });
+
+    const currentLaborCost = laborData?.laborCost || 0;
+    const newLaborCost = Math.max(0, currentLaborCost - totalCostSaved);
+    
+    const currentLaborPercent = totalSales > 0 ? (currentLaborCost / totalSales) * 100 : 0;
+    const newLaborPercent = totalSales > 0 ? (newLaborCost / totalSales) * 100 : 0;
+
+    return {
+      totalMinutesSaved,
+      totalCostSaved,
+      currentLaborCost,
+      newLaborCost,
+      currentLaborPercent,
+      newLaborPercent,
+      percentSaved: currentLaborPercent - newLaborPercent,
+    };
+  }, [laborCuts, activeShifts, laborData?.laborCost, totalSales]);
+
+  const hasPendingCuts = laborCuts.length > 0 && !cutsSaved;
+  const hasAnyCuts = laborCuts.length > 0;
 
   return (
     <AnimatePresence>
@@ -569,6 +684,11 @@ export function ManagerDashboardOverlay({
                     <h3 className="text-white/80 text-lg font-semibold flex items-center gap-2">
                       <Gauge className="h-5 w-5" />
                       Labor
+                      {cutsSaved && hasAnyCuts && (
+                        <Badge className="bg-green-500/20 text-green-300 text-xs ml-2">
+                          Cuts Applied
+                        </Badge>
+                      )}
                     </h3>
                     <Badge 
                       className={`${
@@ -585,18 +705,44 @@ export function ManagerDashboardOverlay({
                   <div className="flex items-center gap-6">
                     <div className="flex-1">
                       <div className="flex justify-between text-sm mb-2">
-                        <span className="text-white/60">Current Labor %</span>
-                        <span className={`font-bold ${
-                          laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
-                        }`}>
-                          {laborPercentage.toFixed(1)}%
+                        <span className="text-white/60">
+                          {cutsSaved && hasAnyCuts ? 'Current → Projected' : 'Current Labor %'}
                         </span>
+                        <div className="flex items-center gap-2">
+                          {cutsSaved && hasAnyCuts ? (
+                            <>
+                              <span className="text-white/40 line-through text-xs">
+                                {laborPercentage.toFixed(1)}%
+                              </span>
+                              <span className="text-green-400 font-bold">
+                                {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                              </span>
+                            </>
+                          ) : (
+                            <span className={`font-bold ${
+                              laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                            }`}>
+                              {laborPercentage.toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <Progress 
-                        value={Math.min(laborPercentage, 40)} 
-                        max={40}
-                        className="h-4 bg-white/10"
-                      />
+                      <div className="relative">
+                        <Progress 
+                          value={Math.min(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage, 40)} 
+                          max={40}
+                          className="h-4 bg-white/10"
+                        />
+                        {cutsSaved && hasAnyCuts && (
+                          <div 
+                            className="absolute top-0 h-4 bg-white/20 rounded-full"
+                            style={{ 
+                              left: `${(calculateLaborSavings.newLaborPercent / 40) * 100}%`,
+                              width: `${((laborPercentage - calculateLaborSavings.newLaborPercent) / 40) * 100}%`
+                            }}
+                          />
+                        )}
+                      </div>
                       <div className="flex justify-between text-xs text-white/40 mt-1">
                         <span>0%</span>
                         <span className="text-primary">{laborTarget}%</span>
@@ -605,7 +751,18 @@ export function ManagerDashboardOverlay({
                     </div>
                     <div className="text-center">
                       <p className="text-white/60 text-sm">Labor Cost</p>
-                      <p className="text-2xl font-bold text-white">{formatCurrency(laborData?.laborCost || 0)}</p>
+                      {cutsSaved && hasAnyCuts ? (
+                        <div>
+                          <p className="text-white/40 line-through text-sm">
+                            {formatCurrency(laborData?.laborCost || 0)}
+                          </p>
+                          <p className="text-xl font-bold text-green-400">
+                            {formatCurrency(calculateLaborSavings.newLaborCost)}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-2xl font-bold text-white">{formatCurrency(laborData?.laborCost || 0)}</p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -633,43 +790,164 @@ export function ManagerDashboardOverlay({
                     {activeShifts.length === 0 ? (
                       <p className="text-white/40 text-center py-4">No one clocked in</p>
                     ) : (
-                      activeShifts.map((shift) => (
-                        <div
-                          key={shift.userId}
-                          className={`flex items-center gap-3 p-2 rounded-lg ${
-                            shift.isOnBreak ? 'bg-amber-500/20' : 'bg-white/5'
-                          }`}
-                        >
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={shift.profilePhoto || undefined} />
-                            <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                              {shift.fullName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">
-                              {shift.fullName}
-                            </p>
-                            {shift.position && (
-                              <p className="text-white/40 text-xs truncate">{shift.position}</p>
-                            )}
-                          </div>
-                          {shift.isOnBreak && shift.breakStartTime && (
-                            <div className="flex items-center gap-1">
-                              <Coffee className="h-4 w-4 text-amber-400" />
-                              <span className={`text-xs font-bold ${
-                                getBreakReturnTime(shift.breakStartTime).isOverdue 
-                                  ? 'text-red-400' 
-                                  : 'text-amber-300'
-                              }`}>
-                                {getBreakReturnTime(shift.breakStartTime).text}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))
+                      activeShifts.map((shift) => {
+                        const cut = getCutForEmployee(shift.userId);
+                        return (
+                          <Popover 
+                            key={shift.userId}
+                            open={selectedEmployee?.userId === shift.userId && showCutOptions}
+                            onOpenChange={(open) => {
+                              if (open) {
+                                setSelectedEmployee(shift);
+                                setShowCutOptions(true);
+                                setCountdown(60);
+                              } else {
+                                setShowCutOptions(false);
+                                setSelectedEmployee(null);
+                                setCustomTime('');
+                              }
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <div
+                                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
+                                  shift.isOnBreak 
+                                    ? 'bg-amber-500/20' 
+                                    : cut 
+                                      ? 'bg-red-500/20 ring-1 ring-red-500/50' 
+                                      : 'bg-white/5'
+                                }`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Avatar className="h-9 w-9">
+                                  <AvatarImage src={shift.profilePhoto || undefined} />
+                                  <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                                    {shift.fullName.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-white text-sm font-medium truncate">
+                                      {shift.fullName}
+                                    </p>
+                                    {cut && (
+                                      <Badge 
+                                        variant="secondary" 
+                                        className="bg-red-500/30 text-red-300 text-xs px-1.5 py-0"
+                                      >
+                                        -{cut.minutesCut}m
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {shift.position && (
+                                    <p className="text-white/40 text-xs truncate">{shift.position}</p>
+                                  )}
+                                </div>
+                                {shift.isOnBreak && shift.breakStartTime ? (
+                                  <div className="flex items-center gap-1">
+                                    <Coffee className="h-4 w-4 text-amber-400" />
+                                    <span className={`text-xs font-bold ${
+                                      getBreakReturnTime(shift.breakStartTime).isOverdue 
+                                        ? 'text-red-400' 
+                                        : 'text-amber-300'
+                                    }`}>
+                                      {getBreakReturnTime(shift.breakStartTime).text}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <Scissors className="h-4 w-4 text-white/40" />
+                                )}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent 
+                              className="w-64 p-3 bg-slate-800 border-white/20"
+                              side="left"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-white font-semibold text-sm">Send Home Early</h4>
+                                  {cut && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/20 px-2"
+                                      onClick={() => handleRemoveCut(shift.userId)}
+                                    >
+                                      Clear
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {[15, 30, 45, 60].map((mins) => (
+                                    <Button
+                                      key={mins}
+                                      size="sm"
+                                      variant={cut?.minutesCut === mins ? 'default' : 'outline'}
+                                      className={`text-sm ${
+                                        cut?.minutesCut === mins 
+                                          ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                          : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                                      }`}
+                                      onClick={() => handleAddCut(shift, mins)}
+                                    >
+                                      -{mins === 60 ? '1hr' : `${mins}m`}
+                                    </Button>
+                                  ))}
+                                </div>
+                                <div className="pt-2 border-t border-white/10">
+                                  <p className="text-white/60 text-xs mb-2">Custom end time:</p>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      type="time"
+                                      value={customTime}
+                                      onChange={(e) => setCustomTime(e.target.value)}
+                                      className="bg-white/10 border-white/20 text-white text-sm h-8"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="bg-white/10 border-white/20 text-white hover:bg-white/20 h-8 px-3"
+                                      onClick={() => handleCustomCut(shift)}
+                                      disabled={!customTime}
+                                    >
+                                      Set
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        );
+                      })
                     )}
                   </div>
+                  
+                  {/* Labor Savings Preview Button */}
+                  {hasAnyCuts && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 pt-3 border-t border-white/10"
+                    >
+                      <Button
+                        className={`w-full ${
+                          cutsSaved 
+                            ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' 
+                            : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowPreviewModal(true);
+                          setCountdown(60);
+                        }}
+                      >
+                        <Calculator className="h-4 w-4 mr-2" />
+                        {cutsSaved ? 'View Saved Cuts' : 'Labor Savings Preview'}
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </motion.div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -717,6 +995,128 @@ export function ManagerDashboardOverlay({
             Tap anywhere to close
           </motion.p>
         </div>
+
+        {/* Labor Savings Preview Modal */}
+        <Dialog 
+          open={showPreviewModal} 
+          onOpenChange={(open) => {
+            setShowPreviewModal(open);
+            if (!open) setCountdown(60);
+          }}
+        >
+          <DialogContent 
+            className="bg-slate-900 border-white/20 text-white max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-white flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-primary" />
+                Labor Savings Preview
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              {/* Employees being cut */}
+              <div className="space-y-2">
+                <h4 className="text-white/60 text-sm font-medium">Employees Being Sent Home Early:</h4>
+                {laborCuts.map(cut => {
+                  const employee = activeShifts.find(s => s.userId === cut.userId);
+                  if (!employee) return null;
+                  const hoursSaved = cut.minutesCut / 60;
+                  const costSaved = hoursSaved * (employee.hourlyWage || 16);
+                  return (
+                    <div key={cut.userId} className="flex items-center justify-between p-2 rounded bg-white/5">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={employee.profilePhoto || undefined} />
+                          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                            {employee.fullName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-white text-sm">{employee.fullName}</span>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-red-500/30 text-red-300 text-xs">-{cut.minutesCut}m</Badge>
+                        <p className="text-green-400 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Comparison */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Current Labor */}
+                <div className="p-4 rounded-lg bg-white/5 text-center">
+                  <p className="text-white/60 text-xs mb-1">Current Projected</p>
+                  <p className={`text-2xl font-bold ${
+                    calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-400' : 'text-white'
+                  }`}>
+                    {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
+                  </p>
+                  <p className="text-white/40 text-xs mt-1">
+                    {formatCurrency(calculateLaborSavings.currentLaborCost)}
+                  </p>
+                </div>
+                
+                {/* New Labor */}
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
+                  <p className="text-green-400/80 text-xs mb-1">After Cuts</p>
+                  <p className={`text-2xl font-bold ${
+                    calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-400' : 'text-yellow-400'
+                  }`}>
+                    {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                  </p>
+                  <p className="text-white/40 text-xs mt-1">
+                    {formatCurrency(calculateLaborSavings.newLaborCost)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-white/60 text-sm">Total Savings</p>
+                    <p className="text-green-400 text-xl font-bold">
+                      {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white/60 text-sm">Labor % Saved</p>
+                    <p className="text-green-400 text-xl font-bold">
+                      -{calculateLaborSavings.percentSaved.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+                <p className="text-white/40 text-xs mt-2">
+                  {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
+                  onClick={handleClearAllCuts}
+                >
+                  Clear All
+                </Button>
+                <Button
+                  className={`flex-1 ${
+                    cutsSaved 
+                      ? 'bg-green-500 hover:bg-green-600' 
+                      : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                  }`}
+                  onClick={handleSaveCuts}
+                >
+                  {cutsSaved ? 'Saved ✓' : 'Save Cuts'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </AnimatePresence>
   );
