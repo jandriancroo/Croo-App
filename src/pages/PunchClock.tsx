@@ -607,13 +607,13 @@ export default function PunchClock() {
   };
 
   // Verify manager PIN for dashboard access
-  const verifyManagerPin = async () => {
-    if (managerPin.length !== 4) return;
+  const verifyManagerPin = async (pinToVerify: string) => {
+    if (pinToVerify.length !== 4) return;
 
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('id')
-      .eq('employee_pin', managerPin)
+      .eq('employee_pin', pinToVerify)
       .eq('is_active', true)
       .maybeSingle();
 
@@ -656,7 +656,8 @@ export default function PunchClock() {
       const newPin = managerPin + num;
       setManagerPin(newPin);
       if (newPin.length === 4) {
-        setTimeout(() => verifyManagerPin(), 100);
+        // Pass the PIN directly to avoid stale closure
+        verifyManagerPin(newPin);
       }
     }
   };
