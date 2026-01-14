@@ -337,17 +337,36 @@ export function ManagerDashboardOverlay({
     },
   });
 
-  // Calculate sales metrics from DB
-  const totalSales = Number(salesData?.net_sales) || 0;
-  const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
-
-  // Get pace and EOD goal from the same cache SalesOverview uses
-  // Read fresh from localStorage each render so we get latest data from SalesOverview
-  // Using currentTime as dependency ensures we re-read when the timer ticks
+  // Get ALL sales data from localStorage cache (same source as SalesOverview)
+  // This ensures Dynamic Dash shows EXACTLY the same numbers as Dashboard
   const cachedLiveSales = getCachedLiveSales(locationId);
   const cachedProjections = getCachedProjections(locationId);
   
-  // EOD Goal: prefer cachedLiveSales.projections.todayProjected, fall back to sales_cache.projected_sales
+  // Calculate sales metrics - prioritize localStorage cache over DB
+  const totalSales = useMemo(() => {
+    // First try cached live sales (same source as SalesOverview)
+    const liveDailySales = cachedLiveSales?.data?.daily;
+    if (liveDailySales && liveDailySales > 0) return liveDailySales;
+    
+    // Fall back to sales_cache table
+    return Number(salesData?.net_sales) || 0;
+  }, [cachedLiveSales, salesData?.net_sales]);
+  
+  const hourlyData = useMemo(() => {
+    // First try cached live sales (same source as SalesOverview)
+    const liveHourly = cachedLiveSales?.data?.hourly;
+    if (liveHourly && liveHourly.length > 0) {
+      return liveHourly.map((h: { hour: string; sales: number }) => ({
+        hour: h.hour,
+        sales: h.sales
+      }));
+    }
+    
+    // Fall back to sales_cache table
+    return (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
+  }, [cachedLiveSales, salesData?.hourly_data]);
+  
+  // EOD Goal: prefer cachedLiveSales.projections.todayProjected
   const eodGoal = useMemo(() => {
     // First try cached live sales (same source as SalesOverview)
     const liveProjected = cachedLiveSales?.data?.projections?.todayProjected;
