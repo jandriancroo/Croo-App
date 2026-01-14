@@ -426,12 +426,15 @@ export function MobileScheduleView({
     // Otherwise, team members only see their own shifts
     return s.user_id === user?.id;
   });
-  const dayEvents = events.filter(e => {
-    if (e.days_of_week && e.days_of_week.length > 0) {
-      return e.days_of_week.includes(selectedDayOfWeek);
-    }
-    return e.day_of_week === selectedDayOfWeek;
-  });
+  const dayEvents = filterEventsByRole(
+    events.filter(e => {
+      if (e.days_of_week && e.days_of_week.length > 0) {
+        return e.days_of_week.includes(selectedDayOfWeek);
+      }
+      return e.day_of_week === selectedDayOfWeek;
+    }),
+    role
+  );
 
   const getProfileForShift = (shift: Shift) => {
     return profiles.find(p => p.id === shift.user_id);
