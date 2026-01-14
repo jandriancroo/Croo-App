@@ -13,6 +13,7 @@ import {
   Flame,
   Coffee,
   CheckCircle2,
+  ArrowLeftRight,
   X,
   Gauge,
   Scissors,
@@ -220,7 +221,6 @@ export function ManagerDashboardOverlay({
   onClose 
 }: ManagerDashboardOverlayProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [countdown, setCountdown] = useState(60);
   const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
   const [showCutOptions, setShowCutOptions] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -276,16 +276,9 @@ export function ManagerDashboardOverlay({
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      setCountdown(prev => {
-        if (prev <= 1) {
-          onClose();
-          return 0;
-        }
-        return prev - 1;
-      });
     }, 1000);
     return () => clearInterval(timer);
-  }, [onClose]);
+  }, []);
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 
@@ -676,8 +669,6 @@ export function ManagerDashboardOverlay({
     setShowCutOptions(false);
     setSelectedEmployee(null);
     setCustomTime('');
-    // Reset countdown when interacting
-    setCountdown(60);
   };
 
   const handleCustomCut = (employee: ActiveShift) => {
@@ -725,19 +716,16 @@ export function ManagerDashboardOverlay({
     setShowCutOptions(false);
     setSelectedEmployee(null);
     setCustomTime('');
-    setCountdown(60);
   };
 
   const handleRemoveCut = (userId: string) => {
     setLaborCuts(prev => prev.filter(c => c.userId !== userId));
-    setCountdown(60);
   };
 
   const handleClearAllCuts = () => {
     setLaborCuts([]);
     setCutsSaved(false);
     setShowPreviewModal(false);
-    setCountdown(60);
     // Clear from localStorage
     try {
       localStorage.removeItem(laborCutsStorageKey);
@@ -749,7 +737,6 @@ export function ManagerDashboardOverlay({
   const handleSaveCuts = () => {
     setCutsSaved(true);
     setShowPreviewModal(false);
-    setCountdown(60);
   };
 
   // Calculate labor savings
@@ -800,39 +787,13 @@ export function ManagerDashboardOverlay({
           <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
 
-        {/* Close Button - Top Right */}
+        {/* Swap Button - Top Right */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex items-center gap-3 px-4 py-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 transition-all group"
+          className="absolute top-4 right-4 z-10 flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 transition-all group"
         >
-          <div className="relative w-8 h-8">
-            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 40 40">
-              <circle
-                cx="20"
-                cy="20"
-                r="17"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="text-white/20"
-              />
-              <circle
-                cx="20"
-                cy="20"
-                r="17"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray={106.8}
-                strokeDashoffset={106.8 - (countdown / 60) * 106.8}
-                className="text-primary transition-all duration-1000"
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
-              {countdown}
-            </span>
-          </div>
-          <X className="h-6 w-6 text-white/70 group-hover:text-white transition-colors" />
+          <ArrowLeftRight className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" />
+          <span className="text-white/70 group-hover:text-white text-sm font-medium transition-colors">Punch Clock</span>
         </button>
 
         <div className="relative h-full p-4 flex flex-col">
@@ -1104,7 +1065,6 @@ export function ManagerDashboardOverlay({
                               if (open) {
                                 setSelectedEmployee(shift);
                                 setShowCutOptions(true);
-                                setCountdown(60);
                               } else {
                                 setShowCutOptions(false);
                                 setSelectedEmployee(null);
@@ -1245,7 +1205,6 @@ export function ManagerDashboardOverlay({
                         }`}
                         onClick={() => {
                           setShowPreviewModal(true);
-                          setCountdown(60);
                         }}
                       >
                         <Calculator className="h-3 w-3 mr-1" />
@@ -1296,7 +1255,6 @@ export function ManagerDashboardOverlay({
           open={showPreviewModal} 
           onOpenChange={(open) => {
             setShowPreviewModal(open);
-            if (!open) setCountdown(60);
           }}
         >
           <DialogContent 
