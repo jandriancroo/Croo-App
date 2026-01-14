@@ -5,11 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Utensils, Vault, Banknote, CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import { getTodayInTimezone, getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { Progress } from '@/components/ui/progress';
+import { filterEventsByRole } from '@/utils/eventRoleFilter';
+import type { AppRole } from '@/hooks/useUserRole';
 
 interface PostClockInTasksProps {
   userId: string;
   locationId: string;
   timezone: string;
+  userRole?: AppRole | null;
   onDismiss: () => void;
 }
 
@@ -22,7 +25,7 @@ interface Task {
   type: 'catering' | 'safe' | 'deposit' | 'event';
 }
 
-export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: PostClockInTasksProps) {
+export function PostClockInTasks({ userId, locationId, timezone, userRole, onDismiss }: PostClockInTasksProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(8);
@@ -79,7 +82,7 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
         // Fetch incomplete daily event tasks
         const { data: events } = await supabase
           .from('schedule_events')
-          .select('id, event_name, event_time, day_of_week, days_of_week, event_categories(name, color)')
+          .select('id, event_name, event_time, day_of_week, days_of_week, tagged_roles, event_categories(name, color)')
           .eq('location_id', locationId)
           .eq('is_daily_task', true)
           .eq('is_recurring', true);
@@ -91,19 +94,25 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
               return event.days_of_week.includes(todayDayOfWeek);
             }
             return event.day_of_week === todayDayOfWeek;
-          });
+          }).map((event: any) => ({
+            ...event,
+            tagged_roles: event.tagged_roles as string[] | null,
+          }));
+
+          // Filter by user role visibility
+          const roleFilteredEvents = filterEventsByRole(todaysEvents, userRole ?? null);
 
           // Check which are already completed
-          if (todaysEvents.length > 0) {
+          if (roleFilteredEvents.length > 0) {
             const { data: completions } = await supabase
               .from('event_task_completions')
               .select('event_id')
-              .in('event_id', todaysEvents.map(e => e.id))
+              .in('event_id', roleFilteredEvents.map(e => e.id))
               .eq('completed_date', today);
 
             const completedIds = new Set(completions?.map(c => c.event_id) || []);
             
-            todaysEvents.forEach((event: any) => {
+            roleFilteredEvents.forEach((event: any) => {
               if (!completedIds.has(event.id)) {
                 allTasks.push({
                   id: `event-${event.id}`,

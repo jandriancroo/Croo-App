@@ -25,6 +25,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
 interface Profile {
   id: string;
@@ -53,6 +54,7 @@ interface Event {
   day_of_week: number;
   days_of_week?: number[] | null;
   notes: string | null;
+  tagged_roles?: string[] | null;
   is_recurring: boolean;
   category_id?: string | null;
   category?: {
@@ -137,7 +139,7 @@ export function MobileScheduleView({
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
-  const { isAdmin, isManager } = useUserRole();
+  const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
@@ -202,16 +204,20 @@ export function MobileScheduleView({
       const eventsData = eventsRes.data || [];
       
       // Filter events for today
-      const filteredEvents = eventsData.filter(event => {
+      const eventsForToday = eventsData.filter(event => {
         if (event.days_of_week && event.days_of_week.length > 0) {
           return event.days_of_week.includes(todayDayOfWeek);
         }
         return event.day_of_week === todayDayOfWeek;
       }).map(event => ({
         ...event,
+        tagged_roles: event.tagged_roles as string[] | null,
         category: event.event_categories
       })).sort((a, b) => a.event_time.localeCompare(b.event_time));
-      setTodayEvents(filteredEvents);
+      
+      // Filter by user role visibility
+      const roleFilteredEvents = filterEventsByRole(eventsForToday, role);
+      setTodayEvents(roleFilteredEvents);
       
       // Get creator IDs and user IDs
       const createdByIds = [...new Set(allPunches
