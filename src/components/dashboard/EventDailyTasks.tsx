@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { EventCard } from "@/components/schedule/EventCard";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUserRole } from "@/hooks/useUserRole";
+import { filterEventsByRole } from "@/utils/eventRoleFilter";
 
 interface EventTask {
   id: string;
@@ -26,6 +28,7 @@ const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: EventDailyTasksProps) {
   const queryClient = useQueryClient();
   const [completing, setCompleting] = useState<string | null>(null);
+  const { role } = useUserRole();
 
   // Use timezone-aware date functions
   const today = getTodayInTimezone(timezone);
@@ -33,7 +36,7 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
 
   // Fetch event tasks with React Query
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["event-daily-tasks", locationId, todayDayOfWeek],
+    queryKey: ["event-daily-tasks", locationId, todayDayOfWeek, role],
     queryFn: async () => {
       const { data: eventsData, error: eventsError } = await supabase
         .from("schedule_events")
@@ -44,6 +47,7 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
           day_of_week,
           days_of_week,
           category_id,
+          tagged_roles,
           event_categories(name, color)
         `)
         .eq("location_id", locationId)
@@ -64,11 +68,15 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
         event_time: event.event_time,
         category_id: event.category_id,
         category: event.event_categories,
+        tagged_roles: event.tagged_roles as string[] | null,
       }));
 
-      return todaysTasks as EventTask[];
+      // Filter by user role visibility
+      const roleFiltered = filterEventsByRole(todaysTasks, role);
+
+      return roleFiltered as EventTask[];
     },
-    enabled: !!locationId,
+    enabled: !!locationId && !!role,
     staleTime: 60 * 1000, // 1 min cache - event definitions rarely change mid-day
   });
 

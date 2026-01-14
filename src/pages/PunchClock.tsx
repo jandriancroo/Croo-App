@@ -142,6 +142,7 @@ export default function PunchClock() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -580,6 +581,14 @@ export default function PunchClock() {
     playSuccessSound();
     
     setCurrentUser(data);
+    
+    // Fetch user role for event filtering
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', data.id)
+      .single();
+    setCurrentUserRole(roleData?.role || 'team_member');
   };
 
   const checkTodayShift = async () => {
@@ -1148,6 +1157,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                   userId={currentUser.id}
                   locationId={currentLocation?.id || ''}
                   timezone={timezone}
+                  userRole={currentUserRole as any}
                   onDismiss={handlePostClockInDismiss}
                 />
               ) : !isClockedIn ? (

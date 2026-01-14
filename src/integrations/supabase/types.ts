@@ -3509,6 +3509,7 @@ export type Database = {
           notes: string | null
           schedule_id: string | null
           tagged_roles: Json | null
+          visible_to_roles: string[] | null
         }
         Insert: {
           category_id?: string | null
@@ -3524,6 +3525,7 @@ export type Database = {
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
+          visible_to_roles?: string[] | null
         }
         Update: {
           category_id?: string | null
@@ -3539,6 +3541,7 @@ export type Database = {
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
+          visible_to_roles?: string[] | null
         }
         Relationships: [
           {

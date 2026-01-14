@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { EventCard } from "@/components/schedule/EventCard";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { filterEventsByRole } from "@/utils/eventRoleFilter";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -58,7 +59,7 @@ export function AssignedTemporaryTasks({
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
-  const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
+  const { isAdmin, isManager, isShiftManager, isGeneralManager, role } = useUserRole();
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
 
   // Get user role from useUserRole hook (already fetched above via isAdmin, etc)
@@ -171,13 +172,13 @@ export function AssignedTemporaryTasks({
   const todayDayOfWeek = getDayOfWeekInTimezone();
 
   const { data: eventTasks = [], refetch: refetchEvents } = useQuery({
-    queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks],
+    queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks, role],
     queryFn: async () => {
       if (!currentLocation?.id || !includeEventTasks) return [];
 
       const { data: eventsData, error: eventsError } = await supabase
         .from("schedule_events")
-        .select(`id, event_name, event_time, day_of_week, days_of_week, category_id, event_categories(name, color)`)
+        .select(`id, event_name, event_time, day_of_week, days_of_week, category_id, tagged_roles, event_categories(name, color)`)
         .eq("location_id", currentLocation.id)
         .eq("is_daily_task", true)
         .eq("is_recurring", true);
@@ -195,11 +196,15 @@ export function AssignedTemporaryTasks({
         event_time: event.event_time,
         category_id: event.category_id,
         category: event.event_categories,
+        tagged_roles: event.tagged_roles as string[] | null,
       }));
 
-      return todaysTasks as EventTask[];
+      // Filter by user role visibility
+      const roleFiltered = filterEventsByRole(todaysTasks, role);
+
+      return roleFiltered as EventTask[];
     },
-    enabled: !!currentLocation?.id && includeEventTasks,
+    enabled: !!currentLocation?.id && includeEventTasks && !!role,
     refetchInterval: 30000,
   });
 

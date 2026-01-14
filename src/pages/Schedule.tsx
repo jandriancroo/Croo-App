@@ -38,6 +38,7 @@ import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
+import { filterEventsByRole } from "@/utils/eventRoleFilter";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes for current/next week
@@ -360,6 +361,9 @@ export default function Schedule() {
           allEvents.push(recurEvent);
         }
       });
+      
+      // Filter events by user role visibility
+      const roleFilteredEvents = filterEventsByRole(allEvents, role);
 
       // Process profiles
       if (userLocationsResult.error) throw userLocationsResult.error;
@@ -487,7 +491,7 @@ export default function Schedule() {
           ? schedule.published_shifts_snapshot 
           : []) as unknown as ScheduledShift[],
         shifts,
-        events: allEvents,
+        events: roleFilteredEvents,
         profiles: profilesWithRoles,
         templates,
         availabilityRequests,
