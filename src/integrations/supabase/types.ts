@@ -783,6 +783,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           location_id: string | null
+          lock_until_time: string | null
           template_type: string | null
           title: string
           updated_at: string | null
@@ -800,6 +801,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           location_id?: string | null
+          lock_until_time?: string | null
           template_type?: string | null
           title: string
           updated_at?: string | null
@@ -817,6 +819,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           location_id?: string | null
+          lock_until_time?: string | null
           template_type?: string | null
           title?: string
           updated_at?: string | null

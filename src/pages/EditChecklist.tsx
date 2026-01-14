@@ -186,6 +186,7 @@ export default function EditChecklist() {
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dueByTime, setDueByTime] = useState('');
+  const [lockUntilTime, setLockUntilTime] = useState('');
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
@@ -241,6 +242,7 @@ export default function EditChecklist() {
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
       setDueByTime(checklist.due_by_time || '');
+      setLockUntilTime((checklist as any).lock_until_time || '');
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
@@ -300,6 +302,7 @@ export default function EditChecklist() {
           description,
           frequency,
           due_by_time: dueByTime || null,
+          lock_until_time: lockUntilTime || null,
           template_type: templateType,
           visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
           enable_am_pm_division: enableAmPmDivision,
@@ -557,6 +560,18 @@ export default function EditChecklist() {
                 </p>
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="lock_until_time">Lock Until Time</Label>
+              <Input
+                id="lock_until_time"
+                type="time"
+                value={lockUntilTime}
+                onChange={(e) => setLockUntilTime(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Checklist will be visible but locked until this time each day
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="due_by_time">Alert Time</Label>
               <Input
