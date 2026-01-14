@@ -838,33 +838,33 @@ export function ManagerDashboardOverlay({
                               </div>
                             </PopoverTrigger>
                             <PopoverContent 
-                              className="w-56 p-2 bg-slate-800 border-white/20"
+                              className="w-56 p-3 !bg-slate-900/95 !backdrop-blur-xl border-white/20 shadow-2xl"
                               side="left"
                             >
-                              <div className="space-y-2">
+                              <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <h4 className="text-white font-semibold text-xs">Send Home Early</h4>
+                                  <h4 className="text-white font-semibold text-sm">Send Home Early</h4>
                                   {cut && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-5 text-[10px] text-red-400 hover:text-red-300 hover:bg-red-500/20 px-1"
+                                      className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/20 px-2"
                                       onClick={() => handleRemoveCut(shift.userId)}
                                     >
                                       Clear
                                     </Button>
                                   )}
                                 </div>
-                                <div className="grid grid-cols-2 gap-1">
+                                <div className="grid grid-cols-2 gap-2">
                                   {[15, 30, 45, 60].map((mins) => (
                                     <Button
                                       key={mins}
                                       size="sm"
                                       variant={cut?.minutesCut === mins ? 'default' : 'outline'}
-                                      className={`text-xs h-7 ${
+                                      className={`text-sm h-9 font-medium ${
                                         cut?.minutesCut === mins 
-                                          ? 'bg-red-500 hover:bg-red-600 text-white' 
-                                          : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                                          ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
+                                          : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
                                       }`}
                                       onClick={() => handleAddCut(shift, mins)}
                                     >
@@ -872,19 +872,19 @@ export function ManagerDashboardOverlay({
                                     </Button>
                                   ))}
                                 </div>
-                                <div className="pt-1 border-t border-white/10">
-                                  <p className="text-white/60 text-[10px] mb-1">Custom:</p>
-                                  <div className="flex gap-1">
+                                <div className="pt-2 border-t border-white/20">
+                                  <p className="text-white/70 text-xs mb-2">Custom end time:</p>
+                                  <div className="flex gap-2">
                                     <Input
                                       type="time"
                                       value={customTime}
                                       onChange={(e) => setCustomTime(e.target.value)}
-                                      className="bg-white/10 border-white/20 text-white text-xs h-6"
+                                      className="bg-white/10 border-white/30 text-white text-sm h-9 flex-1"
                                     />
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="bg-white/10 border-white/20 text-white hover:bg-white/20 h-6 px-2 text-xs"
+                                      className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-9 px-3 text-sm"
                                       onClick={() => handleCustomCut(shift)}
                                       disabled={!customTime}
                                     >
