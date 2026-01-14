@@ -412,9 +412,9 @@ export function ManagerDashboardOverlay({
             transition={{ delay: 0.1 }}
             className="text-center mb-8"
           >
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <Clock className="h-8 w-8 text-primary" />
-              <span className="text-5xl font-bold text-white tracking-tight font-mono">
+            <div className="flex items-center justify-center gap-4 mb-2">
+              <Clock className="h-10 w-10 text-primary" />
+              <span className="text-6xl font-semibold text-white tracking-wide" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                 {formatTimeDisplay(currentTime)}
               </span>
             </div>
