@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Upload, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Upload, CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -43,6 +43,7 @@ interface Checklist {
   location_id: string | null;
   frequency: string;
   enable_am_pm_division?: boolean;
+  lock_until_time?: string | null;
 }
 interface ResponseWithCompleter {
   responseId: string;
@@ -116,6 +117,28 @@ export default function CompleteChecklist() {
       localStorage.removeItem(hideCompletedKey);
     }
   }, [completionPercentage, hideCompletedKey]);
+
+  // Check if checklist is locked based on lock_until_time
+  const isLocked = useMemo(() => {
+    if (!checklist?.lock_until_time) return false;
+    
+    // Get current time in location timezone
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', { 
+      timeZone: 'America/Los_Angeles', 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+    const currentTimeStr = formatter.format(now);
+    const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
+    const [lockHour, lockMinute] = checklist.lock_until_time.split(':').map(Number);
+    
+    const currentMinutes = currentHour * 60 + currentMinute;
+    const lockMinutes = lockHour * 60 + lockMinute;
+    
+    return currentMinutes < lockMinutes;
+  }, [checklist?.lock_until_time]);
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
@@ -834,6 +857,38 @@ export default function CompleteChecklist() {
   if (!checklist) {
     return null;
   }
+  // Format lock time for display
+  const formatLockTime = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHour = hours % 12 || 12;
+    return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // If locked, show lock overlay
+  if (isLocked && checklist?.lock_until_time) {
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div>
+            <h2 className="text-3xl font-bold">{checklist.title}</h2>
+            {checklist.description && <p className="text-muted-foreground">{checklist.description}</p>}
+          </div>
+          
+          <Card className="border-2 border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Checklist Locked</h3>
+              <p className="text-muted-foreground">
+                This checklist will unlock at <span className="font-semibold">{formatLockTime(checklist.lock_until_time)}</span>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   return <Layout>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>

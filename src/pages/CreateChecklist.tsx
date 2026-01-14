@@ -35,6 +35,7 @@ export default function CreateChecklist() {
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dueByTime, setDueByTime] = useState('');
+  const [lockUntilTime, setLockUntilTime] = useState('');
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
@@ -77,6 +78,7 @@ export default function CreateChecklist() {
       setDescription(parsed.description ?? '');
       setFrequency(parsed.frequency ?? 'daily');
       setDueByTime(parsed.dueByTime ?? '');
+      setLockUntilTime(parsed.lockUntilTime ?? '');
       setTemplateType(parsed.templateType ?? 'standard');
       setSelectedRoles(Array.isArray(parsed.selectedRoles) ? parsed.selectedRoles : []);
       setVisibleDaysBeforeMonthEnd(
@@ -104,6 +106,7 @@ export default function CreateChecklist() {
           description,
           frequency,
           dueByTime,
+          lockUntilTime,
           templateType,
           selectedRoles,
           visibleDaysBeforeMonthEnd,
@@ -124,6 +127,7 @@ export default function CreateChecklist() {
     description,
     frequency,
     dueByTime,
+    lockUntilTime,
     templateType,
     selectedRoles,
     visibleDaysBeforeMonthEnd,
@@ -285,6 +289,7 @@ export default function CreateChecklist() {
         description,
         frequency,
         due_by_time: dueByTime || null,
+        lock_until_time: lockUntilTime || null,
         template_type: 'standard',
         created_by: userId,
         location_id: locationId,
@@ -343,6 +348,7 @@ export default function CreateChecklist() {
         description,
         frequency,
         due_by_time: dueByTime || null,
+        lock_until_time: lockUntilTime || null,
         template_type: 'dynamic',
         created_by: userId,
         location_id: locationId,
@@ -470,6 +476,18 @@ export default function CreateChecklist() {
                   </p>
                 </div>
               )}
+              <div className="space-y-2">
+                <Label htmlFor="lock_until_time">Lock Until Time</Label>
+                <Input
+                  id="lock_until_time"
+                  type="time"
+                  value={lockUntilTime}
+                  onChange={(e) => setLockUntilTime(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Checklist will be visible but locked until this time each day
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="due_by_time">Alert Time</Label>
                 <Input
