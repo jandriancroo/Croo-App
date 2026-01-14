@@ -187,6 +187,7 @@ export default function EditChecklist() {
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
+  const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
@@ -242,7 +243,9 @@ export default function EditChecklist() {
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
       setDueByTime(checklist.due_by_time || '');
-      setLockUntilTime((checklist as any).lock_until_time || '');
+      const savedLockTime = checklist.lock_until_time || '';
+      setLockUntilTime(savedLockTime);
+      setLockTimeEnabled(!!savedLockTime);
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
@@ -302,7 +305,7 @@ export default function EditChecklist() {
           description,
           frequency,
           due_by_time: dueByTime || null,
-          lock_until_time: lockUntilTime || null,
+          lock_until_time: lockTimeEnabled && lockUntilTime ? lockUntilTime : null,
           template_type: templateType,
           visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
           enable_am_pm_division: enableAmPmDivision,
@@ -560,16 +563,31 @@ export default function EditChecklist() {
                 </p>
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="lock_until_time">Lock Until Time</Label>
-              <Input
-                id="lock_until_time"
-                type="time"
-                value={lockUntilTime}
-                onChange={(e) => setLockUntilTime(e.target.value)}
-              />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="lock_time_toggle">Lock Until Time</Label>
+                <Switch
+                  id="lock_time_toggle"
+                  checked={lockTimeEnabled}
+                  onCheckedChange={(checked) => {
+                    setLockTimeEnabled(checked);
+                    if (!checked) setLockUntilTime('');
+                  }}
+                />
+              </div>
+              {lockTimeEnabled && (
+                <Input
+                  id="lock_until_time"
+                  type="time"
+                  value={lockUntilTime}
+                  onChange={(e) => setLockUntilTime(e.target.value)}
+                  placeholder="Select time"
+                />
+              )}
               <p className="text-xs text-muted-foreground">
-                Checklist will be visible but locked until this time each day
+                {lockTimeEnabled 
+                  ? 'Checklist will be visible but locked until this time each day'
+                  : 'Enable to lock this checklist until a specific time each day'}
               </p>
             </div>
             <div className="space-y-2">
