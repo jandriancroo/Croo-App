@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import type { AppRole } from '@/hooks/useUserRole';
+import { getCachedLiveSales, getCachedProjections } from '@/utils/salesCache';
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
@@ -258,10 +259,42 @@ export function ManagerDashboardOverlay({
     },
   });
 
-  // Calculate sales metrics
+  // Calculate sales metrics from DB
   const totalSales = Number(salesData?.net_sales) || 0;
-  const eodGoal = Number(salesData?.projected_sales) || 0;
   const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
+
+  // Get pace and EOD goal from the same cache SalesOverview uses
+  // This ensures Manager Dashboard shows EXACTLY the same numbers as the Dashboard
+  const cachedLiveSales = useMemo(() => getCachedLiveSales(locationId), [locationId]);
+  const cachedProjections = useMemo(() => getCachedProjections(locationId), [locationId]);
+  
+  // EOD Goal: prefer cachedLiveSales.projections.todayProjected, fall back to sales_cache.projected_sales
+  const eodGoal = useMemo(() => {
+    // First try cached live sales (same source as SalesOverview)
+    const liveProjected = cachedLiveSales?.data?.projections?.todayProjected;
+    if (liveProjected && liveProjected > 0) return liveProjected;
+    
+    // Then try projection cache
+    const cachedProjected = cachedProjections?.todayProjected;
+    if (cachedProjected && cachedProjected > 0) return cachedProjected;
+    
+    // Fall back to sales_cache.projected_sales
+    return Number(salesData?.projected_sales) || 0;
+  }, [cachedLiveSales, cachedProjections, salesData?.projected_sales]);
+  
+  // Pace Adjusted: get from cache (same source as SalesOverview)
+  const paceAdjusted = useMemo(() => {
+    // First try cached live sales (same source as SalesOverview)
+    const livePace = cachedLiveSales?.data?.projections?.todayPaceAdjusted;
+    if (livePace && livePace > 0) return livePace;
+    
+    // Then try projection cache
+    const cachedPace = cachedProjections?.todayPaceAdjusted;
+    if (cachedPace && cachedPace > 0) return cachedPace;
+    
+    // Fall back to actual sales if no pace data
+    return totalSales;
+  }, [cachedLiveSales, cachedProjections, totalSales]);
 
   // Get last 4 hours of sales
   const currentHour = new Date(currentTime.toLocaleString('en-US', { timeZone: timezone })).getHours();
@@ -276,28 +309,9 @@ export function ManagerDashboardOverlay({
     };
   }).filter(h => h.hour >= 0 && h.hour <= 23);
 
-  // Calculate pace-adjusted projection using hourly data
-  // Logic: actual sales so far + remaining hourly projections
-  const calculatePaceAdjusted = () => {
-    if (!hourlyData.length || eodGoal <= 0) return totalSales;
-    
-    // Sum up remaining projected sales for hours after current hour
-    let remainingProjected = 0;
-    for (let hr = currentHour + 1; hr <= 23; hr++) {
-      const hourStr = `${String(hr).padStart(2, '0')}:00`;
-      const hourData = hourlyData.find(h => h.hour === hourStr);
-      if (hourData?.projected) {
-        remainingProjected += hourData.projected;
-      }
-    }
-    
-    // Pace = actual sales + remaining projected (clamped to at least actual)
-    return Math.max(totalSales + remainingProjected, totalSales);
-  };
-  
-  const paceAdjusted = calculatePaceAdjusted();
-  const paceDelta = paceAdjusted - eodGoal;
-  const paceStatus = paceDelta >= eodGoal * 0.1 
+  // Calculate pace delta and status
+  const paceDelta = eodGoal > 0 ? paceAdjusted - eodGoal : 0;
+  const paceStatus = eodGoal > 0 && paceDelta >= eodGoal * 0.1 
     ? 'fire' 
     : paceDelta >= -eodGoal * 0.05 
       ? 'good' 
