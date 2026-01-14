@@ -11,7 +11,6 @@ import {
   DollarSign, 
   Target,
   Flame,
-  Snowflake,
   Coffee,
   CheckCircle2,
   X,
@@ -461,7 +460,7 @@ export function ManagerDashboardOverlay({
                     {paceStatus === 'fire' ? (
                       <Flame className="h-8 w-8 mx-auto mb-2 text-orange-500 animate-pulse" />
                     ) : paceStatus === 'cold' ? (
-                      <Snowflake className="h-8 w-8 mx-auto mb-2 text-blue-300" />
+                      <TrendingDown className="h-8 w-8 mx-auto mb-2 text-red-400" />
                     ) : (
                       <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-400" />
                     )}
@@ -483,11 +482,11 @@ export function ManagerDashboardOverlay({
                           paceStatus === 'fire' 
                             ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse' 
                             : paceStatus === 'cold'
-                              ? 'bg-blue-500/20 text-blue-300'
+                              ? 'bg-red-500/20 text-red-300'
                               : 'bg-green-500/20 text-green-300'
                         }`}
                       >
-                        {paceStatus === 'fire' ? '🔥 ON FIRE' : paceStatus === 'cold' ? '❄️ COLD' : '✓ ON PACE'}
+                        {paceStatus === 'fire' ? '🔥 On Fire' : paceStatus === 'cold' ? 'Behind' : 'On Track'}
                       </Badge>
                     </div>
                   </CardContent>
