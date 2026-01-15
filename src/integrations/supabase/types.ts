@@ -3010,6 +3010,7 @@ export type Database = {
           profile_photo_url: string | null
           role: string | null
           updated_at: string | null
+          weekly_availability: Json | null
         }
         Insert: {
           all_locations_enabled?: boolean
@@ -3034,6 +3035,7 @@ export type Database = {
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
+          weekly_availability?: Json | null
         }
         Update: {
           all_locations_enabled?: boolean
@@ -3058,6 +3060,7 @@ export type Database = {
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
+          weekly_availability?: Json | null
         }
         Relationships: [
           {
