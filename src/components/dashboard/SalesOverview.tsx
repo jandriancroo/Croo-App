@@ -24,7 +24,7 @@ interface SalesData {
   weekly?: number;
   monthly?: number;
   hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number; laborPercent?: number }>;
-  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number; laborPercent?: number; laborCost?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number; laborPercent?: number; laborCost?: number; projectionSource?: ProjectionSource }>;
   monthlyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
@@ -36,7 +36,7 @@ interface SalesData {
   } | null;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
   lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
-  projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
+  projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number; todaySource?: ProjectionSource };
   currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
   dateRange?: { today: string; weekStart: string; monthStart: string };
@@ -382,6 +382,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       projections: {
         // Use new projection resolution for today's projection
         todayProjected: cached ? (resolveProjection(cached as any).value || 0) : 0,
+        todaySource: cached ? resolveProjection(cached as any).source : null,
         weekProjected: weeklyProjected,
         monthProjected: monthlyProjected
       },
@@ -1347,7 +1348,10 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">AI Goal EOD</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">AI Goal EOD</span>
+                          <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
+                        </div>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.todayProjected)}
                         </span>
@@ -1617,7 +1621,17 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">AI Goal EOW</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">AI Goal EOW</span>
+                          {/* Show tag if any day in week has living/override projection */}
+                          {salesData?.weeklyBreakdown?.some(d => d.projectionSource === 'living' || d.projectionSource === 'override') && (
+                            <ProjectionTag 
+                              source={salesData.weeklyBreakdown.some(d => d.projectionSource === 'override') ? 'override' : 'living'} 
+                              size="sm" 
+                              showLabel={false} 
+                            />
+                          )}
+                        </div>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(calculatedWeekProjected)}
                         </span>
@@ -1784,7 +1798,13 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">AI Goal EOM</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">AI Goal EOM</span>
+                          {/* Show living tag if projections are coming from living/override sources */}
+                          {salesData.projections.todaySource === 'living' || salesData.projections.todaySource === 'override' ? (
+                            <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
+                          ) : null}
+                        </div>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.monthProjected)}
                         </span>
