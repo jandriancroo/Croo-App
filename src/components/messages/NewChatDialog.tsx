@@ -32,7 +32,6 @@ const ROLE_OPTIONS = [
   { value: 'team_member', label: 'Team Member' },
   { value: 'shift_manager', label: 'Shift Manager' },
   { value: 'manager', label: 'Manager' },
-  { value: 'general_manager', label: 'General Manager' },
   { value: 'admin', label: 'Admin' },
 ];
 

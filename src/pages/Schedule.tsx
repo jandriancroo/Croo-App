@@ -1278,7 +1278,7 @@ export default function Schedule() {
       
       const roleDisplayName = pendingRoleChange.newRole === 'team_member' ? 'Team Member' 
         : pendingRoleChange.newRole === 'shift_manager' ? 'Shift Manager'
-        : pendingRoleChange.newRole === 'general_manager' ? 'General Manager'
+        : pendingRoleChange.newRole === 'manager' ? 'Manager'
         : pendingRoleChange.newRole;
       toast.success(`${pendingRoleChange.userName}'s role changed to ${roleDisplayName}`);
     } catch (error) {
@@ -1537,9 +1537,8 @@ export default function Schedule() {
                       super_admin: 'Super Admins',
                       org_admin: 'Org Admins',
                       admin: 'Admins',
-                      general_manager: 'General Managers',
-                      shift_manager: 'Shift Managers',
                       manager: 'Managers',
+                      shift_manager: 'Shift Managers',
                       team_member: 'Team Members'
                     };
                     const roleLabel = roleLabels[roleFilter] || roleFilter;
@@ -1796,7 +1795,7 @@ export default function Schedule() {
                 Would you like to change {pendingRoleChange?.userName}'s role to {
                   pendingRoleChange?.newRole === 'team_member' ? 'Team Member' 
                   : pendingRoleChange?.newRole === 'shift_manager' ? 'Shift Manager'
-                  : pendingRoleChange?.newRole === 'general_manager' ? 'General Manager'
+                  : pendingRoleChange?.newRole === 'manager' ? 'Manager'
                   : pendingRoleChange?.newRole
                 }?
               </AlertDialogDescription>
