@@ -356,8 +356,8 @@ export default function FBCDashboard() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">FBC Dashboard</h1>
-          <p className="text-muted-foreground">Franchise Business Consultant Overview</p>
+          <h1 className="text-3xl font-bold">Brand Dash</h1>
+          <p className="text-muted-foreground">Brand-Level Overview Across Organizations</p>
         </div>
 
         {isLoading ? (

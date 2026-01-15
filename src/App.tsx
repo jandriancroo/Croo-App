@@ -58,7 +58,7 @@ import HiringChat from "./pages/HiringChat";
 import ApplicantPortal from "./pages/ApplicantPortal";
 import Changelog from "./pages/Changelog";
 import PunchClockCustomization from "./pages/PunchClockCustomization";
-import FBCDashboard from "./pages/FBCDashboard";
+import BrandDashboard from "./pages/BrandDashboard";
 import MyProfile from "./pages/MyProfile";
 import MultiLocationDashboard from "./pages/MultiLocationDashboard";
 import Inventory from "./pages/Inventory";
@@ -164,8 +164,8 @@ const AppContent = () => {
       {/* Role Management moved to Organization Profile page */}
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
-      {/* FBC Dashboard hidden - <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} /> */}
-      <Route path="/multi-location" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
+      <Route path="/brand-dashboard" element={<ProtectedRoute><BrandDashboard /></ProtectedRoute>} />
+      <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
       <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
       <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
       <Route path="/games" element={<ProtectedRoute><Games /></ProtectedRoute>} />

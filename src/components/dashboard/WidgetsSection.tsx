@@ -24,7 +24,7 @@ import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './
 import { AddWidgetDialog, NewDataCubeConfig, CubeType } from './AddWidgetDialog';
 import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
-import { SalesOverview } from './SalesOverview';
+import { SalesSummary } from './SalesSummary';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card } from '@/components/ui/card';
@@ -124,13 +124,13 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
                 className={`w-full px-3 py-2 flex items-center justify-between transition-opacity ${isReorderMode ? 'opacity-85 pointer-events-none' : 'cursor-pointer hover:opacity-90'}`}
                 style={{ backgroundColor: salesChartColor }}
               >
-                <span className="text-sm font-semibold text-white">Sales Overview</span>
+                <span className="text-sm font-semibold text-white">Sales Summary</span>
                 <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
               </button>
             </CollapsibleTrigger>
-            {/* Always mount SalesOverview so it can fetch data for other cubes, even when collapsed */}
+            {/* Always mount SalesSummary so it can fetch data for other cubes, even when collapsed */}
             <div className={salesOverviewOpen ? (isReorderMode ? 'opacity-85' : '') : 'h-0 overflow-hidden'}>
-              <SalesOverview locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+              <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
             </div>
           </Collapsible>
         </Card>
