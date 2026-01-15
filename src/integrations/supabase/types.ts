@@ -3390,8 +3390,13 @@ export type Database = {
           guest_count: number
           hourly_data: Json | null
           id: string
+          initial_projection: number | null
+          living_projection: number | null
           location_id: string
           net_sales: number
+          override_at: string | null
+          override_by: string | null
+          override_projection: number | null
           payments_data: Json | null
           pizza_count: number
           projected_sales: number | null
@@ -3410,8 +3415,13 @@ export type Database = {
           guest_count?: number
           hourly_data?: Json | null
           id?: string
+          initial_projection?: number | null
+          living_projection?: number | null
           location_id: string
           net_sales?: number
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
@@ -3430,8 +3440,13 @@ export type Database = {
           guest_count?: number
           hourly_data?: Json | null
           id?: string
+          initial_projection?: number | null
+          living_projection?: number | null
           location_id?: string
           net_sales?: number
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
           payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
