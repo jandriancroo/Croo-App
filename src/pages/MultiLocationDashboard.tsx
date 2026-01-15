@@ -475,23 +475,23 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       
-                      {/* Sales info - stacked and larger */}
+                      {/* Sales info - tighter spacing */}
                       {salesData ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-baseline justify-between">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-baseline justify-between gap-2">
                             <span className="text-xs text-muted-foreground">Sales</span>
                             <span className="text-base font-bold">{formatCurrency(salesData.sales)}</span>
                           </div>
-                          <div className="flex items-baseline justify-between">
+                          <div className="flex items-baseline justify-between gap-2">
                             <span className="text-xs text-muted-foreground">AI Goal</span>
                             <span className="text-sm font-semibold text-muted-foreground">{formatCurrency(salesData.goal)}</span>
                           </div>
-                          <div className="flex items-baseline justify-between">
+                          <div className="flex items-baseline justify-between gap-2">
                             <span className="text-xs text-muted-foreground">Pace</span>
                             <span className="text-sm font-semibold">{formatCurrency(salesData.pace)}</span>
                           </div>
                           {/* Status badge */}
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1 mt-0.5">
                             {getStatusIcon(salesData.status)}
                             {getStatusBadge(salesData.status)}
                           </div>
