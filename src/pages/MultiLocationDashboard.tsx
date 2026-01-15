@@ -22,12 +22,21 @@ interface LocationRow {
 }
 
 interface LocationSalesData {
+  // Daily data
   sales: number;
   goal: number;
   pace: number;
   status: 'ahead' | 'behind' | 'on-track';
   hourlyData: Array<{ hour: string; sales: number; projected?: number }>;
+  // Weekly totals
+  weeklySales: number;
+  weeklyGoal: number;
+  weeklyStatus: 'ahead' | 'behind' | 'on-track';
   weeklyBreakdown: Array<{ date: string; sales: number; projected: number }>;
+  // Monthly totals
+  monthlySales: number;
+  monthlyGoal: number;
+  monthlyStatus: 'ahead' | 'behind' | 'on-track';
   monthlyBreakdown: Array<{ date: string; sales: number; projected: number }>;
 }
 
@@ -145,34 +154,52 @@ export default function MultiLocationDashboard() {
         // Build weekly breakdown
         const weekData = weekResult.data?.filter(s => s.location_id === loc.id) || [];
         const weeklyBreakdown: { date: string; sales: number; projected: number }[] = [];
+        let weeklySales = 0;
+        let weeklyGoal = 0;
         for (let i = 0; i < 7; i++) {
           const dayDate = new Date(weekStart);
           dayDate.setDate(dayDate.getDate() + i);
           const dayStr = format(dayDate, 'yyyy-MM-dd');
           const dayData = weekData.find(d => d.sale_date === dayStr);
           const dayResolved = resolveProjection(dayData as any);
+          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          const dayProj = dayResolved.value || 0;
+          weeklySales += daySales;
+          weeklyGoal += dayProj;
           weeklyBreakdown.push({
             date: dayStr,
-            sales: dayData ? Number(dayData.net_sales) || 0 : 0,
-            projected: dayResolved.value || 0,
+            sales: daySales,
+            projected: dayProj,
           });
         }
+        const weeklyStatus: 'ahead' | 'behind' | 'on-track' = weeklyGoal > 0 
+          ? (weeklySales / weeklyGoal >= 1.03 ? 'ahead' : weeklySales / weeklyGoal <= 0.97 ? 'behind' : 'on-track')
+          : 'on-track';
         
         // Build monthly breakdown
         const monthData = monthResult.data?.filter(s => s.location_id === loc.id) || [];
         const daysInMonth = monthEnd.getDate();
         const monthlyBreakdown: { date: string; sales: number; projected: number }[] = [];
+        let monthlySales = 0;
+        let monthlyGoal = 0;
         for (let day = 1; day <= daysInMonth; day++) {
           const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
           const dayStr = format(dayDate, 'yyyy-MM-dd');
           const dayData = monthData.find(d => d.sale_date === dayStr);
           const dayResolved = resolveProjection(dayData as any);
+          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          const dayProj = dayResolved.value || 0;
+          monthlySales += daySales;
+          monthlyGoal += dayProj;
           monthlyBreakdown.push({
             date: dayStr,
-            sales: dayData ? Number(dayData.net_sales) || 0 : 0,
-            projected: dayResolved.value || 0,
+            sales: daySales,
+            projected: dayProj,
           });
         }
+        const monthlyStatus: 'ahead' | 'behind' | 'on-track' = monthlyGoal > 0 
+          ? (monthlySales / monthlyGoal >= 1.03 ? 'ahead' : monthlySales / monthlyGoal <= 0.97 ? 'behind' : 'on-track')
+          : 'on-track';
         
         result[loc.id] = {
           sales,
@@ -180,7 +207,13 @@ export default function MultiLocationDashboard() {
           pace: paceAdjusted,
           status,
           hourlyData,
+          weeklySales,
+          weeklyGoal,
+          weeklyStatus,
           weeklyBreakdown,
+          monthlySales,
+          monthlyGoal,
+          monthlyStatus,
           monthlyBreakdown,
         };
       }
@@ -477,28 +510,44 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       
-                      {/* Sales info - tighter spacing */}
-                      {salesData ? (
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">Sales</span>
-                            <span className="text-base font-bold">{formatCurrency(salesData.sales)}</span>
+                      {/* Sales info - period-aware */}
+                      {salesData ? (() => {
+                        const displaySales = chartPeriod === 'daily' ? salesData.sales 
+                          : chartPeriod === 'weekly' ? salesData.weeklySales 
+                          : salesData.monthlySales;
+                        const displayGoal = chartPeriod === 'daily' ? salesData.goal 
+                          : chartPeriod === 'weekly' ? salesData.weeklyGoal 
+                          : salesData.monthlyGoal;
+                        const displayStatus = chartPeriod === 'daily' ? salesData.status 
+                          : chartPeriod === 'weekly' ? salesData.weeklyStatus 
+                          : salesData.monthlyStatus;
+                        // Pace only makes sense for daily
+                        const showPace = chartPeriod === 'daily';
+                        
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-xs text-muted-foreground">Sales</span>
+                              <span className="text-base font-bold">{formatCurrency(displaySales)}</span>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-xs text-muted-foreground">AI Goal</span>
+                              <span className="text-sm font-semibold text-muted-foreground">{formatCurrency(displayGoal)}</span>
+                            </div>
+                            {showPace && (
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs text-muted-foreground">Pace</span>
+                                <span className="text-sm font-semibold">{formatCurrency(salesData.pace)}</span>
+                              </div>
+                            )}
+                            {/* Status badge */}
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {getStatusIcon(displayStatus)}
+                              {getStatusBadge(displayStatus)}
+                            </div>
                           </div>
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">AI Goal</span>
-                            <span className="text-sm font-semibold text-muted-foreground">{formatCurrency(salesData.goal)}</span>
-                          </div>
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-xs text-muted-foreground">Pace</span>
-                            <span className="text-sm font-semibold">{formatCurrency(salesData.pace)}</span>
-                          </div>
-                          {/* Status badge */}
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {getStatusIcon(salesData.status)}
-                            {getStatusBadge(salesData.status)}
-                          </div>
-                        </div>
-                      ) : (
+                        );
+                      })() : (
                         <div className="text-sm text-muted-foreground">No sales data</div>
                       )}
                     </div>
