@@ -663,7 +663,7 @@ export default function EditChecklist() {
                 If no roles are selected, all users can see this checklist
               </p>
               <div className="space-y-2">
-                {['admin', 'general_manager', 'shift_manager', 'team_member'].map((role) => (
+                {['admin', 'manager', 'shift_manager', 'team_member'].map((role) => (
                   <div key={role} className="flex items-center space-x-2">
                     <Checkbox
                       id={`role-${role}`}
@@ -677,7 +677,7 @@ export default function EditChecklist() {
                       }}
                     />
                     <Label htmlFor={`role-${role}`} className="text-sm font-normal">
-                      {role === 'general_manager' ? 'General Manager' : role === 'shift_manager' ? 'Shift Manager' : role === 'team_member' ? 'Team Member' : 'Admin'}
+                      {role === 'manager' ? 'Manager' : role === 'shift_manager' ? 'Shift Manager' : role === 'team_member' ? 'Team Member' : 'Admin'}
                     </Label>
                   </div>
                 ))}

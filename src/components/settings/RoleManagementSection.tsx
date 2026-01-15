@@ -121,7 +121,6 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       case 'org_admin': return 'Org Admin';
       case 'admin': return 'Admin';
       case 'manager': return 'Manager';
-      case 'general_manager': return 'General Manager';
       case 'shift_manager': return 'Shift Manager';
       default: return 'Team Member';
     }

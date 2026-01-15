@@ -39,7 +39,6 @@ const ROLE_LABELS: Record<string, string> = {
   team_member: 'Team Member',
   shift_manager: 'Shift Manager',
   manager: 'Manager',
-  general_manager: 'General Manager',
 };
 
 export default function RoleDashboardCustomizer() {
