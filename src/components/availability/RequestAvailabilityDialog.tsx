@@ -135,13 +135,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
       return;
     }
 
-    const [rangeStart, rangeEnd] =
-      timeScope === "multi_day" && endDate
-        ? startDate <= endDate
-          ? [startDate, endDate]
-          : [endDate, startDate]
-        : [startDate, undefined];
-
+    // Store dates as user entered them - don't reorder
     setSubmitting(true);
     try {
       const {
@@ -149,15 +143,15 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const hours = calculateHours({ startDate: rangeStart, endDate: rangeEnd });
+      const hours = calculateHours({ startDate, endDate });
 
       const { error } = await supabase.from("availability_requests").insert({
         user_id: user.id,
         location_id: currentLocation?.id,
         request_type: requestType,
         time_scope: timeScope,
-        start_date: rangeStart,
-        end_date: timeScope === "multi_day" ? (rangeEnd ?? null) : null,
+        start_date: startDate,
+        end_date: timeScope === "multi_day" ? (endDate || null) : null,
         start_time: timeScope === "partial_day" ? startTime : null,
         end_time: timeScope === "partial_day" ? endTime : null,
         hours_requested: hours,
