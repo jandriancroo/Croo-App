@@ -22,7 +22,7 @@ import {
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { resolveProjection, calculatePaceAdjustedTotal } from '@/hooks/useResolvedProjection';
 import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
-import { SalesProgressChart, SalesProgressChartSkeleton } from '@/components/dashboard/SalesProgressChart';
+import { SalesSummaryChart, SalesSummaryChartSkeleton } from '@/components/dashboard/SalesSummaryChart';
 
 interface ChecklistMetric {
   id: string;
@@ -36,6 +36,11 @@ interface LocationSalesData {
   daily: { actual: number; projected: number; pacing: number; lastYear: number };
   weekly: { actual: number; projected: number; pacing: number; lastYear: number };
   monthly: { actual: number; projected: number; pacing: number; lastYear: number };
+  // Chart data (same shape used by Sales Summary)
+  hourly?: Array<{ hour: string; sales: number; projected?: number; laborPercent?: number; checksCount?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; projected: number; laborPercent?: number }>;
+  monthlyBreakdown?: Array<{ date: string; sales: number; projected: number }>;
+  pizzaCount?: number;
 }
 
 interface LaborData {
@@ -381,12 +386,14 @@ export default function MultiLocationDashboard() {
         
         const quBeyondLocationIds = locationsWithQuBeyond.map(l => l.id);
         
-        // Fetch all sales cache data in one query (current month covers daily, weekly, monthly)
+        // Fetch all sales cache data in one query.
+        // IMPORTANT: include weekStart so weekly charts stay correct even when the week overlaps a month boundary.
+        const rangeStartStr = weekStartStr < monthStartStr ? weekStartStr : monthStartStr;
         const { data: salesCacheData } = await supabase
           .from('sales_cache')
-          .select('location_id, sale_date, net_sales, initial_projection, living_projection, override_projection, override_at, override_by, yoy_net_sales')
+          .select('location_id, sale_date, net_sales, initial_projection, living_projection, override_projection, override_at, override_by, yoy_net_sales, hourly_data, pizza_count')
           .in('location_id', quBeyondLocationIds)
-          .gte('sale_date', monthStartStr)
+          .gte('sale_date', rangeStartStr)
           .lte('sale_date', monthEndStr)
           .order('sale_date', { ascending: true });
 
@@ -425,44 +432,88 @@ export default function MultiLocationDashboard() {
         const salesResults = locationsWithQuBeyond.map(loc => {
           const locationSales = salesByLocation.get(loc.id) || [];
           const laborData = laborByLocation.get(loc.id);
-          
+
           // Daily metrics (today)
           const todayData = locationSales.find(s => s.sale_date === todayStr);
           const dailyActual = Number(todayData?.net_sales) || 0;
           const dailyResolved = resolveProjection(todayData);
           const dailyProjected = dailyResolved.value || 0;
           const dailyLastYear = Number(todayData?.yoy_net_sales) || 0;
-          
+
+          // Hourly chart data (same as Sales Summary)
+          const hourly = (todayData as any)?.hourly_data
+            ? ((todayData as any).hourly_data as Array<{ hour: string; sales: number; checksCount?: number; projected?: number }>).map(h => ({
+                hour: h.hour,
+                sales: Number(h.sales) || 0,
+                projected: Number(h.projected) || 0,
+                checksCount: Number((h as any).checksCount) || undefined,
+              }))
+            : undefined;
+
+          const pizzaCount = Number((todayData as any)?.pizza_count) || 0;
+
           // Weekly metrics (Mon-Sun of current week)
           const weekEndDate = new Date(weekStart);
           weekEndDate.setDate(weekEndDate.getDate() + 6);
           const weekEndStr = format(weekEndDate, 'yyyy-MM-dd');
-          
+
+          // Build full 7-day weekly breakdown so the chart always has Mon..Sun
+          const weekDataMap = new Map(locationSales.map((d: any) => [d.sale_date, d]));
+          const weeklyBreakdown: Array<{ date: string; sales: number; projected: number; laborPercent?: number }> = [];
+          for (let i = 0; i < 7; i++) {
+            const dt = new Date(weekStart);
+            dt.setDate(weekStart.getDate() + i);
+            const dayStr = format(dt, 'yyyy-MM-dd');
+            const row = weekDataMap.get(dayStr);
+            const sales = Number(row?.net_sales) || 0;
+            const resolved = resolveProjection(row);
+            weeklyBreakdown.push({
+              date: dayStr,
+              sales,
+              projected: resolved.value || 0,
+            });
+          }
+
           const weekData = locationSales.filter(s => s.sale_date >= weekStartStr && s.sale_date <= weekEndStr);
           const weeklyActual = weekData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
           const weeklyLastYear = weekData.reduce((sum, d) => sum + (Number(d.yoy_net_sales) || 0), 0);
-          
+
           // Weekly projection using pace-adjusted calculation
-          const weeklyDataWithResolved = weekData.map(d => ({
-            date: d.sale_date,
-            sales: Number(d.net_sales) || 0,
-            resolved: resolveProjection(d)
+          const weeklyDataWithResolved = weeklyBreakdown.map(d => ({
+            date: d.date,
+            sales: d.sales,
+            resolved: { value: d.projected, source: 'legacy' as any }
           }));
-          const weeklyProjected = weeklyDataWithResolved.reduce((sum, d) => sum + (d.resolved.value || 0), 0);
-          const weeklyPacing = calculatePaceAdjustedTotal(weeklyDataWithResolved, todayStr);
-          
-          // Monthly metrics
-          const monthlyActual = locationSales.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
-          const monthlyLastYear = locationSales.reduce((sum, d) => sum + (Number(d.yoy_net_sales) || 0), 0);
-          
-          // Monthly projection using pace-adjusted calculation  
-          const monthlyDataWithResolved = locationSales.map(d => ({
-            date: d.sale_date,
-            sales: Number(d.net_sales) || 0,
-            resolved: resolveProjection(d)
-          }));
-          const monthlyProjected = monthlyDataWithResolved.reduce((sum, d) => sum + (d.resolved.value || 0), 0);
-          const monthlyPacing = calculatePaceAdjustedTotal(monthlyDataWithResolved, todayStr);
+          const weeklyProjected = weeklyBreakdown.reduce((sum, d) => sum + (d.projected || 0), 0);
+          const weeklyPacing = calculatePaceAdjustedTotal(weeklyDataWithResolved as any, todayStr);
+
+          // Monthly metrics (entire current month)
+          const monthSales = locationSales.filter(s => s.sale_date >= monthStartStr && s.sale_date <= monthEndStr);
+          const monthlyActual = monthSales.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
+          const monthlyLastYear = monthSales.reduce((sum, d) => sum + (Number(d.yoy_net_sales) || 0), 0);
+
+          // Full-month daily breakdown for chart (same as Sales Summary)
+          const monthMap = new Map(monthSales.map((d: any) => [d.sale_date, d]));
+          const daysInMonth = monthEnd.getDate();
+          const monthlyBreakdown: Array<{ date: string; sales: number; projected: number }> = [];
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dt = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+            const dayStr = format(dt, 'yyyy-MM-dd');
+            const row = monthMap.get(dayStr);
+            const sales = Number(row?.net_sales) || 0;
+            const resolved = resolveProjection(row);
+            monthlyBreakdown.push({
+              date: dayStr,
+              sales,
+              projected: resolved.value || 0,
+            });
+          }
+
+          const monthlyProjected = monthlyBreakdown.reduce((sum, d) => sum + (d.projected || 0), 0);
+          const monthlyPacing = calculatePaceAdjustedTotal(
+            monthlyBreakdown.map(d => ({ date: d.date, sales: d.sales, resolved: { value: d.projected, source: 'legacy' as any } })) as any,
+            todayStr
+          );
 
           const salesData: LocationSalesData = {
             daily: {
@@ -482,7 +533,11 @@ export default function MultiLocationDashboard() {
               projected: monthlyProjected,
               pacing: monthlyPacing,
               lastYear: monthlyLastYear
-            }
+            },
+            hourly,
+            weeklyBreakdown,
+            monthlyBreakdown,
+            pizzaCount,
           };
 
           // Calculate labor data if available
@@ -559,18 +614,33 @@ export default function MultiLocationDashboard() {
     return 'text-red-600';
   };
 
-  // Use shared SalesProgressChart component for consistent UI
+  // Use SalesSummaryChart for the exact same visualization as the main dashboard
   const renderSalesChart = (sales: LocationSalesData, period: 'daily' | 'weekly' | 'monthly') => {
-    const data = sales[period];
+    if (period === 'daily') {
+      return (
+        <SalesSummaryChart
+          period="daily"
+          hourly={sales.hourly}
+          pizzaCount={sales.pizzaCount}
+          compact
+        />
+      );
+    }
+
+    if (period === 'weekly') {
+      return (
+        <SalesSummaryChart
+          period="weekly"
+          weeklyBreakdown={sales.weeklyBreakdown}
+          compact
+        />
+      );
+    }
+
     return (
-      <SalesProgressChart 
-        data={{
-          actual: data.actual,
-          projected: data.projected,
-          pacing: data.pacing,
-          lastYear: data.lastYear
-        }}
-        period={period}
+      <SalesSummaryChart
+        period="monthly"
+        monthlyBreakdown={sales.monthlyBreakdown}
         compact
       />
     );
@@ -817,7 +887,7 @@ export default function MultiLocationDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <SalesProgressChartSkeleton compact />
+                        <SalesSummaryChartSkeleton compact />
                       )}
                     </div>
                   )}
