@@ -496,7 +496,7 @@ export default function MultiLocationDashboard() {
               
               return (
                 <Card key={location.id} className="p-3 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-[180px_1fr_180px_180px] gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[180px_minmax(200px,1fr)_220px_180px] gap-3">
                     {/* Column 1: Store Info + Sales - Compact */}
                     <div className="flex flex-col gap-1.5">
                       {/* Location tag - name on one line, number below */}
