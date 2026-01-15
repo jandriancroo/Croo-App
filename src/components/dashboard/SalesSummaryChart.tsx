@@ -1,4 +1,4 @@
-import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -150,21 +150,15 @@ export function SalesSummaryChart({
             }}
           />
           <Legend formatter={(value) => (value === 'Projected' ? 'Projected' : 'Actual')} wrapperStyle={{ fontSize: '12px' }} />
-          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Line
+          <Area
             type="monotone"
             dataKey="projected"
             name="Projected"
             stroke="hsl(var(--muted-foreground))"
             strokeWidth={2}
-            dot={{
-              fill: 'hsl(var(--muted-foreground))',
-              strokeWidth: 2,
-              r: 3,
-              stroke: 'hsl(var(--card))',
-            }}
-            activeDot={{ r: 5, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+            fill="hsl(var(--muted-foreground) / 0.15)"
           />
+          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
     );
@@ -222,21 +216,15 @@ export function SalesSummaryChart({
             }}
           />
           <Legend formatter={(value) => (value === 'Projected' ? 'Projected' : 'Actual')} wrapperStyle={{ fontSize: '12px' }} />
-          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Line
+          <Area
             type="monotone"
             dataKey="projected"
             name="Projected"
             stroke="hsl(var(--muted-foreground))"
             strokeWidth={2}
-            dot={{
-              fill: 'hsl(var(--muted-foreground))',
-              strokeWidth: 2,
-              r: 4,
-              stroke: 'hsl(var(--card))',
-            }}
-            activeDot={{ r: 6, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+            fill="hsl(var(--muted-foreground) / 0.15)"
           />
+          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
     );
@@ -315,15 +303,15 @@ export function SalesSummaryChart({
             }}
           />
           <Legend formatter={(value) => (value === 'Projected' ? 'Projected' : 'Actual')} wrapperStyle={{ fontSize: '12px' }} />
-          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Line
+          <Area
             type="monotone"
             dataKey="projected"
             name="Projected"
             stroke="hsl(var(--muted-foreground))"
             strokeWidth={2}
-            dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4, stroke: 'hsl(var(--card))' }}
+            fill="hsl(var(--muted-foreground) / 0.15)"
           />
+          <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
         </ComposedChart>
       </ResponsiveContainer>
     ) : (
@@ -374,8 +362,15 @@ export function SalesSummaryChart({
           }}
         />
         <Legend formatter={(value) => (value === 'Projected' ? 'Projected' : 'Actual')} wrapperStyle={{ fontSize: '12px' }} />
+        <Area
+          type="monotone"
+          dataKey="projected"
+          name="Projected"
+          stroke="hsl(var(--muted-foreground))"
+          strokeWidth={2}
+          fill="hsl(var(--muted-foreground) / 0.15)"
+        />
         <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
-        <Line type="monotone" dataKey="projected" name="Projected" stroke="hsl(var(--muted-foreground))" strokeWidth={2} dot={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
