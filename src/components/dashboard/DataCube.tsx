@@ -7,7 +7,7 @@ import {
   SalesDataForWidgets 
 } from "./DashboardWidget";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
-import { TrendingUp, TrendingDown } from "lucide-react";
+
 
 // Re-export types for backwards compatibility
 export type { MetricType, MetricConfig };

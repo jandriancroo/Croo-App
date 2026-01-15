@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Pencil, Radio } from "lucide-react";
+import { Pencil, Radio } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProjectionSource } from "@/hooks/useResolvedProjection";
 
