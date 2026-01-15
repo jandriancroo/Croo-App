@@ -131,7 +131,29 @@ export default function MultiLocationDashboard() {
         const goal = resolved.value || 0;
         
         const currentHour = new Date().getHours();
-        const hourlyData = todayRow?.hourly_data as Array<{ hour: string; sales: number; projected?: number }> || [];
+        
+        // Normalize hourly data to consistent 10am-10pm range
+        const OPEN_HOUR = 10;
+        const CLOSE_HOUR = 22; // 10pm
+        const rawHourlyData = todayRow?.hourly_data as Array<{ hour: string; sales: number; projected?: number }> || [];
+        
+        // Create lookup for raw hourly data
+        const hourlyLookup = new Map<number, { sales: number; projected?: number }>();
+        for (const h of rawHourlyData) {
+          const hourNum = parseInt(h.hour.split(':')[0]);
+          hourlyLookup.set(hourNum, { sales: h.sales || 0, projected: h.projected });
+        }
+        
+        // Build normalized hourly data from OPEN_HOUR to CLOSE_HOUR
+        const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
+        for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
+          const existing = hourlyLookup.get(h);
+          hourlyData.push({
+            hour: `${h.toString().padStart(2, '0')}:00`,
+            sales: existing?.sales || 0,
+            projected: existing?.projected || 0,
+          });
+        }
         
         let expectedSoFar = 0;
         for (const h of hourlyData) {
