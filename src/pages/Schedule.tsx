@@ -1267,7 +1267,7 @@ export default function Schedule() {
       // Update user_roles table
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: pendingRoleChange.newRole as 'admin' | 'general_manager' | 'shift_manager' | 'team_member' })
+        .update({ role: pendingRoleChange.newRole as 'admin' | 'manager' | 'shift_manager' | 'team_member' })
         .eq('user_id', pendingRoleChange.userId);
       
       if (error) throw error;
@@ -1523,13 +1523,13 @@ export default function Schedule() {
               ) : (
               // Admin/Manager view: show all employees grouped by role
                 <>
-                  {['super_admin', 'org_admin', 'admin', 'general_manager', 'shift_manager', 'manager', 'team_member'].map((roleFilter) => {
+                  {['super_admin', 'org_admin', 'admin', 'manager', 'shift_manager', 'team_member'].map((roleFilter) => {
                     const roleProfiles = profiles.filter(p => p.role === roleFilter);
                     if (roleProfiles.length === 0) return null;
 
                     const roleColorClass = ['super_admin', 'org_admin', 'admin'].includes(roleFilter)
                       ? 'bg-role-admin/5 border-l-4 border-role-admin'
-                      : ['general_manager', 'shift_manager', 'manager'].includes(roleFilter)
+                      : ['shift_manager', 'manager'].includes(roleFilter)
                       ? 'bg-role-manager/5 border-l-4 border-role-manager'
                       : 'bg-role-team-member/5 border-l-4 border-role-team-member';
 
