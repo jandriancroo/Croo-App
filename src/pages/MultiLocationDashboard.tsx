@@ -463,9 +463,9 @@ export default function MultiLocationDashboard() {
               
               return (
                 <Card key={location.id} className="p-3 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Column 1: Store Info + Sales - Stacked & Larger */}
-                    <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_180px_180px] gap-3">
+                    {/* Column 1: Store Info + Sales - Compact */}
+                    <div className="flex flex-col gap-1.5">
                       {/* Location tag */}
                       <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2 py-1 w-fit">
                         <Building2 className="h-3.5 w-3.5 text-primary" />
