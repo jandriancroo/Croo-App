@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,15 +53,16 @@ export function SalesSummaryChart({
 }: SalesSummaryChartProps) {
   const isMobile = useIsMobile();
 
-  const height = useMemo(() => {
-    if (period === 'monthly') return compact ? 220 : 280;
-    return compact ? 200 : 280;
-  }, [compact, period]);
+  // Consistent height across all periods for uniform layout
+  const height = compact ? 200 : 280;
+
+  // Consistent empty state height matching chart height
+  const emptyHeight = compact ? 'h-[200px]' : 'h-[200px] md:h-[280px]';
 
   if (period === 'daily') {
     if (!hourly) {
       return (
-        <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+        <div className={`${emptyHeight} flex items-center justify-center text-muted-foreground`}>
           No sales data available
         </div>
       );
@@ -163,7 +163,7 @@ export function SalesSummaryChart({
   if (period === 'weekly') {
     if (!weeklyBreakdown || weeklyBreakdown.length === 0) {
       return (
-        <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+        <div className={`${emptyHeight} flex items-center justify-center text-muted-foreground`}>
           No weekly data available
         </div>
       );
@@ -235,7 +235,7 @@ export function SalesSummaryChart({
   // MONTHLY
   if (!monthlyBreakdown || monthlyBreakdown.length === 0) {
     return (
-      <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+      <div className={`${emptyHeight} flex items-center justify-center text-muted-foreground`}>
         No monthly data available
       </div>
     );
