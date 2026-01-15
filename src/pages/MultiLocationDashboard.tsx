@@ -1,19 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Building2, TrendingUp, TrendingDown, Minus, ExternalLink, FileText, AlertTriangle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Building2, TrendingUp, TrendingDown, Minus, ExternalLink, FileText, AlertTriangle, Check, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { useAuth } from '@/lib/auth';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
-import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { SalesSummaryChart } from '@/components/dashboard/SalesSummaryChart';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { useNavigate } from 'react-router-dom';
 
 interface LocationRow {
   id: string;
@@ -27,6 +26,8 @@ interface LocationSalesData {
   pace: number;
   status: 'ahead' | 'behind' | 'on-track';
   hourlyData: Array<{ hour: string; sales: number; projected?: number }>;
+  weeklyBreakdown: Array<{ date: string; sales: number; projected: number }>;
+  monthlyBreakdown: Array<{ date: string; sales: number; projected: number }>;
 }
 
 interface LocationChecklistData {
@@ -46,7 +47,8 @@ interface LocationAuditData {
 
 export default function MultiLocationDashboard() {
   const { organizationId } = useAppLocation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [chartPeriod, setChartPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   // Fetch all locations in the organization
   const { data: locations = [], isLoading: locationsLoading } = useQuery({
@@ -66,10 +68,16 @@ export default function MultiLocationDashboard() {
     enabled: !!organizationId,
   });
 
-  // Fetch sales data for all locations (today's data from sales_cache)
+  // Date ranges
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-  const weekEnd = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const monthStart = startOfMonth(new Date());
+  const monthEnd = endOfMonth(new Date());
+  const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+  const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+  const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+  const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
 
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
     queryKey: ['org-sales-data', locations.map(l => l.id), todayStr],
@@ -78,30 +86,42 @@ export default function MultiLocationDashboard() {
       
       const locationIds = locations.map(l => l.id);
       
-      // Fetch today's sales + hourly data from sales_cache for all locations
-      const { data: salesData, error } = await supabase
-        .from('sales_cache')
-        .select('location_id, net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection')
-        .in('location_id', locationIds)
-        .eq('sale_date', todayStr);
+      // Fetch sales data for today, week, and month
+      const [todayResult, weekResult, monthResult] = await Promise.all([
+        supabase
+          .from('sales_cache')
+          .select('location_id, net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection')
+          .in('location_id', locationIds)
+          .eq('sale_date', todayStr),
+        supabase
+          .from('sales_cache')
+          .select('location_id, sale_date, net_sales, projected_sales, initial_projection, living_projection, override_projection')
+          .in('location_id', locationIds)
+          .gte('sale_date', weekStartStr)
+          .lte('sale_date', weekEndStr),
+        supabase
+          .from('sales_cache')
+          .select('location_id, sale_date, net_sales, projected_sales, initial_projection, living_projection, override_projection')
+          .in('location_id', locationIds)
+          .gte('sale_date', monthStartStr)
+          .lte('sale_date', monthEndStr),
+      ]);
       
-      if (error) throw error;
+      if (todayResult.error) throw todayResult.error;
       
       const result: Record<string, LocationSalesData> = {};
       
       for (const loc of locations) {
-        const row = salesData?.find(s => s.location_id === loc.id);
-        const sales = row ? Number(row.net_sales) || 0 : 0;
+        const todayRow = todayResult.data?.find(s => s.location_id === loc.id);
+        const sales = todayRow ? Number(todayRow.net_sales) || 0 : 0;
         
-        // Use projection resolution: override > living > initial > legacy
-        const resolved = resolveProjection(row as any);
+        // Use projection resolution
+        const resolved = resolveProjection(todayRow as any);
         const goal = resolved.value || 0;
         
-        // Calculate pace: where we should be vs where we are
         const currentHour = new Date().getHours();
-        const hourlyData = row?.hourly_data as Array<{ hour: string; sales: number; projected?: number }> || [];
+        const hourlyData = todayRow?.hourly_data as Array<{ hour: string; sales: number; projected?: number }> || [];
         
-        // Sum projected sales up to current hour to get expected progress
         let expectedSoFar = 0;
         for (const h of hourlyData) {
           const hourNum = parseInt(h.hour.split(':')[0]);
@@ -110,16 +130,46 @@ export default function MultiLocationDashboard() {
           }
         }
         
-        // Calculate pace-adjusted projection
         const progressRate = expectedSoFar > 0 ? sales / expectedSoFar : (sales > 0 ? 1 : 0);
         const paceAdjusted = goal > 0 ? Math.round(goal * progressRate) : sales;
         
-        // Determine status
         let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
         if (goal > 0 && expectedSoFar > 0) {
           const pacePercent = (sales / expectedSoFar) * 100;
           if (pacePercent >= 103) status = 'ahead';
           else if (pacePercent <= 97) status = 'behind';
+        }
+        
+        // Build weekly breakdown
+        const weekData = weekResult.data?.filter(s => s.location_id === loc.id) || [];
+        const weeklyBreakdown: { date: string; sales: number; projected: number }[] = [];
+        for (let i = 0; i < 7; i++) {
+          const dayDate = new Date(weekStart);
+          dayDate.setDate(dayDate.getDate() + i);
+          const dayStr = format(dayDate, 'yyyy-MM-dd');
+          const dayData = weekData.find(d => d.sale_date === dayStr);
+          const dayResolved = resolveProjection(dayData as any);
+          weeklyBreakdown.push({
+            date: dayStr,
+            sales: dayData ? Number(dayData.net_sales) || 0 : 0,
+            projected: dayResolved.value || 0,
+          });
+        }
+        
+        // Build monthly breakdown
+        const monthData = monthResult.data?.filter(s => s.location_id === loc.id) || [];
+        const daysInMonth = monthEnd.getDate();
+        const monthlyBreakdown: { date: string; sales: number; projected: number }[] = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+          const dayStr = format(dayDate, 'yyyy-MM-dd');
+          const dayData = monthData.find(d => d.sale_date === dayStr);
+          const dayResolved = resolveProjection(dayData as any);
+          monthlyBreakdown.push({
+            date: dayStr,
+            sales: dayData ? Number(dayData.net_sales) || 0 : 0,
+            projected: dayResolved.value || 0,
+          });
         }
         
         result[loc.id] = {
@@ -128,16 +178,18 @@ export default function MultiLocationDashboard() {
           pace: paceAdjusted,
           status,
           hourlyData,
+          weeklyBreakdown,
+          monthlyBreakdown,
         };
       }
       
       return result;
     },
     enabled: locations.length > 0,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
-  // Fetch checklist data for all locations
+  // Fetch checklist data
   const { data: checklistDataMap = {}, isLoading: checklistsLoading } = useQuery({
     queryKey: ['org-checklists', locations.map(l => l.id), todayStr],
     queryFn: async () => {
@@ -145,7 +197,6 @@ export default function MultiLocationDashboard() {
       
       const locationIds = locations.map(l => l.id);
       
-      // Get all active checklists for these locations
       const { data: checklists, error: checklistError } = await supabase
         .from('checklists')
         .select('id, title, location_id, frequency, template_type, checklist_items(id, days_of_week)')
@@ -154,8 +205,6 @@ export default function MultiLocationDashboard() {
       
       if (checklistError) throw checklistError;
       
-      // Get today's submissions for all locations
-      // Use business day logic: 4 AM today to 4 AM tomorrow
       const now = new Date();
       const cutoffHour = 4;
       const businessDayStart = new Date(now);
@@ -190,8 +239,6 @@ export default function MultiLocationDashboard() {
         
         for (const checklist of locChecklists) {
           const items = checklist.checklist_items || [];
-          
-          // For dynamic checklists, only count items scheduled for today
           let expectedCount = items.length;
           let todayItemIds: Set<string> | null = null;
           
@@ -201,12 +248,9 @@ export default function MultiLocationDashboard() {
             );
             expectedCount = todayItems.length;
             todayItemIds = new Set(todayItems.map((item: any) => item.id));
-            
-            // Skip if no items for today
             if (expectedCount === 0) continue;
           }
           
-          // Count completed items
           const locResponses = responses?.filter((r: any) => 
             r.checklist_submissions?.checklist_id === checklist.id &&
             r.checklist_submissions?.location_id === loc.id
@@ -235,10 +279,10 @@ export default function MultiLocationDashboard() {
       return result;
     },
     enabled: locations.length > 0,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
-  // Fetch latest Steritech audit for all locations
+  // Fetch audits
   const { data: auditDataMap = {}, isLoading: auditsLoading } = useQuery({
     queryKey: ['org-audits', locations.map(l => l.id)],
     queryFn: async () => {
@@ -246,7 +290,6 @@ export default function MultiLocationDashboard() {
       
       const locationIds = locations.map(l => l.id);
       
-      // Get most recent audit for each location
       const { data: audits, error } = await supabase
         .from('food_safety_audits')
         .select('id, location_id, audit_date, visit_score, manager_name, audit_url')
@@ -256,8 +299,6 @@ export default function MultiLocationDashboard() {
       if (error) throw error;
       
       const result: Record<string, LocationAuditData> = {};
-      
-      // Group by location, take first (most recent)
       for (const audit of audits || []) {
         if (!result[audit.location_id]) {
           result[audit.location_id] = {
@@ -289,37 +330,66 @@ export default function MultiLocationDashboard() {
   const getStatusIcon = (status: 'ahead' | 'behind' | 'on-track') => {
     switch (status) {
       case 'ahead':
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
+        return <TrendingUp className="h-3.5 w-3.5 text-green-500" />;
       case 'behind':
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
+        return <TrendingDown className="h-3.5 w-3.5 text-red-500" />;
       default:
-        return <Minus className="h-4 w-4 text-muted-foreground" />;
+        return <Minus className="h-3.5 w-3.5 text-muted-foreground" />;
     }
   };
 
   const getStatusBadge = (status: 'ahead' | 'behind' | 'on-track') => {
     switch (status) {
       case 'ahead':
-        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30">Ahead</Badge>;
+        return <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-xs px-1.5 py-0">Ahead</Badge>;
       case 'behind':
-        return <Badge className="bg-red-500/20 text-red-500 border-red-500/30">Behind</Badge>;
+        return <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-xs px-1.5 py-0">Behind</Badge>;
       default:
-        return <Badge className="bg-muted text-muted-foreground">On Track</Badge>;
+        return <Badge className="bg-muted text-muted-foreground text-xs px-1.5 py-0">On Track</Badge>;
     }
+  };
+
+  // Compact checklist row component
+  const ChecklistRow = ({ checklist }: { checklist: LocationChecklistData }) => {
+    const completionRate = checklist.expected > 0 
+      ? Math.min(100, Math.round((checklist.completed / checklist.expected) * 100)) 
+      : 0;
+    const isComplete = completionRate === 100;
+    
+    return (
+      <button
+        onClick={() => navigate(`/complete/${checklist.id}`)}
+        className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors w-full text-left"
+      >
+        <div className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${
+          isComplete ? 'bg-green-500' : 'bg-muted'
+        }`}>
+          {isComplete ? (
+            <Check className="h-3 w-3 text-white" strokeWidth={3} />
+          ) : (
+            <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
+        <span className="text-xs truncate flex-1">{checklist.title}</span>
+        <span className={`text-xs font-medium ${isComplete ? 'text-green-500' : 'text-muted-foreground'}`}>
+          {completionRate}%
+        </span>
+      </button>
+    );
   };
 
   if (!organizationId) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <Card className="max-w-md mx-auto">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+          <Card className="max-w-md mx-auto p-8">
+            <div className="flex flex-col items-center justify-center text-center">
               <Building2 className="h-16 w-16 text-muted-foreground mb-4" />
               <h1 className="text-2xl font-bold mb-2">No Organization</h1>
               <p className="text-muted-foreground">
                 You need to be part of an organization to view this dashboard.
               </p>
-            </CardContent>
+            </div>
           </Card>
         </div>
       </Layout>
@@ -328,144 +398,148 @@ export default function MultiLocationDashboard() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold mb-6">Org Dashboard</h1>
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-bold">Org Dashboard</h1>
+          <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
+            <TabsList className="h-8">
+              <TabsTrigger value="daily" className="text-xs px-2 h-6">Today</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs px-2 h-6">Week</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs px-2 h-6">Month</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         
         {isLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="p-4">
-                <div className="flex gap-4">
-                  <Skeleton className="h-24 w-48" />
-                  <Skeleton className="h-24 flex-1" />
-                  <Skeleton className="h-24 w-48" />
-                  <Skeleton className="h-24 w-48" />
+              <Card key={i} className="p-3">
+                <div className="flex gap-3">
+                  <Skeleton className="h-16 w-40" />
+                  <Skeleton className="h-16 flex-1" />
+                  <Skeleton className="h-16 w-32" />
+                  <Skeleton className="h-16 w-32" />
                 </div>
               </Card>
             ))}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {locations.map((location) => {
               const salesData = salesDataMap[location.id];
               const checklists = checklistDataMap[location.id] || [];
               const audit = auditDataMap[location.id];
               
               return (
-                <Card key={location.id} className="p-4 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Column 1: Store Info */}
-                    <div className="flex flex-col justify-between">
-                      <div>
-                        <h2 className="text-lg font-bold">{location.name}</h2>
+                <Card key={location.id} className="p-3 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
+                    {/* Column 1: Store Info + Sales */}
+                    <div className="flex flex-col gap-2">
+                      {/* Location tag */}
+                      <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2 py-1 w-fit">
+                        <Building2 className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-sm font-semibold">{location.name}</span>
                         {location.store_number && (
-                          <p className="text-sm text-muted-foreground">#{location.store_number}</p>
+                          <span className="text-xs text-muted-foreground">#{location.store_number}</span>
                         )}
                       </div>
                       
+                      {/* Sales info - compact */}
                       {salesData ? (
-                        <div className="mt-3 space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Sales</span>
-                            <span className="font-semibold">{formatCurrency(salesData.sales)}</span>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <div className="text-muted-foreground">Sales</div>
+                            <div className="font-semibold">{formatCurrency(salesData.sales)}</div>
                           </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Live AI Goal</span>
-                            <span className="font-semibold">{formatCurrency(salesData.goal)}</span>
+                          <div>
+                            <div className="text-muted-foreground">AI Goal</div>
+                            <div className="font-semibold">{formatCurrency(salesData.goal)}</div>
                           </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Pace</span>
-                            <span className="font-semibold">{formatCurrency(salesData.pace)}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-2">
-                            {getStatusIcon(salesData.status)}
-                            {getStatusBadge(salesData.status)}
+                          <div>
+                            <div className="text-muted-foreground">Pace</div>
+                            <div className="font-semibold">{formatCurrency(salesData.pace)}</div>
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-3 text-sm text-muted-foreground">No sales data</div>
+                        <div className="text-xs text-muted-foreground">No sales data</div>
+                      )}
+                      
+                      {/* Status badge */}
+                      {salesData && (
+                        <div className="flex items-center gap-1.5">
+                          {getStatusIcon(salesData.status)}
+                          {getStatusBadge(salesData.status)}
+                        </div>
                       )}
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-32 md:h-auto">
-                      {salesData && salesData.hourlyData.length > 0 ? (
+                    <div className="h-24">
+                      {salesData ? (
                         <SalesSummaryChart
-                          period="daily"
-                          hourly={salesData.hourlyData.map(h => ({
-                            hour: h.hour,
-                            sales: h.sales,
-                            projected: h.projected,
-                          }))}
+                          period={chartPeriod}
+                          hourly={chartPeriod === 'daily' ? salesData.hourlyData : undefined}
+                          weeklyBreakdown={chartPeriod === 'weekly' ? salesData.weeklyBreakdown : undefined}
+                          monthlyBreakdown={chartPeriod === 'monthly' ? salesData.monthlyBreakdown : undefined}
                           compact
                         />
                       ) : (
-                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-lg">
+                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
                           No chart data
                         </div>
                       )}
                     </div>
                     
-                    {/* Column 3: Checklists */}
-                    <div>
+                    {/* Column 3: Checklists - rectangular rows */}
+                    <div className="space-y-0.5 max-h-24 overflow-y-auto">
                       {checklists.length > 0 ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          {checklists.slice(0, 4).map((checklist) => (
-                            <ChecklistCard
-                              key={checklist.id}
-                              checklistId={checklist.id}
-                              title={checklist.title}
-                              completed={checklist.completed}
-                              expected={checklist.expected}
-                            />
-                          ))}
-                        </div>
+                        checklists.slice(0, 4).map((checklist) => (
+                          <ChecklistRow key={checklist.id} checklist={checklist} />
+                        ))
                       ) : (
-                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">
+                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg p-2">
                           No checklists
                         </div>
                       )}
                     </div>
                     
-                    {/* Column 4: Steritech Audit */}
+                    {/* Column 4: Steritech Audit - compact */}
                     <div>
                       {audit ? (
                         <a
                           href={audit.audit_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block h-full"
+                          className="block"
                         >
-                          <Card className="h-full p-3 hover:bg-muted/50 transition-colors cursor-pointer border-dashed">
-                            <div className="flex items-start gap-2 mb-2">
-                              <FileText className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                              <span className="text-sm font-medium">Steritech Audit</span>
+                          <div className="flex flex-col gap-1 p-2 rounded-md border border-dashed hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <FileText className="h-3.5 w-3.5 text-primary" />
+                              <span className="font-medium">Steritech</span>
                               <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
                             </div>
-                            <div className="space-y-1 text-sm">
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Date</span>
-                                <span>{format(new Date(audit.audit_date), 'MMM d, yyyy')}</span>
-                              </div>
+                            <div className="grid grid-cols-2 gap-x-2 text-xs">
+                              <span className="text-muted-foreground">Date</span>
+                              <span className="text-right">{format(new Date(audit.audit_date), 'M/d/yy')}</span>
                               {audit.visit_score && (
-                                <div className="flex justify-between">
+                                <>
                                   <span className="text-muted-foreground">Score</span>
-                                  <span className="font-semibold">{audit.visit_score}</span>
-                                </div>
+                                  <span className="text-right font-semibold">{audit.visit_score}</span>
+                                </>
                               )}
                               {audit.manager_name && (
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Manager</span>
-                                  <span className="truncate max-w-[100px]">{audit.manager_name}</span>
-                                </div>
+                                <>
+                                  <span className="text-muted-foreground">Mgr</span>
+                                  <span className="text-right truncate">{audit.manager_name}</span>
+                                </>
                               )}
                             </div>
-                          </Card>
+                          </div>
                         </a>
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">
-                          <AlertTriangle className="h-5 w-5 mb-1 text-yellow-500" />
-                          No audit data
+                        <div className="flex flex-col items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 h-full">
+                          <AlertTriangle className="h-4 w-4 mb-0.5 text-yellow-500" />
+                          No audit
                         </div>
                       )}
                     </div>
