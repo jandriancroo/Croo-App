@@ -399,8 +399,15 @@ export default function MultiLocationDashboard() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-4">
-        <div className="mb-4">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold">Org Dashboard</h1>
+          <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
+            <TabsList className="h-7">
+              <TabsTrigger value="daily" className="text-xs px-2 h-6">Today</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs px-2 h-6">Week</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs px-2 h-6">Month</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
         
         {isLoading ? (
@@ -425,7 +432,7 @@ export default function MultiLocationDashboard() {
               
               return (
                 <Card key={location.id} className="p-3 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                     {/* Column 1: Store Info + Sales */}
                     <div className="flex flex-col gap-2">
                       {/* Location tag */}
@@ -467,29 +474,20 @@ export default function MultiLocationDashboard() {
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="flex flex-col">
-                      <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)} className="mb-1">
-                        <TabsList className="h-6">
-                          <TabsTrigger value="daily" className="text-[10px] px-2 h-5">Today</TabsTrigger>
-                          <TabsTrigger value="weekly" className="text-[10px] px-2 h-5">Week</TabsTrigger>
-                          <TabsTrigger value="monthly" className="text-[10px] px-2 h-5">Month</TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-                      <div className="h-40">
-                        {salesData ? (
-                          <SalesSummaryChart
-                            period={chartPeriod}
-                            hourly={chartPeriod === 'daily' ? salesData.hourlyData : undefined}
-                            weeklyBreakdown={chartPeriod === 'weekly' ? salesData.weeklyBreakdown : undefined}
-                            monthlyBreakdown={chartPeriod === 'monthly' ? salesData.monthlyBreakdown : undefined}
-                            compact
-                          />
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
-                            No chart data
-                          </div>
-                        )}
-                      </div>
+                    <div className="h-44 md:h-40">
+                      {salesData ? (
+                        <SalesSummaryChart
+                          period={chartPeriod}
+                          hourly={chartPeriod === 'daily' ? salesData.hourlyData : undefined}
+                          weeklyBreakdown={chartPeriod === 'weekly' ? salesData.weeklyBreakdown : undefined}
+                          monthlyBreakdown={chartPeriod === 'monthly' ? salesData.monthlyBreakdown : undefined}
+                          compact
+                        />
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
+                          No chart data
+                        </div>
+                      )}
                     </div>
                     
                     {/* Column 3: Checklists - rectangular rows */}
