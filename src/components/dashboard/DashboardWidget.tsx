@@ -101,7 +101,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // Daily metrics - Order: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
   sales_today: { type: 'sales_today', label: 'Sales', shortLabel: 'Sales', icon: DollarSign, format: 'currency', category: 'daily' },
   sales_pace: { type: 'sales_pace', label: 'Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'daily' },
-  sales_projected_today: { type: 'sales_projected_today', label: 'AI Goal EOD', shortLabel: 'EOD Goal', icon: Target, format: 'currency', category: 'daily' },
+  sales_projected_today: { type: 'sales_projected_today', label: 'Live AI Goal', shortLabel: 'AI Goal', icon: Target, format: 'currency', category: 'daily' },
   sales_last_week: { type: 'sales_last_week', label: 'Last Week', shortLabel: 'SDLW', icon: Calendar, format: 'currency', category: 'daily' },
   sales_last_year_day: { type: 'sales_last_year_day', label: 'Last Year', shortLabel: 'SDLY', icon: Calendar, format: 'currency', category: 'daily' }, // Dynamic: SDLY + date
   guest_count_today: { type: 'guest_count_today', label: 'Guests', shortLabel: 'Guests', icon: Users, format: 'number', category: 'daily' },
