@@ -236,12 +236,12 @@ export function LaborTotals({
                 });
               }
               
-              if (isPast || isTodayDate) {
-                // Past/today: use actual sales
+              if (isPast) {
+                // Past days: use actual sales (historical)
                 const salesValue = Math.round((data.daily || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'historical' as const };
               } else {
-                // Future with no cache: use live projection (will be cached by API)
+                // Today and future: use projection (goal/target)
                 const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'ai' as const };
               }
