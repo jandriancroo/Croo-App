@@ -422,6 +422,13 @@ export default function MultiLocationDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h1 className="text-xl font-bold">Org Dashboard</h1>
           <div className="flex items-center gap-3">
+            <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="daily" className="text-xs px-3 h-7">Today</TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs px-3 h-7">Week</TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs px-3 h-7">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -431,13 +438,6 @@ export default function MultiLocationDashboard() {
                 className="pl-8 h-8 w-48 text-sm"
               />
             </div>
-            <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
-              <TabsList className="h-8">
-                <TabsTrigger value="daily" className="text-xs px-3 h-7">Today</TabsTrigger>
-                <TabsTrigger value="weekly" className="text-xs px-3 h-7">Week</TabsTrigger>
-                <TabsTrigger value="monthly" className="text-xs px-3 h-7">Month</TabsTrigger>
-              </TabsList>
-            </Tabs>
           </div>
         </div>
         
