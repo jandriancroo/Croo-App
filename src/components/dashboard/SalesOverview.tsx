@@ -1349,7 +1349,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                       </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">AI Goal EOD</span>
+                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
                           <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
                         </div>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
