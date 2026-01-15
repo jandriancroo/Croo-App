@@ -177,14 +177,31 @@ export default function MultiLocationDashboard() {
           hourlyLookup.set(hourNum, { sales: h.sales || 0, projected: h.projected });
         }
         
+        // Standard hourly distribution pattern (bell curve approximation for restaurant traffic)
+        // Higher percentages during lunch (12-1pm) and dinner (6-7pm) rushes
+        const HOURLY_PATTERN: Record<number, number> = {
+          10: 0.02, 11: 0.08, 12: 0.12, 13: 0.10, 14: 0.07, 15: 0.06,
+          16: 0.07, 17: 0.10, 18: 0.12, 19: 0.11, 20: 0.08, 21: 0.05, 22: 0.02
+        };
+        
+        // Calculate total pattern weight for the hours we're showing
+        let totalPatternWeight = 0;
+        for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
+          totalPatternWeight += HOURLY_PATTERN[h] || 0.05;
+        }
+        
         // Build normalized hourly data from location's open to close hours
         const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
         for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
           const existing = hourlyLookup.get(h);
+          // Distribute daily projection across hours proportionally
+          const hourWeight = HOURLY_PATTERN[h] || 0.05;
+          const hourProjected = totalPatternWeight > 0 ? (goal * hourWeight / totalPatternWeight) : 0;
+          
           hourlyData.push({
             hour: `${h.toString().padStart(2, '0')}:00`,
             sales: existing?.sales || 0,
-            projected: existing?.projected || 0,
+            projected: hourProjected,
           });
         }
         
