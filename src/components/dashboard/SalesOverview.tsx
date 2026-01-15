@@ -16,6 +16,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { toast } from 'sonner';
+import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { ProjectionTag } from '@/components/ui/projection-tag';
 
 interface SalesData {
   daily: number;
@@ -136,14 +138,14 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         .maybeSingle(),
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
         .order('sale_date'),
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales')
+        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
@@ -222,15 +224,14 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     
     // Build full 7-day breakdown with labor data
-    const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
+    const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number; projectionSource?: ProjectionSource }[] = [];
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
       const dayStr = format(dayDate, 'yyyy-MM-dd');
       const existingData = weekDataMap.get(dayStr);
       
-      // For projections: use stored projected_sales if > 0, otherwise use actual sales as projection
-      // (historical data won't have projections, so we use their actual sales as "what was expected")
-      const storedProjection = existingData ? Number(existingData.projected_sales) || 0 : 0;
+      // Use new projection resolution: override > living > initial > legacy
+      const resolved = resolveProjection(existingData as any);
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
       // Get labor data for this day and calculate laborPercent from laborCost / sales
@@ -241,11 +242,12 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       weeklyBreakdown.push({
         date: dayStr,
         sales: actualSales,
-        // Use stored projection if available, otherwise use actual sales as the "projection"
-        projected: storedProjection > 0 ? storedProjection : actualSales,
+        // Use resolved projection if available, otherwise use actual sales as the "projection"
+        projected: resolved.value && resolved.value > 0 ? resolved.value : actualSales,
         guestCount: existingData?.guest_count || 0,
         laborPercent,
-        laborCost
+        laborCost,
+        projectionSource: resolved.source
       });
     }
     
@@ -284,14 +286,15 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       const dayStr = format(dayDate, 'yyyy-MM-dd');
       
       const existingData = monthDataMap.get(dayStr);
-      const storedProjection = existingData ? Number(existingData.projected_sales) || 0 : 0;
+      // Use new projection resolution: override > living > initial > legacy
+      const resolved = resolveProjection(existingData as any);
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
       monthlyBreakdownFull.push({
         date: dayStr,
         sales: actualSales,
-        // Use stored projection if available, otherwise use actual sales as "projection"
-        projected: storedProjection > 0 ? storedProjection : actualSales,
+        // Use resolved projection if available, otherwise use actual sales as "projection"
+        projected: resolved.value && resolved.value > 0 ? resolved.value : actualSales,
         guestCount: existingData?.guest_count || 0
       });
     }
@@ -377,7 +380,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       avgTicket: cached?.avg_ticket ? Number(cached.avg_ticket) : undefined,
       pizzaCount: cached?.pizza_count || 0,
       projections: {
-        todayProjected: cached ? (Number(cached.projected_sales) || 0) : 0,
+        // Use new projection resolution for today's projection
+        todayProjected: cached ? (resolveProjection(cached as any).value || 0) : 0,
         weekProjected: weeklyProjected,
         monthProjected: monthlyProjected
       },
