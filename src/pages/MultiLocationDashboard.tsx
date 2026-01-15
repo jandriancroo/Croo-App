@@ -474,7 +474,7 @@ export default function MultiLocationDashboard() {
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-24">
+                    <div className="h-32">
                       {salesData ? (
                         <SalesSummaryChart
                           period={chartPeriod}
