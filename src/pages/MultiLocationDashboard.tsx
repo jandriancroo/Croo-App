@@ -12,7 +12,6 @@ import { useAuth } from '@/lib/auth';
 import { 
   Users, 
   ClipboardCheck, 
-  Clock,
   AlertTriangle,
   Building2,
   FileText,
@@ -20,10 +19,10 @@ import {
   Search,
   DollarSign
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
-import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { resolveProjection, calculatePaceAdjustedTotal } from '@/hooks/useResolvedProjection';
 import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
+import { SalesProgressChart, SalesProgressChartSkeleton } from '@/components/dashboard/SalesProgressChart';
 
 interface ChecklistMetric {
   id: string;
@@ -560,120 +559,22 @@ export default function MultiLocationDashboard() {
     return 'text-red-600';
   };
 
-  const formatLastYearComparison = (actual: number, lastYear: number) => {
-    if (!lastYear || lastYear === 0) return null;
-    const diff = actual - lastYear;
-    const percent = ((diff / lastYear) * 100).toFixed(1);
-    const isPositive = diff >= 0;
-    return { diff, percent, isPositive, lastYear };
-  };
-
-  // Unified chart - bars for actuals, line for projections/pace
-  const SalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'daily' | 'weekly' | 'monthly' }) => {
+  // Use shared SalesProgressChart component for consistent UI
+  const renderSalesChart = (sales: LocationSalesData, period: 'daily' | 'weekly' | 'monthly') => {
     const data = sales[period];
-    const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
-    
-    // Single data point for the current period
-    const chartData = [
-      { 
-        name: period === 'daily' ? 'Today' : period === 'weekly' ? 'This Week' : 'This Month',
-        actual: data.actual,
-        projected: data.projected,
-        pace: data.pacing
-      }
-    ];
-
-    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
-
     return (
-      <div className="w-full">
-        <div className="flex items-center gap-4 mb-2">
-          {/* Actual */}
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-3 h-3 rounded-sm bg-orange-500" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Actual</span>
-            </div>
-            <p className="text-lg font-bold">{formatCurrencyCompact(data.actual)}</p>
-          </div>
-          {/* Projected */}
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-3 h-0.5 bg-amber-700 rounded" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Projected</span>
-            </div>
-            <p className="text-lg font-semibold text-muted-foreground">{formatCurrencyCompact(data.projected)}</p>
-          </div>
-          {/* Pace */}
-          <div className="flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Pace</span>
-            </div>
-            <p className={`text-lg font-bold ${data.pacing >= data.projected ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {formatCurrencyCompact(data.pacing)}
-            </p>
-          </div>
-        </div>
-        
-        {/* Progress bar visualization */}
-        <div className="space-y-1.5">
-          {/* Actual bar */}
-          <div className="flex items-center gap-2">
-            <div className="w-16 text-[10px] text-muted-foreground">Actual</div>
-            <div className="flex-1 h-4 bg-muted/30 rounded-full overflow-hidden relative">
-              <div 
-                className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, (data.actual / maxVal) * 100)}%` }}
-              />
-              {/* Projected line marker */}
-              <div 
-                className="absolute top-0 h-full w-0.5 bg-amber-700"
-                style={{ left: `${Math.min(100, (data.projected / maxVal) * 100)}%` }}
-              />
-            </div>
-          </div>
-          {/* Pace bar */}
-          <div className="flex items-center gap-2">
-            <div className="w-16 text-[10px] text-muted-foreground">Pace</div>
-            <div className="flex-1 h-4 bg-muted/30 rounded-full overflow-hidden relative">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${
-                  data.pacing >= data.projected 
-                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' 
-                    : 'bg-gradient-to-r from-amber-500 to-amber-400'
-                }`}
-                style={{ width: `${Math.min(100, (data.pacing / maxVal) * 100)}%` }}
-              />
-              {/* Projected line marker */}
-              <div 
-                className="absolute top-0 h-full w-0.5 bg-amber-700"
-                style={{ left: `${Math.min(100, (data.projected / maxVal) * 100)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {lyComparison && (
-          <p className={`text-xs mt-2 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
-          </p>
-        )}
-      </div>
+      <SalesProgressChart 
+        data={{
+          actual: data.actual,
+          projected: data.projected,
+          pacing: data.pacing,
+          lastYear: data.lastYear
+        }}
+        period={period}
+        compact
+      />
     );
   };
-
-  // Backwards compatible wrappers
-  const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => <SalesChart sales={sales} period="daily" />;
-  const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => <SalesChart sales={sales} period={period} />;
-
-  // Loading skeleton for sales section
-  const SalesLoadingSkeleton = () => (
-    <div className="space-y-2">
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-[80px] w-full" />
-    </div>
-  );
 
   const navigateToChecklist = (locationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -904,19 +805,19 @@ export default function MultiLocationDashboard() {
                                 )}
                               </div>
                               <TabsContent value="daily" className="mt-2">
-                                <DailySalesChart sales={loc.sales} />
+                                {renderSalesChart(loc.sales, 'daily')}
                               </TabsContent>
                               <TabsContent value="weekly" className="mt-2">
-                                <PeriodSalesChart sales={loc.sales} period="weekly" />
+                                {renderSalesChart(loc.sales, 'weekly')}
                               </TabsContent>
                               <TabsContent value="monthly" className="mt-2">
-                                <PeriodSalesChart sales={loc.sales} period="monthly" />
+                                {renderSalesChart(loc.sales, 'monthly')}
                               </TabsContent>
                             </Tabs>
                           </div>
                         </div>
                       ) : (
-                        <SalesLoadingSkeleton />
+                        <SalesProgressChartSkeleton compact />
                       )}
                     </div>
                   )}
