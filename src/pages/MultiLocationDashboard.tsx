@@ -19,8 +19,10 @@ import {
   Search,
   DollarSign
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { resolveProjection, calculatePaceAdjustedTotal } from '@/hooks/useResolvedProjection';
+import { getCachedLiveSales, getCachedProjections } from '@/utils/salesCache';
+import { getTodayInTimezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
 import { SalesSummaryChart, SalesSummaryChartSkeleton } from '@/components/dashboard/SalesSummaryChart';
 
@@ -214,16 +216,13 @@ export default function MultiLocationDashboard() {
 
       const locationIds = locationsData.map(l => l.id);
       const today = new Date();
-      const todayStr = format(today, 'yyyy-MM-dd');
-      
-      // Use PST timezone for "business day" boundaries (same as Dashboard.tsx)
-      // PST is UTC-8, so startOfToday in PST = UTC date shifted by 8 hours
-      const pstOffset = 8 * 60 * 60 * 1000; // 8 hours in ms
-      const pstToday = new Date(today.getTime() - pstOffset);
-      const pstTodayStr = format(pstToday, 'yyyy-MM-dd');
-      const startOfTodayPST = new Date(`${pstTodayStr}T00:00:00-08:00`).toISOString();
-      const endOfTodayPST = new Date(`${pstTodayStr}T23:59:59.999-08:00`).toISOString();
-      const dayOfWeek = today.getDay();
+      const timezone = 'America/Los_Angeles';
+      const todayStr = getTodayInTimezone(timezone);
+
+      // day_of_week in location_hours is stored Sunday=0 ... Saturday=6
+      const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(today);
+      const dayOfWeekMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      const dayOfWeek = dayOfWeekMap[weekdayShort] ?? today.getDay();
 
       // Batch fetch all static data in parallel
       const [
@@ -236,21 +235,46 @@ export default function MultiLocationDashboard() {
         scheduledResult
       ] = await Promise.all([
         supabase.from('location_integrations').select('location_id, id, credentials').in('location_id', locationIds).eq('integration_type', 'qubeyond').eq('is_active', true),
-        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in').gte('punch_time', startOfTodayPST).lte('punch_time', endOfTodayPST),
-        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out').gte('punch_time', startOfTodayPST).lte('punch_time', endOfTodayPST),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in'),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out'),
         supabase.from('checklists').select('id, title, frequency, location_id').in('location_id', locationIds).eq('is_active', true),
         supabase.from('food_safety_audits').select('id, audit_date, visit_score, manager_name, location_id').in('location_id', locationIds).order('audit_date', { ascending: false }),
-        supabase.from('location_hours').select('location_id, open_time, is_closed').in('location_id', locationIds).eq('day_of_week', dayOfWeek),
+        supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').in('location_id', locationIds).eq('day_of_week', dayOfWeek),
         (supabase.from('scheduled_shifts' as any).select('id, location_id').in('location_id', locationIds).eq('shift_date', todayStr) as any)
       ]);
 
       // Get checklist items and submissions for all locations
       const checklistIds = checklistsResult.data?.map(c => c.id) || [];
+      const checklistItemsPromise = checklistIds.length > 0
+        ? supabase.from('checklist_items').select('id, checklist_id').in('checklist_id', checklistIds)
+        : Promise.resolve({ data: [] as any[] });
+
+      // Build per-location business-day windows (LA timezone) and fetch submissions once for the widest window.
+      const hoursByLocationForRange = new Map<string, { close_time: string | null }>();
+      hoursResult.data?.forEach(h => {
+        hoursByLocationForRange.set(h.location_id, { close_time: (h as any).close_time ?? null });
+      });
+
+      const ranges = locationIds.map((locationId) => {
+        const closeTime = hoursByLocationForRange.get(locationId)?.close_time ?? null;
+        const businessDate = getBusinessDateInTimezone(timezone, closeTime);
+        const { start, end } = getBusinessDayRangeInTimezone(businessDate, timezone, closeTime);
+        return { locationId, start, end };
+      });
+
+      const minStart = new Date(Math.min(...ranges.map(r => r.start.getTime())));
+      const maxEnd = new Date(Math.max(...ranges.map(r => r.end.getTime())));
+
+      const submissionsPromise = supabase
+        .from('checklist_submissions')
+        .select('id, checklist_id, location_id, submitted_at, checklist_responses(id)')
+        .in('location_id', locationIds)
+        .gte('submitted_at', minStart.toISOString())
+        .lt('submitted_at', maxEnd.toISOString());
+
       const [checklistItemsResult, submissionsResult] = await Promise.all([
-        checklistIds.length > 0 
-          ? supabase.from('checklist_items').select('id, checklist_id').in('checklist_id', checklistIds)
-          : Promise.resolve({ data: [] }),
-        supabase.from('checklist_submissions').select('id, checklist_id, location_id, checklist_responses(id)').in('location_id', locationIds).gte('submitted_at', startOfTodayPST).lte('submitted_at', endOfTodayPST)
+        checklistItemsPromise,
+        submissionsPromise
       ]);
 
       // Build lookup maps
@@ -290,10 +314,19 @@ export default function MultiLocationDashboard() {
       });
 
       const submissionByLocationChecklist = new Map<string, Map<string, { completed: number; total: number }>>();
+      const rangeByLocation = new Map(ranges.map(r => [r.locationId, { start: r.start, end: r.end }]));
+
       submissionsResult.data?.forEach(sub => {
+        const range = rangeByLocation.get(sub.location_id);
+        if (!range) return;
+
+        const submittedAt = new Date(sub.submitted_at);
+        if (submittedAt < range.start || submittedAt >= range.end) return;
+
         if (!submissionByLocationChecklist.has(sub.location_id)) {
           submissionByLocationChecklist.set(sub.location_id, new Map());
         }
+
         const responseCount = (sub.checklist_responses as any[])?.length || 0;
         const totalItems = itemCountByChecklist.get(sub.checklist_id) || 0;
         submissionByLocationChecklist.get(sub.location_id)!.set(sub.checklist_id, { completed: responseCount, total: totalItems });
