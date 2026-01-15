@@ -436,9 +436,6 @@ export default function Availability() {
         {/* Shift Pool - Manager Only */}
         {canApproveRequests && <ShiftPoolSection />}
 
-        {/* Scheduling Preferences - Manager Only */}
-        {canApproveRequests && <SchedulingPreferencesSection />}
-
         {/* Filters */}
         <Card className="p-4">
           <div className="flex gap-4">
@@ -757,6 +754,9 @@ export default function Availability() {
             </>
           )}
         </Card>
+
+        {/* Scheduling Preferences - Manager Only */}
+        {canApproveRequests && <SchedulingPreferencesSection />}
 
         {/* Denial Dialog */}
         <Dialog open={denyDialogOpen} onOpenChange={setDenyDialogOpen}>

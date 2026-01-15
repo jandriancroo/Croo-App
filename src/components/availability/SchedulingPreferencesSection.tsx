@@ -8,10 +8,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight, ChevronDown } from "lucide-react";
 import { EmployeePreferencesDialog } from "./EmployeePreferencesDialog";
 
 interface Employee {
@@ -55,6 +60,7 @@ export function SchedulingPreferencesSection() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<string>("lastName");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -175,41 +181,58 @@ export function SchedulingPreferencesSection() {
 
   return (
     <>
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Scheduling Preferences</h2>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="lastName">Last Name</SelectItem>
-              <SelectItem value="firstName">First Name</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-1">
-          {sortedEmployees.map((employee) => (
-            <button
-              key={employee.id}
-              onClick={() => handleEmployeeClick(employee)}
-              className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border rounded-lg text-sm hover:bg-muted/50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarImage src={employee.profile_photo_url || undefined} />
-                  <AvatarFallback className="text-xs">
-                    {getInitials(employee.full_name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="font-medium truncate">{employee.full_name}</span>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Card className="p-6">
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ChevronDown 
+                  className={`h-5 w-5 text-muted-foreground transition-transform ${
+                    isOpen ? "" : "-rotate-90"
+                  }`} 
+                />
+                <h2 className="text-xl font-semibold">Scheduling Preferences</h2>
+                <span className="text-sm text-muted-foreground">({employees.length})</span>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            </button>
-          ))}
-        </div>
-      </Card>
+            </div>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="flex items-center justify-end mt-4 mb-3">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lastName">Last Name</SelectItem>
+                  <SelectItem value="firstName">First Name</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-1">
+              {sortedEmployees.map((employee) => (
+                <button
+                  key={employee.id}
+                  onClick={() => handleEmployeeClick(employee)}
+                  className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border rounded-lg text-sm hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage src={employee.profile_photo_url || undefined} />
+                      <AvatarFallback className="text-xs">
+                        {getInitials(employee.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium truncate">{employee.full_name}</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       <EmployeePreferencesDialog
         open={dialogOpen}
