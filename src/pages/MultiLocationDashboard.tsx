@@ -20,9 +20,9 @@ import {
   Search,
   DollarSign
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subYears } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
+import { resolveProjection, calculatePaceAdjustedTotal } from '@/hooks/useResolvedProjection';
 import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
 
 interface ChecklistMetric {
@@ -369,103 +369,153 @@ export default function MultiLocationDashboard() {
       // Mark this as the initial sync time for pull-to-refresh throttling
       setLastSyncTime('multi-location-dashboard');
 
-      // Fetch sales data in parallel for locations with QuBeyond
+      // Fetch sales data from sales_cache for locations with QuBeyond
       const locationsWithQuBeyond = initialMetrics.filter(l => l.hasQuBeyond);
       
       if (locationsWithQuBeyond.length > 0) {
         const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+        const weekStartStr = format(weekStart, 'yyyy-MM-dd');
         const monthStart = startOfMonth(today);
+        const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+        const monthEnd = endOfMonth(today);
+        const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
         
-        // Fetch all sales in parallel (batch of 5 at a time to avoid overwhelming)
-        const batchSize = 5;
-        const batches: LocationMetrics[][] = [];
-        for (let i = 0; i < locationsWithQuBeyond.length; i += batchSize) {
-          batches.push(locationsWithQuBeyond.slice(i, i + batchSize));
-        }
+        const quBeyondLocationIds = locationsWithQuBeyond.map(l => l.id);
+        
+        // Fetch all sales cache data in one query (current month covers daily, weekly, monthly)
+        const { data: salesCacheData } = await supabase
+          .from('sales_cache')
+          .select('location_id, sale_date, net_sales, initial_projection, living_projection, override_projection, override_at, override_by, yoy_net_sales')
+          .in('location_id', quBeyondLocationIds)
+          .gte('sale_date', monthStartStr)
+          .lte('sale_date', monthEndStr)
+          .order('sale_date', { ascending: true });
 
-        for (const batch of batches) {
-          const salesPromises = batch.map(async (loc) => {
-            try {
-              // Check cache first
-              const cached = getCachedLiveSales(loc.id);
-              let salesResponse = cached?.data;
-              let lastYearResponse: any = null;
+        // Also fetch labor_cache data
+        const { data: laborCacheData } = await supabase
+          .from('labor_cache')
+          .select('location_id, labor_date, labor_cost, labor_hours')
+          .in('location_id', quBeyondLocationIds)
+          .eq('labor_date', todayStr);
 
-              if (!cached || cached.isStale) {
-                // Fetch current and last year in parallel
-                const lastYearDate = subYears(today, 1);
-                const lastYearStr = format(lastYearDate, 'yyyy-MM-dd');
-                
-                const [currentResult, lyResult] = await Promise.all([
-                  supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId: loc.id, targetDate: todayStr } }),
-                  supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId: loc.id, targetDate: lastYearStr } })
-                ]);
+        // Group sales data by location
+        const salesByLocation = new Map<string, typeof salesCacheData>();
+        salesCacheData?.forEach(row => {
+          if (!salesByLocation.has(row.location_id)) {
+            salesByLocation.set(row.location_id, []);
+          }
+          salesByLocation.get(row.location_id)!.push(row);
+        });
 
-                salesResponse = currentResult.data;
-                lastYearResponse = lyResult.data;
-
-                if (salesResponse) {
-                  setCachedLiveSales(loc.id, salesResponse);
-                }
-              }
-
-              if (salesResponse) {
-                const salesData: LocationSalesData = {
-                  daily: {
-                    actual: salesResponse.daily || 0,
-                    projected: salesResponse.projections?.todayProjected || 0,
-                    pacing: salesResponse.projections?.todayPaceAdjusted || salesResponse.projections?.todayProjected || 0,
-                    lastYear: lastYearResponse?.daily || 0
-                  },
-                  weekly: {
-                    actual: salesResponse.weekly || 0,
-                    projected: salesResponse.projections?.weekProjected || 0,
-                    pacing: calculatePacing(salesResponse.weekly, salesResponse.projections?.weekProjected, weekStart, today),
-                    lastYear: lastYearResponse?.weekly || 0
-                  },
-                  monthly: {
-                    actual: salesResponse.monthly || 0,
-                    projected: salesResponse.projections?.monthProjected || 0,
-                    pacing: calculatePacing(salesResponse.monthly, salesResponse.projections?.monthProjected, monthStart, today),
-                    lastYear: lastYearResponse?.monthly || 0
-                  }
-                };
-
-                // Extract labor data if available
-                const laborData: LaborData | null = salesResponse.labor ? {
-                  laborPercent: salesResponse.labor.laborPercent || 0,
-                  laborCost: salesResponse.labor.laborCost || 0,
-                  hoursWorked: salesResponse.labor.hoursWorked || 0
-                } : null;
-
-                return { locationId: loc.id, sales: salesData, labor: laborData };
-              }
-            } catch (error) {
-              console.error(`Error fetching sales for ${loc.name}:`, error);
-            }
-            return { locationId: loc.id, sales: null, labor: null };
-          });
-
-          const salesResults = await Promise.all(salesPromises);
-
-          // Update locations with sales data progressively
-          setLocations(prev => {
-            const updated = prev.map(loc => {
-              const salesResult = salesResults.find(r => r.locationId === loc.id);
-              if (salesResult?.sales) {
-                return { 
-                  ...loc, 
-                  sales: salesResult.sales,
-                  labor: salesResult.labor || loc.labor
-                };
-              }
-              return loc;
+        // Group labor data by location
+        const laborByLocation = new Map<string, { laborCost: number; hoursWorked: number }>();
+        laborCacheData?.forEach(row => {
+          const existing = laborByLocation.get(row.location_id);
+          if (existing) {
+            existing.laborCost += Number(row.labor_cost) || 0;
+            existing.hoursWorked += Number(row.labor_hours) || 0;
+          } else {
+            laborByLocation.set(row.location_id, {
+              laborCost: Number(row.labor_cost) || 0,
+              hoursWorked: Number(row.labor_hours) || 0
             });
-            // Cache the updated data
-            setCachedDashboard(updated);
-            return updated;
+          }
+        });
+
+        // Calculate sales metrics for each location
+        const salesResults = locationsWithQuBeyond.map(loc => {
+          const locationSales = salesByLocation.get(loc.id) || [];
+          const laborData = laborByLocation.get(loc.id);
+          
+          // Daily metrics (today)
+          const todayData = locationSales.find(s => s.sale_date === todayStr);
+          const dailyActual = Number(todayData?.net_sales) || 0;
+          const dailyResolved = resolveProjection(todayData);
+          const dailyProjected = dailyResolved.value || 0;
+          const dailyLastYear = Number(todayData?.yoy_net_sales) || 0;
+          
+          // Weekly metrics (Mon-Sun of current week)
+          const weekEndDate = new Date(weekStart);
+          weekEndDate.setDate(weekEndDate.getDate() + 6);
+          const weekEndStr = format(weekEndDate, 'yyyy-MM-dd');
+          
+          const weekData = locationSales.filter(s => s.sale_date >= weekStartStr && s.sale_date <= weekEndStr);
+          const weeklyActual = weekData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
+          const weeklyLastYear = weekData.reduce((sum, d) => sum + (Number(d.yoy_net_sales) || 0), 0);
+          
+          // Weekly projection using pace-adjusted calculation
+          const weeklyDataWithResolved = weekData.map(d => ({
+            date: d.sale_date,
+            sales: Number(d.net_sales) || 0,
+            resolved: resolveProjection(d)
+          }));
+          const weeklyProjected = weeklyDataWithResolved.reduce((sum, d) => sum + (d.resolved.value || 0), 0);
+          const weeklyPacing = calculatePaceAdjustedTotal(weeklyDataWithResolved, todayStr);
+          
+          // Monthly metrics
+          const monthlyActual = locationSales.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
+          const monthlyLastYear = locationSales.reduce((sum, d) => sum + (Number(d.yoy_net_sales) || 0), 0);
+          
+          // Monthly projection using pace-adjusted calculation  
+          const monthlyDataWithResolved = locationSales.map(d => ({
+            date: d.sale_date,
+            sales: Number(d.net_sales) || 0,
+            resolved: resolveProjection(d)
+          }));
+          const monthlyProjected = monthlyDataWithResolved.reduce((sum, d) => sum + (d.resolved.value || 0), 0);
+          const monthlyPacing = calculatePaceAdjustedTotal(monthlyDataWithResolved, todayStr);
+
+          const salesData: LocationSalesData = {
+            daily: {
+              actual: dailyActual,
+              projected: dailyProjected,
+              pacing: Math.max(dailyActual, dailyProjected), // For today, pacing = max(actual, projected)
+              lastYear: dailyLastYear
+            },
+            weekly: {
+              actual: weeklyActual,
+              projected: weeklyProjected,
+              pacing: weeklyPacing,
+              lastYear: weeklyLastYear
+            },
+            monthly: {
+              actual: monthlyActual,
+              projected: monthlyProjected,
+              pacing: monthlyPacing,
+              lastYear: monthlyLastYear
+            }
+          };
+
+          // Calculate labor data if available
+          let laborMetrics: LaborData | null = null;
+          if (laborData && dailyActual > 0) {
+            laborMetrics = {
+              laborCost: laborData.laborCost,
+              hoursWorked: laborData.hoursWorked,
+              laborPercent: (laborData.laborCost / dailyActual) * 100
+            };
+          }
+
+          return { locationId: loc.id, sales: salesData, labor: laborMetrics };
+        });
+
+        // Update locations with sales data
+        setLocations(prev => {
+          const updated = prev.map(loc => {
+            const salesResult = salesResults.find(r => r.locationId === loc.id);
+            if (salesResult?.sales) {
+              return { 
+                ...loc, 
+                sales: salesResult.sales,
+                labor: salesResult.labor || loc.labor
+              };
+            }
+            return loc;
           });
-        }
+          // Cache the updated data
+          setCachedDashboard(updated);
+          return updated;
+        });
       } else {
         setCachedDashboard(initialMetrics);
       }
@@ -475,14 +525,7 @@ export default function MultiLocationDashboard() {
     }
   };
 
-  const calculatePacing = (actual: number, projected: number, periodStart: Date, now: Date) => {
-    if (!projected || projected === 0) return actual;
-    const periodEnd = endOfMonth(periodStart);
-    const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
-    const elapsedDays = Math.ceil((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
-    const expectedPercent = elapsedDays / totalDays;
-    return (actual / expectedPercent);
-  };
+  // calculatePacing removed - now using calculatePaceAdjustedTotal from useResolvedProjection
 
   const formatLocationName = (name: string, storeNumber: string | null) => {
     // Just return name, store number is shown in the badge
