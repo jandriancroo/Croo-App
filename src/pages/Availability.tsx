@@ -48,7 +48,18 @@ import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { WeeklyHoursSection } from "@/components/availability/WeeklyHoursSection";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+import {
+  formatDateTimeInTimezone,
+  parseDateStringInTimezone,
+} from "@/utils/timezoneUtils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface AvailabilityRequest {
   id: string;
@@ -102,6 +113,12 @@ export default function Availability() {
   const [timeOffSort, setTimeOffSort] = useState<string>("lastName");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<AvailabilityRequest | null>(null);
+  const [editRequestType, setEditRequestType] = useState<"paid" | "unpaid">("unpaid");
+  const [editTimeScope, setEditTimeScope] = useState<"multi_day" | "full_day" | "partial_day">("full_day");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("09:00");
+  const [editEndTime, setEditEndTime] = useState("17:00");
   const [editHours, setEditHours] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -110,7 +127,6 @@ export default function Availability() {
   const [employeeEditDialogOpen, setEmployeeEditDialogOpen] = useState(false);
   const [employeeEditingRequest, setEmployeeEditingRequest] = useState<AvailabilityRequest | null>(null);
   const [employeeEditNotes, setEmployeeEditNotes] = useState("");
-
   // Default PTO balance (can be configured per company/location later)
   const DEFAULT_PTO_HOURS = 40;
 
@@ -299,6 +315,12 @@ export default function Availability() {
 
   const openEditDialog = (request: AvailabilityRequest) => {
     setEditingRequest(request);
+    setEditRequestType((request.request_type as any) || "unpaid");
+    setEditTimeScope((request.time_scope as any) || "full_day");
+    setEditStartDate(request.start_date);
+    setEditEndDate(request.end_date || "");
+    setEditStartTime(request.start_time || "09:00");
+    setEditEndTime(request.end_time || "17:00");
     setEditHours(request.hours_requested.toString());
     setEditStatus(request.status);
     setEditNotes(request.notes || "");
@@ -313,15 +335,23 @@ export default function Availability() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const payload: any = {
+        request_type: editRequestType,
+        time_scope: editTimeScope,
+        start_date: editStartDate,
+        end_date: editTimeScope === "multi_day" ? (editEndDate || null) : null,
+        start_time: editTimeScope === "partial_day" ? (editStartTime || null) : null,
+        end_time: editTimeScope === "partial_day" ? (editEndTime || null) : null,
+        hours_requested: parseFloat(editHours),
+        status: editStatus,
+        notes: editNotes || null,
+        edited_by: user.id,
+        edited_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from("availability_requests")
-        .update({
-          hours_requested: parseFloat(editHours),
-          status: editStatus,
-          notes: editNotes || null,
-          edited_by: user.id,
-          edited_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq("id", editingRequest.id);
 
       if (error) throw error;
@@ -415,8 +445,8 @@ export default function Availability() {
       const end = request.end_date;
       if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d, yyyy");
 
-      // Display dates as stored - don't reorder
-      return `${format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(end, "America/Los_Angeles"), "MMM d, yyyy")}`;
+      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
+      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "MMM d, yyyy")}`;
     } else {
       return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
     }
@@ -563,122 +593,138 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <div className="space-y-2">
-              {filteredRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="px-3 py-2 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-                    {/* Main content - stacks on mobile */}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                      {canApproveRequests && (
-                        <span className="font-medium text-sm truncate">{request.profiles.full_name}</span>
-                      )}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant={request.request_type === "paid" ? "default" : "secondary"} className="text-xs flex-shrink-0">
-                          {request.request_type === "paid" ? "Paid" : "Unpaid"}
-                        </Badge>
-                        <Badge
-                          variant={
-                            request.status === "approved"
-                              ? "default"
-                              : request.status === "denied"
-                              ? "destructive"
-                              : "outline"
-                          }
-                          className="text-xs flex-shrink-0"
-                        >
-                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {formatTimeScope(request)} • {request.hours_requested}h
-                      </span>
-                    </div>
+            <div className="w-full overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[160px]">Name</TableHead>
+                    <TableHead className="min-w-[140px]">Requested</TableHead>
+                    <TableHead className="min-w-[220px]">Requested for</TableHead>
+                    <TableHead className="w-[110px]">Type</TableHead>
+                    <TableHead className="w-[140px]">Status</TableHead>
+                    <TableHead className="w-[56px] text-right">&nbsp;</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRequests.map((request) => {
+                    const statusVariant =
+                      request.status === "approved"
+                        ? "default"
+                        : request.status === "denied"
+                        ? "destructive"
+                        : "outline";
 
-                    {/* Editor info */}
-                    {request.edited_by && request.editor && (
-                      <span className="text-xs text-muted-foreground italic flex-shrink-0 hidden sm:inline">
-                        edited by {request.editor.full_name?.split(" ")[0]}
-                      </span>
-                    )}
+                    const StatusBadge = (
+                      <Badge variant={statusVariant as any} className="text-xs">
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </Badge>
+                    );
 
-                    {/* Action buttons - always visible on right */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {canApproveRequests && request.status === "pending" && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="h-7 px-2"
-                            onClick={() => handleApprove(request.id)}
-                            disabled={processing}
+                    return (
+                      <TableRow key={request.id} className="align-middle">
+                        <TableCell className="font-medium">
+                          {canApproveRequests ? request.profiles.full_name : "You"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          <span className="text-foreground">{formatTimeScope(request)}</span>
+                          <span className="text-muted-foreground"> • {request.hours_requested}h</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={request.request_type === "paid" ? "default" : "secondary"}
+                            className="text-xs"
                           >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 px-2"
-                            onClick={() => openDenyDialog(request.id)}
-                            disabled={processing}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </>
-                      )}
+                            {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {canApproveRequests ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 px-2">
+                                  {StatusBadge}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => setEditStatus("pending")}>
+                                  Pending
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditStatus("approved")}>
+                                  Approved
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditStatus("denied")}>
+                                  Denied
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            StatusBadge
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canApproveRequests && request.status === "pending" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleApprove(request.id)}>
+                                    <Check className="h-4 w-4 mr-2" />
+                                    Approve
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
+                                    <X className="h-4 w-4 mr-2" />
+                                    Deny
+                                  </DropdownMenuItem>
+                                </>
+                              )}
 
-                      {/* Employee can edit/delete their own pending requests */}
-                      {!canApproveRequests && request.user_id === user?.id && request.status === "pending" && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => openDeleteDialog(request.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
+                              {canApproveRequests && (
+                                <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                              )}
 
-                      {canApproveRequests && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(request)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => openDeleteDialog(request.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                              {!canApproveRequests &&
+                                request.user_id === user?.id &&
+                                request.status === "pending" && (
+                                  <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+
+                              {(canApproveRequests ||
+                                (!canApproveRequests &&
+                                  request.user_id === user?.id &&
+                                  request.status === "pending")) && (
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(request.id)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
         </Card>
@@ -718,29 +764,86 @@ export default function Availability() {
               <DialogTitle>Edit Request</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Hours Requested</Label>
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  value={editHours}
-                  onChange={(e) => setEditHours(e.target.value)}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Request Type</Label>
+                  <Select value={editRequestType} onValueChange={(v) => setEditRequestType(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="unpaid">Unpaid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Time Period</Label>
+                  <Select value={editTimeScope} onValueChange={(v) => setEditTimeScope(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_day">Full Day</SelectItem>
+                      <SelectItem value="partial_day">Partial Day</SelectItem>
+                      <SelectItem value="multi_day">Multiple Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Start Date</Label>
+                  <Input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
+                </div>
+
+                {editTimeScope === "multi_day" && (
+                  <div className="space-y-2">
+                    <Label>End Date</Label>
+                    <Input type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} />
+                  </div>
+                )}
+
+                {editTimeScope === "partial_day" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={editStatus} onValueChange={setEditStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="denied">Denied</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Hours Requested</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    value={editHours}
+                    onChange={(e) => setEditHours(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={editStatus} onValueChange={setEditStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="denied">Denied</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea

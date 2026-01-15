@@ -88,14 +88,19 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
-  
-  // Get max date for paid (today) and min date for unpaid (today)
-  const getDateConstraints = () => {
+
+  const maxIsoDate = (a?: string, b?: string) => {
+    if (!a) return b || "";
+    if (!b) return a;
+    return a >= b ? a : b;
+  };
+
+  // Paid can only be past/present. Unpaid can only be present/future.
+  const getDateConstraints = (opts?: { min?: string; max?: string }) => {
     if (requestType === "paid") {
-      return { max: today }; // Paid can only be present or past
-    } else {
-      return { min: today }; // Unpaid can only be present or future
+      return { ...opts, max: today };
     }
+    return { ...opts, min: maxIsoDate(opts?.min, today) };
   };
 
   const calculateHours = (range?: { startDate: string; endDate?: string }) => {
@@ -251,8 +256,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  min={startDate}
-                  {...getDateConstraints()}
+                  {...getDateConstraints({ min: startDate || undefined })}
                 />
               </div>
             )}
