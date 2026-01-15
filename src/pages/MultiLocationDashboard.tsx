@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Building2, TrendingUp, TrendingDown, Minus, ExternalLink, FileText, AlertTriangle, Check, ClipboardCheck } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Building2, TrendingUp, TrendingDown, Minus, ExternalLink, FileText, AlertTriangle, Check, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -49,6 +50,7 @@ export default function MultiLocationDashboard() {
   const { organizationId } = useAppLocation();
   const navigate = useNavigate();
   const [chartPeriod, setChartPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all locations in the organization
   const { data: locations = [], isLoading: locationsLoading } = useQuery({
@@ -318,6 +320,19 @@ export default function MultiLocationDashboard() {
 
   const isLoading = locationsLoading || salesLoading || checklistsLoading || auditsLoading;
 
+  // Filter locations based on search query
+  const filteredLocations = useMemo(() => {
+    if (!searchQuery.trim()) return locations;
+    const query = searchQuery.toLowerCase();
+    return locations.filter(loc => {
+      const audit = auditDataMap[loc.id];
+      const matchesName = loc.name.toLowerCase().includes(query);
+      const matchesStoreNumber = loc.store_number?.toLowerCase().includes(query);
+      const matchesManager = audit?.manager_name?.toLowerCase().includes(query);
+      return matchesName || matchesStoreNumber || matchesManager;
+    });
+  }, [locations, searchQuery, auditDataMap]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -399,82 +414,91 @@ export default function MultiLocationDashboard() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
+        {/* Header with title, search, and period selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h1 className="text-xl font-bold">Org Dashboard</h1>
-          <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
-            <TabsList className="h-7">
-              <TabsTrigger value="daily" className="text-xs px-2 h-6">Today</TabsTrigger>
-              <TabsTrigger value="weekly" className="text-xs px-2 h-6">Week</TabsTrigger>
-              <TabsTrigger value="monthly" className="text-xs px-2 h-6">Month</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 w-48 text-sm"
+              />
+            </div>
+            <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="daily" className="text-xs px-3 h-7">Today</TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs px-3 h-7">Week</TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs px-3 h-7">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
         
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="p-3">
-                <div className="flex gap-3">
-                  <Skeleton className="h-16 w-40" />
-                  <Skeleton className="h-16 flex-1" />
-                  <Skeleton className="h-16 w-32" />
-                  <Skeleton className="h-16 w-32" />
+              <Card key={i} className="p-4">
+                <div className="flex gap-4">
+                  <Skeleton className="h-24 w-48" />
+                  <Skeleton className="h-24 flex-1" />
+                  <Skeleton className="h-24 w-40" />
+                  <Skeleton className="h-24 w-36" />
                 </div>
               </Card>
             ))}
           </div>
         ) : (
-          <div className="space-y-3">
-            {locations.map((location) => {
+          <div className="space-y-4">
+            {filteredLocations.map((location) => {
               const salesData = salesDataMap[location.id];
               const checklists = checklistDataMap[location.id] || [];
               const audit = auditDataMap[location.id];
               
               return (
-                <Card key={location.id} className="p-3 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                    {/* Column 1: Store Info + Sales */}
-                    <div className="flex flex-col gap-2">
+                <Card key={location.id} className="p-4 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Column 1: Store Info + Sales - Stacked & Larger */}
+                    <div className="flex flex-col gap-3">
                       {/* Location tag */}
-                      <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2 py-1 w-fit">
-                        <Building2 className="h-3.5 w-3.5 text-primary" />
+                      <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2.5 py-1.5 w-fit">
+                        <Building2 className="h-4 w-4 text-primary" />
                         <span className="text-sm font-semibold">{location.name}</span>
                         {location.store_number && (
                           <span className="text-xs text-muted-foreground">#{location.store_number}</span>
                         )}
                       </div>
                       
-                      {/* Sales info - compact */}
+                      {/* Sales info - stacked and larger */}
                       {salesData ? (
-                        <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div>
-                            <div className="text-muted-foreground">Sales</div>
-                            <div className="font-semibold">{formatCurrency(salesData.sales)}</div>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-sm text-muted-foreground">Sales</span>
+                            <span className="text-lg font-bold">{formatCurrency(salesData.sales)}</span>
                           </div>
-                          <div>
-                            <div className="text-muted-foreground">AI Goal</div>
-                            <div className="font-semibold">{formatCurrency(salesData.goal)}</div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-sm text-muted-foreground">AI Goal</span>
+                            <span className="text-base font-semibold text-muted-foreground">{formatCurrency(salesData.goal)}</span>
                           </div>
-                          <div>
-                            <div className="text-muted-foreground">Pace</div>
-                            <div className="font-semibold">{formatCurrency(salesData.pace)}</div>
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-sm text-muted-foreground">Pace</span>
+                            <span className="text-base font-semibold">{formatCurrency(salesData.pace)}</span>
+                          </div>
+                          {/* Status badge */}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            {getStatusIcon(salesData.status)}
+                            {getStatusBadge(salesData.status)}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground">No sales data</div>
-                      )}
-                      
-                      {/* Status badge */}
-                      {salesData && (
-                        <div className="flex items-center gap-1.5">
-                          {getStatusIcon(salesData.status)}
-                          {getStatusBadge(salesData.status)}
-                        </div>
+                        <div className="text-sm text-muted-foreground">No sales data</div>
                       )}
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-44 md:h-40">
+                    <div className="h-48 md:h-44">
                       {salesData ? (
                         <SalesSummaryChart
                           period={chartPeriod}
@@ -484,62 +508,67 @@ export default function MultiLocationDashboard() {
                           compact
                         />
                       ) : (
-                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
+                        <div className="h-full flex items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-lg">
                           No chart data
                         </div>
                       )}
                     </div>
                     
-                    {/* Column 3: Checklists - rectangular rows */}
-                    <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                    {/* Column 3: Checklists - Card styling, dynamic height */}
+                    <div className="rounded-lg border bg-card p-3">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Checklists</div>
                       {checklists.length > 0 ? (
-                        checklists.slice(0, 4).map((checklist) => (
-                          <ChecklistRow key={checklist.id} checklist={checklist} />
-                        ))
+                        <div className="space-y-1.5">
+                          {checklists.map((checklist) => (
+                            <ChecklistRow key={checklist.id} checklist={checklist} />
+                          ))}
+                        </div>
                       ) : (
-                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg p-2">
+                        <div className="flex items-center justify-center text-sm text-muted-foreground py-4">
                           No checklists
                         </div>
                       )}
                     </div>
                     
-                    {/* Column 4: Steritech Audit - compact */}
-                    <div>
+                    {/* Column 4: Steritech Audit - Taller card */}
+                    <div className="rounded-lg border bg-card p-3 min-h-[120px]">
                       {audit ? (
                         <a
                           href={audit.audit_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block"
+                          className="block h-full"
                         >
-                          <div className="flex flex-col gap-1 p-2 rounded-md border border-dashed hover:bg-muted/50 transition-colors">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <FileText className="h-3.5 w-3.5 text-primary" />
-                              <span className="font-medium">Steritech</span>
-                              <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
+                          <div className="flex flex-col h-full hover:bg-muted/30 -m-3 p-3 rounded-lg transition-colors">
+                            <div className="flex items-center gap-2 mb-3">
+                              <FileText className="h-4 w-4 text-primary" />
+                              <span className="font-medium text-sm">Steritech Audit</span>
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
                             </div>
-                            <div className="grid grid-cols-2 gap-x-2 text-xs">
-                              <span className="text-muted-foreground">Date</span>
-                              <span className="text-right">{format(new Date(audit.audit_date), 'M/d/yy')}</span>
+                            <div className="space-y-2 flex-1">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-muted-foreground">Date</span>
+                                <span className="text-sm font-medium">{format(new Date(audit.audit_date), 'MMM d, yyyy')}</span>
+                              </div>
                               {audit.visit_score && (
-                                <>
-                                  <span className="text-muted-foreground">Score</span>
-                                  <span className="text-right font-semibold">{audit.visit_score}</span>
-                                </>
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-muted-foreground">Score</span>
+                                  <span className="text-lg font-bold text-primary">{audit.visit_score}</span>
+                                </div>
                               )}
                               {audit.manager_name && (
-                                <>
-                                  <span className="text-muted-foreground">Mgr</span>
-                                  <span className="text-right truncate">{audit.manager_name}</span>
-                                </>
+                                <div className="flex justify-between">
+                                  <span className="text-sm text-muted-foreground">Manager</span>
+                                  <span className="text-sm font-medium truncate max-w-[120px]">{audit.manager_name}</span>
+                                </div>
                               )}
                             </div>
                           </div>
                         </a>
                       ) : (
-                        <div className="flex flex-col items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 h-full">
-                          <AlertTriangle className="h-4 w-4 mb-0.5 text-yellow-500" />
-                          No audit
+                        <div className="flex flex-col items-center justify-center h-full text-sm text-muted-foreground py-6">
+                          <AlertTriangle className="h-5 w-5 mb-1.5 text-yellow-500" />
+                          No audit on file
                         </div>
                       )}
                     </div>
@@ -547,6 +576,16 @@ export default function MultiLocationDashboard() {
                 </Card>
               );
             })}
+            
+            {filteredLocations.length === 0 && (
+              <Card className="p-8">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <Search className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-lg font-medium">No locations found</p>
+                  <p className="text-sm text-muted-foreground">Try adjusting your search query</p>
+                </div>
+              </Card>
+            )}
           </div>
         )}
       </div>
