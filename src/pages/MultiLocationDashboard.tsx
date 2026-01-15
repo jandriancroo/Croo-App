@@ -90,8 +90,39 @@ export default function MultiLocationDashboard() {
   const monthStartStr = format(monthStart, 'yyyy-MM-dd');
   const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
 
+  // Get today's day of week (0 = Sunday, 1 = Monday, etc.)
+  const todayDayOfWeek = new Date().getDay();
+
+  // Fetch location hours for today
+  const { data: locationHoursData = [] } = useQuery({
+    queryKey: ['org-location-hours', locations.map(l => l.id), todayDayOfWeek],
+    queryFn: async () => {
+      if (locations.length === 0) return [];
+      const locationIds = locations.map(l => l.id);
+      const { data, error } = await supabase
+        .from('location_hours')
+        .select('location_id, open_time, close_time')
+        .in('location_id', locationIds)
+        .eq('day_of_week', todayDayOfWeek);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: locations.length > 0,
+  });
+
+  // Create lookup for location hours
+  const locationHoursMap = useMemo(() => {
+    const map: Record<string, { openHour: number; closeHour: number }> = {};
+    for (const h of locationHoursData) {
+      const openHour = h.open_time ? parseInt(h.open_time.split(':')[0]) : 11;
+      const closeHour = h.close_time ? parseInt(h.close_time.split(':')[0]) : 22;
+      map[h.location_id] = { openHour, closeHour };
+    }
+    return map;
+  }, [locationHoursData]);
+
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, locationHoursMap],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
@@ -132,9 +163,11 @@ export default function MultiLocationDashboard() {
         
         const currentHour = new Date().getHours();
         
-        // Normalize hourly data to consistent 10am-10pm range
-        const OPEN_HOUR = 10;
-        const CLOSE_HOUR = 22; // 10pm
+        // Use location-specific business hours, fallback to 11am-10pm
+        const locHours = locationHoursMap[loc.id] || { openHour: 11, closeHour: 22 };
+        const OPEN_HOUR = locHours.openHour;
+        const CLOSE_HOUR = locHours.closeHour;
+        
         const rawHourlyData = todayRow?.hourly_data as Array<{ hour: string; sales: number; projected?: number }> || [];
         
         // Create lookup for raw hourly data
@@ -144,7 +177,7 @@ export default function MultiLocationDashboard() {
           hourlyLookup.set(hourNum, { sales: h.sales || 0, projected: h.projected });
         }
         
-        // Build normalized hourly data from OPEN_HOUR to CLOSE_HOUR
+        // Build normalized hourly data from location's open to close hours
         const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
         for (let h = OPEN_HOUR; h <= CLOSE_HOUR; h++) {
           const existing = hourlyLookup.get(h);
