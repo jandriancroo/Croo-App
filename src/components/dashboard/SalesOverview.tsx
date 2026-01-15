@@ -1622,11 +1622,17 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                       </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">AI Goal EOW</span>
-                          {/* Show tag if any day in week has living/override projection */}
-                          {salesData?.weeklyBreakdown?.some(d => d.projectionSource === 'living' || d.projectionSource === 'override') && (
+                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
+                          {/* Show tag based on projection sources in week */}
+                          {salesData?.weeklyBreakdown?.some(d => d.projectionSource) && (
                             <ProjectionTag 
-                              source={salesData.weeklyBreakdown.some(d => d.projectionSource === 'override') ? 'override' : 'living'} 
+                              source={
+                                salesData.weeklyBreakdown.some(d => d.projectionSource === 'override') 
+                                  ? 'override' 
+                                  : salesData.weeklyBreakdown.some(d => d.projectionSource === 'living')
+                                    ? 'living'
+                                    : 'initial'
+                              } 
                               size="sm" 
                               showLabel={false} 
                             />
@@ -1799,11 +1805,11 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                       </div>
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">AI Goal EOM</span>
-                          {/* Show living tag if projections are coming from living/override sources */}
-                          {salesData.projections.todaySource === 'living' || salesData.projections.todaySource === 'override' ? (
+                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
+                          {/* Show tag based on today's projection source */}
+                          {salesData.projections.todaySource && (
                             <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
-                          ) : null}
+                          )}
                         </div>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.monthProjected)}
