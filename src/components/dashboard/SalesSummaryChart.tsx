@@ -72,10 +72,20 @@ export function SalesSummaryChart({
     let totalHourlySales = 0;
     for (const h of hourly) totalHourlySales += h.sales || 0;
 
+    // Convert 24-hour format to 12-hour format for display
+    const formatHourTo12Hr = (hourStr: string) => {
+      const hourNum = parseInt(hourStr.split(':')[0], 10);
+      if (isNaN(hourNum)) return hourStr;
+      const suffix = hourNum >= 12 ? 'pm' : 'am';
+      const hour12 = hourNum % 12 || 12;
+      return `${hour12}${suffix}`;
+    };
+
     const hourlyWithPizzas = hourly.map((h) => {
       const sales = h.sales || 0;
       return {
         ...h,
+        hourLabel: formatHourTo12Hr(h.hour),
         estimatedPizzas:
           totalHourlySales > 0 && pizzaCount > 0
             ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
@@ -94,7 +104,7 @@ export function SalesSummaryChart({
         >
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
           <XAxis
-            dataKey="hour"
+            dataKey="hourLabel"
             className="text-xs"
             tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }}
             interval="preserveStartEnd"
