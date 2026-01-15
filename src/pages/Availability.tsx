@@ -585,7 +585,7 @@ export default function Availability() {
         </Card>
 
         {/* Requests List */}
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <h2 className="text-xl font-semibold mb-4">
             {canApproveRequests ? "All Requests" : "My Requests"} ({filteredRequests.length})
           </h2>
@@ -593,138 +593,135 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-[160px]">Name</TableHead>
-                    <TableHead className="min-w-[140px]">Requested</TableHead>
-                    <TableHead className="min-w-[220px]">Requested for</TableHead>
-                    <TableHead className="w-[110px]">Type</TableHead>
-                    <TableHead className="w-[140px]">Status</TableHead>
-                    <TableHead className="w-[56px] text-right">&nbsp;</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRequests.map((request) => {
-                    const statusVariant =
-                      request.status === "approved"
-                        ? "default"
-                        : request.status === "denied"
-                        ? "destructive"
-                        : "outline";
+            <div className="space-y-3">
+              {filteredRequests.map((request) => {
+                const statusVariant =
+                  request.status === "approved"
+                    ? "default"
+                    : request.status === "denied"
+                    ? "destructive"
+                    : "outline";
 
-                    const StatusBadge = (
-                      <Badge variant={statusVariant as any} className="text-xs">
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                      </Badge>
-                    );
+                const StatusBadge = (
+                  <Badge variant={statusVariant as any} className="text-xs">
+                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  </Badge>
+                );
 
-                    return (
-                      <TableRow key={request.id} className="align-middle">
-                        <TableCell className="font-medium">
-                          {canApproveRequests ? request.profiles.full_name : "You"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">
-                          <span className="text-foreground">{formatTimeScope(request)}</span>
-                          <span className="text-muted-foreground"> • {request.hours_requested}h</span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={request.request_type === "paid" ? "default" : "secondary"}
-                            className="text-xs"
-                          >
-                            {request.request_type === "paid" ? "Paid" : "Unpaid"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {canApproveRequests ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 px-2">
-                                  {StatusBadge}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start">
-                                <DropdownMenuItem onClick={() => setEditStatus("pending")}>
-                                  Pending
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setEditStatus("approved")}>
-                                  Approved
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setEditStatus("denied")}>
-                                  Denied
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : (
-                            StatusBadge
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
+                return (
+                  <div
+                    key={request.id}
+                    className="border rounded-lg p-3 flex flex-col gap-2"
+                  >
+                    {/* Top row: Name + Actions */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">
+                        {canApproveRequests ? request.profiles.full_name : "You"}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {canApproveRequests ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                <MoreVertical className="h-4 w-4" />
+                              <Button variant="ghost" size="sm" className="h-7 px-2">
+                                {StatusBadge}
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {canApproveRequests && request.status === "pending" && (
-                                <>
-                                  <DropdownMenuItem onClick={() => handleApprove(request.id)}>
-                                    <Check className="h-4 w-4 mr-2" />
-                                    Approve
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
-                                    <X className="h-4 w-4 mr-2" />
-                                    Deny
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-
-                              {canApproveRequests && (
-                                <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedRequest(request.id);
+                                setEditStatus("pending");
+                              }}>
+                                Pending
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedRequest(request.id);
+                                setEditStatus("approved");
+                              }}>
+                                Approved
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedRequest(request.id);
+                                setEditStatus("denied");
+                              }}>
+                                Denied
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          StatusBadge
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {canApproveRequests && request.status === "pending" && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleApprove(request.id)}>
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
+                                  <X className="h-4 w-4 mr-2" />
+                                  Deny
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {canApproveRequests && (
+                              <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
+                            {!canApproveRequests &&
+                              request.user_id === user?.id &&
+                              request.status === "pending" && (
+                                <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit
                                 </DropdownMenuItem>
                               )}
-
-                              {!canApproveRequests &&
+                            {(canApproveRequests ||
+                              (!canApproveRequests &&
                                 request.user_id === user?.id &&
-                                request.status === "pending" && (
-                                  <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
+                                request.status === "pending")) && (
+                              <DropdownMenuItem
+                                onClick={() => openDeleteDialog(request.id)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
 
-                              {(canApproveRequests ||
-                                (!canApproveRequests &&
-                                  request.user_id === user?.id &&
-                                  request.status === "pending")) && (
-                                <DropdownMenuItem
-                                  onClick={() => openDeleteDialog(request.id)}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                    {/* Details row */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        Requested:{" "}
+                        {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span className="text-foreground font-medium">
+                        {formatTimeScope(request)} • {request.hours_requested}h
+                      </span>
+                      <Badge
+                        variant={request.request_type === "paid" ? "default" : "secondary"}
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
