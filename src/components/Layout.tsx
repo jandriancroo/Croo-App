@@ -145,12 +145,12 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           >
             {mobileMainNavItems.map(item => {
               const isDashItem = item.path === '/dashboard';
-              const isOnOrgDash = location.pathname === '/multi-location';
+              const isOnOrgDash = location.pathname === '/org-dash';
               
               // For Dash item, swap icon/label when on Org Dash
               const Icon = isDashItem && isOnOrgDash && hasMultiLocationAccess ? Building2 : item.icon;
               const label = isDashItem && isOnOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
-              const itemPath = isDashItem && isOnOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
+              const itemPath = isDashItem && isOnOrgDash && hasMultiLocationAccess ? '/org-dash' : item.path;
               
               const isActive = location.pathname === itemPath;
               const showBadge = item.path === '/messages' && unreadCount > 0;
@@ -987,12 +987,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               <button
                 onClick={() => {
                   // Navigate to opposite view
-                  navigate(location.pathname === '/multi-location' ? '/dashboard' : '/multi-location');
+                  navigate(location.pathname === '/org-dash' ? '/dashboard' : '/org-dash');
                   setShowOrgBubble(false);
                 }}
                 className="flex items-center gap-2 px-4 py-2.5 bg-background rounded-xl shadow-lg border border-border text-foreground font-medium"
               >
-                {location.pathname === '/multi-location' ? (
+                {location.pathname === '/org-dash' ? (
                   <>
                     <LayoutDashboard className="h-5 w-5" />
                     <span>Dash</span>
