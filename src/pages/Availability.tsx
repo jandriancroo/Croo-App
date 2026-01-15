@@ -45,7 +45,7 @@ import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-reac
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
-import { WeeklyHoursSection } from "@/components/availability/WeeklyHoursSection";
+import { SchedulingPreferencesSection } from "@/components/availability/SchedulingPreferencesSection";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import {
@@ -86,13 +86,6 @@ interface AvailabilityRequest {
   } | null;
 }
 
-interface EmployeeHours {
-  id: string;
-  full_name: string;
-  profile_photo_url: string | null;
-  paid_hours: number;
-  unpaid_hours: number;
-}
 
 export default function Availability() {
   const { user } = useAuth();
@@ -100,7 +93,7 @@ export default function Availability() {
   const { currentLocation } = useAppLocation();
   const { canViewSickTime } = useRolePermissions();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
-  const [employeeHours, setEmployeeHours] = useState<EmployeeHours[]>([]);
+  
   const [myPtoBalance, setMyPtoBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [denyDialogOpen, setDenyDialogOpen] = useState(false);
@@ -110,7 +103,7 @@ export default function Availability() {
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
-  const [timeOffSort, setTimeOffSort] = useState<string>("lastName");
+  
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<AvailabilityRequest | null>(null);
   const [editRequestType, setEditRequestType] = useState<"paid" | "unpaid">("unpaid");
@@ -156,63 +149,6 @@ export default function Availability() {
 
         if (requestsError) throw requestsError;
         setRequests(requestsData || []);
-
-        // Fetch employee hours for admin - filter by location
-        const currentYear = new Date().getFullYear();
-        
-        // Get profiles for users at this location
-        const { data: userLocations, error: userLocError } = await supabase
-          .from("user_locations")
-          .select("user_id")
-          .eq("location_id", currentLocation.id);
-        
-        if (userLocError) throw userLocError;
-        
-        const locationUserIds = (userLocations || []).map(ul => ul.user_id);
-        
-        if (locationUserIds.length > 0) {
-          const { data: profiles, error: profilesError } = await supabase
-            .from("profiles")
-            .select("id, full_name, profile_photo_url")
-            .eq("is_active", true)
-            .in("id", locationUserIds);
-
-          if (profilesError) throw profilesError;
-
-          const { data: availabilityData, error: availabilityError } = await supabase
-            .from("availability_requests")
-            .select("user_id, request_type, hours_requested, status")
-            .eq("status", "approved")
-            .eq("location_id", currentLocation.id)
-            .gte("start_date", `${currentYear}-01-01`)
-            .lte("start_date", `${currentYear}-12-31`);
-
-          if (availabilityError) throw availabilityError;
-
-          const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
-            if (!acc[req.user_id]) {
-              acc[req.user_id] = { paid: 0, unpaid: 0 };
-            }
-            if (req.request_type === "paid") {
-              acc[req.user_id].paid += req.hours_requested;
-            } else {
-              acc[req.user_id].unpaid += req.hours_requested;
-            }
-            return acc;
-          }, {});
-
-          const employeeHoursData = (profiles || []).map((profile) => ({
-            id: profile.id,
-            full_name: profile.full_name || "",
-            profile_photo_url: profile.profile_photo_url,
-            paid_hours: hoursByUser[profile.id]?.paid || 0,
-            unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-          }));
-
-          setEmployeeHours(employeeHoursData);
-        } else {
-          setEmployeeHours([]);
-        }
       } else {
         // Non-admin view - fetch only user's own requests for current location
         const { data: requestsData, error: requestsError } = await supabase
@@ -500,58 +436,8 @@ export default function Availability() {
         {/* Shift Pool - Manager Only */}
         {canApproveRequests && <ShiftPoolSection />}
 
-        {/* Weekly Hours - Manager Only */}
-        {canApproveRequests && <WeeklyHoursSection />}
-
-        {/* Time Off Used - Manager Only */}
-        {canApproveRequests && employeeHours.length > 0 && (
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Time Off Used (Year to Date)</h2>
-              <Select value={timeOffSort} onValueChange={setTimeOffSort}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lastName">Last Name</SelectItem>
-                  <SelectItem value="firstName">First Name</SelectItem>
-                  <SelectItem value="mostUsed">Most Used</SelectItem>
-                  <SelectItem value="leastUsed">Least Used</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              {[...employeeHours]
-                .sort((a, b) => {
-                  if (timeOffSort === "lastName") {
-                    const aLast = a.full_name.split(" ").slice(-1)[0] || "";
-                    const bLast = b.full_name.split(" ").slice(-1)[0] || "";
-                    return aLast.localeCompare(bLast);
-                  } else if (timeOffSort === "firstName") {
-                    const aFirst = a.full_name.split(" ")[0] || "";
-                    const bFirst = b.full_name.split(" ")[0] || "";
-                    return aFirst.localeCompare(bFirst);
-                  } else if (timeOffSort === "mostUsed") {
-                    return (b.paid_hours + b.unpaid_hours) - (a.paid_hours + a.unpaid_hours);
-                  } else {
-                    return (a.paid_hours + a.unpaid_hours) - (b.paid_hours + b.unpaid_hours);
-                  }
-                })
-                .map((employee) => (
-                  <div
-                    key={employee.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg text-sm"
-                  >
-                    <span className="font-medium truncate">{employee.full_name}</span>
-                    <div className="flex gap-2 flex-shrink-0 text-xs">
-                      <span className="text-primary font-medium">{employee.paid_hours}h</span>
-                      <span className="text-muted-foreground">{employee.unpaid_hours}h</span>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </Card>
-        )}
+        {/* Scheduling Preferences - Manager Only */}
+        {canApproveRequests && <SchedulingPreferencesSection />}
 
         {/* Filters */}
         <Card className="p-4">
