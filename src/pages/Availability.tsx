@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Check, X, Calendar, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
@@ -86,7 +85,7 @@ interface EmployeeHours {
 
 export default function Availability() {
   const { user } = useAuth();
-  const { isAdmin, canApproveRequests, loading: roleLoading } = useUserRole();
+  const { canApproveRequests, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const { canViewSickTime } = useRolePermissions();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
@@ -108,6 +107,9 @@ export default function Availability() {
   const [editNotes, setEditNotes] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
+  const [employeeEditDialogOpen, setEmployeeEditDialogOpen] = useState(false);
+  const [employeeEditingRequest, setEmployeeEditingRequest] = useState<AvailabilityRequest | null>(null);
+  const [employeeEditNotes, setEmployeeEditNotes] = useState("");
 
   // Default PTO balance (can be configured per company/location later)
   const DEFAULT_PTO_HOURS = 40;
@@ -338,6 +340,46 @@ export default function Availability() {
   const openDeleteDialog = (requestId: string) => {
     setDeletingRequestId(requestId);
     setDeleteDialogOpen(true);
+  };
+
+  const openEmployeeEditDialog = (request: AvailabilityRequest) => {
+    setEmployeeEditingRequest(request);
+    setEmployeeEditNotes(request.notes || "");
+    setEmployeeEditDialogOpen(true);
+  };
+
+  const handleEmployeeEditRequest = async () => {
+    if (!employeeEditingRequest) return;
+
+    setProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Employee edit resets status to pending for re-approval
+      const { error } = await supabase
+        .from("availability_requests")
+        .update({
+          notes: employeeEditNotes || null,
+          status: "pending",
+          edited_by: user.id,
+          edited_at: new Date().toISOString(),
+          reviewed_by: null,
+          reviewed_at: null,
+        })
+        .eq("id", employeeEditingRequest.id);
+
+      if (error) throw error;
+      toast.success("Request updated and resubmitted for approval");
+      setEmployeeEditDialogOpen(false);
+      setEmployeeEditingRequest(null);
+      fetchData();
+    } catch (error: any) {
+      console.error("Error updating request:", error);
+      toast.error("Failed to update request");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleDeleteRequest = async () => {
@@ -587,6 +629,30 @@ export default function Availability() {
                         </>
                       )}
 
+                      {/* Employee can edit/delete their own pending requests */}
+                      {!canApproveRequests && request.user_id === user?.id && request.status === "pending" && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openDeleteDialog(request.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+
                       {canApproveRequests && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -716,6 +782,37 @@ export default function Availability() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Employee Edit Dialog */}
+        <Dialog open={employeeEditDialogOpen} onOpenChange={setEmployeeEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Request</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                Editing your request will reset it to pending status and require manager approval again.
+              </p>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  placeholder="Add notes..."
+                  value={employeeEditNotes}
+                  onChange={(e) => setEmployeeEditNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmployeeEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEmployeeEditRequest} disabled={processing}>
+                {processing ? "Saving..." : "Update & Resubmit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <RequestAvailabilityDialog
           open={requestDialogOpen}
