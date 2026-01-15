@@ -122,7 +122,7 @@ export default function MultiLocationDashboard() {
   }, [locationHoursData]);
 
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, locationHoursMap],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, JSON.stringify(locationHoursMap)],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
