@@ -452,25 +452,25 @@ export default function MultiLocationDashboard() {
     <Layout>
       <div className="container mx-auto px-4 py-4">
         {/* Header with title, search, and period selector */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <h1 className="text-xl font-bold">Org Dashboard</h1>
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold">Org Dashboard</h1>
             <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
               <TabsList className="h-8">
-                <TabsTrigger value="daily" className="text-xs px-3 h-7">Today</TabsTrigger>
-                <TabsTrigger value="weekly" className="text-xs px-3 h-7">Week</TabsTrigger>
-                <TabsTrigger value="monthly" className="text-xs px-3 h-7">Month</TabsTrigger>
+                <TabsTrigger value="daily" className="text-xs px-2 sm:px-3 h-7">Today</TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs px-2 sm:px-3 h-7">Week</TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs px-2 sm:px-3 h-7">Month</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search locations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 w-48 text-sm"
-              />
-            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search locations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 w-full text-sm"
+            />
           </div>
         </div>
         
@@ -496,7 +496,7 @@ export default function MultiLocationDashboard() {
               
               return (
                 <Card key={location.id} className="p-3 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-[180px_minmax(200px,1fr)_220px_180px] gap-3">
+                  <div className="flex flex-col gap-4 md:grid md:grid-cols-[180px_minmax(200px,1fr)_220px_180px] md:gap-3">
                     {/* Column 1: Store Info + Sales - Compact */}
                     <div className="flex flex-col gap-1.5">
                       {/* Location tag - name on one line, number below */}
@@ -553,7 +553,7 @@ export default function MultiLocationDashboard() {
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-36 md:h-32">
+                    <div className="h-48 md:h-32">
                       {salesData ? (
                         <SalesSummaryChart
                           period={chartPeriod}
