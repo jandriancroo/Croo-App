@@ -17,7 +17,7 @@ import { MetricType, METRIC_CONFIGS, METRIC_GROUPS, WidgetSize, SalesDataForWidg
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { DataCube3D } from '@/components/dashboard/DataCube3D';
 import { DashboardWidget } from '@/components/dashboard/DashboardWidget';
-import { SalesOverview } from '@/components/dashboard/SalesOverview';
+import { SalesSummary } from '@/components/dashboard/SalesSummary';
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass, isThemeColorKey } from '@/utils/themeColors';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';

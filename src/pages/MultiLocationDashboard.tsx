@@ -706,9 +706,9 @@ export default function MultiLocationDashboard() {
         <Card>
           <CardContent className="p-6 text-center">
             <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Multi-Location Dashboard</h2>
+            <h2 className="text-xl font-semibold mb-2">Org Dash</h2>
             <p className="text-muted-foreground">
-              This dashboard is only available to organization administrators and brand managers.
+              This dashboard is only available to organization administrators.
             </p>
           </CardContent>
         </Card>
@@ -729,7 +729,7 @@ export default function MultiLocationDashboard() {
             <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-3xl -z-10" />
             <div className="flex items-end justify-between">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Org Admin</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Org Dash</h1>
                 <p className="text-muted-foreground mt-1 flex items-center gap-2">
                   {format(new Date(), 'EEEE, MMMM d, yyyy')}
                   <span className="text-xs text-muted-foreground/60">

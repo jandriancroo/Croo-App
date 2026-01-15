@@ -66,7 +66,7 @@ interface DiagnosticInfo {
   authenticated?: boolean;
 }
 
-export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
+export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<string>('today');
