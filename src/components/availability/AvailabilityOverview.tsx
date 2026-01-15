@@ -138,9 +138,14 @@ export function AvailabilityOverview() {
     if (request.time_scope === "partial_day") {
       return `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
     } else if (request.time_scope === "multi_day") {
-      return `${format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d")} - ${format(parseDateStringInTimezone(request.end_date!, 'America/Los_Angeles'), "MMM d, yyyy")}`;
+      const start = request.start_date;
+      const end = request.end_date;
+      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d, yyyy");
+
+      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
+      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "MMM d, yyyy")}`;
     } else {
-      return format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d, yyyy");
+      return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
     }
   };
 

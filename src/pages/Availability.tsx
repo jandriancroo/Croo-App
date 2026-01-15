@@ -41,7 +41,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Check, X, Calendar, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
@@ -49,6 +49,7 @@ import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { WeeklyHoursSection } from "@/components/availability/WeeklyHoursSection";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 interface AvailabilityRequest {
   id: string;
@@ -364,13 +365,18 @@ export default function Availability() {
 
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
-      const dateStr = format(parseISO(request.start_date), "MMM d, yyyy");
+      const dateStr = format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
       const timeRange = `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
       return `${dateStr} • ${timeRange}`;
     } else if (request.time_scope === "multi_day") {
-      return `${format(parseISO(request.start_date), "MMM d")} - ${format(parseISO(request.end_date!), "MMM d, yyyy")}`;
+      const start = request.start_date;
+      const end = request.end_date;
+      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d, yyyy");
+
+      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
+      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "MMM d, yyyy")}`;
     } else {
-      return format(parseISO(request.start_date), "MMM d, yyyy");
+      return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
     }
   };
 
