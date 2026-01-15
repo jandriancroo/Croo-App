@@ -142,8 +142,8 @@ export function AvailabilityOverview() {
       const end = request.end_date;
       if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d, yyyy");
 
-      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
-      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "MMM d, yyyy")}`;
+      // Display dates as stored - don't reorder
+      return `${format(parseDateStringInTimezone(start, "America/Los_Angeles"), "MMM d")} - ${format(parseDateStringInTimezone(end, "America/Los_Angeles"), "MMM d, yyyy")}`;
     } else {
       return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "MMM d, yyyy");
     }
