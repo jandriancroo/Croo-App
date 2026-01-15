@@ -10,7 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInHours, parseISO, format } from "date-fns";
 import { useLocation } from "@/hooks/useLocation";
-import { AlertTriangle } from "lucide-react";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+
 
 interface RequestAvailabilityDialogProps {
   open: boolean;
@@ -65,15 +66,16 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     }
 
     const dates: string[] = [];
-    
+
     if (timeScope === "full_day" || timeScope === "partial_day") {
       if (startDate) dates.push(startDate);
     } else if (timeScope === "multi_day") {
       if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const [rangeStart, rangeEnd] = startDate <= endDate ? [startDate, endDate] : [endDate, startDate];
+        const start = parseDateStringInTimezone(rangeStart, "America/Los_Angeles");
+        const end = parseDateStringInTimezone(rangeEnd, "America/Los_Angeles");
         const current = new Date(start);
-        
+
         while (current <= end) {
           dates.push(format(current, "yyyy-MM-dd"));
           current.setDate(current.getDate() + 1);
@@ -81,7 +83,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
       }
     }
 
-    const hasConflict = dates.some(date => blackoutDates.includes(date));
+    const hasConflict = dates.some((date) => blackoutDates.includes(date));
     setHasBlackoutWarning(hasConflict);
   };
 
@@ -96,7 +98,10 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     }
   };
 
-  const calculateHours = () => {
+  const calculateHours = (range?: { startDate: string; endDate?: string }) => {
+    const effectiveStartDate = range?.startDate ?? startDate;
+    const effectiveEndDate = range?.endDate ?? endDate;
+
     if (timeScope === "partial_day") {
       if (!startTime || !endTime) return 0;
       const start = parseISO(`2000-01-01T${startTime}`);
@@ -105,9 +110,14 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
     } else if (timeScope === "full_day") {
       return 8; // Standard work day
     } else if (timeScope === "multi_day") {
-      if (!startDate || !endDate) return 0;
-      const start = parseISO(startDate);
-      const end = parseISO(endDate);
+      if (!effectiveStartDate || !effectiveEndDate) return 0;
+      const [rangeStart, rangeEnd] =
+        effectiveStartDate <= effectiveEndDate
+          ? [effectiveStartDate, effectiveEndDate]
+          : [effectiveEndDate, effectiveStartDate];
+
+      const start = parseISO(rangeStart);
+      const end = parseISO(rangeEnd);
       const days = Math.max(1, Math.ceil(differenceInHours(end, start) / 24) + 1);
       return days * 8; // 8 hours per day
     }
@@ -125,20 +135,29 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
       return;
     }
 
+    const [rangeStart, rangeEnd] =
+      timeScope === "multi_day" && endDate
+        ? startDate <= endDate
+          ? [startDate, endDate]
+          : [endDate, startDate]
+        : [startDate, undefined];
+
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const hours = calculateHours();
+      const hours = calculateHours({ startDate: rangeStart, endDate: rangeEnd });
 
       const { error } = await supabase.from("availability_requests").insert({
         user_id: user.id,
         location_id: currentLocation?.id,
         request_type: requestType,
         time_scope: timeScope,
-        start_date: startDate,
-        end_date: timeScope === "multi_day" ? endDate : null,
+        start_date: rangeStart,
+        end_date: timeScope === "multi_day" ? (rangeEnd ?? null) : null,
         start_time: timeScope === "partial_day" ? startTime : null,
         end_time: timeScope === "partial_day" ? endTime : null,
         hours_requested: hours,
@@ -186,9 +205,9 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         <div className="space-y-4 py-4">
           {hasBlackoutWarning && (
             <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 Warning: One or more selected dates are blackout dates. Your request can still be submitted but may require special approval.
+              </AlertDescription>
               </AlertDescription>
             </Alert>
           )}
