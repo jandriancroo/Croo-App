@@ -57,7 +57,7 @@ export function SalesSummaryChart({
   const height = compact ? 200 : 280;
 
   // Consistent empty state height matching chart height
-  const emptyHeight = compact ? 'h-[200px]' : 'h-[200px] md:h-[280px]';
+  const emptyHeight = compact ? 'h-[200px]' : 'h-[280px]';
 
   if (period === 'daily') {
     if (!hourly) {
@@ -86,7 +86,7 @@ export function SalesSummaryChart({
     const hasLaborData = hourlyWithPizzas.some((h) => (h.laborPercent || 0) > 0);
 
     return (
-      <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart
           data={hourlyWithPizzas}
           barCategoryGap="10%"
@@ -172,7 +172,7 @@ export function SalesSummaryChart({
     const hasWeeklyLabor = weeklyBreakdown.some((d) => (d.laborPercent || 0) > 0);
 
     return (
-      <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart
           data={weeklyBreakdown.map((d) => ({
             ...d,
@@ -282,7 +282,7 @@ export function SalesSummaryChart({
     }
 
     return buckets.length > 0 ? (
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={buckets} barCategoryGap="20%">
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
           <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} axisLine={false} tickLine={false} />
