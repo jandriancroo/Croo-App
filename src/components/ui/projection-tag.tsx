@@ -23,14 +23,18 @@ export function ProjectionTag({
   showLabel = true,
   className = '' 
 }: ProjectionTagProps) {
-  if (!source || source === 'initial' || source === 'legacy') {
+  if (!source || source === 'legacy') {
     return null;
   }
 
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
   const badgeSize = size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5';
 
-  if (source === 'living') {
+  if (source === 'living' || source === 'initial') {
+    const tooltipText = source === 'living' 
+      ? 'Live AI Projection - Updated daily based on recent trends'
+      : 'AI Projection - Generated for schedule planning';
+    
     return (
       <TooltipProvider>
         <Tooltip>
@@ -44,7 +48,7 @@ export function ProjectionTag({
             </Badge>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p className="text-xs">Live AI Projection - Updated daily based on recent trends</p>
+            <p className="text-xs">{tooltipText}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -85,11 +89,11 @@ export function ProjectionIcon({
   source: ProjectionSource; 
   className?: string;
 }) {
-  if (!source || source === 'initial' || source === 'legacy') {
+  if (!source || source === 'legacy') {
     return null;
   }
 
-  if (source === 'living') {
+  if (source === 'living' || source === 'initial') {
     return (
       <TooltipProvider>
         <Tooltip>
