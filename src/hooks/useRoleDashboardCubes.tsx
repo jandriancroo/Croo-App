@@ -19,22 +19,24 @@ export interface RoleCubeConfig {
 }
 
 // Map user role to the role key used in role_dashboard_cubes
-function getRoleCubeKey(userRole: {
-  isAdmin: boolean;
-  isGeneralManager: boolean;
-  isManager: boolean;
-  isShiftManager: boolean;
-}): string | null {
+// Uses the actual role string to avoid confusion with hierarchy booleans
+function getRoleCubeKey(actualRole: string | null, isAdmin: boolean): string | null {
   // Admins and higher get personal freedom - no role-based cubes
-  if (userRole.isAdmin) return null;
+  if (isAdmin) return null;
   
-  // Check roles in order of hierarchy
-  if (userRole.isGeneralManager) return 'general_manager';
-  if (userRole.isManager) return 'manager';
-  if (userRole.isShiftManager) return 'shift_manager';
-  
-  // Default to team_member
-  return 'team_member';
+  // Map actual role to the cube key
+  // Note: 'general_manager' role was consolidated into 'manager' - 
+  // both use 'manager' cubes for simplicity
+  switch (actualRole) {
+    case 'general_manager':
+    case 'manager':
+      return 'manager';
+    case 'shift_manager':
+      return 'shift_manager';
+    case 'team_member':
+    default:
+      return 'team_member';
+  }
 }
 
 /**
@@ -46,8 +48,8 @@ export function useRoleDashboardCubes(organizationId: string | null) {
   const { user } = useAuth();
   const userRole = useUserRole();
   
-  const roleKey = getRoleCubeKey(userRole);
-  
+  const roleKey = getRoleCubeKey(userRole.role, userRole.isAdmin);
+
   return useQuery({
     queryKey: ['role-dashboard-cubes', organizationId, roleKey],
     queryFn: async () => {
@@ -97,7 +99,8 @@ export function useShouldUseRoleCubes(organizationId: string | null) {
   const { data: roleCubes, isLoading } = useRoleDashboardCubes(organizationId);
   const userRole = useUserRole();
   
-  const roleKey = getRoleCubeKey(userRole);
+  const roleKey = getRoleCubeKey(userRole.role, userRole.isAdmin);
+
   
   // Admin+ always uses personal cubes
   if (!roleKey) {
