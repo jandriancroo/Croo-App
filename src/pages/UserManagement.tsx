@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil, FlaskConical, RefreshCw } from 'lucide-react';
+import { Loader2, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil, FlaskConical, RefreshCw } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -334,12 +334,7 @@ export default function UserManagement() {
     }
   }, [viewingWageHistory]);
 
-  useEffect(() => {
-    if (viewingUser) {
-      fetchEmployeeNotes(viewingUser.id);
-      setEditEmployeePin(viewingUser.employee_pin || '');
-    }
-  }, [viewingUser]);
+  // Note: Employee notes now managed in EmployeeProfileDialog
 
   // Handle opening user profile from navigation state
   useEffect(() => {
@@ -422,29 +417,7 @@ export default function UserManagement() {
     }
   };
 
-  const fetchEmployeeNotes = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('employee_notes')
-        .select(`
-          *,
-          creator:created_by(full_name)
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setEmployeeNotes(data || []);
-    } catch (error: any) {
-      console.error('Error fetching employee notes:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load employee notes',
-        variant: 'destructive',
-      });
-    }
-  };
+  // Note: fetchEmployeeNotes moved to EmployeeProfileDialog component
 
   const handleDeleteWageHistory = async (historyId: string) => {
     try {
@@ -573,37 +546,13 @@ export default function UserManagement() {
     reader.readAsDataURL(file);
   };
 
-  const handleEditPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Error', description: 'Image must be less than 5MB', variant: 'destructive' });
-      return;
-    }
-
-    // Read file as data URL for cropping
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setTempImageSrc(reader.result as string);
-      setIsInviteCrop(false);
-      setCropDialogOpen(true);
-    };
-    reader.readAsDataURL(file);
-  };
+  // Note: handleEditPhotoUpload moved to EmployeeProfileDialog
 
   const handleCropComplete = async (croppedBlob: Blob) => {
     try {
       setUploadingPhoto(true);
       
-      const fileName = isInviteCrop
-        ? `temp/${Date.now()}.jpg`
-        : `${editingUser?.id}/${Date.now()}.jpg`;
+      const fileName = `temp/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('profile-photos')
@@ -615,11 +564,7 @@ export default function UserManagement() {
         .from('profile-photos')
         .getPublicUrl(fileName);
 
-      if (isInviteCrop) {
-        setInviteProfilePhoto(publicUrl);
-      } else {
-        setEditProfilePhoto(publicUrl);
-      }
+      setInviteProfilePhoto(publicUrl);
       
       toast({ title: 'Success', description: 'Photo uploaded' });
     } catch (error: any) {
@@ -629,128 +574,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleEditUser = async (user: UserProfile) => {
-    setEditingUser(user);
-    setEditFullName(user.full_name || '');
-    setEditProfilePhoto(user.profile_photo_url);
-    setEditPhoneNumber(user.phone_number || '');
-    setEditBirthday(user.birthday ? parseDateOnlyToLocalDate(user.birthday) : undefined);
-    setEditEmployeePin(user.employee_pin || '');
-    
-    // Fetch user's assigned locations and all_locations_enabled flag
-    try {
-      const [locResult, profileResult] = await Promise.all([
-        supabase
-          .from('user_locations')
-          .select('location_id')
-          .eq('user_id', user.id),
-        supabase
-          .from('profiles')
-          .select('all_locations_enabled')
-          .eq('id', user.id)
-          .single()
-      ]);
-      
-      if (locResult.error) throw locResult.error;
-      setEditUserLocations(locResult.data?.map(ul => ul.location_id) || []);
-      setEditAllLocationsEnabled(profileResult.data?.all_locations_enabled || false);
-    } catch (error: any) {
-      console.error('Error fetching user locations:', error);
-      setEditUserLocations([]);
-      setEditAllLocationsEnabled(false);
-    }
-    
-    setEditDialogOpen(true);
-  };
-
-  // Reserved master code - cannot be used as employee PIN
-  const RESERVED_MASTER_PIN = '0223';
-
-  const handleUpdateUser = async () => {
-    if (!editingUser || !editFullName.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please provide a full name.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Prevent using reserved master PIN
-    if (editEmployeePin.trim() === RESERVED_MASTER_PIN) {
-      toast({
-        title: 'Error',
-        description: 'This PIN is reserved and cannot be used.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setUpdatingUser(true);
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: editFullName.trim(),
-          profile_photo_url: editProfilePhoto,
-          phone_number: editPhoneNumber.trim() || null,
-          birthday: editBirthday ? format(editBirthday, 'yyyy-MM-dd') : null,
-          employee_pin: editEmployeePin.trim() || null,
-          all_locations_enabled: editAllLocationsEnabled,
-        })
-        .eq('id', editingUser.id);
-
-      if (error) throw error;
-
-      // Update user location assignments
-      // First, delete existing assignments
-      const { error: deleteError } = await supabase
-        .from('user_locations')
-        .delete()
-        .eq('user_id', editingUser.id);
-
-      if (deleteError) throw deleteError;
-
-      // Then, insert new assignments
-      if (editUserLocations.length > 0) {
-        const { error: insertError } = await supabase
-          .from('user_locations')
-          .insert(
-            editUserLocations.map(locationId => ({
-              user_id: editingUser.id,
-              location_id: locationId,
-            }))
-          );
-
-        if (insertError) throw insertError;
-      }
-
-      toast({
-        title: 'Success',
-        description: 'User profile updated successfully',
-      });
-
-      setEditDialogOpen(false);
-      setEditingUser(null);
-      setEditFullName('');
-      setEditProfilePhoto(null);
-      setEditPhoneNumber('');
-      setEditBirthday(undefined);
-      setEditUserLocations([]);
-      setEditAllLocationsEnabled(false);
-      fetchUsers();
-    } catch (error: any) {
-      console.error('Error updating user:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update user profile',
-        variant: 'destructive',
-      });
-    } finally {
-      setUpdatingUser(false);
-    }
-  };
+  // Note: handleEditUser and handleUpdateUser moved to EmployeeProfileDialog component
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -1030,47 +854,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleAddEmployeeNote = async () => {
-    if (!viewingUser || !newEmployeeNote.trim()) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please enter a note',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      setAddingNote(true);
-
-      const { error } = await supabase
-        .from('employee_notes')
-        .insert({
-          user_id: viewingUser.id,
-          note: newEmployeeNote.trim(),
-          created_by: user?.id,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Note added successfully',
-      });
-
-      setNewEmployeeNote('');
-      fetchEmployeeNotes(viewingUser.id);
-    } catch (error: any) {
-      console.error('Error adding note:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to add note',
-        variant: 'destructive',
-      });
-    } finally {
-      setAddingNote(false);
-    }
-  };
+  // Note: handleAddEmployeeNote moved to EmployeeProfileDialog
 
   const handleBulkDeactivate = async () => {
     try {
@@ -1178,32 +962,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteEmployeeNote = async (noteId: string) => {
-    try {
-      const { error } = await supabase
-        .from('employee_notes')
-        .delete()
-        .eq('id', noteId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'Note deleted',
-      });
-
-      if (viewingUser) {
-        fetchEmployeeNotes(viewingUser.id);
-      }
-    } catch (error: any) {
-      console.error('Error deleting note:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete note',
-        variant: 'destructive',
-      });
-    }
-  };
+  // Note: handleDeleteEmployeeNote moved to EmployeeProfileDialog
 
   const handleInviteUser = async () => {
     if (!inviteEmail.trim() || !inviteFullName.trim()) {
