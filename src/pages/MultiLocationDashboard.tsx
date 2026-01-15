@@ -362,16 +362,16 @@ export default function MultiLocationDashboard() {
         className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors w-full text-left"
       >
         <div className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${
-          isComplete ? 'bg-green-500' : 'bg-muted'
+          isComplete ? 'bg-green-500' : 'bg-red-500'
         }`}>
           {isComplete ? (
             <Check className="h-3 w-3 text-white" strokeWidth={3} />
           ) : (
-            <ClipboardCheck className="h-3 w-3 text-muted-foreground" />
+            <span className="text-white text-xs font-bold">✕</span>
           )}
         </div>
         <span className="text-xs truncate flex-1">{checklist.title}</span>
-        <span className={`text-xs font-medium ${isComplete ? 'text-green-500' : 'text-muted-foreground'}`}>
+        <span className={`text-xs font-medium ${isComplete ? 'text-green-500' : 'text-red-500'}`}>
           {completionRate}%
         </span>
       </button>
@@ -399,15 +399,8 @@ export default function MultiLocationDashboard() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h1 className="text-xl font-bold">Org Dashboard</h1>
-          <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)}>
-            <TabsList className="h-8">
-              <TabsTrigger value="daily" className="text-xs px-2 h-6">Today</TabsTrigger>
-              <TabsTrigger value="weekly" className="text-xs px-2 h-6">Week</TabsTrigger>
-              <TabsTrigger value="monthly" className="text-xs px-2 h-6">Month</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
         
         {isLoading ? (
@@ -474,20 +467,29 @@ export default function MultiLocationDashboard() {
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-32">
-                      {salesData ? (
-                        <SalesSummaryChart
-                          period={chartPeriod}
-                          hourly={chartPeriod === 'daily' ? salesData.hourlyData : undefined}
-                          weeklyBreakdown={chartPeriod === 'weekly' ? salesData.weeklyBreakdown : undefined}
-                          monthlyBreakdown={chartPeriod === 'monthly' ? salesData.monthlyBreakdown : undefined}
-                          compact
-                        />
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
-                          No chart data
-                        </div>
-                      )}
+                    <div className="flex flex-col">
+                      <Tabs value={chartPeriod} onValueChange={(v) => setChartPeriod(v as any)} className="mb-1">
+                        <TabsList className="h-6">
+                          <TabsTrigger value="daily" className="text-[10px] px-2 h-5">Today</TabsTrigger>
+                          <TabsTrigger value="weekly" className="text-[10px] px-2 h-5">Week</TabsTrigger>
+                          <TabsTrigger value="monthly" className="text-[10px] px-2 h-5">Month</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                      <div className="h-40">
+                        {salesData ? (
+                          <SalesSummaryChart
+                            period={chartPeriod}
+                            hourly={chartPeriod === 'daily' ? salesData.hourlyData : undefined}
+                            weeklyBreakdown={chartPeriod === 'weekly' ? salesData.weeklyBreakdown : undefined}
+                            monthlyBreakdown={chartPeriod === 'monthly' ? salesData.monthlyBreakdown : undefined}
+                            compact
+                          />
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-lg">
+                            No chart data
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Column 3: Checklists - rectangular rows */}
