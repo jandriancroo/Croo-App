@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
-import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1479,16 +1479,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="projected" 
-                        name="Projected" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        strokeWidth={2} 
-                        dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 3, stroke: 'hsl(var(--card))' }}
-                        activeDot={{ r: 5, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+                      <Area
+                        type="monotone"
+                        dataKey="projected"
+                        name="Projected"
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={2}
+                        fill="hsl(var(--muted-foreground) / 0.15)"
                       />
+                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 );
@@ -1731,18 +1730,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                       formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual'}
                       wrapperStyle={{ fontSize: '12px' }}
                     />
+                    {/* Area for projections */}
+                    <Area
+                      type="monotone"
+                      dataKey="projected"
+                      name="Projected"
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeWidth={2}
+                      fill="hsl(var(--muted-foreground) / 0.15)"
+                    />
                     {/* Bars for actuals */}
                     <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    {/* Line for projections */}
-                    <Line 
-                      type="monotone" 
-                      dataKey="projected" 
-                      name="Projected" 
-                      stroke="hsl(var(--muted-foreground))" 
-                      strokeWidth={2} 
-                      dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4, stroke: 'hsl(var(--card))' }}
-                      activeDot={{ r: 6, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
-                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
@@ -1900,15 +1898,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="projected" 
-                        name="Projected" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        strokeWidth={2} 
-                        dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4, stroke: 'hsl(var(--card))' }}
+                      <Area
+                        type="monotone"
+                        dataKey="projected"
+                        name="Projected"
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={2}
+                        fill="hsl(var(--muted-foreground) / 0.15)"
                       />
+                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1944,15 +1942,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="projected" 
-                        name="Projected" 
-                        stroke="hsl(var(--muted-foreground))" 
-                        strokeWidth={2} 
-                        dot={false}
+                      <Area
+                        type="monotone"
+                        dataKey="projected"
+                        name="Projected"
+                        stroke="hsl(var(--muted-foreground))"
+                        strokeWidth={2}
+                        fill="hsl(var(--muted-foreground) / 0.15)"
                       />
+                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
