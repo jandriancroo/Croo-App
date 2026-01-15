@@ -41,6 +41,8 @@ interface LocationSalesData {
   weeklyBreakdown?: Array<{ date: string; sales: number; projected: number; laborPercent?: number }>;
   monthlyBreakdown?: Array<{ date: string; sales: number; projected: number }>;
   pizzaCount?: number;
+  // Pacing status for badge (calculated same as SalesSummary)
+  pacingStatus?: 'ahead' | 'onTrack' | 'behind' | null;
 }
 
 interface LaborData {
@@ -213,8 +215,14 @@ export default function MultiLocationDashboard() {
       const locationIds = locationsData.map(l => l.id);
       const today = new Date();
       const todayStr = format(today, 'yyyy-MM-dd');
-      const startOfToday = startOfDay(today).toISOString();
-      const endOfToday = endOfDay(today).toISOString();
+      
+      // Use PST timezone for "business day" boundaries (same as Dashboard.tsx)
+      // PST is UTC-8, so startOfToday in PST = UTC date shifted by 8 hours
+      const pstOffset = 8 * 60 * 60 * 1000; // 8 hours in ms
+      const pstToday = new Date(today.getTime() - pstOffset);
+      const pstTodayStr = format(pstToday, 'yyyy-MM-dd');
+      const startOfTodayPST = new Date(`${pstTodayStr}T00:00:00-08:00`).toISOString();
+      const endOfTodayPST = new Date(`${pstTodayStr}T23:59:59.999-08:00`).toISOString();
       const dayOfWeek = today.getDay();
 
       // Batch fetch all static data in parallel
@@ -228,8 +236,8 @@ export default function MultiLocationDashboard() {
         scheduledResult
       ] = await Promise.all([
         supabase.from('location_integrations').select('location_id, id, credentials').in('location_id', locationIds).eq('integration_type', 'qubeyond').eq('is_active', true),
-        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
-        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in').gte('punch_time', startOfTodayPST).lte('punch_time', endOfTodayPST),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out').gte('punch_time', startOfTodayPST).lte('punch_time', endOfTodayPST),
         supabase.from('checklists').select('id, title, frequency, location_id').in('location_id', locationIds).eq('is_active', true),
         supabase.from('food_safety_audits').select('id, audit_date, visit_score, manager_name, location_id').in('location_id', locationIds).order('audit_date', { ascending: false }),
         supabase.from('location_hours').select('location_id, open_time, is_closed').in('location_id', locationIds).eq('day_of_week', dayOfWeek),
@@ -242,7 +250,7 @@ export default function MultiLocationDashboard() {
         checklistIds.length > 0 
           ? supabase.from('checklist_items').select('id, checklist_id').in('checklist_id', checklistIds)
           : Promise.resolve({ data: [] }),
-        supabase.from('checklist_submissions').select('id, checklist_id, location_id, checklist_responses(id)').in('location_id', locationIds).gte('submitted_at', startOfToday).lte('submitted_at', endOfToday)
+        supabase.from('checklist_submissions').select('id, checklist_id, location_id, checklist_responses(id)').in('location_id', locationIds).gte('submitted_at', startOfTodayPST).lte('submitted_at', endOfTodayPST)
       ]);
 
       // Build lookup maps
@@ -515,11 +523,24 @@ export default function MultiLocationDashboard() {
             todayStr
           );
 
+          // Calculate pace-adjusted projection for today (same as SalesSummary)
+          // This takes current hour's actual pace and projects it to EOD
+          const todayPaceAdjusted = Math.max(dailyActual, dailyProjected);
+
+          // Calculate pacingStatus using EXACT same logic as SalesSummary
+          let pacingStatus: 'ahead' | 'onTrack' | 'behind' | null = null;
+          if (dailyProjected > 0 && todayPaceAdjusted > 0 && dailyActual >= 100) {
+            const paceVsProjection = (todayPaceAdjusted / dailyProjected) * 100;
+            if (paceVsProjection >= 102) pacingStatus = 'ahead';
+            else if (paceVsProjection >= 95) pacingStatus = 'onTrack';
+            else pacingStatus = 'behind';
+          }
+
           const salesData: LocationSalesData = {
             daily: {
               actual: dailyActual,
               projected: dailyProjected,
-              pacing: Math.max(dailyActual, dailyProjected), // For today, pacing = max(actual, projected)
+              pacing: todayPaceAdjusted,
               lastYear: dailyLastYear
             },
             weekly: {
@@ -538,6 +559,7 @@ export default function MultiLocationDashboard() {
             weeklyBreakdown,
             monthlyBreakdown,
             pizzaCount,
+            pacingStatus,
           };
 
           // Calculate labor data if available
@@ -783,7 +805,7 @@ export default function MultiLocationDashboard() {
               <CardContent className="p-4">
                 <div className="flex flex-col lg:flex-row lg:items-start gap-4">
                   {/* Location Header */}
-                  <div className="lg:w-48 flex-shrink-0">
+                  <div className="lg:w-56 flex-shrink-0">
                     <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
                       <div className="flex items-center gap-2">
                         <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 items-center justify-center text-sm font-bold text-primary">
@@ -799,31 +821,25 @@ export default function MultiLocationDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
+                        {/* Status badge using pre-calculated pacingStatus from SalesSummary logic */}
+                        {loc.hasQuBeyond && loc.sales && loc.sales.pacingStatus ? (() => {
                           const inGracePeriod = loc.hoursSinceOpen !== null && loc.hoursSinceOpen < 2;
-                          const paceVsProjection = loc.sales.daily.projected > 0 
-                            ? (loc.sales.daily.pacing / loc.sales.daily.projected) * 100 
-                            : 0;
-                          
-                          const isAhead = paceVsProjection >= 105;
-                          const isOnTrack = paceVsProjection >= 95 && paceVsProjection < 105;
-                          const isBehind = paceVsProjection < 95;
-                          const showWarmingUp = inGracePeriod && isBehind;
+                          const showWarmingUp = inGracePeriod && loc.sales.pacingStatus === 'behind';
                           
                           return (
                             <Badge 
                               variant="outline" 
                               className={`text-xs font-medium ${
-                                isAhead
+                                loc.sales.pacingStatus === 'ahead'
                                   ? 'border-orange-400/50 text-orange-600 bg-orange-50 dark:bg-orange-950/50'
-                                  : isOnTrack 
+                                  : loc.sales.pacingStatus === 'onTrack' 
                                     ? 'border-emerald-400/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50' 
                                     : showWarmingUp
                                       ? 'border-amber-400/50 text-amber-600 bg-amber-50 dark:bg-amber-950/50'
                                       : 'border-sky-400/50 text-sky-600 bg-sky-50 dark:bg-sky-950/50'
                               }`}
                             >
-                              {isAhead ? '🔥 On Fire' : isOnTrack ? '✓ On Track' : showWarmingUp ? '☕ Warming Up' : '↓ Behind'}
+                              {loc.sales.pacingStatus === 'ahead' ? '🔥 On Fire' : loc.sales.pacingStatus === 'onTrack' ? '🏃 On Track' : showWarmingUp ? '☕ Warming Up' : '🧊 Behind'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
@@ -839,6 +855,25 @@ export default function MultiLocationDashboard() {
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Sales metrics row below store name - matching SalesSummary labels */}
+                    {loc.hasQuBeyond && loc.sales && loc.sales.daily.actual > 0 && (
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Sales</p>
+                          <p className="font-semibold">{formatCurrencyCompact(loc.sales.daily.actual)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground">Live AI Goal</p>
+                          <p className="font-semibold text-primary">{formatCurrencyCompact(loc.sales.daily.projected)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground">Pace</p>
+                          <p className="font-semibold text-amber-500">{formatCurrencyCompact(loc.sales.daily.pacing)}</p>
+                        </div>
+                      </div>
+                    )}
+                    
                     {(loc.openShifts ?? 0) > 0 && (
                       <div className="flex items-center gap-1.5 text-amber-600 text-xs mt-2 bg-amber-50 dark:bg-amber-950/50 px-2 py-1 rounded-md w-fit">
                         <AlertTriangle className="h-3 w-3" />
@@ -856,7 +891,7 @@ export default function MultiLocationDashboard() {
                             <Tabs defaultValue="daily" className="w-full">
                               <div className="flex items-center justify-between">
                                 <TabsList className="h-7">
-                                  <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
+                                  <TabsTrigger value="daily" className="text-xs px-3 h-6">Today</TabsTrigger>
                                   <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
                                   <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
                                 </TabsList>
