@@ -364,7 +364,7 @@ export default function MultiLocationDashboard() {
     }
   };
 
-  // Compact checklist row component
+  // Compact checklist row component with card styling
   const ChecklistRow = ({ checklist }: { checklist: LocationChecklistData }) => {
     const completionRate = checklist.expected > 0 
       ? Math.min(100, Math.round((checklist.completed / checklist.expected) * 100)) 
@@ -374,7 +374,11 @@ export default function MultiLocationDashboard() {
     return (
       <button
         onClick={() => navigate(`/complete/${checklist.id}`)}
-        className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/50 transition-colors w-full text-left"
+        className={`flex items-center gap-2 p-2 rounded-md border transition-colors w-full text-left ${
+          isComplete 
+            ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20' 
+            : 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20'
+        }`}
       >
         <div className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${
           isComplete ? 'bg-green-500' : 'bg-red-500'
@@ -386,7 +390,7 @@ export default function MultiLocationDashboard() {
           )}
         </div>
         <span className="text-xs truncate flex-1">{checklist.title}</span>
-        <span className={`text-xs font-medium ${isComplete ? 'text-green-500' : 'text-red-500'}`}>
+        <span className={`text-xs font-medium ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
           {completionRate}%
         </span>
       </button>
@@ -458,13 +462,13 @@ export default function MultiLocationDashboard() {
               const audit = auditDataMap[location.id];
               
               return (
-                <Card key={location.id} className="p-4 overflow-hidden">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <Card key={location.id} className="p-3 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {/* Column 1: Store Info + Sales - Stacked & Larger */}
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                       {/* Location tag */}
-                      <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2.5 py-1.5 w-fit">
-                        <Building2 className="h-4 w-4 text-primary" />
+                      <div className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-md px-2 py-1 w-fit">
+                        <Building2 className="h-3.5 w-3.5 text-primary" />
                         <span className="text-sm font-semibold">{location.name}</span>
                         {location.store_number && (
                           <span className="text-xs text-muted-foreground">#{location.store_number}</span>
@@ -473,21 +477,21 @@ export default function MultiLocationDashboard() {
                       
                       {/* Sales info - stacked and larger */}
                       {salesData ? (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-1">
                           <div className="flex items-baseline justify-between">
-                            <span className="text-sm text-muted-foreground">Sales</span>
-                            <span className="text-lg font-bold">{formatCurrency(salesData.sales)}</span>
+                            <span className="text-xs text-muted-foreground">Sales</span>
+                            <span className="text-base font-bold">{formatCurrency(salesData.sales)}</span>
                           </div>
                           <div className="flex items-baseline justify-between">
-                            <span className="text-sm text-muted-foreground">AI Goal</span>
-                            <span className="text-base font-semibold text-muted-foreground">{formatCurrency(salesData.goal)}</span>
+                            <span className="text-xs text-muted-foreground">AI Goal</span>
+                            <span className="text-sm font-semibold text-muted-foreground">{formatCurrency(salesData.goal)}</span>
                           </div>
                           <div className="flex items-baseline justify-between">
-                            <span className="text-sm text-muted-foreground">Pace</span>
-                            <span className="text-base font-semibold">{formatCurrency(salesData.pace)}</span>
+                            <span className="text-xs text-muted-foreground">Pace</span>
+                            <span className="text-sm font-semibold">{formatCurrency(salesData.pace)}</span>
                           </div>
                           {/* Status badge */}
-                          <div className="flex items-center gap-1.5 pt-1">
+                          <div className="flex items-center gap-1.5">
                             {getStatusIcon(salesData.status)}
                             {getStatusBadge(salesData.status)}
                           </div>
@@ -498,7 +502,7 @@ export default function MultiLocationDashboard() {
                     </div>
                     
                     {/* Column 2: Sales Chart */}
-                    <div className="h-48 md:h-44">
+                    <div className="h-36 md:h-32">
                       {salesData ? (
                         <SalesSummaryChart
                           period={chartPeriod}
@@ -514,61 +518,58 @@ export default function MultiLocationDashboard() {
                       )}
                     </div>
                     
-                    {/* Column 3: Checklists - Card styling, dynamic height */}
-                    <div className="rounded-lg border bg-card p-3">
-                      <div className="text-xs font-medium text-muted-foreground mb-2">Checklists</div>
+                    {/* Column 3: Checklists - Card styling per item */}
+                    <div className="flex flex-col gap-1.5">
                       {checklists.length > 0 ? (
-                        <div className="space-y-1.5">
-                          {checklists.map((checklist) => (
-                            <ChecklistRow key={checklist.id} checklist={checklist} />
-                          ))}
-                        </div>
+                        checklists.map((checklist) => (
+                          <ChecklistRow key={checklist.id} checklist={checklist} />
+                        ))
                       ) : (
-                        <div className="flex items-center justify-center text-sm text-muted-foreground py-4">
+                        <div className="flex items-center justify-center text-sm text-muted-foreground bg-muted/30 rounded-lg py-4">
                           No checklists
                         </div>
                       )}
                     </div>
                     
-                    {/* Column 4: Steritech Audit - Taller card */}
-                    <div className="rounded-lg border bg-card p-3 min-h-[120px]">
+                    {/* Column 4: Steritech Audit */}
+                    <div className="rounded-lg border bg-card p-2.5">
                       {audit ? (
                         <a
                           href={audit.audit_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block h-full"
+                          className="block"
                         >
-                          <div className="flex flex-col h-full hover:bg-muted/30 -m-3 p-3 rounded-lg transition-colors">
-                            <div className="flex items-center gap-2 mb-3">
-                              <FileText className="h-4 w-4 text-primary" />
-                              <span className="font-medium text-sm">Steritech Audit</span>
-                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
+                          <div className="flex flex-col hover:bg-muted/30 -m-2.5 p-2.5 rounded-lg transition-colors">
+                            <div className="flex items-center gap-2 mb-2">
+                              <FileText className="h-3.5 w-3.5 text-primary" />
+                              <span className="font-medium text-xs">Steritech Audit</span>
+                              <ExternalLink className="h-3 w-3 text-muted-foreground ml-auto" />
                             </div>
-                            <div className="space-y-2 flex-1">
-                              <div className="flex justify-between">
-                                <span className="text-sm text-muted-foreground">Date</span>
-                                <span className="text-sm font-medium">{format(new Date(audit.audit_date), 'MMM d, yyyy')}</span>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Date</span>
+                                <span className="font-medium">{format(new Date(audit.audit_date), 'MMM d, yyyy')}</span>
                               </div>
                               {audit.visit_score && (
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-muted-foreground">Score</span>
-                                  <span className="text-lg font-bold text-primary">{audit.visit_score}</span>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Score</span>
+                                  <span className="text-sm font-bold text-primary">{audit.visit_score}</span>
                                 </div>
                               )}
                               {audit.manager_name && (
-                                <div className="flex justify-between">
-                                  <span className="text-sm text-muted-foreground">Manager</span>
-                                  <span className="text-sm font-medium truncate max-w-[120px]">{audit.manager_name}</span>
+                                <div className="flex justify-between text-xs">
+                                  <span className="text-muted-foreground">Manager</span>
+                                  <span className="font-medium truncate max-w-[100px]">{audit.manager_name}</span>
                                 </div>
                               )}
                             </div>
                           </div>
                         </a>
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-sm text-muted-foreground py-6">
-                          <AlertTriangle className="h-5 w-5 mb-1.5 text-yellow-500" />
-                          No audit on file
+                        <div className="flex flex-col items-center justify-center text-xs text-muted-foreground py-3">
+                          <AlertTriangle className="h-4 w-4 mb-1 text-yellow-500" />
+                          No audit
                         </div>
                       )}
                     </div>
