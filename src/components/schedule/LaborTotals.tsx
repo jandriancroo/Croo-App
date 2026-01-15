@@ -7,11 +7,13 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Sparkles, Loader2, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle2, Pencil, Save, Radio, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
+import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { useAuth } from '@/lib/auth';
 interface Profile {
   id: string;
   full_name: string;
@@ -63,9 +65,10 @@ export function LaborTotals({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
   const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
-  const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai'>>({});
+  const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'>>({});
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
+  const { user } = useAuth();
 
   // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
@@ -125,7 +128,7 @@ export function LaborTotals({
         } = await supabase.from('schedule_projected_sales').select('*').eq('schedule_id', scheduleId);
         if (error) throw error;
         const sales: Record<number, number> = {};
-        const sources: Record<number, 'manual' | 'historical' | 'ai'> = {};
+        const sources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = {};
         data?.forEach(item => {
           sales[item.day_of_week] = Number(item.projected_sales);
           sources[item.day_of_week] = 'manual';
@@ -175,18 +178,30 @@ export function LaborTotals({
         });
         
         // Batch fetch cached projections for future dates from sales_cache
-        let cachedProjections: Record<string, number> = {};
+        // Use new projection columns: override_projection > living_projection > initial_projection
+        let cachedProjections: Record<string, { value: number; source: 'override' | 'living' | 'initial' | 'ai' }> = {};
         if (futureDates.length > 0) {
           const { data: cacheData } = await supabase
             .from('sales_cache')
-            .select('sale_date, projected_sales')
+            .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
             .eq('location_id', currentLocation.id)
             .in('sale_date', futureDates);
           
           if (cacheData) {
             cacheData.forEach(row => {
-              if (row.projected_sales && row.projected_sales > 0) {
-                cachedProjections[row.sale_date] = row.projected_sales;
+              // Resolution priority: override > living > initial > legacy
+              const resolved = resolveProjection({
+                initial_projection: row.initial_projection,
+                living_projection: row.living_projection,
+                override_projection: row.override_projection,
+                projected_sales: row.projected_sales
+              });
+              
+              if (resolved.value && resolved.value > 0) {
+                cachedProjections[row.sale_date] = { 
+                  value: resolved.value, 
+                  source: resolved.source === 'legacy' ? 'ai' : resolved.source as 'override' | 'living' | 'initial'
+                };
               }
             });
           }
@@ -207,11 +222,11 @@ export function LaborTotals({
             }
           }
           
-          // FUTURE DAYS: Use cached projection from sales_cache (fixed monthly projection)
+          // FUTURE DAYS: Use cached projection from sales_cache (with resolution priority)
           if (!isPast && !isTodayDate) {
             const cachedProjection = cachedProjections[dateStr];
             if (cachedProjection) {
-              return { dayIndex, sales: Math.round(cachedProjection * 100) / 100, source: 'ai' as const };
+              return { dayIndex, sales: Math.round(cachedProjection.value * 100) / 100, source: cachedProjection.source };
             }
             // No cached projection - will need to trigger a fetch to populate it
           }
@@ -255,7 +270,7 @@ export function LaborTotals({
         const results = await Promise.all(salesPromises);
         
         const newSales: Record<number, number> = { ...projectedSales };
-        const newSources: Record<number, 'manual' | 'historical' | 'ai'> = { ...salesSource };
+        const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = { ...salesSource };
         
         results.forEach(result => {
           if (result && result.sales > 0) {
@@ -287,36 +302,55 @@ export function LaborTotals({
   }, [currentLocation?.id, isLoadingSales, weekDatesKey]);
 
   const handleSalesChange = async (dayIndex: number, value: string) => {
-    if (!scheduleId) return;
+    if (!currentLocation?.id) return;
     const numValue = parseFloat(value) || 0;
+    const day = weekDays[dayIndex];
+    const dateStr = format(day, 'yyyy-MM-dd');
+    
     setProjectedSales(prev => ({
       ...prev,
       [dayIndex]: numValue
     }));
     setSalesSource(prev => ({
       ...prev,
-      [dayIndex]: 'manual'
+      [dayIndex]: 'override'
     }));
+    
     try {
-      const {
-        error
-      } = await supabase.from('schedule_projected_sales').upsert({
-        schedule_id: scheduleId,
-        day_of_week: dayIndex,
-        projected_sales: numValue
-      }, {
-        onConflict: 'schedule_id,day_of_week'
-      });
+      // Save override to sales_cache using the new override_projection column
+      const { error } = await supabase
+        .from('sales_cache')
+        .upsert({
+          location_id: currentLocation.id,
+          sale_date: dateStr,
+          override_projection: numValue,
+          override_at: new Date().toISOString(),
+          override_by: user?.id || null
+        }, {
+          onConflict: 'location_id,sale_date'
+        });
+      
       if (error) throw error;
+      
+      // Also save to schedule_projected_sales for backwards compatibility
+      if (scheduleId) {
+        await supabase.from('schedule_projected_sales').upsert({
+          schedule_id: scheduleId,
+          day_of_week: dayIndex,
+          projected_sales: numValue
+        }, {
+          onConflict: 'schedule_id,day_of_week'
+        });
+      }
     } catch (error) {
-      console.error('Error saving projected sales:', error);
-      toast.error('Failed to save projected sales');
+      console.error('Error saving override projection:', error);
+      toast.error('Failed to save override');
     }
   };
 
-  // Reload AI/historical projection for a specific day
+  // Reload AI/living projection for a specific day (clears override)
   const handleReloadProjection = async (dayIndex: number) => {
-    if (!currentLocation?.id || !scheduleId) return;
+    if (!currentLocation?.id) return;
     
     const day = weekDays[dayIndex];
     const dateStr = format(day, 'yyyy-MM-dd');
@@ -325,12 +359,25 @@ export function LaborTotals({
     const isTodayDate = isToday(day);
     
     try {
-      // First, delete the manual entry from the database
+      // Clear override from sales_cache
       await supabase
-        .from('schedule_projected_sales')
-        .delete()
-        .eq('schedule_id', scheduleId)
-        .eq('day_of_week', dayIndex);
+        .from('sales_cache')
+        .update({
+          override_projection: null,
+          override_at: null,
+          override_by: null
+        })
+        .eq('location_id', currentLocation.id)
+        .eq('sale_date', dateStr);
+      
+      // Also delete from schedule_projected_sales for backwards compatibility
+      if (scheduleId) {
+        await supabase
+          .from('schedule_projected_sales')
+          .delete()
+          .eq('schedule_id', scheduleId)
+          .eq('day_of_week', dayIndex);
+      }
       
       // Clear from local state
       setProjectedSales(prev => {
@@ -344,38 +391,79 @@ export function LaborTotals({
         return newState;
       });
       
-      // Fetch fresh projection from API
-      const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-        body: { locationId: currentLocation.id, targetDate: dateStr }
-      });
+      // Fetch fresh projection from sales_cache with resolution priority
+      const { data: cacheData } = await supabase
+        .from('sales_cache')
+        .select('initial_projection, living_projection, override_projection, net_sales, projected_sales')
+        .eq('location_id', currentLocation.id)
+        .eq('sale_date', dateStr)
+        .maybeSingle();
       
-      if (!error && data) {
+      if (cacheData) {
         let salesValue: number;
-        let source: 'historical' | 'ai';
+        let source: 'historical' | 'living' | 'initial' | 'ai';
         
         if (isPast || isTodayDate) {
-          salesValue = Math.round((data.daily || 0) * 100) / 100;
+          // Use actual sales for past/today
+          salesValue = Math.round((cacheData.net_sales || 0) * 100) / 100;
           source = 'historical';
         } else {
-          salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
-          source = 'ai';
+          // Use resolved projection for future
+          const resolved = resolveProjection({
+            initial_projection: cacheData.initial_projection,
+            living_projection: cacheData.living_projection,
+            override_projection: null, // We just cleared it
+            projected_sales: cacheData.projected_sales
+          });
+          salesValue = Math.round((resolved.value || 0) * 100) / 100;
+          source = resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai';
         }
         
         if (salesValue > 0) {
           setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
           setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
-          toast.success(`Reloaded ${source === 'ai' ? 'AI projection' : 'actual sales'} for ${format(day, 'EEE')}`);
+          const sourceLabel = source === 'living' ? 'Live AI projection' : 
+                             source === 'initial' ? 'AI projection' : 
+                             source === 'historical' ? 'actual sales' : 'AI projection';
+          toast.success(`Reloaded ${sourceLabel} for ${format(day, 'EEE')}`);
         } else {
-          toast.info(`No ${source === 'ai' ? 'projection' : 'sales data'} available for ${format(day, 'EEE')}`);
+          toast.info(`No projection available for ${format(day, 'EEE')}`);
         }
       } else {
-        toast.error('Failed to reload projection');
+        // No cache data, try fetching from API
+        const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+          body: { locationId: currentLocation.id, targetDate: dateStr }
+        });
+        
+        if (!error && data) {
+          let salesValue: number;
+          let source: 'historical' | 'living';
+          
+          if (isPast || isTodayDate) {
+            salesValue = Math.round((data.daily || 0) * 100) / 100;
+            source = 'historical';
+          } else {
+            salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
+            source = 'living';
+          }
+          
+          if (salesValue > 0) {
+            setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
+            setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
+            toast.success(`Reloaded ${source === 'living' ? 'Live AI projection' : 'actual sales'} for ${format(day, 'EEE')}`);
+          } else {
+            toast.info(`No projection available for ${format(day, 'EEE')}`);
+          }
+        } else {
+          toast.error('Failed to reload projection');
+        }
       }
     } catch (error) {
       console.error('Error reloading projection:', error);
       toast.error('Failed to reload projection');
     }
   };
+  
   const dailyTotals = useMemo(() => {
     return weekDays.map((day, dayIndex) => {
       const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
@@ -470,19 +558,25 @@ export function LaborTotals({
         </div>
         {weekDays.map((day, index) => {
           const source = salesSource[index];
-          const isAI = source === 'ai';
+          const isLiving = source === 'living';
+          const isInitial = source === 'initial' || source === 'ai';
           const isHistorical = source === 'historical';
-          const isManual = source === 'manual';
+          const isOverride = source === 'override' || source === 'manual';
           
           // Determine if this is a past day (no reload possible - use actuals)
           const today = startOfDay(new Date());
           const isPastDay = isBefore(day, today) || isToday(day);
           
-          // Only show reload button for future days with manual entries
-          const canReload = isManual && !isPastDay;
+          // Only show reload button for future days with overrides
+          const canReload = isOverride && !isPastDay;
+          
+          // Determine background color based on source
+          const bgClass = isHistorical ? 'bg-green-500/10' : 
+                         isOverride ? 'bg-amber-500/10' : 
+                         isLiving ? 'bg-primary/5' : '';
           
           return (
-            <div key={index} className={`p-1 border-r border-border text-center relative ${isHistorical ? 'bg-green-500/10' : ''}`}>
+            <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
               {isEditable ? (
                 <div className="relative flex items-center gap-0.5">
                   <Input 
@@ -491,17 +585,46 @@ export function LaborTotals({
                     min="0" 
                     value={projectedSales[index] || ''} 
                     onChange={e => handleSalesChange(index, e.target.value)} 
-                    className={`h-7 text-center text-xs p-1 flex-1 ${isAI ? 'border-primary/30' : ''} ${isHistorical ? 'border-green-500/30 bg-green-500/5' : ''}`} 
+                    className={`h-7 text-center text-xs p-1 flex-1 ${
+                      isLiving ? 'border-primary/30' : 
+                      isInitial ? 'border-primary/20' : 
+                      isOverride ? 'border-amber-500/30 bg-amber-500/5' :
+                      isHistorical ? 'border-green-500/30 bg-green-500/5' : ''
+                    }`} 
                     placeholder="$0" 
                   />
-                  {isAI && (
+                  {isLiving && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Sparkles className="h-3 w-3 text-primary shrink-0" />
+                          <Radio className="h-3 w-3 text-primary animate-pulse shrink-0" />
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="text-xs">Croo AI Projection</p>
+                          <p className="text-xs">Live AI Projection</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {isInitial && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">AI Projection</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {isOverride && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Pencil className="h-3 w-3 text-amber-500 shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">Manager Override</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -532,7 +655,7 @@ export function LaborTotals({
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="text-xs">Reload AI projection</p>
+                          <p className="text-xs">Clear override & reload AI projection</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -543,7 +666,9 @@ export function LaborTotals({
                   <p className="text-xs">
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
-                  {isAI && <Sparkles className="h-2.5 w-2.5 text-primary" />}
+                  {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
+                  {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
+                  {isOverride && <Pencil className="h-2.5 w-2.5 text-amber-500" />}
                   {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
                 </div>
               )}
