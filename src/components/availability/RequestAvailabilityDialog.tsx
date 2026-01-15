@@ -208,7 +208,6 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
               <AlertDescription>
                 Warning: One or more selected dates are blackout dates. Your request can still be submitted but may require special approval.
               </AlertDescription>
-              </AlertDescription>
             </Alert>
           )}
           
