@@ -6,12 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface DayAvailability {
+  available: boolean;
+  start?: string; // e.g., "10:00"
+  end?: string;   // e.g., "15:00"
+}
+
+interface WeeklyAvailability {
+  monday: DayAvailability;
+  tuesday: DayAvailability;
+  wednesday: DayAvailability;
+  thursday: DayAvailability;
+  friday: DayAvailability;
+  saturday: DayAvailability;
+  sunday: DayAvailability;
+}
+
 interface Employee {
   id: string;
   full_name: string;
   min_weekly_hours: number | null;
   max_weekly_hours: number | null;
   role: string | null;
+  weekly_availability: WeeklyAvailability | null;
 }
 
 interface ShiftTemplateAssignment {
@@ -94,7 +111,7 @@ serve(async (req) => {
     // Get employees (roles live in public.user_roles)
     const { data: employees, error: empError } = await supabase
       .from("profiles")
-      .select("id, full_name, min_weekly_hours, max_weekly_hours")
+      .select("id, full_name, min_weekly_hours, max_weekly_hours, weekly_availability")
       .in("id", userIds)
       .eq("is_active", true)
       .eq("appears_on_schedule", true);
@@ -121,6 +138,7 @@ serve(async (req) => {
       min_weekly_hours: emp.min_weekly_hours,
       max_weekly_hours: emp.max_weekly_hours,
       role: roleByUserId.get(emp.id) ?? "team_member",
+      weekly_availability: emp.weekly_availability as WeeklyAvailability | null,
     }));
 
     console.log(`Found ${employeesWithRoles.length} schedulable employees`);
@@ -169,8 +187,48 @@ serve(async (req) => {
       return endHour > startHour ? endHour - startHour : 24 - startHour + endHour;
     };
 
+    // Helper to convert day of week (0=Mon) to day name
+    const getDayName = (dayOfWeek: number): keyof WeeklyAvailability => {
+      const days: (keyof WeeklyAvailability)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      return days[dayOfWeek];
+    };
+
+    // Helper to parse time string to minutes since midnight
+    const timeToMinutes = (time: string): number => {
+      const parts = time.split(":");
+      return parseInt(parts[0]) * 60 + parseInt(parts[1] || "0");
+    };
+
     // Helper to check if employee is available for a shift
     const isEmployeeAvailable = (employeeId: string, dayOfWeek: number, startTime: string, endTime: string): boolean => {
+      const emp = employeesWithRoles.find((e: Employee) => e.id === employeeId);
+      if (!emp) return false;
+
+      // First check weekly availability preferences
+      if (emp.weekly_availability) {
+        const dayName = getDayName(dayOfWeek);
+        const dayPref = emp.weekly_availability[dayName];
+        
+        if (dayPref && !dayPref.available) {
+          // Employee marked as unavailable this day
+          return false;
+        }
+        
+        if (dayPref && dayPref.available && dayPref.start && dayPref.end) {
+          // Employee has restricted hours this day
+          const prefStartMins = timeToMinutes(dayPref.start);
+          const prefEndMins = timeToMinutes(dayPref.end);
+          const shiftStartMins = timeToMinutes(startTime);
+          const shiftEndMins = timeToMinutes(endTime);
+          
+          // Shift must fit entirely within the employee's available window
+          if (shiftStartMins < prefStartMins || shiftEndMins > prefEndMins) {
+            return false;
+          }
+        }
+      }
+
+      // Then check approved time-off requests
       const shiftDate = new Date(weekStartDate);
       shiftDate.setDate(shiftDate.getDate() + dayOfWeek);
       const shiftDateStr = shiftDate.toISOString().split("T")[0];
@@ -419,7 +477,7 @@ serve(async (req) => {
             );
             
             if (availableWithNoConflict.length === 0) {
-              reason = "All matching employees have conflicts or time off";
+              reason = "All matching employees have conflicts, time off, or availability restrictions";
             }
           }
         }
@@ -671,7 +729,7 @@ serve(async (req) => {
                 );
                 
                 if (availableWithNoConflict.length === 0) {
-                  reason = "All matching employees have conflicts or time off";
+                  reason = "All matching employees have conflicts, time off, or availability restrictions";
                 }
               }
             }
