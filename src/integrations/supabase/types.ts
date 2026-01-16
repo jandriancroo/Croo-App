@@ -893,6 +893,38 @@ export type Database = {
           },
         ]
       }
+      daily_summary_logs: {
+        Row: {
+          id: string
+          location_id: string
+          recipient_count: number | null
+          sent_at: string
+          summary_date: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          recipient_count?: number | null
+          sent_at?: string
+          summary_date: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          recipient_count?: number | null
+          sent_at?: string
+          summary_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_summary_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_tips: {
         Row: {
           created_at: string
