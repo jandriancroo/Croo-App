@@ -178,6 +178,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
           accentColor={TEAL_COLOR}
           onAction={task.onClick}
           iconStyle="minimal"
+          showShare={false}
         />
       ))}
     </>
