@@ -50,130 +50,48 @@ function getLocalDateString(iso: string, timeZone: string): string {
   }
 }
 
-// Fetch labor data from time_punches - CORRECTLY using punch_time/punch_type columns
+// Fetch labor data from labor_cache - same source as Dashboard
+// Prioritizes punch_clock data over qubeyond data (matches Dashboard behavior)
 async function fetchLaborData(supabase: any, locationId: string, dateStr: string) {
   try {
-    const { data: locationSettings } = await supabase
-      .from('location_settings')
-      .select('timezone')
+    console.log(`[labor] Fetching from labor_cache for ${dateStr}`);
+    
+    // Query labor_cache - prioritize punch_clock source over qubeyond
+    const { data: laborEntries, error: laborError } = await supabase
+      .from('labor_cache')
+      .select('labor_cost, labor_hours, regular_hours, overtime_hours, double_time_hours, source')
       .eq('location_id', locationId)
-      .maybeSingle();
+      .eq('labor_date', dateStr);
 
-    const timeZone = locationSettings?.timezone || 'America/Los_Angeles';
-    console.log(`[labor] Using timezone: ${timeZone} for date: ${dateStr}`);
-
-    // Get users at this location
-    const { data: locationUsers, error: usersError } = await supabase
-      .from('user_locations')
-      .select('user_id')
-      .eq('location_id', locationId);
-
-    if (usersError) {
-      console.error('[labor] user_locations error:', usersError);
-    }
-
-    if (!locationUsers || locationUsers.length === 0) {
-      console.log('[labor] No users found for location');
+    if (laborError) {
+      console.error('[labor] labor_cache query error:', laborError);
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
 
-    const userIds = locationUsers.map((u: any) => u.user_id);
-    console.log(`[labor] Found ${userIds.length} users at location`);
-
-    // Fetch ALL punches for users in a wide window around the date
-    // Use a 48-hour window to ensure we capture all punches
-    const startDate = new Date(dateStr + 'T00:00:00');
-    startDate.setDate(startDate.getDate() - 1);
-    const endDate = new Date(dateStr + 'T23:59:59');
-    endDate.setDate(endDate.getDate() + 1);
-
-    const { data: punches, error: punchesError } = await supabase
-      .from('time_punches')
-      .select('id, user_id, punch_time, punch_type')
-      .in('user_id', userIds)
-      .gte('punch_time', startDate.toISOString())
-      .lte('punch_time', endDate.toISOString())
-      .order('punch_time', { ascending: true });
-
-    if (punchesError) {
-      console.error('[labor] time_punches error:', punchesError);
+    if (!laborEntries || laborEntries.length === 0) {
+      console.log('[labor] No labor_cache entry found for this date');
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
 
-    console.log(`[labor] Found ${punches?.length || 0} total punches in window`);
-
-    if (!punches || punches.length === 0) {
-      return { hoursWorked: 0, laborCost: 0, hasData: false };
-    }
-
-    // Get user wages
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, hourly_wage')
-      .in('id', userIds);
-
-    const wageMap = new Map((profiles || []).map((p: any) => [p.id, p.hourly_wage || 15]));
-
-    // Group punches by user and calculate hours for the target date
-    const punchesByUser = new Map<string, any[]>();
-    for (const punch of punches) {
-      const list = punchesByUser.get(punch.user_id) || [];
-      list.push(punch);
-      punchesByUser.set(punch.user_id, list);
-    }
-
-    let totalHours = 0;
-    let totalCost = 0;
-
-    for (const [userId, userPunches] of punchesByUser) {
-      // Process punches in order - pair clock_in with clock_out
-      let clockInTime: Date | null = null;
-      let breakStartTime: Date | null = null;
-      let userHours = 0;
-
-      for (const punch of userPunches) {
-        const punchTime = new Date(punch.punch_time);
-        const punchLocalDate = getLocalDateString(punch.punch_time, timeZone);
-
-        if (punch.punch_type === 'clock_in') {
-          clockInTime = punchTime;
-        } else if (punch.punch_type === 'clock_out' && clockInTime) {
-          // Calculate hours for this shift
-          // Only count if either punch_in OR punch_out is on the target date
-          const clockInLocalDate = getLocalDateString(clockInTime.toISOString(), timeZone);
-          
-          if (clockInLocalDate === dateStr || punchLocalDate === dateStr) {
-            let shiftHours = (punchTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
-            if (shiftHours > 0 && shiftHours < 24) { // Sanity check
-              userHours += shiftHours;
-            }
-          }
-          clockInTime = null;
-        }
-      }
-
-      // Handle still-clocked-in users (count up to current time for today's shifts)
-      if (clockInTime) {
-        const clockInLocalDate = getLocalDateString(clockInTime.toISOString(), timeZone);
-        if (clockInLocalDate === dateStr) {
-          const now = new Date();
-          let shiftHours = (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
-          if (shiftHours > 0 && shiftHours < 24) {
-            userHours += shiftHours;
-            console.log(`[labor] User ${userId} still clocked in, adding ${shiftHours.toFixed(2)}h`);
-          }
-        }
-      }
-
-      if (userHours > 0) {
-        totalHours += userHours;
-        const wage = Number(wageMap.get(userId)) || 15;
-        totalCost += userHours * wage;
+    // Prioritize punch_clock over qubeyond (same logic as Dashboard/fetch-qubeyond-sales)
+    let selectedEntry = laborEntries[0];
+    for (const entry of laborEntries) {
+      if (entry.source === 'punch_clock') {
+        selectedEntry = entry;
+        break;
       }
     }
 
-    console.log(`[labor] Total: ${totalHours.toFixed(2)} hours, $${totalCost.toFixed(2)} cost`);
-    return { hoursWorked: totalHours, laborCost: totalCost, hasData: totalHours > 0 };
+    const laborCost = selectedEntry.labor_cost || 0;
+    const hoursWorked = selectedEntry.labor_hours || 0;
+    
+    console.log(`[labor] Found labor_cache entry (source: ${selectedEntry.source}): ${hoursWorked.toFixed(2)} hours, $${laborCost.toFixed(2)} cost`);
+    
+    return { 
+      hoursWorked, 
+      laborCost, 
+      hasData: hoursWorked > 0 || laborCost > 0 
+    };
   } catch (error) {
     console.error('Error fetching labor data:', error);
     return { hoursWorked: 0, laborCost: 0, hasData: false };
