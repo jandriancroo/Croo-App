@@ -3,15 +3,33 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Clock } from "lucide-react";
+
+interface DayAvailability {
+  available: boolean;
+  start?: string;
+  end?: string;
+}
+
+interface WeeklyAvailability {
+  monday?: DayAvailability;
+  tuesday?: DayAvailability;
+  wednesday?: DayAvailability;
+  thursday?: DayAvailability;
+  friday?: DayAvailability;
+  saturday?: DayAvailability;
+  sunday?: DayAvailability;
+}
+
 interface Profile {
   id: string;
   full_name: string;
   profile_photo_url: string | null;
   hourly_wage?: number;
   display_order?: number;
+  weekly_availability?: WeeklyAvailability | null;
 }
 interface EmployeeRowProps {
   profile: Profile;
@@ -143,7 +161,26 @@ export function EmployeeRow({
         }
         return r.start_date === cellDateStr;
       });
-      return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} isPublished={isPublished} publishedSnapshot={publishedSnapshot} />;
+      
+      // Get weekly availability for this day
+      const dayNames: (keyof WeeklyAvailability)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const dayName = dayNames[dayIndex];
+      const weeklyAvailabilityForDay = profile.weekly_availability?.[dayName];
+      
+      return <DayCell 
+        key={dayIndex} 
+        userId={profile.id} 
+        dayIndex={dayIndex} 
+        shifts={dayShifts} 
+        availabilityRequests={dayAvailability} 
+        weeklyAvailability={weeklyAvailabilityForDay}
+        onUpdate={onUpdate} 
+        canTakeShifts={canTakeShifts} 
+        currentUserId={currentUserId} 
+        onEditShift={onEditShift} 
+        isPublished={isPublished} 
+        publishedSnapshot={publishedSnapshot} 
+      />;
     })}
     </div>;
 }
@@ -152,6 +189,7 @@ function DayCell({
   dayIndex,
   shifts,
   availabilityRequests,
+  weeklyAvailability,
   onUpdate,
   canTakeShifts,
   currentUserId,
@@ -163,6 +201,7 @@ function DayCell({
   dayIndex: number;
   shifts: any[];
   availabilityRequests: any[];
+  weeklyAvailability?: DayAvailability;
   onUpdate: () => void;
   canTakeShifts?: boolean;
   currentUserId?: string;
@@ -177,10 +216,45 @@ function DayCell({
   } = useDroppable({
     id: dropId
   });
+  
+  const formatTime12h = (time: string) => {
+    const parts = time.split(":");
+    const hour = parseInt(parts[0]);
+    const minutes = parts[1];
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+  
+  // Check if employee has limited availability on this day
+  const hasLimitedAvailability = weeklyAvailability && (
+    weeklyAvailability.available === false || 
+    (weeklyAvailability.available && (weeklyAvailability.start || weeklyAvailability.end))
+  );
+  
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
   }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
+        {/* Weekly Availability Indicator */}
+        {hasLimitedAvailability && userId !== "unassigned" && (
+          <div className="p-1 bg-blue-500/10 dark:bg-blue-400/10 border border-blue-500/30 dark:border-blue-400/30 border-dashed rounded text-[10px]">
+            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+              <Clock className="h-2.5 w-2.5" />
+              {weeklyAvailability?.available === false 
+                ? "Unavailable" 
+                : weeklyAvailability?.start && weeklyAvailability?.end
+                  ? `${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
+                  : weeklyAvailability?.start
+                    ? `After ${formatTime12h(weeklyAvailability.start)}`
+                    : weeklyAvailability?.end
+                      ? `Until ${formatTime12h(weeklyAvailability.end)}`
+                      : "Limited"
+              }
+            </div>
+          </div>
+        )}
+        
         {shifts.map(shift => {
           // A shift is a draft (unpublished) if:
           // 1. Schedule was never published (!isPublished), OR
@@ -200,32 +274,22 @@ function DayCell({
           const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} />;
         })}
-        {availabilityRequests.map(request => {
-          const formatTime12h = (time: string) => {
-            const parts = time.split(":");
-            const hour = parseInt(parts[0]);
-            const minutes = parts[1];
-            const ampm = hour >= 12 ? "PM" : "AM";
-            const displayHour = hour % 12 || 12;
-            return `${displayHour}:${minutes} ${ampm}`;
-          };
-          return (
-            <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
-              background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-            }}>
-              <div className="text-[10px] text-muted-foreground font-medium">
-                {request.time_scope === "partial_day" && request.start_time && request.end_time 
-                  ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
-                  : "Time Off"}
-              </div>
-              {request.status === "pending" && (
-                <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
-                  PENDING
-                </div>
-              )}
+        {availabilityRequests.map(request => (
+          <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
+            background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+          }}>
+            <div className="text-[10px] text-muted-foreground font-medium">
+              {request.time_scope === "partial_day" && request.start_time && request.end_time 
+                ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
+                : "Time Off"}
             </div>
-          );
-        })}
+            {request.status === "pending" && (
+              <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
+                PENDING
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>;
 }
