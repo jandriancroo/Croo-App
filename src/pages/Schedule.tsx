@@ -45,6 +45,22 @@ const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes for current/next week
 const SCHEDULE_STALE_TIME_PAST = Infinity; // Past weeks never change - cache forever
 const SCHEDULE_GC_TIME = 60 * 60 * 1000; // 60 minutes - keep in cache longer
 
+interface DayAvailability {
+  available: boolean;
+  start?: string;
+  end?: string;
+}
+
+interface WeeklyAvailability {
+  monday?: DayAvailability;
+  tuesday?: DayAvailability;
+  wednesday?: DayAvailability;
+  thursday?: DayAvailability;
+  friday?: DayAvailability;
+  saturday?: DayAvailability;
+  sunday?: DayAvailability;
+}
+
 interface Profile {
   id: string;
   full_name: string;
@@ -52,6 +68,7 @@ interface Profile {
   role?: string;
   hourly_wage?: number;
   display_order?: number;
+  weekly_availability?: WeeklyAvailability | null;
 }
 
 interface ShiftTemplate {
@@ -292,7 +309,7 @@ export default function Schedule() {
           .eq("location_id", currentLocation.id),
         supabase
           .from("profiles")
-          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule`)
+          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
           .eq("is_active", true)
           .eq("appears_on_schedule", true),
         supabase.from("user_roles").select("user_id, role"),
