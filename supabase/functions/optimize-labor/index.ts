@@ -403,21 +403,24 @@ serve(async (req) => {
       // Track how many times each shift has been trimmed this day
       const trimCountPerShift = new Map<number, number>();
 
-      // LAYERED APPROACH: For each layer (15min), try to trim ALL eligible people at current tier
-      // before moving to next tier. Then move to next layer.
-      for (let layer = 0; layer < TRIM_INCREMENTS.length && remainingToTrim > 0; layer++) {
-        const trimMinutes = TRIM_INCREMENTS[layer];
-        console.log(`  Layer ${layer + 1}: Trimming ${trimMinutes}min from eligible shifts...`);
+      // TIER-FIRST APPROACH: Exhaust ALL layers (up to 1hr) on each role tier 
+      // BEFORE moving to the next tier. Team members get fully trimmed before ANY manager is touched.
+      for (const tier of sortedTiers) {
+        if (remainingToTrim <= 0) break;
 
-        // Process each role tier in order (team members first)
-        for (const tier of sortedTiers) {
-          if (remainingToTrim <= 0) break;
+        const tierShifts = shiftsByTier.get(tier) || [];
+        // Sort by wage within tier (higher wage = cut first for max savings)
+        tierShifts.sort((a, b) => 
+          (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
+        );
 
-          const tierShifts = shiftsByTier.get(tier) || [];
-          // Sort by wage within tier (higher wage = cut first for max savings)
-          tierShifts.sort((a, b) => 
-            (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
-          );
+        const tierName = tier === 1 ? 'team_member' : tier === 2 ? 'shift_manager' : tier === 3 ? 'manager' : `tier_${tier}`;
+        console.log(`  Processing ${tierName}s (${tierShifts.length} shifts)...`);
+
+        // Run ALL layers (up to 1hr total) for this tier before moving on
+        for (let layer = 0; layer < TRIM_INCREMENTS.length && remainingToTrim > 0; layer++) {
+          const trimMinutes = TRIM_INCREMENTS[layer];
+          let layerTrimmed = false;
 
           for (const shiftIndex of tierShifts) {
             if (remainingToTrim <= 0) break;
@@ -426,7 +429,6 @@ serve(async (req) => {
             const currentTrimCount = trimCountPerShift.get(shiftIndex) || 0;
 
             // Skip if this shift has already been trimmed in this layer
-            // (each layer = one trim opportunity per eligible person)
             if (currentTrimCount > layer) continue;
 
             // Check minimum shift length (don't go below 3 hours)
