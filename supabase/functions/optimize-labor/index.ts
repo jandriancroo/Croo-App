@@ -403,96 +403,121 @@ serve(async (req) => {
       // Track how many times each shift has been trimmed this day
       const trimCountPerShift = new Map<number, number>();
 
-      // TIER-FIRST APPROACH: Exhaust ALL layers (up to 1hr) on each role tier 
-      // BEFORE moving to the next tier. Team members get fully trimmed before ANY manager is touched.
-      for (const tier of sortedTiers) {
-        if (remainingToTrim <= 0) break;
+      // Helper to attempt trimming a single shift by 15min
+      const tryTrimShift = (shiftIndex: number): boolean => {
+        const shift = optimizedShifts[shiftIndex];
+        const currentTrimCount = trimCountPerShift.get(shiftIndex) || 0;
 
+        // Check minimum shift length (don't go below 3 hours)
+        const currentHours = calculateShiftHours(shift.start_time, shift.end_time);
+        if (currentHours <= 3) {
+          return false;
+        }
+
+        // Check if trim would violate coverage floor
+        if (!canTrimEnd(optimizedShifts, shiftIndex, 15)) {
+          return false;
+        }
+
+        // Calculate new end time
+        const [endHour, endMin] = shift.end_time.split(":").map(Number);
+        let newEndMin = endMin - 15;
+        let newEndHour = endHour;
+        while (newEndMin < 0) {
+          newEndMin += 60;
+          newEndHour -= 1;
+        }
+        const newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}:00`;
+
+        // Verify shift is still at least 3 hours
+        const newHours = calculateShiftHours(shift.start_time, newEndTime);
+        if (newHours < 3) {
+          return false;
+        }
+
+        // Apply the trim
+        const wage = shift.hourly_wage || 15;
+        const savings = wage * 0.25; // 15min = 0.25hr
+        const originalEnd = shiftTrimAccumulator.get(shiftIndex)?.original_end || shift.end_time;
+
+        const existing = shiftTrimAccumulator.get(shiftIndex);
+        if (existing) {
+          existing.final_end = newEndTime;
+          existing.totalMinutesTrimmed += 15;
+          existing.totalLaborSaved += savings;
+        } else {
+          shiftTrimAccumulator.set(shiftIndex, {
+            user_id: shift.user_id,
+            userName: nameMap.get(shift.user_id) || 'Unknown',
+            day_of_week: shift.day_of_week,
+            original_start: shift.start_time,
+            original_end: originalEnd,
+            final_end: newEndTime,
+            totalMinutesTrimmed: 15,
+            totalLaborSaved: savings,
+          });
+        }
+
+        optimizedShifts[shiftIndex] = { ...shift, end_time: newEndTime };
+        trimCountPerShift.set(shiftIndex, currentTrimCount + 1);
+        remainingToTrim -= savings;
+
+        const role = roleMap.get(shift.user_id) || 'team_member';
+        console.log(`    ✓ Trimmed 15min from ${nameMap.get(shift.user_id)} (${role}), saved $${savings.toFixed(2)}`);
+        return true;
+      };
+
+      // Helper to run one layer of trims for a tier
+      const runLayerForTier = (tier: number, targetLayer: number): void => {
         const tierShifts = shiftsByTier.get(tier) || [];
-        // Sort by wage within tier (higher wage = cut first for max savings)
         tierShifts.sort((a, b) => 
           (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
         );
 
+        for (const shiftIndex of tierShifts) {
+          if (remainingToTrim <= 0) break;
+          const currentTrimCount = trimCountPerShift.get(shiftIndex) || 0;
+          if (currentTrimCount >= targetLayer) continue; // Already trimmed this layer
+          tryTrimShift(shiftIndex);
+        }
+      };
+
+      // INTERLEAVED APPROACH:
+      // Before any tier reaches 1hr (layer 4), the next tier must have at least 15min (layer 1)
+      // Order: T1-L1, T1-L2, T1-L3, T2-L1, T1-L4, T2-L2, T2-L3, T3-L1, T2-L4, T3-L2...
+      // 
+      // Pattern for each tier T:
+      //   - Layers 1-3 for tier T
+      //   - Layer 1 for tier T+1 (if exists)
+      //   - Layer 4 for tier T
+      //   - (then continue with T+1)
+
+      console.log(`  Starting interleaved trim process...`);
+      
+      for (let tierIdx = 0; tierIdx < sortedTiers.length && remainingToTrim > 0; tierIdx++) {
+        const tier = sortedTiers[tierIdx];
+        const nextTier = sortedTiers[tierIdx + 1];
         const tierName = tier === 1 ? 'team_member' : tier === 2 ? 'shift_manager' : tier === 3 ? 'manager' : `tier_${tier}`;
-        console.log(`  Processing ${tierName}s (${tierShifts.length} shifts)...`);
 
-        // Run ALL layers (up to 1hr total) for this tier before moving on
-        for (let layer = 0; layer < TRIM_INCREMENTS.length && remainingToTrim > 0; layer++) {
-          const trimMinutes = TRIM_INCREMENTS[layer];
-          let layerTrimmed = false;
+        console.log(`  Processing ${tierName}s...`);
 
-          for (const shiftIndex of tierShifts) {
-            if (remainingToTrim <= 0) break;
+        // Layers 1-3 for this tier (15, 30, 45 min)
+        for (let layer = 1; layer <= 3 && remainingToTrim > 0; layer++) {
+          console.log(`    Layer ${layer} (${layer * 15}min total per person)...`);
+          runLayerForTier(tier, layer);
+        }
 
-            const shift = optimizedShifts[shiftIndex];
-            const currentTrimCount = trimCountPerShift.get(shiftIndex) || 0;
+        // Before layer 4 (1hr), give next tier their first 15min
+        if (nextTier !== undefined && remainingToTrim > 0) {
+          const nextTierName = nextTier === 1 ? 'team_member' : nextTier === 2 ? 'shift_manager' : nextTier === 3 ? 'manager' : `tier_${nextTier}`;
+          console.log(`    Inserting ${nextTierName} layer 1 before ${tierName}s hit 1hr...`);
+          runLayerForTier(nextTier, 1);
+        }
 
-            // Skip if this shift has already been trimmed in this layer
-            if (currentTrimCount > layer) continue;
-
-            // Check minimum shift length (don't go below 3 hours)
-            const currentHours = calculateShiftHours(shift.start_time, shift.end_time);
-            if (currentHours <= 3) {
-              console.log(`    Skip ${nameMap.get(shift.user_id)}: shift only ${currentHours.toFixed(1)}h (min 3h)`);
-              continue;
-            }
-
-            // Check if trim would violate coverage floor
-            if (!canTrimEnd(optimizedShifts, shiftIndex, trimMinutes)) {
-              console.log(`    Skip ${nameMap.get(shift.user_id)}: would violate min staffing`);
-              continue;
-            }
-
-            // Calculate new end time
-            const [endHour, endMin] = shift.end_time.split(":").map(Number);
-            let newEndMin = endMin - trimMinutes;
-            let newEndHour = endHour;
-            while (newEndMin < 0) {
-              newEndMin += 60;
-              newEndHour -= 1;
-            }
-            const newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}:00`;
-
-            // Verify shift is still at least 3 hours
-            const newHours = calculateShiftHours(shift.start_time, newEndTime);
-            if (newHours < 3) {
-              console.log(`    Skip ${nameMap.get(shift.user_id)}: would drop below 3h`);
-              continue;
-            }
-
-            // Apply the trim
-            const wage = shift.hourly_wage || 15;
-            const savings = wage * (trimMinutes / 60);
-            const originalEnd = shiftTrimAccumulator.get(shiftIndex)?.original_end || shift.end_time;
-
-            // Accumulate trim for this shift
-            const existing = shiftTrimAccumulator.get(shiftIndex);
-            if (existing) {
-              existing.final_end = newEndTime;
-              existing.totalMinutesTrimmed += trimMinutes;
-              existing.totalLaborSaved += savings;
-            } else {
-              shiftTrimAccumulator.set(shiftIndex, {
-                user_id: shift.user_id,
-                userName: nameMap.get(shift.user_id) || 'Unknown',
-                day_of_week: shift.day_of_week,
-                original_start: shift.start_time,
-                original_end: originalEnd,
-                final_end: newEndTime,
-                totalMinutesTrimmed: trimMinutes,
-                totalLaborSaved: savings,
-              });
-            }
-
-            // Update the shift
-            optimizedShifts[shiftIndex] = { ...shift, end_time: newEndTime };
-            trimCountPerShift.set(shiftIndex, currentTrimCount + 1);
-            remainingToTrim -= savings;
-
-            const role = roleMap.get(shift.user_id) || 'team_member';
-            console.log(`    ✓ Trimmed ${trimMinutes}min from ${nameMap.get(shift.user_id)} (${role}), saved $${savings.toFixed(2)}`);
-          }
+        // Layer 4 for this tier (1hr total)
+        if (remainingToTrim > 0) {
+          console.log(`    Layer 4 (1hr total per person)...`);
+          runLayerForTier(tier, 4);
         }
       }
 
