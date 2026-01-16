@@ -214,16 +214,25 @@ serve(async (req) => {
           return false;
         }
         
-        if (dayPref && dayPref.available && dayPref.start && dayPref.end) {
-          // Employee has restricted hours this day
-          const prefStartMins = timeToMinutes(dayPref.start);
-          const prefEndMins = timeToMinutes(dayPref.end);
+        if (dayPref && dayPref.available) {
+          // Employee has restricted hours this day - check start and/or end constraints
           const shiftStartMins = timeToMinutes(startTime);
           const shiftEndMins = timeToMinutes(endTime);
           
-          // Shift must fit entirely within the employee's available window
-          if (shiftStartMins < prefStartMins || shiftEndMins > prefEndMins) {
-            return false;
+          // If they have a start restriction (e.g., "from 9:00 AM")
+          if (dayPref.start) {
+            const prefStartMins = timeToMinutes(dayPref.start);
+            if (shiftStartMins < prefStartMins) {
+              return false;
+            }
+          }
+          
+          // If they have an end restriction (e.g., "until 5:00 PM")
+          if (dayPref.end) {
+            const prefEndMins = timeToMinutes(dayPref.end);
+            if (shiftEndMins > prefEndMins) {
+              return false;
+            }
           }
         }
       }
