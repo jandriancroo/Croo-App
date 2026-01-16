@@ -14,6 +14,7 @@ import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { SalesSummaryChart } from '@/components/dashboard/SalesSummaryChart';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useNavigate } from 'react-router-dom';
+import { getCachedLiveSales, setCachedLiveSales, getCachedProjections, setCachedProjections } from '@/utils/salesCache';
 
 interface LocationRow {
   id: string;
@@ -135,47 +136,68 @@ export default function MultiLocationDashboard() {
     return Math.max(Math.round(paceAdjusted), actualSales);
   };
 
-  // Check if cache is stale (> 5 minutes old) for today's data
-  const isCacheStale = (cachedAt: string | null): boolean => {
-    if (!cachedAt) return true;
-    const cacheTime = new Date(cachedAt).getTime();
-    const now = Date.now();
-    const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-    return (now - cacheTime) > STALE_THRESHOLD;
-  };
-
-  // Sync and fetch live sales data — CAPTURES EDGE FUNCTION PROJECTIONS
-  // This ensures the Org Dash uses the EXACT same projection values as the single-unit Dashboard
+  // SHARED CACHE APPROACH: Use the same localStorage cache as Dashboard
+  // This ensures both pages show IDENTICAL values for Sales, AI Goal, and Pace
+  // Cache TTL: 3 minutes (matches Dashboard's cache freshness window)
+  
+  // Sync and fetch live sales data — USES SHARED LOCALSTORAGE CACHE
+  // Priority: 1) Fresh localStorage cache (<3 min) 2) Edge function call (updates cache)
   const { data: liveDataMap = {}, isLoading: syncLoading } = useQuery({
-    queryKey: ['org-live-sales', locations.map(l => l.id), todayStr],
+    queryKey: ['org-live-sales-shared-cache', locations.map(l => l.id), todayStr],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
-      // First, check which locations have stale or missing cache for today
-      const { data: todayCache } = await supabase
-        .from('sales_cache')
-        .select('location_id, fetched_at')
-        .in('location_id', locations.map(l => l.id))
-        .eq('sale_date', todayStr) as { data: { location_id: string; fetched_at: string }[] | null };
+      const liveResults: Record<string, { 
+        sales: number;
+        projections: { 
+          todayProjected: number; 
+          todayPaceAdjusted: number; 
+          weekProjected: number; 
+          monthProjected: number 
+        };
+        hourlyData: Array<{ hour: string; sales: number; projected?: number }>;
+        fromCache: boolean;
+      }> = {};
       
-      const cachedLocations = new Map<string, string>(
-        (todayCache || []).map(r => [r.location_id, r.fetched_at])
-      );
+      // Check each location's localStorage cache first
+      const locationsNeedingRefresh: string[] = [];
       
-      // Find locations that need refresh (stale or missing)
-      const staleLocationIds = locations
-        .filter(loc => isCacheStale(cachedLocations.get(loc.id) || null))
-        .map(loc => loc.id);
+      for (const loc of locations) {
+        const cachedLive = getCachedLiveSales(loc.id);
+        const cachedProj = getCachedProjections(loc.id);
+        
+        // If cache is fresh (<3 min), use it directly — NO API CALL
+        if (cachedLive?.isFresh && cachedLive.data) {
+          console.log(`[OrgDash] Location ${loc.id}: Using fresh cache (< 3 min old)`);
+          
+          // Extract values from cached data (same structure as Dashboard stores)
+          const salesData = cachedLive.data;
+          const projections = salesData.projections || cachedProj || {};
+          
+          liveResults[loc.id] = {
+            sales: salesData.daily || 0,
+            projections: {
+              todayProjected: projections.todayProjected || 0,
+              todayPaceAdjusted: projections.todayPaceAdjusted || 0,
+              weekProjected: projections.weekProjected || 0,
+              monthProjected: projections.monthProjected || 0,
+            },
+            hourlyData: salesData.hourly || [],
+            fromCache: true,
+          };
+        } else {
+          // Cache is stale or missing — needs refresh
+          locationsNeedingRefresh.push(loc.id);
+        }
+      }
       
-      console.log(`[OrgDash] Sync check: ${staleLocationIds.length}/${locations.length} locations need refresh`);
+      console.log(`[OrgDash] Cache check: ${locations.length - locationsNeedingRefresh.length} fresh, ${locationsNeedingRefresh.length} need refresh`);
       
-      // Fetch fresh data from edge function for stale locations — CAPTURE THE RESPONSES
-      const liveResults: Record<string, { projections: { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } }> = {};
-      
-      if (staleLocationIds.length > 0) {
+      // Fetch fresh data for stale locations
+      if (locationsNeedingRefresh.length > 0) {
         const BATCH_SIZE = 5;
-        for (let i = 0; i < staleLocationIds.length; i += BATCH_SIZE) {
-          const batch = staleLocationIds.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < locationsNeedingRefresh.length; i += BATCH_SIZE) {
+          const batch = locationsNeedingRefresh.slice(i, i + BATCH_SIZE);
           const batchResults = await Promise.all(
             batch.map(async locationId => {
               try {
@@ -199,11 +221,37 @@ export default function MultiLocationDashboard() {
             })
           );
           
-          // Store the projection values from edge function responses
+          // Process results and UPDATE SHARED CACHE
           for (const result of batchResults) {
-            if (result?.data?.projections) {
-              liveResults[result.locationId] = {
-                projections: result.data.projections
+            if (result?.data) {
+              const { locationId, data: salesData } = result;
+              
+              // Store in shared localStorage cache (same as Dashboard does)
+              setCachedLiveSales(locationId, salesData);
+              
+              // Store projections in shared cache (same as Dashboard does)
+              if (salesData.projections) {
+                const proj = salesData.projections;
+                const weeklySales = salesData.weekly || 0;
+                const monthlySales = salesData.monthly || 0;
+                
+                // Sanity check before caching (same as SalesSummary)
+                if (proj.weekProjected >= weeklySales && proj.monthProjected >= monthlySales && 
+                    proj.weekProjected > 0 && proj.monthProjected > 0) {
+                  setCachedProjections(locationId, {
+                    todayProjected: proj.todayProjected > 0 ? proj.todayProjected : undefined,
+                    todayPaceAdjusted: proj.todayPaceAdjusted > 0 ? proj.todayPaceAdjusted : undefined,
+                    weekProjected: proj.weekProjected,
+                    monthProjected: proj.monthProjected,
+                  });
+                }
+              }
+              
+              liveResults[locationId] = {
+                sales: salesData.daily || 0,
+                projections: salesData.projections || { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0 },
+                hourlyData: salesData.hourly || [],
+                fromCache: false,
               };
             }
           }
@@ -213,8 +261,8 @@ export default function MultiLocationDashboard() {
       return liveResults;
     },
     enabled: locations.length > 0,
-    staleTime: 60 * 1000, // Only re-check sync every 60s
-    refetchInterval: 5 * 60 * 1000, // Re-sync every 5 minutes
+    staleTime: 60 * 1000, // Only re-check every 60s (cache handles freshness)
+    refetchInterval: 3 * 60 * 1000, // Re-check every 3 minutes (matches cache TTL)
   });
 
   // Fetch sales data from sales_cache — SAME SOURCE as SalesSummary.checkDatabaseCache
@@ -288,30 +336,28 @@ export default function MultiLocationDashboard() {
         const weekData = weekDataByLocation.get(loc.id) || [];
         const monthData = monthDataByLocation.get(loc.id) || [];
         
-        // Daily data
-        const dailySales = todayData ? Number(todayData.net_sales) || 0 : 0;
+        // SHARED CACHE: Prefer live data from localStorage cache when available
+        const liveData = liveDataMap[loc.id];
         
-        // Daily goal: PREFER live edge function projection (same as Dashboard)
-        // This ensures Org Dash shows the EXACT same AI Goal as the single-unit Dashboard
-        const liveProjection = liveDataMap[loc.id]?.projections?.todayProjected;
-        const resolved = resolveProjection(todayData);
-        const dailyGoal = liveProjection && liveProjection > 0 ? liveProjection : (resolved.value || 0);
+        // Daily sales: PREFER shared cache value (same as Dashboard sees)
+        const dailySales = liveData?.sales ?? (todayData ? Number(todayData.net_sales) || 0 : 0);
         
-        // Hourly data from sales_cache (includes projections from backfill)
-        const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
-        if (todayData?.hourly_data && Array.isArray(todayData.hourly_data)) {
-          for (const h of todayData.hourly_data) {
-            hourlyData.push({
-              hour: h.hour,
-              sales: h.sales || 0,
-              projected: h.projected,
-            });
-          }
-        }
+        // Daily goal: PREFER shared cache projection (EXACT same as Dashboard)
+        const dailyGoal = liveData?.projections?.todayProjected && liveData.projections.todayProjected > 0
+          ? liveData.projections.todayProjected 
+          : (resolveProjection(todayData).value || 0);
         
-        // Calculate pace: PREFER live edge function pace-adjusted value
-        const livePace = liveDataMap[loc.id]?.projections?.todayPaceAdjusted;
-        const pace = livePace && livePace > 0 ? livePace : calculatePaceAdjusted(dailySales, hourlyData, DEFAULT_OPEN, DEFAULT_CLOSE);
+        // Hourly data: PREFER shared cache (same as Dashboard sees)
+        const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = liveData?.hourlyData?.length 
+          ? liveData.hourlyData 
+          : (todayData?.hourly_data && Array.isArray(todayData.hourly_data) 
+              ? todayData.hourly_data.map((h: any) => ({ hour: h.hour, sales: h.sales || 0, projected: h.projected }))
+              : []);
+        
+        // Pace: PREFER shared cache pace-adjusted value (EXACT same as Dashboard)
+        const pace = liveData?.projections?.todayPaceAdjusted && liveData.projections.todayPaceAdjusted > 0
+          ? liveData.projections.todayPaceAdjusted
+          : calculatePaceAdjusted(dailySales, hourlyData, DEFAULT_OPEN, DEFAULT_CLOSE);
         
         // Status calculation using pace vs goal
         let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
@@ -333,12 +379,15 @@ export default function MultiLocationDashboard() {
           const dayStr = format(dayDate, 'yyyy-MM-dd');
           const dayData = weekDataMap.get(dayStr);
           
-          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          // For today, use cached sales value (same as Dashboard)
+          const daySales = dayStr === todayStr 
+            ? dailySales  // Use the cached value from liveDataMap
+            : (dayData ? Number(dayData.net_sales) || 0 : 0);
           
-          // For today, use live projection from edge function if available
+          // For today, use cached projection (same as Dashboard)
           let dayProjected: number;
-          if (dayStr === todayStr && liveDataMap[loc.id]?.projections?.todayProjected) {
-            dayProjected = liveDataMap[loc.id].projections.todayProjected;
+          if (dayStr === todayStr && liveData?.projections?.todayProjected) {
+            dayProjected = liveData.projections.todayProjected;
           } else {
             const dayResolved = resolveProjection(dayData);
             dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
@@ -373,12 +422,15 @@ export default function MultiLocationDashboard() {
           const dayStr = format(dayDate, 'yyyy-MM-dd');
           const dayData = monthDataMap.get(dayStr);
           
-          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          // For today, use cached sales value (same as Dashboard)
+          const daySales = dayStr === todayStr 
+            ? dailySales  // Use the cached value from liveDataMap
+            : (dayData ? Number(dayData.net_sales) || 0 : 0);
           
-          // For today, use live projection from edge function if available
+          // For today, use cached projection (same as Dashboard)
           let dayProjected: number;
-          if (dayStr === todayStr && liveDataMap[loc.id]?.projections?.todayProjected) {
-            dayProjected = liveDataMap[loc.id].projections.todayProjected;
+          if (dayStr === todayStr && liveData?.projections?.todayProjected) {
+            dayProjected = liveData.projections.todayProjected;
           } else {
             const dayResolved = resolveProjection(dayData);
             dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
