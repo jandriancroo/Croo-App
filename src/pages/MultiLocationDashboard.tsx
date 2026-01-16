@@ -135,10 +135,74 @@ export default function MultiLocationDashboard() {
     return Math.max(Math.round(paceAdjusted), actualSales);
   };
 
-  // Fetch sales data from sales_cache directly — SAME SOURCE as SalesSummary.checkDatabaseCache
-  // This reads the cached data that gets populated by the edge function when viewing Dashboard.
+  // Check if cache is stale (> 5 minutes old) for today's data
+  const isCacheStale = (cachedAt: string | null): boolean => {
+    if (!cachedAt) return true;
+    const cacheTime = new Date(cachedAt).getTime();
+    const now = Date.now();
+    const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+    return (now - cacheTime) > STALE_THRESHOLD;
+  };
+
+  // Trigger edge function to refresh stale caches — SAME AS SalesSummary.fetchSalesData
+  // This ensures the Org Dash uses the exact same data fetching mechanism as the single-unit Dashboard
+  const { data: syncStatus, isLoading: syncLoading } = useQuery({
+    queryKey: ['org-sales-sync', locations.map(l => l.id), todayStr],
+    queryFn: async () => {
+      if (locations.length === 0) return { synced: true };
+      
+      // First, check which locations have stale or missing cache for today
+      const { data: todayCache } = await supabase
+        .from('sales_cache')
+        .select('location_id, fetched_at')
+        .in('location_id', locations.map(l => l.id))
+        .eq('sale_date', todayStr);
+      
+      const cachedLocations = new Map(
+        (todayCache || []).map(r => [r.location_id, r.fetched_at])
+      );
+      
+      // Find locations that need refresh (stale or missing)
+      const staleLocationIds = locations
+        .filter(loc => isCacheStale(cachedLocations.get(loc.id) || null))
+        .map(loc => loc.id);
+      
+      console.log(`[OrgDash] Sync check: ${staleLocationIds.length}/${locations.length} locations need refresh`);
+      
+      // Trigger edge function for stale locations in parallel (max 5 concurrent to avoid rate limits)
+      if (staleLocationIds.length > 0) {
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < staleLocationIds.length; i += BATCH_SIZE) {
+          const batch = staleLocationIds.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(locationId =>
+              supabase.functions.invoke('fetch-qubeyond-sales', {
+                body: { 
+                  locationId,
+                  targetDate: todayStr,
+                  skipProjections: false,
+                  fastMode: true // Quick refresh since we just need cache update
+                }
+              }).catch(err => {
+                console.warn(`[OrgDash] Failed to sync location ${locationId}:`, err);
+                return null;
+              })
+            )
+          );
+        }
+      }
+      
+      return { synced: true, refreshedCount: staleLocationIds.length };
+    },
+    enabled: locations.length > 0,
+    staleTime: 60 * 1000, // Only re-check sync every 60s
+    refetchInterval: 5 * 60 * 1000, // Re-sync every 5 minutes
+  });
+
+  // Fetch sales data from sales_cache — SAME SOURCE as SalesSummary.checkDatabaseCache
+  // This runs AFTER sync to ensure we have fresh data
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr, syncStatus?.synced],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
@@ -320,7 +384,7 @@ export default function MultiLocationDashboard() {
       
       return result;
     },
-    enabled: locations.length > 0,
+    enabled: locations.length > 0 && syncStatus?.synced === true,
     refetchInterval: 60000,
   });
 
@@ -451,7 +515,7 @@ export default function MultiLocationDashboard() {
     enabled: locations.length > 0,
   });
 
-  const isLoading = locationsLoading || salesLoading || checklistsLoading || auditsLoading;
+  const isLoading = locationsLoading || syncLoading || salesLoading || checklistsLoading || auditsLoading;
 
   // Filter locations based on search query
   const filteredLocations = useMemo(() => {
