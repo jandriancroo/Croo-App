@@ -305,6 +305,8 @@ serve(async (req) => {
     };
 
     // Check if trimming end of shift would violate coverage floor
+    // Key insight: countStaffAtHour checks hour < endHour, so a shift ending at 18:00 covers hour 17
+    // but a shift ending at 17:45 does NOT cover hour 17 (since 17 < 17 is false)
     const canTrimEnd = (shifts: GeneratedShift[], shiftIndex: number, minutes: number): boolean => {
       const shift = shifts[shiftIndex];
       const [endHour, endMin] = shift.end_time.split(":").map(Number);
@@ -319,14 +321,17 @@ serve(async (req) => {
       // If we didn't cross into a previous hour, hourly staffing counts are unchanged
       if (newEndHour === endHour) return true;
 
-      // Check each full hour that would be removed
-      const firstRemovedHour = newEndHour + 1;
-      const lastRemovedHour = endHour - 1;
-
-      for (let h = firstRemovedHour; h <= lastRemovedHour; h++) {
+      // Check each hour that will LOSE this employee's coverage
+      // Hours affected: from newEndHour up to (but not including) endHour
+      // Example: trim 18:00 -> 17:45 means newEndHour=17, endHour=18
+      // Hour 17 will lose coverage (shift no longer covers it)
+      for (let h = newEndHour; h < endHour; h++) {
         const currentStaff = countStaffAtHour(shifts, shift.day_of_week, h);
         const minStaff = getMinStaff(shift.day_of_week, h);
-        if (currentStaff - 1 < minStaff) return false;
+        if (currentStaff - 1 < minStaff) {
+          console.log(`      Coverage floor: hour ${h} has ${currentStaff} staff, min is ${minStaff}`);
+          return false;
+        }
       }
 
       return true;
