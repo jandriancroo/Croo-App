@@ -144,21 +144,21 @@ export default function MultiLocationDashboard() {
     return (now - cacheTime) > STALE_THRESHOLD;
   };
 
-  // Trigger edge function to refresh stale caches — SAME AS SalesSummary.fetchSalesData
-  // This ensures the Org Dash uses the exact same data fetching mechanism as the single-unit Dashboard
-  const { data: syncStatus, isLoading: syncLoading } = useQuery({
-    queryKey: ['org-sales-sync', locations.map(l => l.id), todayStr],
+  // Sync and fetch live sales data — CAPTURES EDGE FUNCTION PROJECTIONS
+  // This ensures the Org Dash uses the EXACT same projection values as the single-unit Dashboard
+  const { data: liveDataMap = {}, isLoading: syncLoading } = useQuery({
+    queryKey: ['org-live-sales', locations.map(l => l.id), todayStr],
     queryFn: async () => {
-      if (locations.length === 0) return { synced: true };
+      if (locations.length === 0) return {};
       
       // First, check which locations have stale or missing cache for today
       const { data: todayCache } = await supabase
         .from('sales_cache')
         .select('location_id, fetched_at')
         .in('location_id', locations.map(l => l.id))
-        .eq('sale_date', todayStr);
+        .eq('sale_date', todayStr) as { data: { location_id: string; fetched_at: string }[] | null };
       
-      const cachedLocations = new Map(
+      const cachedLocations = new Map<string, string>(
         (todayCache || []).map(r => [r.location_id, r.fetched_at])
       );
       
@@ -169,30 +169,48 @@ export default function MultiLocationDashboard() {
       
       console.log(`[OrgDash] Sync check: ${staleLocationIds.length}/${locations.length} locations need refresh`);
       
-      // Trigger edge function for stale locations in parallel (max 5 concurrent to avoid rate limits)
+      // Fetch fresh data from edge function for stale locations — CAPTURE THE RESPONSES
+      const liveResults: Record<string, { projections: { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } }> = {};
+      
       if (staleLocationIds.length > 0) {
         const BATCH_SIZE = 5;
         for (let i = 0; i < staleLocationIds.length; i += BATCH_SIZE) {
           const batch = staleLocationIds.slice(i, i + BATCH_SIZE);
-          await Promise.all(
-            batch.map(locationId =>
-              supabase.functions.invoke('fetch-qubeyond-sales', {
-                body: { 
-                  locationId,
-                  targetDate: todayStr,
-                  skipProjections: false,
-                  fastMode: true // Quick refresh since we just need cache update
+          const batchResults = await Promise.all(
+            batch.map(async locationId => {
+              try {
+                const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+                  body: { 
+                    locationId,
+                    targetDate: todayStr,
+                    skipProjections: false,
+                    fastMode: true
+                  }
+                });
+                if (error) {
+                  console.warn(`[OrgDash] Failed to sync location ${locationId}:`, error);
+                  return null;
                 }
-              }).catch(err => {
+                return { locationId, data };
+              } catch (err) {
                 console.warn(`[OrgDash] Failed to sync location ${locationId}:`, err);
                 return null;
-              })
-            )
+              }
+            })
           );
+          
+          // Store the projection values from edge function responses
+          for (const result of batchResults) {
+            if (result?.data?.projections) {
+              liveResults[result.locationId] = {
+                projections: result.data.projections
+              };
+            }
+          }
         }
       }
       
-      return { synced: true, refreshedCount: staleLocationIds.length };
+      return liveResults;
     },
     enabled: locations.length > 0,
     staleTime: 60 * 1000, // Only re-check sync every 60s
@@ -201,8 +219,9 @@ export default function MultiLocationDashboard() {
 
   // Fetch sales data from sales_cache — SAME SOURCE as SalesSummary.checkDatabaseCache
   // This runs AFTER sync to ensure we have fresh data
+  // We include liveDataMap in the key so it refetches after sync completes
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr, syncStatus?.synced],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr, Object.keys(liveDataMap).length],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
@@ -272,9 +291,11 @@ export default function MultiLocationDashboard() {
         // Daily data
         const dailySales = todayData ? Number(todayData.net_sales) || 0 : 0;
         
-        // Daily goal using resolveProjection (same logic as SalesSummary)
+        // Daily goal: PREFER live edge function projection (same as Dashboard)
+        // This ensures Org Dash shows the EXACT same AI Goal as the single-unit Dashboard
+        const liveProjection = liveDataMap[loc.id]?.projections?.todayProjected;
         const resolved = resolveProjection(todayData);
-        const dailyGoal = resolved.value || 0;
+        const dailyGoal = liveProjection && liveProjection > 0 ? liveProjection : (resolved.value || 0);
         
         // Hourly data from sales_cache (includes projections from backfill)
         const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
@@ -288,8 +309,9 @@ export default function MultiLocationDashboard() {
           }
         }
         
-        // Calculate pace using the same logic as the edge function
-        const pace = calculatePaceAdjusted(dailySales, hourlyData, DEFAULT_OPEN, DEFAULT_CLOSE);
+        // Calculate pace: PREFER live edge function pace-adjusted value
+        const livePace = liveDataMap[loc.id]?.projections?.todayPaceAdjusted;
+        const pace = livePace && livePace > 0 ? livePace : calculatePaceAdjusted(dailySales, hourlyData, DEFAULT_OPEN, DEFAULT_CLOSE);
         
         // Status calculation using pace vs goal
         let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
@@ -312,8 +334,15 @@ export default function MultiLocationDashboard() {
           const dayData = weekDataMap.get(dayStr);
           
           const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
-          const dayResolved = resolveProjection(dayData);
-          const dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          
+          // For today, use live projection from edge function if available
+          let dayProjected: number;
+          if (dayStr === todayStr && liveDataMap[loc.id]?.projections?.todayProjected) {
+            dayProjected = liveDataMap[loc.id].projections.todayProjected;
+          } else {
+            const dayResolved = resolveProjection(dayData);
+            dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          }
           
           weeklyBreakdown.push({ date: dayStr, sales: daySales, projected: dayProjected });
           weeklySales += daySales;
@@ -345,8 +374,15 @@ export default function MultiLocationDashboard() {
           const dayData = monthDataMap.get(dayStr);
           
           const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
-          const dayResolved = resolveProjection(dayData);
-          const dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          
+          // For today, use live projection from edge function if available
+          let dayProjected: number;
+          if (dayStr === todayStr && liveDataMap[loc.id]?.projections?.todayProjected) {
+            dayProjected = liveDataMap[loc.id].projections.todayProjected;
+          } else {
+            const dayResolved = resolveProjection(dayData);
+            dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          }
           
           monthlyBreakdown.push({ date: dayStr, sales: daySales, projected: dayProjected });
           monthlySales += daySales;
@@ -384,7 +420,7 @@ export default function MultiLocationDashboard() {
       
       return result;
     },
-    enabled: locations.length > 0 && syncStatus?.synced === true,
+    enabled: locations.length > 0 && !syncLoading,
     refetchInterval: 60000,
   });
 
