@@ -49,6 +49,19 @@ interface TrimSuggestion {
   trimType: 'start' | 'end';
 }
 
+// Role tiers for cutting priority (lower number = cut first)
+const ROLE_CUT_PRIORITY: Record<string, number> = {
+  'team_member': 1,
+  'shift_manager': 2,
+  'manager': 3,
+  'general_manager': 4,
+  'admin': 5,
+  'org_admin': 6,
+  'fbc': 7,
+  'brand_admin': 8,
+  'super_admin': 9,
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -103,25 +116,24 @@ serve(async (req) => {
       nameMap.set(p.id, p.full_name || 'Unknown');
     });
 
-    // Map user roles - managers/shift_managers/admins get priority protection
+    // Map user roles - keep highest role if user has multiple
     (userRoles || []).forEach((r: any) => {
       const currentRole = roleMap.get(r.user_id);
-      // Keep highest role if user has multiple
       if (!currentRole || isHigherRole(r.role, currentRole)) {
         roleMap.set(r.user_id, r.role);
       }
     });
 
-    // Helper to check if role is a manager-level role (protected from cuts)
-    const isManagerRole = (role: string | undefined): boolean => {
-      return ['admin', 'general_manager', 'manager', 'shift_manager', 'org_admin', 'super_admin', 'fbc', 'brand_admin'].includes(role || '');
-    };
-
     // Helper to compare roles (for keeping highest)
     function isHigherRole(newRole: string, currentRole: string): boolean {
-      const roleOrder = ['team_member', 'shift_manager', 'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin'];
-      return roleOrder.indexOf(newRole) > roleOrder.indexOf(currentRole);
+      return (ROLE_CUT_PRIORITY[newRole] || 1) > (ROLE_CUT_PRIORITY[currentRole] || 1);
     }
+
+    // Get role cut priority (lower = cut first)
+    const getRolePriority = (userId: string): number => {
+      const role = roleMap.get(userId) || 'team_member';
+      return ROLE_CUT_PRIORITY[role] || 1;
+    };
 
     // Get hourly coverage requirements from template
     let hourlyCoverage: HourlyCoverage[] = [];
@@ -202,46 +214,49 @@ serve(async (req) => {
       hourly_wage: wageMap.get(s.user_id) || 15,
     }));
 
-    // Calculate labor summary per day using per-day targets from template
-    const laborSummary: LaborSummary[] = [];
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-    for (let day = 0; day < 7; day++) {
-      const dayShifts = shiftsWithWages.filter(s => s.day_of_week === day);
-      let totalHours = 0;
-      let totalLaborCost = 0;
+    // Calculate labor summary per day
+    const calculateLaborSummary = (shifts: GeneratedShift[]): LaborSummary[] => {
+      const summary: LaborSummary[] = [];
+      for (let day = 0; day < 7; day++) {
+        const dayShifts = shifts.filter(s => s.day_of_week === day);
+        let totalHours = 0;
+        let totalLaborCost = 0;
 
-      dayShifts.forEach(shift => {
-        const hours = calculateShiftHours(shift.start_time, shift.end_time);
-        totalHours += hours;
-        totalLaborCost += hours * (shift.hourly_wage || 15);
-      });
+        dayShifts.forEach(shift => {
+          const hours = calculateShiftHours(shift.start_time, shift.end_time);
+          totalHours += hours;
+          totalLaborCost += hours * (shift.hourly_wage || 15);
+        });
 
-      // Use per-day settings if available, fallback to hourly coverage aggregation
-      const daySettings = dailySettings[day];
-      const projectedSales = daySettings?.projectedSales || dailySales[day] || 0;
-      const targetPct = daySettings?.laborTarget || 25; // Per-day target or default 25%
-      
-      const laborPercentage = projectedSales > 0 ? (totalLaborCost / projectedSales) * 100 : 0;
-      const overBudget = projectedSales > 0 && laborPercentage > targetPct;
-      const targetLaborCost = projectedSales * (targetPct / 100);
-      const amountOverBudget = overBudget ? totalLaborCost - targetLaborCost : 0;
+        const daySettings = dailySettings[day];
+        const projectedSales = daySettings?.projectedSales || dailySales[day] || 0;
+        const targetPct = daySettings?.laborTarget || 25;
+        
+        const laborPercentage = projectedSales > 0 ? (totalLaborCost / projectedSales) * 100 : 0;
+        const overBudget = projectedSales > 0 && laborPercentage > targetPct;
+        const targetLaborCost = projectedSales * (targetPct / 100);
+        const amountOverBudget = overBudget ? totalLaborCost - targetLaborCost : 0;
 
-      laborSummary.push({
-        dayOfWeek: day,
-        dayName: dayNames[day],
-        totalHours,
-        totalLaborCost,
-        projectedSales,
-        laborPercentage,
-        targetPercentage: targetPct,
-        overBudget,
-        amountOverBudget,
-      });
-    }
+        summary.push({
+          dayOfWeek: day,
+          dayName: dayNames[day],
+          totalHours,
+          totalLaborCost,
+          projectedSales,
+          laborPercentage,
+          targetPercentage: targetPct,
+          overBudget,
+          amountOverBudget,
+        });
+      }
+      return summary;
+    };
+
+    const laborSummary = calculateLaborSummary(shiftsWithWages);
 
     if (action === 'analyze') {
-      // Just return the analysis
       return new Response(
         JSON.stringify({
           laborSummary,
@@ -253,9 +268,21 @@ serve(async (req) => {
       );
     }
 
-    // ACTION: Optimize - Generate trim suggestions
-    const trimSuggestions: TrimSuggestion[] = [];
+    // ACTION: Optimize - Layered trimming strategy
     const optimizedShifts = [...shiftsWithWages];
+    const trimSuggestions: TrimSuggestion[] = [];
+
+    // Track total minutes trimmed per shift (for consolidation)
+    const shiftTrimAccumulator: Map<number, {
+      user_id: string;
+      userName: string;
+      day_of_week: number;
+      original_start: string;
+      original_end: string;
+      final_end: string;
+      totalMinutesTrimmed: number;
+      totalLaborSaved: number;
+    }> = new Map();
 
     // Helper to count staff at a specific hour on a day
     const countStaffAtHour = (shifts: GeneratedShift[], day: number, hour: number): number => {
@@ -263,11 +290,9 @@ serve(async (req) => {
         if (shift.day_of_week !== day) return false;
         const startHour = parseInt(shift.start_time.split(":")[0]);
         const endHour = parseInt(shift.end_time.split(":")[0]);
-        // Check if this shift covers this hour
         if (endHour > startHour) {
           return hour >= startHour && hour < endHour;
         } else {
-          // Overnight shift
           return hour >= startHour || hour < endHour;
         }
       }).length;
@@ -279,19 +304,11 @@ serve(async (req) => {
       return coverage?.min_staff || 0;
     };
 
-    // Can we trim the end of a shift without violating min_staff?
-    // Important: coverage requirements are stored hourly, so trimming within the same ending hour
-    // should NOT change the headcount for that hour. We only need to enforce min_staff when the
-    // trim crosses an hour boundary (i.e., removes the shift from one or more whole hours).
-    const canTrimEnd = (
-      shifts: GeneratedShift[],
-      shiftIndex: number,
-      minutes: number,
-    ): boolean => {
+    // Check if trimming end of shift would violate coverage floor
+    const canTrimEnd = (shifts: GeneratedShift[], shiftIndex: number, minutes: number): boolean => {
       const shift = shifts[shiftIndex];
       const [endHour, endMin] = shift.end_time.split(":").map(Number);
 
-      // Calculate new end time
       let newEndMin = endMin - minutes;
       let newEndHour = endHour;
       while (newEndMin < 0) {
@@ -299,11 +316,10 @@ serve(async (req) => {
         newEndHour -= 1;
       }
 
-      // If we didn't cross into a previous hour, hourly staffing counts are unchanged.
+      // If we didn't cross into a previous hour, hourly staffing counts are unchanged
       if (newEndHour === endHour) return true;
 
-      // We crossed an hour boundary; enforce min staff for each FULL hour that would be removed.
-      // Example: 20:00 -> 18:45 removes hour 19 entirely.
+      // Check each full hour that would be removed
       const firstRemovedHour = newEndHour + 1;
       const lastRemovedHour = endHour - 1;
 
@@ -316,11 +332,7 @@ serve(async (req) => {
       return true;
     };
 
-    // Helper to check if this is a closing shift.
-    // Agreement: we do NOT cut anyone who works "past close"; treat them as closers.
-    // Protection rules:
-    //  - Any shift ending at/after the location close time is protected
-    //  - The latest-ending shift(s) of the day are protected (fallback if close time isn't set)
+    // Check if this is a closing shift (protected from cuts)
     const isClosingShift = (shifts: GeneratedShift[], shiftIndex: number): boolean => {
       const shift = shifts[shiftIndex];
       const shiftEndHour = parseInt(shift.end_time.split(":")[0]);
@@ -332,6 +344,7 @@ serve(async (req) => {
         return true;
       }
 
+      // Fallback: protect latest-ending shifts if no close time set
       const dayShifts = shifts.filter((s) => s.day_of_week === shift.day_of_week);
       let latestEndTotal = 0;
 
@@ -347,171 +360,136 @@ serve(async (req) => {
       return shiftEndTotal === latestEndTotal;
     };
 
-    // Track accumulated trims per shift (to consolidate multiple 15-min trims into one entry)
-    const shiftTrimAccumulator: Map<number, {
-      user_id: string;
-      userName: string;
-      day_of_week: number;
-      original_start: string;
-      original_end: string;
-      final_end: string;
-      totalMinutesTrimmed: number;
-      totalLaborSaved: number;
-    }> = new Map();
+    // TRIM INCREMENTS (in minutes)
+    const TRIM_INCREMENTS = [15, 15, 15, 15]; // 4 layers of 15min = up to 1hr total per person
 
-    // Process days that are over budget
-    for (const daySummary of laborSummary) {
-      if (!daySummary.overBudget || daySummary.amountOverBudget <= 0) continue;
+    // Process each day that's over budget
+    for (let day = 0; day < 7; day++) {
+      const daySummary = laborSummary.find(d => d.dayOfWeek === day);
+      if (!daySummary || !daySummary.overBudget || daySummary.amountOverBudget <= 0) continue;
 
       let remainingToTrim = daySummary.amountOverBudget;
+      console.log(`\nDay ${day} (${daySummary.dayName}): Over budget by $${remainingToTrim.toFixed(2)}`);
+
+      // Get all shifts for this day
       const dayShiftIndices = optimizedShifts
-        .map((s, i) => s.day_of_week === daySummary.dayOfWeek ? i : -1)
+        .map((s, i) => s.day_of_week === day ? i : -1)
         .filter(i => i !== -1);
 
-      // Log all shifts for this day before filtering
-      console.log(`Day ${daySummary.dayOfWeek} - All shifts:`);
-      dayShiftIndices.forEach(i => {
-        const s = optimizedShifts[i];
-        const role = roleMap.get(s.user_id) || 'unknown';
-        const isCloser = isClosingShift(optimizedShifts, i);
-        console.log(`  - ${nameMap.get(s.user_id)}: ${s.start_time}-${s.end_time}, role=${role}, isCloser=${isCloser}`);
+      // Exclude closing shifts - they're ALWAYS protected
+      const eligibleShiftIndices = dayShiftIndices.filter(i => !isClosingShift(optimizedShifts, i));
+
+      console.log(`  Total shifts: ${dayShiftIndices.length}, Eligible (non-closing): ${eligibleShiftIndices.length}`);
+
+      // Group eligible shifts by role priority tier
+      const shiftsByTier: Map<number, number[]> = new Map();
+      eligibleShiftIndices.forEach(idx => {
+        const priority = getRolePriority(optimizedShifts[idx].user_id);
+        if (!shiftsByTier.has(priority)) {
+          shiftsByTier.set(priority, []);
+        }
+        shiftsByTier.get(priority)!.push(idx);
       });
 
-      // Exclude closing shifts from consideration
-      const eligibleShiftIndices = dayShiftIndices.filter(i => !isClosingShift(optimizedShifts, i));
-      
-      // Log excluded shifts
-      const excludedIndices = dayShiftIndices.filter(i => isClosingShift(optimizedShifts, i));
-      if (excludedIndices.length > 0) {
-        console.log(`Day ${daySummary.dayOfWeek} - Excluded (closing shifts):`);
-        excludedIndices.forEach(i => {
-          const s = optimizedShifts[i];
-          console.log(`  - ${nameMap.get(s.user_id)}: ${s.start_time}-${s.end_time} (ends at/after close or is latest shift)`);
-        });
-      }
-      
-      // Separate team members and managers
-      const teamMemberIndices = eligibleShiftIndices.filter(i => 
-        !isManagerRole(roleMap.get(optimizedShifts[i].user_id))
-      );
-      const managerIndices = eligibleShiftIndices.filter(i => 
-        isManagerRole(roleMap.get(optimizedShifts[i].user_id))
-      );
+      // Sort tiers by priority (1 = team_member first, then 2 = shift_manager, etc.)
+      const sortedTiers = [...shiftsByTier.keys()].sort((a, b) => a - b);
+      console.log(`  Role tiers to process: ${sortedTiers.map(t => `tier ${t}`).join(', ')}`);
 
-      // Sort each group by wage (higher paid first for max savings)
-      const sortByWage = (a: number, b: number) => 
-        (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15);
-      
-      teamMemberIndices.sort(sortByWage);
-      managerIndices.sort(sortByWage);
-
-      // Track how many 15-min increments we've trimmed from each shift
+      // Track how many times each shift has been trimmed this day
       const trimCountPerShift = new Map<number, number>();
 
-      console.log(`Day ${daySummary.dayOfWeek}: ${teamMemberIndices.length} team members eligible, ${managerIndices.length} managers eligible, need to trim $${remainingToTrim.toFixed(2)}`);
+      // LAYERED APPROACH: For each layer (15min), try to trim ALL eligible people at current tier
+      // before moving to next tier. Then move to next layer.
+      for (let layer = 0; layer < TRIM_INCREMENTS.length && remainingToTrim > 0; layer++) {
+        const trimMinutes = TRIM_INCREMENTS[layer];
+        console.log(`  Layer ${layer + 1}: Trimming ${trimMinutes}min from eligible shifts...`);
 
-      // Trimming rules:
-      // - Max 30 min (2 x 15 min) per person total
-      // - Team members get cut first (up to 30 min each)
-      // - Managers only get cut if still over budget (up to 30 min each)
-      const MAX_TRIMS_PER_PERSON = 2; // 30 min max per person
-      
-      // Phase 1: Cut up to 30 min from each team member
-      for (const shiftIndex of teamMemberIndices) {
-        if (remainingToTrim <= 0) break;
-        
-        const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
-        
-        // Cut up to 2 increments (30 min max) per team member
-        for (let t = 0; t < MAX_TRIMS_PER_PERSON - totalTrimsSoFar && remainingToTrim > 0; t++) {
-          const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
-          if (!trimmed) break;
+        // Process each role tier in order (team members first)
+        for (const tier of sortedTiers) {
+          if (remainingToTrim <= 0) break;
+
+          const tierShifts = shiftsByTier.get(tier) || [];
+          // Sort by wage within tier (higher wage = cut first for max savings)
+          tierShifts.sort((a, b) => 
+            (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
+          );
+
+          for (const shiftIndex of tierShifts) {
+            if (remainingToTrim <= 0) break;
+
+            const shift = optimizedShifts[shiftIndex];
+            const currentTrimCount = trimCountPerShift.get(shiftIndex) || 0;
+
+            // Skip if this shift has already been trimmed in this layer
+            // (each layer = one trim opportunity per eligible person)
+            if (currentTrimCount > layer) continue;
+
+            // Check minimum shift length (don't go below 3 hours)
+            const currentHours = calculateShiftHours(shift.start_time, shift.end_time);
+            if (currentHours <= 3) {
+              console.log(`    Skip ${nameMap.get(shift.user_id)}: shift only ${currentHours.toFixed(1)}h (min 3h)`);
+              continue;
+            }
+
+            // Check if trim would violate coverage floor
+            if (!canTrimEnd(optimizedShifts, shiftIndex, trimMinutes)) {
+              console.log(`    Skip ${nameMap.get(shift.user_id)}: would violate min staffing`);
+              continue;
+            }
+
+            // Calculate new end time
+            const [endHour, endMin] = shift.end_time.split(":").map(Number);
+            let newEndMin = endMin - trimMinutes;
+            let newEndHour = endHour;
+            while (newEndMin < 0) {
+              newEndMin += 60;
+              newEndHour -= 1;
+            }
+            const newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}:00`;
+
+            // Verify shift is still at least 3 hours
+            const newHours = calculateShiftHours(shift.start_time, newEndTime);
+            if (newHours < 3) {
+              console.log(`    Skip ${nameMap.get(shift.user_id)}: would drop below 3h`);
+              continue;
+            }
+
+            // Apply the trim
+            const wage = shift.hourly_wage || 15;
+            const savings = wage * (trimMinutes / 60);
+            const originalEnd = shiftTrimAccumulator.get(shiftIndex)?.original_end || shift.end_time;
+
+            // Accumulate trim for this shift
+            const existing = shiftTrimAccumulator.get(shiftIndex);
+            if (existing) {
+              existing.final_end = newEndTime;
+              existing.totalMinutesTrimmed += trimMinutes;
+              existing.totalLaborSaved += savings;
+            } else {
+              shiftTrimAccumulator.set(shiftIndex, {
+                user_id: shift.user_id,
+                userName: nameMap.get(shift.user_id) || 'Unknown',
+                day_of_week: shift.day_of_week,
+                original_start: shift.start_time,
+                original_end: originalEnd,
+                final_end: newEndTime,
+                totalMinutesTrimmed: trimMinutes,
+                totalLaborSaved: savings,
+              });
+            }
+
+            // Update the shift
+            optimizedShifts[shiftIndex] = { ...shift, end_time: newEndTime };
+            trimCountPerShift.set(shiftIndex, currentTrimCount + 1);
+            remainingToTrim -= savings;
+
+            const role = roleMap.get(shift.user_id) || 'team_member';
+            console.log(`    ✓ Trimmed ${trimMinutes}min from ${nameMap.get(shift.user_id)} (${role}), saved $${savings.toFixed(2)}`);
+          }
         }
       }
 
-      // Phase 2: Cut up to 30 min from each manager (if still over budget)
-      console.log(`Day ${daySummary.dayOfWeek} Phase 2: Starting manager cuts, ${managerIndices.length} managers, remainingToTrim=$${remainingToTrim.toFixed(2)}`);
-      for (const shiftIndex of managerIndices) {
-        if (remainingToTrim <= 0) break;
-        
-        const shift = optimizedShifts[shiftIndex];
-        const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
-        console.log(`  Trying manager ${nameMap.get(shift.user_id)}: shiftIndex=${shiftIndex}, trimsSoFar=${totalTrimsSoFar}, shift=${shift.start_time}-${shift.end_time}`);
-        
-        // Cut up to 2 increments (30 min max) per manager
-        for (let t = 0; t < MAX_TRIMS_PER_PERSON - totalTrimsSoFar && remainingToTrim > 0; t++) {
-          const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
-          console.log(`    Trim attempt ${t + 1}: ${trimmed ? 'SUCCESS' : 'FAILED'}`);
-          if (!trimmed) break;
-        }
-      }
-
-      console.log(`Day ${daySummary.dayOfWeek}: Trimmed $${(daySummary.amountOverBudget - remainingToTrim).toFixed(2)}, $${remainingToTrim.toFixed(2)} still over budget (max 30min/person limit reached)`);
-
-      // Helper function to attempt trimming a shift
-      function tryTrimShift(shiftIndex: number, trimCounts: Map<number, number>): boolean {
-        const shift = optimizedShifts[shiftIndex];
-        const shiftHours = calculateShiftHours(shift.start_time, optimizedShifts[shiftIndex].end_time);
-        
-        // Don't trim shifts below 3 hours
-        if (shiftHours <= 3) {
-          console.log(`      BLOCKED: Shift only ${shiftHours.toFixed(1)} hours (min 3)`);
-          return false;
-        }
-
-        const wage = shift.hourly_wage || 15;
-        const savingsPerQuarter = wage * 0.25;
-
-        if (!canTrimEnd(optimizedShifts, shiftIndex, 15)) {
-          console.log(`      BLOCKED: canTrimEnd=false (would violate min staffing)`);
-          return false;
-        }
-
-        // Trim 15 min from end
-        const currentShift = optimizedShifts[shiftIndex];
-        const [endHour, endMin] = currentShift.end_time.split(":").map(Number);
-        let newEndMin = endMin - 15;
-        let newEndHour = endHour;
-        if (newEndMin < 0) {
-          newEndMin += 60;
-          newEndHour -= 1;
-        }
-        const newEndTime = `${String(newEndHour).padStart(2, '0')}:${String(newEndMin).padStart(2, '0')}:00`;
-        
-        // Check if shift is still at least 3 hours
-        const newHours = calculateShiftHours(shift.start_time, newEndTime);
-        if (newHours < 3) return false;
-
-        // Get original end time (before any trimming in this session)
-        const originalEnd = shiftTrimAccumulator.get(shiftIndex)?.original_end || shift.end_time;
-
-        // Accumulate trim for this shift
-        const existing = shiftTrimAccumulator.get(shiftIndex);
-        if (existing) {
-          existing.final_end = newEndTime;
-          existing.totalMinutesTrimmed += 15;
-          existing.totalLaborSaved += savingsPerQuarter;
-        } else {
-          shiftTrimAccumulator.set(shiftIndex, {
-            user_id: shift.user_id,
-            userName: nameMap.get(shift.user_id) || 'Unknown',
-            day_of_week: shift.day_of_week,
-            original_start: shift.start_time,
-            original_end: originalEnd,
-            final_end: newEndTime,
-            totalMinutesTrimmed: 15,
-            totalLaborSaved: savingsPerQuarter,
-          });
-        }
-
-        // Update the shift and tracking
-        optimizedShifts[shiftIndex] = { ...optimizedShifts[shiftIndex], end_time: newEndTime };
-        trimCounts.set(shiftIndex, (trimCounts.get(shiftIndex) || 0) + 1);
-        remainingToTrim -= savingsPerQuarter;
-        
-        console.log(`Trimmed 15min from ${nameMap.get(shift.user_id)} (${isManagerRole(roleMap.get(shift.user_id)) ? 'manager' : 'team member'}), saved $${savingsPerQuarter.toFixed(2)}`);
-        return true;
-      }
+      console.log(`  Day ${day} complete: Saved $${(daySummary.amountOverBudget - remainingToTrim).toFixed(2)}, still over: $${Math.max(0, remainingToTrim).toFixed(2)}`);
     }
 
     // Convert accumulated trims to trim suggestions
@@ -532,44 +510,10 @@ serve(async (req) => {
     }
 
     // Recalculate labor summary after optimization
-    const optimizedLaborSummary: LaborSummary[] = [];
-    for (let day = 0; day < 7; day++) {
-      const dayShifts = optimizedShifts.filter(s => s.day_of_week === day);
-      let totalHours = 0;
-      let totalLaborCost = 0;
-
-      dayShifts.forEach(shift => {
-        const hours = calculateShiftHours(shift.start_time, shift.end_time);
-        totalHours += hours;
-        totalLaborCost += hours * (shift.hourly_wage || 15);
-      });
-
-      // Use per-day settings if available
-      const daySettings = dailySettings[day];
-      const projectedSales = daySettings?.projectedSales || dailySales[day] || 0;
-      const targetPct = daySettings?.laborTarget || 25;
-      
-      const laborPercentage = projectedSales > 0 ? (totalLaborCost / projectedSales) * 100 : 0;
-      const overBudget = projectedSales > 0 && laborPercentage > targetPct;
-      const targetLaborCost = projectedSales * (targetPct / 100);
-      const amountOverBudget = overBudget ? totalLaborCost - targetLaborCost : 0;
-
-      optimizedLaborSummary.push({
-        dayOfWeek: day,
-        dayName: dayNames[day],
-        totalHours,
-        totalLaborCost,
-        projectedSales,
-        laborPercentage,
-        targetPercentage: targetPct,
-        overBudget,
-        amountOverBudget,
-      });
-    }
-
+    const optimizedLaborSummary = calculateLaborSummary(optimizedShifts);
     const totalSavings = trimSuggestions.reduce((sum, t) => sum + t.laborSaved, 0);
 
-    console.log(`Generated ${trimSuggestions.length} trim suggestions, saving $${totalSavings.toFixed(2)}`);
+    console.log(`\nOptimization complete: ${trimSuggestions.length} trims, saving $${totalSavings.toFixed(2)}`);
 
     return new Response(
       JSON.stringify({
