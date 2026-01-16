@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Vault, CircleDollarSign } from "lucide-react";
+import { ShieldCheck, DollarSign } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
@@ -146,21 +146,21 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       id: "am-safe",
       show: showAmSafeCount,
       title: "AM Safe Count",
-      icon: Vault,
+      icon: ShieldCheck,
       onClick: () => handleNavigate("safe", "AM"),
     },
     {
       id: "pm-safe",
       show: showPmSafeCount,
       title: "PM Safe Count",
-      icon: Vault,
+      icon: ShieldCheck,
       onClick: () => handleNavigate("safe", "PM"),
     },
     {
-      id: "deposit",
+      id: "drawer-count",
       show: showDeposit,
-      title: "Deposit",
-      icon: CircleDollarSign,
+      title: "Drawer Count",
+      icon: DollarSign,
       onClick: () => handleNavigate("drawer"),
     },
   ].filter(t => t.show);
