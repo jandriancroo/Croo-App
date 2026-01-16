@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.backfill-punch-labor]
 verify_jwt = false
+
+[functions.scheduled-daily-summaries]
+verify_jwt = false
