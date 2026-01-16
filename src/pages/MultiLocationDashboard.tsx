@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-
+import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { SalesSummaryChart } from '@/components/dashboard/SalesSummaryChart';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useNavigate } from 'react-router-dom';
@@ -90,99 +90,220 @@ export default function MultiLocationDashboard() {
   const monthStartStr = format(monthStart, 'yyyy-MM-dd');
   const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
 
-  // Fetch sales data using the SAME edge function as SalesSummary (fetch-qubeyond-sales)
-  // SalesSummary calls this for TODAY's data - so Org Dash does the same.
+  // Helper: calculate pace-adjusted projection (same logic as edge function)
+  // actualSales + remaining hourly projections for the day
+  const calculatePaceAdjusted = (
+    actualSales: number, 
+    hourlyData: Array<{ hour: string; sales: number; projected?: number }>,
+    hoursOpen: number,
+    hoursClose: number
+  ): number => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // If store is closed or hasn't opened yet, return actual sales
+    if (currentHour < hoursOpen || currentHour >= hoursClose) {
+      return actualSales;
+    }
+    
+    // Calculate fraction of current hour remaining
+    const minutesRemainingInCurrentHour = 60 - currentMinutes;
+    const fractionOfCurrentHourRemaining = minutesRemainingInCurrentHour / 60;
+    
+    // Get current hour's projection and add fractional remaining portion
+    const currentHourStr = `${currentHour.toString().padStart(2, '0')}:00`;
+    const currentHourData = hourlyData.find(h => h.hour === currentHourStr);
+    const currentHourRemainingProjection = currentHourData?.projected 
+      ? currentHourData.projected * fractionOfCurrentHourRemaining 
+      : 0;
+    
+    // Sum up projections for FUTURE hours (starting from next hour through close)
+    let futureHoursProjected = 0;
+    for (let hour = currentHour + 1; hour < hoursClose; hour++) {
+      const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+      const hourData = hourlyData.find(h => h.hour === hourStr);
+      if (hourData?.projected) {
+        futureHoursProjected += hourData.projected;
+      }
+    }
+    
+    // Pace-adjusted = actual sales + remaining projections
+    const paceAdjusted = actualSales + currentHourRemainingProjection + futureHoursProjected;
+    
+    // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
+    return Math.max(Math.round(paceAdjusted), actualSales);
+  };
+
+  // Fetch sales data from sales_cache directly — SAME SOURCE as SalesSummary.checkDatabaseCache
+  // This reads the cached data that gets populated by the edge function when viewing Dashboard.
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
-      // Call the edge function for each location in parallel — same as SalesSummary
-      const results = await Promise.all(
-        locations.map(async (loc) => {
-          try {
-            const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-              body: { 
-                locationId: loc.id,
-                targetDate: todayStr,
-                skipProjections: false,
-                fastMode: false
-              }
-            });
-            
-            if (error || !data) {
-              console.warn(`[OrgDash] Failed to fetch sales for ${loc.name}:`, error);
-              return { locationId: loc.id, data: null };
-            }
-            
-            return { locationId: loc.id, data };
-          } catch (e) {
-            console.warn(`[OrgDash] Exception fetching sales for ${loc.name}:`, e);
-            return { locationId: loc.id, data: null };
-          }
-        })
-      );
+      const locationIds = locations.map(l => l.id);
+      
+      // Fetch today's data, week range, and month range from sales_cache in parallel
+      const [todayResult, weekResult, monthResult] = await Promise.all([
+        supabase
+          .from('sales_cache')
+          .select('*')
+          .in('location_id', locationIds)
+          .eq('sale_date', todayStr),
+        supabase
+          .from('sales_cache')
+          .select('location_id, sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+          .in('location_id', locationIds)
+          .gte('sale_date', weekStartStr)
+          .lte('sale_date', weekEndStr)
+          .order('sale_date'),
+        supabase
+          .from('sales_cache')
+          .select('location_id, sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection')
+          .in('location_id', locationIds)
+          .gte('sale_date', monthStartStr)
+          .lte('sale_date', monthEndStr)
+          .order('sale_date'),
+      ]);
+      
+      if (todayResult.error || weekResult.error || monthResult.error) {
+        console.error('[OrgDash] sales_cache query error:', todayResult.error || weekResult.error || monthResult.error);
+        return {};
+      }
+      
+      // Build lookup maps
+      const todayDataByLocation = new Map<string, any>();
+      for (const row of todayResult.data || []) {
+        todayDataByLocation.set(row.location_id, row);
+      }
+      
+      const weekDataByLocation = new Map<string, any[]>();
+      for (const row of weekResult.data || []) {
+        if (!weekDataByLocation.has(row.location_id)) {
+          weekDataByLocation.set(row.location_id, []);
+        }
+        weekDataByLocation.get(row.location_id)!.push(row);
+      }
+      
+      const monthDataByLocation = new Map<string, any[]>();
+      for (const row of monthResult.data || []) {
+        if (!monthDataByLocation.has(row.location_id)) {
+          monthDataByLocation.set(row.location_id, []);
+        }
+        monthDataByLocation.get(row.location_id)!.push(row);
+      }
       
       const result: Record<string, LocationSalesData> = {};
       
-      for (const { locationId, data: salesData } of results) {
-        if (!salesData) {
-          result[locationId] = {
-            sales: 0,
-            goal: 0,
-            pace: 0,
-            status: 'on-track',
-            hourlyData: [],
-            weeklySales: 0,
-            weeklyGoal: 0,
-            weeklyStatus: 'on-track',
-            weeklyBreakdown: [],
-            monthlySales: 0,
-            monthlyGoal: 0,
-            monthlyStatus: 'on-track',
-            monthlyBreakdown: [],
-          };
-          continue;
+      // Default business hours (will be overridden per location if available)
+      const DEFAULT_OPEN = 10;
+      const DEFAULT_CLOSE = 22;
+      
+      for (const loc of locations) {
+        const todayData = todayDataByLocation.get(loc.id);
+        const weekData = weekDataByLocation.get(loc.id) || [];
+        const monthData = monthDataByLocation.get(loc.id) || [];
+        
+        // Daily data
+        const dailySales = todayData ? Number(todayData.net_sales) || 0 : 0;
+        
+        // Daily goal using resolveProjection (same logic as SalesSummary)
+        const resolved = resolveProjection(todayData);
+        const dailyGoal = resolved.value || 0;
+        
+        // Hourly data from sales_cache (includes projections from backfill)
+        const hourlyData: Array<{ hour: string; sales: number; projected?: number }> = [];
+        if (todayData?.hourly_data && Array.isArray(todayData.hourly_data)) {
+          for (const h of todayData.hourly_data) {
+            hourlyData.push({
+              hour: h.hour,
+              sales: h.sales || 0,
+              projected: h.projected,
+            });
+          }
         }
         
-        // Extract data directly from edge function response — identical to SalesSummary
-        const daily = salesData.daily || 0;
-        const goal = salesData.projections?.todayProjected || 0;
-        const pace = salesData.projections?.todayPaceAdjusted || 0;
-        const hourlyData = (salesData.hourly || []) as Array<{ hour: string; sales: number; projected?: number }>;
+        // Calculate pace using the same logic as the edge function
+        const pace = calculatePaceAdjusted(dailySales, hourlyData, DEFAULT_OPEN, DEFAULT_CLOSE);
         
+        // Status calculation using pace vs goal
         let status: 'ahead' | 'behind' | 'on-track' = 'on-track';
-        if (goal > 0 && pace > 0) {
-          const pacePercent = (pace / goal) * 100;
+        if (dailyGoal > 0 && pace > 0) {
+          const pacePercent = (pace / dailyGoal) * 100;
           if (pacePercent >= 103) status = 'ahead';
           else if (pacePercent <= 97) status = 'behind';
         }
         
-        const weeklySales = salesData.weekly || 0;
-        const weeklyGoal = salesData.projections?.weekProjected || 0;
-        const weeklyBreakdown = (salesData.weeklyBreakdown || []).map((d: any) => ({
-          date: d.date,
-          sales: d.sales || 0,
-          projected: d.projected || 0,
-        }));
+        // Weekly data - build full 7-day breakdown
+        const weekDataMap = new Map(weekData.map((d: any) => [d.sale_date, d]));
+        const weeklyBreakdown: Array<{ date: string; sales: number; projected: number }> = [];
+        let weeklySales = 0;
+        let weeklyGoal = 0;
+        
+        for (let i = 0; i < 7; i++) {
+          const dayDate = new Date(weekStart);
+          dayDate.setDate(weekStart.getDate() + i);
+          const dayStr = format(dayDate, 'yyyy-MM-dd');
+          const dayData = weekDataMap.get(dayStr);
+          
+          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          const dayResolved = resolveProjection(dayData);
+          const dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          
+          weeklyBreakdown.push({ date: dayStr, sales: daySales, projected: dayProjected });
+          weeklySales += daySales;
+          
+          // Weekly goal: past days use actuals, today use MAX(actual, proj), future use projections
+          if (dayStr < todayStr) {
+            weeklyGoal += daySales;
+          } else if (dayStr === todayStr) {
+            weeklyGoal += Math.max(daySales, dayProjected);
+          } else {
+            weeklyGoal += dayProjected;
+          }
+        }
+        
         const weeklyStatus: 'ahead' | 'behind' | 'on-track' = weeklyGoal > 0 
           ? (weeklySales / weeklyGoal >= 1.03 ? 'ahead' : weeklySales / weeklyGoal <= 0.97 ? 'behind' : 'on-track')
           : 'on-track';
         
-        const monthlySales = salesData.monthly || 0;
-        const monthlyGoal = salesData.projections?.monthProjected || 0;
-        const monthlyBreakdown = (salesData.monthlyBreakdown || []).map((d: any) => ({
-          date: d.date,
-          sales: d.sales || 0,
-          projected: d.projected || 0,
-        }));
+        // Monthly data - build full month breakdown
+        const monthDataMap = new Map(monthData.map((d: any) => [d.sale_date, d]));
+        const daysInMonth = monthEnd.getDate();
+        const monthlyBreakdown: Array<{ date: string; sales: number; projected: number }> = [];
+        let monthlySales = 0;
+        let monthlyGoal = 0;
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+          const dayStr = format(dayDate, 'yyyy-MM-dd');
+          const dayData = monthDataMap.get(dayStr);
+          
+          const daySales = dayData ? Number(dayData.net_sales) || 0 : 0;
+          const dayResolved = resolveProjection(dayData);
+          const dayProjected = dayResolved.value && dayResolved.value > 0 ? dayResolved.value : daySales;
+          
+          monthlyBreakdown.push({ date: dayStr, sales: daySales, projected: dayProjected });
+          monthlySales += daySales;
+          
+          // Monthly goal: past days use actuals, today use MAX(actual, proj), future use projections
+          if (dayStr < todayStr) {
+            monthlyGoal += daySales;
+          } else if (dayStr === todayStr) {
+            monthlyGoal += Math.max(daySales, dayProjected);
+          } else {
+            monthlyGoal += dayProjected;
+          }
+        }
+        
         const monthlyStatus: 'ahead' | 'behind' | 'on-track' = monthlyGoal > 0 
           ? (monthlySales / monthlyGoal >= 1.03 ? 'ahead' : monthlySales / monthlyGoal <= 0.97 ? 'behind' : 'on-track')
           : 'on-track';
         
-        result[locationId] = {
-          sales: daily,
-          goal,
+        result[loc.id] = {
+          sales: dailySales,
+          goal: dailyGoal,
           pace,
           status,
           hourlyData,
