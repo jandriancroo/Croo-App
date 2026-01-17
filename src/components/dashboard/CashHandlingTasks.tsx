@@ -114,8 +114,8 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     currentMinutes >= amWindowStart && 
     currentMinutes <= amWindowEnd;
   
-  // PM Safe Count: 30 min before close to 2 hours after close (or until submitted)
-  const pmWindowStart = closeMinutes !== null ? closeMinutes - 30 : null;
+  // PM Safe Count: At close to 2 hours after close (or until submitted)
+  const pmWindowStart = closeMinutes;
   const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
   const showPmSafeCount = !pmSafeCountSubmitted && 
     pmWindowStart !== null && 
