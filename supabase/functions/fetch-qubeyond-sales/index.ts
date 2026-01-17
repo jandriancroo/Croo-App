@@ -27,10 +27,17 @@ function decodeJwtPayload(token: string): any {
 }
 
 function getDateStringForTimezone(date: Date, timezone: string): string {
-  const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
-  const year = tzDate.getFullYear();
-  const month = String(tzDate.getMonth() + 1).padStart(2, '0');
-  const day = String(tzDate.getDate()).padStart(2, '0');
+  // Use Intl.DateTimeFormat with formatToParts for reliable timezone conversion
+  const formatter = new Intl.DateTimeFormat('en-US', { 
+    timeZone: timezone, 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')?.value || '';
+  const month = parts.find(p => p.type === 'month')?.value || '';
+  const day = parts.find(p => p.type === 'day')?.value || '';
   return `${year}-${month}-${day}`;
 }
 
@@ -844,6 +851,15 @@ async function calculateLaborFromPunches(
       const localDateStr = getDateStringForTimezone(punchDate, timezone);
       return localDateStr === dateStr;
     });
+    
+    // Debug first few punch date conversions
+    if (punchRecords.length > 0 && punchesOnDate.length === 0) {
+      const sample = punchRecords.slice(0, 3).map(p => ({
+        utc: p.punch_time,
+        local: getDateStringForTimezone(new Date(p.punch_time), timezone)
+      }));
+      console.log(`[PUNCH-LABOR] Date mismatch debug - looking for ${dateStr}, samples:`, JSON.stringify(sample));
+    }
     
     console.log(`[PUNCH-LABOR] Found ${punchesOnDate.length} punches on ${dateStr}`);
     
