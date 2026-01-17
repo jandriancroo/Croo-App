@@ -224,14 +224,20 @@ export default function Dashboard() {
     }
   }, [location.state]);
   
-  // Fetch location hours for current day of week
+  // Fetch location hours for current day of week (in location's timezone)
   const { data: locationSettings } = useQuery({
-    queryKey: ["location-hours-today", currentLocation?.id],
+    queryKey: ["location-hours-today", currentLocation?.id, timezone],
     staleTime: 10 * 60 * 1000, // 10 min cache - store hours don't change mid-day
     queryFn: async () => {
       if (!currentLocation) return null;
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      // Get current day of week in the location's timezone, not the user's browser timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        weekday: 'short'
+      });
+      const weekdayName = formatter.format(new Date());
+      const weekdayMap: Record<string, number> = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+      const dayOfWeek = weekdayMap[weekdayName] ?? new Date().getDay();
       
       const { data, error } = await supabase
         .from('location_hours')
