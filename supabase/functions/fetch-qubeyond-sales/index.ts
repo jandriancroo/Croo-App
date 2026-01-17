@@ -41,6 +41,48 @@ function getDateStringForTimezone(date: Date, timezone: string): string {
   return `${year}-${month}-${day}`;
 }
 
+// Get timezone offset in milliseconds for a given date and timezone
+function getTimezoneOffsetMs(date: Date, timezone: string): number {
+  // Create formatter that shows the offset
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'longOffset'
+  });
+  const parts = formatter.formatToParts(date);
+  const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT';
+  
+  // Parse offset like "GMT-08:00" or "GMT+05:30"
+  const match = offsetPart.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!match) return 0;
+  
+  const sign = match[1] === '+' ? 1 : -1;
+  const hours = parseInt(match[2], 10);
+  const minutes = parseInt(match[3], 10);
+  
+  return sign * (hours * 60 + minutes) * 60 * 1000;
+}
+
+// Convert a date string (YYYY-MM-DD) in a given timezone to UTC start/end times
+function getUtcRangeForLocalDate(dateStr: string, timezone: string): { startUtc: string; endUtc: string } {
+  // Parse the date string as components
+  const [year, month, day] = dateStr.split('-').map(Number);
+  
+  // Create a reference date to get the timezone offset
+  // Use noon to avoid DST edge cases
+  const refDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const offsetMs = getTimezoneOffsetMs(refDate, timezone);
+  
+  // Start of day in local timezone (00:00:00) converted to UTC
+  // If timezone is GMT-8, local midnight = UTC 08:00
+  const localMidnightUtc = Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMs;
+  const localEndOfDayUtc = Date.UTC(year, month - 1, day, 23, 59, 59, 999) - offsetMs;
+  
+  return {
+    startUtc: new Date(localMidnightUtc).toISOString(),
+    endUtc: new Date(localEndOfDayUtc).toISOString()
+  };
+}
+
 function getWeekStartDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00');
   const day = date.getDay();
@@ -817,13 +859,10 @@ async function calculateLaborFromPunches(
   
   try {
     // Get all punches for this location and date
-    // We need to handle timezone - punches are stored in UTC but we want the local date
-    const startOfDay = new Date(`${dateStr}T00:00:00`);
-    const endOfDay = new Date(`${dateStr}T23:59:59`);
+    // Use proper timezone-aware UTC range calculation
+    const { startUtc, endUtc } = getUtcRangeForLocalDate(dateStr, timezone);
     
-    // Convert to UTC for query (approximate - we fetch a wider range to be safe)
-    const startUtc = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const endUtc = new Date(endOfDay.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    console.log(`[PUNCH-LABOR] Querying punches for ${dateStr} (${timezone}): ${startUtc} to ${endUtc}`);
     
     const { data: punches, error: punchError } = await supabaseClient
       .from('time_punches')
@@ -840,35 +879,19 @@ async function calculateLaborFromPunches(
     
     const punchRecords = (punches || []) as PunchRecord[];
     
+    console.log(`[PUNCH-LABOR] Found ${punchRecords.length} punches for ${dateStr}`);
+    
     if (punchRecords.length === 0) {
       console.log('[PUNCH-LABOR] No punches found for this date');
       return { laborPercent: 0, laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
     }
     
-    // Filter punches to only those that fall on the target date in the location timezone
-    const punchesOnDate = punchRecords.filter(p => {
-      const punchDate = new Date(p.punch_time);
-      const localDateStr = getDateStringForTimezone(punchDate, timezone);
-      return localDateStr === dateStr;
-    });
-    
-    // Debug first few punch date conversions
-    if (punchRecords.length > 0 && punchesOnDate.length === 0) {
-      const sample = punchRecords.slice(0, 3).map(p => ({
-        utc: p.punch_time,
-        local: getDateStringForTimezone(new Date(p.punch_time), timezone)
-      }));
-      console.log(`[PUNCH-LABOR] Date mismatch debug - looking for ${dateStr}, samples:`, JSON.stringify(sample));
-    }
-    
-    console.log(`[PUNCH-LABOR] Found ${punchesOnDate.length} punches on ${dateStr}`);
+    // Since we're now querying the exact UTC range for the local date,
+    // all returned punches should be for the target date - use them directly
+    const punchesOnDate = punchRecords;
     
     // Get unique user IDs
     const userIds = [...new Set(punchesOnDate.map(p => p.user_id))];
-    
-    if (userIds.length === 0) {
-      return { laborPercent: 0, laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
-    }
     
     // Fetch wages for all users (using RPC or fallback to profiles)
     const wageMap = new Map<string, number>();
