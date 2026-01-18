@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.scheduled-daily-summaries]
 verify_jwt = false
+
+[functions.import-bom]
+verify_jwt = true
