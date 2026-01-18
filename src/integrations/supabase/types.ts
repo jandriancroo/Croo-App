@@ -187,6 +187,162 @@ export type Database = {
           },
         ]
       }
+      bom_ingredients: {
+        Row: {
+          category: string | null
+          clean_name: string | null
+          created_at: string | null
+          id: string
+          inventory_item_id: string | null
+          is_prep_item: boolean | null
+          location_id: string | null
+          r365_name: string
+          unit_standard: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          clean_name?: string | null
+          created_at?: string | null
+          id?: string
+          inventory_item_id?: string | null
+          is_prep_item?: boolean | null
+          location_id?: string | null
+          r365_name: string
+          unit_standard?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          clean_name?: string | null
+          created_at?: string | null
+          id?: string
+          inventory_item_id?: string | null
+          is_prep_item?: boolean | null
+          location_id?: string | null
+          r365_name?: string
+          unit_standard?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_ingredients_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_ingredients_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_menu_items: {
+        Row: {
+          category: string | null
+          clean_name: string | null
+          created_at: string | null
+          id: string
+          is_sellable: boolean | null
+          location_id: string | null
+          qubeyond_item_id: string | null
+          r365_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          clean_name?: string | null
+          created_at?: string | null
+          id?: string
+          is_sellable?: boolean | null
+          location_id?: string | null
+          qubeyond_item_id?: string | null
+          r365_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          clean_name?: string | null
+          created_at?: string | null
+          id?: string
+          is_sellable?: boolean | null
+          location_id?: string | null
+          qubeyond_item_id?: string | null
+          r365_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_menu_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_recipe_ingredients: {
+        Row: {
+          created_at: string | null
+          id: string
+          ingredient_id: string | null
+          location_id: string | null
+          menu_item_id: string | null
+          quantity: number
+          quantity_normalized: number | null
+          unit_of_measure: string | null
+          yield_percent: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ingredient_id?: string | null
+          location_id?: string | null
+          menu_item_id?: string | null
+          quantity: number
+          quantity_normalized?: number | null
+          unit_of_measure?: string | null
+          yield_percent?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ingredient_id?: string | null
+          location_id?: string | null
+          menu_item_id?: string | null
+          quantity?: number
+          quantity_normalized?: number | null
+          unit_of_measure?: string | null
+          yield_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_recipe_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "bom_ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_recipe_ingredients_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_recipe_ingredients_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "bom_menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
