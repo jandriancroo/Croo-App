@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
+import { DateTime } from 'https://esm.sh/luxon@3.5.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -67,12 +67,11 @@ Deno.serve(async (req) => {
 
       const timezone = locationSettings?.timezone || 'America/Los_Angeles';
 
-      // Get current time in location's timezone
-      const now = new Date();
-      const localTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-      const currentHour = localTime.getHours();
-      const currentMinute = localTime.getMinutes();
-      const currentDayOfWeek = localTime.getDay(); // 0 = Sunday
+      // Get current time in location's timezone (reliably)
+      const localNow = DateTime.utc().setZone(timezone);
+      const currentHour = localNow.hour;
+      const currentMinute = localNow.minute;
+      const currentDayOfWeek = localNow.weekday % 7; // Luxon: 1=Mon..7=Sun → 0=Sun
 
       // Get business hours for today
       const { data: todayHours } = await supabase
@@ -87,8 +86,26 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Calculate auto-punch time from close_time + buffer
-      const { hour: autoPunchHour, minute: autoPunchMinute } = calculateAutoPunchTime(todayHours.close_time);
+      // Calculate the business-day cutoff time (close_time + buffer) as a concrete timestamp
+      const [closeHour, closeMinute] = todayHours.close_time.split(':').map(Number);
+      let closeDt = DateTime.fromISO(localNow.toISODate() ?? localNow.toFormat('yyyy-MM-dd'), { zone: timezone }).set({
+        hour: closeHour,
+        minute: closeMinute,
+        second: 0,
+        millisecond: 0,
+      });
+
+      // If the store "closes" after midnight (00:00–05:59), that close belongs to the next calendar day
+      if (closeHour < 6) {
+        closeDt = closeDt.plus({ days: 1 });
+      }
+
+      const autoPunchDt = closeDt.plus({ hours: BUSINESS_DAY_BUFFER_HOURS });
+      const isPastAutoPunchTime = localNow >= autoPunchDt;
+
+      // Keep hour/minute values for business-date logic below
+      const autoPunchHour = autoPunchDt.hour;
+      const autoPunchMinute = autoPunchDt.minute;
 
       // Get meal break hours from labor rules for break violation check
       const { data: laborRule } = await supabase
@@ -98,40 +115,15 @@ Deno.serve(async (req) => {
         .single();
 
       const mealBreakHours = laborRule?.meal_break_hours;
-
-      // Determine if close time is past midnight (e.g., 00:00 or 01:00)
-      const [closeHour] = todayHours.close_time.split(':').map(Number);
-      const closeIsAfterMidnight = closeHour < 6; // Close times like 00:00, 01:00, 02:00 are "next day"
-
-      // Check if we're currently past the auto-punch time
-      // For midnight-crossing stores: auto-punch hour will be like 3 (3 AM)
-      // We need to be careful about when "today" actually is
-      let isPastAutoPunchTime: boolean;
-      
-      if (closeIsAfterMidnight) {
-        // Store closes after midnight (e.g., 12 AM = 00:00, auto-punch at 3 AM)
-        // We're past auto-punch if current hour >= auto-punch hour AND current hour < opening hour
-        isPastAutoPunchTime = currentHour >= autoPunchHour && currentHour < 6;
-      } else if (autoPunchHour < closeHour) {
-        // Auto-punch time wraps to next day (e.g., close at 11 PM, auto-punch at 2 AM)
-        isPastAutoPunchTime = currentHour >= autoPunchHour && currentHour < 6;
-      } else {
-        // Normal case: auto-punch is on the same day
-        isPastAutoPunchTime = 
-          currentHour > autoPunchHour || 
-          (currentHour === autoPunchHour && currentMinute >= autoPunchMinute);
-      }
-
-      // Find all employees at this location who are still clocked in
       // Look back up to 7 days (168 hours) to catch overnight shifts and any missed days
-      const lookbackTime = new Date(now.getTime() - 168 * 60 * 60 * 1000);
+      const lookbackTimeIso = DateTime.utc().minus({ hours: 168 }).toISO()!;
       
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
         .select('id, user_id, punch_time, shift_id')
         .eq('location_id', location.id)
         .eq('punch_type', 'clock_in')
-        .gte('punch_time', lookbackTime.toISOString())
+        .gte('punch_time', lookbackTimeIso)
         .order('punch_time', { ascending: true });
 
       if (punchError) {
@@ -142,13 +134,21 @@ Deno.serve(async (req) => {
       for (const clockIn of openPunches || []) {
         // Check if there's already a clock_out for this clock_in (including auto-punch-outs)
         // This prevents duplicate auto-punch-outs from being created
-        const { data: clockOuts, error: clockOutError } = await supabase
+        let clockOutQuery = supabase
           .from('time_punches')
           .select('id, punch_time, is_auto_punched_out')
           .eq('user_id', clockIn.user_id)
           .eq('location_id', location.id)
-          .eq('punch_type', 'clock_out')
+          .eq('punch_type', 'clock_out');
+
+        // Prefer matching by shift_id when present (more reliable than time ranges)
+        if (clockIn.shift_id) {
+          clockOutQuery = clockOutQuery.eq('shift_id', clockIn.shift_id);
+        }
+
+        const { data: clockOuts, error: clockOutError } = await clockOutQuery
           .gte('punch_time', clockIn.punch_time)
+          .order('punch_time', { ascending: true })
           .limit(1);
 
         if (clockOutError) {
@@ -163,36 +163,32 @@ Deno.serve(async (req) => {
         }
 
         // Convert clock_in to local time to determine its date
-        const clockInTime = new Date(clockIn.punch_time);
-        const clockInLocal = new Date(clockInTime.toLocaleString('en-US', { timeZone: timezone }));
-        const clockInHour = clockInLocal.getHours();
-        
+        const clockInTimeUtc = DateTime.fromISO(clockIn.punch_time, { zone: 'utc' });
+        const clockInLocal = clockInTimeUtc.setZone(timezone);
+        const clockInHour = clockInLocal.hour;
+
         // Determine the "business date" for this clock-in
-        // If someone clocked in after midnight but before the cutoff, 
-        // their business date is actually the previous calendar day
-        let businessDate = new Date(clockInLocal);
+        // If someone clocked in after midnight but before the cutoff, their business date is the previous calendar day
+        let businessDate = clockInLocal;
         if (clockInHour < autoPunchHour && clockInHour < 6) {
-          // Clock in was in the early morning (after midnight, before cutoff)
-          // This belongs to the previous business day
-          businessDate.setDate(businessDate.getDate() - 1);
+          businessDate = businessDate.minus({ days: 1 });
         }
-        const businessDateStr = businessDate.toISOString().slice(0, 10);
-        
+        const businessDateStr = businessDate.toISODate()!;
+
         // Get today's business date
-        let todayBusinessDate = new Date(localTime);
+        let todayBusinessDate = localNow;
         if (currentHour < autoPunchHour && currentHour < 6) {
-          todayBusinessDate.setDate(todayBusinessDate.getDate() - 1);
+          todayBusinessDate = todayBusinessDate.minus({ days: 1 });
         }
-        const todayBusinessDateStr = todayBusinessDate.toISOString().slice(0, 10);
+        const todayBusinessDateStr = todayBusinessDate.toISODate()!;
 
         // Determine when this shift should be auto-punched out
-        let shouldAutoPunch = false;
-        let autoPunchTime: Date;
+        let autoPunchTimeUtc: DateTime | null = null;
 
         if (businessDateStr < todayBusinessDateStr) {
           // Shift is from a previous business day - it was missed
-          // Get the close time for the day they clocked in
-          const clockInDayOfWeek = businessDate.getDay();
+          // Get the close time for the business day they clocked in
+          const clockInDayOfWeek = businessDate.weekday % 7;
           const { data: clockInDayHours } = await supabase
             .from('location_hours')
             .select('close_time')
@@ -204,56 +200,46 @@ Deno.serve(async (req) => {
             continue; // No hours for that day
           }
 
-          const { hour: shiftAutoPunchHour, minute: shiftAutoPunchMinute } = calculateAutoPunchTime(clockInDayHours.close_time);
-          
-          // Set the punch time to the auto-punch time on the appropriate day
-          const [shiftCloseHour] = clockInDayHours.close_time.split(':').map(Number);
-          autoPunchTime = new Date(businessDate);
-          
-          if (shiftCloseHour < 6 || shiftAutoPunchHour < shiftCloseHour) {
-            // Close time is after midnight or auto-punch wraps to next day
-            autoPunchTime.setDate(autoPunchTime.getDate() + 1);
+          const [shiftCloseHour, shiftCloseMinute] = clockInDayHours.close_time.split(':').map(Number);
+          let shiftCloseDt = DateTime.fromISO(businessDateStr, { zone: timezone }).set({
+            hour: shiftCloseHour,
+            minute: shiftCloseMinute,
+            second: 0,
+            millisecond: 0,
+          });
+          if (shiftCloseHour < 6) {
+            shiftCloseDt = shiftCloseDt.plus({ days: 1 });
           }
-          autoPunchTime.setHours(shiftAutoPunchHour, shiftAutoPunchMinute, 0, 0);
-          
-          shouldAutoPunch = true;
+
+          autoPunchTimeUtc = shiftCloseDt.plus({ hours: BUSINESS_DAY_BUFFER_HOURS }).toUTC();
           console.log(`Found missed shift from ${businessDateStr} for user ${clockIn.user_id} at ${location.name}`);
         } else if (businessDateStr === todayBusinessDateStr && isPastAutoPunchTime) {
           // Shift is from today's business day and we're past auto-punch time
-          autoPunchTime = new Date(localTime);
-          
-          // If auto-punch time is after midnight, might be "tomorrow" calendar-wise
-          if (autoPunchHour < 6) {
-            // Auto-punch is early morning, so if we're currently in early morning, same day
-            // If we're currently late night, auto-punch would be next calendar day
-            if (currentHour >= 18) {
-              autoPunchTime.setDate(autoPunchTime.getDate() + 1);
-            }
-          }
-          autoPunchTime.setHours(autoPunchHour, autoPunchMinute, 0, 0);
-          
-          // Only auto-punch if clock_in was before auto-punch time
-          if (clockInTime < autoPunchTime) {
-            shouldAutoPunch = true;
-          }
+          autoPunchTimeUtc = autoPunchDt.toUTC();
         }
 
-        if (!shouldAutoPunch) {
+        if (!autoPunchTimeUtc) {
+          continue;
+        }
+
+        // Guardrail: never create an auto clock_out at/before clock_in (prevents "clocked out after 1 hour" bugs)
+        if (autoPunchTimeUtc <= clockInTimeUtc) {
+          console.warn(
+            `Skipping auto-punch for user ${clockIn.user_id} at ${location.name} - cutoff (${autoPunchTimeUtc.toISO()}) is <= clock_in (${clockInTimeUtc.toISO()})`
+          );
           continue;
         }
 
         // Calculate shift hours to check for break violation
-        const shiftHours = (autoPunchTime!.getTime() - clockInTime.getTime()) / 3600000;
-        
+        const shiftHours = autoPunchTimeUtc.diff(clockInTimeUtc, 'hours').hours;
+
         // Sanity check: don't create punches for unreasonably long shifts (>16 hours means something is wrong)
         if (shiftHours > 16) {
           console.warn(`Skipping auto-punch for user ${clockIn.user_id} - shift would be ${shiftHours.toFixed(1)} hours`);
           continue;
         }
 
-        const hasBreakViolation = mealBreakHours 
-          ? shiftHours > mealBreakHours 
-          : shiftHours > 5;
+        const hasBreakViolation = mealBreakHours ? shiftHours > mealBreakHours : shiftHours > 5;
 
         // Check for an existing meal break
         const { data: breaks } = await supabase
@@ -263,7 +249,7 @@ Deno.serve(async (req) => {
           .eq('location_id', location.id)
           .eq('punch_type', 'break_start')
           .gte('punch_time', clockIn.punch_time)
-          .lte('punch_time', autoPunchTime!.toISOString());
+          .lte('punch_time', autoPunchTimeUtc.toISO()!);
 
         const actualBreakViolation = hasBreakViolation && (!breaks || breaks.length === 0);
 
@@ -274,7 +260,7 @@ Deno.serve(async (req) => {
             location_id: location.id,
             shift_id: clockIn.shift_id,
             punch_type: 'clock_out',
-            punch_time: autoPunchTime!.toISOString(),
+            punch_time: autoPunchTimeUtc.toISO()!,
             notes: 'Auto clocked out by system',
             is_auto_punched_out: true,
             has_break_violation: actualBreakViolation,
