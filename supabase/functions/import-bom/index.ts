@@ -266,15 +266,45 @@ Deno.serve(async (req) => {
     }
 
     // Insert recipe ingredients (the mappings)
-    const recipeIngredients = rows.map(row => ({
-      location_id: locationId,
-      menu_item_id: menuItemIdMap.get(row.recipe),
-      ingredient_id: ingredientIdMap.get(row.item),
-      quantity: row.qty,
-      unit_of_measure: row.uofm,
-      quantity_normalized: row.qty, // Will need conversion logic later
-      yield_percent: row.yieldPercent,
-    })).filter(ri => ri.menu_item_id && ri.ingredient_id);
+    // Deduplicate by combining quantities for same menu_item + ingredient
+    const recipeMap = new Map<string, {
+      location_id: string;
+      menu_item_id: string;
+      ingredient_id: string;
+      quantity: number;
+      unit_of_measure: string;
+      quantity_normalized: number;
+      yield_percent: number;
+    }>();
+
+    for (const row of rows) {
+      const menuItemId = menuItemIdMap.get(row.recipe);
+      const ingredientId = ingredientIdMap.get(row.item);
+      
+      if (!menuItemId || !ingredientId) continue;
+      
+      const key = `${menuItemId}::${ingredientId}`;
+      
+      if (recipeMap.has(key)) {
+        // Add quantity to existing entry
+        const existing = recipeMap.get(key)!;
+        existing.quantity += row.qty;
+        existing.quantity_normalized += row.qty;
+      } else {
+        recipeMap.set(key, {
+          location_id: locationId,
+          menu_item_id: menuItemId,
+          ingredient_id: ingredientId,
+          quantity: row.qty,
+          unit_of_measure: row.uofm,
+          quantity_normalized: row.qty,
+          yield_percent: row.yieldPercent,
+        });
+      }
+    }
+
+    const recipeIngredients = Array.from(recipeMap.values());
+    console.log(`Deduplicated to ${recipeIngredients.length} unique recipe mappings`);
 
     // Delete existing recipe ingredients for this location first (clean slate for mappings)
     await supabase
