@@ -96,7 +96,7 @@ export function BOMMenuItemMatcher({ locationId }: BOMMenuItemMatcherProps) {
     setIsFetchingQu(true);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: { location_id: locationId }
+        body: { locationId }
       });
       
       if (error) throw error;

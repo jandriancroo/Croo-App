@@ -2201,6 +2201,8 @@ serve(async (req) => {
       }
       
       credentials = integration.credentials as QuBeyondCredentials;
+      console.log('Loaded credentials from integration:', JSON.stringify(integration.credentials));
+      console.log('Credentials object keys:', Object.keys(integration.credentials || {}));
       
       // Fetch location hours for today's day of week
       const now = new Date();
@@ -2289,7 +2291,10 @@ serve(async (req) => {
     console.log('JWT payload keys:', Object.keys(jwtPayload));
     console.log('JWT payload:', JSON.stringify(jwtPayload, null, 2));
 
-    let qbLocationId = credentials.location_id;
+    // Handle location_id being a number or string in credentials
+    let qbLocationId = credentials.location_id?.toString() || (credentials as any)['location_id']?.toString();
+    
+    console.log('Raw credentials.location_id:', credentials.location_id, 'Type:', typeof credentials.location_id);
     
     if (!qbLocationId) {
       qbLocationId = jwtPayload.locationId || jwtPayload.location_id || 
