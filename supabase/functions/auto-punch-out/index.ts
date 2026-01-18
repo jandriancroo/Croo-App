@@ -140,17 +140,26 @@ Deno.serve(async (req) => {
       }
 
       for (const clockIn of openPunches || []) {
-        // Check if there's already a clock_out for this clock_in
-        const { data: clockOuts } = await supabase
+        // Check if there's already a clock_out for this clock_in (including auto-punch-outs)
+        // This prevents duplicate auto-punch-outs from being created
+        const { data: clockOuts, error: clockOutError } = await supabase
           .from('time_punches')
-          .select('id')
+          .select('id, punch_time, is_auto_punched_out')
           .eq('user_id', clockIn.user_id)
           .eq('location_id', location.id)
           .eq('punch_type', 'clock_out')
-          .gte('punch_time', clockIn.punch_time);
+          .gte('punch_time', clockIn.punch_time)
+          .limit(1);
+
+        if (clockOutError) {
+          console.error('Error checking for existing clock_out:', clockOutError);
+          continue;
+        }
 
         if (clockOuts && clockOuts.length > 0) {
-          continue; // Already clocked out
+          // Already has a clock_out after this clock_in, skip
+          console.log(`Skipping user ${clockIn.user_id} - already has clock_out at ${clockOuts[0].punch_time}`);
+          continue;
         }
 
         // Convert clock_in to local time to determine its date
