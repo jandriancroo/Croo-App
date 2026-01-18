@@ -2,15 +2,17 @@ import { useState, useRef } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, FileSpreadsheet, Upload, CheckCircle2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, FileSpreadsheet, Upload, CheckCircle2, ChevronDown, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
+import { BOMMatchingManager } from "./BOMMatchingManager";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -563,6 +565,24 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               Import R365 ingredient/recipe CSV to calculate theoretical usage
             </p>
           </div>
+
+          {/* BOM Matching - collapsible */}
+          {bomData && bomData.ingredientsCount > 0 && (
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between">
+                  <span className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4" />
+                    Link BOM to Inventory Items
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4">
+                <BOMMatchingManager locationId={locationId} />
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </CardContent>
       </Card>
 
