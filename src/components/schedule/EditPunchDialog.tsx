@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseISO } from 'date-fns';
@@ -56,10 +55,15 @@ export function EditPunchDialog({
   const [clockInTime, setClockInTime] = useState('');
   const [clockOutTime, setClockOutTime] = useState('');
   const [showClockOut, setShowClockOut] = useState(false);
-  const [includeBreak, setIncludeBreak] = useState(false);
-  const [breakStartTime, setBreakStartTime] = useState('');
-  const [breakEndTime, setBreakEndTime] = useState('');
-  const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
+  // Support multiple breaks
+  interface BreakEntry {
+    id?: string; // existing punch ID for break_start
+    endId?: string; // existing punch ID for break_end
+    startTime: string;
+    endTime: string;
+    type: 'paid' | 'unpaid';
+  }
+  const [breaks, setBreaks] = useState<BreakEntry[]>([]);
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -101,46 +105,40 @@ export function EditPunchDialog({
       
       const clockIn = sortedPunches.find(p => p.punch_type === 'clock_in');
       const clockOut = sortedPunches.find(p => p.punch_type === 'clock_out');
-      const breakStart = sortedPunches.find(p => p.punch_type === 'break_start');
-      let breakEnd = sortedPunches.find(p => p.punch_type === 'break_end');
       
-      // If no explicit break_end, check if a clock_in follows the break_start (used to end break)
-      if (breakStart && !breakEnd) {
-        const breakStartTime = new Date(breakStart.punch_time).getTime();
-        const clockInAfterBreak = sortedPunches.find(p => 
-          p.punch_type === 'clock_in' && 
-          new Date(p.punch_time).getTime() > breakStartTime
-        );
-        if (clockInAfterBreak) {
-          breakEnd = clockInAfterBreak;
-        }
-      }
+      // Find ALL break_start and break_end punches
+      const breakStarts = sortedPunches.filter(p => p.punch_type === 'break_start');
+      const breakEnds = sortedPunches.filter(p => p.punch_type === 'break_end');
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
       const clockOutTimeVal = clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '';
       setClockOutTime(clockOutTimeVal);
-      setShowClockOut(!!clockOutTimeVal); // Only show clock out field if there's an existing clock out
+      setShowClockOut(!!clockOutTimeVal);
       
-      if (breakStart) {
-        setIncludeBreak(true);
-        setBreakStartTime(formatInTimeZone(parseISO(breakStart.punch_time), timezone, 'HH:mm'));
-        // Parse type from notes
-        if (breakStart.notes?.includes('unpaid')) {
-          setBreakType('unpaid');
-        } else {
-          setBreakType('paid');
-        }
-      } else {
-        setIncludeBreak(false);
-        setBreakStartTime('');
-        setBreakType('unpaid');
+      // Build breaks array - pair each break_start with its corresponding break_end
+      const parsedBreaks: BreakEntry[] = [];
+      for (let i = 0; i < breakStarts.length; i++) {
+        const start = breakStarts[i];
+        // Find the corresponding end (next break_end after this start)
+        const startTime = new Date(start.punch_time).getTime();
+        const matchingEnd = breakEnds.find(end => {
+          const endTime = new Date(end.punch_time).getTime();
+          // End must be after start and before the next break_start (if any)
+          const nextStart = breakStarts[i + 1];
+          const nextStartTime = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
+          return endTime > startTime && endTime < nextStartTime;
+        });
+        
+        const breakType = start.notes?.includes('unpaid') ? 'unpaid' : 'paid';
+        parsedBreaks.push({
+          id: start.id,
+          endId: matchingEnd?.id,
+          startTime: formatInTimeZone(parseISO(start.punch_time), timezone, 'HH:mm'),
+          endTime: matchingEnd ? formatInTimeZone(parseISO(matchingEnd.punch_time), timezone, 'HH:mm') : '',
+          type: breakType
+        });
       }
-
-      if (breakEnd) {
-        setBreakEndTime(formatInTimeZone(parseISO(breakEnd.punch_time), timezone, 'HH:mm'));
-      } else {
-        setBreakEndTime('');
-      }
+      setBreaks(parsedBreaks);
     } catch (error) {
       console.error('Error fetching punches:', error);
       toast.error('Failed to load punch data');
@@ -149,14 +147,35 @@ export function EditPunchDialog({
     }
   };
 
-  // Calculate break duration in minutes
-  const getBreakDurationMinutes = () => {
-    if (!breakStartTime || !breakEndTime) return 0;
-    const [startH, startM] = breakStartTime.split(':').map(Number);
-    const [endH, endM] = breakEndTime.split(':').map(Number);
+  // Calculate break duration in minutes for a specific break
+  const getBreakDurationMinutes = (startTime: string, endTime: string) => {
+    if (!startTime || !endTime) return 0;
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
     const startMinutes = startH * 60 + startM;
     const endMinutes = endH * 60 + endM;
     return endMinutes - startMinutes;
+  };
+
+  // Add a new break
+  const addBreak = () => {
+    setBreaks([...breaks, { startTime: '', endTime: '', type: 'unpaid' }]);
+  };
+
+  // Remove a break
+  const removeBreak = (index: number) => {
+    setBreaks(breaks.filter((_, i) => i !== index));
+  };
+
+  // Update a break
+  const updateBreak = (index: number, field: keyof BreakEntry, value: string) => {
+    const newBreaks = [...breaks];
+    if (field === 'type') {
+      newBreaks[index].type = value as 'paid' | 'unpaid';
+    } else if (field === 'startTime' || field === 'endTime') {
+      newBreaks[index][field] = value;
+    }
+    setBreaks(newBreaks);
   };
 
   // Helper to check if a time is in the future
@@ -189,30 +208,30 @@ export function EditPunchDialog({
       toast.error('Clock out time cannot be in the future');
       return;
     }
-    if (includeBreak) {
-      if (breakStartTime && isTimeInFuture(breakStartTime)) {
-        toast.error('Break start time cannot be in the future');
+    
+    // Validate all breaks
+    for (let i = 0; i < breaks.length; i++) {
+      const brk = breaks[i];
+      if (brk.startTime && isTimeInFuture(brk.startTime)) {
+        toast.error(`Break ${i + 1} start time cannot be in the future`);
         return;
       }
-      if (breakEndTime && isTimeInFuture(breakEndTime)) {
-        toast.error('Break end time cannot be in the future');
+      if (brk.endTime && isTimeInFuture(brk.endTime)) {
+        toast.error(`Break ${i + 1} end time cannot be in the future`);
         return;
+      }
+      if (brk.startTime && brk.endTime) {
+        const breakDuration = getBreakDurationMinutes(brk.startTime, brk.endTime);
+        const requiredMinutes = brk.type === 'unpaid' ? 30 : 10;
+        if (breakDuration < requiredMinutes) {
+          toast.error(`Break ${i + 1}: ${brk.type === 'unpaid' ? 'Meal' : 'Paid'} break must be at least ${requiredMinutes} minutes`);
+          return;
+        }
       }
     }
 
-    // Validate break duration if break is included
-    if (includeBreak && breakStartTime && breakEndTime) {
-      const breakDuration = getBreakDurationMinutes();
-      const requiredMinutes = breakType === 'unpaid' ? 30 : 10;
-      
-      if (breakDuration < requiredMinutes) {
-        toast.error(`${breakType === 'unpaid' ? 'Meal' : 'Paid'} break must be at least ${requiredMinutes} minutes`);
-        return;
-      }
-    }
     setSaving(true);
     try {
-      const breakNotes = `${breakType} break`;
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
@@ -222,8 +241,6 @@ export function EditPunchDialog({
         const [timeHour] = timeStr.split(':').map(Number);
         const [refHour] = referenceTimeStr.split(':').map(Number);
         
-        // If the time is significantly earlier than reference (e.g., 01:30 vs 18:00)
-        // it means the time crosses midnight and should be on the next day
         if (timeHour < 12 && refHour >= 12) {
           const nextDay = new Date(baseDate);
           nextDay.setDate(nextDay.getDate() + 1);
@@ -232,7 +249,7 @@ export function EditPunchDialog({
         return baseDate;
       };
 
-      // Update or create each punch type
+      // Update or create clock in/out
       const updates: Array<{ type: string; time: string; existingId?: string; notes?: string }> = [];
 
       const clockIn = punches.find(p => p.punch_type === 'clock_in');
@@ -245,13 +262,14 @@ export function EditPunchDialog({
         updates.push({ type: 'clock_out', time: clockOutTime, existingId: clockOut?.id });
       }
 
-      const breakStart = punches.find(p => p.punch_type === 'break_start');
-      const breakEnd = punches.find(p => p.punch_type === 'break_end');
-
-      if (includeBreak && breakStartTime) {
-        updates.push({ type: 'break_start', time: breakStartTime, existingId: breakStart?.id, notes: breakNotes });
-        if (breakEndTime) {
-          updates.push({ type: 'break_end', time: breakEndTime, existingId: breakEnd?.id, notes: breakNotes });
+      // Add all breaks to updates
+      for (const brk of breaks) {
+        if (brk.startTime) {
+          const breakNotes = `${brk.type} break`;
+          updates.push({ type: 'break_start', time: brk.startTime, existingId: brk.id, notes: breakNotes });
+          if (brk.endTime) {
+            updates.push({ type: 'break_end', time: brk.endTime, existingId: brk.endId, notes: breakNotes });
+          }
         }
       }
 
@@ -302,13 +320,18 @@ export function EditPunchDialog({
         await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'clock_out')!.id);
       }
       
-      // Delete break punches if break is disabled
-      if (!includeBreak || !breakStartTime) {
-        if (punches.find(p => p.punch_type === 'break_start')) {
-          await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'break_start')!.id);
+      // Delete break punches that no longer exist in the breaks array
+      const existingBreakStartIds = new Set(breaks.map(b => b.id).filter(Boolean));
+      const existingBreakEndIds = new Set(breaks.map(b => b.endId).filter(Boolean));
+      
+      for (const punch of punches.filter(p => p.punch_type === 'break_start')) {
+        if (!existingBreakStartIds.has(punch.id)) {
+          await supabase.from('time_punches').delete().eq('id', punch.id);
         }
-        if (punches.find(p => p.punch_type === 'break_end')) {
-          await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'break_end')!.id);
+      }
+      for (const punch of punches.filter(p => p.punch_type === 'break_end')) {
+        if (!existingBreakEndIds.has(punch.id)) {
+          await supabase.from('time_punches').delete().eq('id', punch.id);
         }
       }
 
@@ -434,54 +457,76 @@ export function EditPunchDialog({
                 </div>
               </div>
 
-              {/* Break Toggle */}
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">Include Break</Label>
-                  <p className="text-xs text-muted-foreground">Add a break to this shift</p>
+              {/* Breaks Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Breaks</Label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={addBreak}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Break
+                  </Button>
                 </div>
-                <Switch checked={includeBreak} onCheckedChange={setIncludeBreak} />
-              </div>
-
-              {/* Break Options - shown when break is enabled */}
-              {includeBreak && (
-                <div className="space-y-3 p-3 border rounded-lg bg-background">
-                  <div className="space-y-2">
-                    <Label>Break Type</Label>
-                    <Select value={breakType} onValueChange={(v) => setBreakType(v as 'paid' | 'unpaid')}>
-                      <SelectTrigger>
+                
+                {breaks.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No breaks recorded</p>
+                )}
+                
+                {breaks.map((brk, index) => (
+                  <div key={index} className="space-y-2 p-3 border rounded-lg bg-background">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Break {index + 1}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeBreak(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    <Select 
+                      value={brk.type} 
+                      onValueChange={(v) => updateBreak(index, 'type', v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="paid">Paid break</SelectItem>
-                        <SelectItem value="unpaid">Unpaid break</SelectItem>
+                        <SelectItem value="paid">Paid (10 min)</SelectItem>
+                        <SelectItem value="unpaid">Unpaid (30 min)</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label>Break Start</Label>
-                      <Input
-                        type="time"
-                        value={breakStartTime}
-                        onChange={(e) => setBreakStartTime(e.target.value)}
-                      />
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Start</Label>
+                        <Input
+                          type="time"
+                          className="h-8 text-sm"
+                          value={brk.startTime}
+                          onChange={(e) => updateBreak(index, 'startTime', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">End</Label>
+                        <Input
+                          type="time"
+                          className="h-8 text-sm"
+                          value={brk.endTime}
+                          onChange={(e) => updateBreak(index, 'endTime', e.target.value)}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Break End</Label>
-                      <Input
-                        type="time"
-                        value={breakEndTime}
-                        onChange={(e) => setBreakEndTime(e.target.value)}
-                      />
-                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {breakType === 'unpaid' ? 'Unpaid - deducted from hours' : 'Paid - not deducted'}
-                  </p>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           )}
 
@@ -500,7 +545,7 @@ export function EditPunchDialog({
             </Button>
             <Button 
               onClick={handleSave} 
-              disabled={saving || !clockInTime || (includeBreak && !breakStartTime)}
+              disabled={saving || !clockInTime}
             >
               {saving ? 'Saving...' : 'Save'}
             </Button>
