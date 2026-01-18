@@ -116,20 +116,33 @@ export function EditPunchDialog({
       setShowClockOut(!!clockOutTimeVal);
       
       // Build breaks array - pair each break_start with its corresponding break_end
+      // Use a set to track which break_ends have been matched
       const parsedBreaks: BreakEntry[] = [];
+      const usedEndIds = new Set<string>();
+      
       for (let i = 0; i < breakStarts.length; i++) {
         const start = breakStarts[i];
-        // Find the corresponding end (next break_end after this start)
         const startTime = new Date(start.punch_time).getTime();
+        
+        // Find the corresponding end (next unmatched break_end after this start)
+        const nextStart = breakStarts[i + 1];
+        const nextStartTime = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
+        
         const matchingEnd = breakEnds.find(end => {
+          if (usedEndIds.has(end.id)) return false; // Skip already matched ends
           const endTime = new Date(end.punch_time).getTime();
           // End must be after start and before the next break_start (if any)
-          const nextStart = breakStarts[i + 1];
-          const nextStartTime = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
           return endTime > startTime && endTime < nextStartTime;
         });
         
-        const breakType = start.notes?.includes('unpaid') ? 'unpaid' : 'paid';
+        if (matchingEnd) {
+          usedEndIds.add(matchingEnd.id);
+        }
+        
+        // Detect break type from notes - "meal" or "30 minute" = unpaid, otherwise paid
+        const notes = start.notes?.toLowerCase() || '';
+        const breakType = notes.includes('meal') || notes.includes('unpaid') || notes.includes('30 minute') ? 'unpaid' : 'paid';
+        
         parsedBreaks.push({
           id: start.id,
           endId: matchingEnd?.id,
