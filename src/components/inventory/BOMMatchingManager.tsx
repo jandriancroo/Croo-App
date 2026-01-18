@@ -213,7 +213,7 @@ function InventoryMatchPicker({
   );
 }
 
-
+export function BOMMatchingManager({ locationId }: BOMMatchingManagerProps) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
