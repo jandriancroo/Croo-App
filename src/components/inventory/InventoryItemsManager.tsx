@@ -13,6 +13,7 @@ import { RefreshCw, MapPin, Package, Loader2, Pencil, FileSpreadsheet, Upload, C
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import { BOMMatchingManager } from "./BOMMatchingManager";
+import { BOMMenuItemMatcher } from "./BOMMenuItemMatcher";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -568,20 +569,38 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
           {/* BOM Matching - collapsible */}
           {bomData && bomData.ingredientsCount > 0 && (
-            <Collapsible>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between">
-                  <span className="flex items-center gap-2">
-                    <Link2 className="h-4 w-4" />
-                    Link BOM to Inventory Items
-                  </span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="pt-4">
-                <BOMMatchingManager locationId={locationId} />
-              </CollapsibleContent>
-            </Collapsible>
+            <>
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      Link BOM to Inventory Items
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <BOMMatchingManager locationId={locationId} />
+                </CollapsibleContent>
+              </Collapsible>
+              
+              {/* Link Menu Items to QU */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between">
+                    <span className="flex items-center gap-2">
+                      <Link2 className="h-4 w-4" />
+                      Link Menu Items to QU Products
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <BOMMenuItemMatcher locationId={locationId} />
+                </CollapsibleContent>
+              </Collapsible>
+            </>
           )}
         </CardContent>
       </Card>
