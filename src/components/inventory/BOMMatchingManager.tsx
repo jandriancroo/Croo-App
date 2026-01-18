@@ -29,19 +29,59 @@ interface InventoryItem {
   item_number: string | null;
 }
 
+// Normalize string for comparison - remove noise words and special chars
+function normalizeForMatch(str: string): string[] {
+  const noise = ['the', 'a', 'an', 'and', 'or', 'of', 'for', 'in', 'on', 'at', 'to'];
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 1 && !noise.includes(w));
+}
+
 // Fuzzy match score (0-1, higher = better match)
 function fuzzyMatch(str1: string, str2: string): number {
+  if (!str1 || !str2) return 0;
+  
   const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, '');
   const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, '');
   
+  // Exact match
   if (s1 === s2) return 1;
-  if (s1.includes(s2) || s2.includes(s1)) return 0.8;
   
-  // Check word overlap
-  const words1 = str1.toLowerCase().split(/\s+/);
-  const words2 = str2.toLowerCase().split(/\s+/);
-  const commonWords = words1.filter(w => words2.some(w2 => w2.includes(w) || w.includes(w2)));
-  const score = commonWords.length / Math.max(words1.length, words2.length);
+  // One contains the other
+  if (s1.includes(s2) || s2.includes(s1)) return 0.9;
+  
+  // Word-based matching (order doesn't matter)
+  const words1 = normalizeForMatch(str1);
+  const words2 = normalizeForMatch(str2);
+  
+  if (words1.length === 0 || words2.length === 0) return 0;
+  
+  // Count matching words (substring match counts)
+  let matchCount = 0;
+  for (const w1 of words1) {
+    for (const w2 of words2) {
+      // Check if words are similar enough
+      if (w1 === w2 || w1.includes(w2) || w2.includes(w1)) {
+        matchCount++;
+        break;
+      }
+      // Levenshtein-like: if words are very similar
+      if (w1.length > 3 && w2.length > 3) {
+        const shorter = w1.length < w2.length ? w1 : w2;
+        const longer = w1.length < w2.length ? w2 : w1;
+        if (longer.includes(shorter.slice(0, Math.floor(shorter.length * 0.7)))) {
+          matchCount += 0.7;
+          break;
+        }
+      }
+    }
+  }
+  
+  // Score based on how many words matched
+  const maxWords = Math.max(words1.length, words2.length);
+  const score = matchCount / maxWords;
   
   return score;
 }
@@ -126,7 +166,7 @@ export function BOMMatchingManager({ locationId }: BOMMatchingManagerProps) {
               fuzzyMatch(ingredient.r365_name, item.name)
             );
             
-            if (score > bestScore && score >= 0.6) {
+            if (score > bestScore && score >= 0.4) {
               bestScore = score;
               bestMatch = item;
             }
