@@ -103,41 +103,72 @@ export function BOMMatchingManager({ locationId }: BOMMatchingManagerProps) {
     },
   });
 
-  // Auto-match function
+  // Auto-match function - optimized to not freeze UI
   const runAutoMatch = async () => {
     setIsAutoMatching(true);
-    let matchedCount = 0;
     
     try {
       const unmatchedIngredients = ingredients.filter(i => !i.inventory_item_id);
+      const matches: { ingredientId: string; inventoryItemId: string }[] = [];
       
-      for (const ingredient of unmatchedIngredients) {
-        // Find best matching inventory item
-        let bestMatch: InventoryItem | null = null;
-        let bestScore = 0;
+      // Process in chunks to avoid blocking UI
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < unmatchedIngredients.length; i += CHUNK_SIZE) {
+        const chunk = unmatchedIngredients.slice(i, i + CHUNK_SIZE);
         
-        for (const item of inventoryItems) {
-          const score = Math.max(
-            fuzzyMatch(ingredient.clean_name, item.name),
-            fuzzyMatch(ingredient.r365_name, item.name)
-          );
+        for (const ingredient of chunk) {
+          let bestMatch: InventoryItem | null = null;
+          let bestScore = 0;
           
-          if (score > bestScore && score >= 0.6) {
-            bestScore = score;
-            bestMatch = item;
+          for (const item of inventoryItems) {
+            const score = Math.max(
+              fuzzyMatch(ingredient.clean_name || '', item.name),
+              fuzzyMatch(ingredient.r365_name, item.name)
+            );
+            
+            if (score > bestScore && score >= 0.6) {
+              bestScore = score;
+              bestMatch = item;
+            }
+          }
+          
+          if (bestMatch) {
+            matches.push({
+              ingredientId: ingredient.id,
+              inventoryItemId: bestMatch.id,
+            });
           }
         }
         
-        if (bestMatch) {
-          await updateMatch.mutateAsync({
-            ingredientId: ingredient.id,
-            inventoryItemId: bestMatch.id,
-          });
-          matchedCount++;
-        }
+        // Yield to UI thread between chunks
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
       
-      toast.success(`Auto-matched ${matchedCount} ingredients`);
+      // Batch update all matches at once
+      if (matches.length > 0) {
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < matches.length; i += BATCH_SIZE) {
+          const batch = matches.slice(i, i + BATCH_SIZE);
+          
+          // Update each in the batch
+          await Promise.all(
+            batch.map(({ ingredientId, inventoryItemId }) =>
+              supabase
+                .from('bom_ingredients')
+                .update({ inventory_item_id: inventoryItemId })
+                .eq('id', ingredientId)
+            )
+          );
+          
+          // Yield between batches
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        
+        // Refresh data once at the end
+        queryClient.invalidateQueries({ queryKey: ['bom-ingredients', locationId] });
+      }
+      
+      toast.success(`Auto-matched ${matches.length} ingredients`);
     } catch (error) {
       toast.error('Auto-match failed');
       console.error(error);
