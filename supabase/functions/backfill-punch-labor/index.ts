@@ -192,7 +192,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { locationId, daysBack = 90 } = await req.json();
+    const { locationId, daysBack = 90, targetDate, forceRecalculate = false } = await req.json();
 
     if (!locationId) {
       return new Response(JSON.stringify({ error: 'locationId is required' }), {
@@ -201,7 +201,12 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[BACKFILL] Starting punch labor backfill for location ${locationId}, ${daysBack} days back`);
+    // If targetDate is provided, only process that specific date (used for recalculation after punch edits)
+    if (targetDate) {
+      console.log(`[BACKFILL] Recalculating labor for specific date: ${targetDate}, location: ${locationId}, force: ${forceRecalculate}`);
+    } else {
+      console.log(`[BACKFILL] Starting punch labor backfill for location ${locationId}, ${daysBack} days back`);
+    }
 
     // Get location settings for timezone
     const { data: locationSettings } = await supabase
@@ -224,27 +229,43 @@ serve(async (req) => {
     console.log(`[BACKFILL] Location: ${locationName}`);
 
     // Calculate date range
-    const today = new Date();
-    const todayStr = getDateStringForTimezone(today, timezone);
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - daysBack);
-    const startDateStr = getDateStringForTimezone(startDate, timezone);
+    let allDates: string[];
+    let datesToProcess: string[];
     
-    // Get all dates to process (exclude today - today is live)
-    const allDates = getDateRange(startDateStr, todayStr).filter(d => d !== todayStr);
-    console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to yesterday`);
-
-    // Check which dates already have punch labor cached
-    const { data: existingLabor } = await supabase
-      .from('labor_cache')
-      .select('labor_date')
-      .eq('location_id', locationId)
-      .eq('source', 'punch_clock');
-    
-    const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
-    const datesToProcess = allDates.filter(d => !existingDates.has(d));
-    
-    console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
+    if (targetDate) {
+      // Single date mode - used for recalculation after punch edits
+      // Always process when targetDate is specified (it's an explicit recalculation request)
+      allDates = [targetDate];
+      datesToProcess = [targetDate];
+      console.log(`[BACKFILL] Single date mode: processing ${targetDate}`);
+    } else {
+      // Bulk backfill mode - process range of days (exclude today - today is live)
+      const today = new Date();
+      const todayStr = getDateStringForTimezone(today, timezone);
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - daysBack);
+      const startDateStr = getDateStringForTimezone(startDate, timezone);
+      allDates = getDateRange(startDateStr, todayStr).filter(d => d !== todayStr);
+      
+      console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to yesterday`);
+      
+      // Check which dates already have punch labor cached (only in bulk mode)
+      const { data: existingLabor } = await supabase
+        .from('labor_cache')
+        .select('labor_date')
+        .eq('location_id', locationId)
+        .eq('source', 'punch_clock');
+      
+      const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
+      
+      if (forceRecalculate) {
+        datesToProcess = allDates;
+        console.log(`[BACKFILL] Force recalculate: processing all ${allDates.length} dates`);
+      } else {
+        datesToProcess = allDates.filter(d => !existingDates.has(d));
+        console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
+      }
+    }
 
     if (datesToProcess.length === 0) {
       return new Response(JSON.stringify({ 
