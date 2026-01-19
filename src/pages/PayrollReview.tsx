@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
+import { recalculateLaborForDate } from '@/utils/laborCacheUtils';
 import {
   toISOStringInTimezone,
   formatTimeDisplay,
@@ -240,6 +241,12 @@ function EditShiftForm({
       }
 
       toast.success('Shift updated');
+      
+      // Recalculate labor cache for this date in the background
+      recalculateLaborForDate(locationId, shiftDate).catch(err => {
+        console.error('Failed to recalculate labor:', err);
+      });
+      
       onSave();
     } catch (error) {
       toast.error('Failed to update shift');
