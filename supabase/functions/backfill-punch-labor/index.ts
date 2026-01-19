@@ -11,6 +11,7 @@ interface PunchRecord {
   user_id: string;
   punch_type: string;
   punch_time: string;
+  notes: string | null;
 }
 
 interface WageHistoryRecord {
@@ -66,7 +67,7 @@ async function calculateLaborFromPunches(
     
     const { data: punches, error: punchError } = await supabaseClient
       .from('time_punches')
-      .select('id, user_id, punch_type, punch_time')
+      .select('id, user_id, punch_type, punch_time, notes')
       .eq('location_id', locationId)
       .gte('punch_time', startUtc)
       .lte('punch_time', endUtc)
@@ -107,24 +108,28 @@ async function calculateLaborFromPunches(
     let totalLaborCost = 0;
     const employeeBreakdown: any[] = [];
     
-    // Calculate hours for each user
+    // Calculate hours for each user - matching payrollCalculations.ts logic
     for (const [userId, userPunches] of punchesByUser) {
       const wage = wageMap.get(userId) || 15;
       let clockInTime: Date | null = null;
-      let breakStartTime: Date | null = null;
       let hoursWorked = 0;
-      let breakMinutes = 0;
+      
+      // Track 30-minute unpaid breaks only (matching payrollCalculations.ts)
+      const unpaidBreaks: { start: Date; end: Date | null }[] = [];
+      let currentUnpaidBreakStart: Date | null = null;
       
       for (const punch of userPunches) {
         const punchTime = new Date(punch.punch_time);
+        const is30MinBreak = punch.notes?.includes('30 minute');
         
         switch (punch.punch_type) {
           case 'clock_in':
-            if (breakStartTime) {
-              const breakMs = punchTime.getTime() - breakStartTime.getTime();
-              breakMinutes += breakMs / (1000 * 60);
-              breakStartTime = null;
-            } else if (!clockInTime) {
+            // If we were on a 30min break and clock back in, end that break
+            if (currentUnpaidBreakStart) {
+              unpaidBreaks.push({ start: currentUnpaidBreakStart, end: punchTime });
+              currentUnpaidBreakStart = null;
+            }
+            if (!clockInTime) {
               clockInTime = punchTime;
             }
             break;
@@ -136,23 +141,29 @@ async function calculateLaborFromPunches(
             }
             break;
           case 'break_start':
-            breakStartTime = punchTime;
+            // Only track 30-minute breaks as unpaid
+            if (is30MinBreak) {
+              currentUnpaidBreakStart = punchTime;
+            }
             break;
           case 'break_end':
-            if (breakStartTime) {
-              const breakMs = punchTime.getTime() - breakStartTime.getTime();
-              breakMinutes += breakMs / (1000 * 60);
-              breakStartTime = null;
+            // Only count if it's ending a 30-minute break
+            if (is30MinBreak && currentUnpaidBreakStart) {
+              unpaidBreaks.push({ start: currentUnpaidBreakStart, end: punchTime });
+              currentUnpaidBreakStart = null;
             }
             break;
         }
       }
       
-      // For historical data, we should NOT have open punches, but handle gracefully
-      // by NOT adding live hours (this is backfill of completed days)
+      // Subtract only 30-minute unpaid breaks
+      let breakHours = 0;
+      for (const brk of unpaidBreaks) {
+        if (brk.end) {
+          breakHours += (brk.end.getTime() - brk.start.getTime()) / (1000 * 60 * 60);
+        }
+      }
       
-      // Subtract breaks
-      const breakHours = breakMinutes / 60;
       const netHours = Math.max(0, hoursWorked - breakHours);
       
       totalHoursWorked += netHours;
