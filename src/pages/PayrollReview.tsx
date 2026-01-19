@@ -1006,13 +1006,27 @@ export default function PayrollReview() {
   };
 
   const handleDeletePunch = async (punchId: string) => {
-    const { error } = await supabase
-      .from('time_punches')
-      .delete()
-      .eq('id', punchId);
+    if (!currentLocation?.id) {
+      toast.error('No location selected');
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke('delete-time-punches', {
+      body: {
+        location_id: currentLocation.id,
+        punch_ids: [punchId],
+      },
+    });
 
     if (error) {
+      console.error('[PayrollReview] delete-time-punches error:', error);
       toast.error('Failed to delete punch');
+      return;
+    }
+
+    if (!data?.deleted_ids?.length) {
+      // If RLS blocked the old path, this can happen if the id is wrong or already deleted.
+      toast.error('Nothing was deleted');
       return;
     }
 
@@ -1021,15 +1035,28 @@ export default function PayrollReview() {
   };
 
   const handleDeleteAllDayPunches = async (dayPunches: any[]) => {
-    const punchIds = dayPunches.map(p => p.id);
-    
-    const { error } = await supabase
-      .from('time_punches')
-      .delete()
-      .in('id', punchIds);
+    if (!currentLocation?.id) {
+      toast.error('No location selected');
+      return;
+    }
+
+    const punchIds = dayPunches.map((p) => p.id).filter(Boolean);
+
+    const { data, error } = await supabase.functions.invoke('delete-time-punches', {
+      body: {
+        location_id: currentLocation.id,
+        punch_ids: punchIds,
+      },
+    });
 
     if (error) {
+      console.error('[PayrollReview] delete-time-punches error:', error);
       toast.error('Failed to delete shift');
+      return;
+    }
+
+    if (!data?.deleted_ids?.length) {
+      toast.error('Nothing was deleted');
       return;
     }
 
