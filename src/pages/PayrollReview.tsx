@@ -353,7 +353,11 @@ export default function PayrollReview() {
   const [laborRules, setLaborRules] = useState<any>(null);
 
   // Check if current period is closed (for tip fetching optimization)
-  const periodClosedForTips = selectedPeriod?.startDate && periodStatuses[selectedPeriod.startDate]?.status === 'closed';
+  // Use composite key format that matches how periodStatuses is keyed
+  const periodStatusKey = selectedPeriod?.startDate && selectedPeriod?.endDate 
+    ? `${selectedPeriod.startDate}_${selectedPeriod.endDate}` 
+    : null;
+  const periodClosedForTips = periodStatusKey && periodStatuses[periodStatusKey]?.status === 'closed';
 
   // Tip distribution hook - only fetch when period is closed (for export/summary)
   const { 
