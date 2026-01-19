@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { parseISO } from 'date-fns';
 import { toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2, Plus, X } from 'lucide-react';
-import { recalculateLaborForDate } from '@/utils/laborCacheUtils';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   AlertDialog,
@@ -350,12 +349,6 @@ export function EditPunchDialog({
       }
 
       toast.success('Punch times updated');
-      
-      // Recalculate labor cache for this date in the background
-      recalculateLaborForDate(locationId, punchDate).catch(err => {
-        console.error('Failed to recalculate labor:', err);
-      });
-      
       onPunchUpdated?.();
       onOpenChange(false);
     } catch (error) {
@@ -379,12 +372,6 @@ export function EditPunchDialog({
       }
 
       toast.success('All punches deleted');
-      
-      // Recalculate labor cache for this date in the background
-      recalculateLaborForDate(locationId, punchDate).catch(err => {
-        console.error('Failed to recalculate labor:', err);
-      });
-      
       setDeleteDialogOpen(false);
       onPunchUpdated?.();
       onOpenChange(false);

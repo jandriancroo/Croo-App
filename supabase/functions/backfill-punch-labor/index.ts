@@ -11,7 +11,6 @@ interface PunchRecord {
   user_id: string;
   punch_type: string;
   punch_time: string;
-  notes: string | null;
 }
 
 interface WageHistoryRecord {
@@ -67,7 +66,7 @@ async function calculateLaborFromPunches(
     
     const { data: punches, error: punchError } = await supabaseClient
       .from('time_punches')
-      .select('id, user_id, punch_type, punch_time, notes')
+      .select('id, user_id, punch_type, punch_time')
       .eq('location_id', locationId)
       .gte('punch_time', startUtc)
       .lte('punch_time', endUtc)
@@ -108,28 +107,24 @@ async function calculateLaborFromPunches(
     let totalLaborCost = 0;
     const employeeBreakdown: any[] = [];
     
-    // Calculate hours for each user - matching payrollCalculations.ts logic
+    // Calculate hours for each user
     for (const [userId, userPunches] of punchesByUser) {
       const wage = wageMap.get(userId) || 15;
       let clockInTime: Date | null = null;
+      let breakStartTime: Date | null = null;
       let hoursWorked = 0;
-      
-      // Track 30-minute unpaid breaks only (matching payrollCalculations.ts)
-      const unpaidBreaks: { start: Date; end: Date | null }[] = [];
-      let currentUnpaidBreakStart: Date | null = null;
+      let breakMinutes = 0;
       
       for (const punch of userPunches) {
         const punchTime = new Date(punch.punch_time);
-        const is30MinBreak = punch.notes?.includes('30 minute');
         
         switch (punch.punch_type) {
           case 'clock_in':
-            // If we were on a 30min break and clock back in, end that break
-            if (currentUnpaidBreakStart) {
-              unpaidBreaks.push({ start: currentUnpaidBreakStart, end: punchTime });
-              currentUnpaidBreakStart = null;
-            }
-            if (!clockInTime) {
+            if (breakStartTime) {
+              const breakMs = punchTime.getTime() - breakStartTime.getTime();
+              breakMinutes += breakMs / (1000 * 60);
+              breakStartTime = null;
+            } else if (!clockInTime) {
               clockInTime = punchTime;
             }
             break;
@@ -141,29 +136,23 @@ async function calculateLaborFromPunches(
             }
             break;
           case 'break_start':
-            // Only track 30-minute breaks as unpaid
-            if (is30MinBreak) {
-              currentUnpaidBreakStart = punchTime;
-            }
+            breakStartTime = punchTime;
             break;
           case 'break_end':
-            // Only count if it's ending a 30-minute break
-            if (is30MinBreak && currentUnpaidBreakStart) {
-              unpaidBreaks.push({ start: currentUnpaidBreakStart, end: punchTime });
-              currentUnpaidBreakStart = null;
+            if (breakStartTime) {
+              const breakMs = punchTime.getTime() - breakStartTime.getTime();
+              breakMinutes += breakMs / (1000 * 60);
+              breakStartTime = null;
             }
             break;
         }
       }
       
-      // Subtract only 30-minute unpaid breaks
-      let breakHours = 0;
-      for (const brk of unpaidBreaks) {
-        if (brk.end) {
-          breakHours += (brk.end.getTime() - brk.start.getTime()) / (1000 * 60 * 60);
-        }
-      }
+      // For historical data, we should NOT have open punches, but handle gracefully
+      // by NOT adding live hours (this is backfill of completed days)
       
+      // Subtract breaks
+      const breakHours = breakMinutes / 60;
       const netHours = Math.max(0, hoursWorked - breakHours);
       
       totalHoursWorked += netHours;
@@ -203,7 +192,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { locationId, daysBack = 90, targetDate, forceRecalculate = false } = await req.json();
+    const { locationId, daysBack = 90 } = await req.json();
 
     if (!locationId) {
       return new Response(JSON.stringify({ error: 'locationId is required' }), {
@@ -212,12 +201,7 @@ serve(async (req) => {
       });
     }
 
-    // If targetDate is provided, only process that specific date (used for recalculation after punch edits)
-    if (targetDate) {
-      console.log(`[BACKFILL] Recalculating labor for specific date: ${targetDate}, location: ${locationId}, force: ${forceRecalculate}`);
-    } else {
-      console.log(`[BACKFILL] Starting punch labor backfill for location ${locationId}, ${daysBack} days back`);
-    }
+    console.log(`[BACKFILL] Starting punch labor backfill for location ${locationId}, ${daysBack} days back`);
 
     // Get location settings for timezone
     const { data: locationSettings } = await supabase
@@ -240,43 +224,27 @@ serve(async (req) => {
     console.log(`[BACKFILL] Location: ${locationName}`);
 
     // Calculate date range
-    let allDates: string[];
-    let datesToProcess: string[];
+    const today = new Date();
+    const todayStr = getDateStringForTimezone(today, timezone);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - daysBack);
+    const startDateStr = getDateStringForTimezone(startDate, timezone);
     
-    if (targetDate) {
-      // Single date mode - used for recalculation after punch edits
-      // Always process when targetDate is specified (it's an explicit recalculation request)
-      allDates = [targetDate];
-      datesToProcess = [targetDate];
-      console.log(`[BACKFILL] Single date mode: processing ${targetDate}`);
-    } else {
-      // Bulk backfill mode - process range of days (exclude today - today is live)
-      const today = new Date();
-      const todayStr = getDateStringForTimezone(today, timezone);
-      const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - daysBack);
-      const startDateStr = getDateStringForTimezone(startDate, timezone);
-      allDates = getDateRange(startDateStr, todayStr).filter(d => d !== todayStr);
-      
-      console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to yesterday`);
-      
-      // Check which dates already have punch labor cached (only in bulk mode)
-      const { data: existingLabor } = await supabase
-        .from('labor_cache')
-        .select('labor_date')
-        .eq('location_id', locationId)
-        .eq('source', 'punch_clock');
-      
-      const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
-      
-      if (forceRecalculate) {
-        datesToProcess = allDates;
-        console.log(`[BACKFILL] Force recalculate: processing all ${allDates.length} dates`);
-      } else {
-        datesToProcess = allDates.filter(d => !existingDates.has(d));
-        console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
-      }
-    }
+    // Get all dates to process (exclude today - today is live)
+    const allDates = getDateRange(startDateStr, todayStr).filter(d => d !== todayStr);
+    console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to yesterday`);
+
+    // Check which dates already have punch labor cached
+    const { data: existingLabor } = await supabase
+      .from('labor_cache')
+      .select('labor_date')
+      .eq('location_id', locationId)
+      .eq('source', 'punch_clock');
+    
+    const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
+    const datesToProcess = allDates.filter(d => !existingDates.has(d));
+    
+    console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
 
     if (datesToProcess.length === 0) {
       return new Response(JSON.stringify({ 
