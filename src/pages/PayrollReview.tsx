@@ -9,25 +9,26 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useTipDistribution } from '@/hooks/useTipDistribution';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign, ChevronDown, Pencil } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Layout } from '@/components/Layout';
 import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
+
 import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeTrackingTable';
 import { DayByDayView } from '@/components/timetracking/DayByDayView';
+import { MobileTimeTrackingCard } from '@/components/timetracking/MobileTimeTrackingCard';
 import { Users, CalendarDays } from 'lucide-react';
 import {
   toISOStringInTimezone,
-  formatTimeDisplay,
+  
   formatDateTimeInTimezone,
   getStartOfTodayInTimezone,
   getDateInTimezone,
@@ -2225,305 +2226,21 @@ export default function PayrollReview() {
                 </div>
 
                 {/* Mobile Cards View - below sm */}
-                <div className="block sm:hidden space-y-4">
-                  {filteredCards.map((card) => {
-                    const weekGroups = groupPunchesByWeek(card.punchesByDay);
-                    
-                    return (
-                      <Card key={card.profile.id} className="overflow-hidden">
-                        {/* Employee Header */}
-                        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={card.profile.profile_photo_url || undefined} />
-                              <AvatarFallback className="text-xs">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold">{card.profile.full_name}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-bold text-lg">{card.totalHours.toFixed(1)}</span>
-                            <span className="text-muted-foreground text-sm ml-1">hrs</span>
-                          </div>
-                        </div>
-
-                        <CardContent className="p-0">
-                          {weekGroups.map(([weekKey, weekData]) => {
-                            // Calculate week total hours
-                            const weekTotalHours = Object.values(weekData.days).reduce((sum: number, dayPunches: any) => {
-                              return sum + calculateDayHours(dayPunches);
-                            }, 0);
-                            
-                            return (
-                            <div key={weekKey}>
-                              {/* Week Header - always show with hours total */}
-                              <div className="px-4 py-2 bg-secondary/30 border-b text-xs font-medium text-muted-foreground flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="h-3 w-3" />
-                                  Week of {format(weekData.start, 'MMM d')} - {format(weekData.end, 'MMM d')}
-                                </div>
-                                <div className="font-semibold text-foreground">
-                                  {weekTotalHours.toFixed(1)} hrs
-                                </div>
-                              </div>
-                              
-                              {/* Compact Day Rows */}
-                              <div className="divide-y">
-                                {Object.entries(weekData.days)
-                                  .sort(([a], [b]) => a.localeCompare(b))
-                                  .map(([day, dayPunches]: [string, any]) => {
-                                    // Sort punches chronologically (with stable tie-breakers)
-                                    const sortedPunches = sortPunches(dayPunches);
-                                    
-                                    // Identify distinct shifts (a shift starts with clock_in after clock_out or first punch)
-                                    const shifts: { clockIn: any; clockOut: any | null; breaks: any[] }[] = [];
-                                    let currentShift: { clockIn: any; clockOut: any | null; breaks: any[] } | null = null;
-                                    
-                                    sortedPunches.forEach((punch: any, idx: number) => {
-                                      if (punch.punch_type === 'clock_in') {
-                                        const prevPunch = idx > 0 ? sortedPunches[idx - 1] : null;
-                                        // Start new shift if: first punch, or previous was clock_out
-                                        if (!prevPunch || prevPunch.punch_type === 'clock_out') {
-                                          if (currentShift) shifts.push(currentShift);
-                                          currentShift = { clockIn: punch, clockOut: null, breaks: [] };
-                                        }
-                                        // If previous was break_start, this is return from break (not new shift)
-                                      } else if (punch.punch_type === 'clock_out' && currentShift) {
-                                        currentShift.clockOut = punch;
-                                      } else if (punch.punch_type === 'break_start' && currentShift) {
-                                        currentShift.breaks.push(punch);
-                                      }
-                                    });
-                                    if (currentShift) shifts.push(currentShift);
-                                    
-                                    const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
-                                    const dayDate = parseDateStringInTimezone(day, timezone);
-                                    const dayHours = calculateDayHours(dayPunches);
-                                    const isApproved = dayPunches.every((p: any) => p.approved_at);
-                                    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-                                    const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
-                                    const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
-                                    
-                                    // Get scheduled shift for this day
-                                    const scheduledShift = card.shiftsByDate?.get(day);
-                                    
-                                    // Calculate break violation for any shift over 5 hours without meal break
-                                    let hasBreakViolation = false;
-                                    shifts.forEach(shift => {
-                                      if (shift.clockIn && shift.clockOut) {
-                                        let shiftHours = (new Date(shift.clockOut.punch_time).getTime() - new Date(shift.clockIn.punch_time).getTime()) / 3600000;
-                                        if (shiftHours < 0) shiftHours += 24;
-                                        const shiftHasMealBreak = shift.breaks.some((b: any) => b.notes?.includes('30 minute'));
-                                        if (shiftHours > 5 && !shiftHasMealBreak) {
-                                          hasBreakViolation = true;
-                                        }
-                                      }
-                                    });
-                                    
-                                    const hasIssue = hasDayIssues(dayPunches);
-                                    const hasAnyFlag = hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak;
-                                    const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
-
-                                    // Skip approved if not showing
-                                    if (!includeApproved && isApproved) return null;
-
-                                    return (
-                                      <div 
-                                        key={day} 
-                                        className={`flex items-center gap-2 px-3 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
-                                        onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}
-                                      >
-                                        {/* Day Badge */}
-                                        <div className="w-9 text-center shrink-0">
-                                          <div className="text-[10px] text-muted-foreground">{format(dayDate, 'EEE')}</div>
-                                          <div className="font-semibold text-xs">{format(dayDate, 'd')}</div>
-                                        </div>
-
-                                        {/* Time Range and Breaks */}
-                                        <div className="flex-1 min-w-0">
-                                          {/* Show each shift on its own line */}
-                                          {shifts.map((shift, shiftIdx) => (
-                                            <div key={shiftIdx} className="flex items-center gap-1.5 text-sm">
-                                              {shifts.length > 1 && (
-                                                <span className="text-[10px] text-muted-foreground font-medium mr-1">#{shiftIdx + 1}</span>
-                                              )}
-                                              <span className="text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
-                                                {shift.clockIn ? formatTimeDisplay(shift.clockIn.punch_time, timezone) : '—'}
-                                              </span>
-                                              <span className="text-muted-foreground">→</span>
-                                              <span className="text-red-600 dark:text-red-400 font-medium whitespace-nowrap">
-                                                {shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}
-                                              </span>
-
-                                              {/* Status Badges - inline with times (only on first shift row) */}
-                                              {shiftIdx === 0 && (
-                                                <>
-                                                  {hasBreakViolation && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 dark:border-amber-700 gap-0.5 shrink-0">
-                                                      <Coffee className="h-2.5 w-2.5" />
-                                                    </Badge>
-                                                  )}
-                                                  {hasAutoClockOut && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 dark:border-orange-700 gap-0.5 shrink-0">
-                                                      <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
-                                                    </Badge>
-                                                  )}
-                                                  {hasOvertime && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 dark:border-purple-700 gap-0.5 shrink-0">
-                                                      <Clock className="h-2.5 w-2.5" />
-                                                    </Badge>
-                                                  )}
-                                                  {hasExtendedBreak && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 dark:border-blue-700 gap-0.5 shrink-0">
-                                                      <Coffee className="h-2.5 w-2.5" />
-                                                    </Badge>
-                                                  )}
-                                                  {hasIssue && !hasBreakViolation && !shift.clockOut && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-destructive border-destructive/30 shrink-0">
-                                                      !
-                                                    </Badge>
-                                                  )}
-                                                </>
-                                              )}
-                                            </div>
-                                          ))}
-                                          
-                                          {/* Scheduled time display */}
-                                          {scheduledShift && !scheduledShift.is_time_off && (
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                              <Calendar className="h-2.5 w-2.5" />
-                                              <span>Scheduled: {(() => {
-                                                const formatScheduleTime = (timeStr: string | null | undefined) => {
-                                                  if (!timeStr) return '—';
-                                                  const [hours, minutes] = timeStr.split(':').map(Number);
-                                                  const period = hours >= 12 ? 'PM' : 'AM';
-                                                  const displayHours = hours % 12 || 12;
-                                                  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-                                                };
-                                                return `${formatScheduleTime(scheduledShift.start_time)} → ${formatScheduleTime(scheduledShift.end_time)}`;
-                                              })()}</span>
-                                            </div>
-                                          )}
-                                          {scheduledShift?.is_time_off && (
-                                            <div className="flex items-center gap-1 text-xs text-blue-500 mt-0.5">
-                                              <Calendar className="h-2.5 w-2.5" />
-                                              <span>Scheduled: Time Off</span>
-                                            </div>
-                                          )}
-                                          
-                                          {/* Break times display */}
-                                          {breakStarts.length > 0 && (
-                                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
-                                              {breakStarts.map((breakStart: any, idx: number) => {
-                                                // First try to find explicit break_end
-                                                let breakEnd = dayPunches.find((p: any) => 
-                                                  p.punch_type === 'break_end' && 
-                                                  new Date(p.punch_time) > new Date(breakStart.punch_time)
-                                                );
-                                                // Fallback: clock_in after break_start can indicate break end
-                                                if (!breakEnd) {
-                                                  breakEnd = dayPunches.find((p: any) => 
-                                                    p.punch_type === 'clock_in' && 
-                                                    new Date(p.punch_time) > new Date(breakStart.punch_time)
-                                                  );
-                                                }
-                                                const duration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
-                                                
-                                                // Calculate actual break duration if there's an end time
-                                                let isLongBreak = false;
-                                                if (breakEnd) {
-                                                  const actualDurationMins = (new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000;
-                                                  isLongBreak = actualDurationMins > 35; // Flag if over 35 mins (5 min buffer)
-                                                }
-                                                
-                                                return (
-                                                  <span 
-                                                    key={idx} 
-                                                    className={`flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 dark:bg-red-950/30 px-1 py-0 rounded' : ''}`}
-                                                    title={isLongBreak ? 'Break exceeded 30 minutes - possible missed clock-in' : ''}
-                                                  >
-                                                    <Coffee className="h-2.5 w-2.5" />
-                                                    {duration}: {formatTimeDisplay(breakStart.punch_time, timezone)}
-                                                    {breakEnd && ` → ${formatTimeDisplay(breakEnd.punch_time, timezone)}`}
-                                                    {isLongBreak && ' ⚠️'}
-                                                  </span>
-                                                );
-                                              })}
-                                            </div>
-                                          )}
-                                          
-                                          {/* Manager edit indicator - show edited by (priority) or entered by */}
-                                          {(() => {
-                                            const editedPunch = dayPunches.find((p: any) => p.edited_by_name);
-                                            const createdPunch = dayPunches.find((p: any) => p.created_by_name);
-                                            if (editedPunch?.edited_by_name) {
-                                              return (
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                                  <Pencil className="h-2.5 w-2.5" />
-                                                  <span>Edited by {editedPunch.edited_by_name}</span>
-                                                </div>
-                                              );
-                                            }
-                                            if (createdPunch?.created_by_name) {
-                                              return (
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                                  <Pencil className="h-2.5 w-2.5" />
-                                                  <span>Entered by {createdPunch.created_by_name}</span>
-                                                </div>
-                                              );
-                                            }
-                                            return null;
-                                          })()}
-                                        </div>
-
-                                        {/* Hours */}
-                                        <div className="w-12 text-right font-medium text-xs shrink-0">
-                                          {dayHours.toFixed(1)}
-                                        </div>
-
-                                        {/* Approve Button - Touch-friendly */}
-                                        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-                                          {isApproved ? (
-                                            <button 
-                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-green-100 dark:bg-green-900/30 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
-                                              onClick={() => handleUnapproveDay(dayPunches)}
-                                              disabled={isApproving}
-                                              title="Click to unapprove"
-                                            >
-                                              <CheckCircle2 className="h-5 w-5" />
-                                            </button>
-                                          ) : (hasBreakViolation || hasAutoClockOut) ? (
-                                            <button 
-                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-400 hover:bg-amber-100 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
-                                              onClick={() => handleApproveDay(dayPunches)}
-                                              disabled={isApproving}
-                                              title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
-                                            >
-                                              {hasBreakViolation ? (
-                                                <Coffee className="h-5 w-5 text-amber-600" />
-                                              ) : (
-                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5" />
-                                              )}
-                                            </button>
-                                          ) : (
-                                            <button 
-                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
-                                              onClick={() => handleApproveDay(dayPunches)}
-                                              disabled={isApproving}
-                                            >
-                                              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            </div>
-                          );})}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                <div className="block sm:hidden">
+                  <MobileTimeTrackingCard
+                    filteredCards={filteredCards}
+                    timezone={timezone}
+                    includeApproved={includeApproved}
+                    onApproveDay={handleApproveDay}
+                    onUnapproveDay={handleUnapproveDay}
+                    onEditShift={setEditingShift}
+                    calculateDayHours={calculateDayHours}
+                    hasDayIssues={hasDayIssues}
+                    sortPunches={sortPunches}
+                    groupPunchesByWeek={groupPunchesByWeek}
+                    currentLocationId={currentLocation?.id || ''}
+                    approvingPunchIds={approvingPunchIds}
+                  />
                 </div>
               </>
             )}
