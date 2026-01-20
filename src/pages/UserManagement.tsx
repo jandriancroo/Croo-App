@@ -886,6 +886,33 @@ export default function UserManagement() {
     }
   };
 
+  const handleBulkForceUpdate = async () => {
+    try {
+      setBulkUpdating(true);
+      
+      // Send force-reload signal to all selected users in parallel
+      await Promise.all(
+        Array.from(selectedUsers).map(userId => triggerForceReload(userId))
+      );
+
+      toast({
+        title: 'Update signals sent',
+        description: `Force update triggered for ${selectedUsers.size} user(s). They will refresh when their app is active.`,
+      });
+
+      setSelectedUsers(new Set());
+    } catch (error: any) {
+      console.error('Error bulk force updating:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send update signals',
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   const handleBulkWageUpdate = async (wage: number, effectiveDate: Date, notes: string) => {
     try {
       setBulkUpdating(true);
@@ -1621,7 +1648,9 @@ export default function UserManagement() {
           selectedCount={selectedUsers.size}
           onDeactivate={() => setIsBulkDeactivateOpen(true)}
           onWageUpdate={() => setIsBulkWageOpen(true)}
+          onForceUpdate={handleBulkForceUpdate}
           onClearSelection={() => setSelectedUsers(new Set())}
+          isUpdating={bulkUpdating}
         />
         )}
 
