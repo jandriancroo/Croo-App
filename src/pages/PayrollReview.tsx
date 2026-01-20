@@ -2192,8 +2192,8 @@ export default function PayrollReview() {
                   </CardContent>
                 </Card>
 
-                {/* Desktop/Tablet Table View - sm and up */}
-                <div className="hidden sm:block">
+                {/* Desktop Table View - lg and up */}
+                <div className="hidden lg:block">
                   {viewMode === 'employee' ? (
                     <DesktopTimeTrackingTable
                       filteredCards={filteredCards}
@@ -2226,8 +2226,8 @@ export default function PayrollReview() {
                   )}
                 </div>
 
-                {/* Mobile Cards View - below sm */}
-                <div className="block sm:hidden">
+                {/* Mobile/Tablet Cards View - below lg */}
+                <div className="block lg:hidden">
                   {viewMode === 'employee' ? (
                     <MobileTimeTrackingCard
                       filteredCards={filteredCards}
