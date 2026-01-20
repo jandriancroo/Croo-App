@@ -379,7 +379,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-lexend;
+    @apply bg-background text-foreground font-dm-sans;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
     width: 100%;
