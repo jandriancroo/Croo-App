@@ -240,10 +240,17 @@ export function DesktopTimeTrackingTable({
                                 return (
                                   <span 
                                     key={bidx} 
-                                    className={`text-xs flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
+                                    className={`text-xs flex items-center gap-1 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
                                   >
                                     <Coffee className="h-3 w-3" />
-                                    {duration}
+                                    <span>{duration}:</span>
+                                    <span>{formatTimeDisplay(breakStart.punch_time, timezone)}</span>
+                                    {breakEnd && (
+                                      <>
+                                        <span>→</span>
+                                        <span>{formatTimeDisplay(breakEnd.punch_time, timezone)}</span>
+                                      </>
+                                    )}
                                     {isLongBreak && <span>⚠️</span>}
                                   </span>
                                 );
