@@ -353,6 +353,14 @@ export default function PayrollReview() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
   const [approvingPunchIds, setApprovingPunchIds] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Cache current user ID on mount for instant approve feedback
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
 
   // Check if current period is closed (for tip fetching optimization)
   // Use composite key format that matches how periodStatuses is keyed
@@ -1091,13 +1099,11 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
-  const handleUnapproveDay = async (dayPunches: any[]) => {
+  const handleUnapproveDay = (dayPunches: any[]) => {
     const punchIds = dayPunches.map(p => p.id);
     
-    // Optimistic update - immediately mark punches as approving
+    // Optimistically update local state FIRST for instant UI feedback
     setApprovingPunchIds(prev => new Set([...prev, ...punchIds]));
-    
-    // Optimistically update local state for instant UI feedback
     setTimeCards(prev => prev.map(card => ({
       ...card,
       punchesByDay: Object.fromEntries(
@@ -1112,29 +1118,27 @@ export default function PayrollReview() {
       )
     })));
 
-    const { error } = await supabase
+    // Fire-and-forget database update (no await for UI responsiveness)
+    supabase
       .from('time_punches')
       .update({ 
         approved_by: null,
         approved_at: null
       })
-      .in('id', punchIds);
+      .in('id', punchIds)
+      .then(({ error }) => {
+        // Clear approving state
+        setApprovingPunchIds(prev => {
+          const next = new Set(prev);
+          punchIds.forEach(id => next.delete(id));
+          return next;
+        });
 
-    // Clear approving state
-    setApprovingPunchIds(prev => {
-      const next = new Set(prev);
-      punchIds.forEach(id => next.delete(id));
-      return next;
-    });
-
-    if (error) {
-      toast.error('Failed to unapprove shift');
-      fetchTimeCards(); // Revert on error
-      return;
-    }
-
-    toast.success('Shift unapproved');
-    // No need to refetch - we already updated optimistically
+        if (error) {
+          toast.error('Failed to unapprove shift');
+          fetchTimeCards(); // Revert on error
+        }
+      });
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
@@ -1257,14 +1261,12 @@ export default function PayrollReview() {
   };
 
   const approvePunches = async (punchIds: string[]) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    // Use cached user ID for instant feedback - no await needed
+    if (!currentUserId) return;
 
-    // Optimistic update - immediately mark punches as approving
-    setApprovingPunchIds(prev => new Set([...prev, ...punchIds]));
-    
-    // Optimistically update local state for instant UI feedback
+    // Optimistically update local state FIRST for instant UI feedback
     const now = new Date().toISOString();
+    setApprovingPunchIds(prev => new Set([...prev, ...punchIds]));
     setTimeCards(prev => prev.map(card => ({
       ...card,
       punchesByDay: Object.fromEntries(
@@ -1272,37 +1274,37 @@ export default function PayrollReview() {
           day,
           dayPunches.map((p: any) => 
             punchIds.includes(p.id) 
-              ? { ...p, approved_by: user.id, approved_at: now }
+              ? { ...p, approved_by: currentUserId, approved_at: now }
               : p
           )
         ])
       )
     })));
 
-    const { error } = await supabase
+    // Fire-and-forget database update (no await for UI responsiveness)
+    supabase
       .from('time_punches')
       .update({ 
-        approved_by: user.id,
+        approved_by: currentUserId,
         approved_at: now
       })
-      .in('id', punchIds);
+      .in('id', punchIds)
+      .then(({ error }) => {
+        // Clear approving state
+        setApprovingPunchIds(prev => {
+          const next = new Set(prev);
+          punchIds.forEach(id => next.delete(id));
+          return next;
+        });
 
-    // Clear approving state
-    setApprovingPunchIds(prev => {
-      const next = new Set(prev);
-      punchIds.forEach(id => next.delete(id));
-      return next;
-    });
-
-    if (error) {
-      toast.error('Failed to approve punches');
-      // Revert on error
-      fetchTimeCards();
-      return;
-    }
-
-    setApprovalWarning(null);
-    // No need to refetch - we already updated optimistically
+        if (error) {
+          toast.error('Failed to approve punches');
+          // Revert on error
+          fetchTimeCards();
+        } else {
+          setApprovalWarning(null);
+        }
+      });
   };
 
   // Generate list of dates in selected period for the filter
