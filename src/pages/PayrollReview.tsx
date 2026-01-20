@@ -26,7 +26,7 @@ import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeT
 import { DayByDayView } from '@/components/timetracking/DayByDayView';
 import { MobileTimeTrackingCard } from '@/components/timetracking/MobileTimeTrackingCard';
 import { MobileDayByDayCard } from '@/components/timetracking/MobileDayByDayCard';
-import { Users, CalendarDays } from 'lucide-react';
+import { Users, CalendarDays, Flag } from 'lucide-react';
 import {
   toISOStringInTimezone,
   
@@ -2030,11 +2030,11 @@ export default function PayrollReview() {
             </div>
 
             {/* View Toggle + Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 overflow-x-hidden">
               {/* View Mode Toggle */}
-              <div className="flex rounded-lg border-2 border-border bg-muted/50 p-1 shrink-0">
+              <div className="flex rounded-lg border-2 border-border bg-muted/50 p-1 shrink-0 w-fit">
                 <button
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-sm font-semibold transition-all ${
                     viewMode === 'employee' 
                       ? 'bg-primary text-primary-foreground shadow-md' 
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -2042,10 +2042,10 @@ export default function PayrollReview() {
                   onClick={() => setViewMode('employee')}
                 >
                   <Users className="h-4 w-4" />
-                  <span>By Employee</span>
+                  <span className="hidden sm:inline">By Employee</span>
                 </button>
                 <button
-                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-sm font-semibold transition-all ${
                     viewMode === 'day' 
                       ? 'bg-primary text-primary-foreground shadow-md' 
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -2053,15 +2053,19 @@ export default function PayrollReview() {
                   onClick={() => setViewMode('day')}
                 >
                   <CalendarDays className="h-4 w-4" />
-                  <span>By Day</span>
+                  <span className="hidden sm:inline">By Day</span>
                 </button>
               </div>
 
               {/* Filters */}
               <div className="flex-1 grid grid-cols-3 gap-2 max-w-md">
                 <Select value={filterDay} onValueChange={setFilterDay}>
-                  <SelectTrigger className="h-10 font-medium">
-                    <SelectValue placeholder="All days" />
+                  <SelectTrigger className="h-9 sm:h-10 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 sm:hidden shrink-0" />
+                      <span className="hidden sm:inline"><SelectValue placeholder="All days" /></span>
+                      <span className="sm:hidden text-xs">{filterDay === 'all' ? 'Days' : filterDay.slice(5)}</span>
+                    </div>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All days</SelectItem>
@@ -2074,8 +2078,12 @@ export default function PayrollReview() {
                 </Select>
 
                 <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                  <SelectTrigger className="h-10 font-medium">
-                    <SelectValue placeholder="All employees" />
+                  <SelectTrigger className="h-9 sm:h-10 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-4 w-4 sm:hidden shrink-0" />
+                      <span className="hidden sm:inline"><SelectValue placeholder="All employees" /></span>
+                      <span className="sm:hidden text-xs truncate max-w-[60px]">{filterEmployee === 'all' ? 'Team' : timeCards.find(c => c.profile.id === filterEmployee)?.profile.full_name?.split(' ')[0] || 'Team'}</span>
+                    </div>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All employees</SelectItem>
@@ -2088,8 +2096,12 @@ export default function PayrollReview() {
                 </Select>
 
                 <Select value={filterFlag} onValueChange={setFilterFlag}>
-                  <SelectTrigger className="h-10 font-medium">
-                    <SelectValue placeholder="All shifts" />
+                  <SelectTrigger className="h-9 sm:h-10 font-medium">
+                    <div className="flex items-center gap-1.5">
+                      <Flag className="h-4 w-4 sm:hidden shrink-0" />
+                      <span className="hidden sm:inline"><SelectValue placeholder="All shifts" /></span>
+                      <span className="sm:hidden text-xs">{filterFlag === 'all' ? 'Flags' : filterFlag === 'flagged' ? 'All' : filterFlag === 'auto_punch' ? 'Auto' : 'Break'}</span>
+                    </div>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All shifts</SelectItem>
