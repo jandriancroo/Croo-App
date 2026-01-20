@@ -4,6 +4,12 @@ import { Badge } from "@/components/ui/badge";
 
 const fonts = [
   { 
+    name: "Current (System Default)", 
+    class: "", 
+    description: "Current font", 
+    vibe: "What you're using now"
+  },
+  { 
     name: "Outfit", 
     class: "font-outfit", 
     description: "Geometric, Google-like", 
