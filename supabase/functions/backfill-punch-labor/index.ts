@@ -11,6 +11,13 @@ interface PunchRecord {
   user_id: string;
   punch_type: string;
   punch_time: string;
+  notes: string | null;
+}
+
+function isUnpaidBreak(notes: string | null): boolean {
+  if (!notes) return false;
+  const lower = notes.toLowerCase();
+  return lower.includes('30 minute') || lower.includes('meal') || lower.includes('unpaid');
 }
 
 interface WageHistoryRecord {
@@ -49,6 +56,8 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 // Calculate labor from time_punches for a specific date
+// Calculate labor from time_punches for a specific date
+// Uses business date logic: shifts are attributed to the date they START on (clock_in)
 async function calculateLaborFromPunches(
   supabaseClient: any,
   locationId: string,
@@ -57,16 +66,18 @@ async function calculateLaborFromPunches(
   wageMap: Map<string, number>
 ): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; doubleTimeHours: number; employeeBreakdown: any[] } | null> {
   try {
+    // Fetch a wider range of punches to handle overnight shifts
+    // We need punches from the target date PLUS next day for clock_outs
     const startOfDay = new Date(`${dateStr}T00:00:00`);
-    const endOfDay = new Date(`${dateStr}T23:59:59`);
+    const endOfNextDay = new Date(startOfDay.getTime() + 48 * 60 * 60 * 1000); // +48 hours
     
-    // Convert to UTC for query (fetch wider range to be safe)
+    // Convert to UTC for query (also look back 1 day for safety)
     const startUtc = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const endUtc = new Date(endOfDay.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const endUtc = endOfNextDay.toISOString();
     
     const { data: punches, error: punchError } = await supabaseClient
       .from('time_punches')
-      .select('id, user_id, punch_type, punch_time')
+      .select('id, user_id, punch_type, punch_time, notes')
       .eq('location_id', locationId)
       .gte('punch_time', startUtc)
       .lte('punch_time', endUtc)
@@ -83,24 +94,13 @@ async function calculateLaborFromPunches(
       return { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, doubleTimeHours: 0, employeeBreakdown: [] };
     }
     
-    // Filter punches to only those on the target date in location timezone
-    const punchesOnDate = punchRecords.filter(p => {
-      const punchDate = new Date(p.punch_time);
-      const localDateStr = getDateStringForTimezone(punchDate, timezone);
-      return localDateStr === dateStr;
-    });
-    
-    if (punchesOnDate.length === 0) {
-      return { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, doubleTimeHours: 0, employeeBreakdown: [] };
-    }
-    
-    // Group punches by user
-    const punchesByUser = new Map<string, typeof punchesOnDate>();
-    for (const punch of punchesOnDate) {
-      if (!punchesByUser.has(punch.user_id)) {
-        punchesByUser.set(punch.user_id, []);
+    // Group ALL punches by user (we'll filter by business date later)
+    const allPunchesByUser = new Map<string, PunchRecord[]>();
+    for (const punch of punchRecords) {
+      if (!allPunchesByUser.has(punch.user_id)) {
+        allPunchesByUser.set(punch.user_id, []);
       }
-      punchesByUser.get(punch.user_id)!.push(punch);
+      allPunchesByUser.get(punch.user_id)!.push(punch);
     }
     
     let totalHoursWorked = 0;
@@ -108,63 +108,50 @@ async function calculateLaborFromPunches(
     const employeeBreakdown: any[] = [];
     
     // Calculate hours for each user
-    for (const [userId, userPunches] of punchesByUser) {
+    for (const [userId, userPunches] of allPunchesByUser) {
       const wage = wageMap.get(userId) || 15;
-      let clockInTime: Date | null = null;
-      let breakStartTime: Date | null = null;
       let hoursWorked = 0;
-      let breakMinutes = 0;
+      let clockInTime: Date | null = null;
+      let currentBreakStart: { time: Date; notes: string | null } | null = null;
+      let unpaidBreakMinutes = 0;
       
-      for (const punch of userPunches) {
+      // Filter to punches on target date only
+      const punchesOnDate = userPunches.filter(p => {
+        const localDateStr = getDateStringForTimezone(new Date(p.punch_time), timezone);
+        return localDateStr === dateStr;
+      });
+      
+      for (const punch of punchesOnDate) {
         const punchTime = new Date(punch.punch_time);
         
         switch (punch.punch_type) {
           case 'clock_in':
-            if (breakStartTime) {
-              const breakMs = punchTime.getTime() - breakStartTime.getTime();
-              breakMinutes += breakMs / (1000 * 60);
-              breakStartTime = null;
-            } else if (!clockInTime) {
-              clockInTime = punchTime;
-            }
+            if (!clockInTime) clockInTime = punchTime;
             break;
           case 'clock_out':
             if (clockInTime) {
-              const shiftMs = punchTime.getTime() - clockInTime.getTime();
-              hoursWorked += shiftMs / (1000 * 60 * 60);
+              hoursWorked += (punchTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
               clockInTime = null;
             }
             break;
           case 'break_start':
-            breakStartTime = punchTime;
+            currentBreakStart = { time: punchTime, notes: punch.notes };
             break;
           case 'break_end':
-            if (breakStartTime) {
-              const breakMs = punchTime.getTime() - breakStartTime.getTime();
-              breakMinutes += breakMs / (1000 * 60);
-              breakStartTime = null;
+            if (currentBreakStart && isUnpaidBreak(currentBreakStart.notes)) {
+              unpaidBreakMinutes += (punchTime.getTime() - currentBreakStart.time.getTime()) / (1000 * 60);
             }
+            currentBreakStart = null;
             break;
         }
       }
       
-      // For historical data, we should NOT have open punches, but handle gracefully
-      // by NOT adding live hours (this is backfill of completed days)
-      
-      // Subtract breaks
-      const breakHours = breakMinutes / 60;
-      const netHours = Math.max(0, hoursWorked - breakHours);
-      
-      totalHoursWorked += netHours;
-      totalLaborCost += netHours * wage;
+      const netHours = Math.max(0, hoursWorked - (unpaidBreakMinutes / 60));
       
       if (netHours > 0) {
-        employeeBreakdown.push({
-          user_id: userId,
-          hours: netHours,
-          wage: wage,
-          cost: netHours * wage
-        });
+        totalHoursWorked += netHours;
+        totalLaborCost += netHours * wage;
+        employeeBreakdown.push({ user_id: userId, hours: netHours, wage, cost: netHours * wage });
       }
     }
     
@@ -192,7 +179,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { locationId, daysBack = 90 } = await req.json();
+    const { locationId, daysBack = 90, startDate: inputStartDate, endDate: inputEndDate, forceRefresh = false } = await req.json();
 
     if (!locationId) {
       return new Response(JSON.stringify({ error: 'locationId is required' }), {
@@ -226,25 +213,44 @@ serve(async (req) => {
     // Calculate date range
     const today = new Date();
     const todayStr = getDateStringForTimezone(today, timezone);
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - daysBack);
-    const startDateStr = getDateStringForTimezone(startDate, timezone);
     
-    // Get all dates to process (exclude today - today is live)
-    const allDates = getDateRange(startDateStr, todayStr).filter(d => d !== todayStr);
-    console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to yesterday`);
+    let startDateStr: string;
+    let endDateStr: string;
+    
+    if (inputStartDate && inputEndDate) {
+      // Use provided date range
+      startDateStr = inputStartDate;
+      endDateStr = inputEndDate;
+      console.log(`[BACKFILL] Using provided date range: ${startDateStr} to ${endDateStr}`);
+    } else {
+      // Calculate from daysBack
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - daysBack);
+      startDateStr = getDateStringForTimezone(startDate, timezone);
+      endDateStr = todayStr;
+    }
+    
+    // Get all dates to process (exclude today if it's in the range - today is live)
+    const allDates = getDateRange(startDateStr, endDateStr).filter(d => d !== todayStr);
+    console.log(`[BACKFILL] Processing ${allDates.length} days from ${startDateStr} to ${endDateStr}`);
 
-    // Check which dates already have punch labor cached
-    const { data: existingLabor } = await supabase
-      .from('labor_cache')
-      .select('labor_date')
-      .eq('location_id', locationId)
-      .eq('source', 'punch_clock');
+    // Check which dates already have punch labor cached (unless forceRefresh)
+    let datesToProcess = allDates;
     
-    const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
-    const datesToProcess = allDates.filter(d => !existingDates.has(d));
-    
-    console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
+    if (!forceRefresh) {
+      const { data: existingLabor } = await supabase
+        .from('labor_cache')
+        .select('labor_date')
+        .eq('location_id', locationId)
+        .eq('source', 'punch_clock');
+      
+      const existingDates = new Set((existingLabor || []).map((l: { labor_date: string }) => l.labor_date));
+      datesToProcess = allDates.filter(d => !existingDates.has(d));
+      
+      console.log(`[BACKFILL] ${existingDates.size} dates already cached, ${datesToProcess.length} to process`);
+    } else {
+      console.log(`[BACKFILL] Force refresh enabled, processing all ${datesToProcess.length} dates`);
+    }
 
     if (datesToProcess.length === 0) {
       return new Response(JSON.stringify({ 
