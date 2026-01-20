@@ -191,7 +191,7 @@ export function DesktopTimeTrackingTable({
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
                         {/* Day column */}
-                        <TableCell className="py-1.5">
+                        <TableCell className="py-1.5 pl-4">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground w-7">{format(dayDate, 'EEE')}</span>
                             <span className="font-medium text-sm">{format(dayDate, 'MMM d')}</span>

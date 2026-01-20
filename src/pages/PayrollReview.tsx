@@ -94,21 +94,18 @@ function EditShiftForm({
     }) || null;
   }
   
-  const mealBreakStart = sortedPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-  let mealBreakEnd = sortedPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
-  
-  // Fallback: If no explicit break_end, check if a clock_in follows the break_start (used to end break)
-  if (mealBreakStart && !mealBreakEnd) {
-    const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
-    const clockInAfterBreak = sortedPunches.find((p: any) => 
-      p.punch_type === 'clock_in' && 
-      new Date(p.punch_time).getTime() > breakStartTime &&
-      !shiftStartClockIns.includes(p) // Must NOT be a shift-starting clock_in
-    );
-    if (clockInAfterBreak) {
-      mealBreakEnd = clockInAfterBreak;
-    }
+  // Support multiple breaks (paid + unpaid)
+  interface BreakEntry {
+    id?: string; // existing punch ID for break_start
+    endId?: string; // existing punch ID for break_end OR legacy clock_in (return from break)
+    startTime: string;
+    endTime: string;
+    type: 'paid' | 'unpaid';
   }
+
+  const breakStarts = sortedPunches.filter((p: any) => p.punch_type === 'break_start');
+  const breakEnds = sortedPunches.filter((p: any) => p.punch_type === 'break_end');
+  const clockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
 
   // Format times in the location's timezone for display/editing
   const formatTimeForEdit = (punch: any): string => {
@@ -121,11 +118,51 @@ function EditShiftForm({
     }).format(new Date(punch.punch_time));
   };
 
+  // Pair each break_start with a break_end OR a legacy clock_in return
+  const initialBreaks: BreakEntry[] = [];
+  const usedEndIds = new Set<string>();
+
+  for (let i = 0; i < breakStarts.length; i++) {
+    const start = breakStarts[i];
+    const startMs = new Date(start.punch_time).getTime();
+
+    const nextStart = breakStarts[i + 1];
+    const nextStartMs = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
+
+    // Prefer explicit break_end
+    let matchingEnd = breakEnds.find((end: any) => {
+      if (usedEndIds.has(end.id)) return false;
+      const endMs = new Date(end.punch_time).getTime();
+      return endMs > startMs && endMs < nextStartMs;
+    });
+
+    // Fallback: legacy behavior uses clock_in to end breaks
+    if (!matchingEnd) {
+      matchingEnd = clockIns.find((ci: any) => {
+        if (usedEndIds.has(ci.id)) return false;
+        if (shiftStartClockIns.includes(ci)) return false; // don't treat shift-start clock_ins as break ends
+        const endMs = new Date(ci.punch_time).getTime();
+        return endMs > startMs && endMs < nextStartMs;
+      });
+    }
+
+    if (matchingEnd) usedEndIds.add(matchingEnd.id);
+
+    const notes = (start.notes || '').toLowerCase();
+    const breakType: BreakEntry['type'] = notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid') ? 'unpaid' : 'paid';
+
+    initialBreaks.push({
+      id: start.id,
+      endId: matchingEnd?.id,
+      startTime: formatTimeForEdit(start) || '12:00',
+      endTime: matchingEnd ? formatTimeForEdit(matchingEnd) : '',
+      type: breakType,
+    });
+  }
+
   const [clockInTime, setClockInTime] = useState(formatTimeForEdit(clockIn) || '');
   const [clockOutTime, setClockOutTime] = useState(formatTimeForEdit(clockOut) || '');
-  const [hasMealBreak, setHasMealBreak] = useState(!!mealBreakStart);
-  const [mealBreakStartTime, setMealBreakStartTime] = useState(formatTimeForEdit(mealBreakStart) || '12:00');
-  const [mealBreakEndTime, setMealBreakEndTime] = useState(formatTimeForEdit(mealBreakEnd) || '12:30');
+  const [breaks, setBreaks] = useState<BreakEntry[]>(initialBreaks);
   const [saving, setSaving] = useState(false);
 
   // Helper to determine if a time crosses midnight relative to clock-in
@@ -189,55 +226,73 @@ function EditShiftForm({
         });
       }
 
-      // Handle meal break
-      if (hasMealBreak) {
-        // Break times should also handle midnight crossing relative to clock-in
-        const breakStartDate = getAdjustedDateForTime(mealBreakStartTime, clockInTime, shiftDate);
-        const breakEndDate = getAdjustedDateForTime(mealBreakEndTime, clockInTime, shiftDate);
-        const breakStartTime = toISOStringInTimezone(breakStartDate, mealBreakStartTime, timezone);
-        const breakEndTime = toISOStringInTimezone(breakEndDate, mealBreakEndTime, timezone);
+      // Handle breaks (paid + unpaid)
+      for (const brk of breaks) {
+        if (!brk.startTime) continue;
 
-        if (mealBreakStart) {
-          // Update - use edited_by, not created_by
-          await supabase.from('time_punches').update({ 
-            punch_time: breakStartTime,
+        const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
+
+        const breakStartDate = getAdjustedDateForTime(brk.startTime, clockInTime, shiftDate);
+        const breakStartIso = toISOStringInTimezone(breakStartDate, brk.startTime, timezone);
+
+        if (brk.id) {
+          await supabase.from('time_punches').update({
+            punch_time: breakStartIso,
+            notes: breakNotes,
             edited_by: currentUserId,
-            edited_at: now
-          }).eq('id', mealBreakStart.id);
+            edited_at: now,
+          }).eq('id', brk.id);
         } else {
-          // Insert - use created_by
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
             punch_type: 'break_start',
-            punch_time: breakStartTime,
-            notes: '30 minute meal break',
-            created_by: currentUserId
+            punch_time: breakStartIso,
+            notes: breakNotes,
+            created_by: currentUserId,
           });
         }
 
-        if (mealBreakEnd) {
-          // Update - use edited_by, not created_by
-          await supabase.from('time_punches').update({ 
-            punch_time: breakEndTime,
-            edited_by: currentUserId,
-            edited_at: now
-          }).eq('id', mealBreakEnd.id);
-        } else {
-          // Insert - use created_by
-          await supabase.from('time_punches').insert({
-            user_id: userId,
-            location_id: locationId,
-            punch_type: 'break_end',
-            punch_time: breakEndTime,
-            notes: '30 minute meal break',
-            created_by: currentUserId
-          });
+        if (brk.endTime) {
+          const breakEndDate = getAdjustedDateForTime(brk.endTime, clockInTime, shiftDate);
+          const breakEndIso = toISOStringInTimezone(breakEndDate, brk.endTime, timezone);
+
+          if (brk.endId) {
+            // endId may be a break_end OR a legacy clock_in (return from break)
+            await supabase.from('time_punches').update({
+              punch_time: breakEndIso,
+              notes: breakNotes,
+              edited_by: currentUserId,
+              edited_at: now,
+            }).eq('id', brk.endId);
+          } else {
+            await supabase.from('time_punches').insert({
+              user_id: userId,
+              location_id: locationId,
+              punch_type: 'break_end',
+              punch_time: breakEndIso,
+              notes: breakNotes,
+              created_by: currentUserId,
+            });
+          }
         }
-      } else {
-        // Remove meal break if unchecked
-        if (mealBreakStart) await supabase.from('time_punches').delete().eq('id', mealBreakStart.id);
-        if (mealBreakEnd) await supabase.from('time_punches').delete().eq('id', mealBreakEnd.id);
+      }
+
+      // Delete removed breaks (safe deletes: remove break_start and only explicit break_end)
+      const existingBreakStartIds = new Set(breaks.map(b => b.id).filter(Boolean) as string[]);
+      const existingBreakEndIds = new Set(breaks.map(b => b.endId).filter(Boolean) as string[]);
+
+      for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_start')) {
+        if (!existingBreakStartIds.has(p.id)) {
+          await supabase.from('time_punches').delete().eq('id', p.id);
+        }
+      }
+
+      // Only delete explicit break_end punches. If a break "end" is stored as clock_in, we leave it intact.
+      for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_end')) {
+        if (!existingBreakEndIds.has(p.id)) {
+          await supabase.from('time_punches').delete().eq('id', p.id);
+        }
       }
 
       toast.success('Shift updated');
@@ -286,36 +341,84 @@ function EditShiftForm({
       </div>
 
       <div className="border-t pt-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="meal-break"
-            checked={hasMealBreak}
-            onCheckedChange={(checked) => setHasMealBreak(checked as boolean)}
-          />
-          <label htmlFor="meal-break" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
-            <Coffee className="h-4 w-4 text-amber-600" />
-            30-Minute Meal Break
-          </label>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm font-medium">Breaks</div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setBreaks(prev => ([...prev, { startTime: '', endTime: '', type: 'unpaid' }]))}
+          >
+            Add break
+          </Button>
         </div>
 
-        {hasMealBreak && (
-          <div className="grid grid-cols-2 gap-4 pl-6">
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Break Start</label>
-              <Input
-                type="time"
-                value={mealBreakStartTime}
-                onChange={(e) => setMealBreakStartTime(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Break End</label>
-              <Input
-                type="time"
-                value={mealBreakEndTime}
-                onChange={(e) => setMealBreakEndTime(e.target.value)}
-              />
-            </div>
+        {breaks.length === 0 ? (
+          <div className="text-xs text-muted-foreground">No breaks</div>
+        ) : (
+          <div className="space-y-3">
+            {breaks.map((brk, idx) => (
+              <div key={`${brk.id || 'new'}-${idx}`} className="rounded-lg border bg-muted/10 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Coffee className="h-4 w-4 text-muted-foreground" />
+                    <div className="text-sm font-medium">Break {idx + 1}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => setBreaks(prev => prev.filter((_, i) => i !== idx))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Type</label>
+                    <Select
+                      value={brk.type}
+                      onValueChange={(v) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, type: v as 'paid' | 'unpaid' } : b))}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="unpaid">Unpaid (30m)</SelectItem>
+                        <SelectItem value="paid">Paid (10m)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Break Start</label>
+                    <Input
+                      type="time"
+                      value={brk.startTime}
+                      onChange={(e) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, startTime: e.target.value } : b))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Break End</label>
+                    <Input
+                      type="time"
+                      value={brk.endTime}
+                      onChange={(e) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, endTime: e.target.value } : b))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">  </label>
+                    <div className="text-xs text-muted-foreground flex items-center h-10">
+                      {brk.type === 'unpaid' ? 'Meal break' : 'Paid break'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
