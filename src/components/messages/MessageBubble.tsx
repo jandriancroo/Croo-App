@@ -191,7 +191,7 @@ export function MessageBubble({
 
             {/* Message content */}
             {message.content && (
-              <div className="text-sm">
+              <div className="text-[15px] leading-relaxed">
                 <MessageContent
                   content={message.content}
                   chatId={chatId}
