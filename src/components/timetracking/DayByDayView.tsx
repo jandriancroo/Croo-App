@@ -133,17 +133,17 @@ export function DayByDayView({
   };
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <Table>
+    <div className="border rounded-lg overflow-x-auto">
+      <Table className="min-w-[700px]">
         <TableHeader>
           <TableRow className="bg-muted/30">
-            <TableHead className="w-[15%]">Employee</TableHead>
-            <TableHead className="w-[15%]">Scheduled</TableHead>
-            <TableHead className="w-[18%]">Actual</TableHead>
-            <TableHead className="w-[27%]">Breaks</TableHead>
-            <TableHead className="w-[10%]">Flags</TableHead>
+            <TableHead className="w-[18%]">Employee</TableHead>
+            <TableHead className="w-[14%]">Scheduled</TableHead>
+            <TableHead className="w-[16%]">Actual</TableHead>
+            <TableHead className="w-[24%]">Breaks</TableHead>
+            <TableHead className="w-[12%]">Flags</TableHead>
             <TableHead className="w-[8%] text-right">Hours</TableHead>
-            <TableHead className="w-[7%]"></TableHead>
+            <TableHead className="w-[8%]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
