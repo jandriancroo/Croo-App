@@ -97,11 +97,11 @@ export function DesktopTimeTrackingTable({
               <TableRow key={`employee-${card.profile.id}`} className="bg-muted/40 hover:bg-muted/50">
                 <TableCell className="py-2" colSpan={3}>
                   <div className="flex items-center gap-2">
-                    <Avatar className="h-7 w-7">
+                    <Avatar className="h-8 w-8">
                       <AvatarImage src={card.profile.avatar_url} />
-                      <AvatarFallback className="text-xs">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                      <AvatarFallback className="text-xs font-bold">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium text-sm">{card.profile.full_name}</span>
+                    <span className="font-bold text-base">{card.profile.full_name}</span>
                   </div>
                 </TableCell>
                 <TableCell className="py-2 text-right">
