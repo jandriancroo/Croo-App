@@ -1440,7 +1440,7 @@ export default function PayrollReview() {
     return dates;
   }, [selectedPeriod, timezone]);
 
-  // Filter cards by employee and day
+  // Filter cards by employee, day, and flags
   const filteredCards = useMemo(() => {
     let cards = filterEmployee === 'all' 
       ? timeCards 
@@ -1462,8 +1462,55 @@ export default function PayrollReview() {
       }).filter(card => Object.keys(card.punchesByDay).length > 0);
     }
     
+    // Filter by flags
+    if (filterFlag !== 'all') {
+      cards = cards.map(card => {
+        const filteredPunchesByDay: { [key: string]: any[] } = {};
+        Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
+          const sortedPunches = sortPunches(dayPunches);
+          const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+          
+          // Check for break violation
+          let hasBreakViolation = false;
+          const clockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
+          const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
+          const mealBreaks = sortedPunches.filter((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+          
+          clockIns.forEach((clockIn: any) => {
+            const clockInTime = new Date(clockIn.punch_time).getTime();
+            const clockOut = clockOuts.find((co: any) => new Date(co.punch_time).getTime() > clockInTime);
+            if (clockOut) {
+              const hours = (new Date(clockOut.punch_time).getTime() - clockInTime) / 3600000;
+              const hasMealBreak = mealBreaks.some((mb: any) => {
+                const mbTime = new Date(mb.punch_time).getTime();
+                return mbTime > clockInTime && mbTime < new Date(clockOut.punch_time).getTime();
+              });
+              if (hours > 5 && !hasMealBreak) {
+                hasBreakViolation = true;
+              }
+            }
+          });
+          
+          const hasFlagged = hasAutoClockOut || hasBreakViolation;
+          
+          // Apply filter logic
+          if (filterFlag === 'flagged' && hasFlagged) {
+            filteredPunchesByDay[day] = dayPunches;
+          } else if (filterFlag === 'auto_punch' && hasAutoClockOut) {
+            filteredPunchesByDay[day] = dayPunches;
+          } else if (filterFlag === 'break_violation' && hasBreakViolation) {
+            filteredPunchesByDay[day] = dayPunches;
+          }
+        });
+        return {
+          ...card,
+          punchesByDay: filteredPunchesByDay
+        };
+      }).filter(card => Object.keys(card.punchesByDay).length > 0);
+    }
+    
     return cards;
-  }, [timeCards, filterEmployee, filterDay]);
+  }, [timeCards, filterEmployee, filterDay, filterFlag]);
 
   // Count shifts (unique days) awaiting approval, not individual punch records
   const countShiftsAwaitingApproval = (cards: typeof timeCards) => {
@@ -1941,35 +1988,35 @@ export default function PayrollReview() {
             {/* View Toggle + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               {/* View Mode Toggle */}
-              <div className="flex rounded-lg border bg-muted/30 p-0.5">
+              <div className="flex rounded-lg border-2 border-border bg-muted/50 p-1 shrink-0">
                 <button
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
                     viewMode === 'employee' 
-                      ? 'bg-background shadow text-foreground' 
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground shadow-md' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
                   onClick={() => setViewMode('employee')}
                 >
                   <Users className="h-4 w-4" />
-                  By Employee
+                  <span>By Employee</span>
                 </button>
                 <button
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all ${
                     viewMode === 'day' 
-                      ? 'bg-background shadow text-foreground' 
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-primary text-primary-foreground shadow-md' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                   }`}
                   onClick={() => setViewMode('day')}
                 >
                   <CalendarDays className="h-4 w-4" />
-                  By Day
+                  <span>By Day</span>
                 </button>
               </div>
 
               {/* Filters */}
-              <div className="flex-1 grid grid-cols-3 gap-2">
+              <div className="flex-1 grid grid-cols-3 gap-2 max-w-md">
                 <Select value={filterDay} onValueChange={setFilterDay}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-10 font-medium">
                     <SelectValue placeholder="All days" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1983,7 +2030,7 @@ export default function PayrollReview() {
                 </Select>
 
                 <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-10 font-medium">
                     <SelectValue placeholder="All employees" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1997,7 +2044,7 @@ export default function PayrollReview() {
                 </Select>
 
                 <Select value={filterFlag} onValueChange={setFilterFlag}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-10 font-medium">
                     <SelectValue placeholder="All shifts" />
                   </SelectTrigger>
                   <SelectContent>
