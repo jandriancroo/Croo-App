@@ -89,14 +89,7 @@ export function DesktopTimeTrackingTable({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <Table className="table-fixed">
-        <colgroup>
-          <col className="w-[140px]" />
-          <col className="w-[180px]" />
-          <col className="w-[140px]" />
-          <col className="w-[80px]" />
-          <col className="w-[56px]" />
-        </colgroup>
+      <Table>
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
             <>
