@@ -76,7 +76,7 @@ export function DayByDayView({
       });
       if (currentShift) shifts.push(currentShift);
 
-      const dayHours = calculateDayHours(dayPunches);
+      const dayHours = calculateDayHours(dayPunches) || 0;
       const flags = getDayFlags(dayPunches);
       const hasAutoClockOut = flags.hasAutoClockOut;
       const hasBreakViolation = flags.hasBreakViolation;
@@ -120,7 +120,7 @@ export function DayByDayView({
 
   // Calculate daily totals
   const getDayTotalHours = (entries: typeof shiftsByDay extends Map<string, infer V> ? V : never) => {
-    return entries.reduce((sum, entry) => sum + entry.dayHours, 0);
+    return entries.reduce((sum, entry) => sum + (entry.dayHours || 0), 0);
   };
 
   return (
@@ -285,7 +285,7 @@ export function DayByDayView({
 
                       {/* Hours */}
                       <TableCell className="py-1.5 text-right">
-                        <span className="font-medium text-sm">{entry.dayHours.toFixed(1)}</span>
+                        <span className="font-medium text-sm">{(entry.dayHours || 0).toFixed(1)}</span>
                       </TableCell>
 
                       {/* Approve */}
