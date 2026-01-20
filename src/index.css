@@ -380,6 +380,7 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground font-manrope;
+    font-weight: 500;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
     width: 100%;
@@ -394,14 +395,14 @@ All colors MUST be HSL.
     position: relative;
   }
 
-  /* Headings use medium weight (500) for cleaner look */
+  /* Headings use bold weight */
   h1, h2, h3, h4, h5, h6 {
-    font-weight: 500;
+    font-weight: 700;
   }
 
-  /* Navigation and menu items use medium weight */
+  /* Navigation and menu items use bold weight */
   nav, [role="navigation"], [role="menu"], [role="menuitem"] {
-    font-weight: 500;
+    font-weight: 700;
   }
 
   /* Ensure input elements have good touch targets - exclude tab triggers and small UI elements */
