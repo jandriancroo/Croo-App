@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, Plus, Loader2, ArrowLeft, Clock, Image, ChevronDown } from 'lucide-react';
+import { Send, Plus, Loader2, ArrowLeft, ChevronDown } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { CreateTicketDialog } from './CreateTicketDialog';
 import {
@@ -276,15 +276,18 @@ export function UserSupportView() {
           <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-auto p-1 gap-1 font-normal">
-                  <span className="font-mono text-sm">{formatTicketId(selectedTicket.ticket_number)}</span>
-                  <Badge variant="outline" className={STATUS_COLORS[selectedTicket.status]}>
+                <Button variant="ghost" className="h-auto p-1 gap-2 font-normal max-w-full">
+                  <span className="font-mono text-sm shrink-0">{formatTicketId(selectedTicket.ticket_number)}</span>
+                  <Badge variant="outline" className={`${STATUS_COLORS[selectedTicket.status]} shrink-0`}>
                     {selectedTicket.status.replace('_', ' ')}
                   </Badge>
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  <Badge variant="secondary" className="text-xs truncate max-w-[120px]">
+                    {CATEGORY_LABELS[selectedTicket.category]}
+                  </Badge>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
@@ -303,39 +306,6 @@ export function UserSupportView() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-        
-        {/* Ticket Details */}
-        <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-          <div className="flex items-center gap-4 text-sm">
-            <Badge variant="outline">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
-            {selectedTicket.occurrence_time && (
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                {format(new Date(selectedTicket.occurrence_time), 'MMM d, h:mm a')}
-              </span>
-            )}
-          </div>
-          <p className="text-sm">{selectedTicket.description}</p>
-          {selectedTicket.screenshot_url && (
-            <a
-              href={selectedTicket.screenshot_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block"
-            >
-              <img
-                src={selectedTicket.screenshot_url}
-                alt="Support ticket screenshot"
-                loading="lazy"
-                className="rounded-md max-w-full"
-              />
-              <span className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                <Image className="h-3 w-3" />
-                Open Screenshot
-              </span>
-            </a>
-          )}
         </div>
       </div>
 
