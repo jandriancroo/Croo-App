@@ -94,18 +94,23 @@ export function DesktopTimeTrackingTable({
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
             <>
+              {/* Spacer row for visual separation between employees */}
+              <TableRow key={`spacer-${card.profile.id}`} className="h-4 border-0 bg-transparent hover:bg-transparent">
+                <TableCell colSpan={7} className="p-0 border-0" />
+              </TableRow>
+              
               {/* Employee header row */}
-              <TableRow key={`employee-${card.profile.id}`} className="bg-muted/40 hover:bg-muted/50">
-                <TableCell className="py-2" colSpan={5}>
+              <TableRow key={`employee-${card.profile.id}`} className="bg-primary/10 dark:bg-primary/20 border-t-2 border-primary/30 hover:bg-primary/15 dark:hover:bg-primary/25">
+                <TableCell className="py-2.5" colSpan={5}>
                   <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 ring-2 ring-primary/30">
                       <AvatarImage src={card.profile.avatar_url} />
-                      <AvatarFallback className="text-xs font-bold">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                      <AvatarFallback className="text-xs font-bold bg-primary/20">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
-                    <span className="font-bold text-base">{card.profile.full_name}</span>
+                    <span className="font-bold text-base text-primary dark:text-primary-foreground">{card.profile.full_name}</span>
                   </div>
                 </TableCell>
-                <TableCell className="py-2 text-right">
+                <TableCell className="py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <span className="text-xs text-muted-foreground uppercase">Total</span>
                     <span className="font-semibold text-sm">{card.totalHours.toFixed(1)}</span>
