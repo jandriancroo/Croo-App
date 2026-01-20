@@ -390,18 +390,26 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         },
         (payload) => {
           const newMsg = payload.new as any;
-          
+
+          const existingMessages =
+            queryClient.getQueryData<Message[]>(['chat-messages', chatId]) || [];
+
+          // If we've already added this exact row (e.g. we replaced an optimistic message
+          // immediately after INSERT), do nothing to avoid duplicates.
+          if (existingMessages.some((m) => m.id === newMsg.id)) {
+            return;
+          }
+
           // Check if this message is already in cache (from optimistic update)
-          const existingMessages = queryClient.getQueryData<Message[]>(['chat-messages', chatId]) || [];
-          const isOptimisticUpdate = existingMessages.some(m => 
-            m.isPending && m.content === newMsg.content && m.sender_id === newMsg.sender_id
+          const isOptimisticUpdate = existingMessages.some(
+            (m) => m.isPending && m.content === newMsg.content && m.sender_id === newMsg.sender_id
           );
-          
+
           if (isOptimisticUpdate) {
             // Replace optimistic message with real one - no need to fetch profile, we have it
             queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
               if (!old) return [];
-              return old.map(m => {
+              return old.map((m) => {
                 if (m.isPending && m.content === newMsg.content && m.sender_id === newMsg.sender_id) {
                   return { ...newMsg, profiles: m.profiles, parent_message: m.parent_message };
                 }
@@ -420,7 +428,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             // Append immediately for instant display
             queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
               if (!old) return [messageWithoutProfile];
-              if (old.some(m => m.id === newMsg.id)) return old;
+              if (old.some((m) => m.id === newMsg.id)) return old;
               return [...old, messageWithoutProfile];
             });
 
@@ -434,7 +442,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 if (profile) {
                   queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
                     if (!old) return [];
-                    return old.map(m => m.id === newMsg.id ? { ...m, profiles: profile } : m);
+                    return old.map((m) => (m.id === newMsg.id ? { ...m, profiles: profile } : m));
                   });
                 }
               });
@@ -442,7 +450,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             // Show "new message" bubble if not near bottom
             if (!isNearBottomRef.current) {
               setShowNewMessageBubble(true);
-              setNewMessageCount(prev => prev + 1);
+              setNewMessageCount((prev) => prev + 1);
             }
           }
 
@@ -450,7 +458,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           if (isNearBottomRef.current) {
             setTimeout(() => scrollToBottom(), 50);
           }
-          
+
           // Mark as read since chat is open
           if (currentUserId) {
             markChatAsRead(chatId, currentUserId);
@@ -509,18 +517,36 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     // Fire-and-forget database insert - don't block UI
     const sendMessage = async () => {
       try {
-        const { error } = await supabase
+        // Select minimal fields so we can flip the optimistic bubble out of "Sending..."
+        // immediately, without waiting for realtime roundtrip.
+        const { data: inserted, error } = await supabase
           .from('messages')
           .insert({
             chat_id: chatId,
             sender_id: currentUserId,
             content: messageContent || null,
             parent_message_id: replyTo?.id || null,
-          });
+          })
+          .select('id, created_at')
+          .single();
 
         if (error) throw error;
 
-        // Send push notifications in background (don't await)
+        if (inserted?.id) {
+          queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+            if (!old) return [];
+            return old.map((m) => {
+              if (m.id !== optimisticId) return m;
+              return {
+                ...m,
+                id: inserted.id,
+                created_at: inserted.created_at ? inserted.created_at : m.created_at,
+                isPending: false,
+              };
+            });
+          });
+        }
+
         // Send push notifications in background (fire and forget)
         (async () => {
           try {
