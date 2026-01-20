@@ -25,6 +25,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeTrackingTable';
 import { DayByDayView } from '@/components/timetracking/DayByDayView';
 import { MobileTimeTrackingCard } from '@/components/timetracking/MobileTimeTrackingCard';
+import { MobileDayByDayCard } from '@/components/timetracking/MobileDayByDayCard';
 import { Users, CalendarDays } from 'lucide-react';
 import {
   toISOStringInTimezone,
@@ -2227,20 +2228,35 @@ export default function PayrollReview() {
 
                 {/* Mobile Cards View - below sm */}
                 <div className="block sm:hidden">
-                  <MobileTimeTrackingCard
-                    filteredCards={filteredCards}
-                    timezone={timezone}
-                    includeApproved={includeApproved}
-                    onApproveDay={handleApproveDay}
-                    onUnapproveDay={handleUnapproveDay}
-                    onEditShift={setEditingShift}
-                    calculateDayHours={calculateDayHours}
-                    hasDayIssues={hasDayIssues}
-                    sortPunches={sortPunches}
-                    groupPunchesByWeek={groupPunchesByWeek}
-                    currentLocationId={currentLocation?.id || ''}
-                    approvingPunchIds={approvingPunchIds}
-                  />
+                  {viewMode === 'employee' ? (
+                    <MobileTimeTrackingCard
+                      filteredCards={filteredCards}
+                      timezone={timezone}
+                      includeApproved={includeApproved}
+                      onApproveDay={handleApproveDay}
+                      onUnapproveDay={handleUnapproveDay}
+                      onEditShift={setEditingShift}
+                      calculateDayHours={calculateDayHours}
+                      hasDayIssues={hasDayIssues}
+                      sortPunches={sortPunches}
+                      groupPunchesByWeek={groupPunchesByWeek}
+                      currentLocationId={currentLocation?.id || ''}
+                      approvingPunchIds={approvingPunchIds}
+                    />
+                  ) : (
+                    <MobileDayByDayCard
+                      filteredCards={filteredCards}
+                      timezone={timezone}
+                      includeApproved={includeApproved}
+                      onApproveDay={handleApproveDay}
+                      onUnapproveDay={handleUnapproveDay}
+                      onEditShift={setEditingShift}
+                      calculateDayHours={calculateDayHours}
+                      sortPunches={sortPunches}
+                      currentLocationId={currentLocation?.id || ''}
+                      approvingPunchIds={approvingPunchIds}
+                    />
+                  )}
                 </div>
               </>
             )}
