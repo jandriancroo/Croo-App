@@ -644,17 +644,42 @@ export default function PunchClock() {
   const checkLastPunch = async () => {
     if (!currentUser) return;
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    // Use a 16-hour lookback to correctly handle overnight shifts
+    // This ensures we find punches from a shift that started yesterday but is still active
+    const now = new Date();
+    const lookbackTime = new Date(now.getTime() - 16 * 60 * 60 * 1000);
+    
     const { data } = await supabase
       .from('time_punches')
       .select('*')
       .eq('user_id', currentUser.id)
-      .gte('punch_time', today)
+      .gte('punch_time', lookbackTime.toISOString())
       .order('punch_time', { ascending: false })
       .limit(1)
       .maybeSingle();
 
+    // If the last punch is a clock_out from more than 8 hours ago, treat as no active shift
+    if (data && data.punch_type === 'clock_out') {
+      const punchTime = new Date(data.punch_time);
+      const hoursSincePunch = (now.getTime() - punchTime.getTime()) / (1000 * 60 * 60);
+      if (hoursSincePunch > 8) {
+        setLastPunch(null);
+        return;
+      }
+    }
+
     setLastPunch(data || null);
+    
+    console.log('[PunchClock] checkLastPunch result:', {
+      userId: currentUser.id,
+      userName: currentUser.full_name,
+      lookbackTime: lookbackTime.toISOString(),
+      lastPunch: data ? {
+        id: data.id,
+        punch_type: data.punch_type,
+        punch_time: data.punch_time
+      } : null
+    });
   };
 
   const checkExpiringCertifications = async () => {
