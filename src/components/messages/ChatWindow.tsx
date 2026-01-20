@@ -84,7 +84,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+  // pendingMessages state removed - now using optimistic updates directly in query cache
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -388,43 +388,67 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           table: 'messages',
           filter: `chat_id=eq.${chatId}`,
         },
-        async (payload) => {
+        (payload) => {
           const newMsg = payload.new as any;
           
-          // Fetch the sender profile for the new message
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, profile_photo_url')
-            .eq('id', newMsg.sender_id)
-            .single();
+          // Check if this message is already in cache (from optimistic update)
+          const existingMessages = queryClient.getQueryData<Message[]>(['chat-messages', chatId]) || [];
+          const isOptimisticUpdate = existingMessages.some(m => 
+            m.isPending && m.content === newMsg.content && m.sender_id === newMsg.sender_id
+          );
+          
+          if (isOptimisticUpdate) {
+            // Replace optimistic message with real one - no need to fetch profile, we have it
+            queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+              if (!old) return [];
+              return old.map(m => {
+                if (m.isPending && m.content === newMsg.content && m.sender_id === newMsg.sender_id) {
+                  return { ...newMsg, profiles: m.profiles, parent_message: m.parent_message };
+                }
+                return m;
+              });
+            });
+          } else {
+            // Message from another user - add immediately with placeholder, fetch profile in background
+            const messageWithoutProfile: Message = {
+              ...newMsg,
+              profiles: undefined,
+              parent_message: null,
+              isNew: true,
+            };
 
-          const messageWithProfile: Message = {
-            ...newMsg,
-            profiles: profile || undefined,
-            parent_message: null,
-            isNew: true, // Mark for fade-in animation
-          };
+            // Append immediately for instant display
+            queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+              if (!old) return [messageWithoutProfile];
+              if (old.some(m => m.id === newMsg.id)) return old;
+              return [...old, messageWithoutProfile];
+            });
 
-          // Append to cache instead of refetching
-          queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
-            if (!old) return [messageWithProfile];
-            // Avoid duplicates
-            if (old.some(m => m.id === newMsg.id)) return old;
-            return [...old, messageWithProfile];
-          });
+            // Fetch profile in background and update
+            supabase
+              .from('profiles')
+              .select('full_name, profile_photo_url')
+              .eq('id', newMsg.sender_id)
+              .single()
+              .then(({ data: profile }) => {
+                if (profile) {
+                  queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+                    if (!old) return [];
+                    return old.map(m => m.id === newMsg.id ? { ...m, profiles: profile } : m);
+                  });
+                }
+              });
 
-          // Remove from pending if it was an optimistic update
-          setPendingMessages(prev => prev.filter(m => 
-            !(m.content === newMsg.content && m.sender_id === newMsg.sender_id)
-          ));
+            // Show "new message" bubble if not near bottom
+            if (!isNearBottomRef.current) {
+              setShowNewMessageBubble(true);
+              setNewMessageCount(prev => prev + 1);
+            }
+          }
 
-          // Smart scroll: only auto-scroll if near bottom, otherwise show bubble
+          // Smart scroll: only auto-scroll if near bottom
           if (isNearBottomRef.current) {
             setTimeout(() => scrollToBottom(), 50);
-          } else if (newMsg.sender_id !== currentUserId) {
-            // Show "new message" bubble for messages from others
-            setShowNewMessageBubble(true);
-            setNewMessageCount(prev => prev + 1);
           }
           
           // Mark as read since chat is open
@@ -469,78 +493,79 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       } : null,
       profiles: {
         full_name: userFullName,
-        profile_photo_url: null, // Will be updated when real message arrives
+        profile_photo_url: null,
       },
       isPending: true,
     };
     
-    // Add to pending messages immediately
-    setPendingMessages(prev => [...prev, optimisticMessage]);
-    // Use rAF + instant scroll so the optimistic bubble appears immediately (no smooth-scroll delay)
+    // Add optimistic message directly to query cache for INSTANT display
+    queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+      return [...(old || []), optimisticMessage];
+    });
+    
+    // Scroll immediately
     requestAnimationFrame(() => scrollToBottom(true));
 
-    try {
-      if (!currentUserId) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          chat_id: chatId,
-          sender_id: currentUserId,
-          content: messageContent || null,
-          parent_message_id: replyTo?.id || null,
-        });
-
-      if (error) throw error;
-
-      // Remove from pending (realtime will add the real message)
-      setPendingMessages(prev => prev.filter(m => m.id !== optimisticId));
-
-      // Send push notifications to chat members
+    // Fire-and-forget database insert - don't block UI
+    const sendMessage = async () => {
       try {
-        const { data: members, error: membersError } = await supabase
-          .from('chat_members')
-          .select('user_id')
-          .eq('chat_id', chatId)
-          .neq('user_id', currentUserId);
-
-        if (membersError) {
-          console.error('Error fetching chat members:', membersError);
-        }
-
-        if (members && members.length > 0) {
-          const { data: senderProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', currentUserId)
-            .single();
-
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_ids: members.map(m => m.user_id),
-              sender_id: currentUserId, // Ensure sender doesn't receive their own notification
-              title: senderProfile?.full_name || 'New Message',
-              body: messageContent.substring(0, 100),
-              notification_type: 'chat_messages',
-              data: {
-                chat_id: chatId,
-                type: 'message'
-              }
-            }
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            chat_id: chatId,
+            sender_id: currentUserId,
+            content: messageContent || null,
+            parent_message_id: replyTo?.id || null,
           });
-        }
-      } catch (notifError) {
-        console.error('Error sending push notification:', notifError);
-      }
 
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      // Remove failed pending message and show error
-      setPendingMessages(prev => prev.filter(m => m.id !== optimisticId));
-      toast.error('Failed to send message');
-      // Restore the message to input
-      setNewMessage(messageContent);
-    }
+        if (error) throw error;
+
+        // Send push notifications in background (don't await)
+        // Send push notifications in background (fire and forget)
+        (async () => {
+          try {
+            const { data: members } = await supabase
+              .from('chat_members')
+              .select('user_id')
+              .eq('chat_id', chatId)
+              .neq('user_id', currentUserId);
+
+            if (members && members.length > 0) {
+              const { data: senderProfile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', currentUserId)
+                .single();
+
+              await supabase.functions.invoke('send-push-notification', {
+                body: {
+                  user_ids: members.map(m => m.user_id),
+                  sender_id: currentUserId,
+                  title: senderProfile?.full_name || 'New Message',
+                  body: messageContent.substring(0, 100),
+                  notification_type: 'chat_messages',
+                  data: { chat_id: chatId, type: 'message' }
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Push notification error:', err);
+          }
+        })();
+
+      } catch (error: any) {
+        console.error('Error sending message:', error);
+        // Remove optimistic message on error
+        queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+          return (old || []).filter(m => m.id !== optimisticId);
+        });
+        toast.error('Failed to send message');
+        setNewMessage(messageContent); // Restore message
+      }
+    };
+
+    // Don't await - fire and forget for instant UI
+    sendMessage();
   };
 
   const handleReaction = async (messageId: string, reaction: string) => {
@@ -876,16 +901,16 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           </div>
         )}
 
-        {/* Loading state - only show if no messages AND no pending messages */}
-        {messagesLoading && messages.length === 0 && pendingMessages.length === 0 && (
+        {/* Loading state */}
+        {messagesLoading && messages.length === 0 && (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
 
         {(() => {
-          // Combine actual messages with pending messages
-          const allMessages = [...messages, ...pendingMessages];
+          // Messages already include optimistic updates from query cache
+          const allMessages = messages;
           
           // Build a map of game score message IDs to their smack talk overlays
           const smackTalkMap = new Map<string, { text: string; senderName: string }[]>();
