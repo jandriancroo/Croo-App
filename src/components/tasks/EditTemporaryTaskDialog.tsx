@@ -84,6 +84,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
   const [notifyOnlyWorking, setNotifyOnlyWorking] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [showOnPunchClock, setShowOnPunchClock] = useState(false);
+  const [showOnDashboard, setShowOnDashboard] = useState(true);
   
   // Assignment
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
@@ -156,6 +157,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
       setNotifyOnlyWorking(task.notify_only_working ?? true);
       setPushEnabled(task.push_enabled ?? true);
       setShowOnPunchClock(task.show_on_punch_clock ?? false);
+      setShowOnDashboard(task.show_on_dashboard ?? true);
       
       // Load assignments
       const assignments = task.assignments || [];
@@ -267,6 +269,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         description: description.trim() || null,
         accent_color: accentColor,
         push_enabled: pushEnabled,
+        show_on_dashboard: showOnDashboard,
       };
 
       if (taskStyle === "alarm") {
@@ -444,6 +447,22 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             />
           </div>
 
+          {/* Show on Dashboard Toggle - for standard tasks */}
+          {taskStyle === "standard" && (
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Show on Dashboard</Label>
+                <p className="text-xs text-muted-foreground">
+                  Display task card on employee dashboard
+                </p>
+              </div>
+              <Switch
+                checked={showOnDashboard}
+                onCheckedChange={setShowOnDashboard}
+              />
+            </div>
+          )}
+
           {/* Alarm Task Fields */}
           {taskStyle === "alarm" && (
             <>
@@ -545,6 +564,20 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                 <Switch
                   checked={showOnPunchClock}
                   onCheckedChange={setShowOnPunchClock}
+                />
+              </div>
+
+              {/* Show on Dashboard Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show on Dashboard</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display task card on employee dashboard
+                  </p>
+                </div>
+                <Switch
+                  checked={showOnDashboard}
+                  onCheckedChange={setShowOnDashboard}
                 />
               </div>
             </>

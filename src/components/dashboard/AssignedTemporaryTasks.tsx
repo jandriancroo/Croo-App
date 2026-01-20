@@ -84,12 +84,14 @@ export function AssignedTemporaryTasks({
       const taskIds = [...new Set(assignments.map((a) => a.task_id))];
 
       // Fetch tasks - include both completed and incomplete
+      // Filter by show_on_dashboard = true
       let query = supabase
         .from("temporary_tasks")
         .select("*")
         .in("id", taskIds)
         .eq("location_id", currentLocation.id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("show_on_dashboard", true);
 
       // If not showing completed, filter them out
       if (!showCompleted) {
