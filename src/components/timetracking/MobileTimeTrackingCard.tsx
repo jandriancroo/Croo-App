@@ -58,7 +58,7 @@ export function MobileTimeTrackingCard({
             <div className="flex items-center justify-between px-4 py-3 bg-primary/10 dark:bg-primary/20 border-b border-primary/30">
               <span className="font-bold text-base">{card.profile.full_name}</span>
               <div className="text-right">
-                <span className="font-bold text-lg">{card.totalHours.toFixed(1)}</span>
+                <span className="font-bold text-lg">{(card.totalHours || 0).toFixed(1)}</span>
                 <span className="text-muted-foreground text-sm ml-1">hrs</span>
               </div>
             </div>
@@ -66,7 +66,7 @@ export function MobileTimeTrackingCard({
             <CardContent className="p-0">
               {weekGroups.map(([weekKey, weekData]) => {
                 const weekTotalHours = Object.values(weekData.days).reduce((sum: number, dayPunches: any) => {
-                  return sum + calculateDayHours(dayPunches);
+                  return sum + (calculateDayHours(dayPunches) || 0);
                 }, 0);
                 
                 return (
@@ -110,7 +110,7 @@ export function MobileTimeTrackingCard({
                           
                           const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
                           const dayDate = parseDateStringInTimezone(day, timezone);
-                          const dayHours = calculateDayHours(dayPunches);
+                          const dayHours = calculateDayHours(dayPunches) || 0;
                           const isApproved = dayPunches.every((p: any) => p.approved_at);
                           const flags = getDayFlags(dayPunches);
                           const hasAnyFlag = flags.hasAnyFlag;

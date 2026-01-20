@@ -58,7 +58,7 @@ export function DesktopTimeTrackingTable({
       let weekTotalHours = 0;
       
       sortedDays.forEach(([day, dayPunches]) => {
-        const dayHrs = calculateDayHours(dayPunches);
+        const dayHrs = calculateDayHours(dayPunches) || 0;
         weekTotalHours += dayHrs;
         
         const isApproved = dayPunches.every((p: any) => p.approved_at);
@@ -108,7 +108,7 @@ export function DesktopTimeTrackingTable({
                 <TableCell className="py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <span className="text-xs text-muted-foreground uppercase">Total</span>
-                    <span className="font-semibold text-sm">{card.totalHours.toFixed(1)}</span>
+                    <span className="font-semibold text-sm">{(card.totalHours || 0).toFixed(1)}</span>
                   </div>
                 </TableCell>
                 <TableCell />
@@ -155,7 +155,7 @@ export function DesktopTimeTrackingTable({
 
                     const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
                     const dayDate = parseDateStringInTimezone(day, timezone);
-                    const dayHours = calculateDayHours(dayPunches);
+                    const dayHours = calculateDayHours(dayPunches) || 0;
                     const isApproved = dayPunches.every((p: any) => p.approved_at);
 
                     // Get scheduled shift for this day
