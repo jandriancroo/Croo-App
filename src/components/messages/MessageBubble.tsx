@@ -101,7 +101,7 @@ export function MessageBubble({
         )}
       </div>
 
-      <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
+      <div className={`flex flex-col min-w-0 max-w-[75%] overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}>
         {/* Name and time - only on first message of cluster */}
         {showName && isFirstInCluster && (
           <div className="flex items-center gap-2 mb-1 flex-wrap">
