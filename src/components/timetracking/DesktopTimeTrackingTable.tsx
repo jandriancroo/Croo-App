@@ -245,11 +245,12 @@ export function DesktopTimeTrackingTable({
                                     new Date(p.punch_time) > new Date(breakStart.punch_time)
                                   );
                                 }
-                                const duration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
+                                const scheduledDuration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
                                 
                                 let isLongBreak = false;
+                                let actualDurationMins = 0;
                                 if (breakEnd) {
-                                  const actualDurationMins = (new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000;
+                                  actualDurationMins = Math.round((new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000);
                                   isLongBreak = actualDurationMins > 35;
                                 }
                                 
@@ -259,12 +260,13 @@ export function DesktopTimeTrackingTable({
                                     className={`text-xs flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
                                   >
                                     <Coffee className="h-3 w-3" />
-                                    <span>{duration}:</span>
+                                    <span>{scheduledDuration}:</span>
                                     <span>{formatTimeDisplay(breakStart.punch_time, timezone)}</span>
                                     {breakEnd && (
                                       <>
                                         <span>→</span>
                                         <span>{formatTimeDisplay(breakEnd.punch_time, timezone)}</span>
+                                        <span className="text-[10px] opacity-70">({actualDurationMins}m)</span>
                                       </>
                                     )}
                                     {isLongBreak && <span>⚠️</span>}
