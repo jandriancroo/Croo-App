@@ -3,7 +3,7 @@ import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
+
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
@@ -279,16 +279,16 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Flags Column */}
-                        <TableCell className="py-1 w-[70px]">
-                          <div className="flex items-center gap-1">
+                        <TableCell className="py-1 w-[100px]">
+                          <div className="flex items-center gap-1 flex-wrap">
                             {hasBreakViolation && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-                                <Coffee className="h-2.5 w-2.5" />
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
+                                No Break
                               </Badge>
                             )}
                             {hasAutoClockOut && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-                                <img src={autoPunchIcon} alt="Auto" className="h-2.5 w-2.5" />
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
+                                Auto Out
                               </Badge>
                             )}
                           </div>
