@@ -19,6 +19,7 @@ interface MobileDayByDayCardProps {
   sortPunches: (punches: any[]) => any[];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
 }
 
 export function MobileDayByDayCard({
@@ -32,6 +33,7 @@ export function MobileDayByDayCard({
   sortPunches,
   currentLocationId,
   approvingPunchIds,
+  getDayFlags,
 }: MobileDayByDayCardProps) {
   // Flatten all shifts into a single list grouped by day
   const shiftsByDay: Map<string, {
@@ -73,21 +75,10 @@ export function MobileDayByDayCard({
       if (currentShift) shifts.push(currentShift);
 
       const dayHours = calculateDayHours(dayPunches);
-      const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+      const flags = getDayFlags(dayPunches);
+      const hasAutoClockOut = flags.hasAutoClockOut;
+      const hasBreakViolation = flags.hasBreakViolation;
       const scheduledShift = card.shiftsByDate?.get(day);
-      
-      // Check break violation
-      let hasBreakViolation = false;
-      shifts.forEach(shift => {
-        if (shift.clockIn && shift.clockOut) {
-          let shiftHours = (new Date(shift.clockOut.punch_time).getTime() - new Date(shift.clockIn.punch_time).getTime()) / 3600000;
-          if (shiftHours < 0) shiftHours += 24;
-          const shiftHasMealBreak = shift.breaks.some((b: any) => b.notes?.includes('30 minute'));
-          if (shiftHours > 5 && !shiftHasMealBreak) {
-            hasBreakViolation = true;
-          }
-        }
-      });
 
       if (!shiftsByDay.has(day)) {
         shiftsByDay.set(day, []);

@@ -21,6 +21,7 @@ interface DesktopTimeTrackingTableProps {
   groupPunchesByWeek: (punchesByDay: { [key: string]: any[] }) => [string, { start: Date; end: Date; days: { [day: string]: any[] } }][];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
 }
 
 export function DesktopTimeTrackingTable({
@@ -36,6 +37,7 @@ export function DesktopTimeTrackingTable({
   groupPunchesByWeek,
   currentLocationId,
   approvingPunchIds,
+  getDayFlags,
 }: DesktopTimeTrackingTableProps) {
 
   // Group data by employee with week groupings for hierarchical rendering
@@ -155,25 +157,14 @@ export function DesktopTimeTrackingTable({
                     const dayDate = parseDateStringInTimezone(day, timezone);
                     const dayHours = calculateDayHours(dayPunches);
                     const isApproved = dayPunches.every((p: any) => p.approved_at);
-                    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-                    
+
                     // Get scheduled shift for this day
                     const scheduledShift = card.shiftsByDate?.get(day);
-                    
-                    // Check break violation
-                    let hasBreakViolation = false;
-                    shifts.forEach(shift => {
-                      if (shift.clockIn && shift.clockOut) {
-                        let shiftHours = (new Date(shift.clockOut.punch_time).getTime() - new Date(shift.clockIn.punch_time).getTime()) / 3600000;
-                        if (shiftHours < 0) shiftHours += 24;
-                        const shiftHasMealBreak = shift.breaks.some((b: any) => b.notes?.includes('30 minute'));
-                        if (shiftHours > 5 && !shiftHasMealBreak) {
-                          hasBreakViolation = true;
-                        }
-                      }
-                    });
 
-                    const hasAnyFlag = hasAutoClockOut || hasBreakViolation;
+                    const flags = getDayFlags(dayPunches);
+                    const hasAutoClockOut = flags.hasAutoClockOut;
+                    const hasBreakViolation = flags.hasBreakViolation;
+                    const hasAnyFlag = flags.hasAnyFlag;
                     const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
                     
                     // Alternating row colors for visual separation
