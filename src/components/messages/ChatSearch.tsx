@@ -22,8 +22,8 @@ export function ChatSearch({ onSearch, placeholder = "Search all chats..." }: Ch
   };
 
   return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <div className="relative px-3">
+      <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
