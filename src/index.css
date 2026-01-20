@@ -394,6 +394,16 @@ All colors MUST be HSL.
     position: relative;
   }
 
+  /* Headings use medium weight (500) for cleaner look */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+  }
+
+  /* Navigation and menu items use medium weight */
+  nav, [role="navigation"], [role="menu"], [role="menuitem"] {
+    font-weight: 500;
+  }
+
   /* Ensure input elements have good touch targets - exclude tab triggers and small UI elements */
   @media (max-width: 768px) {
     input:not([type="checkbox"]):not([type="radio"]),
