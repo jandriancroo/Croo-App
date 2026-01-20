@@ -44,6 +44,7 @@ interface MessageBubbleProps {
   currentUserId: string | null;
   isAnnouncement: boolean;
   isArcadeChat: boolean;
+  isGroupChat: boolean;
   smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
@@ -64,6 +65,7 @@ export function MessageBubble({
   currentUserId,
   isAnnouncement,
   isArcadeChat,
+  isGroupChat,
   smackTalks = [],
   signedAttachmentUrl,
   onReaction,
@@ -200,8 +202,8 @@ export function MessageBubble({
             )}
           </div>
 
-          {/* Delivery status for own messages */}
-          {isOwnMessage && isLastInCluster && !isPending && (
+          {/* Delivery status for own messages - only in 1:1 chats */}
+          {isOwnMessage && isLastInCluster && !isPending && !isGroupChat && (
             <div className="flex justify-end mt-0.5 pr-1">
               <ReadReceipts
                 messageId={message.id}

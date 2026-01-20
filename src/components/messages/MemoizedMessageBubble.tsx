@@ -37,6 +37,7 @@ interface MemoizedMessageBubbleProps {
   currentUserId: string | null;
   isAnnouncement: boolean;
   isArcadeChat: boolean;
+  isGroupChat: boolean;
   smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
