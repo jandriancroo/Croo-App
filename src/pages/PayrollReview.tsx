@@ -808,7 +808,66 @@ export default function PayrollReview() {
       totalHours += hours;
     });
     
-    return totalHours;
+  };
+
+  // Shared flag detection (used by filters + UI) — keep in sync with EditPunchDialog keywords
+  const getDayFlags = (dayPunches: any[]) => {
+    const sortedPunches = sortPunches(dayPunches);
+    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+
+    // identify shift-starting clock-ins (not return-from-break clock-ins)
+    const shiftStartClockIns: any[] = [];
+    sortedPunches.forEach((punch: any, idx: number) => {
+      if (punch.punch_type !== 'clock_in') return;
+      if (idx === 0) {
+        shiftStartClockIns.push(punch);
+        return;
+      }
+      const prev = sortedPunches[idx - 1];
+      if (prev.punch_type === 'clock_out') shiftStartClockIns.push(punch);
+    });
+
+    const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
+    const unpaidBreakStarts = sortedPunches.filter((p: any) => {
+      if (p.punch_type !== 'break_start') return false;
+      const notes = String(p.notes || '').toLowerCase();
+      return notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid');
+    });
+
+    let hasBreakViolation = false;
+    const usedClockOutIds = new Set<string>();
+
+    shiftStartClockIns.forEach((clockIn: any, idx: number) => {
+      if (hasBreakViolation) return;
+      const clockInMs = new Date(clockIn.punch_time).getTime();
+      const nextStart = shiftStartClockIns[idx + 1];
+      const nextStartMs = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
+
+      const shiftClockOuts = clockOuts.filter((co: any) => {
+        const coMs = new Date(co.punch_time).getTime();
+        return coMs > clockInMs && coMs < nextStartMs && !usedClockOutIds.has(co.id);
+      });
+      const clockOut = shiftClockOuts.length ? shiftClockOuts[shiftClockOuts.length - 1] : null;
+      if (!clockOut) return;
+      usedClockOutIds.add(clockOut.id);
+
+      const clockOutMs = new Date(clockOut.punch_time).getTime();
+      const shiftHours = (clockOutMs - clockInMs) / 3600000;
+      if (shiftHours <= 5) return;
+
+      const hasMealBreak = unpaidBreakStarts.some((b: any) => {
+        const bMs = new Date(b.punch_time).getTime();
+        return bMs > clockInMs && bMs < clockOutMs;
+      });
+
+      if (!hasMealBreak) hasBreakViolation = true;
+    });
+
+    return {
+      hasAutoClockOut,
+      hasBreakViolation,
+      hasAnyFlag: hasAutoClockOut || hasBreakViolation,
+    };
   };
 
   const fetchTimeCards = async () => {
@@ -1464,56 +1523,36 @@ export default function PayrollReview() {
     
     // Filter by flags
     if (filterFlag !== 'all') {
-      cards = cards.map(card => {
-        const filteredPunchesByDay: { [key: string]: any[] } = {};
-        Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
-          const sortedPunches = sortPunches(dayPunches);
-          const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-          
-          // Check for break violation - shifts > 5 hours need a meal break
-          let hasBreakViolation = false;
-          const clockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
-          const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
-          // Meal breaks can be tagged with '30 minute', 'meal', or 'unpaid'
-          const mealBreaks = sortedPunches.filter((p: any) => {
-            if (p.punch_type !== 'break_start') return false;
-            const notes = (p.notes || '').toLowerCase();
-            return notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid');
-          });
-          
-          clockIns.forEach((clockIn: any) => {
-            const clockInTime = new Date(clockIn.punch_time).getTime();
-            const clockOut = clockOuts.find((co: any) => new Date(co.punch_time).getTime() > clockInTime);
-            if (clockOut) {
-              const hours = (new Date(clockOut.punch_time).getTime() - clockInTime) / 3600000;
-              const hasMealBreak = mealBreaks.some((mb: any) => {
-                const mbTime = new Date(mb.punch_time).getTime();
-                return mbTime > clockInTime && mbTime < new Date(clockOut.punch_time).getTime();
-              });
-              if (hours > 5 && !hasMealBreak) {
-                hasBreakViolation = true;
-              }
+      cards = cards
+        .map((card) => {
+          const filteredPunchesByDay: { [key: string]: any[] } = {};
+
+          Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
+            const flags = getDayFlags(dayPunches);
+
+            if (filterFlag === 'flagged' && flags.hasAnyFlag) {
+              filteredPunchesByDay[day] = dayPunches;
+              return;
+            }
+
+            if (filterFlag === 'auto_punch' && flags.hasAutoClockOut) {
+              filteredPunchesByDay[day] = dayPunches;
+              return;
+            }
+
+            if (filterFlag === 'break_violation' && flags.hasBreakViolation) {
+              filteredPunchesByDay[day] = dayPunches;
             }
           });
-          
-          const hasFlagged = hasAutoClockOut || hasBreakViolation;
-          
-          // Apply filter logic
-          if (filterFlag === 'flagged' && hasFlagged) {
-            filteredPunchesByDay[day] = dayPunches;
-          } else if (filterFlag === 'auto_punch' && hasAutoClockOut) {
-            filteredPunchesByDay[day] = dayPunches;
-          } else if (filterFlag === 'break_violation' && hasBreakViolation) {
-            filteredPunchesByDay[day] = dayPunches;
-          }
-        });
-        return {
-          ...card,
-          punchesByDay: filteredPunchesByDay
-        };
-      }).filter(card => Object.keys(card.punchesByDay).length > 0);
+
+          return {
+            ...card,
+            punchesByDay: filteredPunchesByDay,
+          };
+        })
+        .filter((card) => Object.keys(card.punchesByDay).length > 0);
     }
-    
+
     return cards;
   }, [timeCards, filterEmployee, filterDay, filterFlag]);
 
@@ -2245,72 +2284,76 @@ export default function PayrollReview() {
               </Card>
             ) : (
               <>
-                {/* Desktop Table View - lg and up */}
-                <div className="hidden lg:block">
-                  {viewMode === 'employee' ? (
-                    <DesktopTimeTrackingTable
-                      filteredCards={filteredCards}
-                      timezone={timezone}
-                      includeApproved={includeApproved}
-                      onApproveDay={handleApproveDay}
-                      onUnapproveDay={handleUnapproveDay}
-                      onEditShift={setEditingShift}
-                      calculateDayHours={calculateDayHours}
-                      hasDayIssues={hasDayIssues}
-                      sortPunches={sortPunches}
-                      groupPunchesByWeek={groupPunchesByWeek}
-                      currentLocationId={currentLocation?.id || ''}
-                      approvingPunchIds={approvingPunchIds}
-                    />
-                  ) : (
-                    <DayByDayView
-                      filteredCards={filteredCards}
-                      timezone={timezone}
-                      includeApproved={includeApproved}
-                      onApproveDay={handleApproveDay}
-                      onUnapproveDay={handleUnapproveDay}
-                      onEditShift={setEditingShift}
-                      calculateDayHours={calculateDayHours}
-                      sortPunches={sortPunches}
-                      currentLocationId={currentLocation?.id || ''}
-                      approvingPunchIds={approvingPunchIds}
-                      periodDates={periodDates}
-                    />
-                  )}
-                </div>
+                 {/* Desktop Table View - lg and up */}
+                 <div className="hidden lg:block">
+                   {viewMode === 'employee' ? (
+                     <DesktopTimeTrackingTable
+                       filteredCards={filteredCards}
+                       timezone={timezone}
+                       includeApproved={includeApproved}
+                       onApproveDay={handleApproveDay}
+                       onUnapproveDay={handleUnapproveDay}
+                       onEditShift={setEditingShift}
+                       calculateDayHours={calculateDayHours}
+                       hasDayIssues={hasDayIssues}
+                       sortPunches={sortPunches}
+                       groupPunchesByWeek={groupPunchesByWeek}
+                       currentLocationId={currentLocation?.id || ''}
+                       approvingPunchIds={approvingPunchIds}
+                       getDayFlags={getDayFlags}
+                     />
+                   ) : (
+                     <DayByDayView
+                       filteredCards={filteredCards}
+                       timezone={timezone}
+                       includeApproved={includeApproved}
+                       onApproveDay={handleApproveDay}
+                       onUnapproveDay={handleUnapproveDay}
+                       onEditShift={setEditingShift}
+                       calculateDayHours={calculateDayHours}
+                       sortPunches={sortPunches}
+                       currentLocationId={currentLocation?.id || ''}
+                       approvingPunchIds={approvingPunchIds}
+                       periodDates={periodDates}
+                       getDayFlags={getDayFlags}
+                     />
+                   )}
+                 </div>
 
-                {/* Mobile/Tablet Cards View - below lg */}
-                <div className="block lg:hidden">
-                  {viewMode === 'employee' ? (
-                    <MobileTimeTrackingCard
-                      filteredCards={filteredCards}
-                      timezone={timezone}
-                      includeApproved={includeApproved}
-                      onApproveDay={handleApproveDay}
-                      onUnapproveDay={handleUnapproveDay}
-                      onEditShift={setEditingShift}
-                      calculateDayHours={calculateDayHours}
-                      hasDayIssues={hasDayIssues}
-                      sortPunches={sortPunches}
-                      groupPunchesByWeek={groupPunchesByWeek}
-                      currentLocationId={currentLocation?.id || ''}
-                      approvingPunchIds={approvingPunchIds}
-                    />
-                  ) : (
-                    <MobileDayByDayCard
-                      filteredCards={filteredCards}
-                      timezone={timezone}
-                      includeApproved={includeApproved}
-                      onApproveDay={handleApproveDay}
-                      onUnapproveDay={handleUnapproveDay}
-                      onEditShift={setEditingShift}
-                      calculateDayHours={calculateDayHours}
-                      sortPunches={sortPunches}
-                      currentLocationId={currentLocation?.id || ''}
-                      approvingPunchIds={approvingPunchIds}
-                    />
-                  )}
-                </div>
+                 {/* Mobile/Tablet Cards View - below lg */}
+                 <div className="block lg:hidden">
+                   {viewMode === 'employee' ? (
+                     <MobileTimeTrackingCard
+                       filteredCards={filteredCards}
+                       timezone={timezone}
+                       includeApproved={includeApproved}
+                       onApproveDay={handleApproveDay}
+                       onUnapproveDay={handleUnapproveDay}
+                       onEditShift={setEditingShift}
+                       calculateDayHours={calculateDayHours}
+                       hasDayIssues={hasDayIssues}
+                       sortPunches={sortPunches}
+                       groupPunchesByWeek={groupPunchesByWeek}
+                       currentLocationId={currentLocation?.id || ''}
+                       approvingPunchIds={approvingPunchIds}
+                       getDayFlags={getDayFlags}
+                     />
+                   ) : (
+                     <MobileDayByDayCard
+                       filteredCards={filteredCards}
+                       timezone={timezone}
+                       includeApproved={includeApproved}
+                       onApproveDay={handleApproveDay}
+                       onUnapproveDay={handleUnapproveDay}
+                       onEditShift={setEditingShift}
+                       calculateDayHours={calculateDayHours}
+                       sortPunches={sortPunches}
+                       currentLocationId={currentLocation?.id || ''}
+                       approvingPunchIds={approvingPunchIds}
+                       getDayFlags={getDayFlags}
+                     />
+                   )}
+                 </div>
               </>
             )}
           </div>

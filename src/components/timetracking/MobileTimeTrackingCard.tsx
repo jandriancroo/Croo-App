@@ -20,6 +20,7 @@ interface MobileTimeTrackingCardProps {
   groupPunchesByWeek: (punchesByDay: { [key: string]: any[] }) => [string, { start: Date; end: Date; days: { [day: string]: any[] } }][];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
 }
 
 export function MobileTimeTrackingCard({
@@ -35,6 +36,7 @@ export function MobileTimeTrackingCard({
   groupPunchesByWeek,
   currentLocationId,
   approvingPunchIds,
+  getDayFlags,
 }: MobileTimeTrackingCardProps) {
   
   const formatScheduledTime = (time: string | null | undefined) => {
@@ -110,23 +112,11 @@ export function MobileTimeTrackingCard({
                           const dayDate = parseDateStringInTimezone(day, timezone);
                           const dayHours = calculateDayHours(dayPunches);
                           const isApproved = dayPunches.every((p: any) => p.approved_at);
-                          const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+                          const flags = getDayFlags(dayPunches);
+                          const hasAnyFlag = flags.hasAnyFlag;
+                          const hasAutoClockOut = flags.hasAutoClockOut;
+                          const hasBreakViolation = flags.hasBreakViolation;
                           const scheduledShift = card.shiftsByDate?.get(day);
-                          
-                          // Check break violation
-                          let hasBreakViolation = false;
-                          shifts.forEach(shift => {
-                            if (shift.clockIn && shift.clockOut) {
-                              let shiftHours = (new Date(shift.clockOut.punch_time).getTime() - new Date(shift.clockIn.punch_time).getTime()) / 3600000;
-                              if (shiftHours < 0) shiftHours += 24;
-                              const shiftHasMealBreak = shift.breaks.some((b: any) => b.notes?.includes('30 minute'));
-                              if (shiftHours > 5 && !shiftHasMealBreak) {
-                                hasBreakViolation = true;
-                              }
-                            }
-                          });
-                          
-                          const hasAnyFlag = hasAutoClockOut || hasBreakViolation;
                           const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
 
                           if (!includeApproved && isApproved) return null;
