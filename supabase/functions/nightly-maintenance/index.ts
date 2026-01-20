@@ -117,9 +117,45 @@ serve(async (req) => {
     }
 
     // =========================================================================
-    // TASK 3: Backfill yesterday's labor for all locations (catch any missed)
+    // TASK 3: Auto-punch employees who forgot to clock out
     // =========================================================================
-    console.log('[NIGHTLY-MAINTENANCE] Task 3: Backfilling yesterday labor...');
+    console.log('[NIGHTLY-MAINTENANCE] Task 3: Auto-punching forgotten clock-outs...');
+    
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/auto-punch-out`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`
+        },
+        body: JSON.stringify({})
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        results.push({ 
+          task: 'auto-punch-out', 
+          status: 'success', 
+          details: { 
+            punched: result.punched || 0, 
+            skipped: result.skipped || 0,
+            errors: result.errors || 0
+          }
+        });
+        console.log(`[NIGHTLY-MAINTENANCE] ✓ Auto-punch: ${result.punched} punched, ${result.skipped} skipped`);
+      } else {
+        results.push({ task: 'auto-punch-out', status: 'failed', details: { error: response.status } });
+        console.error(`[NIGHTLY-MAINTENANCE] ✗ Auto-punch failed: ${response.status}`);
+      }
+    } catch (err) {
+      results.push({ task: 'auto-punch-out', status: 'error', details: { error: String(err) } });
+      console.error('[NIGHTLY-MAINTENANCE] ✗ Auto-punch error:', err);
+    }
+
+    // =========================================================================
+    // TASK 4: Backfill yesterday's labor for all locations (catch any missed)
+    // =========================================================================
+    console.log('[NIGHTLY-MAINTENANCE] Task 4: Backfilling yesterday labor...');
     
     try {
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
