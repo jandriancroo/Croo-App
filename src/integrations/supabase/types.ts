@@ -2181,9 +2181,11 @@ export type Database = {
           fetched_at: string
           hourly_breakdown: Json | null
           id: string
+          is_stale: boolean | null
           labor_cost: number | null
           labor_date: string
           labor_hours: number | null
+          last_validated_at: string | null
           location_id: string
           overtime_hours: number | null
           regular_hours: number | null
@@ -2197,9 +2199,11 @@ export type Database = {
           fetched_at?: string
           hourly_breakdown?: Json | null
           id?: string
+          is_stale?: boolean | null
           labor_cost?: number | null
           labor_date: string
           labor_hours?: number | null
+          last_validated_at?: string | null
           location_id: string
           overtime_hours?: number | null
           regular_hours?: number | null
@@ -2213,9 +2217,11 @@ export type Database = {
           fetched_at?: string
           hourly_breakdown?: Json | null
           id?: string
+          is_stale?: boolean | null
           labor_cost?: number | null
           labor_date?: string
           labor_hours?: number | null
+          last_validated_at?: string | null
           location_id?: string
           overtime_hours?: number | null
           regular_hours?: number | null
