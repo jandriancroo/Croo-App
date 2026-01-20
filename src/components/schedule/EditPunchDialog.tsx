@@ -109,6 +109,8 @@ export function EditPunchDialog({
       // Find ALL break_start and break_end punches
       const breakStarts = sortedPunches.filter(p => p.punch_type === 'break_start');
       const breakEnds = sortedPunches.filter(p => p.punch_type === 'break_end');
+      // Also get clock_ins that could serve as break ends (legacy behavior)
+      const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
       const clockOutTimeVal = clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '';
@@ -124,16 +126,27 @@ export function EditPunchDialog({
         const start = breakStarts[i];
         const startTime = new Date(start.punch_time).getTime();
         
-        // Find the corresponding end (next unmatched break_end after this start)
+        // Find the next break_start to establish an upper bound
         const nextStart = breakStarts[i + 1];
         const nextStartTime = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
         
-        const matchingEnd = breakEnds.find(end => {
-          if (usedEndIds.has(end.id)) return false; // Skip already matched ends
+        // First, try to find a break_end punch
+        let matchingEnd = breakEnds.find(end => {
+          if (usedEndIds.has(end.id)) return false;
           const endTime = new Date(end.punch_time).getTime();
-          // End must be after start and before the next break_start (if any)
           return endTime > startTime && endTime < nextStartTime;
         });
+        
+        // If no break_end found, look for a clock_in that's NOT the first one (which is the shift start)
+        // A clock_in can serve as a break_end in legacy punch clock behavior
+        if (!matchingEnd) {
+          matchingEnd = clockIns.find(ci => {
+            if (usedEndIds.has(ci.id)) return false;
+            if (ci === clockIn) return false; // Skip the shift's clock_in
+            const endTime = new Date(ci.punch_time).getTime();
+            return endTime > startTime && endTime < nextStartTime;
+          });
+        }
         
         if (matchingEnd) {
           usedEndIds.add(matchingEnd.id);
