@@ -23,6 +23,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
 import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeTrackingTable';
+import { DayByDayView } from '@/components/timetracking/DayByDayView';
+import { Users, CalendarDays } from 'lucide-react';
 import {
   toISOStringInTimezone,
   formatTimeDisplay,
@@ -451,6 +453,8 @@ export default function PayrollReview() {
   const [includeApproved, setIncludeApproved] = useState(true);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
+  const [filterFlag, setFilterFlag] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'employee' | 'day'>('employee');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, flaggedShifts?: { employeeName: string, date: string, flags: string[] }[], cleanPunchIds?: string[], shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
@@ -1932,35 +1936,76 @@ export default function PayrollReview() {
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="grid grid-cols-2 gap-3">
-              <Select value={filterDay} onValueChange={setFilterDay}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All days" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All days</SelectItem>
-                  {periodDates.map(date => (
-                    <SelectItem key={date.value} value={date.value}>
-                      {date.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* View Toggle + Filters */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex rounded-lg border bg-muted/30 p-0.5">
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'employee' 
+                      ? 'bg-background shadow text-foreground' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setViewMode('employee')}
+                >
+                  <Users className="h-4 w-4" />
+                  By Employee
+                </button>
+                <button
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'day' 
+                      ? 'bg-background shadow text-foreground' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setViewMode('day')}
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  By Day
+                </button>
+              </div>
 
-              <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All employees" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All employees</SelectItem>
-                  {timeCards.map(card => (
-                    <SelectItem key={card.profile.id} value={card.profile.id}>
-                      {card.profile.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Filters */}
+              <div className="flex-1 grid grid-cols-3 gap-2">
+                <Select value={filterDay} onValueChange={setFilterDay}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All days</SelectItem>
+                    {periodDates.map(date => (
+                      <SelectItem key={date.value} value={date.value}>
+                        {date.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All employees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All employees</SelectItem>
+                    {timeCards.map(card => (
+                      <SelectItem key={card.profile.id} value={card.profile.id}>
+                        {card.profile.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filterFlag} onValueChange={setFilterFlag}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All shifts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All shifts</SelectItem>
+                    <SelectItem value="flagged">Flagged only</SelectItem>
+                    <SelectItem value="auto_punch">Auto clock-out</SelectItem>
+                    <SelectItem value="break_violation">Missed break</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Tips Summary Card - Collapsible */}
@@ -2147,20 +2192,36 @@ export default function PayrollReview() {
 
                 {/* Desktop/Tablet Table View - sm and up */}
                 <div className="hidden sm:block">
-                  <DesktopTimeTrackingTable
-                    filteredCards={filteredCards}
-                    timezone={timezone}
-                    includeApproved={includeApproved}
-                    onApproveDay={handleApproveDay}
-                    onUnapproveDay={handleUnapproveDay}
-                    onEditShift={setEditingShift}
-                    calculateDayHours={calculateDayHours}
-                    hasDayIssues={hasDayIssues}
-                    sortPunches={sortPunches}
-                    groupPunchesByWeek={groupPunchesByWeek}
-                    currentLocationId={currentLocation?.id || ''}
-                    approvingPunchIds={approvingPunchIds}
-                  />
+                  {viewMode === 'employee' ? (
+                    <DesktopTimeTrackingTable
+                      filteredCards={filteredCards}
+                      timezone={timezone}
+                      includeApproved={includeApproved}
+                      onApproveDay={handleApproveDay}
+                      onUnapproveDay={handleUnapproveDay}
+                      onEditShift={setEditingShift}
+                      calculateDayHours={calculateDayHours}
+                      hasDayIssues={hasDayIssues}
+                      sortPunches={sortPunches}
+                      groupPunchesByWeek={groupPunchesByWeek}
+                      currentLocationId={currentLocation?.id || ''}
+                      approvingPunchIds={approvingPunchIds}
+                    />
+                  ) : (
+                    <DayByDayView
+                      filteredCards={filteredCards}
+                      timezone={timezone}
+                      includeApproved={includeApproved}
+                      onApproveDay={handleApproveDay}
+                      onUnapproveDay={handleUnapproveDay}
+                      onEditShift={setEditingShift}
+                      calculateDayHours={calculateDayHours}
+                      sortPunches={sortPunches}
+                      currentLocationId={currentLocation?.id || ''}
+                      approvingPunchIds={approvingPunchIds}
+                      periodDates={periodDates}
+                    />
+                  )}
                 </div>
 
                 {/* Mobile Cards View - below sm */}
