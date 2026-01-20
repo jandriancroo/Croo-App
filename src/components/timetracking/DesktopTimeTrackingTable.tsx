@@ -231,9 +231,9 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Breaks - compact */}
-                        <TableCell className="py-1.5">
+                        <TableCell className="py-0.5 px-2">
                           {breakStarts.length > 0 ? (
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1 flex-wrap">
                               {breakStarts.map((breakStart: any, bidx: number) => {
                                 let breakEnd = dayPunches.find((p: any) => 
                                   p.punch_type === 'break_end' && 
@@ -256,7 +256,7 @@ export function DesktopTimeTrackingTable({
                                 return (
                                   <span 
                                     key={bidx} 
-                                    className={`text-xs flex items-center gap-1 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
+                                    className={`text-xs flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
                                   >
                                     <Coffee className="h-3 w-3" />
                                     <span>{duration}:</span>
@@ -278,7 +278,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Hours */}
-                        <TableCell className="py-1.5 text-right">
+                        <TableCell className="py-0.5 px-2 text-right">
                           <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
