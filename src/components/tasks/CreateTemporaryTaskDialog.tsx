@@ -95,6 +95,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [notifyOnlyWorking, setNotifyOnlyWorking] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [showOnPunchClock, setShowOnPunchClock] = useState(false);
+  const [showOnDashboard, setShowOnDashboard] = useState(true);
   
   // Assignment
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
@@ -148,6 +149,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     setNotifyOnlyWorking(true);
     setPushEnabled(true);
     setShowOnPunchClock(false);
+    setShowOnDashboard(true);
     setAssignmentType("employees");
     setSelectedEmployees([]);
     setSelectedRoles([]);
@@ -240,6 +242,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         created_by: user!.id,
         task_style: taskStyle,
         is_recurring: taskStyle === "alarm",
+        show_on_dashboard: showOnDashboard,
       };
 
       if (taskStyle === "standard") {
@@ -384,51 +387,67 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
 
           {/* Standard Task: Duration */}
           {taskStyle === "standard" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Visibility Duration</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DURATION_OPTIONS.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Visibility Duration</Label>
+                  <Select value={duration} onValueChange={setDuration}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Accent Color</Label>
+                  <Select value={accentColor} onValueChange={setAccentColor}>
+                    <SelectTrigger>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded-full" 
+                          style={{ backgroundColor: accentColor }}
+                        />
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ACCENT_COLORS.map(color => (
+                        <SelectItem key={color.value} value={color.value}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-4 h-4 rounded-full" 
+                              style={{ backgroundColor: color.value }}
+                            />
+                            {color.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Show on Dashboard Toggle for Standard Tasks */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show on Dashboard</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display task card on employee dashboard
+                  </p>
+                </div>
+                <Switch
+                  checked={showOnDashboard}
+                  onCheckedChange={setShowOnDashboard}
+                />
               </div>
-            </div>
+            </>
           )}
 
           {/* Alarm Task: Days of Week */}
@@ -576,6 +595,20 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                 <Switch
                   checked={showOnPunchClock}
                   onCheckedChange={setShowOnPunchClock}
+                />
+              </div>
+
+              {/* Show on Dashboard Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show on Dashboard</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display task card on employee dashboard
+                  </p>
+                </div>
+                <Switch
+                  checked={showOnDashboard}
+                  onCheckedChange={setShowOnDashboard}
                 />
               </div>
             </>
