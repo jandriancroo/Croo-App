@@ -139,7 +139,7 @@ export default function Messages() {
         }
       }
 
-      // Filter chats by current location
+      // Filter chats by current location - include last_read_at for unread detection
       let query = supabase
         .from('chats')
         .select(`
@@ -147,6 +147,7 @@ export default function Messages() {
           chat_members!inner(
             user_id,
             is_pinned,
+            last_read_at,
             profiles(id, full_name, profile_photo_url)
           )
         `)
@@ -187,28 +188,20 @@ export default function Messages() {
         }
       }
 
-      const latestMessageIds = Array.from(latestPerChat.values()).map((m) => m.id);
-
-      // Bulk fetch read receipts for latest messages
-      const readMessageIds = new Set<string>();
-      if (latestMessageIds.length > 0) {
-        const { data: receipts } = await supabase
-          .from('message_read_receipts')
-          .select('message_id')
-          .in('message_id', latestMessageIds)
-          .eq('user_id', user.id);
-
-        for (const r of receipts || []) readMessageIds.add(r.message_id);
-      }
-
       const chatsWithUnread = userChats.map((chat: any) => {
         const latest = latestPerChat.get(chat.id);
         const lastMessageTime = latest?.created_at || chat.updated_at;
         const messagePreview = latest?.content || '';
 
+        // Get current user's membership to check last_read_at
+        const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
+        const lastReadAt = currentMember?.last_read_at;
+
+        // Unread if: latest message is from someone else AND after last_read_at
         let unreadCount = 0;
-        if (latest && latest.sender_id !== user.id && !readMessageIds.has(latest.id)) {
-          unreadCount = 1;
+        if (latest && latest.sender_id !== user.id) {
+          const isUnread = !lastReadAt || new Date(latest.created_at) > new Date(lastReadAt);
+          if (isUnread) unreadCount = 1;
         }
 
         // For DMs, set title to the other person's name
@@ -218,7 +211,6 @@ export default function Messages() {
           title = otherMember?.profiles?.full_name || 'Direct Message';
         }
 
-        const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
         const isPinned = currentMember?.is_pinned || false;
 
         return { ...chat, title, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
