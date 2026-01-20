@@ -1,8 +1,15 @@
+import { useRef, useState, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Users, Megaphone, Pin, PinOff } from 'lucide-react';
 import { format, isToday } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const formatLastMessageTime = (dateString: string) => {
   const date = new Date(dateString);
@@ -11,6 +18,7 @@ const formatLastMessageTime = (dateString: string) => {
   }
   return format(date, 'MMM d');
 };
+
 interface Chat {
   id: string;
   title: string | null;
@@ -82,7 +90,42 @@ const highlightSearchTerm = (text: string, searchQuery: string) => {
   );
 };
 
+// Long press duration in ms
+const LONG_PRESS_DURATION = 500;
+
 export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loading, searchQuery, currentUserId }: ChatListProps) {
+  const [longPressChat, setLongPressChat] = useState<Chat | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
+
+  const handleTouchStart = useCallback((chat: Chat) => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      setLongPressChat(chat);
+    }, LONG_PRESS_DURATION);
+  }, []);
+
+  const handleTouchEnd = useCallback((chat: Chat) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    // Only navigate if it wasn't a long press
+    if (!isLongPress.current) {
+      onSelectChat(chat.id);
+    }
+    isLongPress.current = false;
+  }, [onSelectChat]);
+
+  const handleTouchMove = useCallback(() => {
+    // Cancel long press if user moves finger
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -117,7 +160,15 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       key={chat.id}
       role="button"
       tabIndex={0}
+      // Desktop: click to navigate
       onClick={() => onSelectChat(chat.id)}
+      // Mobile: use touch events for long-press detection
+      onTouchStart={() => handleTouchStart(chat)}
+      onTouchEnd={(e) => {
+        e.preventDefault(); // Prevent onClick from firing
+        handleTouchEnd(chat);
+      }}
+      onTouchMove={handleTouchMove}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -171,12 +222,13 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
             {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
           </p>
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Desktop: show pin button on hover */}
             {onTogglePin && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin(chat.id, chat.isPinned || false);
@@ -188,6 +240,10 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                   <Pin className="h-3 w-3" />
                 )}
               </Button>
+            )}
+            {/* Show pin indicator on mobile for pinned chats */}
+            {chat.isPinned && (
+              <Pin className="h-3 w-3 text-primary md:hidden" />
             )}
             {chat.unreadCount && chat.unreadCount > 0 ? (
               <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-full">
@@ -214,22 +270,66 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   );
 
   return (
-    <div className="overflow-y-auto flex-1">
-      {pinnedChats.length > 0 && (
-        <>
+    <>
+      <div className="overflow-y-auto flex-1">
+        {pinnedChats.length > 0 && (
+          <>
+            <div className="space-y-1">
+              {pinnedChats.map(renderChat)}
+            </div>
+            {unpinnedChats.length > 0 && (
+              <div className="my-2 mx-3 border-t border-border" />
+            )}
+          </>
+        )}
+        {unpinnedChats.length > 0 && (
           <div className="space-y-1">
-            {pinnedChats.map(renderChat)}
+            {unpinnedChats.map(renderChat)}
           </div>
-          {unpinnedChats.length > 0 && (
-            <div className="my-2 mx-3 border-t border-border" />
-          )}
-        </>
-      )}
-      {unpinnedChats.length > 0 && (
-        <div className="space-y-1">
-          {unpinnedChats.map(renderChat)}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* Long-press dialog for mobile pin actions */}
+      <Dialog open={!!longPressChat} onOpenChange={(open) => !open && setLongPressChat(null)}>
+        <DialogContent className="max-w-[280px] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-center truncate">
+              {longPressChat?.title || 'Chat Options'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            {onTogglePin && longPressChat && (
+              <Button
+                variant="outline"
+                className="w-full gap-2 justify-start"
+                onClick={() => {
+                  onTogglePin(longPressChat.id, longPressChat.isPinned || false);
+                  setLongPressChat(null);
+                }}
+              >
+                {longPressChat.isPinned ? (
+                  <>
+                    <PinOff className="h-4 w-4" />
+                    Unpin Chat
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-4 w-4" />
+                    Pin Chat
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setLongPressChat(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
