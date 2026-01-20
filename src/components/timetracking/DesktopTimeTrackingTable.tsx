@@ -184,11 +184,9 @@ export function DesktopTimeTrackingTable({
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
                         {/* Day column - indented under week header */}
-                        <TableCell className="py-1.5 pl-12">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground w-7">{format(dayDate, 'EEE')}</span>
-                            <span className="font-medium text-sm">{format(dayDate, 'MMM d')}</span>
-                          </div>
+                        <TableCell className="py-1.5 pl-12 whitespace-nowrap">
+                          <span className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</span>
+                          <span className="font-medium text-sm ml-1.5">{format(dayDate, 'M/d')}</span>
                         </TableCell>
 
                         {/* Shift Times - compact single line */}
