@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { format, addDays, addWeeks, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
+import { format, addDays, addWeeks } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
+import { DesktopTimeTrackingTable } from '@/components/timetracking/DesktopTimeTrackingTable';
 import {
   toISOStringInTimezone,
   formatTimeDisplay,
@@ -351,6 +352,7 @@ export default function PayrollReview() {
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, flaggedShifts?: { employeeName: string, date: string, flags: string[] }[], cleanPunchIds?: string[], shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
+  const [approvingPunchIds, setApprovingPunchIds] = useState<Set<string>>(new Set());
 
   // Check if current period is closed (for tip fetching optimization)
   // Use composite key format that matches how periodStatuses is keyed
@@ -1092,6 +1094,24 @@ export default function PayrollReview() {
   const handleUnapproveDay = async (dayPunches: any[]) => {
     const punchIds = dayPunches.map(p => p.id);
     
+    // Optimistic update - immediately mark punches as approving
+    setApprovingPunchIds(prev => new Set([...prev, ...punchIds]));
+    
+    // Optimistically update local state for instant UI feedback
+    setTimeCards(prev => prev.map(card => ({
+      ...card,
+      punchesByDay: Object.fromEntries(
+        Object.entries(card.punchesByDay).map(([day, dpunches]: [string, any]) => [
+          day,
+          dpunches.map((p: any) => 
+            punchIds.includes(p.id) 
+              ? { ...p, approved_by: null, approved_at: null }
+              : p
+          )
+        ])
+      )
+    })));
+
     const { error } = await supabase
       .from('time_punches')
       .update({ 
@@ -1100,13 +1120,21 @@ export default function PayrollReview() {
       })
       .in('id', punchIds);
 
+    // Clear approving state
+    setApprovingPunchIds(prev => {
+      const next = new Set(prev);
+      punchIds.forEach(id => next.delete(id));
+      return next;
+    });
+
     if (error) {
       toast.error('Failed to unapprove shift');
+      fetchTimeCards(); // Revert on error
       return;
     }
 
     toast.success('Shift unapproved');
-    fetchTimeCards();
+    // No need to refetch - we already updated optimistically
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
@@ -1232,22 +1260,49 @@ export default function PayrollReview() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Optimistic update - immediately mark punches as approving
+    setApprovingPunchIds(prev => new Set([...prev, ...punchIds]));
+    
+    // Optimistically update local state for instant UI feedback
+    const now = new Date().toISOString();
+    setTimeCards(prev => prev.map(card => ({
+      ...card,
+      punchesByDay: Object.fromEntries(
+        Object.entries(card.punchesByDay).map(([day, dayPunches]: [string, any]) => [
+          day,
+          dayPunches.map((p: any) => 
+            punchIds.includes(p.id) 
+              ? { ...p, approved_by: user.id, approved_at: now }
+              : p
+          )
+        ])
+      )
+    })));
+
     const { error } = await supabase
       .from('time_punches')
       .update({ 
         approved_by: user.id,
-        approved_at: new Date().toISOString()
+        approved_at: now
       })
       .in('id', punchIds);
 
+    // Clear approving state
+    setApprovingPunchIds(prev => {
+      const next = new Set(prev);
+      punchIds.forEach(id => next.delete(id));
+      return next;
+    });
+
     if (error) {
       toast.error('Failed to approve punches');
+      // Revert on error
+      fetchTimeCards();
       return;
     }
 
-    
     setApprovalWarning(null);
-    fetchTimeCards();
+    // No need to refetch - we already updated optimistically
   };
 
   // Generate list of dates in selected period for the filter
@@ -1985,8 +2040,26 @@ export default function PayrollReview() {
                   </CardContent>
                 </Card>
 
-                {/* Employee Punch Cards - Grouped by Week */}
-                <div className="space-y-4">
+                {/* Desktop/Tablet Table View - sm and up */}
+                <div className="hidden sm:block">
+                  <DesktopTimeTrackingTable
+                    filteredCards={filteredCards}
+                    timezone={timezone}
+                    includeApproved={includeApproved}
+                    onApproveDay={handleApproveDay}
+                    onUnapproveDay={handleUnapproveDay}
+                    onEditShift={setEditingShift}
+                    calculateDayHours={calculateDayHours}
+                    hasDayIssues={hasDayIssues}
+                    sortPunches={sortPunches}
+                    groupPunchesByWeek={groupPunchesByWeek}
+                    currentLocationId={currentLocation?.id || ''}
+                    approvingPunchIds={approvingPunchIds}
+                  />
+                </div>
+
+                {/* Mobile Cards View - below sm */}
+                <div className="block sm:hidden space-y-4">
                   {filteredCards.map((card) => {
                     const weekGroups = groupPunchesByWeek(card.punchesByDay);
                     
@@ -2056,7 +2129,6 @@ export default function PayrollReview() {
                                     });
                                     if (currentShift) shifts.push(currentShift);
                                     
-                                    const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
                                     const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
                                     const dayDate = parseDateStringInTimezone(day, timezone);
                                     const dayHours = calculateDayHours(dayPunches);
@@ -2083,6 +2155,7 @@ export default function PayrollReview() {
                                     
                                     const hasIssue = hasDayIssues(dayPunches);
                                     const hasAnyFlag = hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak;
+                                    const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
 
                                     // Skip approved if not showing
                                     if (!includeApproved && isApproved) return null;
@@ -2090,13 +2163,13 @@ export default function PayrollReview() {
                                     return (
                                       <div 
                                         key={day} 
-                                        className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAnyFlag ? 'bg-amber-50/50' : ''}`}
+                                        className={`flex items-center gap-2 px-3 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
                                         onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}
                                       >
                                         {/* Day Badge */}
-                                        <div className="w-9 sm:w-12 text-center shrink-0">
-                                          <div className="text-[10px] sm:text-xs text-muted-foreground">{format(dayDate, 'EEE')}</div>
-                                          <div className="font-semibold text-xs sm:text-sm">{format(dayDate, 'd')}</div>
+                                        <div className="w-9 text-center shrink-0">
+                                          <div className="text-[10px] text-muted-foreground">{format(dayDate, 'EEE')}</div>
+                                          <div className="font-semibold text-xs">{format(dayDate, 'd')}</div>
                                         </div>
 
                                         {/* Time Range and Breaks */}
@@ -2107,11 +2180,11 @@ export default function PayrollReview() {
                                               {shifts.length > 1 && (
                                                 <span className="text-[10px] text-muted-foreground font-medium mr-1">#{shiftIdx + 1}</span>
                                               )}
-                                              <span className="text-green-600 font-medium whitespace-nowrap">
+                                              <span className="text-green-600 dark:text-green-400 font-medium whitespace-nowrap">
                                                 {shift.clockIn ? formatTimeDisplay(shift.clockIn.punch_time, timezone) : '—'}
                                               </span>
                                               <span className="text-muted-foreground">→</span>
-                                              <span className="text-red-600 font-medium whitespace-nowrap">
+                                              <span className="text-red-600 dark:text-red-400 font-medium whitespace-nowrap">
                                                 {shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}
                                               </span>
 
@@ -2119,27 +2192,23 @@ export default function PayrollReview() {
                                               {shiftIdx === 0 && (
                                                 <>
                                                   {hasBreakViolation && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 gap-0.5 shrink-0">
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 dark:border-amber-700 gap-0.5 shrink-0">
                                                       <Coffee className="h-2.5 w-2.5" />
-                                                      <span className="hidden sm:inline">No Break</span>
                                                     </Badge>
                                                   )}
                                                   {hasAutoClockOut && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5 shrink-0">
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 dark:border-orange-700 gap-0.5 shrink-0">
                                                       <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
-                                                      <span className="hidden sm:inline">Auto</span>
                                                     </Badge>
                                                   )}
                                                   {hasOvertime && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 gap-0.5 shrink-0">
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 dark:border-purple-700 gap-0.5 shrink-0">
                                                       <Clock className="h-2.5 w-2.5" />
-                                                      <span className="hidden sm:inline">OT</span>
                                                     </Badge>
                                                   )}
                                                   {hasExtendedBreak && (
-                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 gap-0.5 shrink-0">
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 dark:border-blue-700 gap-0.5 shrink-0">
                                                       <Coffee className="h-2.5 w-2.5" />
-                                                      <span className="hidden sm:inline">Long Break</span>
                                                     </Badge>
                                                   )}
                                                   {hasIssue && !hasBreakViolation && !shift.clockOut && (
@@ -2203,7 +2272,7 @@ export default function PayrollReview() {
                                                 return (
                                                   <span 
                                                     key={idx} 
-                                                    className={`flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 px-1 py-0 rounded' : ''}`}
+                                                    className={`flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 dark:bg-red-950/30 px-1 py-0 rounded' : ''}`}
                                                     title={isLongBreak ? 'Break exceeded 30 minutes - possible missed clock-in' : ''}
                                                   >
                                                     <Coffee className="h-2.5 w-2.5" />
@@ -2241,39 +2310,41 @@ export default function PayrollReview() {
                                         </div>
 
                                         {/* Hours */}
-                                        <div className="w-12 sm:w-14 text-right font-medium text-xs sm:text-sm shrink-0">
+                                        <div className="w-12 text-right font-medium text-xs shrink-0">
                                           {dayHours.toFixed(1)}
-                                          <span className="hidden sm:inline"> hrs</span>
                                         </div>
 
                                         {/* Approve Button - Touch-friendly */}
                                         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
                                           {isApproved ? (
                                             <button 
-                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-green-100 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors" 
+                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-green-100 dark:bg-green-900/30 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                                               onClick={() => handleUnapproveDay(dayPunches)}
+                                              disabled={isApproving}
                                               title="Click to unapprove"
                                             >
-                                              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                                              <CheckCircle2 className="h-5 w-5" />
                                             </button>
                                           ) : (hasBreakViolation || hasAutoClockOut) ? (
                                             <button 
-                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-amber-50 border-2 border-amber-400 hover:bg-amber-100 transition-colors" 
+                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-400 hover:bg-amber-100 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                                               onClick={() => handleApproveDay(dayPunches)}
+                                              disabled={isApproving}
                                               title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
                                             >
                                               {hasBreakViolation ? (
-                                                <Coffee className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
+                                                <Coffee className="h-5 w-5 text-amber-600" />
                                               ) : (
-                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5 sm:h-6 sm:w-6" />
+                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5" />
                                               )}
                                             </button>
                                           ) : (
                                             <button 
-                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors" 
+                                              className={`h-10 w-10 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                                               onClick={() => handleApproveDay(dayPunches)}
+                                              disabled={isApproving}
                                             >
-                                              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                                              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
                                             </button>
                                           )}
                                         </div>
