@@ -190,8 +190,8 @@ export function DesktopTimeTrackingTable({
                         className={`cursor-pointer hover:bg-muted/30 transition-colors ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : rowBg}`}
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
-                        {/* Day column */}
-                        <TableCell className="py-1.5 pl-4">
+                        {/* Day column - indented under week header */}
+                        <TableCell className="py-1.5 pl-12">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground w-7">{format(dayDate, 'EEE')}</span>
                             <span className="font-medium text-sm">{format(dayDate, 'MMM d')}</span>
