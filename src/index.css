@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* VanSans Font Family */
+@font-face {
+  font-family: 'VanSans';
+  src: url('/fonts/vansans-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'VanSans';
+  src: url('/fonts/vansans-medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'VanSans';
+  src: url('/fonts/vansans-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
