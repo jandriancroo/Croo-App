@@ -8,11 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isSameDay } from 'date-fns';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { AnnouncementStats } from './AnnouncementStats';
 import { SmackTalkPopup } from './SmackTalkPopup';
 import { DateSeparator } from './DateSeparator';
-import { MessageBubble } from './MessageBubble';
+import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
 import { useUserRole } from '@/hooks/useUserRole';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
@@ -31,7 +32,7 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 
-const MESSAGES_PER_PAGE = 10;
+const MESSAGES_PER_PAGE = 50; // Increased since virtualization handles large lists efficiently
 
 interface ParentMessageData {
   content: string | null;
@@ -101,6 +102,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isNearBottomRef = useRef(true);
 
   // Check if user is near bottom of scroll
@@ -893,8 +895,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         </div>
       )}
 
-      {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 scroll-smooth overscroll-contain">
+      {/* Messages - Virtualized for performance */}
+      <div className="flex-1 overflow-hidden relative">
         {/* New Message Bubble */}
         {showNewMessageBubble && (
           <button
@@ -905,28 +907,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             <span className="text-lg">↓</span>
           </button>
         )}
-        {/* Load Earlier Button */}
-        {hasMoreEarlier && messages.length > 0 && (
-          <div className="flex justify-center sticky top-0 z-10">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadEarlierMessages}
-              disabled={loadingEarlier}
-              className="bg-background/95 backdrop-blur-sm shadow-sm"
-            >
-              {loadingEarlier ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load Earlier Messages'
-              )}
-            </Button>
-          </div>
-        )}
-
+        
         {/* Loading state */}
         {messagesLoading && messages.length === 0 && (
           <div className="flex justify-center py-8">
@@ -934,7 +915,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           </div>
         )}
 
-        {(() => {
+        {/* Virtualized message list */}
+        {messages.length > 0 && (() => {
           // Messages already include optimistic updates from query cache
           const allMessages = messages;
           
@@ -965,59 +947,92 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             msg => !(msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id)
           );
 
-          return displayMessages.map((message, index) => {
-            const isOwnMessage = currentUserId && message.sender_id === currentUserId;
-            
-            // Get smack talks for this game score (by message ID)
-            const smackTalks = smackTalkMap.get(message.id) || [];
-            
-            // Date separator logic
-            const messageDate = new Date(message.created_at);
-            const prevMessage = index > 0 ? displayMessages[index - 1] : null;
-            const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
-            const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
-            
-            // Clustering logic - group consecutive messages from same sender
-            const prevSameSender = prevMessage && prevMessage.sender_id === message.sender_id && 
-              isSameDay(new Date(prevMessage.created_at), messageDate);
-            const nextSameSender = nextMessage && nextMessage.sender_id === message.sender_id &&
-              isSameDay(new Date(nextMessage.created_at), messageDate);
-            
-            const isFirstInCluster = !prevSameSender || showDateSeparator;
-            const isLastInCluster = !nextSameSender;
-            
-            // Show avatar only on last message of cluster for received messages
-            const showAvatar = isLastInCluster && !isOwnMessage;
-            // Show name only on first message of cluster
-            const showName = isFirstInCluster && !isOwnMessage;
-            
-            return (
-              <div key={message.id} className={message.isNew ? 'animate-fade-in' : ''}>
-                {showDateSeparator && <DateSeparator date={messageDate} />}
-                <MessageBubble
-                  message={message}
-                  isOwnMessage={!!isOwnMessage}
-                  showAvatar={showAvatar}
-                  showName={showName}
-                  isFirstInCluster={isFirstInCluster}
-                  isLastInCluster={isLastInCluster}
-                  chatId={chatId}
-                  currentUserId={currentUserId}
-                  isAnnouncement={chatDetails?.is_announcement || false}
-                  isArcadeChat={isArcadeChat}
-                  smackTalks={smackTalks}
-                  signedAttachmentUrl={signedAttachmentUrls[message.id]}
-                  onReaction={handleReaction}
-                  onReply={setReplyToMessage}
-                  onSmackTalk={handleSmackTalk}
-                  onImageClick={setViewingImage}
-                  sending={sending}
-                />
-              </div>
-            );
-          });
+          return (
+            <Virtuoso
+              ref={virtuosoRef}
+              data={displayMessages}
+              initialTopMostItemIndex={displayMessages.length - 1}
+              followOutput="smooth"
+              alignToBottom
+              atBottomStateChange={(atBottom) => {
+                isNearBottomRef.current = atBottom;
+                if (atBottom) {
+                  setShowNewMessageBubble(false);
+                  setNewMessageCount(0);
+                }
+              }}
+              startReached={() => {
+                if (hasMoreEarlier && !loadingEarlier) {
+                  loadEarlierMessages();
+                }
+              }}
+              components={{
+                Header: () => hasMoreEarlier ? (
+                  <div className="flex justify-center py-2">
+                    {loadingEarlier ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null,
+              }}
+              className="h-full px-4 sm:px-6"
+              itemContent={(index, message) => {
+                const isOwnMessage = currentUserId && message.sender_id === currentUserId;
+                
+                // Get smack talks for this game score (by message ID)
+                const smackTalks = smackTalkMap.get(message.id) || [];
+                
+                // Date separator logic
+                const messageDate = new Date(message.created_at);
+                const prevMessage = index > 0 ? displayMessages[index - 1] : null;
+                const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
+                const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
+                
+                // Clustering logic - group consecutive messages from same sender
+                const prevSameSender = prevMessage && prevMessage.sender_id === message.sender_id && 
+                  isSameDay(new Date(prevMessage.created_at), messageDate);
+                const nextSameSender = nextMessage && nextMessage.sender_id === message.sender_id &&
+                  isSameDay(new Date(nextMessage.created_at), messageDate);
+                
+                const isFirstInCluster = !prevSameSender || showDateSeparator;
+                const isLastInCluster = !nextSameSender;
+                
+                // Show avatar only on last message of cluster for received messages
+                const showAvatar = isLastInCluster && !isOwnMessage;
+                // Show name only on first message of cluster
+                const showName = isFirstInCluster && !isOwnMessage;
+                
+                return (
+                  <div className={`py-0.5 ${message.isNew ? 'animate-fade-in' : ''}`}>
+                    {showDateSeparator && <DateSeparator date={messageDate} />}
+                    <MemoizedMessageBubble
+                      message={message}
+                      isOwnMessage={!!isOwnMessage}
+                      showAvatar={showAvatar}
+                      showName={showName}
+                      isFirstInCluster={isFirstInCluster}
+                      isLastInCluster={isLastInCluster}
+                      chatId={chatId}
+                      currentUserId={currentUserId}
+                      isAnnouncement={chatDetails?.is_announcement || false}
+                      isArcadeChat={isArcadeChat}
+                      smackTalks={smackTalks}
+                      signedAttachmentUrl={signedAttachmentUrls[message.id]}
+                      onReaction={handleReaction}
+                      onReply={setReplyToMessage}
+                      onSmackTalk={handleSmackTalk}
+                      onImageClick={setViewingImage}
+                      sending={sending}
+                    />
+                  </div>
+                );
+              }}
+            />
+          );
         })()}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Announcement Stats - at bottom, discreet */}
