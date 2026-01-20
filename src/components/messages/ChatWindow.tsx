@@ -896,7 +896,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized for performance */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden overflow-x-hidden relative">
         {/* New Message Bubble */}
         {showNewMessageBubble && (
           <button
@@ -978,7 +978,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                   </div>
                 ) : null,
               }}
-              className="h-full px-4 sm:px-6"
+              className="h-full px-4 sm:px-6 overflow-x-hidden"
               itemContent={(index, message) => {
                 const isOwnMessage = currentUserId && message.sender_id === currentUserId;
                 
