@@ -432,9 +432,21 @@ serve(async (req) => {
         })
       );
 
-      // Insert results into labor_cache
+      // Insert results into labor_cache with VALIDATION
       for (const { dateStr, labor } of batchResults) {
         if (labor && (labor.hoursWorked > 0 || labor.laborCost > 0)) {
+          // SAFEGUARD: Validate that labor_hours matches sum of employee breakdown
+          const breakdownSum = labor.employeeBreakdown.reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+          const hoursDiff = Math.abs(labor.hoursWorked - breakdownSum);
+          
+          if (hoursDiff > 0.01) {
+            // MISMATCH DETECTED - use breakdown sum as source of truth
+            console.error(`[BACKFILL] ⚠️ VALIDATION FAILED for ${dateStr}: hoursWorked=${labor.hoursWorked.toFixed(2)}, breakdownSum=${breakdownSum.toFixed(2)}`);
+            console.log(`[BACKFILL] Correcting to breakdown sum: ${breakdownSum.toFixed(2)}h`);
+            labor.hoursWorked = breakdownSum;
+            labor.regularHours = breakdownSum; // Simplified - OT calc would need more logic
+          }
+          
           const { error: insertError } = await supabase
             .from('labor_cache')
             .upsert({
@@ -447,7 +459,9 @@ serve(async (req) => {
               overtime_hours: labor.overtimeHours,
               double_time_hours: labor.doubleTimeHours,
               employee_breakdown: labor.employeeBreakdown,
-              fetched_at: new Date().toISOString()
+              fetched_at: new Date().toISOString(),
+              is_stale: false,
+              last_validated_at: new Date().toISOString()
             }, {
               onConflict: 'location_id,labor_date,source'
             });
@@ -458,7 +472,7 @@ serve(async (req) => {
           } else {
             processed++;
             results.push({ date: dateStr, hours: labor.hoursWorked, cost: labor.laborCost });
-            console.log(`[BACKFILL] ${dateStr}: ${labor.hoursWorked.toFixed(2)}h, $${labor.laborCost.toFixed(2)}`);
+            console.log(`[BACKFILL] ✓ ${dateStr}: ${labor.hoursWorked.toFixed(2)}h, $${labor.laborCost.toFixed(2)}`);
           }
         } else if (labor) {
           // Zero labor for this day - still cache it to avoid re-processing
@@ -474,7 +488,9 @@ serve(async (req) => {
               overtime_hours: 0,
               double_time_hours: 0,
               employee_breakdown: [],
-              fetched_at: new Date().toISOString()
+              fetched_at: new Date().toISOString(),
+              is_stale: false,
+              last_validated_at: new Date().toISOString()
             }, {
               onConflict: 'location_id,labor_date,source'
             });
