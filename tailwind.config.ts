@@ -14,6 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
+        'vansans': ['VanSans', 'sans-serif'],
         'pacifico': ['Pacifico', 'cursive'],
         'inter': ['Inter', 'sans-serif'],
         'nunito': ['Nunito', 'sans-serif'],

@@ -912,7 +912,7 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-        <div className="space-y-3">
+        <div className="space-y-3 font-vansans">
           <div>
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold">Dash</h1>
