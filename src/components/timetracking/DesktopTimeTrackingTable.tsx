@@ -1,13 +1,11 @@
 import { format } from 'date-fns';
-import { Calendar, CheckCircle2, Coffee } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CheckCircle2, Coffee } from 'lucide-react';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
-  formatDateTimeInTimezone,
 } from '@/utils/timezoneUtils';
 
 interface DesktopTimeTrackingTableProps {
@@ -33,20 +31,12 @@ export function DesktopTimeTrackingTable({
   onUnapproveDay,
   onEditShift,
   calculateDayHours,
-  hasDayIssues,
+  hasDayIssues: _hasDayIssues,
   sortPunches,
   groupPunchesByWeek,
   currentLocationId,
   approvingPunchIds,
 }: DesktopTimeTrackingTableProps) {
-  
-  const formatScheduleTime = (timeStr: string | null | undefined) => {
-    if (!timeStr) return '—';
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-  };
 
   // Group data by employee with week groupings for hierarchical rendering
   const employeeData = filteredCards.map((card) => {
@@ -99,60 +89,55 @@ export function DesktopTimeTrackingTable({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="w-[200px]">Employee</TableHead>
-            <TableHead className="w-[100px]">Day</TableHead>
-            <TableHead className="w-[180px]">Shift Times</TableHead>
-            <TableHead className="w-[180px]">Breaks</TableHead>
-            <TableHead className="w-[80px] text-right">Hours</TableHead>
-            <TableHead className="w-[70px] text-center">Approve</TableHead>
-          </TableRow>
-        </TableHeader>
+      <Table className="table-fixed">
+        <colgroup>
+          <col className="w-[140px]" />
+          <col className="w-[180px]" />
+          <col className="w-[140px]" />
+          <col className="w-[80px]" />
+          <col className="w-[56px]" />
+        </colgroup>
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
             <>
               {/* Employee header row */}
-              <TableRow key={`employee-${card.profile.id}`} className="bg-muted/30 hover:bg-muted/40">
-                <TableCell className="py-3">
+              <TableRow key={`employee-${card.profile.id}`} className="bg-muted/40 hover:bg-muted/50">
+                <TableCell className="py-2" colSpan={3}>
                   <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-7 w-7">
                       <AvatarImage src={card.profile.avatar_url} />
                       <AvatarFallback className="text-xs">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
                     </Avatar>
-                    <div className="font-medium text-sm">{card.profile.full_name}</div>
+                    <span className="font-medium text-sm">{card.profile.full_name}</span>
                   </div>
                 </TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                <TableCell className="py-3 text-right">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide">Total</span>
-                  <div className="font-semibold text-sm">{card.totalHours.toFixed(1)} hrs</div>
+                <TableCell className="py-2 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span className="text-xs text-muted-foreground uppercase">Total</span>
+                    <span className="font-semibold text-sm">{card.totalHours.toFixed(1)}</span>
+                  </div>
                 </TableCell>
                 <TableCell />
               </TableRow>
               
               {/* Week groups */}
-              {weeks.map((week, weekIdx) => (
+              {weeks.map((week) => (
                 <>
                   {/* Week separator header */}
-                  <TableRow key={`week-${card.profile.id}-${week.weekKey}`} className="border-t-2 border-border/50">
-                    <TableCell colSpan={4} className="py-2 bg-muted/10">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-medium">Week of {format(week.weekStart, 'MMM d')} – {format(week.weekEnd, 'MMM d')}</span>
-                      </div>
+                  <TableRow key={`week-${card.profile.id}-${week.weekKey}`} className="border-t border-border/60">
+                    <TableCell colSpan={3} className="py-1.5 bg-muted/20">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        Week of {format(week.weekStart, 'MMM d')} – {format(week.weekEnd, 'MMM d')}
+                      </span>
                     </TableCell>
-                    <TableCell className="py-2 text-right bg-muted/10">
-                      <span className="font-medium text-sm">{week.weekTotalHours.toFixed(1)}</span>
-                      <span className="text-xs text-muted-foreground ml-0.5">hrs</span>
+                    <TableCell className="py-1.5 text-right bg-muted/20">
+                      <span className="font-medium text-xs">{week.weekTotalHours.toFixed(1)} hrs</span>
                     </TableCell>
-                    <TableCell className="bg-muted/10" />
+                    <TableCell className="bg-muted/20" />
                   </TableRow>
                   
                   {/* Day rows */}
-                  {week.days.map(({ day, dayPunches }) => {
+                  {week.days.map(({ day, dayPunches }, dayIdx) => {
                     const sortedPunches = sortPunches(dayPunches);
                     
                     // Identify distinct shifts
@@ -179,7 +164,6 @@ export function DesktopTimeTrackingTable({
                     const dayHours = calculateDayHours(dayPunches);
                     const isApproved = dayPunches.every((p: any) => p.approved_at);
                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-                    const scheduledShift = card.shiftsByDate?.get(day);
                     
                     // Check break violation
                     let hasBreakViolation = false;
@@ -196,76 +180,44 @@ export function DesktopTimeTrackingTable({
 
                     const hasAnyFlag = hasAutoClockOut || hasBreakViolation;
                     const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
+                    
+                    // Alternating row colors for visual separation
+                    const rowBg = dayIdx % 2 === 0 ? '' : 'bg-muted/10';
 
                     return (
                       <TableRow 
                         key={`${card.profile.id}-${day}`}
-                        className={`cursor-pointer hover:bg-muted/30 transition-colors ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}
+                        className={`cursor-pointer hover:bg-muted/30 transition-colors ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : rowBg}`}
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
-                        {/* Day in Employee column for visual alignment */}
-                        <TableCell className="py-2" colSpan={2}>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs text-muted-foreground w-8">{format(dayDate, 'EEE')}</div>
-                            <div className="font-semibold text-sm">{format(dayDate, 'MMM d')}</div>
+                        {/* Day column */}
+                        <TableCell className="py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground w-7">{format(dayDate, 'EEE')}</span>
+                            <span className="font-medium text-sm">{format(dayDate, 'MMM d')}</span>
                           </div>
                         </TableCell>
 
-                        {/* Shift Times Column */}
-                        <TableCell className="py-2">
-                          <div className="space-y-1">
-                            {/* Actual times */}
+                        {/* Shift Times - compact single line */}
+                        <TableCell className="py-1.5">
+                          <div className="flex items-center gap-1 flex-wrap">
                             {shifts.map((shift, shiftIdx) => (
-                              <div key={shiftIdx} className="flex items-center gap-1.5 text-sm">
-                                {shifts.length > 1 && (
-                                  <span className="text-[10px] text-muted-foreground font-medium">#{shiftIdx + 1}</span>
-                                )}
-                                <span className="text-green-600 font-medium">
-                                  {shift.clockIn ? formatTimeDisplay(shift.clockIn.punch_time, timezone) : '—'}
-                                </span>
+                              <span key={shiftIdx} className="text-sm flex items-center gap-1">
+                                {shifts.length > 1 && <span className="text-[10px] text-muted-foreground">#{shiftIdx + 1}</span>}
+                                <span className="text-green-600 font-medium">{shift.clockIn ? formatTimeDisplay(shift.clockIn.punch_time, timezone) : '—'}</span>
                                 <span className="text-muted-foreground">→</span>
-                                <span className="text-red-600 font-medium">
-                                  {shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}
-                                </span>
-                                {shiftIdx === 0 && hasBreakViolation && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 gap-0.5">
-                                    <Coffee className="h-2.5 w-2.5" />
-                                    No Break
-                                  </Badge>
-                                )}
-                                {shiftIdx === 0 && hasAutoClockOut && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5">
-                                    <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
-                                    Auto
-                                  </Badge>
-                                )}
-                              </div>
+                                <span className="text-red-600 font-medium">{shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}</span>
+                              </span>
                             ))}
-                            
-                            {/* Scheduled times - tag style */}
-                            {scheduledShift && !scheduledShift.is_time_off && (
-                              <div className="flex items-center gap-1 mt-1">
-                                <Badge variant="outline" className="text-xs px-2 py-0.5 bg-muted/50 border-dashed gap-1">
-                                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-muted-foreground">
-                                    {formatScheduleTime(scheduledShift.start_time)} → {formatScheduleTime(scheduledShift.end_time)}
-                                  </span>
-                                </Badge>
-                              </div>
-                            )}
-                            {scheduledShift?.is_time_off && (
-                              <Badge variant="outline" className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 gap-1">
-                                <Calendar className="h-3 w-3 text-blue-500" />
-                                <span className="text-blue-600 dark:text-blue-400">Time Off</span>
-                              </Badge>
-                            )}
+                            {hasBreakViolation && <Coffee className="h-3.5 w-3.5 text-amber-600" />}
+                            {hasAutoClockOut && <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />}
                           </div>
                         </TableCell>
 
-                        {/* Breaks Column */}
-                        <TableCell className="py-2">
+                        {/* Breaks - compact */}
+                        <TableCell className="py-1.5">
                           {breakStarts.length > 0 ? (
-                            <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {breakStarts.map((breakStart: any, bidx: number) => {
                                 let breakEnd = dayPunches.find((p: any) => 
                                   p.punch_type === 'break_end' && 
@@ -286,21 +238,14 @@ export function DesktopTimeTrackingTable({
                                 }
                                 
                                 return (
-                                  <div 
+                                  <span 
                                     key={bidx} 
-                                    className={`flex items-center gap-1 text-xs ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
+                                    className={`text-xs flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}
                                   >
                                     <Coffee className="h-3 w-3" />
-                                    <span>{duration}:</span>
-                                    <span>{formatTimeDisplay(breakStart.punch_time, timezone)}</span>
-                                    {breakEnd && (
-                                      <>
-                                        <span>→</span>
-                                        <span>{formatTimeDisplay(breakEnd.punch_time, timezone)}</span>
-                                      </>
-                                    )}
+                                    {duration}
                                     {isLongBreak && <span>⚠️</span>}
-                                  </div>
+                                  </span>
                                 );
                               })}
                             </div>
@@ -309,42 +254,41 @@ export function DesktopTimeTrackingTable({
                           )}
                         </TableCell>
 
-                        {/* Hours Column */}
-                        <TableCell className="py-2 text-right">
-                          <span className="font-semibold text-sm">{dayHours.toFixed(1)}</span>
-                          <span className="text-xs text-muted-foreground ml-0.5">hrs</span>
+                        {/* Hours */}
+                        <TableCell className="py-1.5 text-right">
+                          <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
-                        {/* Approve Column */}
-                        <TableCell className="py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                        {/* Approve */}
+                        <TableCell className="py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                           {isApproved ? (
                             <button 
-                              className={`h-10 w-10 rounded-lg flex items-center justify-center bg-green-100 dark:bg-green-900/30 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}
                               disabled={isApproving}
                             >
-                              <CheckCircle2 className="h-5 w-5" />
+                              <CheckCircle2 className="h-4 w-4" />
                             </button>
                           ) : (hasBreakViolation || hasAutoClockOut) ? (
                             <button 
-                              className={`h-10 w-10 rounded-lg flex items-center justify-center bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-400 hover:bg-amber-100 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-amber-50 dark:bg-amber-900/30 border border-amber-400 hover:bg-amber-100 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                               title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
                             >
                               {hasBreakViolation ? (
-                                <Coffee className="h-5 w-5 text-amber-600" />
+                                <Coffee className="h-4 w-4 text-amber-600" />
                               ) : (
-                                <img src={autoPunchIcon} alt="Auto" className="h-5 w-5" />
+                                <img src={autoPunchIcon} alt="Auto" className="h-4 w-4" />
                               )}
                             </button>
                           ) : (
                             <button 
-                              className={`h-10 w-10 rounded-lg flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                             >
-                              <CheckCircle2 className="h-5 w-5 text-muted-foreground" />
+                              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                             </button>
                           )}
                         </TableCell>
