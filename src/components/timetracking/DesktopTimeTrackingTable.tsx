@@ -95,7 +95,7 @@ export function DesktopTimeTrackingTable({
             <>
               {/* Employee header row */}
               <TableRow key={`employee-${card.profile.id}`} className="bg-muted/40 hover:bg-muted/50">
-                <TableCell className="py-2" colSpan={3}>
+                <TableCell className="py-2" colSpan={4}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={card.profile.avatar_url} />
@@ -118,7 +118,7 @@ export function DesktopTimeTrackingTable({
                 <>
                   {/* Week separator header */}
                   <TableRow key={`week-${card.profile.id}-${week.weekKey}`} className="border-t border-border/60">
-                    <TableCell colSpan={3} className="py-1.5 bg-muted/20">
+                    <TableCell colSpan={4} className="py-1.5 bg-muted/20">
                       <span className="text-xs text-muted-foreground font-medium">
                         Week of {format(week.weekStart, 'MMM d')} – {format(week.weekEnd, 'MMM d')}
                       </span>
@@ -158,6 +158,9 @@ export function DesktopTimeTrackingTable({
                     const isApproved = dayPunches.every((p: any) => p.approved_at);
                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
                     
+                    // Get scheduled shift for this day
+                    const scheduledShift = card.shiftsByDate?.get(day);
+                    
                     // Check break violation
                     let hasBreakViolation = false;
                     shifts.forEach(shift => {
@@ -177,6 +180,15 @@ export function DesktopTimeTrackingTable({
                     // Alternating row colors for visual separation
                     const rowBg = dayIdx % 2 === 0 ? '' : 'bg-muted/10';
 
+                    // Format scheduled time for display (e.g., "09:00" -> "9:00 AM")
+                    const formatScheduledTime = (time: string | null | undefined) => {
+                      if (!time) return null;
+                      const [hours, minutes] = time.split(':').map(Number);
+                      const ampm = hours >= 12 ? 'PM' : 'AM';
+                      const hour12 = hours % 12 || 12;
+                      return `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                    };
+
                     return (
                       <TableRow 
                         key={`${card.profile.id}-${day}`}
@@ -189,7 +201,20 @@ export function DesktopTimeTrackingTable({
                           <span className="font-medium text-sm ml-1.5">{format(dayDate, 'M/d')}</span>
                         </TableCell>
 
-                        {/* Shift Times - compact single line */}
+                        {/* Scheduled Times - muted, compact */}
+                        <TableCell className="py-1.5">
+                          {scheduledShift && !scheduledShift.is_time_off ? (
+                            <span className="text-xs text-muted-foreground">
+                              {formatScheduledTime(scheduledShift.start_time)} → {formatScheduledTime(scheduledShift.end_time)}
+                            </span>
+                          ) : scheduledShift?.is_time_off ? (
+                            <span className="text-xs text-muted-foreground italic">PTO</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        {/* Actual Shift Times - compact single line */}
                         <TableCell className="py-1.5">
                           <div className="flex items-center gap-1 flex-wrap">
                             {shifts.map((shift, shiftIdx) => (
