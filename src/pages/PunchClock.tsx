@@ -934,7 +934,8 @@ export default function PunchClock() {
     }
   };
 
-const isClockedIn = lastPunch?.punch_type === 'clock_in';
+// User is considered "clocked in" if last punch is clock_in OR break_end (returned from break)
+const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_type === 'break_end';
 
   return (
     <>
