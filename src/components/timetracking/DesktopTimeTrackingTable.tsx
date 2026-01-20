@@ -1,7 +1,6 @@
 import { format } from 'date-fns';
 import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 import {
@@ -102,13 +101,7 @@ export function DesktopTimeTrackingTable({
               {/* Employee header row */}
               <TableRow key={`employee-${card.profile.id}`} className="bg-primary/10 dark:bg-primary/20 border-t-2 border-primary/30 hover:bg-primary/15 dark:hover:bg-primary/25">
                 <TableCell className="py-2.5" colSpan={5}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8 ring-2 ring-primary/30">
-                      <AvatarImage src={card.profile.avatar_url} />
-                      <AvatarFallback className="text-xs font-bold bg-primary/20">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <span className="font-bold text-base text-primary dark:text-primary-foreground">{card.profile.full_name}</span>
-                  </div>
+                  <span className="font-bold text-base text-primary dark:text-primary-foreground">{card.profile.full_name}</span>
                 </TableCell>
                 <TableCell className="py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1.5">
