@@ -161,15 +161,26 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
 
 // Get week start (Monday) for a given date string
 export const getWeekStartForDate = (dateStr: string, timezone: string): string => {
-  // Use Intl to get proper weekday in timezone
-  const date = new Date(dateStr + 'T12:00:00');
+  // Parse as a *local* date (no timezone conversion) by using numeric constructor.
+  // Using a midday anchor avoids edge cases around midnight.
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0);
+
+  // Get weekday in the target timezone
   const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(date);
   const map: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
   const dow = map[weekdayShort] ?? 0;
-  
+
   const weekStart = new Date(date);
   weekStart.setDate(date.getDate() - dow);
-  return weekStart.toISOString().slice(0, 10);
+
+  // IMPORTANT: return a YYYY-MM-DD for the target timezone (don’t use toISOString())
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(weekStart);
 };
 
 // Calculate overtime breakdown from hours grouped by day
