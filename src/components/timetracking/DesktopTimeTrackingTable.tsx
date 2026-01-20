@@ -229,10 +229,10 @@ export function DesktopTimeTrackingTable({
                           </div>
                         </TableCell>
 
-                        {/* Breaks - compact */}
+                        {/* Breaks - stacked */}
                         <TableCell className="py-1">
                           {breakStarts.length > 0 ? (
-                            <div className="flex items-center gap-1 flex-wrap">
+                            <div className="flex flex-col gap-0.5">
                               {breakStarts.map((breakStart: any, bidx: number) => {
                                 let breakEnd = dayPunches.find((p: any) => 
                                   p.punch_type === 'break_end' && 
