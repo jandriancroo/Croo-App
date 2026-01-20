@@ -134,7 +134,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-10 w-10 flex-shrink-0">
+      <Avatar className="h-12 w-12 flex-shrink-0">
         {chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
             <Megaphone className="h-6 w-6 text-primary" />
@@ -155,7 +155,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 undefined
               }
             />
-            <AvatarFallback className="text-base font-medium">
+            <AvatarFallback className="text-lg font-medium">
               {chat.title?.charAt(0) || 'C'}
             </AvatarFallback>
           </>
@@ -164,7 +164,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p
-            className={`flex-1 min-w-0 truncate text-base ${
+            className={`flex-1 min-w-0 truncate text-[15px] ${
               chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
             }`}
           >
@@ -194,14 +194,14 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
                 {formatLastMessageTime(chat.updated_at)}
               </span>
             )}
           </div>
         </div>
         {chat.messagePreview && (
-          <p className={`text-sm truncate mt-1 ${
+          <p className={`text-[14px] truncate mt-1 ${
             chat.unreadCount && chat.unreadCount > 0 
               ? 'text-foreground font-medium' 
               : 'text-muted-foreground'
