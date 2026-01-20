@@ -140,6 +140,7 @@ export default function UserManagement() {
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [updatingOutdated, setUpdatingOutdated] = useState(false);
   const [creatingTestUser, setCreatingTestUser] = useState(false);
   const [testUserCounter, setTestUserCounter] = useState(1);
   const { toast } = useToast();
@@ -913,6 +914,46 @@ export default function UserManagement() {
     }
   };
 
+  // Get outdated users (those with version less than current)
+  const currentVersion = getCurrentAppVersion();
+  const outdatedUsers = users.filter(u => {
+    if (!u.app_version || u.app_version === 'unknown') return false;
+    return u.app_version.localeCompare(currentVersion, undefined, { numeric: true }) < 0;
+  });
+
+  const handleUpdateAllOutdated = async () => {
+    if (outdatedUsers.length === 0) {
+      toast({
+        title: 'All up to date',
+        description: 'No users are running an outdated version.',
+      });
+      return;
+    }
+
+    try {
+      setUpdatingOutdated(true);
+      
+      // Send force-reload signal to all outdated users in parallel
+      await Promise.all(
+        outdatedUsers.map(u => triggerForceReload(u.id))
+      );
+
+      toast({
+        title: 'Update signals sent',
+        description: `Force update triggered for ${outdatedUsers.length} outdated user(s). They will refresh when their app is active.`,
+      });
+    } catch (error: any) {
+      console.error('Error updating outdated users:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send update signals',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingOutdated(false);
+    }
+  };
+
   const handleBulkWageUpdate = async (wage: number, effectiveDate: Date, notes: string) => {
     try {
       setBulkUpdating(true);
@@ -1106,6 +1147,22 @@ export default function UserManagement() {
                       <FlaskConical className="h-4 w-4" />
                     )}
                     <span className="hidden sm:inline">Add Test Employee</span>
+                  </Button>
+                )}
+                {outdatedUsers.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={handleUpdateAllOutdated}
+                    disabled={updatingOutdated}
+                  >
+                    {updatingOutdated ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Update {outdatedUsers.length} Outdated</span>
+                    <span className="sm:hidden">{outdatedUsers.length}</span>
                   </Button>
                 )}
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
