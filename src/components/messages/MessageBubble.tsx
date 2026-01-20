@@ -75,11 +75,11 @@ export function MessageBubble({
   const isPending = message.isPending;
   const displayUrl = signedAttachmentUrl || message.attachment_url;
 
-  // Bubble tail styles using CSS
+  // Bubble tail class - only show on last message of cluster
   const bubbleTailClass = isLastInCluster
     ? isOwnMessage
-      ? 'after:absolute after:bottom-0 after:right-[-6px] after:w-3 after:h-3 after:bg-primary after:clip-path-bubble-right'
-      : 'after:absolute after:bottom-0 after:left-[-6px] after:w-3 after:h-3 after:bg-muted after:clip-path-bubble-left'
+      ? 'bubble-tail-right'
+      : 'bubble-tail-left'
     : '';
 
   // Cluster spacing - tighter for same sender
@@ -124,13 +124,14 @@ export function MessageBubble({
             className={`
               rounded-2xl px-3 py-2 relative
               ${isOwnMessage 
-                ? 'bg-primary text-primary-foreground rounded-br-md' 
-                : 'bg-muted rounded-bl-md'
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted'
               }
-              ${isFirstInCluster && isOwnMessage ? 'rounded-tr-2xl' : ''}
-              ${isFirstInCluster && !isOwnMessage ? 'rounded-tl-2xl' : ''}
+              ${isLastInCluster && isOwnMessage ? 'rounded-br-sm' : ''}
+              ${isLastInCluster && !isOwnMessage ? 'rounded-bl-sm' : ''}
               ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''}
               ${isPending ? 'opacity-70' : ''}
+              ${bubbleTailClass}
             `}
           >
             {/* Sending indicator */}

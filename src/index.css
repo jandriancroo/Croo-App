@@ -759,4 +759,37 @@ All colors MUST be HSL.
   .animate-fade-in {
     animation: fade-in 0.25s ease-out forwards;
   }
+
+  /* iMessage-style bubble tails */
+  .bubble-tail-right::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background: hsl(var(--primary));
+    border-bottom-left-radius: 16px;
+    clip-path: polygon(0 0, 0 100%, 100% 100%);
+  }
+
+  .bubble-tail-left::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -8px;
+    width: 16px;
+    height: 16px;
+    background: hsl(var(--muted));
+    border-bottom-right-radius: 16px;
+    clip-path: polygon(100% 0, 0 100%, 100% 100%);
+  }
+
+  .dark .bubble-tail-right::after {
+    background: hsl(var(--primary));
+  }
+
+  .dark .bubble-tail-left::after {
+    background: hsl(var(--muted));
+  }
 }
