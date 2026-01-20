@@ -26,6 +26,10 @@ export default {
         'lexend': ['Lexend', 'sans-serif'],
         'comfortaa': ['Comfortaa', 'sans-serif'],
         'stencil': ['Black Ops One', 'cursive'],
+        'dm-sans': ['DM Sans', 'sans-serif'],
+        'figtree': ['Figtree', 'sans-serif'],
+        'sora': ['Sora', 'sans-serif'],
+        'work-sans': ['Work Sans', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
