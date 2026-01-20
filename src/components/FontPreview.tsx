@@ -22,52 +22,10 @@ const fonts = [
     vibe: "Fresh, business-forward, balanced"
   },
   { 
-    name: "Sora", 
-    class: "font-sora", 
-    description: "Tech geometric", 
-    vibe: "Contemporary, precise, startup-ready"
-  },
-  { 
-    name: "Work Sans", 
-    class: "font-work-sans", 
-    description: "Neutral workhorse", 
-    vibe: "Versatile, professional, reliable"
-  },
-  { 
-    name: "Outfit", 
-    class: "font-outfit", 
-    description: "Geometric, Google-like", 
-    vibe: "Clean, modern, slightly playful"
-  },
-  { 
     name: "Manrope", 
     class: "font-manrope", 
     description: "Humanist, Apple-like", 
     vibe: "Professional, warm, readable"
-  },
-  { 
-    name: "Space Grotesk", 
-    class: "font-grotesk", 
-    description: "Industrial, GE-like", 
-    vibe: "Bold, distinctive, technical"
-  },
-  { 
-    name: "Plus Jakarta Sans", 
-    class: "font-jakarta", 
-    description: "Blend of all three", 
-    vibe: "Modern, balanced, versatile"
-  },
-  { 
-    name: "Lexend", 
-    class: "font-lexend", 
-    description: "Optimized readability", 
-    vibe: "Clean, accessible, contemporary"
-  },
-  { 
-    name: "Inter", 
-    class: "font-inter", 
-    description: "System UI style", 
-    vibe: "Neutral, professional, familiar"
   },
 ];
 
