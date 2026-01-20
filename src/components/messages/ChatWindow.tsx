@@ -1019,6 +1019,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                       currentUserId={currentUserId}
                       isAnnouncement={chatDetails?.is_announcement || false}
                       isArcadeChat={isArcadeChat}
+                      isGroupChat={chatDetails?.is_group || false}
                       smackTalks={smackTalks}
                       signedAttachmentUrl={signedAttachmentUrls[message.id]}
                       onReaction={handleReaction}
