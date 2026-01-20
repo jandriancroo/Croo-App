@@ -4,21 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { markChatAsRead } from '@/hooks/useUnreadMessages';
 import { Button } from '@/components/ui/button';
-import { MentionInput } from './MentionInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users, Loader2, Clock } from 'lucide-react';
-import { GifPicker } from './GifPicker';
+import { Settings, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, isSameDay } from 'date-fns';
-import { ReactionPicker } from './ReactionPicker';
-import { MessageReactions } from './MessageReactions';
+import { isSameDay } from 'date-fns';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
-import { MessageContent } from './MessageContent';
-import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
-import { SmackTalkPicker } from './SmackTalkPicker';
 import { SmackTalkPopup } from './SmackTalkPopup';
 import { DateSeparator } from './DateSeparator';
+import { MessageBubble } from './MessageBubble';
+import { IMessageInput } from './iMessageInput';
 import { useUserRole } from '@/hooks/useUserRole';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import {
@@ -106,7 +101,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const isNearBottomRef = useRef(true);
 
   // Check if user is near bottom of scroll
@@ -779,7 +773,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       }
 
       toast.success('File uploaded');
-      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error: any) {
       console.error('Error uploading file:', error);
       toast.error('Failed to upload file');
@@ -916,153 +909,59 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             }
           });
 
-          return allMessages.map((message, index) => {
-            const isOwnMessage = currentUserId && message.sender_id === currentUserId;
-            const isPending = message.isPending;
-            
-            // Skip smack talk messages that are linked to a game score - they're shown as overlays
-            if (message.content?.startsWith('SMACK_TALK:') && message.parent_message_id) {
-              return null;
-            }
+          // Filter out smack talk messages for display
+          const displayMessages = allMessages.filter(
+            msg => !(msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id)
+          );
 
+          return displayMessages.map((message, index) => {
+            const isOwnMessage = currentUserId && message.sender_id === currentUserId;
+            
             // Get smack talks for this game score (by message ID)
             const smackTalks = smackTalkMap.get(message.id) || [];
             
             // Date separator logic
             const messageDate = new Date(message.created_at);
-            const prevMessage = index > 0 ? allMessages[index - 1] : null;
+            const prevMessage = index > 0 ? displayMessages[index - 1] : null;
+            const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
             const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
+            
+            // Clustering logic - group consecutive messages from same sender
+            const prevSameSender = prevMessage && prevMessage.sender_id === message.sender_id && 
+              isSameDay(new Date(prevMessage.created_at), messageDate);
+            const nextSameSender = nextMessage && nextMessage.sender_id === message.sender_id &&
+              isSameDay(new Date(nextMessage.created_at), messageDate);
+            
+            const isFirstInCluster = !prevSameSender || showDateSeparator;
+            const isLastInCluster = !nextSameSender;
+            
+            // Show avatar only on last message of cluster for received messages
+            const showAvatar = isLastInCluster && !isOwnMessage;
+            // Show name only on first message of cluster
+            const showName = isFirstInCluster && !isOwnMessage;
             
             return (
               <div key={message.id} className={message.isNew ? 'animate-fade-in' : ''}>
                 {showDateSeparator && <DateSeparator date={messageDate} />}
-              <div
-                className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
-              >
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarImage src={message.profiles?.profile_photo_url || undefined} />
-                  <AvatarFallback>
-                    {message.profiles?.full_name?.charAt(0) || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-sm font-medium truncate">
-                      {isPending ? 'You' : (message.profiles?.full_name || 'Unknown')}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {isPending ? 'Sending...' : format(new Date(message.created_at), 'h:mm a')}
-                    </span>
-                    {/* Show scheduled time for sender on announcements */}
-                    {message.scheduled_at && isOwnMessage && (
-                      <span className="text-xs text-amber-500 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Scheduled: {format(new Date(message.scheduled_at), 'MMM d, h:mm a')}
-                      </span>
-                    )}
-                    {!isPending && (
-                      <ReadReceipts
-                        messageId={message.id}
-                        senderId={message.sender_id}
-                        currentUserId={currentUserId}
-                        chatId={chatId}
-                      />
-                    )}
-                  </div>
-                  <div>
-                    <div
-                      className={`rounded-lg p-3 relative ${
-                        isOwnMessage
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      } ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''} ${
-                        isPending ? 'opacity-70' : ''
-                      }`}
-                    >
-                      {/* Sending progress indicator */}
-                      {isPending && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-foreground/20 rounded-b-lg overflow-hidden">
-                          <div className="h-full bg-primary-foreground/60 animate-pulse" style={{ width: '60%' }} />
-                        </div>
-                      )}
-                      {/* Reply reference */}
-                      {message.parent_message && (() => {
-                        const parent = Array.isArray(message.parent_message) 
-                          ? message.parent_message[0] 
-                          : message.parent_message;
-                        if (!parent) return null;
-                        return (
-                          <div className={`mb-2 p-2 rounded text-sm border-l-2 overflow-hidden ${
-                            isOwnMessage 
-                              ? 'bg-primary-foreground/10 border-primary-foreground/50' 
-                              : 'bg-background/50 border-primary/50'
-                          }`}>
-                            <p className={`text-xs font-medium mb-0.5 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                              Replying to {parent.profiles?.full_name || 'Unknown'}
-                            </p>
-                            <p className={`text-sm line-clamp-2 ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
-                              {parent.content || 'Attachment'}
-                            </p>
-                          </div>
-                        );
-                      })()}
-                      {message.attachment_url && (() => {
-                        const displayUrl = signedAttachmentUrls[message.id] || message.attachment_url;
-                        return (
-                          <div className="mb-2">
-                            {message.attachment_type?.startsWith('image/') ? (
-                              <img
-                                src={displayUrl}
-                                alt="Message attachment"
-                                className="rounded max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => setViewingImage(displayUrl)}
-                                loading="lazy"
-                              />
-                            ) : (
-                              <a
-                                href={displayUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 hover:underline"
-                              >
-                                <File className="h-4 w-4" />
-                                {message.content || 'Attachment'}
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      {message.content && (
-                        <MessageContent 
-                          content={message.content} 
-                          chatId={chatId} 
-                          senderName={message.profiles?.full_name}
-                          smackTalks={smackTalks}
-                        />
-                      )}
-                    </div>
-                    {!chatDetails?.is_announcement && !isPending && (
-                      <>
-                        <div className="flex items-center gap-2 mt-1">
-                          <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
-                          {isArcadeChat && message.content?.startsWith('GAME_SCORE:') && (
-                            <SmackTalkPicker onSelect={(text) => handleSmackTalk(text, message.id)} disabled={sending} />
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2"
-                            onClick={() => setReplyToMessage(message)}
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <MessageReactions messageId={message.id} currentUserId={currentUserId} />
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+                <MessageBubble
+                  message={message}
+                  isOwnMessage={!!isOwnMessage}
+                  showAvatar={showAvatar}
+                  showName={showName}
+                  isFirstInCluster={isFirstInCluster}
+                  isLastInCluster={isLastInCluster}
+                  chatId={chatId}
+                  currentUserId={currentUserId}
+                  isAnnouncement={chatDetails?.is_announcement || false}
+                  isArcadeChat={isArcadeChat}
+                  smackTalks={smackTalks}
+                  signedAttachmentUrl={signedAttachmentUrls[message.id]}
+                  onReaction={handleReaction}
+                  onReply={setReplyToMessage}
+                  onSmackTalk={handleSmackTalk}
+                  onImageClick={setViewingImage}
+                  sending={sending}
+                />
               </div>
             );
           });
@@ -1081,58 +980,18 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       {/* Input - Hide for announcements */}
       {!chatDetails?.is_announcement && (
-        <div className="border-t border-border p-4 mb-4 flex-shrink-0">
-        {replyToMessage && (
-          <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
-            <div className="text-sm">
-              <p className="text-muted-foreground">Replying to {replyToMessage.profiles?.full_name}</p>
-              <p className="truncate">{replyToMessage.content}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setReplyToMessage(null)}
-            >
-              ×
-            </Button>
-          </div>
-        )}
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileUpload}
-            accept="image/*,.pdf,.doc,.docx"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <GifPicker onSelect={handleGifSelect} />
-          <MentionInput
-            value={newMessage}
-            onChange={setNewMessage}
-            placeholder="Type a message... Use @ to mention"
-            chatId={chatId}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            disabled={sending}
-          />
-          <Button onClick={handleSend} disabled={sending || uploading}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-        </div>
+        <IMessageInput
+          value={newMessage}
+          onChange={setNewMessage}
+          onSend={handleSend}
+          onFileUpload={handleFileUpload}
+          onGifSelect={handleGifSelect}
+          chatId={chatId}
+          disabled={sending}
+          uploading={uploading}
+          replyTo={replyToMessage}
+          onCancelReply={() => setReplyToMessage(null)}
+        />
       )}
 
       {/* Delete Confirmation */}
