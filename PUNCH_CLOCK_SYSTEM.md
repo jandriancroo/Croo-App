@@ -95,59 +95,68 @@ If lastPunch.punch_type === 'break_start':
 
 ---
 
-## Auto Punch-Out System
+## Auto Punch-Out System (v2 - Safe Implementation)
 
-The `auto-punch-out` edge function runs via cron and automatically clocks out employees who forgot to punch out.
+The `auto-punch-out` edge function runs **once daily at 3 AM PST** as part of `nightly-maintenance` and safely clocks out employees who forgot to punch out.
+
+### Key Safety Features:
+- **Business-hours aware**: Uses `location_hours.close_time` + 3 hour buffer (not arbitrary times)
+- **Runs once daily**: No race conditions from frequent polling
+- **Shift validation**: Only auto-punches shifts between 4-16 hours
+- **Detailed logging**: Every decision is logged with reasons
+- **Cache integration**: Marks `labor_cache` as stale after auto-punching
 
 ### Configuration:
-- Set in `labor_rules` table under `auto_punch_out_time` column
-- Format: `HH:MM:SS` (e.g., `02:00:00` for 2:00 AM)
-- Currently set to **2:00 AM** for Blaze locations
+- Uses `location_hours` table (close_time per day of week)
+- Buffer: 3 hours after close time
+- Minimum shift: 4 hours (shorter shifts skipped)
+- Maximum shift: 16 hours (longer shifts skipped, likely error)
 
 ### How It Works:
 
-1. **Runs every minute** via cron job
-2. **Checks each location** that has `auto_punch_out_time` configured
-3. **Looks back 48 hours** for any open `clock_in` punches without matching `clock_out`
+1. **Runs at 3 AM PST** via `nightly-maintenance` cron
+2. **For each location**, gets yesterday's `close_time` from `location_hours`
+3. **Finds open clock-ins** from yesterday (no matching clock_out after)
 4. **For each open punch:**
+   - Calculate shift duration (clock_in to now)
+   - Skip if < 4 hours (too short, likely data issue)
+   - Skip if > 16 hours (too long, likely error)
+   - Otherwise, auto-punch at `close_time + 3 hours`
 
-   **If the clock_in is from a PREVIOUS day:**
-   - Sets auto-punch time to `auto_punch_out_time` on the day AFTER the clock_in
-   - Example: Clocked in Jan 9 at 6 PM → Auto-punched Jan 10 at 2:00 AM
-   
-   **If the clock_in is from TODAY and past auto-punch time:**
-   - Auto-punches at today's `auto_punch_out_time`
-   - Only if the clock_in was before the auto-punch time
-
-5. **Sanity Checks:**
-   - Skips shifts that would be > 16 hours (likely data error)
-   - Checks for meal break violations (if worked > 5 hours without break)
-
-6. **Creates clock_out punch with:**
+5. **Creates clock_out punch with:**
    - `is_auto_punched_out: true`
-   - `notes: 'Auto clocked out by system'`
-   - `has_break_violation: true` (if applicable)
+   - `notes: 'Auto clocked out by system - 3 hours post-close (22:00)'`
+   - `has_break_violation: true` (if shift > 5 hours)
 
-### Auto-Punch Time Calculation Example:
+6. **Marks `labor_cache` as stale** so backfill recalculates hours
+
+### Example:
 
 ```
-Location timezone: America/Los_Angeles
-Auto punch time: 02:00:00 (2 AM)
+Location: Blaze Pasadena
+Yesterday's close time: 22:00 (10 PM)
+Buffer: 3 hours
 
-Scenario 1: Anthony clocks in Jan 9 at 6:00 PM PST (02:00 UTC Jan 10)
-- Clock in local date: Jan 9
-- Today local date: Jan 10
-- Since clock_in date < today: AUTO-PUNCH
-- Punch time = Jan 10 at 2:00 AM PST (10:00 UTC)
-
-Scenario 2: Employee clocks in Jan 10 at 8:00 AM, current time is 11:00 AM
-- Clock in local date: Jan 10
-- Today local date: Jan 10
-- isPastAutoPunchTime: false (11 AM < 2 AM next day)
-- NO AUTO-PUNCH (shift still valid)
+Employee clocks in Jan 9 at 6:00 PM, forgets to clock out:
+- Clock in: Jan 9 at 6:00 PM PST
+- Location close: Jan 9 at 10:00 PM PST
+- Auto-punch time: Jan 10 at 1:00 AM PST (close + 3 hrs)
+- Shift duration: ~7 hours ✓ (within 4-16 hr range)
+- Result: AUTO-PUNCH at Jan 10 1:00 AM
 ```
+
+### What Gets Skipped (with logging):
+
+| Scenario | Reason |
+|----------|--------|
+| Shift < 4 hours | Too short, likely test/error |
+| Shift > 16 hours | Too long, likely forgot previous day too |
+| Already has clock_out | Employee punched out normally |
+| Location closed yesterday | No `close_time` for that day |
+| No hours configured | Missing business hours in `location_hours` |
 
 ---
+
 
 ## Manual Punch Editing (Edit Punch Dialog)
 
