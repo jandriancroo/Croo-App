@@ -21,7 +21,8 @@ import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
-
+import { ChatTabBadge } from '@/components/messages/ChatTabBadge';
+import { useChatUnreadCounts, triggerChatCountRefetch } from '@/hooks/useChatUnreadCounts';
 interface Chat {
   id: string;
   title: string | null;
@@ -69,6 +70,9 @@ export default function Messages() {
 
   // Use user.id from auth context
   const currentUserId = user?.id || null;
+
+  // Unread counts for tab badges
+  const { counts: unreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
 
   const chatIdsRef = useRef<Set<string>>(new Set());
   const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -463,33 +467,39 @@ export default function Messages() {
           
           <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support')} className="mb-4">
             <TabsList className={`grid w-full ${showSupportTab ? 'grid-cols-3 gap-1' : 'grid-cols-4'} h-10 p-1 gap-1`}>
-              <TabsTrigger value="chats" className="h-8" title="Chats">
+              <TabsTrigger value="chats" className="h-8 relative" title="Chats">
                 <MessageCircle className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.chats} />
               </TabsTrigger>
-              <TabsTrigger value="announcements" className="h-8" title="Announcements">
+              <TabsTrigger value="announcements" className="h-8 relative" title="Announcements">
                 <Megaphone className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.announcements} />
               </TabsTrigger>
-              <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
+              <TabsTrigger value="marketplace" className="h-8 relative" title="Shift Marketplace">
                 <ArrowLeftRight className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.marketplace} />
               </TabsTrigger>
               {!showSupportTab && (
                 <TabsTrigger 
                   value="hiring" 
-                  className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                  className={`h-8 relative ${!showHiringTab ? 'invisible' : ''}`} 
                   title="Hiring"
                   disabled={!showHiringTab}
                 >
                   <Briefcase className="h-4 w-4" />
+                  <ChatTabBadge count={unreadCounts.hiring} />
                 </TabsTrigger>
               )}
             </TabsList>
             {showSupportTab && (
               <TabsList className="grid w-full grid-cols-2 h-10 p-1 gap-1 mt-1">
-                <TabsTrigger value="hiring" className="h-8" title="Hiring">
+                <TabsTrigger value="hiring" className="h-8 relative" title="Hiring">
                   <Briefcase className="h-4 w-4" />
+                  <ChatTabBadge count={unreadCounts.hiring} />
                 </TabsTrigger>
-                <TabsTrigger value="support" className="h-8" title="Support">
+                <TabsTrigger value="support" className="h-8 relative" title="Support">
                   <Headphones className="h-4 w-4" />
+                  <ChatTabBadge count={unreadCounts.support} />
                 </TabsTrigger>
               </TabsList>
             )}
@@ -586,33 +596,39 @@ export default function Messages() {
         
         <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support')} className="mb-3">
           <TabsList className={`grid w-full ${showSupportTab ? 'grid-cols-3' : 'grid-cols-4'} h-10 p-1 gap-1`}>
-            <TabsTrigger value="chats" className="h-8" title="Chats">
+            <TabsTrigger value="chats" className="h-8 relative" title="Chats">
               <MessageCircle className="h-4 w-4" />
+              <ChatTabBadge count={unreadCounts.chats} />
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="h-8" title="Announcements">
+            <TabsTrigger value="announcements" className="h-8 relative" title="Announcements">
               <Megaphone className="h-4 w-4" />
+              <ChatTabBadge count={unreadCounts.announcements} />
             </TabsTrigger>
-            <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
+            <TabsTrigger value="marketplace" className="h-8 relative" title="Shift Marketplace">
               <ArrowLeftRight className="h-4 w-4" />
+              <ChatTabBadge count={unreadCounts.marketplace} />
             </TabsTrigger>
             {!showSupportTab && (
               <TabsTrigger 
                 value="hiring" 
-                className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                className={`h-8 relative ${!showHiringTab ? 'invisible' : ''}`} 
                 title="Hiring"
                 disabled={!showHiringTab}
               >
                 <Briefcase className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.hiring} />
               </TabsTrigger>
             )}
           </TabsList>
           {showSupportTab && (
             <TabsList className="grid w-full grid-cols-2 h-10 p-1 gap-1 mt-1">
-              <TabsTrigger value="hiring" className="h-8" title="Hiring">
+              <TabsTrigger value="hiring" className="h-8 relative" title="Hiring">
                 <Briefcase className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.hiring} />
               </TabsTrigger>
-              <TabsTrigger value="support" className="h-8" title="Support">
+              <TabsTrigger value="support" className="h-8 relative" title="Support">
                 <Headphones className="h-4 w-4" />
+                <ChatTabBadge count={unreadCounts.support} />
               </TabsTrigger>
             </TabsList>
           )}
