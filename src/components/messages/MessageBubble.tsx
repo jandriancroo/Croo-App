@@ -7,7 +7,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { ReadReceipts } from './ReadReceipts';
 import { SmackTalkPicker } from './SmackTalkPicker';
-
+import { LazyImage } from './LazyImage';
 interface ParentMessageData {
   content: string | null;
   profiles: {
@@ -163,16 +163,15 @@ export function MessageBubble({
               );
             })()}
 
-            {/* Attachment */}
+            {/* Attachment - uses LazyImage for performance */}
             {displayUrl && (
               <div className="mb-1">
                 {message.attachment_type?.startsWith('image/') ? (
-                  <img
+                  <LazyImage
                     src={displayUrl}
                     alt="Attachment"
                     className="rounded-lg max-w-[240px] cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => onImageClick(displayUrl)}
-                    loading="lazy"
                   />
                 ) : (
                   <a
