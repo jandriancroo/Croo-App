@@ -1,18 +1,22 @@
 import { Button } from '@/components/ui/button';
-import { X, UserX, DollarSign } from 'lucide-react';
+import { X, UserX, DollarSign, RefreshCw } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedCount: number;
   onDeactivate: () => void;
   onWageUpdate: () => void;
+  onForceUpdate?: () => void;
   onClearSelection: () => void;
+  isUpdating?: boolean;
 }
 
 export function BulkActionsBar({
   selectedCount,
   onDeactivate,
   onWageUpdate,
-  onClearSelection
+  onForceUpdate,
+  onClearSelection,
+  isUpdating = false
 }: BulkActionsBarProps) {
   if (selectedCount === 0) return null;
 
@@ -40,6 +44,18 @@ export function BulkActionsBar({
             <DollarSign className="h-4 w-4" />
             Update Wages
           </Button>
+          {onForceUpdate && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onForceUpdate}
+              disabled={isUpdating}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
+              Force Update
+            </Button>
+          )}
         </div>
         <div className="h-6 w-px bg-primary-foreground/20" />
         <Button
