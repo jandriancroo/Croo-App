@@ -1,9 +1,8 @@
 import { format } from 'date-fns';
-import { CheckCircle2, Coffee, Clock } from 'lucide-react';
+import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
 import {
   formatTimeDisplay,
   parseDateStringInTimezone,
@@ -138,17 +137,17 @@ export function DayByDayView({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30">
-            <TableHead className="w-[140px]">Employee</TableHead>
-            <TableHead className="w-[100px]">Scheduled</TableHead>
-            <TableHead>Actual</TableHead>
-            <TableHead className="w-[200px]">Breaks</TableHead>
-            <TableHead className="w-[60px]">Flags</TableHead>
-            <TableHead className="w-[60px] text-right">Hours</TableHead>
-            <TableHead className="w-[50px]"></TableHead>
+            <TableHead className="w-[15%]">Employee</TableHead>
+            <TableHead className="w-[15%]">Scheduled</TableHead>
+            <TableHead className="w-[18%]">Actual</TableHead>
+            <TableHead className="w-[27%]">Breaks</TableHead>
+            <TableHead className="w-[10%]">Flags</TableHead>
+            <TableHead className="w-[8%] text-right">Hours</TableHead>
+            <TableHead className="w-[7%]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedDays.map(([day, entries]) => {
+          {sortedDays.map(([day, entries], dayIdx) => {
             const dayDate = parseDateStringInTimezone(day, timezone);
             const dayTotal = getDayTotalHours(entries);
             
@@ -161,11 +160,18 @@ export function DayByDayView({
 
             return (
               <>
+                {/* Spacer row before each day (except first) */}
+                {dayIdx > 0 && (
+                  <TableRow key={`spacer-${day}`} className="h-3 hover:bg-transparent">
+                    <TableCell colSpan={7} className="p-0 border-0" />
+                  </TableRow>
+                )}
+
                 {/* Day Header */}
-                <TableRow key={`day-header-${day}`} className="bg-muted/40 hover:bg-muted/50">
+                <TableRow key={`day-header-${day}`} className="bg-primary/10 dark:bg-primary/20 hover:bg-primary/15 dark:hover:bg-primary/25 border-t-2 border-primary/30">
                   <TableCell colSpan={5} className="py-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{format(dayDate, 'EEEE')}</span>
+                      <span className="text-sm font-bold">{format(dayDate, 'EEEE')}</span>
                       <span className="text-sm text-muted-foreground">{format(dayDate, 'MMM d, yyyy')}</span>
                     </div>
                   </TableCell>
@@ -272,15 +278,15 @@ export function DayByDayView({
 
                       {/* Flags */}
                       <TableCell className="py-1.5">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           {entry.hasBreakViolation && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-                              <Coffee className="h-2.5 w-2.5" />
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
+                              No Break
                             </Badge>
                           )}
                           {entry.hasAutoClockOut && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
-                              <img src={autoPunchIcon} alt="Auto" className="h-2.5 w-2.5" />
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
+                              Auto Out
                             </Badge>
                           )}
                         </div>
