@@ -194,14 +194,14 @@ export function DesktopTimeTrackingTable({
                         className={`cursor-pointer hover:bg-muted/30 transition-colors ${hasAnyFlag ? 'bg-amber-50/50 dark:bg-amber-950/20' : rowBg}`}
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
-                        {/* Day column - indented under week header */}
-                        <TableCell className="py-1 pl-8 whitespace-nowrap w-[90px]">
+                        {/* Day column */}
+                        <TableCell className="py-1 pl-8 whitespace-nowrap w-[12%]">
                           <span className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</span>
                           <span className="font-medium text-sm ml-1">{format(dayDate, 'M/d')}</span>
                         </TableCell>
 
                         {/* Scheduled Times - tag style */}
-                        <TableCell className="py-1 w-[120px]">
+                        <TableCell className="py-1 w-[18%]">
                           {scheduledShift && !scheduledShift.is_time_off ? (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-muted/50 font-normal whitespace-nowrap">
                               {formatScheduledTime(scheduledShift.start_time)} → {formatScheduledTime(scheduledShift.end_time)}
@@ -213,8 +213,8 @@ export function DesktopTimeTrackingTable({
                           )}
                         </TableCell>
 
-                        {/* Actual Shift Times - compact single line */}
-                        <TableCell className="py-1">
+                        {/* Actual Shift Times */}
+                        <TableCell className="py-1 w-[18%]">
                           <div className="flex items-center gap-1 flex-wrap">
                             {shifts.map((shift, shiftIdx) => (
                               <span key={shiftIdx} className="text-sm flex items-center gap-1">
@@ -228,7 +228,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Breaks - stacked */}
-                        <TableCell className="py-1">
+                        <TableCell className="py-1 w-[25%]">
                           {breakStarts.length > 0 ? (
                             <div className="flex flex-col gap-0.5">
                               {breakStarts.map((breakStart: any, bidx: number) => {
@@ -277,7 +277,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Flags Column */}
-                        <TableCell className="py-1 w-[100px]">
+                        <TableCell className="py-1 w-[12%]">
                           <div className="flex items-center gap-1 flex-wrap">
                             {hasBreakViolation && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
@@ -293,7 +293,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Hours */}
-                        <TableCell className="py-1 text-right w-[50px]">
+                        <TableCell className="py-1 text-right w-[8%]">
                           <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
