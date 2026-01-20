@@ -10,6 +10,30 @@ const fonts = [
     vibe: "What you're using now"
   },
   { 
+    name: "DM Sans", 
+    class: "font-dm-sans", 
+    description: "Clean geometric", 
+    vibe: "Professional, minimal, Google-style"
+  },
+  { 
+    name: "Figtree", 
+    class: "font-figtree", 
+    description: "Modern geometric", 
+    vibe: "Fresh, business-forward, balanced"
+  },
+  { 
+    name: "Sora", 
+    class: "font-sora", 
+    description: "Tech geometric", 
+    vibe: "Contemporary, precise, startup-ready"
+  },
+  { 
+    name: "Work Sans", 
+    class: "font-work-sans", 
+    description: "Neutral workhorse", 
+    vibe: "Versatile, professional, reliable"
+  },
+  { 
     name: "Outfit", 
     class: "font-outfit", 
     description: "Geometric, Google-like", 
