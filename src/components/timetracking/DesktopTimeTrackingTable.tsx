@@ -288,23 +288,24 @@ export function DesktopTimeTrackingTable({
                           <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
-                        {/* Approve - clean button without dynamic icons */}
-                        <TableCell className="py-1 text-center w-[50px]" onClick={(e) => e.stopPropagation()}>
+                        {/* Approve - full width button */}
+                        <TableCell className="py-1 pr-3" onClick={(e) => e.stopPropagation()}>
                           {isApproved ? (
                             <button 
-                              className={`h-7 w-7 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}
                               disabled={isApproving}
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" />
+                              Approved
                             </button>
                           ) : (
                             <button 
-                              className={`h-7 w-7 rounded-md flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              Approve
                             </button>
                           )}
                         </TableCell>
