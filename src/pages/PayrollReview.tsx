@@ -1470,11 +1470,16 @@ export default function PayrollReview() {
           const sortedPunches = sortPunches(dayPunches);
           const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
           
-          // Check for break violation
+          // Check for break violation - shifts > 5 hours need a meal break
           let hasBreakViolation = false;
           const clockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
           const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
-          const mealBreaks = sortedPunches.filter((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+          // Meal breaks can be tagged with '30 minute', 'meal', or 'unpaid'
+          const mealBreaks = sortedPunches.filter((p: any) => {
+            if (p.punch_type !== 'break_start') return false;
+            const notes = (p.notes || '').toLowerCase();
+            return notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid');
+          });
           
           clockIns.forEach((clockIn: any) => {
             const clockInTime = new Date(clockIn.punch_time).getTime();
@@ -2137,6 +2142,37 @@ export default function PayrollReview() {
               </Card>
             )}
 
+            {/* Approval Controls - only show when period is open */}
+            {!isPeriodClosed && (() => {
+              const totalShifts = timeCards.reduce((sum, card) => sum + Object.keys(card.punchesByDay).length, 0);
+              const approvedShifts = totalShifts - totalPunchesAwaitingApproval;
+              
+              return (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="include-approved"
+                      checked={!includeApproved}
+                      onCheckedChange={(checked) => setIncludeApproved(!checked as boolean)}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor="include-approved" className="text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                      Hide approved
+                    </label>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    onClick={handleApproveAll} 
+                    disabled={filteredPunchesAwaitingApproval === 0}
+                    className="font-semibold"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {approvedShifts}/{totalShifts} Approve All
+                  </Button>
+                </div>
+              );
+            })()}
+
             {isPeriodClosed ? (
               /* Payroll Summary */
               <Card>
@@ -2209,36 +2245,6 @@ export default function PayrollReview() {
               </Card>
             ) : (
               <>
-                {/* Punches Awaiting Approval */}
-                <Card className="border-primary/20 bg-primary/5">
-                  <CardContent className="p-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 shrink-0 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold">
-                          {totalPunchesAwaitingApproval}
-                        </div>
-                        <span className="font-medium text-sm">Shifts awaiting approval</span>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <Checkbox
-                            id="include-approved"
-                            checked={!includeApproved}
-                            onCheckedChange={(checked) => setIncludeApproved(!checked as boolean)}
-                            className="h-4 w-4"
-                          />
-                          <label htmlFor="include-approved" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
-                            Hide approved
-                          </label>
-                        </div>
-                        <Button size="sm" onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
-                          Approve All ({filteredPunchesAwaitingApproval})
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Desktop Table View - lg and up */}
                 <div className="hidden lg:block">
                   {viewMode === 'employee' ? (
