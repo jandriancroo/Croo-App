@@ -15,6 +15,7 @@ import { SmackTalkPopup } from './SmackTalkPopup';
 import { DateSeparator } from './DateSeparator';
 import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
+import { VirtuosoPanYScroller } from './VirtuosoPanYScroller';
 import { useUserRole } from '@/hooks/useUserRole';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import {
@@ -977,6 +978,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     ) : null}
                   </div>
                 ) : null,
+                Scroller: VirtuosoPanYScroller,
               }}
               className="h-full px-4 sm:px-6 overflow-x-hidden"
               itemContent={(index, message) => {
