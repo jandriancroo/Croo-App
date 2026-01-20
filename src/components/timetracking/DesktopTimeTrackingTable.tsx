@@ -91,7 +91,7 @@ export function DesktopTimeTrackingTable({
 
   return (
     <div className="border rounded-lg overflow-x-auto">
-      <Table className="min-w-[700px]">
+      <Table className="min-w-[700px] w-full table-fixed">
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
             <>
@@ -186,13 +186,13 @@ export function DesktopTimeTrackingTable({
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
                         {/* Day column */}
-                        <TableCell className="py-1 pl-8 whitespace-nowrap w-[12%]">
+                        <TableCell className="py-1 pl-8 whitespace-nowrap w-[10%]">
                           <span className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</span>
                           <span className="font-medium text-sm ml-1">{format(dayDate, 'M/d')}</span>
                         </TableCell>
 
                         {/* Scheduled Times - tag style */}
-                        <TableCell className="py-1 w-[18%]">
+                        <TableCell className="py-1 w-[17%]">
                           {scheduledShift && !scheduledShift.is_time_off ? (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-muted/50 font-normal whitespace-nowrap">
                               {formatScheduledTime(scheduledShift.start_time)} → {formatScheduledTime(scheduledShift.end_time)}
@@ -205,7 +205,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Actual Shift Times */}
-                        <TableCell className="py-1 w-[18%]">
+                        <TableCell className="py-1 w-[17%]">
                           <div className="flex items-center gap-1 flex-wrap">
                             {shifts.map((shift, shiftIdx) => (
                               <span key={shiftIdx} className="text-sm flex items-center gap-1">
@@ -219,7 +219,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Breaks - stacked */}
-                        <TableCell className="py-1 w-[25%]">
+                        <TableCell className="py-1 w-[28%]">
                           {breakStarts.length > 0 ? (
                             <div className="flex flex-col gap-0.5">
                               {breakStarts.map((breakStart: any, bidx: number) => {
@@ -268,7 +268,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Flags Column */}
-                        <TableCell className="py-1 w-[7%]">
+                        <TableCell className="py-1 w-[12%]">
                           <div className="flex items-center gap-1 flex-wrap">
                             {hasBreakViolation && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
@@ -284,12 +284,12 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Hours */}
-                        <TableCell className="py-1 text-right w-[8%]">
+                        <TableCell className="py-1 text-right w-[7%]">
                           <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
                         {/* Approve - clean button without dynamic icons */}
-                        <TableCell className="py-1 text-center w-[50px]" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-1 text-center w-[9%] pr-2" onClick={(e) => e.stopPropagation()}>
                           {isApproved ? (
                             <button 
                               className={`h-7 w-7 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
