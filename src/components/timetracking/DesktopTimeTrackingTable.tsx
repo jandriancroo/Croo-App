@@ -89,13 +89,13 @@ export function DesktopTimeTrackingTable({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <Table className="table-fixed">
+        <Table className="w-auto">
         <colgroup>
           <col className="w-[140px]" />
           <col className="w-[180px]" />
           <col className="w-[140px]" />
-          <col className="w-[80px]" />
-          <col className="w-[56px]" />
+          <col className="w-[70px]" />
+          <col className="w-[48px]" />
         </colgroup>
         <TableBody>
           {employeeData.map(({ card, weeks }) => (
@@ -267,7 +267,7 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Approve */}
-                        <TableCell className="py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="py-1.5 pr-2 text-right" onClick={(e) => e.stopPropagation()}>
                           {isApproved ? (
                             <button 
                               className={`h-8 w-8 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
