@@ -74,7 +74,7 @@ export function MobileDayByDayCard({
       });
       if (currentShift) shifts.push(currentShift);
 
-      const dayHours = calculateDayHours(dayPunches);
+      const dayHours = calculateDayHours(dayPunches) || 0;
       const flags = getDayFlags(dayPunches);
       const hasAutoClockOut = flags.hasAutoClockOut;
       const hasBreakViolation = flags.hasBreakViolation;
@@ -118,7 +118,7 @@ export function MobileDayByDayCard({
 
   // Calculate daily totals
   const getDayTotalHours = (entries: typeof shiftsByDay extends Map<string, infer V> ? V : never) => {
-    return entries.reduce((sum, entry) => sum + entry.dayHours, 0);
+    return entries.reduce((sum, entry) => sum + (entry.dayHours || 0), 0);
   };
 
   return (
@@ -171,7 +171,7 @@ export function MobileDayByDayCard({
                         <span className="text-sm font-medium truncate">{entry.profile.full_name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm">{entry.dayHours.toFixed(1)}h</span>
+                        <span className="font-semibold text-sm">{(entry.dayHours || 0).toFixed(1)}h</span>
                         <div onClick={(e) => e.stopPropagation()}>
                           {entry.isApproved ? (
                             <button 
