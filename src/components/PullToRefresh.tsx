@@ -1,5 +1,10 @@
-import { useState, useRef, ReactNode, useCallback } from 'react';
+import { useState, useRef, ReactNode, useCallback, createContext, useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+
+// Context to expose refreshing state to children
+const PullToRefreshContext = createContext<{ isRefreshing: boolean }>({ isRefreshing: false });
+
+export const usePullToRefreshState = () => useContext(PullToRefreshContext);
 
 interface PullToRefreshProps {
   children: ReactNode;
@@ -106,64 +111,66 @@ export const PullToRefresh = ({
   const progress = Math.min(pullDistance / threshold, 1);
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full overflow-auto"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Pull indicator */}
-      <div 
-        className="flex items-center justify-center overflow-hidden transition-all duration-200"
-        style={{ 
-          height: pullDistance > 0 ? pullDistance : 0,
-          opacity: progress
-        }}
+    <PullToRefreshContext.Provider value={{ isRefreshing }}>
+      <div
+        ref={containerRef}
+        className="h-full overflow-auto"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {/* Custom spinner - fast and satisfying */}
-        <div className="relative w-10 h-10">
-          {/* Outer spinning ring */}
-          <svg
-            className={`w-full h-full ${isRefreshing ? 'animate-spin' : ''}`}
-            style={{ 
-              transform: isRefreshing ? undefined : `rotate(${progress * 720}deg)`,
-              animationDuration: '0.6s'
-            }}
-            viewBox="0 0 40 40"
-          >
-            {/* Background circle */}
-            <circle
-              cx="20"
-              cy="20"
-              r="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              className="text-muted-foreground/20"
-            />
-            {/* Animated arc - grows as you pull */}
-            <circle
-              cx="20"
-              cy="20"
-              r="16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              className="text-primary"
-              style={{
-                strokeDasharray: `${progress * 80} 100`,
-                strokeDashoffset: 0,
-                transform: 'rotate(-90deg)',
-                transformOrigin: 'center',
+        {/* Pull indicator */}
+        <div 
+          className="flex items-center justify-center overflow-hidden transition-all duration-200"
+          style={{ 
+            height: pullDistance > 0 ? pullDistance : 0,
+            opacity: progress
+          }}
+        >
+          {/* Custom spinner - fast and satisfying */}
+          <div className="relative w-10 h-10">
+            {/* Outer spinning ring */}
+            <svg
+              className={`w-full h-full ${isRefreshing ? 'animate-spin' : ''}`}
+              style={{ 
+                transform: isRefreshing ? undefined : `rotate(${progress * 720}deg)`,
+                animationDuration: '0.6s'
               }}
-            />
-          </svg>
+              viewBox="0 0 40 40"
+            >
+              {/* Background circle */}
+              <circle
+                cx="20"
+                cy="20"
+                r="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                className="text-muted-foreground/20"
+              />
+              {/* Animated arc - grows as you pull */}
+              <circle
+                cx="20"
+                cy="20"
+                r="16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                className="text-primary"
+                style={{
+                  strokeDasharray: `${progress * 80} 100`,
+                  strokeDashoffset: 0,
+                  transform: 'rotate(-90deg)',
+                  transformOrigin: 'center',
+                }}
+              />
+            </svg>
+          </div>
         </div>
+        {children}
       </div>
-      {children}
-    </div>
+    </PullToRefreshContext.Provider>
   );
 };
 
