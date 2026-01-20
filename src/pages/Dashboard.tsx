@@ -33,7 +33,7 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
-import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { useCallback } from 'react';
 import { DataCube3D, PacingDisplayMode } from '@/components/dashboard/DataCube3D';
 
@@ -346,6 +346,7 @@ export default function Dashboard() {
   const { data: checklistData, isLoading: checklistsLoading } = useQuery({
     queryKey: ['dashboard-checklists', currentLocation?.id, timezone],
     staleTime: 2 * 60 * 1000, // 2 min cache
+    placeholderData: (prev) => prev, // Keep previous data during refetch to prevent double-spinner
     queryFn: async () => {
       if (!currentLocation?.id) return { checklists: [], stats: {} };
       
