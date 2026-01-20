@@ -32,11 +32,15 @@ interface ProfileWithWage {
 }
 
 function getDateStringForTimezone(date: Date, timezone: string): string {
-  const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
-  const year = tzDate.getFullYear();
-  const month = String(tzDate.getMonth() + 1).padStart(2, '0');
-  const day = String(tzDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // Use Intl.DateTimeFormat for reliable timezone conversion
+  const formatter = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  // en-CA format is YYYY-MM-DD
+  return formatter.format(date);
 }
 
 function getDateRange(startDate: string, endDate: string): string[] {
@@ -56,8 +60,8 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 // Calculate labor from time_punches for a specific date
-// Calculate labor from time_punches for a specific date
 // Uses business date logic: shifts are attributed to the date they START on (clock_in)
+// CRITICAL: For overnight shifts, we must find clock_outs that occur on the NEXT day
 async function calculateLaborFromPunches(
   supabaseClient: any,
   locationId: string,
@@ -66,21 +70,22 @@ async function calculateLaborFromPunches(
   wageMap: Map<string, number>
 ): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; doubleTimeHours: number; employeeBreakdown: any[] } | null> {
   try {
-    // Fetch a wider range of punches to handle overnight shifts
-    // We need punches from the target date PLUS next day for clock_outs
-    const startOfDay = new Date(`${dateStr}T00:00:00`);
-    const endOfNextDay = new Date(startOfDay.getTime() + 48 * 60 * 60 * 1000); // +48 hours
+    // Parse date as PST/PDT for consistent timezone handling
+    // The dateStr is in format YYYY-MM-DD representing local (PST) date
+    const [year, month, day] = dateStr.split('-').map(Number);
     
-    // Convert to UTC for query (also look back 1 day for safety)
-    const startUtc = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000).toISOString();
-    const endUtc = endOfNextDay.toISOString();
+    // Create start of day in PST (use offset -08:00 for PST, -07:00 for PDT)
+    // For simplicity, use -08:00 and the query range is wide enough to capture all cases
+    const startOfDayPST = new Date(`${dateStr}T00:00:00-08:00`);
+    const lookBackStart = new Date(startOfDayPST.getTime() - 8 * 60 * 60 * 1000); // -8 hours for safety
+    const lookAheadEnd = new Date(startOfDayPST.getTime() + 48 * 60 * 60 * 1000); // +48 hours
     
     const { data: punches, error: punchError } = await supabaseClient
       .from('time_punches')
       .select('id, user_id, punch_type, punch_time, notes')
       .eq('location_id', locationId)
-      .gte('punch_time', startUtc)
-      .lte('punch_time', endUtc)
+      .gte('punch_time', lookBackStart.toISOString())
+      .lte('punch_time', lookAheadEnd.toISOString())
       .order('punch_time', { ascending: true });
     
     if (punchError) {
@@ -94,7 +99,7 @@ async function calculateLaborFromPunches(
       return { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, doubleTimeHours: 0, employeeBreakdown: [] };
     }
     
-    // Group ALL punches by user (we'll filter by business date later)
+    // Group ALL punches by user
     const allPunchesByUser = new Map<string, PunchRecord[]>();
     for (const punch of punchRecords) {
       if (!allPunchesByUser.has(punch.user_id)) {
@@ -111,54 +116,65 @@ async function calculateLaborFromPunches(
     for (const [userId, userPunches] of allPunchesByUser) {
       const wage = wageMap.get(userId) || 15;
       let hoursWorked = 0;
-      let clockInTime: Date | null = null;
-      let currentBreakStart: { time: Date; notes: string | null } | null = null;
-      let unpaidBreakMinutes = 0;
       
-      // Filter to punches on target date only
-      const punchesOnDate = userPunches.filter(p => {
-        const localDateStr = getDateStringForTimezone(new Date(p.punch_time), timezone);
-        return localDateStr === dateStr;
-      });
+      // Sort punches by time
+      userPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
       
-      for (const punch of punchesOnDate) {
+      // Find all clock_in punches that occurred on the target date
+      // Then find their matching clock_out (which may be on next day)
+      let i = 0;
+      while (i < userPunches.length) {
+        const punch = userPunches[i];
         const punchTime = new Date(punch.punch_time);
+        const punchDateStr = getDateStringForTimezone(punchTime, timezone);
         
-        switch (punch.punch_type) {
-          case 'clock_in':
-            if (!clockInTime) clockInTime = punchTime;
-            break;
-          case 'clock_out':
-            if (clockInTime) {
-              hoursWorked += (punchTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
-              clockInTime = null;
+        if (punch.punch_type === 'clock_in' && punchDateStr === dateStr) {
+          const clockInTime = punchTime;
+          let clockOutTime: Date | null = null;
+          let unpaidBreakMinutes = 0;
+          let currentBreakStart: { time: Date; notes: string | null } | null = null;
+          
+          // Look forward for clock_out and breaks
+          for (let j = i + 1; j < userPunches.length; j++) {
+            const nextPunch = userPunches[j];
+            const nextPunchTime = new Date(nextPunch.punch_time);
+            
+            if (nextPunch.punch_type === 'clock_out') {
+              clockOutTime = nextPunchTime;
+              break; // Found the matching clock_out
+            } else if (nextPunch.punch_type === 'break_start') {
+              currentBreakStart = { time: nextPunchTime, notes: nextPunch.notes };
+            } else if (nextPunch.punch_type === 'break_end' && currentBreakStart) {
+              if (isUnpaidBreak(currentBreakStart.notes)) {
+                unpaidBreakMinutes += (nextPunchTime.getTime() - currentBreakStart.time.getTime()) / (1000 * 60);
+              }
+              currentBreakStart = null;
+            } else if (nextPunch.punch_type === 'clock_in') {
+              // Hit another clock_in without finding clock_out - shift was not closed
+              break;
             }
-            break;
-          case 'break_start':
-            currentBreakStart = { time: punchTime, notes: punch.notes };
-            break;
-          case 'break_end':
-            if (currentBreakStart && isUnpaidBreak(currentBreakStart.notes)) {
-              unpaidBreakMinutes += (punchTime.getTime() - currentBreakStart.time.getTime()) / (1000 * 60);
-            }
-            currentBreakStart = null;
-            break;
+          }
+          
+          if (clockOutTime) {
+            const shiftHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+            const netHours = Math.max(0, shiftHours - (unpaidBreakMinutes / 60));
+            hoursWorked += netHours;
+          }
         }
+        i++;
       }
       
-      const netHours = Math.max(0, hoursWorked - (unpaidBreakMinutes / 60));
-      
-      if (netHours > 0) {
-        totalHoursWorked += netHours;
-        totalLaborCost += netHours * wage;
-        employeeBreakdown.push({ user_id: userId, hours: netHours, wage, cost: netHours * wage });
+      if (hoursWorked > 0) {
+        totalHoursWorked += hoursWorked;
+        totalLaborCost += hoursWorked * wage;
+        employeeBreakdown.push({ user_id: userId, hours: hoursWorked, wage, cost: hoursWorked * wage });
       }
     }
     
     return {
       laborCost: totalLaborCost,
       hoursWorked: totalHoursWorked,
-      regularHours: totalHoursWorked, // TODO: implement OT calculation based on labor_rules
+      regularHours: totalHoursWorked,
       overtimeHours: 0,
       doubleTimeHours: 0,
       employeeBreakdown
