@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { CheckCircle2, Coffee } from 'lucide-react';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
 import {
   formatTimeDisplay,
@@ -95,7 +96,7 @@ export function DesktopTimeTrackingTable({
             <>
               {/* Employee header row */}
               <TableRow key={`employee-${card.profile.id}`} className="bg-muted/40 hover:bg-muted/50">
-                <TableCell className="py-2" colSpan={4}>
+                <TableCell className="py-2" colSpan={5}>
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={card.profile.avatar_url} />
@@ -118,7 +119,7 @@ export function DesktopTimeTrackingTable({
                 <>
                   {/* Week separator header */}
                   <TableRow key={`week-${card.profile.id}-${week.weekKey}`} className="border-t border-border/60">
-                    <TableCell colSpan={4} className="py-1.5 bg-muted/20">
+                    <TableCell colSpan={5} className="py-1.5 bg-muted/20">
                       <span className="text-xs text-muted-foreground font-medium">
                         Week of {format(week.weekStart, 'MMM d')} – {format(week.weekEnd, 'MMM d')}
                       </span>
@@ -196,26 +197,26 @@ export function DesktopTimeTrackingTable({
                         onClick={() => onEditShift({ dayPunches, userId: card.profile.id, locationId: currentLocationId, shiftDate: day })}
                       >
                         {/* Day column - indented under week header */}
-                        <TableCell className="py-1.5 pl-12 whitespace-nowrap">
+                        <TableCell className="py-1 pl-8 whitespace-nowrap w-[90px]">
                           <span className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</span>
-                          <span className="font-medium text-sm ml-1.5">{format(dayDate, 'M/d')}</span>
+                          <span className="font-medium text-sm ml-1">{format(dayDate, 'M/d')}</span>
                         </TableCell>
 
-                        {/* Scheduled Times - muted, compact */}
-                        <TableCell className="py-1.5">
+                        {/* Scheduled Times - tag style */}
+                        <TableCell className="py-1 w-[120px]">
                           {scheduledShift && !scheduledShift.is_time_off ? (
-                            <span className="text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-muted/50 font-normal whitespace-nowrap">
                               {formatScheduledTime(scheduledShift.start_time)} → {formatScheduledTime(scheduledShift.end_time)}
-                            </span>
+                            </Badge>
                           ) : scheduledShift?.is_time_off ? (
-                            <span className="text-xs text-muted-foreground italic">PTO</span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">PTO</Badge>
                           ) : (
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
 
                         {/* Actual Shift Times - compact single line */}
-                        <TableCell className="py-1.5">
+                        <TableCell className="py-1">
                           <div className="flex items-center gap-1 flex-wrap">
                             {shifts.map((shift, shiftIdx) => (
                               <span key={shiftIdx} className="text-sm flex items-center gap-1">
@@ -225,13 +226,11 @@ export function DesktopTimeTrackingTable({
                                 <span className="text-red-600 font-medium">{shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}</span>
                               </span>
                             ))}
-                            {hasBreakViolation && <Coffee className="h-3.5 w-3.5 text-amber-600" />}
-                            {hasAutoClockOut && <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />}
                           </div>
                         </TableCell>
 
                         {/* Breaks - compact */}
-                        <TableCell className="py-0.5 px-2">
+                        <TableCell className="py-1">
                           {breakStarts.length > 0 ? (
                             <div className="flex items-center gap-1 flex-wrap">
                               {breakStarts.map((breakStart: any, bidx: number) => {
@@ -279,41 +278,44 @@ export function DesktopTimeTrackingTable({
                           )}
                         </TableCell>
 
+                        {/* Flags Column */}
+                        <TableCell className="py-1 w-[70px]">
+                          <div className="flex items-center gap-1">
+                            {hasBreakViolation && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                                <Coffee className="h-2.5 w-2.5" />
+                              </Badge>
+                            )}
+                            {hasAutoClockOut && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                                <img src={autoPunchIcon} alt="Auto" className="h-2.5 w-2.5" />
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+
                         {/* Hours */}
-                        <TableCell className="py-0.5 px-2 text-right">
+                        <TableCell className="py-1 text-right w-[50px]">
                           <span className="font-medium text-sm">{dayHours.toFixed(1)}</span>
                         </TableCell>
 
-                        {/* Approve */}
-                        <TableCell className="py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        {/* Approve - clean button without dynamic icons */}
+                        <TableCell className="py-1 text-center w-[50px]" onClick={(e) => e.stopPropagation()}>
                           {isApproved ? (
                             <button 
-                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-7 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}
                               disabled={isApproving}
                             >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </button>
-                          ) : (hasBreakViolation || hasAutoClockOut) ? (
-                            <button 
-                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-amber-50 dark:bg-amber-900/30 border border-amber-400 hover:bg-amber-100 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
-                              onClick={() => onApproveDay(dayPunches)}
-                              disabled={isApproving}
-                              title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
-                            >
-                              {hasBreakViolation ? (
-                                <Coffee className="h-4 w-4 text-amber-600" />
-                              ) : (
-                                <img src={autoPunchIcon} alt="Auto" className="h-4 w-4" />
-                              )}
+                              <CheckCircle2 className="h-3.5 w-3.5" />
                             </button>
                           ) : (
                             <button 
-                              className={`h-8 w-8 rounded-md flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-7 rounded-md flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                             >
-                              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                              <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                             </button>
                           )}
                         </TableCell>
