@@ -7,25 +7,33 @@ const fonts = [
     name: "Current (System Default)", 
     class: "", 
     description: "Current font", 
-    vibe: "What you're using now"
+    vibe: "What you're using now",
+    readability: 7,
+    readabilityNote: "Varies by device, generally good"
   },
   { 
     name: "DM Sans", 
     class: "font-dm-sans", 
     description: "Clean geometric", 
-    vibe: "Professional, minimal, Google-style"
+    vibe: "Professional, minimal, Google-style",
+    readability: 9,
+    readabilityNote: "Excellent x-height, open counters, crisp at all sizes"
   },
   { 
     name: "Figtree", 
     class: "font-figtree", 
     description: "Modern geometric", 
-    vibe: "Fresh, business-forward, balanced"
+    vibe: "Fresh, business-forward, balanced",
+    readability: 9,
+    readabilityNote: "Designed for screens, wide apertures, very legible"
   },
   { 
     name: "Manrope", 
     class: "font-manrope", 
     description: "Humanist, Apple-like", 
-    vibe: "Professional, warm, readable"
+    vibe: "Professional, warm, readable",
+    readability: 10,
+    readabilityNote: "High x-height, semi-rounded, exceptional clarity"
   },
 ];
 
@@ -47,7 +55,21 @@ export function FontPreview() {
                 <h2 className="text-xl font-bold">{font.name}</h2>
                 <Badge variant="secondary" className="text-xs">{font.description}</Badge>
               </div>
-              <span className="text-xs text-muted-foreground italic">{font.vibe}</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">Readability:</span>
+                  <Badge 
+                    variant={font.readability >= 9 ? "default" : "secondary"} 
+                    className={`text-xs ${font.readability === 10 ? 'bg-primary' : ''}`}
+                  >
+                    {font.readability}/10
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            
+            <div className="text-xs text-muted-foreground -mt-2">
+              {font.readabilityNote}
             </div>
             
             <div className={`space-y-3 ${font.class}`}>
