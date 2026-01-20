@@ -280,7 +280,7 @@ export function DesktopTimeTrackingTable({
                         <TableCell className="py-1 w-[7%]">
                           <div className="flex items-center gap-1 flex-wrap">
                             {hasBreakViolation && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
                                 No Break
                               </Badge>
                             )}
