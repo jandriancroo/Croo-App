@@ -379,7 +379,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-dm-sans;
+    @apply bg-background text-foreground font-manrope;
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
     width: 100%;
