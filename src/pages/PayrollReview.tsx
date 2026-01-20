@@ -808,6 +808,7 @@ export default function PayrollReview() {
       totalHours += hours;
     });
     
+    return totalHours;
   };
 
   // Shared flag detection (used by filters + UI) — keep in sync with EditPunchDialog keywords
