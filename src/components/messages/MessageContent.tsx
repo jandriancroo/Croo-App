@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useMemo } from 'react';
 
 import { ShiftOfferMessage } from "./ShiftOfferMessage";
 import { GameScoreMessage } from "./GameScoreMessage";
@@ -11,81 +10,63 @@ interface SmackTalkOverlay {
   senderName: string;
 }
 
-interface MessageContentProps {
-  content: string;
-  chatId: string;
-  senderName?: string;
-  smackTalks?: SmackTalkOverlay[];
-}
-
 interface Profile {
   id: string;
   full_name: string;
 }
 
-export function MessageContent({ content, chatId, senderName, smackTalks = [] }: MessageContentProps) {
-  // Check if this is a shift offer message
-  if (content?.startsWith("SHIFT_OFFER:")) {
-    const offerId = content.replace("SHIFT_OFFER:", "");
-    return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
-  }
+interface MessageContentProps {
+  content: string;
+  chatId: string;
+  senderName?: string;
+  smackTalks?: SmackTalkOverlay[];
+  chatMembers?: Profile[]; // Now passed from parent - no more N+1 queries!
+}
 
-  // Check if this is a game score message
-  // Format: GAME_SCORE:gameType:score:playerName
-  if (content?.startsWith("GAME_SCORE:")) {
-    const parts = content.replace("GAME_SCORE:", "").split(":");
-    if (parts.length >= 3) {
-      const gameType = parts[0];
-      const score = parseInt(parts[1], 10);
-      const playerName = parts.slice(2).join(":"); // Handle names with colons
-      return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} smackTalks={smackTalks} />;
+export function MessageContent({ content, chatId, senderName, smackTalks = [], chatMembers = [] }: MessageContentProps) {
+  // Memoize mention rendering for performance - MUST be before any early returns
+  const renderedContent = useMemo(() => {
+    // Check if this is a shift offer message
+    if (content?.startsWith("SHIFT_OFFER:")) {
+      const offerId = content.replace("SHIFT_OFFER:", "");
+      return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
     }
-  }
 
-  // Check if this is a smack talk message
-  // Format: SMACK_TALK:text
-  if (content?.startsWith("SMACK_TALK:")) {
-    const smackText = content.replace("SMACK_TALK:", "");
-    return <SmackTalkMessage text={smackText} senderName={senderName || 'Someone'} />;
-  }
-
-  // Check if this is a shared task message
-  // Format: SHARED_TASK:title|||details|||accentColor
-  if (content?.startsWith("SHARED_TASK:")) {
-    const taskData = content.replace("SHARED_TASK:", "");
-    const parts = taskData.split("|||");
-    const title = parts[0] || "Task";
-    const details = parts[1] || undefined;
-    const accentColor = parts[2] || "#8B5CF6";
-    return <SharedTaskMessage title={title} details={details} accentColor={accentColor} senderName={senderName || 'Someone'} />;
-  }
-
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-
-  useEffect(() => {
-    fetchChatMembers();
-  }, [chatId]);
-
-  const fetchChatMembers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_members')
-        .select('profiles(id, full_name)')
-        .eq('chat_id', chatId);
-
-      if (error) throw error;
-      setProfiles(data?.map((m: any) => m.profiles) || []);
-    } catch (error) {
-      console.error('Error fetching chat members:', error);
+    // Check if this is a game score message
+    if (content?.startsWith("GAME_SCORE:")) {
+      const parts = content.replace("GAME_SCORE:", "").split(":");
+      if (parts.length >= 3) {
+        const gameType = parts[0];
+        const score = parseInt(parts[1], 10);
+        const playerName = parts.slice(2).join(":");
+        return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} smackTalks={smackTalks} />;
+      }
     }
-  };
 
-  const renderContentWithMentions = () => {
-    let processedContent = content;
+    // Check if this is a smack talk message
+    if (content?.startsWith("SMACK_TALK:")) {
+      const smackText = content.replace("SMACK_TALK:", "");
+      return <SmackTalkMessage text={smackText} senderName={senderName || 'Someone'} />;
+    }
+
+    // Check if this is a shared task message
+    if (content?.startsWith("SHARED_TASK:")) {
+      const taskData = content.replace("SHARED_TASK:", "");
+      const parts = taskData.split("|||");
+      const title = parts[0] || "Task";
+      const details = parts[1] || undefined;
+      const accentColor = parts[2] || "#8B5CF6";
+      return <SharedTaskMessage title={title} details={details} accentColor={accentColor} senderName={senderName || 'Someone'} />;
+    }
+
+    if (!chatMembers.length) {
+      return <span className="whitespace-pre-wrap">{content}</span>;
+    }
+
     const mentionedUsers: { name: string; startIndex: number; endIndex: number }[] = [];
 
     // Find all potential @mentions
-    profiles.forEach((profile) => {
+    chatMembers.forEach((profile) => {
       const fullNamePattern = new RegExp(`@${profile.full_name}\\b`, 'gi');
       let match;
       
@@ -142,7 +123,7 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [] }:
     }
 
     return <span className="whitespace-pre-wrap">{elements}</span>;
-  };
+  }, [content, chatMembers]);
 
-  return renderContentWithMentions();
+  return renderedContent;
 }
