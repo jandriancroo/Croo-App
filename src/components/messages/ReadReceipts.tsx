@@ -96,28 +96,35 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
             {isReadByOthers ? (
-              <CheckCheck className="h-3 w-3 text-blue-500" />
+              <>
+                <CheckCheck className="h-3 w-3 text-primary" />
+                <span className="text-primary">Read</span>
+              </>
             ) : (
-              <Check className="h-3 w-3" />
+              <>
+                <Check className="h-3 w-3" />
+                <span>Sent</span>
+              </>
             )}
-            {readCount > 1 && <span>{readCount - 1}</span>}
           </div>
         </TooltipTrigger>
         <TooltipContent>
           <div className="text-xs">
             {isReadByOthers ? (
               <>
-                <p className="font-semibold mb-1">Read by:</p>
+                <p className="font-semibold mb-1">Read by {readCount - 1}:</p>
                 {receipts
                   .filter(r => r.user_id !== senderId)
+                  .slice(0, 5)
                   .map(r => (
                     <p key={r.user_id}>{r.profiles.full_name}</p>
                   ))}
+                {readCount > 6 && <p className="text-muted-foreground">+{readCount - 6} more</p>}
               </>
             ) : (
-              <p>Sent</p>
+              <p>Message sent</p>
             )}
           </div>
         </TooltipContent>
