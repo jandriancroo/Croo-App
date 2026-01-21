@@ -5,24 +5,26 @@ import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Database } from '@/integrations/supabase/types';
 
 type ApplicationStatus = Database['public']['Enums']['application_status'];
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays } from 'lucide-react';
+import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
+import { BulkApplicantActionsBar } from '@/components/hiring/BulkApplicantActionsBar';
 import { QRCodeSVG } from 'qrcode.react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const STATUS_COLORS: Record<ApplicationStatus, string> = {
   pending: 'bg-muted text-muted-foreground',
@@ -41,10 +43,12 @@ export default function Hiring() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
   const [showInterviewCalendar, setShowInterviewCalendar] = useState(false);
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Get organization for current location
   const { data: organization, isLoading: orgLoading } = useQuery({
@@ -181,6 +185,69 @@ export default function Hiring() {
   const quickInterested = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     updateStatusMutation.mutate({ id, status: 'interested' });
+  };
+
+  // Bulk action handlers
+  const toggleSelection = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    if (selectedIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ status: status as ApplicationStatus, updated_at: new Date().toISOString() })
+        .in('id', Array.from(selectedIds));
+      
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      toast.success(`Updated ${selectedIds.size} applications`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Bulk status update error:', error);
+      toast.error('Failed to update applications');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} applications? This cannot be undone.`)) return;
+    
+    setIsBulkUpdating(true);
+    try {
+      // Delete related records first
+      const ids = Array.from(selectedIds);
+      await supabase.from('job_application_work_history').delete().in('application_id', ids);
+      await supabase.from('job_application_references').delete().in('application_id', ids);
+      
+      const { error } = await supabase
+        .from('job_applications')
+        .delete()
+        .in('id', ids);
+      
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      toast.success(`Deleted ${selectedIds.size} applications`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error('Failed to delete applications');
+    } finally {
+      setIsBulkUpdating(false);
+    }
   };
 
   const filteredApplicants = applications?.filter(app => {
@@ -384,15 +451,21 @@ export default function Hiring() {
                 {filteredApplicants?.map((app: any) => {
                   const mostRecentEmployer = app.work_history?.[0]?.employer_name;
                   const isAiMatch = app.ai_match === true;
+                  const isSelected = selectedIds.has(app.id);
                   
                   return (
                     <Card 
                       key={app.id} 
-                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${isAiMatch ? 'ring-1 ring-primary/30' : ''}`}
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${isAiMatch ? 'ring-1 ring-primary/30' : ''} ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
                       onClick={() => setSelectedApplicant(app.id)}
                     >
                       <CardContent className="py-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onClick={e => toggleSelection(app.id, e)}
+                            className="shrink-0"
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-semibold truncate">{app.full_name}</h3>
@@ -515,6 +588,15 @@ export default function Hiring() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Actions Bar */}
+        <BulkApplicantActionsBar
+          selectedCount={selectedIds.size}
+          onStatusChange={handleBulkStatusChange}
+          onDelete={handleBulkDelete}
+          onClearSelection={() => setSelectedIds(new Set())}
+          isUpdating={isBulkUpdating}
+        />
       </div>
     </Layout>
   );
