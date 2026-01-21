@@ -31,7 +31,7 @@ export function BulkApplicantActionsBar({
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50">
       <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 border-2 border-primary-foreground/20">
         <span className="font-semibold text-sm sm:text-base">{selectedCount} selected</span>
         <div className="h-6 w-px bg-primary-foreground/20" />
