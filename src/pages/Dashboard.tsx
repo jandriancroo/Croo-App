@@ -90,7 +90,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
@@ -477,10 +477,11 @@ export default function Dashboard() {
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
-    if (checklists.length > 0 && currentLocation?.id) {
+    // Wait for timezone/closeTime to load before calculating completion data
+    if (checklists.length > 0 && currentLocation?.id && !timezoneLoading) {
       loadCompletionData();
     }
-  }, [checklists, currentLocation?.id, timezone]);
+  }, [checklists, currentLocation?.id, timezone, closeTime, timezoneLoading]);
 
   // Prefetch UserManagement data for admins/managers (instant load on navigation)
   useEffect(() => {
