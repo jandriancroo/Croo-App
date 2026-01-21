@@ -173,7 +173,7 @@ export default function Hiring() {
     );
   });
 
-  const applicationUrl = organization ? `${window.location.origin}/apply/${organization.slug}` : '';
+  const applicationUrl = organization && currentLocation ? `${window.location.origin}/apply/${organization.slug}?location=${currentLocation.id}` : '';
 
   const copyLink = () => {
     navigator.clipboard.writeText(applicationUrl);
