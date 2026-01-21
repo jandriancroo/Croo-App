@@ -39,6 +39,7 @@ export default function Hiring() {
   const [activeTab, setActiveTab] = useState('applicants');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
@@ -70,9 +71,26 @@ export default function Hiring() {
     enabled: !!currentLocation?.id,
   });
 
+  // Fetch all locations for the organization (for filtering)
+  const { data: orgLocations } = useQuery({
+    queryKey: ['org-locations', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .eq('organization_id', organization.id)
+        .eq('location_type', 'standard')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   // Fetch applications
   const { data: applications, isLoading: appsLoading } = useQuery({
-    queryKey: ['job-applications', organization?.id, currentLocation?.id, statusFilter],
+    queryKey: ['job-applications', organization?.id, currentLocation?.id, statusFilter, locationFilter],
     queryFn: async () => {
       if (!organization?.id) return [];
 
@@ -87,8 +105,10 @@ export default function Hiring() {
         .eq('organization_id', organization.id)
         .order('submitted_at', { ascending: false });
 
-      // Filter by location if not org admin
-      if (currentLocation?.id && !isAdmin) {
+      // Filter by location if not admin, or if location filter is set
+      if (locationFilter !== 'all') {
+        query = query.eq('location_id', locationFilter);
+      } else if (currentLocation?.id && !isAdmin) {
         query = query.eq('location_id', currentLocation.id);
       }
 
@@ -272,10 +292,10 @@ export default function Hiring() {
                 />
               </div>
               
-              {/* Mobile: Dropdown */}
-              <div className="sm:hidden">
+              {/* Mobile: Dropdowns */}
+              <div className="sm:hidden flex gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -287,10 +307,23 @@ export default function Hiring() {
                     <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
+                {orgLocations && orgLocations.length > 1 && (
+                  <Select value={locationFilter} onValueChange={setLocationFilter}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Filter by location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      {orgLocations.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               
               {/* Desktop/Tablet: Tab-style selectors */}
-              <div className="hidden sm:flex flex-wrap gap-2">
+              <div className="hidden sm:flex flex-wrap items-center gap-2">
                 {[
                   { value: 'all', label: 'All' },
                   { value: 'pending', label: 'Pending' },
@@ -309,6 +342,21 @@ export default function Hiring() {
                     {status.label}
                   </Button>
                 ))}
+                
+                {/* Location filter dropdown for desktop - only show if multiple locations */}
+                {orgLocations && orgLocations.length > 1 && (
+                  <Select value={locationFilter} onValueChange={setLocationFilter}>
+                    <SelectTrigger className="w-[160px] ml-2">
+                      <SelectValue placeholder="All Locations" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      {orgLocations.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
