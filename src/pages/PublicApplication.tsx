@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,8 @@ const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 
 export default function PublicApplication() {
   const { orgSlug } = useParams();
+  const [searchParams] = useSearchParams();
+  const locationFromUrl = searchParams.get('location');
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   
@@ -148,6 +150,13 @@ export default function PublicApplication() {
     },
     enabled: !!selectedTemplate,
   });
+
+  // Auto-select location from URL parameter
+  useEffect(() => {
+    if (locationFromUrl && locations?.some(l => l.id === locationFromUrl) && !selectedLocation) {
+      setSelectedLocation(locationFromUrl);
+    }
+  }, [locationFromUrl, locations, selectedLocation]);
 
   // Auto-select first template if only one
   useEffect(() => {
