@@ -9,6 +9,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Croo brand colors
+const primaryColor = "#0a7a8a";
+const accentColor = "#f58220";
+const backgroundColor = "#f0ebe1";
+const textColor = "#0f1215";
+
 interface NotifyApplicationRequest {
   applicationId: string;
   applicantName: string;
@@ -17,6 +23,29 @@ interface NotifyApplicationRequest {
   locationId?: string;
   organizationId: string;
   templateName: string;
+}
+
+function wrapEmail(content: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: ${backgroundColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 30px 20px;">
+            <table role="presentation" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+              ${content}
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
 }
 
 serve(async (req: Request) => {
@@ -50,14 +79,15 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get organization name
+    // Get organization name and logo
     const { data: org } = await supabaseAdmin
       .from("organizations")
-      .select("name, brand_name")
+      .select("name, brand_name, logo_url")
       .eq("id", organizationId)
       .single();
 
     const orgDisplayName = org?.brand_name || org?.name || "Your Organization";
+    const logoUrl = org?.logo_url || "";
 
     // Get location name if provided
     let locationName = "Any Location";
@@ -111,72 +141,116 @@ serve(async (req: Request) => {
     const appUrl = Deno.env.get("SITE_URL") || "https://croo.app";
     const reviewUrl = `${appUrl}/hiring`;
 
+    const emailHtml = wrapEmail(`
+      <!-- Header -->
+      <tr>
+        <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;">
+          ${logoUrl ? `
+            <img 
+              src="${logoUrl}" 
+              alt="${orgDisplayName}" 
+              style="max-height: 60px; max-width: 160px; width: auto; margin-bottom: 12px; border-radius: 8px;"
+            />
+          ` : `
+            <img 
+              src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+              alt="Croo" 
+              style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" 
+            />
+          `}
+          <h1 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">
+            📋 New Job Application
+          </h1>
+          <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 8px 0 0;">
+            ${orgDisplayName}
+          </p>
+        </td>
+      </tr>
+      
+      <!-- Content -->
+      <tr>
+        <td style="padding: 30px 40px;">
+          <h2 style="color: ${textColor}; font-size: 18px; font-weight: 600; margin: 0 0 20px;">
+            Applicant Details
+          </h2>
+          
+          <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+            <table role="presentation" style="width: 100%;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e8e5df;">
+                  <span style="color: #666; font-size: 12px; text-transform: uppercase;">Name</span><br/>
+                  <strong style="color: ${textColor}; font-size: 16px;">${applicantName}</strong>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e8e5df;">
+                  <span style="color: #666; font-size: 12px; text-transform: uppercase;">Email</span><br/>
+                  <a href="mailto:${applicantEmail}" style="color: ${primaryColor}; font-size: 14px; text-decoration: none;">${applicantEmail}</a>
+                </td>
+              </tr>
+              ${applicantPhone ? `
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e8e5df;">
+                  <span style="color: #666; font-size: 12px; text-transform: uppercase;">Phone</span><br/>
+                  <a href="tel:${applicantPhone}" style="color: ${primaryColor}; font-size: 14px; text-decoration: none;">${applicantPhone}</a>
+                </td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e8e5df;">
+                  <span style="color: #666; font-size: 12px; text-transform: uppercase;">Position</span><br/>
+                  <strong style="color: ${textColor}; font-size: 14px;">${templateName}</strong>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0;">
+                  <span style="color: #666; font-size: 12px; text-transform: uppercase;">Location</span><br/>
+                  <strong style="color: ${textColor}; font-size: 14px;">${locationName}</strong>
+                </td>
+              </tr>
+            </table>
+          </div>
+          
+          <table role="presentation" style="width: 100%;">
+            <tr>
+              <td style="text-align: center;">
+                <a href="${reviewUrl}" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">
+                  Review Application
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      
+      <!-- Footer -->
+      <tr>
+        <td style="background-color: #f8f7f5; padding: 24px 40px; border-top: 1px solid #e8e5df;">
+          <table role="presentation" style="width: 100%;">
+            <tr>
+              <td style="text-align: center;">
+                <img 
+                  src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+                  alt="Powered by Croo" 
+                  style="height: 24px; width: auto; margin-bottom: 8px; opacity: 0.5;"
+                />
+                <p style="color: #aaa; font-size: 11px; margin: 0;">
+                  Powered by Croo • Team management made simple
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `);
+
     // Send email to all recipients
     const emailPromises = uniqueEmails.map(email => 
       resend.emails.send({
-        from: "Croo Hiring <hiring@croohq.email>",
+        from: "CrooHQ Hiring <hiring@croohq.email>",
         to: [email],
         subject: `📋 New Application: ${applicantName} - ${templateName}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">New Job Application</h1>
-                <p style="color: #a0a0a0; margin: 10px 0 0 0;">${orgDisplayName}</p>
-              </div>
-              
-              <div style="background: #ffffff; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <h2 style="color: #333; margin: 0 0 20px 0; font-size: 20px;">Applicant Details</h2>
-                
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666; width: 120px;">Name:</td>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #333; font-weight: 500;">${applicantName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">Email:</td>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #333;">
-                      <a href="mailto:${applicantEmail}" style="color: #2563eb; text-decoration: none;">${applicantEmail}</a>
-                    </td>
-                  </tr>
-                  ${applicantPhone ? `
-                  <tr>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">Phone:</td>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #333;">
-                      <a href="tel:${applicantPhone}" style="color: #2563eb; text-decoration: none;">${applicantPhone}</a>
-                    </td>
-                  </tr>
-                  ` : ''}
-                  <tr>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #666;">Position:</td>
-                    <td style="padding: 12px 0; border-bottom: 1px solid #eee; color: #333;">${templateName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 12px 0; color: #666;">Location:</td>
-                    <td style="padding: 12px 0; color: #333;">${locationName}</td>
-                  </tr>
-                </table>
-                
-                <div style="margin-top: 30px; text-align: center;">
-                  <a href="${reviewUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
-                    Review Application
-                  </a>
-                </div>
-                
-                <p style="color: #888; font-size: 12px; margin-top: 30px; text-align: center;">
-                  This notification was sent by Croo. You can manage your notification preferences in the app settings.
-                </p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        html: emailHtml,
       })
     );
 

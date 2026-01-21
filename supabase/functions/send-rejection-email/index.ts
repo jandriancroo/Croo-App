@@ -10,9 +10,38 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Croo brand colors
+const primaryColor = "#0a7a8a";
+const accentColor = "#f58220";
+const backgroundColor = "#f0ebe1";
+const textColor = "#0f1215";
+
 interface RejectionEmailRequest {
   applicationId: string;
   templateId: string;
+}
+
+function wrapEmail(content: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: ${backgroundColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 30px 20px;">
+            <table role="presentation" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+              ${content}
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -68,11 +97,12 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch organization for branding
     const { data: org } = await supabase
       .from("organizations")
-      .select("name")
+      .select("name, logo_url, brand_name")
       .eq("id", application.organization_id)
       .single();
 
-    const orgName = org?.name || "Our Team";
+    const orgName = org?.brand_name || org?.name || "Our Team";
+    const logoUrl = org?.logo_url || "";
 
     // Replace placeholders in template
     const subject = template.subject
@@ -88,16 +118,65 @@ const handler = async (req: Request): Promise<Response> => {
     // Convert newlines to HTML breaks for email
     const htmlBody = body.replace(/\n/g, "<br>");
 
+    const emailHtml = wrapEmail(`
+      <!-- Header -->
+      <tr>
+        <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;">
+          ${logoUrl ? `
+            <img 
+              src="${logoUrl}" 
+              alt="${orgName}" 
+              style="max-height: 60px; max-width: 160px; width: auto; margin-bottom: 12px; border-radius: 8px;"
+            />
+          ` : `
+            <img 
+              src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+              alt="Croo" 
+              style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" 
+            />
+          `}
+          <p style="color: rgba(255,255,255,0.9); font-size: 16px; margin: 8px 0 0; font-weight: 500;">
+            ${orgName}
+          </p>
+        </td>
+      </tr>
+      
+      <!-- Content -->
+      <tr>
+        <td style="padding: 30px 40px;">
+          <div style="color: ${textColor}; font-size: 15px; line-height: 1.7;">
+            ${htmlBody}
+          </div>
+        </td>
+      </tr>
+      
+      <!-- Footer -->
+      <tr>
+        <td style="background-color: #f8f7f5; padding: 24px 40px; border-top: 1px solid #e8e5df;">
+          <table role="presentation" style="width: 100%;">
+            <tr>
+              <td style="text-align: center;">
+                <img 
+                  src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+                  alt="Powered by Croo" 
+                  style="height: 24px; width: auto; margin-bottom: 8px; opacity: 0.5;"
+                />
+                <p style="color: #aaa; font-size: 11px; margin: 0;">
+                  Powered by Croo • Team management made simple
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `);
+
     // Send the email
     const emailResponse = await resend.emails.send({
-      from: "Croo Hiring <hiring@croohq.email>",
+      from: "CrooHQ Hiring <hiring@croohq.email>",
       to: [application.email],
       subject: subject,
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          ${htmlBody}
-        </div>
-      `,
+      html: emailHtml,
     });
 
     console.log("Rejection email sent successfully:", emailResponse);

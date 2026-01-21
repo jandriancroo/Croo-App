@@ -9,6 +9,35 @@ const corsHeaders = {
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+// Croo brand colors
+const primaryColor = "#0a7a8a";
+const accentColor = "#f58220";
+const backgroundColor = "#f0ebe1";
+const textColor = "#0f1215";
+
+function wrapEmail(content: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: ${backgroundColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 30px 20px;">
+            <table role="presentation" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+              ${content}
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -41,38 +70,80 @@ serve(async (req) => {
     const ticketNumber = `#SUP-${String(ticket.ticket_number).padStart(3, '0')}`;
     const userEmail = ticket.profiles?.email;
     const userName = ticket.profiles?.full_name || "Team Member";
+    const firstName = userName.split(' ')[0];
 
     console.log("Sending resolution email to:", userEmail);
 
     // Send email notification
     if (userEmail) {
-      const emailResponse = await resend.emails.send({
-        from: "Croo Support <support@croohq.email>",
-        to: [userEmail],
-        subject: `Your support ticket ${ticketNumber} has been resolved`,
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #333; font-size: 24px;">Good news, ${userName}! 🎉</h1>
-            
-            <p style="color: #666; font-size: 16px; line-height: 1.5;">
-              Your support ticket <strong>${ticketNumber}</strong> has been marked as resolved.
+      const emailHtml = wrapEmail(`
+        <!-- Header -->
+        <tr>
+          <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;">
+            <img 
+              src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+              alt="Croo" 
+              style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" 
+            />
+            <h1 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">
+              ✅ Ticket Resolved
+            </h1>
+          </td>
+        </tr>
+        
+        <!-- Content -->
+        <tr>
+          <td style="padding: 30px 40px;">
+            <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+              Good news, ${firstName}! 🎉
+            </p>
+            <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+              Your support ticket <strong style="color: ${primaryColor};">${ticketNumber}</strong> has been marked as resolved.
             </p>
             
-            <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 20px 0;">
-              <p style="margin: 0 0 8px 0; color: #333; font-weight: 600;">Original Issue:</p>
-              <p style="margin: 0; color: #666;">${ticket.description}</p>
+            <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 16px; margin-bottom: 24px; border-left: 4px solid ${primaryColor};">
+              <p style="color: #666; font-size: 12px; text-transform: uppercase; margin: 0 0 8px;">Original Issue</p>
+              <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0;">${ticket.description}</p>
             </div>
             
-            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+            <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 0 0 24px;">
               If you're still experiencing issues or have any questions, feel free to create a new support ticket in the app.
             </p>
             
-            <p style="color: #999; font-size: 14px; margin-top: 30px;">
-              Thank you for using Croo!<br>
-              The Support Team
-            </p>
-          </div>
-        `,
+            <table role="presentation" style="width: 100%;">
+              <tr>
+                <td style="text-align: center;">
+                  <a href="https://croohq.com" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">
+                    Open Croo
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        
+        <!-- Footer -->
+        <tr>
+          <td style="background-color: #f8f7f5; padding: 24px 40px; border-top: 1px solid #e8e5df;">
+            <table role="presentation" style="width: 100%;">
+              <tr>
+                <td style="text-align: center;">
+                  <p style="color: #666; font-size: 13px; margin: 0 0 8px;">Thank you for using Croo!</p>
+                  <p style="color: #aaa; font-size: 11px; margin: 0;">
+                    The Support Team
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      `);
+
+      const emailResponse = await resend.emails.send({
+        from: "CrooHQ Support <support@croohq.email>",
+        to: [userEmail],
+        subject: `Your support ticket ${ticketNumber} has been resolved`,
+        html: emailHtml,
       });
 
       console.log("Email sent:", emailResponse);
