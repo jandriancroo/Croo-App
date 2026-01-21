@@ -31,18 +31,19 @@ export function RejectionEmailDialog({
   const [skipEmail, setSkipEmail] = useState(false);
 
   // Fetch active rejection templates
-  const { data: templates, isLoading } = useQuery({
+  const { data: templates = [], isLoading } = useQuery<any[]>({
     queryKey: ['rejection-email-templates', organizationId, 'active'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('rejection_email_templates')
+       const sb: any = supabase;
+       const { data, error } = await sb
+         .from('rejection_email_templates')
         .select('id, name, subject')
         .eq('organization_id', organizationId)
         .eq('is_active', true)
         .order('name');
       
       if (error) throw error;
-      return data;
+       return (data ?? []) as any[];
     },
     enabled: open && !!organizationId,
   });

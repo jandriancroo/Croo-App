@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { RejectionEmailTemplates } from '@/components/hiring/RejectionEmailTemplates';
 import { RejectionEmailDialog } from '@/components/hiring/RejectionEmailDialog';
+import { BulkRejectionEmailDialog, type BulkRejectApplicant } from '@/components/hiring/BulkRejectionEmailDialog';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
@@ -50,7 +51,9 @@ export default function Hiring() {
   const [showHireDialog, setShowHireDialog] = useState(false);
   const [showInterviewCalendar, setShowInterviewCalendar] = useState(false);
   const [showRejectionEmail, setShowRejectionEmail] = useState(false);
+  const [showBulkRejectionEmail, setShowBulkRejectionEmail] = useState(false);
   const [applicantToReject, setApplicantToReject] = useState<{ id: string; full_name: string; email: string } | null>(null);
+  const [bulkApplicantsToReject, setBulkApplicantsToReject] = useState<BulkRejectApplicant[]>([]);
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [templatesSubTab, setTemplatesSubTab] = useState<'application' | 'rejection'>('application');
@@ -208,6 +211,25 @@ export default function Hiring() {
 
   const handleBulkStatusChange = async (status: string) => {
     if (selectedIds.size === 0) return;
+
+    // Special case: rejecting should offer the rejection email dialog (one template for all selected).
+    if (status === 'rejected') {
+      const selected = Array.from(selectedIds);
+      const applicants = (applications || [])
+        .filter((a: any) => selected.includes(a.id))
+        .map((a: any) => ({ id: a.id, full_name: a.full_name, email: a.email }))
+        .filter((a: any) => !!a.email);
+
+      if (applicants.length === 0) {
+        toast.error('No valid applicant emails found in the selection');
+        return;
+      }
+
+      setBulkApplicantsToReject(applicants);
+      setShowBulkRejectionEmail(true);
+      return;
+    }
+
     setIsBulkUpdating(true);
     try {
       const { error } = await supabase
@@ -642,6 +664,38 @@ export default function Hiring() {
               // Update status to rejected after email is handled
               updateStatusMutation.mutate({ id: applicantToReject.id, status: 'rejected' });
               setApplicantToReject(null);
+            }}
+          />
+        )}
+
+        {/* Bulk Rejection Email Dialog */}
+        {organization && (
+          <BulkRejectionEmailDialog
+            open={showBulkRejectionEmail}
+            onOpenChange={(open) => {
+              setShowBulkRejectionEmail(open);
+              if (!open) setBulkApplicantsToReject([]);
+            }}
+            organizationId={organization.id}
+            applicants={bulkApplicantsToReject}
+            onComplete={async () => {
+              // Only mark rejected after email step completes successfully.
+              setIsBulkUpdating(true);
+              try {
+                const { error } = await supabase
+                  .from('job_applications')
+                  .update({ status: 'rejected' as ApplicationStatus, updated_at: new Date().toISOString() })
+                  .in(
+                    'id',
+                    bulkApplicantsToReject.map((a) => a.id)
+                  );
+                if (error) throw error;
+                queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+                setSelectedIds(new Set());
+              } finally {
+                setIsBulkUpdating(false);
+                setBulkApplicantsToReject([]);
+              }
             }}
           />
         )}
