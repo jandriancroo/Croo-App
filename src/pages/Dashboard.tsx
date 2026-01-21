@@ -477,10 +477,10 @@ export default function Dashboard() {
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
-    if (checklists.length > 0) {
+    if (checklists.length > 0 && currentLocation?.id) {
       loadCompletionData();
     }
-  }, [checklists]);
+  }, [checklists, currentLocation?.id, timezone]);
 
   // Prefetch UserManagement data for admins/managers (instant load on navigation)
   useEffect(() => {
