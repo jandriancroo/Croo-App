@@ -16,9 +16,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays } from 'lucide-react';
+import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
+import { RejectionEmailTemplates } from '@/components/hiring/RejectionEmailTemplates';
+import { RejectionEmailDialog } from '@/components/hiring/RejectionEmailDialog';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
@@ -47,8 +49,11 @@ export default function Hiring() {
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
   const [showInterviewCalendar, setShowInterviewCalendar] = useState(false);
+  const [showRejectionEmail, setShowRejectionEmail] = useState(false);
+  const [applicantToReject, setApplicantToReject] = useState<{ id: string; full_name: string; email: string } | null>(null);
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [templatesSubTab, setTemplatesSubTab] = useState<'application' | 'rejection'>('application');
 
   // Get organization for current location
   const { data: organization, isLoading: orgLoading } = useQuery({
@@ -514,8 +519,30 @@ export default function Hiring() {
             )}
           </TabsContent>
 
-          <TabsContent value="templates" className="mt-4">
-            <ApplicationTemplates organizationId={organization.id} />
+          <TabsContent value="templates" className="mt-4 space-y-4">
+            <div className="flex gap-2 border-b pb-2">
+              <Button
+                variant={templatesSubTab === 'application' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTemplatesSubTab('application')}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Application Templates
+              </Button>
+              <Button
+                variant={templatesSubTab === 'rejection' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTemplatesSubTab('rejection')}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Rejection Emails
+              </Button>
+            </div>
+            {templatesSubTab === 'application' ? (
+              <ApplicationTemplates organizationId={organization.id} />
+            ) : (
+              <RejectionEmailTemplates organizationId={organization.id} />
+            )}
           </TabsContent>
         </Tabs>
 
@@ -525,19 +552,29 @@ export default function Hiring() {
           open={!!selectedApplicant}
           onOpenChange={open => !open && setSelectedApplicant(null)}
           onStatusChange={(id, status) => {
-            // If status is "hired", open the hire dialog instead
+            const app = applications?.find((a: any) => a.id === id);
+            if (!app) return;
+            
+            // If status is "hired", open the hire dialog
             if (status === 'hired') {
-              const app = applications?.find((a: any) => a.id === id);
-              if (app) {
-                setApplicantToHire({
-                  id: app.id,
-                  full_name: app.full_name,
-                  email: app.email,
-                  phone: app.phone,
-                });
-                setSelectedApplicant(null);
-                setShowHireDialog(true);
-              }
+              setApplicantToHire({
+                id: app.id,
+                full_name: app.full_name,
+                email: app.email,
+                phone: app.phone,
+              });
+              setSelectedApplicant(null);
+              setShowHireDialog(true);
+            } 
+            // If status is "rejected", open rejection email dialog
+            else if (status === 'rejected') {
+              setApplicantToReject({
+                id: app.id,
+                full_name: app.full_name,
+                email: app.email,
+              });
+              setSelectedApplicant(null);
+              setShowRejectionEmail(true);
             } else {
               updateStatusMutation.mutate({ id, status });
             }
@@ -588,6 +625,26 @@ export default function Hiring() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Rejection Email Dialog */}
+        {applicantToReject && organization && (
+          <RejectionEmailDialog
+            open={showRejectionEmail}
+            onOpenChange={(open) => {
+              setShowRejectionEmail(open);
+              if (!open) setApplicantToReject(null);
+            }}
+            applicationId={applicantToReject.id}
+            applicantName={applicantToReject.full_name}
+            applicantEmail={applicantToReject.email}
+            organizationId={organization.id}
+            onComplete={() => {
+              // Update status to rejected after email is handled
+              updateStatusMutation.mutate({ id: applicantToReject.id, status: 'rejected' });
+              setApplicantToReject(null);
+            }}
+          />
+        )}
 
         {/* Bulk Actions Bar */}
         <BulkApplicantActionsBar

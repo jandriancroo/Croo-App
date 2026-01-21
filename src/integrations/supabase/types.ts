@@ -3420,6 +3420,50 @@ export type Database = {
         }
         Relationships: []
       }
+      rejection_email_templates: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rejection_email_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_dashboard_cubes: {
         Row: {
           created_at: string
@@ -5039,6 +5083,10 @@ export type Database = {
         Returns: undefined
       }
       can_manage_org_applications: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_rejection_templates: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
