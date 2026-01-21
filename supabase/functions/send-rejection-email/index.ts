@@ -19,6 +19,7 @@ const textColor = "#0f1215";
 interface RejectionEmailRequest {
   applicationId: string;
   templateId: string;
+  overrideEmail?: string; // For testing - send to different email
 }
 
 function wrapEmail(content: string): string {
@@ -54,7 +55,7 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { applicationId, templateId }: RejectionEmailRequest = await req.json();
+    const { applicationId, templateId, overrideEmail }: RejectionEmailRequest = await req.json();
 
     if (!applicationId || !templateId) {
       return new Response(
@@ -171,15 +172,16 @@ const handler = async (req: Request): Promise<Response> => {
       </tr>
     `);
 
-    // Send the email
+    // Send the email (use override email for testing if provided)
+    const recipientEmail = overrideEmail || application.email;
     const emailResponse = await resend.emails.send({
       from: "CrooHQ Hiring <hiring@croohq.email>",
-      to: [application.email],
+      to: [recipientEmail],
       subject: subject,
       html: emailHtml,
     });
 
-    console.log("Rejection email sent successfully:", emailResponse);
+    console.log("Rejection email sent to:", recipientEmail, emailResponse);
 
     return new Response(
       JSON.stringify({ success: true, emailId: emailResponse.data?.id }),
