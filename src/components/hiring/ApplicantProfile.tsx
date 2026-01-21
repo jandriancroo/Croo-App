@@ -178,14 +178,35 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                   {application.resume_url && (
                     <div className="flex items-center gap-2 text-sm">
                       <FileText className="h-4 w-4 text-muted-foreground" />
-                      <a 
-                        href={application.resume_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline flex items-center gap-1"
-                      >
-                        View Resume <ExternalLink className="h-3 w-3" />
-                      </a>
+                      {(() => {
+                        const url = application.resume_url;
+                        const extension = url.split('.').pop()?.toLowerCase() || '';
+                        const isViewable = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(extension);
+                        const fileName = url.split('/').pop() || 'resume';
+                        
+                        if (isViewable) {
+                          return (
+                            <a 
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-1"
+                            >
+                              View Resume <ExternalLink className="h-3 w-3" />
+                            </a>
+                          );
+                        }
+                        
+                        return (
+                          <a 
+                            href={url}
+                            download={fileName}
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            Download Resume ({extension.toUpperCase()}) <ExternalLink className="h-3 w-3" />
+                          </a>
+                        );
+                      })()}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground pt-2">
