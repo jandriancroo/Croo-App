@@ -90,7 +90,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send the email
     const emailResponse = await resend.emails.send({
-      from: `${orgName} <onboarding@resend.dev>`,
+      from: "Croo Hiring <hiring@croohq.email>",
       to: [application.email],
       subject: subject,
       html: `
