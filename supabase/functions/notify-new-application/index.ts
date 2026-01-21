@@ -114,7 +114,7 @@ serve(async (req: Request) => {
     // Send email to all recipients
     const emailPromises = uniqueEmails.map(email => 
       resend.emails.send({
-        from: "Croo <notifications@croohq.email>",
+        from: "Croo Hiring <hiring@croohq.email>",
         to: [email],
         subject: `📋 New Application: ${applicantName} - ${templateName}`,
         html: `

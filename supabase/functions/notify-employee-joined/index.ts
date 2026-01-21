@@ -150,7 +150,7 @@ serve(async (req: Request) => {
     const emailPromises = Array.from(uniqueManagers.values()).map(async (manager) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "Croo <notifications@croohq.email>",
+          from: "Croo <hello@croohq.email>",
           to: [manager.email],
           subject: `🎉 ${newEmployee.full_name || "New team member"} has joined!`,
           html: `

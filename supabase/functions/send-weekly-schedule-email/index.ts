@@ -343,7 +343,7 @@ serve(async (req: Request): Promise<Response> => {
       
       try {
         await resend.emails.send({
-          from: "Croo <schedule@croohq.email>",
+          from: "Croo <hello@croohq.email>",
           to: [test_email],
           subject: `[TEST] ${subject}`,
           html
@@ -469,7 +469,7 @@ serve(async (req: Request): Promise<Response> => {
       
       try {
         await resend.emails.send({
-          from: "Croo <schedule@croohq.email>",
+          from: "Croo <hello@croohq.email>",
           to: [userData.email],
           subject,
           html
@@ -498,7 +498,7 @@ serve(async (req: Request): Promise<Response> => {
         
         try {
           await resend.emails.send({
-            from: "Croo <schedule@croohq.email>",
+          from: "Croo <hello@croohq.email>",
             to: [cc_email],
             subject: `[COPY] ${subject}`,
             html
