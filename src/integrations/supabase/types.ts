@@ -5038,6 +5038,10 @@ export type Database = {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
       }
+      can_manage_org_applications: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
       generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_current_wage: {
