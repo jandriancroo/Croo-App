@@ -150,6 +150,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   const handleSend = async () => {
     if (!newMessage.trim() || !conversationId || !user) return;
 
+    const messageContent = newMessage.trim();
     setSending(true);
     try {
       const { error: sendError } = await supabase
@@ -158,11 +159,30 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
           conversation_id: conversationId,
           sender_type: 'staff',
           sender_id: user.id,
-          content: newMessage.trim()
+          content: messageContent
         });
 
       if (sendError) throw sendError;
       setNewMessage('');
+
+      // Fetch sender name for the email
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      // Send email notification to applicant
+      supabase.functions.invoke('notify-hiring-message', {
+        body: {
+          conversationId,
+          messageContent,
+          senderName: senderProfile?.full_name || 'Hiring Team'
+        }
+      }).then(({ error }) => {
+        if (error) console.error('Failed to send email notification:', error);
+      });
+
     } catch (err) {
       console.error('Error sending message:', err);
       toast.error('Failed to send message');
@@ -209,7 +229,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
       if (msgError) throw msgError;
 
       // Update application with interview details
-      const { error: appError } = await supabase
+      const { data: application, error: appError } = await supabase
         .from('job_applications')
         .update({
           interview_date: interviewData.date,
@@ -217,9 +237,34 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
           interview_status: 'pending',
           status: 'interviewing'
         })
-        .eq('id', applicationId);
+        .eq('id', applicationId)
+        .select('location:locations(name, address)')
+        .single();
 
       if (appError) throw appError;
+
+      // Get sender name for email
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      const location = application?.location as any;
+
+      // Send interview invite email with calendar attachment
+      supabase.functions.invoke('send-interview-invite', {
+        body: {
+          conversationId,
+          interviewDate: interviewData.date,
+          interviewTime: time,
+          locationName: location?.name || 'TBD',
+          locationAddress: location?.address,
+          scheduledByName: senderProfile?.full_name || 'Hiring Team'
+        }
+      }).then(({ error }) => {
+        if (error) console.error('Failed to send interview invite email:', error);
+      });
 
       toast.success(isRescheduling ? 'Interview rescheduled!' : 'Interview invitation sent!');
       setIsRescheduling(false);
