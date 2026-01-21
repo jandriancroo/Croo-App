@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.nightly-maintenance]
 verify_jwt = false
+
+[functions.batch-analyze-applications]
+verify_jwt = false
