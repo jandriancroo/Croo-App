@@ -508,7 +508,7 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
-    // Monthly period
+    // Monthly period (only used for monthly checklists)
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -521,20 +521,48 @@ export default function Dashboard() {
       .select('id, checklist_id, days_of_week')
       .in('checklist_id', checklistIds);
     
-    // BATCH QUERY 2: Get all responses for all checklists at once
-    // Use the broader time range (either business day or month start, whichever is earlier)
-    const { data: allResponses } = await supabase
-      .from('checklist_responses')
-      .select(`
-        id,
-        item_id,
-        created_at,
-        checklist_submissions!inner(id, checklist_id, location_id)
-      `)
-      .in('checklist_submissions.checklist_id', checklistIds)
-      .eq('checklist_submissions.location_id', currentLocation.id)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+    // BATCH QUERY 2: Get responses in the *smallest* necessary windows.
+    // IMPORTANT: REST queries default to a 1000-row limit; pulling an entire month across
+    // multiple daily checklists can silently drop the newest rows and make the dashboard
+    // look “not completed”. We split monthly vs non-monthly windows to keep row counts low.
+    const monthlyChecklistIds = checklists.filter((c) => c.frequency === 'monthly').map((c) => c.id);
+    const nonMonthlyChecklistIds = checklists.filter((c) => c.frequency !== 'monthly').map((c) => c.id);
+
+    const [dailyResponsesResult, monthlyResponsesResult] = await Promise.all([
+      nonMonthlyChecklistIds.length
+        ? supabase
+            .from('checklist_responses')
+            .select(`
+              id,
+              item_id,
+              created_at,
+              checklist_submissions!inner(id, checklist_id, location_id)
+            `)
+            .in('checklist_submissions.checklist_id', nonMonthlyChecklistIds)
+            .eq('checklist_submissions.location_id', currentLocation.id)
+            .gte('created_at', periodStartBusiness.toISOString())
+            .lte('created_at', periodEndBusiness.toISOString())
+        : Promise.resolve({ data: [] as any[] }),
+      monthlyChecklistIds.length
+        ? supabase
+            .from('checklist_responses')
+            .select(`
+              id,
+              item_id,
+              created_at,
+              checklist_submissions!inner(id, checklist_id, location_id)
+            `)
+            .in('checklist_submissions.checklist_id', monthlyChecklistIds)
+            .eq('checklist_submissions.location_id', currentLocation.id)
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString())
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const allResponses = [
+      ...(dailyResponsesResult.data || []),
+      ...(monthlyResponsesResult.data || []),
+    ];
     
     // Group items by checklist_id
     const itemsByChecklist = new Map<string, typeof allChecklistItems>();
