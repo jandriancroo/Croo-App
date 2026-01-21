@@ -514,6 +514,22 @@ export default function Dashboard() {
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     
     const checklistIds = checklists.map(c => c.id);
+
+    // If a checklist has been formally submitted for the business day, treat it as complete on the dashboard.
+    // This matches the checklist detail view, which is submission-driven (not strictly response-count-driven).
+    // NOTE: We intentionally do NOT apply this to monthly checklists (they accumulate over the month).
+    const { data: submittedRows } = await supabase
+      .from('checklist_submissions')
+      .select('checklist_id, submitted_at')
+      .eq('location_id', currentLocation.id)
+      .in('checklist_id', checklistIds)
+      .not('submitted_at', 'is', null)
+      .gte('submitted_at', periodStartBusiness.toISOString())
+      .lte('submitted_at', periodEndBusiness.toISOString());
+
+    const submittedChecklistIds = new Set(
+      (submittedRows || []).map((r: any) => r.checklist_id).filter(Boolean)
+    );
     
     // BATCH QUERY 1: Get all checklist items for all checklists at once
     const { data: allChecklistItems } = await supabase
@@ -597,6 +613,15 @@ export default function Dashboard() {
       const isMonthly = checklist.frequency === 'monthly';
       const periodStart = isMonthly ? monthStart : periodStartBusiness;
       const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
+
+      // For non-monthly checklists, a submission means "Completed" on the dashboard.
+      if (!isMonthly && submittedChecklistIds.has(checklist.id)) {
+        dataMap[checklist.id] = {
+          expected: itemCount,
+          completed: itemCount,
+        };
+        continue;
+      }
       
       // Filter responses for this checklist and time period
       const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
