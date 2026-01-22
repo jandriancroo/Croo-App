@@ -13,7 +13,6 @@ import {
   Tooltip 
 } from 'recharts';
 import {
-  Clock, 
   TrendingUp, 
   TrendingDown,
   Users, 
@@ -982,17 +981,27 @@ export function ManagerDashboardOverlay({
                 
                 {/* Content */}
                 <div className="relative flex flex-col items-center gap-1 sm:gap-2">
-                  <div className="flex items-center gap-2 sm:gap-4">
-                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-primary drop-shadow-lg" />
-                    <span 
-                      className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight"
-                      style={{ 
-                        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                      }}
-                    >
-                      {formatTimeDisplay(currentTime)}
-                    </span>
-                  </div>
+                  {(() => {
+                    const timeStr = formatTimeDisplay(currentTime);
+                    const match = timeStr.match(/^([\d:]+)\s*(AM|PM)$/i);
+                    const timePart = match ? match[1] : timeStr;
+                    const periodPart = match ? match[2] : '';
+                    return (
+                      <div className="flex items-baseline">
+                        <span 
+                          className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight"
+                          style={{ 
+                            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                          }}
+                        >
+                          {timePart}
+                        </span>
+                        <span className="text-lg sm:text-xl lg:text-2xl font-medium text-white/60 ml-1">
+                          {periodPart}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <p className="text-white/60 text-xs sm:text-sm font-medium tracking-wide">
                     {format(currentTime, 'EEEE, MMMM d')}
                   </p>
@@ -1071,34 +1080,42 @@ export function ManagerDashboardOverlay({
                     </div>
                   </div>
                   
-                  {/* Visual labor gauge bar */}
-                  <div className="mt-3 pt-3 border-t border-white/10">
-                    <div className="relative h-3 rounded-full bg-white/10 overflow-hidden">
-                      {/* Color zones */}
-                      <div className="absolute inset-0 flex">
-                        <div className="h-full bg-green-500/30" style={{ width: `${(laborTarget / 40) * 100}%` }} />
-                        <div className="h-full bg-yellow-500/30" style={{ width: `${((laborTarget + 3) / 40 * 100) - (laborTarget / 40 * 100)}%` }} />
-                        <div className="flex-1 bg-red-500/30" />
+                  {/* Two-bar labor comparison */}
+                  <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                    {/* Actual Labor Bar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white/60 text-[10px]">Actual</span>
+                        <span className={`text-xs font-bold ${
+                          laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                        }`}>
+                          {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
+                        </span>
                       </div>
-                      {/* Current value indicator */}
-                      <div 
-                        className={`absolute top-0 bottom-0 rounded-full transition-all ${
-                          laborStatus === 'good' ? 'bg-green-500' : laborStatus === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ 
-                          width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` 
-                        }}
-                      />
-                      {/* Target marker */}
-                      <div 
-                        className="absolute top-0 bottom-0 w-0.5 bg-white"
-                        style={{ left: `${(laborTarget / 40) * 100}%` }}
-                      />
+                      <div className="h-4 rounded bg-white/10 overflow-hidden">
+                        <div 
+                          className={`h-full rounded transition-all ${
+                            laborStatus === 'good' ? 'bg-green-500' : laborStatus === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ 
+                            width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` 
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-white/40 text-[10px]">0%</span>
-                      <span className="text-white/60 text-[10px] font-medium">Target: {laborTarget}%</span>
-                      <span className="text-white/40 text-[10px]">40%</span>
+                    
+                    {/* Target Bar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-white/60 text-[10px]">Target</span>
+                        <span className="text-xs font-bold text-white/80">{laborTarget}%</span>
+                      </div>
+                      <div className="h-4 rounded bg-white/10 overflow-hidden">
+                        <div 
+                          className="h-full rounded bg-white/40"
+                          style={{ width: `${(laborTarget / 40) * 100}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </CardContent>
