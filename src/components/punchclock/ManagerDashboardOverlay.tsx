@@ -458,7 +458,24 @@ export function ManagerDashboardOverlay({
 
       // Filter for shift_manager+ roles
       const managerRole: AppRole = 'shift_manager';
-      return filterEventsByRole(todayEvents, managerRole).slice(0, 5);
+      const filteredEvents = filterEventsByRole(todayEvents, managerRole).slice(0, 5);
+      
+      if (filteredEvents.length === 0) return [];
+      
+      // Fetch completions for these events for today
+      const { data: completions } = await supabase
+        .from('event_task_completions')
+        .select('event_id')
+        .in('event_id', filteredEvents.map(e => e.id))
+        .eq('completed_date', todayStr);
+      
+      const completedEventIds = new Set((completions || []).map(c => c.event_id));
+      
+      // Add isComplete flag to each event
+      return filteredEvents.map(e => ({
+        ...e,
+        isComplete: completedEventIds.has(e.id)
+      }));
     },
   });
 
@@ -1325,11 +1342,16 @@ export function ManagerDashboardOverlay({
                   <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
                     <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Tasks
-                    {quickTasks.length > 0 && (
-                      <Badge variant="secondary" className="ml-auto bg-white/10 text-white/60 text-[10px]">
-                        {quickTasks.length}
-                      </Badge>
-                    )}
+                    {(() => {
+                      const incompleteEvents = quickTasks.filter((t: any) => !t.isComplete).length;
+                      const incompleteChecklists = checklistsData.filter((c: any) => !c.isComplete).length;
+                      const totalIncomplete = incompleteEvents + incompleteChecklists;
+                      return totalIncomplete > 0 ? (
+                        <Badge variant="secondary" className="ml-auto bg-white/10 text-white/60 text-[10px]">
+                          {totalIncomplete}
+                        </Badge>
+                      ) : null;
+                    })()}
                   </h3>
                   <div className="space-y-1 flex-1 overflow-y-auto">
                     {/* Events section */}
@@ -1341,15 +1363,30 @@ export function ManagerDashboardOverlay({
                             key={task.id}
                             className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5 mb-1"
                           >
-                            <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
+                            {task.isComplete ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+                            ) : (
+                              <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
+                            )}
                             <div className="flex-1 min-w-0">
-                              <p className="text-white text-[10px] sm:text-xs font-medium truncate">
+                              <p className={`text-[10px] sm:text-xs font-medium truncate ${
+                                task.isComplete ? 'text-white/50 line-through' : 'text-white'
+                              }`}>
                                 {task.event_name}
                               </p>
                             </div>
-                            <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
-                              {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
-                            </span>
+                            {task.isComplete ? (
+                              <Badge 
+                                variant="secondary" 
+                                className="text-[8px] px-1.5 py-0 bg-green-500/20 text-green-300"
+                              >
+                                ✓
+                              </Badge>
+                            ) : (
+                              <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
+                                {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
