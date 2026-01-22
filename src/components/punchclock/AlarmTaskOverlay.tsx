@@ -342,14 +342,20 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     const effectiveTitle = title ?? activeAlarm?.title;
     if (!effectiveTitle) return;
 
-    // Play the sequence
+    let loopCount = 0;
+    const maxLoops = 2;
+
+    // Play the sequence up to maxLoops times
     const runSequence = async () => {
+      loopCount++;
       await playAlarmSequence(effectiveTitle);
 
-      // Schedule next loop after sequence completes + pause
-      alarmLoopRef.current = setTimeout(() => {
-        runSequence();
-      }, 2000);
+      // Only continue if we haven't reached max loops
+      if (loopCount < maxLoops) {
+        alarmLoopRef.current = setTimeout(() => {
+          runSequence();
+        }, 2000);
+      }
     };
 
     runSequence();
