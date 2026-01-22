@@ -114,40 +114,53 @@ export function useChatUnreadCounts(locationId: string | null) {
         }
       }
 
-      // Fetch hiring unread count (uses hiring_messages table with last_read_at tracking)
+      // Fetch hiring unread count (location-scoped; uses last_read_at tracking)
       let hiringCount = 0;
       try {
-        // Get conversations with last_read_at for read tracking (location-scoped)
-        const { data: hiringConvs } = await supabase
+        // 1) Load conversations for this location only
+        const { data: hiringConvs, error: convErr } = await supabase
           .from('hiring_conversations')
           .select(`
             id,
             last_read_at,
-            application:job_applications(location_id),
-            hiring_messages(id, sender_type, created_at)
-          `);
+            application:job_applications!inner(location_id)
+          `)
+          .eq('application.location_id', locationId);
 
-        // Count conversations with unread applicant messages
-        for (const conv of hiringConvs || []) {
-          const appLocationId = (conv as any).application?.location_id as string | undefined;
-          if (appLocationId && appLocationId !== locationId) continue;
+        if (convErr) throw convErr;
 
-          const messages = (conv as any).hiring_messages || [];
-          if (messages.length === 0) continue;
-          
-          // Sort by created_at desc to get latest
-          const sorted = [...messages].sort((a: any, b: any) => 
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-          const latest = sorted[0];
-          
-          // Unread if latest is from applicant AND after last_read_at (or never read)
-          const isUnread = 
-            latest.sender_type === 'applicant' &&
-            (!conv.last_read_at || new Date(latest.created_at) > new Date(conv.last_read_at));
-          
-          if (isUnread) {
-            hiringCount++;
+        const convIds = (hiringConvs || []).map((c: any) => c.id as string);
+        if (convIds.length === 0) {
+          // nothing to count
+        } else {
+          // 2) Fetch latest message per conversation (ordered desc, then first occurrence)
+          const { data: hiringMsgs, error: msgErr } = await supabase
+            .from('hiring_messages')
+            .select('conversation_id, sender_type, created_at')
+            .in('conversation_id', convIds)
+            .order('created_at', { ascending: false });
+
+          if (msgErr) throw msgErr;
+
+          const latestPerConv = new Map<string, { sender_type: string; created_at: string }>();
+          for (const msg of hiringMsgs || []) {
+            if (!latestPerConv.has((msg as any).conversation_id)) {
+              latestPerConv.set((msg as any).conversation_id, {
+                sender_type: (msg as any).sender_type,
+                created_at: (msg as any).created_at,
+              });
+            }
+          }
+
+          for (const conv of hiringConvs || []) {
+            const latest = latestPerConv.get((conv as any).id);
+            if (!latest) continue;
+
+            const isUnread =
+              latest.sender_type === 'applicant' &&
+              (!(conv as any).last_read_at || new Date(latest.created_at) > new Date((conv as any).last_read_at));
+
+            if (isUnread) hiringCount++;
           }
         }
       } catch (err) {

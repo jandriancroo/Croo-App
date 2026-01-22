@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
 import { LocationPickerDialog } from './LocationPickerDialog';
-import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -227,8 +227,9 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-  const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
+  const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
+  const unreadCount = chatUnreadCounts.total;
   const { canViewWallet } = useRolePermissions();
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
