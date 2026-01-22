@@ -49,7 +49,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("ElevenLabs API error:", response.status, errorText);
-      throw new Error(`ElevenLabs API error: ${response.status}`);
+      // Return a 503 so client can gracefully fallback to browser TTS
+      return new Response(
+        JSON.stringify({ error: "TTS service unavailable", fallback: true }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     const audioBuffer = await response.arrayBuffer();
