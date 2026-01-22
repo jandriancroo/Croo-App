@@ -996,13 +996,13 @@ export function ManagerDashboardOverlay({
                         >
                           {timePart}
                         </span>
-                        <span className="text-sm sm:text-base lg:text-lg font-semibold text-white/50 ml-1 -mt-1">
+                        <span className="text-base sm:text-lg lg:text-xl font-semibold text-white/50 ml-1 mt-1 sm:mt-2 lg:mt-3">
                           {periodPart}
                         </span>
                       </div>
                     );
                   })()}
-                  <p className="text-white/60 text-xs sm:text-sm font-medium tracking-wide">
+                  <p className="text-white/60 text-sm sm:text-base lg:text-lg font-medium tracking-wide">
                     {format(currentTime, 'EEEE, MMMM d')}
                   </p>
                 </div>
