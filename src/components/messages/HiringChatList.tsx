@@ -71,13 +71,19 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
       // Fetch last message for each conversation and filter out empty ones
       const conversationsWithMessages = await Promise.all(
         (convs || []).map(async (conv: any) => {
-          const { data: lastMsg } = await supabase
+          const { data: lastMsg, error: lastMsgError } = await supabase
             .from('hiring_messages')
             .select('content, sender_type, created_at')
             .eq('conversation_id', conv.id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
+
+          // If there are no messages yet, PostgREST returns 406 with .single();
+          // .maybeSingle() avoids that and simply returns null.
+          if (lastMsgError) {
+            console.error('Error fetching last hiring message:', lastMsgError);
+          }
 
           return {
             ...conv,
