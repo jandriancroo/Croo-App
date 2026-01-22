@@ -140,19 +140,28 @@ Deno.serve(async (req) => {
         const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
         const intervalMinutes = task.frequency_minutes;
 
-        // Check if current minute is on a boundary for this interval
-        const isOnBoundary = currentMinute % intervalMinutes === 0;
+        // TOLERANCE: Cron may occasionally miss the exact boundary minute.
+        // Allow triggering if we're within 5 minutes AFTER a boundary that hasn't fired yet.
+        // Find the most recent boundary that should have triggered.
+        const minutesSinceHourStart = currentHour * 60 + currentMinute;
+        const lastBoundaryMinuteOfDay = Math.floor(minutesSinceHourStart / intervalMinutes) * intervalMinutes;
+        const lastBoundaryHour = Math.floor(lastBoundaryMinuteOfDay / 60);
+        const lastBoundaryMinute = lastBoundaryMinuteOfDay % 60;
+        const minutesSinceBoundary = minutesSinceHourStart - lastBoundaryMinuteOfDay;
 
-        if (isOnBoundary) {
-          // Build the aligned time string for deduplication
-          const alignedMinute = currentMinute.toString().padStart(2, '0');
-          const alignedHour = currentHour.toString().padStart(2, '0');
+        // Trigger if we're within 5 minutes of a boundary (allows for cron drift)
+        const isWithinTolerance = minutesSinceBoundary >= 0 && minutesSinceBoundary <= 5;
+
+        if (isWithinTolerance) {
+          // Build the aligned time string based on the BOUNDARY, not current time
+          const alignedMinute = lastBoundaryMinute.toString().padStart(2, '0');
+          const alignedHour = lastBoundaryHour.toString().padStart(2, '0');
           matchedTimeStr = `${alignedHour}:${alignedMinute}`;
           shouldTrigger = true;
         }
 
         console.log(
-          `[Alarm Tasks] Task ${task.id}: interval=${intervalMinutes}min, currentMinute=${currentMinute}, isOnBoundary=${isOnBoundary}, shouldTrigger=${shouldTrigger}`,
+          `[Alarm Tasks] Task ${task.id}: interval=${intervalMinutes}min, currentMinute=${currentMinute}, lastBoundary=${lastBoundaryHour}:${lastBoundaryMinute.toString().padStart(2,'0')}, minSinceBoundary=${minutesSinceBoundary}, shouldTrigger=${shouldTrigger}`,
         );
       } else if (task.frequency_type === 'custom' && task.custom_times) {
         // Check if current time matches any custom time (in local timezone)
