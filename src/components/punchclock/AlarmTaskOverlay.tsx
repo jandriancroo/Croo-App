@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlarmClock, Check, X } from "lucide-react";
+import { Bell, Check, X, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AlarmTask {
   id: string;
@@ -24,9 +24,11 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [isVisible, setIsVisible] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [countdown, setCountdown] = useState(30);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -113,11 +115,13 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
           
           // Calculate remaining time (30s from trigger)
           const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
-          const remaining = Math.max(30 - elapsed, 5) * 1000;
+          const remaining = Math.max(30 - elapsed, 5);
+          setCountdown(Math.ceil(remaining));
+          startCountdown(remaining);
           
           timeoutRef.current = setTimeout(() => {
             handleDismiss();
-          }, remaining);
+          }, remaining * 1000);
         }
       }
     };
@@ -163,10 +167,13 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
               }
-              const remaining = Math.max(30 - secondsSinceTrigger, 5) * 1000;
+              const remaining = Math.max(30 - secondsSinceTrigger, 5);
+              setCountdown(Math.ceil(remaining));
+              startCountdown(remaining);
+              
               timeoutRef.current = setTimeout(() => {
                 handleDismiss();
-              }, remaining);
+              }, remaining * 1000);
             }
           }
         }
@@ -178,8 +185,27 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
     };
   }, [locationId]);
+
+  const startCountdown = (seconds: number) => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+    setCountdown(Math.ceil(seconds));
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const playAlarmSound = async () => {
     try {
@@ -268,102 +294,148 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
   };
 
-  if (!activeAlarm || !isVisible) return null;
+  if (!activeAlarm) return null;
 
   return (
-    <div 
-      className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center transition-all duration-300",
-        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-      )}
-      onClick={handleDismiss}
-    >
-      {/* Full screen colored backdrop */}
-      <div 
-        className="absolute inset-0 animate-pulse"
-        style={{ backgroundColor: `${activeAlarm.accent_color}15` }}
-      />
-      <div className="absolute inset-0 bg-background/60 backdrop-blur-md" />
-      
-      {/* Large Alarm Card - takes up most of the screen */}
-      <Card 
-        className={cn(
-          "relative w-[90vw] max-w-2xl min-h-[60vh] shadow-2xl flex flex-col justify-center",
-          "border-8 rounded-3xl"
-        )}
-        style={{ 
-          borderColor: activeAlarm.accent_color,
-          boxShadow: `0 0 60px ${activeAlarm.accent_color}40, 0 0 120px ${activeAlarm.accent_color}20`
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <CardContent className="p-8 md:p-12 space-y-8 flex flex-col items-center justify-center">
-          {/* Large Alarm Icon */}
-          <div 
-            className="w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center animate-bounce"
-            style={{ 
-              backgroundColor: `${activeAlarm.accent_color}25`,
-              boxShadow: `0 0 40px ${activeAlarm.accent_color}30`
-            }}
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          onClick={handleDismiss}
+        >
+          {/* Backdrop with animated gradient */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" />
+          
+          {/* Pulsing ring effect */}
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1.5, opacity: 0 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
           >
-            <AlarmClock 
-              className="h-16 w-16 md:h-20 md:w-20" 
-              style={{ color: activeAlarm.accent_color }} 
-            />
-          </div>
-          
-          {/* Large Title */}
-          <div className="text-center space-y-4">
-            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">{activeAlarm.title}</h2>
-            {activeAlarm.description && (
-              <p className="text-xl text-muted-foreground max-w-md">{activeAlarm.description}</p>
-            )}
             <div 
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+              className="w-64 h-64 rounded-full"
               style={{ 
-                backgroundColor: `${activeAlarm.accent_color}20`, 
-                color: activeAlarm.accent_color 
+                border: `4px solid ${activeAlarm.accent_color}`,
+                boxShadow: `0 0 60px ${activeAlarm.accent_color}60`
+              }}
+            />
+          </motion.div>
+          
+          {/* Main Card */}
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Glass card */}
+            <div 
+              className="relative overflow-hidden rounded-3xl backdrop-blur-2xl border"
+              style={{ 
+                background: `linear-gradient(145deg, ${activeAlarm.accent_color}15, ${activeAlarm.accent_color}05)`,
+                borderColor: `${activeAlarm.accent_color}40`,
+                boxShadow: `0 25px 50px -12px ${activeAlarm.accent_color}40, 0 0 0 1px ${activeAlarm.accent_color}20 inset`
               }}
             >
-              <AlarmClock className="h-4 w-4" />
-              RECURRING TASK
+              {/* Top accent bar */}
+              <div 
+                className="h-1.5"
+                style={{ background: `linear-gradient(90deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}80)` }}
+              />
+              
+              <div className="p-8 space-y-6">
+                {/* Icon with animated ring */}
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="w-20 h-20 rounded-full flex items-center justify-center"
+                      style={{ 
+                        background: `linear-gradient(145deg, ${activeAlarm.accent_color}30, ${activeAlarm.accent_color}10)`,
+                        boxShadow: `0 0 30px ${activeAlarm.accent_color}40`
+                      }}
+                    >
+                      <Bell 
+                        className="h-10 w-10" 
+                        style={{ color: activeAlarm.accent_color }} 
+                      />
+                    </motion.div>
+                    
+                    {/* Countdown badge */}
+                    <div 
+                      className="absolute -top-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                      style={{ backgroundColor: activeAlarm.accent_color }}
+                    >
+                      {countdown}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="text-center space-y-3">
+                  <h2 className="text-2xl font-bold text-white tracking-tight">
+                    {activeAlarm.title}
+                  </h2>
+                  {activeAlarm.description && (
+                    <p className="text-white/70 text-sm leading-relaxed">
+                      {activeAlarm.description}
+                    </p>
+                  )}
+                  <div 
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    style={{ 
+                      backgroundColor: `${activeAlarm.accent_color}25`, 
+                      color: activeAlarm.accent_color 
+                    }}
+                  >
+                    <Clock className="h-3 w-3" />
+                    RECURRING TASK
+                  </div>
+                </div>
+                
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="flex-1 gap-2 h-14 text-base rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
+                    onClick={handleDismiss}
+                  >
+                    <X className="h-5 w-5" />
+                    Dismiss
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="flex-1 gap-2 h-14 text-base rounded-2xl text-white border-0 shadow-lg"
+                    onClick={handleComplete}
+                    disabled={isCompleting}
+                    style={{ 
+                      background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`,
+                      boxShadow: `0 10px 30px -5px ${activeAlarm.accent_color}60`
+                    }}
+                  >
+                    <Check className="h-5 w-5" />
+                    {isCompleting ? 'Saving...' : 'Complete'}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-          
-          {/* Large Action Buttons */}
-          <div className="flex gap-4 w-full max-w-md">
-            <Button
-              variant="outline"
-              size="lg"
-              className="flex-1 gap-2 h-16 text-lg rounded-xl"
-              onClick={handleDismiss}
-            >
-              <X className="h-6 w-6" />
-              Dismiss
-            </Button>
-            <Button
-              size="lg"
-              className="flex-1 gap-2 h-16 text-lg rounded-xl text-primary-foreground"
-              onClick={handleComplete}
-              disabled={isCompleting}
-              style={{ 
-                backgroundColor: activeAlarm.accent_color,
-                borderColor: activeAlarm.accent_color,
-                color: "hsl(var(--primary-foreground))",
-              }}
-            >
-              <Check className="h-6 w-6" />
-              {isCompleting ? 'Completing...' : 'Complete'}
-            </Button>
-          </div>
-          
-          <p className="text-sm text-center text-muted-foreground">
-            Tap outside to dismiss • Auto-dismisses in 30s
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
