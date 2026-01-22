@@ -114,19 +114,19 @@ export function useChatUnreadCounts(locationId: string | null) {
         }
       }
 
-      // Fetch hiring unread count (uses hiring_messages table)
+      // Fetch hiring unread count (uses hiring_messages table with last_read_at tracking)
       let hiringCount = 0;
       try {
-        // Get conversations where user has sent messages (they're a participant)
+        // Get conversations with last_read_at for read tracking
         const { data: hiringConvs } = await supabase
           .from('hiring_conversations')
           .select(`
             id,
+            last_read_at,
             hiring_messages(id, sender_type, created_at)
           `);
 
         // Count conversations with unread applicant messages
-        // A message is "unread" if it's from the applicant and is the most recent
         for (const conv of hiringConvs || []) {
           const messages = (conv as any).hiring_messages || [];
           if (messages.length === 0) continue;
@@ -137,8 +137,12 @@ export function useChatUnreadCounts(locationId: string | null) {
           );
           const latest = sorted[0];
           
-          // If latest message is from applicant, it's unread
-          if (latest && latest.sender_type === 'applicant') {
+          // Unread if latest is from applicant AND after last_read_at (or never read)
+          const isUnread = 
+            latest.sender_type === 'applicant' &&
+            (!conv.last_read_at || new Date(latest.created_at) > new Date(conv.last_read_at));
+          
+          if (isUnread) {
             hiringCount++;
           }
         }

@@ -1501,6 +1501,7 @@ export type Database = {
           application_id: string
           created_at: string
           id: string
+          last_read_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1508,6 +1509,7 @@ export type Database = {
           application_id: string
           created_at?: string
           id?: string
+          last_read_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1515,6 +1517,7 @@ export type Database = {
           application_id?: string
           created_at?: string
           id?: string
+          last_read_at?: string | null
           updated_at?: string
         }
         Relationships: [
