@@ -1560,10 +1560,10 @@ export function ManagerDashboardOverlay({
             </div>
           </DialogContent>
         </Dialog>
-        
-        {/* Alarm Task Overlay - shows on manager dashboard too */}
-        <AlarmTaskOverlay locationId={locationId} />
       </motion.div>
+      
+      {/* Alarm Task Overlay - must be outside motion.div for proper z-index stacking */}
+      <AlarmTaskOverlay locationId={locationId} />
     </AnimatePresence>
   );
 }
