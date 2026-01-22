@@ -477,16 +477,21 @@ export default function Dashboard() {
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
-    // Wait for timezone/closeTime to load before calculating completion data
+    // Wait for timezone/closeTime to FULLY load before calculating completion data
     // This ensures business day boundaries are accurate
+    // Critical: closeTime must not be null - if it is, we're still loading or location has no hours set
+    const closeTimeReady = !timezoneLoading && closeTime !== null;
+    
     console.log('[Dashboard] Completion useEffect:', {
       checklistsLength: checklists.length,
       timezoneLoading,
       closeTime,
+      closeTimeReady,
       locationId: currentLocation?.id,
-      willRun: checklists.length > 0 && !timezoneLoading && !!currentLocation?.id
+      willRun: checklists.length > 0 && closeTimeReady && !!currentLocation?.id
     });
-    if (checklists.length > 0 && !timezoneLoading && currentLocation?.id) {
+    
+    if (checklists.length > 0 && closeTimeReady && currentLocation?.id) {
       loadCompletionData();
     }
   }, [checklists, closeTime, timezoneLoading, currentLocation?.id]);
