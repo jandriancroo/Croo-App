@@ -92,6 +92,41 @@ export type Database = {
           },
         ]
       }
+      applicant_push_subscriptions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          platform: string
+          subscription_data: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          platform?: string
+          subscription_data: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          platform?: string
+          subscription_data?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_push_subscriptions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "hiring_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability_requests: {
         Row: {
           created_at: string

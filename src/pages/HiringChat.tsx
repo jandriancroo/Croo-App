@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Send, MessageCircle, Loader2, Bell, BellOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
@@ -35,6 +35,21 @@ interface ConversationData {
   };
 }
 
+const VAPID_PUBLIC_KEY = 'BMFAfiqavc1nPrnxT3UlNQ7QmxL3bZYpzbgmQiXs3WL0jcDEKMX-6VTVLeGodW2XVCfmaQTsbdCwkjXutsVXzKU';
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
 export default function HiringChat() {
   const { token } = useParams<{ token: string }>();
   const [conversation, setConversation] = useState<ConversationData | null>(null);
@@ -46,6 +61,7 @@ export default function HiringChat() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [respondingToMessageId, setRespondingToMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pushSetupDone = useRef(false);
 
   useEffect(() => {
     if (token) {
@@ -56,6 +72,68 @@ export default function HiringChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Set up push notifications for applicants when they enable notifications
+  useEffect(() => {
+    if (!conversation || pushSetupDone.current) return;
+    
+    const setupApplicantPush = async () => {
+      try {
+        // Check if already subscribed
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          console.log('[Applicant Push] Not supported');
+          return;
+        }
+
+        const permission = Notification.permission;
+        if (permission !== 'granted') {
+          console.log('[Applicant Push] Permission not granted');
+          return;
+        }
+
+        setNotificationsEnabled(true);
+
+        // Wait for service worker
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Check for existing subscription
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+          console.log('[Applicant Push] Creating new subscription...');
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+        }
+
+        const subscriptionData = JSON.stringify(subscription);
+
+        // Save to applicant_push_subscriptions table
+        const { error: saveError } = await supabase
+          .from('applicant_push_subscriptions' as any)
+          .upsert({
+            conversation_id: conversation.id,
+            subscription_data: subscriptionData,
+            platform: 'web',
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'conversation_id,subscription_data'
+          });
+
+        if (saveError) {
+          console.error('[Applicant Push] Failed to save subscription:', saveError);
+        } else {
+          console.log('[Applicant Push] Subscription saved successfully');
+          pushSetupDone.current = true;
+        }
+      } catch (err) {
+        console.error('[Applicant Push] Setup error:', err);
+      }
+    };
+
+    setupApplicantPush();
+  }, [conversation, notificationsEnabled]);
 
   useEffect(() => {
     if (!conversation) return;
@@ -256,6 +334,39 @@ export default function HiringChat() {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       setNotificationsEnabled(true);
+      
+      // Set up push subscription immediately
+      try {
+        if ('serviceWorker' in navigator && 'PushManager' in window && conversation) {
+          const registration = await navigator.serviceWorker.ready;
+          let subscription = await registration.pushManager.getSubscription();
+          
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+          }
+
+          const subscriptionData = JSON.stringify(subscription);
+
+          await supabase
+            .from('applicant_push_subscriptions' as any)
+            .upsert({
+              conversation_id: conversation.id,
+              subscription_data: subscriptionData,
+              platform: 'web',
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'conversation_id,subscription_data'
+            });
+
+          pushSetupDone.current = true;
+        }
+      } catch (err) {
+        console.error('[Applicant Push] Error setting up after permission:', err);
+      }
+      
       toast.success('Notifications enabled! You\'ll be notified of new messages.');
     } else {
       toast.error('Notifications were denied');
