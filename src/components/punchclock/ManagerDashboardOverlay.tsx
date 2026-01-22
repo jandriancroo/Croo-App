@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +47,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
+import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import type { AppRole } from '@/hooks/useUserRole';
 
 
@@ -465,41 +466,69 @@ export function ManagerDashboardOverlay({
   const totalSales = Number(salesData?.net_sales) || 0;
   const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
 
-  // Use dashboardSalesData from useQuery (shares cache with SalesSummary)
-  // This ensures Dynamic Dash shows EXACTLY the same pace/projections as Dashboard
+  // Get REAL projections from localStorage cache (same source as Dashboard SalesSummary)
+  // This is the SINGLE SOURCE OF TRUTH for projections - Dashboard writes to this cache
+  const localStorageProjections = useMemo(() => {
+    return getCachedProjections(locationId);
+  }, [locationId]);
+  
+  // Get REAL live sales data from localStorage cache (same source as Dashboard)
+  const localStorageLiveSales = useMemo(() => {
+    return getCachedLiveSales(locationId);
+  }, [locationId]);
+  
+  // Use React Query cache as secondary source
   const cachedSalesOverviewData = dashboardSalesData;
   
-  // Get pizza count from cached data OR from DB query
+  // Get pizza count - try localStorage first, then React Query, then DB
   const pizzaCount = useMemo(() => {
-    // First try React Query cache from SalesOverview
+    // First try localStorage cache (what Dashboard actually shows)
+    const liveSalesData = localStorageLiveSales?.data;
+    if (liveSalesData?.pizzaCount) {
+      const pc = liveSalesData.pizzaCount;
+      if (typeof pc === 'number' && pc > 0) return pc;
+      if (typeof pc === 'object' && pc?.daily && pc.daily > 0) return pc.daily;
+    }
+    
+    // Fall back to React Query cache
     const pc = cachedSalesOverviewData?.pizzaCount;
     if (typeof pc === 'number' && pc > 0) return pc;
     if (typeof pc === 'object' && pc?.daily && pc.daily > 0) return pc.daily;
     
     // Fall back to direct DB query result
     return Number(salesData?.pizza_count) || 0;
-  }, [cachedSalesOverviewData, salesData?.pizza_count]);
+  }, [localStorageLiveSales, cachedSalesOverviewData, salesData?.pizza_count]);
   
-  // EOD Goal: use SalesOverview's cached todayProjected
+  // EOD Goal: use localStorage cache (SAME source as Dashboard SalesSummary)
   const eodGoal = useMemo(() => {
-    // First try React Query cache (same source as SalesOverview)
+    // First try localStorage cache - this is what Dashboard shows
+    if (localStorageProjections?.todayProjected && localStorageProjections.todayProjected > 0) {
+      return localStorageProjections.todayProjected;
+    }
+    
+    // Fall back to React Query cache
     const liveProjected = cachedSalesOverviewData?.projections?.todayProjected;
     if (liveProjected && liveProjected > 0) return liveProjected;
     
     // Fall back to sales_cache.projected_sales
     return Number(salesData?.projected_sales) || 0;
-  }, [cachedSalesOverviewData, salesData?.projected_sales]);
+  }, [localStorageProjections, cachedSalesOverviewData, salesData?.projected_sales]);
   
-  // Pace Adjusted: use SalesOverview's cached todayPaceAdjusted
-  // CRITICAL: Show actual pace from Dashboard, never fall back to just totalSales
+  // Pace Adjusted: use localStorage cache (SAME source as Dashboard SalesSummary)
+  // CRITICAL: This is the TRUE pace number from Dashboard
   const paceAdjusted = useMemo(() => {
-    // First try React Query cache (same source as SalesOverview)
+    // First try localStorage cache - this is EXACTLY what Dashboard shows
+    if (localStorageProjections?.todayPaceAdjusted && localStorageProjections.todayPaceAdjusted > 0) {
+      return localStorageProjections.todayPaceAdjusted;
+    }
+    
+    // Fall back to React Query cache
     const livePace = cachedSalesOverviewData?.projections?.todayPaceAdjusted;
     if (livePace && livePace > 0) return livePace;
     
     // Fall back to EOD goal if no pace data (not totalSales which is wrong)
     return eodGoal;
-  }, [cachedSalesOverviewData, eodGoal]);
+  }, [localStorageProjections, cachedSalesOverviewData, eodGoal]);
 
   // Get hourly sales with projections from cached SalesOverview data
   // Only show hours that have actual sales recorded (not empty hours)
@@ -926,88 +955,81 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              {/* Labor Section - Larger, Below Time */}
+              {/* Labor Section - Redesigned for clarity */}
               <Card className="bg-white/10 border-white/20 mt-4 w-full max-w-sm">
                 <CardContent className="p-4 lg:p-5">
-                  <div className="flex items-center justify-between mb-3">
+                  {/* Header with status indicator */}
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-white text-sm lg:text-base font-semibold flex items-center gap-2">
                       <Gauge className="h-4 w-4 lg:h-5 lg:w-5" />
                       Labor
-                      {cutsSaved && hasAnyCuts && (
-                        <Badge className="bg-green-500/20 text-green-300 text-xs px-1.5">
-                          Cuts Active
-                        </Badge>
-                      )}
                     </h3>
-                    <Badge 
-                      className={`text-xs lg:text-sm px-2 py-0.5 ${
-                        laborStatus === 'good' 
-                          ? 'bg-green-500/20 text-green-300' 
-                          : laborStatus === 'warning'
-                            ? 'bg-yellow-500/20 text-yellow-300'
-                            : 'bg-red-500/20 text-red-300'
-                      }`}
-                    >
-                      Target: {laborTarget}%
-                    </Badge>
+                    {cutsSaved && hasAnyCuts && (
+                      <Badge className="bg-green-500/20 text-green-300 text-xs px-2">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Cuts Active
+                      </Badge>
+                    )}
                   </div>
                   
-                  {/* Main labor stats row */}
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div className="text-center">
-                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Percentage</p>
-                      <div className="flex items-center justify-center gap-1">
-                        {cutsSaved && hasAnyCuts ? (
-                          <>
-                            <span className="text-white/40 line-through text-sm lg:text-base">
-                              {laborPercentage.toFixed(1)}%
-                            </span>
-                            <span className="text-green-400 font-bold text-lg lg:text-xl">
-                              {calculateLaborSavings.newLaborPercent.toFixed(1)}%
-                            </span>
-                          </>
-                        ) : (
-                          <span className={`font-bold text-lg lg:text-xl ${
-                            laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
-                          }`}>
+                  {/* Large percentage display with status */}
+                  <div className="text-center mb-4">
+                    <div className="flex items-center justify-center gap-3">
+                      {cutsSaved && hasAnyCuts ? (
+                        <>
+                          <span className="text-white/40 line-through text-2xl lg:text-3xl">
                             {laborPercentage.toFixed(1)}%
                           </span>
-                        )}
-                      </div>
+                          <span className="text-green-400 font-bold text-4xl lg:text-5xl">
+                            {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                          </span>
+                        </>
+                      ) : (
+                        <span className={`font-bold text-4xl lg:text-5xl ${
+                          laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                        }`}>
+                          {laborPercentage.toFixed(1)}%
+                        </span>
+                      )}
                     </div>
+                    
+                    {/* Status message */}
+                    <div className="mt-2">
+                      {(() => {
+                        const currentPercent = cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage;
+                        const diff = currentPercent - laborTarget;
+                        if (diff <= -3) {
+                          return <span className="text-green-400 text-sm font-medium">🎯 {Math.abs(diff).toFixed(1)}% under target</span>;
+                        } else if (diff <= 0) {
+                          return <span className="text-green-400 text-sm font-medium">✓ On target</span>;
+                        } else if (diff <= 3) {
+                          return <span className="text-yellow-400 text-sm font-medium">⚠️ {diff.toFixed(1)}% over target</span>;
+                        } else {
+                          return <span className="text-red-400 text-sm font-medium">🔥 {diff.toFixed(1)}% over – cut labor!</span>;
+                        }
+                      })()}
+                    </div>
+                  </div>
+                  
+                  {/* Cost and Hours - side by side */}
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/10">
                     <div className="text-center">
-                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Cost</p>
-                      <p className="text-lg lg:text-xl font-bold text-white">
+                      <p className="text-white/50 text-xs mb-1">Cost</p>
+                      <p className="text-xl lg:text-2xl font-bold text-white">
                         {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Hours</p>
-                      <p className="text-lg lg:text-xl font-bold text-white">
+                      <p className="text-white/50 text-xs mb-1">Hours</p>
+                      <p className="text-xl lg:text-2xl font-bold text-white">
                         {(laborData?.laborHours || 0).toFixed(1)}
                       </p>
                     </div>
                   </div>
                   
-                  {/* Progress bar */}
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-white/60">0%</span>
-                      <span className="text-white/60">{laborTarget}%</span>
-                      <span className="text-white/60">40%</span>
-                    </div>
-                    <div className="relative">
-                      <Progress 
-                        value={Math.min(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage, 40)} 
-                        max={40}
-                        className="h-2.5 lg:h-3 bg-white/10"
-                      />
-                      {/* Target line indicator */}
-                      <div 
-                        className="absolute top-0 bottom-0 w-0.5 bg-white/60"
-                        style={{ left: `${(laborTarget / 40) * 100}%` }}
-                      />
-                    </div>
+                  {/* Target badge at bottom */}
+                  <div className="mt-3 text-center">
+                    <span className="text-white/40 text-xs">Target: {laborTarget}%</span>
                   </div>
                 </CardContent>
               </Card>
