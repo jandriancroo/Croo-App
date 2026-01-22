@@ -33,7 +33,7 @@ export default function Tasks() {
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
-  const { timezone } = useLocationTimezone();
+  const { timezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
@@ -226,20 +226,18 @@ export default function Tasks() {
 
   // Fetch completion history for selected date (location-filtered)
   // Historical data is immutable - cache for 1 hour, today's data refreshes more often
-  const isHistoryToday = format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const historyDateStr = format(historyDate, 'yyyy-MM-dd');
+  const isHistoryToday = historyDateStr === format(new Date(), 'yyyy-MM-dd');
   const { data: historyStats } = useQuery({
-    queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id, currentLocation?.id],
+    queryKey: ['completion-history', historyDateStr, user?.id, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000, // Today: 2 min, Past: 1 hour
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000, // Keep in cache same duration
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
-      // Get start and end of day in user's local timezone
-      const startOfDay = new Date(historyDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(historyDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Use business day range (accounts for close time + 3 hours buffer)
+      // This ensures late-night submissions count for the correct business day
+      const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(historyDateStr);
       
       // Use timezone-aware day of week for the history date
       const currentDay = getDateDayOfWeekInTimezone(historyDate, timezone);
@@ -277,8 +275,9 @@ export default function Tasks() {
           periodStart = new Date(historyDate.getFullYear(), historyDate.getMonth(), 1, 0, 0, 0, 0);
           periodEnd = new Date(historyDate.getFullYear(), historyDate.getMonth() + 1, 0, 23, 59, 59, 999);
         } else {
-          periodStart = startOfDay;
-          periodEnd = endOfDay;
+          // Use business day boundaries for daily checklists
+          periodStart = periodStartBusiness;
+          periodEnd = periodEndBusiness;
         }
         
         return { ...checklist, itemCount, periodStart, periodEnd };
@@ -287,13 +286,14 @@ export default function Tasks() {
       if (checklistInfo.length === 0) return [];
 
       // BATCH QUERY 1: Get all submissions for all checklists in one query
+      // Use business day range to capture late-night submissions correctly
       const checklistIds = checklistInfo.map(c => c.id);
       const { data: allSubmissions } = await supabase
         .from('checklist_submissions')
         .select('id, checklist_id, submitted_by')
         .in('checklist_id', checklistIds)
-        .gte('submitted_at', startOfDay.toISOString())
-        .lte('submitted_at', endOfDay.toISOString());
+        .gte('submitted_at', periodStartBusiness.toISOString())
+        .lte('submitted_at', periodEndBusiness.toISOString());
 
       const submissionIds = allSubmissions?.map(s => s.id) || [];
       
@@ -370,31 +370,28 @@ export default function Tasks() {
         };
       });
     },
-    enabled: !!user && !!currentLocation?.id,
+    enabled: !!user && !!currentLocation?.id && !timezoneLoading,
   });
 
   // Fetch completed quick tasks for selected date
   // Historical data is immutable - cache for 1 hour, today's data refreshes more often
   const { data: completedTempTasks = [] } = useQuery({
-    queryKey: ['completed-temp-tasks', format(historyDate, 'yyyy-MM-dd'), currentLocation?.id],
+    queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
     staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
     gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
-      const startOfDay = new Date(historyDate);
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const endOfDay = new Date(historyDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Use business day range for consistency with checklists
+      const { start: periodStart, end: periodEnd } = getBusinessDayRangeInTimezone(historyDateStr);
 
       const { data: tasks, error } = await supabase
         .from('temporary_tasks')
         .select('id, title, description, completed_at, completed_by, accent_color')
         .eq('location_id', currentLocation.id)
         .not('completed_at', 'is', null)
-        .gte('completed_at', startOfDay.toISOString())
-        .lte('completed_at', endOfDay.toISOString())
+        .gte('completed_at', periodStart.toISOString())
+        .lte('completed_at', periodEnd.toISOString())
         .order('completed_at', { ascending: false });
 
       if (error) throw error;
@@ -449,7 +446,7 @@ export default function Tasks() {
 
   // Prefetch past 14 days of history for instant navigation (same pattern as Schedule)
   useEffect(() => {
-    if (!user?.id || !currentLocation?.id) return;
+    if (!user?.id || !currentLocation?.id || timezoneLoading) return;
     
     const today = new Date();
     const pastDates = eachDayOfInterval({
@@ -460,19 +457,19 @@ export default function Tasks() {
     pastDates.forEach(date => {
       const dateStr = format(date, 'yyyy-MM-dd');
       
-      // Prefetch completion-history for each past day
+      // Prefetch completion-history for each past day (include closeTime in key)
       queryClient.prefetchQuery({
-        queryKey: ['completion-history', dateStr, user.id, currentLocation.id],
+        queryKey: ['completion-history', dateStr, user.id, currentLocation.id, closeTime],
         staleTime: 60 * 60 * 1000, // 1 hour for historical data
       });
       
-      // Prefetch completed-temp-tasks for each past day
+      // Prefetch completed-temp-tasks for each past day (include closeTime in key)
       queryClient.prefetchQuery({
-        queryKey: ['completed-temp-tasks', dateStr, currentLocation.id],
+        queryKey: ['completed-temp-tasks', dateStr, currentLocation.id, closeTime],
         staleTime: 60 * 60 * 1000, // 1 hour for historical data
       });
     });
-  }, [user?.id, currentLocation?.id, queryClient]);
+  }, [user?.id, currentLocation?.id, queryClient, closeTime, timezoneLoading]);
 
   // Use timezone-aware day of week for display
   const currentDayIndex = getDayOfWeekInTimezone(timezone);
