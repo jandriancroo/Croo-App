@@ -98,7 +98,8 @@ interface HourlyChartProps {
   formatCurrency: (value: number) => string;
 }
 
-// Hourly chart component with shaded projection area (matching Dashboard style)
+// Hourly chart component with shaded projection area (matching Dashboard SalesSummaryChart style)
+// Supports two rows when more than 4 hours of data
 function HourlyChartShaded({ 
   hours, 
   maxHourlySale, 
@@ -106,58 +107,78 @@ function HourlyChartShaded({
   setSelectedHour, 
   formatCurrency 
 }: HourlyChartProps) {
-  return (
-    <div className="relative flex-1 pb-2">
-      {/* Chart container with bars and shaded projection area */}
-      <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 h-full relative">
-        {hours.map((hour, i) => {
-          const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
-          const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
-          const isSelected = selectedHour?.hour === hour.hour;
-          return (
-            <div
-              key={hour.hour}
-              className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
-                isSelected ? 'scale-105' : 'hover:scale-102'
-              }`}
-              onClick={() => setSelectedHour(isSelected ? null : {
-                hour: hour.hour,
-                label: hour.label,
-                sales: hour.sales,
-                projected: hour.projected,
-                estimatedPizzas: hour.estimatedPizzas,
-              })}
-            >
-              <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 lg:mb-1">
-                {formatCurrency(hour.sales)}
-              </span>
-              <div className="w-full flex-1 rounded-t-md overflow-visible relative min-h-[40px]">
-                {/* Shaded projection background area */}
-                {hour.projected > 0 && (
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${projectedHeightPercent}%` }}
-                    transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
-                    className="absolute bottom-0 left-0 right-0 bg-muted-foreground/15 rounded-t-md"
-                  />
-                )}
-                {/* Sales bar */}
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${barHeightPercent}%` }}
-                  transition={{ delay: 0.4 + i * 0.08, duration: 0.5 }}
-                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-md ${
-                    isSelected ? 'ring-2 ring-white/50' : ''
-                  }`}
-                />
-              </div>
-              <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 lg:mt-1 ${
-                isSelected ? 'text-white font-semibold' : 'text-white/60'
-              }`}>{hour.label}</span>
-            </div>
-          );
+  // Split into two rows if more than 4 hours
+  const usesTwoRows = hours.length > 4;
+  const firstRowHours = usesTwoRows ? hours.slice(0, 4) : hours;
+  const secondRowHours = usesTwoRows ? hours.slice(4) : [];
+
+  const renderHourBar = (hour: HourlyChartData, i: number, rowIndex: number) => {
+    const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
+    const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
+    const isSelected = selectedHour?.hour === hour.hour;
+    const animDelay = 0.2 + (rowIndex * 4 + i) * 0.05;
+
+    return (
+      <div
+        key={hour.hour}
+        className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
+          isSelected ? 'scale-105' : 'hover:scale-102'
+        }`}
+        onClick={() => setSelectedHour(isSelected ? null : {
+          hour: hour.hour,
+          label: hour.label,
+          sales: hour.sales,
+          projected: hour.projected,
+          estimatedPizzas: hour.estimatedPizzas,
         })}
+      >
+        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5">
+          {formatCurrency(hour.sales)}
+        </span>
+        <div className="w-full flex-1 rounded-t-md overflow-visible relative min-h-[32px]">
+          {/* Shaded projection background - matching SalesSummaryChart */}
+          {hour.projected > 0 && (
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: `${projectedHeightPercent}%` }}
+              transition={{ delay: animDelay, duration: 0.4 }}
+              className="absolute bottom-0 left-0 right-0 bg-muted-foreground/20 rounded-t-md"
+            />
+          )}
+          {/* Sales bar - primary color like SalesSummaryChart */}
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: `${barHeightPercent}%` }}
+            transition={{ delay: animDelay + 0.1, duration: 0.4 }}
+            className={`absolute bottom-0 left-0 right-0 bg-primary rounded-t-md ${
+              isSelected ? 'ring-2 ring-white/50' : ''
+            }`}
+          />
+        </div>
+        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 ${
+          isSelected ? 'text-white font-semibold' : 'text-white/60'
+        }`}>{hour.label}</span>
       </div>
+    );
+  };
+
+  return (
+    <div className="relative flex-1 flex flex-col gap-2 pb-1">
+      {/* First row (always shown) */}
+      <div className={`flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 ${usesTwoRows ? 'flex-1' : 'h-full'}`}>
+        {firstRowHours.map((hour, i) => renderHourBar(hour, i, 0))}
+      </div>
+      
+      {/* Second row (when >4 hours) */}
+      {usesTwoRows && secondRowHours.length > 0 && (
+        <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 flex-1">
+          {secondRowHours.map((hour, i) => renderHourBar(hour, i, 1))}
+          {/* Fill remaining slots to align with first row */}
+          {Array.from({ length: 4 - secondRowHours.length }).map((_, i) => (
+            <div key={`empty-${i}`} className="flex-1" />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
