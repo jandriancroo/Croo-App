@@ -989,9 +989,10 @@ export function ManagerDashboardOverlay({
                     return (
                       <div className="flex items-start">
                         <span 
-                          className="text-5xl sm:text-7xl lg:text-8xl font-bold text-white tracking-wide"
+                          className="font-bold text-white tracking-wide"
                           style={{ 
                             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            fontSize: 'clamp(3.3rem, 8vw, 6.5rem)',
                           }}
                         >
                           {timePart}
