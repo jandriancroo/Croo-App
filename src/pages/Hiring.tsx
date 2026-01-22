@@ -142,8 +142,8 @@ export default function Hiring() {
       
       const needsAnalysis = applications.filter(
         (app: any) => {
-          // Not analyzed yet
-          if (app.ai_analyzed_at === null && app.work_history?.length > 0) return true;
+          // Not analyzed yet - trigger if has work history OR has a resume to parse
+          if (app.ai_analyzed_at === null && (app.work_history?.length > 0 || app.resume_url)) return true;
           // Analyzed but missing availability note (needs re-analysis with new prompt)
           if (app.ai_analyzed_at && app.ai_match_reason && !app.ai_match_reason.includes('Availability:')) return true;
           return false;
