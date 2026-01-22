@@ -56,19 +56,36 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
     fetchOrCreateConversation();
   }, [applicationId]);
 
-  // Mark as read when viewing the conversation
+  const markConversationAsRead = async (convId: string) => {
+    if (!user?.id) return;
+    const { error } = await supabase
+      .from('hiring_conversations')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('id', convId);
+
+    if (error) {
+      console.error('Error marking hiring conversation as read:', error);
+      return;
+    }
+
+    triggerChatCountRefetch();
+  };
+
+  // Mark as read when opening the conversation
   useEffect(() => {
     if (!conversationId) return;
-    
-    const markAsRead = async () => {
-      await supabase
-        .from('hiring_conversations')
-        .update({ last_read_at: new Date().toISOString() })
-        .eq('id', conversationId);
-      triggerChatCountRefetch();
-    };
-    
-    markAsRead();
+    markConversationAsRead(conversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
+  // If an applicant message arrives while staff is viewing, immediately mark as read
+  useEffect(() => {
+    if (!conversationId) return;
+    const latest = messages[messages.length - 1];
+    if (!latest) return;
+    if (latest.sender_type !== 'applicant') return;
+    markConversationAsRead(conversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId, messages.length]);
 
   useEffect(() => {
@@ -125,6 +142,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         setConversationId(existing.id);
         setAccessToken(existing.access_token);
         await fetchMessages(existing.id);
+        await markConversationAsRead(existing.id);
       } else {
         // Create new conversation
         const { data: newConv, error } = await supabase
@@ -137,6 +155,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         
         setConversationId(newConv.id);
         setAccessToken(newConv.access_token);
+        await markConversationAsRead(newConv.id);
       }
     } catch (err) {
       console.error('Error with conversation:', err);
