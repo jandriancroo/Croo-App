@@ -12,10 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, Plus, Trash2, Edit, Image, Cake, Sparkles, ArrowLeft, Eye, Calendar, Check } from "lucide-react";
+import { Upload, X, Plus, Trash2, Edit, Image, Cake, Sparkles, ArrowLeft, Eye, Calendar, Check, Crop } from "lucide-react";
 import { compressImage } from "@/utils/imageCompression";
 import { format, addDays, addHours } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
 
 interface ThemeSlide {
   imageUrl: string;
@@ -98,6 +99,11 @@ export default function PunchClockCustomization() {
   const [formTextColor, setFormTextColor] = useState("#FFFFFF");
   const [formTextShadow, setFormTextShadow] = useState(false);
   const [formTextPosition, setFormTextPosition] = useState<'overlay' | 'below'>('overlay');
+  
+  // Image crop state
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string>("");
+  const [cropSlideIndex, setCropSlideIndex] = useState<number>(0);
 
   useEffect(() => {
     if (locationId) {
@@ -243,10 +249,26 @@ export default function PunchClockCustomization() {
     const file = e.target.files?.[0];
     if (!file || !locationId) return;
 
-    setUploading(slideIndex);
+    // Read file and open crop dialog
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string);
+      setCropSlideIndex(slideIndex);
+      setCropDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset file input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!locationId) return;
+    
+    setUploading(cropSlideIndex);
     try {
-      const compressedFile = await compressImage(file, 1920, 1080, 0.85);
-      const fileName = `${locationId}/punch-clock-${Date.now()}-${slideIndex}.jpg`;
+      const compressedFile = await compressImage(croppedBlob as File, 1920, 1080, 0.85);
+      const fileName = `${locationId}/punch-clock-${Date.now()}-${cropSlideIndex}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from("organization-branding")
@@ -260,7 +282,7 @@ export default function PunchClockCustomization() {
 
       setFormSlides(prev => {
         const updated = [...prev];
-        updated[slideIndex] = { ...updated[slideIndex], imageUrl: urlData.publicUrl };
+        updated[cropSlideIndex] = { ...updated[cropSlideIndex], imageUrl: urlData.publicUrl };
         return updated;
       });
       toast({ title: "Image uploaded" });
@@ -270,6 +292,12 @@ export default function PunchClockCustomization() {
     } finally {
       setUploading(null);
     }
+  };
+
+  const handleEditImage = (slideIndex: number, imageUrl: string) => {
+    setCropImageSrc(imageUrl);
+    setCropSlideIndex(slideIndex);
+    setCropDialogOpen(true);
   };
 
   const handleApplyTheme = async () => {
@@ -966,14 +994,25 @@ export default function PunchClockCustomization() {
                           className="w-full h-24 rounded-lg bg-cover bg-center border"
                           style={{ backgroundImage: `url(${slide.imageUrl})` }}
                         />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-1 right-1 h-6 w-6 p-0"
-                          onClick={() => updateSlide(index, "imageUrl", "")}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <div className="absolute top-1 right-1 flex gap-1">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleEditImage(index, slide.imageUrl)}
+                            title="Crop & Zoom"
+                          >
+                            <Crop className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => updateSlide(index, "imageUrl", "")}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div
@@ -1080,6 +1119,16 @@ export default function PunchClockCustomization() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Crop Dialog */}
+      <ImageCropDialog
+        open={cropDialogOpen}
+        onOpenChange={setCropDialogOpen}
+        imageSrc={cropImageSrc}
+        onCropComplete={handleCropComplete}
+        cropShape="rect"
+        aspect={16 / 9}
+      />
     </Layout>
   );
 }

@@ -949,7 +949,16 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
       {!currentUser ? (
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
-          <Card className="w-full max-w-5xl overflow-hidden">
+          <Card className="w-full max-w-5xl overflow-hidden relative">
+            {/* Floating Location Badge - positioned at top center where sections meet */}
+            {currentLocation && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+                <div className="flex items-center gap-2 px-4 py-2 bg-accent backdrop-blur-xl border border-accent-foreground/20 rounded-full shadow-lg">
+                  <div className="w-2 h-2 bg-accent-foreground rounded-full animate-pulse" />
+                  <span className="text-sm font-medium text-accent-foreground">{currentLocation.name}</span>
+                </div>
+              </div>
+            )}
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote or Birthday Message */}
               {birthdayEmployees.length > 0 ? (
@@ -996,68 +1005,68 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
                 // Multi-slide custom theme - only custom text, no time
                 <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
+                  {/* Image area - takes full height for overlay, partial for below */}
                   <div 
-                    className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
+                    className={`bg-cover bg-center transition-all duration-1000 ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
                     style={{ backgroundImage: `url(${currentCustomImage})` }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    {textPosition === 'overlay' && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    )}
                   </div>
-                  {currentCustomText && (
-                    <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
-                      {textPosition === 'overlay' ? (
-                        <h2 
-                          className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                          style={{ 
-                            color: customTextColor,
-                            textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                          }}
-                        >
-                          {currentCustomText}
-                        </h2>
-                      ) : (
-                        <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
-                          <h2 
-                            className="text-3xl font-bold"
-                            style={{ color: customTextColor }}
-                          >
-                            {currentCustomText}
-                          </h2>
-                        </div>
-                      )}
+                  {currentCustomText && textPosition === 'overlay' && (
+                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
+                      <h2 
+                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                        style={{ 
+                          color: customTextColor,
+                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                        }}
+                      >
+                        {currentCustomText}
+                      </h2>
+                    </div>
+                  )}
+                  {/* Text pinned below image - white box with black text */}
+                  {currentCustomText && textPosition === 'below' && (
+                    <div className="bg-background border-t border-border px-6 py-4">
+                      <h2 className="text-2xl font-bold text-foreground text-center">
+                        {currentCustomText}
+                      </h2>
                     </div>
                   )}
                 </div>
               ) : (
                 // Single image custom background (legacy) - only custom text, no time
                 <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
+                  {/* Image area - takes full height for overlay, partial for below */}
                   <div 
-                    className="absolute inset-0 bg-cover bg-center"
+                    className={`bg-cover bg-center ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
                     style={{ backgroundImage: `url(${customBackground})` }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    {textPosition === 'overlay' && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    )}
                   </div>
-                  {customOverlayText && (
-                    <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
-                      {textPosition === 'overlay' ? (
-                        <h2 
-                          className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                          style={{ 
-                            color: customTextColor,
-                            textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                          }}
-                        >
-                          {customOverlayText}
-                        </h2>
-                      ) : (
-                        <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
-                          <h2 
-                            className="text-3xl font-bold"
-                            style={{ color: customTextColor }}
-                          >
-                            {customOverlayText}
-                          </h2>
-                        </div>
-                      )}
+                  {customOverlayText && textPosition === 'overlay' && (
+                    <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
+                      <h2 
+                        className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                        style={{ 
+                          color: customTextColor,
+                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                        }}
+                      >
+                        {customOverlayText}
+                      </h2>
+                    </div>
+                  )}
+                  {/* Text pinned below image - white box with black text */}
+                  {customOverlayText && textPosition === 'below' && (
+                    <div className="bg-background border-t border-border px-6 py-4">
+                      <h2 className="text-2xl font-bold text-foreground text-center">
+                        {customOverlayText}
+                      </h2>
                     </div>
                   )}
                 </div>
@@ -1077,15 +1086,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                   
                   <div>
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                      {/* Location indicator - smaller, inline */}
-                      {currentLocation && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 border border-primary/20 rounded-full">
-                          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                          <span className="text-xs font-medium text-primary">{currentLocation.name}</span>
-                        </div>
-                      )}
-                    </div>
                     <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
                     </h3>
