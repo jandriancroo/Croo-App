@@ -49,6 +49,7 @@ import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
 import type { AppRole } from '@/hooks/useUserRole';
+import { AlarmTaskOverlay } from './AlarmTaskOverlay';
 
 
 interface ManagerDashboardOverlayProps {
@@ -1559,6 +1560,9 @@ export function ManagerDashboardOverlay({
             </div>
           </DialogContent>
         </Dialog>
+        
+        {/* Alarm Task Overlay - shows on manager dashboard too */}
+        <AlarmTaskOverlay locationId={locationId} />
       </motion.div>
     </AnimatePresence>
   );
