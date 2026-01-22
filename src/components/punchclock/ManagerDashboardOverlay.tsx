@@ -839,10 +839,9 @@ export function ManagerDashboardOverlay({
         {/* Swap Button - Bottom Center */}
         <button
           onClick={onClose}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-8 py-4 rounded-full bg-accent backdrop-blur-xl border border-accent-foreground/20 hover:bg-accent/80 transition-all group shadow-lg"
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full bg-accent backdrop-blur-xl border border-accent-foreground/20 hover:bg-accent/80 transition-all group shadow-lg"
         >
           <ArrowLeftRight className="h-6 w-6 text-accent-foreground" />
-          <span className="text-accent-foreground text-base font-medium">Punch Clock</span>
         </button>
 
         <div className="relative h-full p-4 flex flex-col">
