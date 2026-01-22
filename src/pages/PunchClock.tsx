@@ -1004,12 +1004,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 <div className="relative h-full min-h-[600px] overflow-hidden">
                   {/* Layer A */}
                   <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
                     style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
                   />
                   {/* Layer B */}
                   <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
                     style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -1022,12 +1022,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 <div className="relative h-full min-h-[600px] overflow-hidden">
                   {/* Layer A */}
                   <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
                     style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
                   />
                   {/* Layer B */}
                   <div 
-                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
                     style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
@@ -1048,12 +1048,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <div className="relative flex-1 overflow-hidden">
                       {/* Layer A */}
                       <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
                         style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
                       />
                       {/* Layer B */}
                       <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
                         style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
                       />
                     </div>
@@ -1062,12 +1062,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <>
                       {/* Layer A */}
                       <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
                         style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
                       />
                       {/* Layer B */}
                       <div 
-                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[10000ms] ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
                         style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
