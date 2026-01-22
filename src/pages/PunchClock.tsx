@@ -1003,16 +1003,18 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </div>
               ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
                 // Multi-slide custom theme with text position support
-                <div className="relative h-full min-h-[600px] flex flex-col">
-                  {/* Image area */}
+                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
+                  {/* Image area - always fills container, text positioned accordingly */}
                   <div 
-                    className={`relative bg-cover bg-center transition-all duration-1000 ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
+                    className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
                     style={{ backgroundImage: `url(${currentCustomImage})` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    {/* Only show text overlay when position is 'overlay' */}
-                    {textPosition === 'overlay' && (
-                      <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                  </div>
+                  {/* Content overlay */}
+                  <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
+                    {textPosition === 'overlay' ? (
+                      <>
                         {currentCustomText && (
                           <h2 
                             className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
@@ -1033,36 +1035,38 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                         >
                           {format(currentTime, 'h:mm:ss a')}
                         </div>
+                      </>
+                    ) : (
+                      <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
+                        {currentCustomText && (
+                          <h2 
+                            className="text-3xl font-bold mb-2"
+                            style={{ color: customTextColor }}
+                          >
+                            {currentCustomText}
+                          </h2>
+                        )}
+                        <div className="text-4xl font-bold text-foreground">
+                          {format(currentTime, 'h:mm:ss a')}
+                        </div>
                       </div>
                     )}
                   </div>
-                  {/* Text below image when position is 'below' */}
-                  {textPosition === 'below' && currentCustomText && (
-                    <div className="bg-background p-6 text-center">
-                      <h2 
-                        className="text-3xl font-bold mb-2"
-                        style={{ color: customTextColor }}
-                      >
-                        {currentCustomText}
-                      </h2>
-                      <div className="text-4xl font-bold text-foreground">
-                        {format(currentTime, 'h:mm:ss a')}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 // Single image custom background (legacy) with text position support
-                <div className="relative h-full min-h-[600px] flex flex-col">
-                  {/* Image area */}
+                <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
+                  {/* Image area - always fills container */}
                   <div 
-                    className={`relative bg-cover bg-center ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
+                    className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: `url(${customBackground})` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    {/* Only show text overlay when position is 'overlay' */}
-                    {textPosition === 'overlay' && (
-                      <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                  </div>
+                  {/* Content overlay */}
+                  <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
+                    {textPosition === 'overlay' ? (
+                      <>
                         {customOverlayText && (
                           <h2 
                             className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
@@ -1083,23 +1087,23 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                         >
                           {format(currentTime, 'h:mm:ss a')}
                         </div>
+                      </>
+                    ) : (
+                      <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
+                        {customOverlayText && (
+                          <h2 
+                            className="text-3xl font-bold mb-2"
+                            style={{ color: customTextColor }}
+                          >
+                            {customOverlayText}
+                          </h2>
+                        )}
+                        <div className="text-4xl font-bold text-foreground">
+                          {format(currentTime, 'h:mm:ss a')}
+                        </div>
                       </div>
                     )}
                   </div>
-                  {/* Text below image when position is 'below' */}
-                  {textPosition === 'below' && customOverlayText && (
-                    <div className="bg-background p-6 text-center">
-                      <h2 
-                        className="text-3xl font-bold mb-2"
-                        style={{ color: customTextColor }}
-                      >
-                        {customOverlayText}
-                      </h2>
-                      <div className="text-4xl font-bold text-foreground">
-                        {format(currentTime, 'h:mm:ss a')}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1181,12 +1185,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
 
                   {/* Powered by Croo branding */}
-                  <div className="flex items-center justify-center gap-2 pt-4 mt-auto">
-                    <span className="text-xs text-muted-foreground">Powered by</span>
+                  <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
+                    <span className="text-base text-muted-foreground font-medium">Powered by</span>
                     <img 
                       src={crooLogo} 
                       alt="Croo" 
-                      className="h-6 w-auto opacity-60"
+                      className="h-10 w-auto opacity-70"
                     />
                   </div>
                 </div>
