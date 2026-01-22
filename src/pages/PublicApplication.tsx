@@ -440,6 +440,16 @@ export default function PublicApplication() {
       }
     }
 
+    // Check if work history is required and at least one entry is filled
+    const workHistoryQuestion = customQuestions?.find(q => q.question_type === 'work_history');
+    if (workHistoryQuestion?.is_required) {
+      const hasValidWorkHistory = workHistory.some(wh => wh.employer_name.trim() && wh.job_title.trim());
+      if (!hasValidWorkHistory) {
+        toast.error('Please add at least one work history entry');
+        return;
+      }
+    }
+
     submitMutation.mutate();
   };
 
