@@ -26,6 +26,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [countdown, setCountdown] = useState(30);
   const [isSnoozed, setIsSnoozed] = useState(false);
 
+  // Avoid stale-closure bugs inside realtime/poll handlers
+  const activeAlarmRef = useRef<AlarmTask | null>(null);
+  const isVisibleRef = useRef(false);
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -33,6 +37,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const snoozedAlarmRef = useRef<AlarmTask | null>(null);
   const alarmLoopRef = useRef<NodeJS.Timeout | null>(null);
   const alarmLoopTokenRef = useRef(0);
+
+  useEffect(() => {
+    activeAlarmRef.current = activeAlarm;
+  }, [activeAlarm]);
+
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -95,9 +107,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
         // If we're already showing this exact alarm interval, don't start another loop.
         if (
-          activeAlarm?.id === task.id &&
-          activeAlarm?.interval_key === intervalKey &&
-          isVisible
+          activeAlarmRef.current?.id === task.id &&
+          activeAlarmRef.current?.interval_key === intervalKey &&
+          isVisibleRef.current
         ) {
           return;
         }
@@ -141,6 +153,12 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
     checkPendingAlarms();
 
+    // IMPORTANT: Realtime can occasionally miss events on kiosk devices.
+    // Polling ensures the Punch Clock still alarms even if the UPDATE event is dropped.
+    const pollRef = setInterval(() => {
+      void checkPendingAlarms();
+    }, 10_000);
+
     const channel = supabase
       .channel('alarm-tasks-overlay')
       .on(
@@ -166,9 +184,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
               // If we're already showing this exact alarm interval, don't start another loop.
               if (
-                activeAlarm?.id === task.id &&
-                activeAlarm?.interval_key === intervalKey &&
-                isVisible
+                activeAlarmRef.current?.id === task.id &&
+                activeAlarmRef.current?.interval_key === intervalKey &&
+                isVisibleRef.current
               ) {
                 return;
               }
@@ -204,6 +222,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollRef);
       stopAlarmLoop();
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
