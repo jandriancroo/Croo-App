@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { triggerChatCountRefetch } from '@/hooks/useChatUnreadCounts';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,21 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   useEffect(() => {
     fetchOrCreateConversation();
   }, [applicationId]);
+
+  // Mark as read when viewing the conversation
+  useEffect(() => {
+    if (!conversationId) return;
+    
+    const markAsRead = async () => {
+      await supabase
+        .from('hiring_conversations')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('id', conversationId);
+      triggerChatCountRefetch();
+    };
+    
+    markAsRead();
+  }, [conversationId, messages.length]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
