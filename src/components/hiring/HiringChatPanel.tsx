@@ -181,6 +181,16 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         }
       }).catch(err => console.error('Failed to send email notification:', err));
 
+      // Send push notification to applicant (if they have PWA installed)
+      supabase.functions.invoke('send-applicant-notification', {
+        body: {
+          conversation_id: conversationId,
+          title: senderProfile?.full_name || 'Hiring Team',
+          body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
+          data: { type: 'hiring_message', conversation_id: conversationId }
+        }
+      }).catch(err => console.error('Failed to send applicant push notification:', err));
+
       // Also send push notification to other staff members (not the sender)
       // Get the application to find the location
       const { data: conv } = await supabase
