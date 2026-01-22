@@ -980,23 +980,24 @@ export function ManagerDashboardOverlay({
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/5" />
                 
                 {/* Content */}
-                <div className="relative flex flex-col items-center gap-1 sm:gap-2">
+                <div className="relative flex flex-col items-center gap-2 sm:gap-3">
                   {(() => {
                     const timeStr = formatTimeDisplay(currentTime);
                     const match = timeStr.match(/^([\d:]+)\s*(AM|PM)$/i);
                     const timePart = match ? match[1] : timeStr;
                     const periodPart = match ? match[2] : '';
                     return (
-                      <div className="flex items-baseline">
+                      <div className="flex items-start">
                         <span 
-                          className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white tracking-tight"
+                          className="text-5xl sm:text-7xl lg:text-8xl font-bold text-white tracking-wider"
                           style={{ 
                             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                            letterSpacing: '0.08em',
                           }}
                         >
                           {timePart}
                         </span>
-                        <span className="text-lg sm:text-xl lg:text-2xl font-medium text-white/60 ml-1">
+                        <span className="text-sm sm:text-base lg:text-lg font-semibold text-white/50 ml-1 -mt-1">
                           {periodPart}
                         </span>
                       </div>
