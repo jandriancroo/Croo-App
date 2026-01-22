@@ -29,6 +29,7 @@ interface PunchClockTheme {
   overlay_texts: string[];
   text_color: string;
   text_shadow: boolean;
+  text_position: 'overlay' | 'below';
   start_at: string | null;
   end_at: string | null;
   is_active: boolean;
@@ -43,6 +44,7 @@ const BUILTIN_THEMES: Omit<PunchClockTheme, 'id' | 'start_at' | 'end_at' | 'is_a
     overlay_texts: ["Did you know? Honey never spoils."],
     text_color: "#FFFFFF",
     text_shadow: false,
+    text_position: 'overlay' as const,
     is_builtin: true,
   },
   {
@@ -51,6 +53,7 @@ const BUILTIN_THEMES: Omit<PunchClockTheme, 'id' | 'start_at' | 'end_at' | 'is_a
     overlay_texts: ['"The only way to do great work is to love what you do." - Steve Jobs'],
     text_color: "#FFFFFF",
     text_shadow: false,
+    text_position: 'overlay' as const,
     is_builtin: true,
   },
 ];
@@ -94,6 +97,7 @@ export default function PunchClockCustomization() {
   const [formSlides, setFormSlides] = useState<ThemeSlide[]>([{ imageUrl: "", text: "" }]);
   const [formTextColor, setFormTextColor] = useState("#FFFFFF");
   const [formTextShadow, setFormTextShadow] = useState(false);
+  const [formTextPosition, setFormTextPosition] = useState<'overlay' | 'below'>('overlay');
 
   useEffect(() => {
     if (locationId) {
@@ -182,6 +186,7 @@ export default function PunchClockCustomization() {
         overlay_texts: (t.overlay_texts as string[]) || [],
         text_color: t.text_color || "#FFFFFF",
         text_shadow: (t as any).text_shadow || false,
+        text_position: ((t as any).text_position as 'overlay' | 'below') || 'overlay',
         start_at: t.start_at,
         end_at: t.end_at,
         is_active: t.is_active ?? true,
@@ -360,6 +365,7 @@ export default function PunchClockCustomization() {
     setFormSlides([{ imageUrl: "", text: "" }]);
     setFormTextColor("#FFFFFF");
     setFormTextShadow(false);
+    setFormTextPosition('overlay');
     setEditingTheme(null);
   };
 
@@ -373,6 +379,7 @@ export default function PunchClockCustomization() {
     setFormName(theme.name);
     setFormTextColor(theme.text_color);
     setFormTextShadow(theme.text_shadow);
+    setFormTextPosition(theme.text_position || 'overlay');
     
     const slides: ThemeSlide[] = [];
     const maxLen = Math.max(theme.background_urls.length, theme.overlay_texts.length, 1);
@@ -429,6 +436,7 @@ export default function PunchClockCustomization() {
             overlay_texts: overlayTexts,
             text_color: formTextColor,
             text_shadow: formTextShadow,
+            text_position: formTextPosition,
           })
           .eq("id", editingTheme.id);
 
@@ -444,6 +452,7 @@ export default function PunchClockCustomization() {
             overlay_texts: overlayTexts,
             text_color: formTextColor,
             text_shadow: formTextShadow,
+            text_position: formTextPosition,
             start_at: new Date('2000-01-01T00:00:00').toISOString(),
             end_at: new Date('2099-12-31T23:59:59').toISOString(),
             created_by: user?.id,
@@ -1034,6 +1043,32 @@ export default function PunchClockCustomization() {
                 checked={formTextShadow}
                 onCheckedChange={setFormTextShadow}
               />
+            </div>
+
+            {/* Text Position */}
+            <div className="space-y-2">
+              <Label>Text Position</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={formTextPosition === "overlay" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFormTextPosition('overlay')}
+                >
+                  Overlay on Image
+                </Button>
+                <Button
+                  type="button"
+                  variant={formTextPosition === "below" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFormTextPosition('below')}
+                >
+                  Below Image
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Choose whether text appears on top of the image or in a separate area below it
+              </p>
             </div>
 
             <div className="flex justify-end gap-2 pt-4">

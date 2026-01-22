@@ -3377,6 +3377,7 @@ export type Database = {
           overlay_texts: Json | null
           start_at: string
           text_color: string | null
+          text_position: string | null
           text_shadow: boolean | null
           updated_at: string
         }
@@ -3394,6 +3395,7 @@ export type Database = {
           overlay_texts?: Json | null
           start_at: string
           text_color?: string | null
+          text_position?: string | null
           text_shadow?: boolean | null
           updated_at?: string
         }
@@ -3411,6 +3413,7 @@ export type Database = {
           overlay_texts?: Json | null
           start_at?: string
           text_color?: string | null
+          text_position?: string | null
           text_shadow?: boolean | null
           updated_at?: string
         }

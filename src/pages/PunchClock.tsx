@@ -5,8 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 import { Clock, Coffee, LogOut, AlertTriangle, ArrowLeftRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -173,6 +171,7 @@ export default function PunchClock() {
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
   const [textShadowEnabled, setTextShadowEnabled] = useState(false);
+  const [textPosition, setTextPosition] = useState<'overlay' | 'below'>('overlay');
   const [isImageDark, setIsImageDark] = useState(true); // Track if current background is dark
   
   // Multi-slide custom theme support
@@ -299,7 +298,7 @@ export default function PunchClock() {
       const now = new Date().toISOString();
       const { data: activeTemplate, error: templateError } = await supabase
         .from("punch_clock_templates")
-        .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, start_at, end_at")
+        .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position, start_at, end_at")
         .eq("location_id", currentLocation.id)
         .eq("is_active", true)
         .not("start_at", "is", null)
@@ -326,6 +325,7 @@ export default function PunchClock() {
         }
         setCustomTextColor(activeTemplate.text_color || "#FFFFFF");
         setTextShadowEnabled((activeTemplate as any).text_shadow ?? false);
+        setTextPosition((activeTemplate as any).text_position || 'overlay');
       } else {
         // Otherwise, check for default theme from location settings
         const { data, error } = await supabase
@@ -344,7 +344,7 @@ export default function PunchClock() {
             // Fetch the custom theme
             const { data: customTheme } = await supabase
               .from("punch_clock_templates")
-              .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow")
+              .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position")
               .eq("id", selectedThemeId)
               .maybeSingle();
             
@@ -362,6 +362,7 @@ export default function PunchClock() {
               }
               setCustomTextColor(customTheme.text_color || "#FFFFFF");
               setTextShadowEnabled((customTheme as any).text_shadow ?? false);
+              setTextPosition((customTheme as any).text_position || 'overlay');
             } else {
               // Theme not found, fall back to nature
               setCustomBackground("nature_facts");
@@ -952,16 +953,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote or Birthday Message */}
               {birthdayEmployees.length > 0 ? (
-                <div className="relative h-full min-h-[500px] bg-gradient-to-br from-primary via-accent to-primary">
-                  {/* Large Logo */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
-                    <img 
-                      src={crooLogo} 
-                      alt="Croo" 
-                      className="h-20 w-auto transition-all duration-500"
-                      style={{ filter: 'brightness(0) invert(1)' }}
-                    />
-                  </div>
+                <div className="relative h-full min-h-[600px] bg-gradient-to-br from-primary via-accent to-primary">
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
                     <div className="text-9xl mb-6 animate-bounce">🎂</div>
                     <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
@@ -983,17 +975,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </div>
               ) : customBackground === "historical_quotes" ? (
                 // Historical theme with rotating landmarks and quotes
-                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
+                <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  {/* Large Logo */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
-                    <img 
-                      src={crooLogo} 
-                      alt="Croo" 
-                      className="h-20 w-auto transition-all duration-500"
-                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
-                    />
-                  </div>
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <div className="text-5xl font-bold mb-4 drop-shadow-lg">
                       {format(currentTime, 'h:mm:ss a')}
@@ -1005,17 +988,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </div>
               ) : customBackground === "nature_facts" || !customBackground ? (
                 // Nature theme with rotating landscapes and facts (default)
-                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
+                <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  {/* Large Logo */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
-                    <img 
-                      src={crooLogo} 
-                      alt="Croo" 
-                      className="h-20 w-auto transition-all duration-500"
-                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
-                    />
-                  </div>
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <div className="text-5xl font-bold mb-4 drop-shadow-lg">
                       {format(currentTime, 'h:mm:ss a')}
@@ -1028,76 +1002,104 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                 </div>
               ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
-                // Multi-slide custom theme
-                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentCustomImage})` }}>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                  {/* Large Logo */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
-                    <img 
-                      src={crooLogo} 
-                      alt="Croo" 
-                      className="h-20 w-auto transition-all duration-500"
-                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
-                    />
+                // Multi-slide custom theme with text position support
+                <div className="relative h-full min-h-[600px] flex flex-col">
+                  {/* Image area */}
+                  <div 
+                    className={`relative bg-cover bg-center transition-all duration-1000 ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
+                    style={{ backgroundImage: `url(${currentCustomImage})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    {/* Only show text overlay when position is 'overlay' */}
+                    {textPosition === 'overlay' && (
+                      <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                        {currentCustomText && (
+                          <h2 
+                            className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                            style={{ 
+                              color: customTextColor,
+                              textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                            }}
+                          >
+                            {currentCustomText}
+                          </h2>
+                        )}
+                        <div 
+                          className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                          style={{ 
+                            color: customTextColor,
+                            textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                          }}
+                        >
+                          {format(currentTime, 'h:mm:ss a')}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
-                    {currentCustomText && (
+                  {/* Text below image when position is 'below' */}
+                  {textPosition === 'below' && currentCustomText && (
+                    <div className="bg-background p-6 text-center">
                       <h2 
-                        className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
+                        className="text-3xl font-bold mb-2"
+                        style={{ color: customTextColor }}
                       >
                         {currentCustomText}
                       </h2>
-                    )}
-                    <div 
-                      className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                      style={{ 
-                        color: customTextColor,
-                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                      }}
-                    >
-                      {format(currentTime, 'h:mm:ss a')}
+                      <div className="text-4xl font-bold text-foreground">
+                        {format(currentTime, 'h:mm:ss a')}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
-                // Single image custom background (legacy)
-                <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }}>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                  {/* Large Logo */}
-                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
-                    <img 
-                      src={crooLogo} 
-                      alt="Croo" 
-                      className="h-20 w-auto transition-all duration-500"
-                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
-                    />
+                // Single image custom background (legacy) with text position support
+                <div className="relative h-full min-h-[600px] flex flex-col">
+                  {/* Image area */}
+                  <div 
+                    className={`relative bg-cover bg-center ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
+                    style={{ backgroundImage: `url(${customBackground})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    {/* Only show text overlay when position is 'overlay' */}
+                    {textPosition === 'overlay' && (
+                      <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                        {customOverlayText && (
+                          <h2 
+                            className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                            style={{ 
+                              color: customTextColor,
+                              textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                            }}
+                          >
+                            {customOverlayText}
+                          </h2>
+                        )}
+                        <div 
+                          className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                          style={{ 
+                            color: customTextColor,
+                            textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                          }}
+                        >
+                          {format(currentTime, 'h:mm:ss a')}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
-                    {customOverlayText && (
+                  {/* Text below image when position is 'below' */}
+                  {textPosition === 'below' && customOverlayText && (
+                    <div className="bg-background p-6 text-center">
                       <h2 
-                        className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                        style={{ 
-                          color: customTextColor,
-                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                        }}
+                        className="text-3xl font-bold mb-2"
+                        style={{ color: customTextColor }}
                       >
                         {customOverlayText}
                       </h2>
-                    )}
-                    <div 
-                      className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                      style={{ 
-                        color: customTextColor,
-                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                      }}
-                    >
-                      {format(currentTime, 'h:mm:ss a')}
+                      <div className="text-4xl font-bold text-foreground">
+                        {format(currentTime, 'h:mm:ss a')}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1178,6 +1180,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     </Button>
                   </div>
 
+                  {/* Powered by Croo branding */}
+                  <div className="flex items-center justify-center gap-2 pt-4 mt-auto">
+                    <span className="text-xs text-muted-foreground">Powered by</span>
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-6 w-auto opacity-60"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </div>
