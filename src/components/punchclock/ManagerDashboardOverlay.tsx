@@ -26,7 +26,8 @@ import {
   X,
   Gauge,
   Scissors,
-  Calculator
+  Calculator,
+  Circle
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -460,6 +461,49 @@ export function ManagerDashboardOverlay({
       const managerRole: AppRole = 'shift_manager';
       return filterEventsByRole(todayEvents, managerRole).slice(0, 5);
     },
+  });
+
+  // Fetch today's checklists with completion status
+  const { data: checklistsData = [] } = useQuery({
+    queryKey: ['manager-dash-checklists', locationId, todayStr],
+    queryFn: async () => {
+      // Get active checklists for this location
+      const { data: checklists, error: checklistError } = await supabase
+        .from('checklists')
+        .select('id, title, frequency')
+        .eq('location_id', locationId)
+        .eq('is_active', true);
+
+      if (checklistError) throw checklistError;
+      if (!checklists?.length) return [];
+
+      // Filter to daily/weekly checklists (most relevant for shift managers)
+      const relevantChecklists = checklists.filter(c => {
+        if (c.frequency === 'daily') return true;
+        if (c.frequency === 'weekly') return true;
+        return false;
+      });
+
+      // Get today's submissions
+      const { data: submissions, error: subError } = await supabase
+        .from('checklist_submissions')
+        .select('checklist_id, id')
+        .eq('location_id', locationId)
+        .gte('submitted_at', `${todayStr}T00:00:00`)
+        .lte('submitted_at', `${todayStr}T23:59:59`);
+
+      if (subError) throw subError;
+
+      const submittedIds = new Set((submissions || []).map(s => s.checklist_id));
+
+      return relevantChecklists.map(c => ({
+        id: c.id,
+        title: c.title,
+        frequency: c.frequency,
+        isComplete: submittedIds.has(c.id),
+      }));
+    },
+    refetchInterval: 60000,
   });
 
   // Calculate sales metrics from DB (actual sales from sales_cache table)
@@ -1027,9 +1071,35 @@ export function ManagerDashboardOverlay({
                     </div>
                   </div>
                   
-                  {/* Target badge at bottom */}
-                  <div className="mt-3 text-center">
-                    <span className="text-white/40 text-xs">Target: {laborTarget}%</span>
+                  {/* Visual labor gauge bar */}
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="relative h-3 rounded-full bg-white/10 overflow-hidden">
+                      {/* Color zones */}
+                      <div className="absolute inset-0 flex">
+                        <div className="h-full bg-green-500/30" style={{ width: `${(laborTarget / 40) * 100}%` }} />
+                        <div className="h-full bg-yellow-500/30" style={{ width: `${((laborTarget + 3) / 40 * 100) - (laborTarget / 40 * 100)}%` }} />
+                        <div className="flex-1 bg-red-500/30" />
+                      </div>
+                      {/* Current value indicator */}
+                      <div 
+                        className={`absolute top-0 bottom-0 rounded-full transition-all ${
+                          laborStatus === 'good' ? 'bg-green-500' : laborStatus === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ 
+                          width: `${Math.min((cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage) / 40 * 100, 100)}%` 
+                        }}
+                      />
+                      {/* Target marker */}
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-white"
+                        style={{ left: `${(laborTarget / 40) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-white/40 text-[10px]">0%</span>
+                      <span className="text-white/60 text-[10px] font-medium">Target: {laborTarget}%</span>
+                      <span className="text-white/40 text-[10px]">40%</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1246,25 +1316,68 @@ export function ManagerDashboardOverlay({
                     )}
                   </h3>
                   <div className="space-y-1 flex-1 overflow-y-auto">
-                    {quickTasks.length === 0 ? (
-                      <p className="text-white/40 text-center py-4 text-[10px] sm:text-xs">No tasks today</p>
-                    ) : (
-                      quickTasks.slice(0, 6).map((task: any) => (
-                        <div
-                          key={task.id}
-                          className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5"
-                        >
-                          <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-[10px] sm:text-xs font-medium truncate">
-                              {task.event_name}
-                            </p>
+                    {/* Events section */}
+                    {quickTasks.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-white/40 text-[9px] uppercase tracking-wide mb-1">Events</p>
+                        {quickTasks.slice(0, 4).map((task: any) => (
+                          <div
+                            key={task.id}
+                            className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5 mb-1"
+                          >
+                            <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-[10px] sm:text-xs font-medium truncate">
+                                {task.event_name}
+                              </p>
+                            </div>
+                            <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
+                              {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
+                            </span>
                           </div>
-                          <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
-                            {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
-                          </span>
-                        </div>
-                      ))
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Checklists section */}
+                    {checklistsData.length > 0 && (
+                      <div>
+                        <p className="text-white/40 text-[9px] uppercase tracking-wide mb-1">Checklists</p>
+                        {checklistsData.slice(0, 4).map((checklist: any) => (
+                          <div
+                            key={checklist.id}
+                            className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5 mb-1"
+                          >
+                            {checklist.isComplete ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+                            ) : (
+                              <Circle className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[10px] sm:text-xs font-medium truncate ${
+                                checklist.isComplete ? 'text-white/50 line-through' : 'text-white'
+                              }`}>
+                                {checklist.title}
+                              </p>
+                            </div>
+                            <Badge 
+                              variant="secondary" 
+                              className={`text-[8px] px-1.5 py-0 ${
+                                checklist.isComplete 
+                                  ? 'bg-green-500/20 text-green-300' 
+                                  : 'bg-white/10 text-white/50'
+                              }`}
+                            >
+                              {checklist.isComplete ? '✓' : checklist.frequency}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Empty state */}
+                    {quickTasks.length === 0 && checklistsData.length === 0 && (
+                      <p className="text-white/40 text-center py-4 text-[10px] sm:text-xs">No tasks today</p>
                     )}
                   </div>
                 </CardContent>
