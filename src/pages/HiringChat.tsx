@@ -204,6 +204,7 @@ export default function HiringChat() {
   const handleSend = async () => {
     if (!newMessage.trim() || !conversation) return;
 
+    const messageContent = newMessage.trim();
     setSending(true);
     try {
       const { error: sendError } = await supabase
@@ -212,11 +213,32 @@ export default function HiringChat() {
           conversation_id: conversation.id,
           sender_type: 'applicant',
           sender_id: null,
-          content: newMessage.trim()
+          content: messageContent
         });
 
       if (sendError) throw sendError;
       setNewMessage('');
+
+      // Get the application to find managers/admins to notify
+      const { data: application } = await supabase
+        .from('job_applications')
+        .select('organization_id, location_id')
+        .eq('id', conversation.application_id)
+        .single();
+
+      if (application?.location_id) {
+        // Notify managers and admins at the location
+        supabase.functions.invoke('send-push-notification', {
+          body: {
+            roles: ['admin', 'manager', 'general_manager'],
+            location_id: application.location_id,
+            title: `${conversation.application.full_name}`,
+            body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
+            notification_type: 'chat_messages',
+            data: { type: 'hiring_message', conversation_id: conversation.id }
+          }
+        }).catch(err => console.error('Failed to send push notification:', err));
+      }
     } catch (err) {
       console.error('Error sending message:', err);
       toast.error('Failed to send message');

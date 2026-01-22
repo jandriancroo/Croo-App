@@ -179,9 +179,31 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
           messageContent,
           senderName: senderProfile?.full_name || 'Hiring Team'
         }
-      }).then(({ error }) => {
-        if (error) console.error('Failed to send email notification:', error);
-      });
+      }).catch(err => console.error('Failed to send email notification:', err));
+
+      // Also send push notification to other staff members (not the sender)
+      // Get the application to find the location
+      const { data: conv } = await supabase
+        .from('hiring_conversations')
+        .select('application:job_applications(location_id)')
+        .eq('id', conversationId)
+        .single();
+
+      const locationId = (conv?.application as any)?.location_id;
+      if (locationId) {
+        // Notify other managers/admins at the location
+        supabase.functions.invoke('send-push-notification', {
+          body: {
+            roles: ['admin', 'manager', 'general_manager'],
+            location_id: locationId,
+            title: `Hiring: Message sent`,
+            body: `${senderProfile?.full_name || 'Staff'} messaged an applicant`,
+            notification_type: 'chat_messages',
+            sender_id: user.id, // Exclude sender from notification
+            data: { type: 'hiring_message', conversation_id: conversationId }
+          }
+        }).catch(err => console.error('Failed to send push notification:', err))
+      }
 
     } catch (err) {
       console.error('Error sending message:', err);

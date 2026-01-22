@@ -207,6 +207,7 @@ export function SupportChatPanel() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedTicket || !currentUserId) return;
 
+    const messageContent = newMessage.trim();
     setSending(true);
     try {
       const { error } = await supabase
@@ -214,11 +215,24 @@ export function SupportChatPanel() {
         .insert({
           ticket_id: selectedTicket.id,
           sender_id: currentUserId,
-          content: newMessage.trim(),
+          content: messageContent,
         });
 
       if (error) throw error;
       setNewMessage('');
+
+      // Send push notification to the user who created the ticket
+      if (selectedTicket.user_id && selectedTicket.user_id !== currentUserId) {
+        supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: [selectedTicket.user_id],
+            title: 'Support Team',
+            body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
+            notification_type: 'chat_messages',
+            data: { type: 'support_message', ticket_id: selectedTicket.id }
+          }
+        }).catch(err => console.error('Failed to send push notification:', err));
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
