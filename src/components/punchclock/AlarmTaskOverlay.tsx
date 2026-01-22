@@ -356,18 +356,12 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }
   };
 
-  const playAlarmSequence = async (title: string) => {
+  const playAlarmSequence = async (_title: string) => {
     // Play beep once
     await playAlarmBurst();
     
     // Wait for beep to finish (~1.2 seconds)
     await new Promise((r) => setTimeout(r, 1300));
-    
-    // Speak the alarm name
-    await speakAlarmName(title);
-    
-    // Small pause
-    await new Promise((r) => setTimeout(r, 300));
     
     // Play beep again
     await playAlarmBurst();
