@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -121,7 +121,7 @@ function HourlyChartShaded({
     return (
       <div
         key={hour.hour}
-        className={`flex flex-col items-center flex-1 cursor-pointer ${
+        className={`flex flex-col items-center flex-1 cursor-pointer h-full ${
           isSelected ? 'opacity-100' : 'opacity-80 hover:opacity-100'
         }`}
         onClick={() => setSelectedHour(isSelected ? null : {
@@ -132,10 +132,10 @@ function HourlyChartShaded({
           estimatedPizzas: hour.estimatedPizzas,
         })}
       >
-        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 h-4 flex items-center">
+        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 h-4 flex items-center shrink-0">
           {formatCurrency(hour.sales)}
         </span>
-        <div className="w-full flex-1 rounded-t-md overflow-visible relative min-h-[32px]">
+        <div className="w-full flex-1 rounded-t-md overflow-visible relative">
           {/* Shaded projection background - matching SalesSummaryChart */}
           <motion.div
             initial={{ height: 0 }}
@@ -153,7 +153,7 @@ function HourlyChartShaded({
             }`}
           />
         </div>
-        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 h-4 flex items-center ${
+        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 h-4 flex items-center shrink-0 ${
           isSelected ? 'text-white font-semibold' : 'text-white/60'
         }`}>{hour.label}</span>
       </div>
@@ -161,15 +161,15 @@ function HourlyChartShaded({
   };
 
   return (
-    <div className="relative flex-1 flex flex-col gap-2 pb-1">
-      {/* First row (always shown) */}
-      <div className={`flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 ${usesTwoRows ? 'flex-1' : 'h-full'}`}>
+    <div className="relative flex-1 flex flex-col gap-1 pb-1 min-h-0">
+      {/* First row (always shown) - minimum height for bars */}
+      <div className={`flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 ${usesTwoRows ? 'h-1/2' : 'h-full'} min-h-[80px]`}>
         {firstRowHours.map((hour, i) => renderHourBar(hour, i, 0))}
       </div>
       
       {/* Second row (when >4 hours) */}
       {usesTwoRows && secondRowHours.length > 0 && (
-        <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 flex-1">
+        <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 h-1/2 min-h-[80px]">
           {secondRowHours.map((hour, i) => renderHourBar(hour, i, 1))}
           {/* Fill remaining slots to align with first row */}
           {Array.from({ length: 4 - secondRowHours.length }).map((_, i) => (
@@ -261,7 +261,7 @@ export function ManagerDashboardOverlay({
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 
-  // Fetch sales data
+  // Fetch sales data from sales_cache
   const { data: salesData } = useQuery({
     queryKey: ['manager-dash-sales', locationId, todayStr],
     queryFn: async () => {
@@ -276,6 +276,21 @@ export function ManagerDashboardOverlay({
       return data;
     },
     refetchInterval: 60000, // Refresh every minute
+  });
+  
+  // Use the SAME query key as SalesSummary to get real projections and pace
+  // This ensures we display EXACTLY what Dashboard shows
+  const { data: dashboardSalesData } = useQuery<{
+    daily: number;
+    hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
+    pizzaCount?: number | { daily: number; weekly: number; monthly: number };
+    projections?: {
+      todayProjected: number;
+      todayPaceAdjusted?: number;
+    };
+  }>({
+    queryKey: ['qubeyond-sales', locationId, todayStr],
+    enabled: false, // Don't fetch, just read from cache if SalesSummary already populated it
   });
 
   // Fetch labor target
@@ -458,20 +473,9 @@ export function ManagerDashboardOverlay({
   const totalSales = Number(salesData?.net_sales) || 0;
   const hourlyData = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
 
-  // Get pace and projections from React Query cache (same cache SalesOverview uses)
-  // This ensures Dynamic Dash shows EXACTLY the same pace as Dashboard
-  const queryClient = useQueryClient();
-  
-  // Read from the same React Query cache key that SalesOverview uses
-  const cachedSalesOverviewData = queryClient.getQueryData<{
-    daily: number;
-    hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
-    pizzaCount?: number | { daily: number; weekly: number; monthly: number };
-    projections?: {
-      todayProjected: number;
-      todayPaceAdjusted?: number;
-    };
-  }>(['qubeyond-sales', locationId, todayStr]);
+  // Use dashboardSalesData from useQuery (shares cache with SalesSummary)
+  // This ensures Dynamic Dash shows EXACTLY the same pace/projections as Dashboard
+  const cachedSalesOverviewData = dashboardSalesData;
   
   // Get pizza count from cached data OR from DB query
   const pizzaCount = useMemo(() => {
@@ -495,14 +499,15 @@ export function ManagerDashboardOverlay({
   }, [cachedSalesOverviewData, salesData?.projected_sales]);
   
   // Pace Adjusted: use SalesOverview's cached todayPaceAdjusted
+  // CRITICAL: Show actual pace from Dashboard, never fall back to just totalSales
   const paceAdjusted = useMemo(() => {
     // First try React Query cache (same source as SalesOverview)
     const livePace = cachedSalesOverviewData?.projections?.todayPaceAdjusted;
     if (livePace && livePace > 0) return livePace;
     
-    // Fall back to actual sales if no pace data
-    return totalSales;
-  }, [cachedSalesOverviewData, totalSales]);
+    // Fall back to EOD goal if no pace data (not totalSales which is wrong)
+    return eodGoal;
+  }, [cachedSalesOverviewData, eodGoal]);
 
   // Get hourly sales with projections from cached SalesOverview data
   // Only show hours that have actual sales recorded (not empty hours)
