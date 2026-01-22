@@ -393,7 +393,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-md"
+            className="relative w-full max-w-xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Glass card */}
@@ -411,27 +411,27 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 style={{ background: `linear-gradient(90deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}80)` }}
               />
               
-              <div className="p-8 space-y-6">
-                {/* Icon - circular with animated pulse */}
+              <div className="p-10 space-y-8">
+                {/* Icon - larger circular with animated pulse */}
                 <div className="flex justify-center">
                   <div className="relative">
                     <motion.div
                       animate={{ scale: [1, 1.08, 1] }}
                       transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                      className="w-24 h-24 rounded-full flex items-center justify-center"
+                      className="w-32 h-32 rounded-full flex items-center justify-center"
                       style={{ 
                         background: `radial-gradient(circle, ${activeAlarm.accent_color}40 0%, ${activeAlarm.accent_color}15 70%, transparent 100%)`,
-                        boxShadow: `0 0 40px ${activeAlarm.accent_color}50, inset 0 0 20px ${activeAlarm.accent_color}20`
+                        boxShadow: `0 0 60px ${activeAlarm.accent_color}50, inset 0 0 30px ${activeAlarm.accent_color}20`
                       }}
                     >
                       <div 
-                        className="w-16 h-16 rounded-full flex items-center justify-center"
+                        className="w-24 h-24 rounded-full flex items-center justify-center"
                         style={{ 
                           background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}cc)`,
-                          boxShadow: `0 4px 20px ${activeAlarm.accent_color}60`
+                          boxShadow: `0 8px 30px ${activeAlarm.accent_color}60`
                         }}
                       >
-                        <Bell className="h-8 w-8 text-white" />
+                        <Bell className="h-12 w-12 text-white" />
                       </div>
                     </motion.div>
                     
@@ -439,7 +439,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                     <motion.div 
                       animate={{ scale: [1, 1.1, 1] }}
                       transition={{ duration: 1, repeat: Infinity }}
-                      className="absolute -top-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg"
+                      className="absolute -top-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg"
                       style={{ backgroundColor: activeAlarm.accent_color }}
                     >
                       {countdown}
@@ -448,41 +448,41 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 </div>
                 
                 {/* Content */}
-                <div className="text-center space-y-3">
-                  <h2 className="text-2xl font-bold text-white tracking-tight">
+                <div className="text-center space-y-4">
+                  <h2 className="text-3xl font-bold text-white tracking-tight">
                     {activeAlarm.title}
                   </h2>
                   {activeAlarm.description && (
-                    <p className="text-white/70 text-sm leading-relaxed">
+                    <p className="text-white/70 text-base leading-relaxed max-w-sm mx-auto">
                       {activeAlarm.description}
                     </p>
                   )}
                   <div 
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
                     style={{ 
                       backgroundColor: `${activeAlarm.accent_color}25`, 
                       color: activeAlarm.accent_color 
                     }}
                   >
-                    <Clock className="h-3 w-3" />
+                    <Clock className="h-4 w-4" />
                     RECURRING TASK
                   </div>
                 </div>
                 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                   <Button
                     variant="outline"
                     size="lg"
-                    className="flex-1 gap-2 h-14 text-base rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
+                    className="flex-1 gap-3 h-16 text-lg rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
                     onClick={handleSnooze}
                   >
-                    <Clock className="h-5 w-5" />
+                    <Clock className="h-6 w-6" />
                     Snooze
                   </Button>
                   <Button
                     size="lg"
-                    className="flex-1 gap-2 h-14 text-base rounded-2xl text-white border-0 shadow-lg"
+                    className="flex-1 gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg"
                     onClick={handleComplete}
                     disabled={isCompleting}
                     style={{ 
@@ -490,7 +490,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                       boxShadow: `0 10px 30px -5px ${activeAlarm.accent_color}60`
                     }}
                   >
-                    <Check className="h-5 w-5" />
+                    <Check className="h-6 w-6" />
                     {isCompleting ? 'Saving...' : 'Complete'}
                   </Button>
                 </div>
