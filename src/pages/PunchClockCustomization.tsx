@@ -1045,7 +1045,7 @@ export default function PunchClockCustomization() {
                       value={slide.text}
                       onChange={(e) => updateSlide(index, "text", e.target.value)}
                       placeholder="Text overlay for this slide (optional)"
-                      maxLength={100}
+                      maxLength={300}
                     />
                   </div>
                 ))}
