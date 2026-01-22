@@ -121,8 +121,8 @@ function HourlyChartShaded({
     return (
       <div
         key={hour.hour}
-        className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
-          isSelected ? 'scale-105' : 'hover:scale-102'
+        className={`flex flex-col items-center flex-1 cursor-pointer ${
+          isSelected ? 'opacity-100' : 'opacity-80 hover:opacity-100'
         }`}
         onClick={() => setSelectedHour(isSelected ? null : {
           hour: hour.hour,
@@ -132,19 +132,17 @@ function HourlyChartShaded({
           estimatedPizzas: hour.estimatedPizzas,
         })}
       >
-        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5">
+        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 h-4 flex items-center">
           {formatCurrency(hour.sales)}
         </span>
         <div className="w-full flex-1 rounded-t-md overflow-visible relative min-h-[32px]">
           {/* Shaded projection background - matching SalesSummaryChart */}
-          {hour.projected > 0 && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: `${projectedHeightPercent}%` }}
-              transition={{ delay: animDelay, duration: 0.4 }}
-              className="absolute bottom-0 left-0 right-0 bg-muted-foreground/20 rounded-t-md"
-            />
-          )}
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: `${projectedHeightPercent}%` }}
+            transition={{ delay: animDelay, duration: 0.4 }}
+            className="absolute bottom-0 left-0 right-0 bg-muted-foreground/25 rounded-t-md"
+          />
           {/* Sales bar - primary color like SalesSummaryChart */}
           <motion.div
             initial={{ height: 0 }}
@@ -155,7 +153,7 @@ function HourlyChartShaded({
             }`}
           />
         </div>
-        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 ${
+        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 h-4 flex items-center ${
           isSelected ? 'text-white font-semibold' : 'text-white/60'
         }`}>{hour.label}</span>
       </div>
@@ -1006,8 +1004,8 @@ export function ManagerDashboardOverlay({
               transition={{ delay: 0.15 }}
               className="flex-1 flex flex-col gap-2 lg:gap-3"
             >
-              {/* Active Shifts - Limit to 6 visible, scrollable */}
-              <Card className="bg-white/10 border-white/20 max-h-[240px] lg:max-h-[280px]">
+              {/* Active Shifts - 50% height, scrollable */}
+              <Card className="bg-white/10 border-white/20 flex-1 min-h-0">
                 <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
                   <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
                     <Users className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -1016,7 +1014,7 @@ export function ManagerDashboardOverlay({
                       {activeShifts.length}
                     </Badge>
                   </h3>
-                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto max-h-[180px] lg:max-h-[220px]">
+                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto">
                     {activeShifts.length === 0 ? (
                       <p className="text-white/40 text-center py-4 text-xs sm:text-sm">No one clocked in</p>
                     ) : (
@@ -1197,8 +1195,8 @@ export function ManagerDashboardOverlay({
                 </CardContent>
               </Card>
 
-              {/* Quick Tasks - Taller, show more tasks */}
-              <Card className="bg-white/10 border-white/20 flex-1 min-h-[160px] lg:min-h-[200px]">
+              {/* Quick Tasks - 50% height */}
+              <Card className="bg-white/10 border-white/20 flex-1 min-h-0">
                 <CardContent className="p-2 sm:p-3 h-full flex flex-col">
                   <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
                     <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
