@@ -117,17 +117,21 @@ export function useChatUnreadCounts(locationId: string | null) {
       // Fetch hiring unread count (uses hiring_messages table with last_read_at tracking)
       let hiringCount = 0;
       try {
-        // Get conversations with last_read_at for read tracking
+        // Get conversations with last_read_at for read tracking (location-scoped)
         const { data: hiringConvs } = await supabase
           .from('hiring_conversations')
           .select(`
             id,
             last_read_at,
+            application:job_applications(location_id),
             hiring_messages(id, sender_type, created_at)
           `);
 
         // Count conversations with unread applicant messages
         for (const conv of hiringConvs || []) {
+          const appLocationId = (conv as any).application?.location_id as string | undefined;
+          if (appLocationId && appLocationId !== locationId) continue;
+
           const messages = (conv as any).hiring_messages || [];
           if (messages.length === 0) continue;
           
