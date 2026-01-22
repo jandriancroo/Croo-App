@@ -280,7 +280,9 @@ export function ManagerDashboardOverlay({
     };
   }>({
     queryKey: ['qubeyond-sales', locationId, todayStr],
+    queryFn: () => Promise.resolve(undefined), // Placeholder - we read from cache only
     enabled: false, // Don't fetch, just read from cache if SalesSummary already populated it
+    staleTime: Infinity, // Never consider stale since we're reading from cache
   });
 
   // Fetch labor target
