@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
 
 interface CreateTemporaryTaskDialogProps {
   open: boolean;
@@ -82,7 +83,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
   // Task style
-  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm">("standard");
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "qr">("standard");
   
   // Standard task fields
   const [duration, setDuration] = useState("none");
@@ -97,6 +98,15 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [showOnPunchClock, setShowOnPunchClock] = useState(false);
   const [showOnDashboard, setShowOnDashboard] = useState(true);
   
+  // QR task fields
+  const [qrIssueOptions, setQrIssueOptions] = useState<string[]>([]);
+  const [newQrIssue, setNewQrIssue] = useState("");
+  const [qrAllowNotes, setQrAllowNotes] = useState(true);
+  const [qrNotifyPunchClock, setQrNotifyPunchClock] = useState(true);
+  
+  // QR code dialog state
+  const [showQrDialog, setShowQrDialog] = useState(false);
+  const [createdQrCode, setCreatedQrCode] = useState<string | null>(null);
   // Assignment
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -150,6 +160,12 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     setPushEnabled(true);
     setShowOnPunchClock(false);
     setShowOnDashboard(true);
+    setQrIssueOptions([]);
+    setNewQrIssue("");
+    setQrAllowNotes(true);
+    setQrNotifyPunchClock(true);
+    setShowQrDialog(false);
+    setCreatedQrCode(null);
     setAssignmentType("employees");
     setSelectedEmployees([]);
     setSelectedRoles([]);
@@ -194,20 +210,44 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     );
   };
 
+  const handleAddQrIssue = () => {
+    if (newQrIssue.trim() && !qrIssueOptions.includes(newQrIssue.trim())) {
+      setQrIssueOptions([...qrIssueOptions, newQrIssue.trim()]);
+      setNewQrIssue("");
+    }
+  };
+
+  const handleRemoveQrIssue = (issue: string) => {
+    setQrIssueOptions(qrIssueOptions.filter(i => i !== issue));
+  };
+
+  // Generate a unique QR code
+  const generateQrCode = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error("Please enter a task title");
       return;
     }
     
-    if (assignmentType === "employees" && selectedEmployees.length === 0) {
-      toast.error("Please select at least one employee");
-      return;
-    }
-    
-    if (assignmentType === "roles" && selectedRoles.length === 0) {
-      toast.error("Please select at least one role");
-      return;
+    // QR tasks don't need employee assignments - they notify managers automatically
+    if (taskStyle !== "qr") {
+      if (assignmentType === "employees" && selectedEmployees.length === 0) {
+        toast.error("Please select at least one employee");
+        return;
+      }
+      
+      if (assignmentType === "roles" && selectedRoles.length === 0) {
+        toast.error("Please select at least one role");
+        return;
+      }
     }
 
     if (taskStyle === "alarm") {
@@ -217,6 +257,13 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
       }
       if (frequencyType === "custom" && customTimes.length === 0) {
         toast.error("Please add at least one custom time");
+        return;
+      }
+    }
+
+    if (taskStyle === "qr") {
+      if (qrIssueOptions.length === 0) {
+        toast.error("Please add at least one issue option");
         return;
       }
     }
@@ -240,14 +287,14 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         description: description.trim() || null,
         accent_color: accentColor,
         created_by: user!.id,
-        task_style: taskStyle,
+        task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
         is_recurring: taskStyle === "alarm",
-        show_on_dashboard: showOnDashboard,
+        show_on_dashboard: taskStyle === "qr" ? false : showOnDashboard,
       };
 
       if (taskStyle === "standard") {
         taskData.expires_at = expiresAt;
-      } else {
+      } else if (taskStyle === "alarm") {
         // Alarm task fields
         taskData.days_of_week = daysOfWeek;
         taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
@@ -256,6 +303,13 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.push_enabled = pushEnabled;
         taskData.show_on_punch_clock = showOnPunchClock;
+      } else if (taskStyle === "qr") {
+        // QR task fields
+        taskData.is_qr_triggered = true;
+        taskData.qr_code = generateQrCode();
+        taskData.qr_issue_options = qrIssueOptions;
+        taskData.qr_allow_notes = qrAllowNotes;
+        taskData.qr_notify_punch_clock = qrNotifyPunchClock;
       }
 
       // Create the task
@@ -267,19 +321,21 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
 
       if (taskError) throw taskError;
 
-      // Create assignments
-      const assignments = assignmentType === "employees"
-        ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
-        : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
+      // Create assignments (skip for QR tasks - they notify managers automatically)
+      if (taskStyle !== "qr") {
+        const assignments = assignmentType === "employees"
+          ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
+          : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
 
-      const { error: assignmentError } = await supabase
-        .from('temporary_task_assignments')
-        .insert(assignments);
+        const { error: assignmentError } = await supabase
+          .from('temporary_task_assignments')
+          .insert(assignments);
 
-      if (assignmentError) throw assignmentError;
+        if (assignmentError) throw assignmentError;
+      }
 
-      // Create subtasks
-      if (subtasks.length > 0) {
+      // Create subtasks (skip for QR tasks)
+      if (taskStyle !== "qr" && subtasks.length > 0) {
         const subtaskRecords = subtasks.map((subtask, index) => ({
           task_id: task.id,
           title: subtask.title,
@@ -294,9 +350,17 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         if (subtaskError) throw subtaskError;
       }
 
-      toast.success(taskStyle === "alarm" ? "Alarm task created" : "Quick task created");
-      onSuccess();
-      onOpenChange(false);
+      // For QR tasks, show the QR code dialog
+      if (taskStyle === "qr") {
+        setCreatedQrCode(task.qr_code);
+        setShowQrDialog(true);
+        toast.success("QR Task created! Print or share the QR code.");
+        onSuccess();
+      } else {
+        toast.success(taskStyle === "alarm" ? "Alarm task created" : "Quick task created");
+        onSuccess();
+        onOpenChange(false);
+      }
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error("Failed to create task");
@@ -353,11 +417,23 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                 <AlarmClock className="h-4 w-4" />
                 Alarm
               </Button>
+              <Button
+                type="button"
+                variant={taskStyle === "qr" ? "default" : "outline"}
+                size="sm"
+                className="gap-2 flex-1"
+                onClick={() => setTaskStyle("qr")}
+              >
+                <QrCode className="h-4 w-4" />
+                QR
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               {taskStyle === "standard" 
                 ? "One-time task that stays until completed or expired"
-                : "Recurring task with scheduled reminders for clocked-in staff"
+                : taskStyle === "alarm"
+                ? "Recurring task with scheduled reminders for clocked-in staff"
+                : "Guest-scannable QR code that triggers alerts when issues are reported"
               }
             </p>
           </div>
@@ -614,7 +690,74 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
             </>
           )}
 
-          {/* Assignment Type */}
+          {/* QR Task Settings */}
+          {taskStyle === "qr" && (
+            <>
+              <div className="space-y-2">
+                <Label>Issue Options *</Label>
+                <p className="text-xs text-muted-foreground">Add options guests can select when reporting</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={newQrIssue}
+                    onChange={(e) => setNewQrIssue(e.target.value)}
+                    placeholder="e.g. Needs Cleaning"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddQrIssue())}
+                  />
+                  <Button type="button" size="icon" variant="outline" onClick={handleAddQrIssue}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {qrIssueOptions.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {qrIssueOptions.map(issue => (
+                      <Badge key={issue} variant="secondary" className="gap-1">
+                        {issue}
+                        <X className="h-3 w-3 cursor-pointer" onClick={() => handleRemoveQrIssue(issue)} />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Accent Color</Label>
+                <Select value={accentColor} onValueChange={setAccentColor}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLORS.map(color => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.value }} />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Allow guest notes</Label>
+                  <p className="text-xs text-muted-foreground">Let guests add optional details</p>
+                </div>
+                <Switch checked={qrAllowNotes} onCheckedChange={setQrAllowNotes} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Show on Punch Clock</Label>
+                  <p className="text-xs text-muted-foreground">Display alert overlay when reported</p>
+                </div>
+                <Switch checked={qrNotifyPunchClock} onCheckedChange={setQrNotifyPunchClock} />
+              </div>
+            </>
+          )}
           <div className="space-y-2">
             <Label>Assign To</Label>
             <div className="flex gap-2">
