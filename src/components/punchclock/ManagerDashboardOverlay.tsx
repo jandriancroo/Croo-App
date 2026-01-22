@@ -3,8 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ResponsiveContainer, ComposedChart, Bar, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
+  ResponsiveContainer, 
+  ComposedChart, 
+  Bar, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  Tooltip 
+} from 'recharts';
+import {
   Clock, 
   TrendingUp, 
   TrendingDown,
