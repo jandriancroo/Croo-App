@@ -257,6 +257,25 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }
   };
 
+  // Fallback to browser speech synthesis
+  const speakWithBrowserTTS = (title: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) {
+        resolve();
+        return;
+      }
+      
+      const utterance = new SpeechSynthesisUtterance(title);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      
+      window.speechSynthesis.speak(utterance);
+    });
+  };
+
   const speakAlarmName = async (title: string): Promise<void> => {
     try {
       const response = await fetch(
@@ -273,12 +292,16 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       );
 
       if (!response.ok) {
-        console.log("TTS request failed:", response.status);
+        console.log("TTS request failed, using browser fallback");
+        await speakWithBrowserTTS(title);
         return;
       }
 
       const data = await response.json();
-      if (!data.audioContent) return;
+      if (!data.audioContent) {
+        await speakWithBrowserTTS(title);
+        return;
+      }
 
       // Play using data URI
       const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
@@ -290,7 +313,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         audio.play().catch(() => resolve());
       });
     } catch (e) {
-      console.log("TTS error:", e);
+      console.log("TTS error, using browser fallback:", e);
+      await speakWithBrowserTTS(title);
     }
   };
 
