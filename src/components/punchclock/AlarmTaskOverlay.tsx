@@ -32,6 +32,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const snoozeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const snoozedAlarmRef = useRef<AlarmTask | null>(null);
   const alarmLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const alarmLoopTokenRef = useRef(0);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -91,6 +92,15 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         const triggeredAt = new Date(task.last_triggered_at);
         const now = new Date();
         const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+
+        // If we're already showing this exact alarm interval, don't start another loop.
+        if (
+          activeAlarm?.id === task.id &&
+          activeAlarm?.interval_key === intervalKey &&
+          isVisible
+        ) {
+          return;
+        }
 
         // Check if already completed
         const { data: completion, error: completionError } = await supabase
@@ -153,6 +163,15 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             // Show if triggered within last 30 seconds (realtime events can arrive late)
             if (secondsSinceTrigger <= 30) {
               const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+
+              // If we're already showing this exact alarm interval, don't start another loop.
+              if (
+                activeAlarm?.id === task.id &&
+                activeAlarm?.interval_key === intervalKey &&
+                isVisible
+              ) {
+                return;
+              }
               
               setActiveAlarm({
                 id: task.id,
@@ -339,6 +358,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     // Stop any existing loop
     stopAlarmLoop();
 
+    // Token cancels any in-flight async sequences from previous runs
+    const token = ++alarmLoopTokenRef.current;
+
     const effectiveTitle = title ?? activeAlarm?.title;
     if (!effectiveTitle) return;
 
@@ -347,8 +369,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
     // Play the sequence up to maxLoops times
     const runSequence = async () => {
+      // cancelled
+      if (alarmLoopTokenRef.current !== token) return;
+
       loopCount++;
       await playAlarmSequence(effectiveTitle);
+
+      // cancelled
+      if (alarmLoopTokenRef.current !== token) return;
 
       // Only continue if we haven't reached max loops
       if (loopCount < maxLoops) {
@@ -362,6 +390,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   };
 
   const stopAlarmLoop = () => {
+    // Invalidate any running async sequence immediately
+    alarmLoopTokenRef.current++;
     if (alarmLoopRef.current) {
       clearTimeout(alarmLoopRef.current);
       alarmLoopRef.current = null;
