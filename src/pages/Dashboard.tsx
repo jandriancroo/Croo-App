@@ -90,7 +90,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation, organizationId } = useAppLocation();
-  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
+  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
@@ -477,11 +477,10 @@ export default function Dashboard() {
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
-    // Wait for timezone/closeTime to load before calculating completion data
-    if (checklists.length > 0 && currentLocation?.id && !timezoneLoading) {
+    if (checklists.length > 0) {
       loadCompletionData();
     }
-  }, [checklists, currentLocation?.id, timezone, closeTime, timezoneLoading]);
+  }, [checklists]);
 
   // Prefetch UserManagement data for admins/managers (instant load on navigation)
   useEffect(() => {
@@ -508,28 +507,12 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
-    // Monthly period (only used for monthly checklists)
+    // Monthly period
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     
     const checklistIds = checklists.map(c => c.id);
-
-    // If a checklist has been formally submitted for the business day, treat it as complete on the dashboard.
-    // This matches the checklist detail view, which is submission-driven (not strictly response-count-driven).
-    // NOTE: We intentionally do NOT apply this to monthly checklists (they accumulate over the month).
-    const { data: submittedRows } = await supabase
-      .from('checklist_submissions')
-      .select('checklist_id, submitted_at')
-      .eq('location_id', currentLocation.id)
-      .in('checklist_id', checklistIds)
-      .not('submitted_at', 'is', null)
-      .gte('submitted_at', periodStartBusiness.toISOString())
-      .lte('submitted_at', periodEndBusiness.toISOString());
-
-    const submittedChecklistIds = new Set(
-      (submittedRows || []).map((r: any) => r.checklist_id).filter(Boolean)
-    );
     
     // BATCH QUERY 1: Get all checklist items for all checklists at once
     const { data: allChecklistItems } = await supabase
@@ -537,48 +520,20 @@ export default function Dashboard() {
       .select('id, checklist_id, days_of_week')
       .in('checklist_id', checklistIds);
     
-    // BATCH QUERY 2: Get responses in the *smallest* necessary windows.
-    // IMPORTANT: REST queries default to a 1000-row limit; pulling an entire month across
-    // multiple daily checklists can silently drop the newest rows and make the dashboard
-    // look “not completed”. We split monthly vs non-monthly windows to keep row counts low.
-    const monthlyChecklistIds = checklists.filter((c) => c.frequency === 'monthly').map((c) => c.id);
-    const nonMonthlyChecklistIds = checklists.filter((c) => c.frequency !== 'monthly').map((c) => c.id);
-
-    const [dailyResponsesResult, monthlyResponsesResult] = await Promise.all([
-      nonMonthlyChecklistIds.length
-        ? supabase
-            .from('checklist_responses')
-            .select(`
-              id,
-              item_id,
-              created_at,
-              checklist_submissions!inner(id, checklist_id, location_id)
-            `)
-            .in('checklist_submissions.checklist_id', nonMonthlyChecklistIds)
-            .eq('checklist_submissions.location_id', currentLocation.id)
-            .gte('created_at', periodStartBusiness.toISOString())
-            .lte('created_at', periodEndBusiness.toISOString())
-        : Promise.resolve({ data: [] as any[] }),
-      monthlyChecklistIds.length
-        ? supabase
-            .from('checklist_responses')
-            .select(`
-              id,
-              item_id,
-              created_at,
-              checklist_submissions!inner(id, checklist_id, location_id)
-            `)
-            .in('checklist_submissions.checklist_id', monthlyChecklistIds)
-            .eq('checklist_submissions.location_id', currentLocation.id)
-            .gte('created_at', monthStart.toISOString())
-            .lte('created_at', monthEnd.toISOString())
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
-
-    const allResponses = [
-      ...(dailyResponsesResult.data || []),
-      ...(monthlyResponsesResult.data || []),
-    ];
+    // BATCH QUERY 2: Get all responses for all checklists at once
+    // Use the broader time range (either business day or month start, whichever is earlier)
+    const { data: allResponses } = await supabase
+      .from('checklist_responses')
+      .select(`
+        id,
+        item_id,
+        created_at,
+        checklist_submissions!inner(id, checklist_id, location_id)
+      `)
+      .in('checklist_submissions.checklist_id', checklistIds)
+      .eq('checklist_submissions.location_id', currentLocation.id)
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
     
     // Group items by checklist_id
     const itemsByChecklist = new Map<string, typeof allChecklistItems>();
@@ -613,15 +568,6 @@ export default function Dashboard() {
       const isMonthly = checklist.frequency === 'monthly';
       const periodStart = isMonthly ? monthStart : periodStartBusiness;
       const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
-
-      // For non-monthly checklists, a submission means "Completed" on the dashboard.
-      if (!isMonthly && submittedChecklistIds.has(checklist.id)) {
-        dataMap[checklist.id] = {
-          expected: itemCount,
-          completed: itemCount,
-        };
-        continue;
-      }
       
       // Filter responses for this checklist and time period
       const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
