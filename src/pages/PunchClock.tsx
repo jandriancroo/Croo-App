@@ -978,12 +978,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <div className="text-5xl font-bold mb-4 drop-shadow-lg">
-                      {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
-                    </div>
+                    <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
                   </div>
                 </div>
               ) : customBackground === "nature_facts" || !customBackground ? (
@@ -991,10 +986,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <div className="text-5xl font-bold mb-4 drop-shadow-lg">
-                      {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                    <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">Did You Know?</h2>
+                    <h2 className="text-3xl font-bold mb-3 drop-shadow-lg">Did You Know?</h2>
                     <div className="space-y-2">
                       <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
                       <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
@@ -1002,136 +994,110 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                 </div>
               ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
-                // Multi-slide custom theme with text position support
+                // Multi-slide custom theme - only custom text, no time
                 <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image area - always fills container, text positioned accordingly */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center transition-all duration-1000"
                     style={{ backgroundImage: `url(${currentCustomImage})` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                   </div>
-                  {/* Content overlay */}
-                  <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
-                    {textPosition === 'overlay' ? (
-                      <>
-                        {currentCustomText && (
-                          <h2 
-                            className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                            style={{ 
-                              color: customTextColor,
-                              textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                            }}
-                          >
-                            {currentCustomText}
-                          </h2>
-                        )}
-                        <div 
-                          className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                  {currentCustomText && (
+                    <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
+                      {textPosition === 'overlay' ? (
+                        <h2 
+                          className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
                           style={{ 
                             color: customTextColor,
                             textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
                           }}
                         >
-                          {format(currentTime, 'h:mm:ss a')}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
-                        {currentCustomText && (
+                          {currentCustomText}
+                        </h2>
+                      ) : (
+                        <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
                           <h2 
-                            className="text-3xl font-bold mb-2"
+                            className="text-3xl font-bold"
                             style={{ color: customTextColor }}
                           >
                             {currentCustomText}
                           </h2>
-                        )}
-                        <div className="text-4xl font-bold text-foreground">
-                          {format(currentTime, 'h:mm:ss a')}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
-                // Single image custom background (legacy) with text position support
+                // Single image custom background (legacy) - only custom text, no time
                 <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image area - always fills container */}
                   <div 
                     className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: `url(${customBackground})` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                   </div>
-                  {/* Content overlay */}
-                  <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
-                    {textPosition === 'overlay' ? (
-                      <>
-                        {customOverlayText && (
-                          <h2 
-                            className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
-                            style={{ 
-                              color: customTextColor,
-                              textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                            }}
-                          >
-                            {customOverlayText}
-                          </h2>
-                        )}
-                        <div 
-                          className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                  {customOverlayText && (
+                    <div className={`relative z-10 flex-1 flex flex-col ${textPosition === 'below' ? 'justify-end' : 'justify-center items-center'} p-8`}>
+                      {textPosition === 'overlay' ? (
+                        <h2 
+                          className={`text-4xl font-bold text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
                           style={{ 
                             color: customTextColor,
                             textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
                           }}
                         >
-                          {format(currentTime, 'h:mm:ss a')}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
-                        {customOverlayText && (
+                          {customOverlayText}
+                        </h2>
+                      ) : (
+                        <div className="bg-background/95 backdrop-blur-sm rounded-xl p-6 text-center shadow-lg">
                           <h2 
-                            className="text-3xl font-bold mb-2"
+                            className="text-3xl font-bold"
                             style={{ color: customTextColor }}
                           >
                             {customOverlayText}
                           </h2>
-                        )}
-                        <div className="text-4xl font-bold text-foreground">
-                          {format(currentTime, 'h:mm:ss a')}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Right Side - Number Pad */}
               <CardContent className="p-8 flex flex-col justify-center">
-                <div className="space-y-6">
-                  {/* Location Name Badge */}
-                  {currentLocation && (
-                    <div className="text-center">
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full">
-                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                        <span className="text-sm font-medium text-primary">{currentLocation.name}</span>
-                      </div>
+                <div className="space-y-4">
+                  {/* Time Display - moved from image side */}
+                  <div className="text-center pb-2">
+                    <div className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">
+                      {format(currentTime, 'h:mm:ss a')}
                     </div>
-                  )}
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {format(currentTime, 'EEEE, MMMM d')}
+                    </p>
+                  </div>
+                  
                   <div>
-                    <h3 className={`text-lg font-medium mb-4 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      {/* Location indicator - smaller, inline */}
+                      {currentLocation && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 border border-primary/20 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                          <span className="text-xs font-medium text-primary">{currentLocation.name}</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
                     </h3>
-                    <div className="text-center mb-6">
+                    <div className="text-center mb-4">
                       <div 
-                        className={`flex items-center justify-center gap-3 h-16 ${pinShake ? 'animate-shake' : ''}`}
+                        className={`flex items-center justify-center gap-3 h-14 ${pinShake ? 'animate-shake' : ''}`}
                         style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
                       >
                         {[0, 1, 2, 3].map((i) => (
                           <div
                             key={i}
-                            className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
+                            className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-all duration-200 ${
                               pinError
                                 ? 'bg-destructive/20 border-destructive'
                                 : pin.length > i 
