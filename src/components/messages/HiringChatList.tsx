@@ -68,7 +68,7 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
 
       if (error) throw error;
 
-      // Fetch last message for each conversation
+      // Fetch last message for each conversation and filter out empty ones
       const conversationsWithMessages = await Promise.all(
         (convs || []).map(async (conv: any) => {
           const { data: lastMsg } = await supabase
@@ -87,7 +87,9 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
         })
       );
 
-      setConversations(conversationsWithMessages);
+      // Only show conversations that have at least one message
+      const filteredConversations = conversationsWithMessages.filter(conv => conv.last_message);
+      setConversations(filteredConversations);
     } catch (err) {
       console.error('Error fetching hiring conversations:', err);
     } finally {
