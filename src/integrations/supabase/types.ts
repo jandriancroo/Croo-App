@@ -3461,6 +3461,67 @@ export type Database = {
         }
         Relationships: []
       }
+      qr_task_reports: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          guest_note: string | null
+          id: string
+          location_id: string
+          reported_at: string
+          reporter_ip: string | null
+          selected_issues: string[]
+          task_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          guest_note?: string | null
+          id?: string
+          location_id: string
+          reported_at?: string
+          reporter_ip?: string | null
+          selected_issues?: string[]
+          task_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          guest_note?: string | null
+          id?: string
+          location_id?: string
+          reported_at?: string
+          reporter_ip?: string | null
+          selected_issues?: string[]
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qr_task_reports_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qr_task_reports_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qr_task_reports_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejection_email_templates: {
         Row: {
           body: string
@@ -4379,11 +4440,16 @@ export type Database = {
           icon_name: string | null
           id: string
           is_active: boolean
+          is_qr_triggered: boolean | null
           is_recurring: boolean
           last_triggered_at: string | null
           location_id: string
           notify_only_working: boolean
           push_enabled: boolean
+          qr_allow_notes: boolean | null
+          qr_code: string | null
+          qr_issue_options: Json | null
+          qr_notify_punch_clock: boolean | null
           show_on_dashboard: boolean
           show_on_punch_clock: boolean | null
           task_style: string
@@ -4408,11 +4474,16 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          is_qr_triggered?: boolean | null
           is_recurring?: boolean
           last_triggered_at?: string | null
           location_id: string
           notify_only_working?: boolean
           push_enabled?: boolean
+          qr_allow_notes?: boolean | null
+          qr_code?: string | null
+          qr_issue_options?: Json | null
+          qr_notify_punch_clock?: boolean | null
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
           task_style?: string
@@ -4437,11 +4508,16 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          is_qr_triggered?: boolean | null
           is_recurring?: boolean
           last_triggered_at?: string | null
           location_id?: string
           notify_only_working?: boolean
           push_enabled?: boolean
+          qr_allow_notes?: boolean | null
+          qr_code?: string | null
+          qr_issue_options?: Json | null
+          qr_notify_punch_clock?: boolean | null
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
           task_style?: string
