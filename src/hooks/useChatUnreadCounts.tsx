@@ -114,10 +114,51 @@ export function useChatUnreadCounts(locationId: string | null) {
         }
       }
 
-      // For hiring and support, we'd need separate queries if those have their own tables
-      // For now, keeping them at 0 since they use different systems
-      const hiringCount = 0;
-      const supportCount = 0;
+      // Fetch hiring unread count (uses hiring_messages table)
+      let hiringCount = 0;
+      try {
+        // Get conversations where user has sent messages (they're a participant)
+        const { data: hiringConvs } = await supabase
+          .from('hiring_conversations')
+          .select(`
+            id,
+            hiring_messages(id, sender_type, created_at)
+          `);
+
+        // Count conversations with unread applicant messages
+        // A message is "unread" if it's from the applicant and is the most recent
+        for (const conv of hiringConvs || []) {
+          const messages = (conv as any).hiring_messages || [];
+          if (messages.length === 0) continue;
+          
+          // Sort by created_at desc to get latest
+          const sorted = [...messages].sort((a: any, b: any) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          const latest = sorted[0];
+          
+          // If latest message is from applicant, it's unread
+          if (latest && latest.sender_type === 'applicant') {
+            hiringCount++;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching hiring unread:', err);
+      }
+
+      // Support count - for super admins, count open tickets
+      // Simple heuristic: any open/in_progress ticket = potential unread
+      let supportCount = 0;
+      try {
+        const { count } = await supabase
+          .from('support_tickets')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['open', 'in_progress']);
+        
+        supportCount = count || 0;
+      } catch {
+        // Support table might not exist for all users
+      }
 
       const total = chatsCount + announcementsCount + marketplaceCount + hiringCount + supportCount;
 
