@@ -412,31 +412,38 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               />
               
               <div className="p-8 space-y-6">
-                {/* Icon with animated ring */}
+                {/* Icon - circular with animated pulse */}
                 <div className="flex justify-center">
                   <div className="relative">
                     <motion.div
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                      className="w-20 h-20 rounded-full flex items-center justify-center"
+                      animate={{ scale: [1, 1.08, 1] }}
+                      transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-24 h-24 rounded-full flex items-center justify-center"
                       style={{ 
-                        background: `linear-gradient(145deg, ${activeAlarm.accent_color}30, ${activeAlarm.accent_color}10)`,
-                        boxShadow: `0 0 30px ${activeAlarm.accent_color}40`
+                        background: `radial-gradient(circle, ${activeAlarm.accent_color}40 0%, ${activeAlarm.accent_color}15 70%, transparent 100%)`,
+                        boxShadow: `0 0 40px ${activeAlarm.accent_color}50, inset 0 0 20px ${activeAlarm.accent_color}20`
                       }}
                     >
-                      <Bell 
-                        className="h-10 w-10" 
-                        style={{ color: activeAlarm.accent_color }} 
-                      />
+                      <div 
+                        className="w-16 h-16 rounded-full flex items-center justify-center"
+                        style={{ 
+                          background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}cc)`,
+                          boxShadow: `0 4px 20px ${activeAlarm.accent_color}60`
+                        }}
+                      >
+                        <Bell className="h-8 w-8 text-white" />
+                      </div>
                     </motion.div>
                     
                     {/* Countdown badge */}
-                    <div 
-                      className="absolute -top-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    <motion.div 
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="absolute -top-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg"
                       style={{ backgroundColor: activeAlarm.accent_color }}
                     >
                       {countdown}
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
                 

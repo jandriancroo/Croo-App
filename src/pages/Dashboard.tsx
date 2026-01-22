@@ -36,6 +36,7 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useCallback } from 'react';
 import { DataCube3D, PacingDisplayMode } from '@/components/dashboard/DataCube3D';
+import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 
 
 interface CateringOrder {
@@ -1029,6 +1030,11 @@ export default function Dashboard() {
         {/* Welcome animation overlay */}
         {showWelcomeAnimation && (
           <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+        )}
+        
+        {/* Alarm Task Overlay */}
+        {currentLocation?.id && (
+          <AlarmTaskOverlay locationId={currentLocation.id} />
         )}
       </PullToRefresh>
     </Layout>;
