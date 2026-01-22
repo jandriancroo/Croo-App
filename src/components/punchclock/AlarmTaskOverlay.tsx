@@ -114,7 +114,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             interval_key: intervalKey,
           });
           setIsVisible(true);
-          startAlarmLoop();
+          startAlarmLoop(task.title);
           
           // Calculate remaining time (30s from trigger)
           const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
@@ -163,8 +163,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               });
               setIsVisible(true);
               
-              // Play alarm sound loop
-              startAlarmLoop();
+               // Play alarm sound loop
+               startAlarmLoop(task.title);
               
               // Auto-dismiss 30s after trigger (with a minimum of 5s)
               if (timeoutRef.current) {
@@ -311,24 +311,23 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     await playAlarmBurst();
   };
 
-  const startAlarmLoop = () => {
+  const startAlarmLoop = (title?: string) => {
     // Stop any existing loop
     stopAlarmLoop();
-    
-    if (!activeAlarm) return;
-    
-    const title = activeAlarm.title;
-    
+
+    const effectiveTitle = title ?? activeAlarm?.title;
+    if (!effectiveTitle) return;
+
     // Play the sequence
     const runSequence = async () => {
-      await playAlarmSequence(title);
-      
+      await playAlarmSequence(effectiveTitle);
+
       // Schedule next loop after sequence completes + pause
       alarmLoopRef.current = setTimeout(() => {
         runSequence();
       }, 2000);
     };
-    
+
     runSequence();
   };
 
@@ -397,7 +396,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         setActiveAlarm(snoozedAlarmRef.current);
         setIsVisible(true);
         setIsSnoozed(false);
-        startAlarmLoop();
+         startAlarmLoop(snoozedAlarmRef.current.title);
         setCountdown(30);
         startCountdown(30);
         
