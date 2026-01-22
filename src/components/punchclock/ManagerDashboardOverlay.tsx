@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ResponsiveContainer, ComposedChart, Bar, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import { 
   Clock, 
   TrendingUp, 
@@ -90,93 +91,74 @@ interface HourlyChartData {
   estimatedPizzas: number;
 }
 
-interface HourlyChartProps {
-  hours: HourlyChartData[];
-  maxHourlySale: number;
-  selectedHour: SelectedHourInfo | null;
-  setSelectedHour: (hour: SelectedHourInfo | null) => void;
-  formatCurrency: (value: number) => string;
-}
+// HourlyChartProps interface removed - using inline types
 
-// Hourly chart component with shaded projection area (matching Dashboard SalesSummaryChart style)
-// Supports two rows when more than 4 hours of data
-function HourlyChartShaded({ 
+// Hourly chart using recharts (matching Dashboard SalesSummaryChart style exactly)
+function HourlyChartRecharts({ 
   hours, 
-  maxHourlySale, 
-  selectedHour, 
-  setSelectedHour, 
   formatCurrency 
-}: HourlyChartProps) {
-  // Split into two rows if more than 4 hours
-  const usesTwoRows = hours.length > 4;
-  const firstRowHours = usesTwoRows ? hours.slice(0, 4) : hours;
-  const secondRowHours = usesTwoRows ? hours.slice(4) : [];
-
-  const renderHourBar = (hour: HourlyChartData, i: number, rowIndex: number) => {
-    const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
-    const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
-    const isSelected = selectedHour?.hour === hour.hour;
-    const animDelay = 0.2 + (rowIndex * 4 + i) * 0.05;
-
-    return (
-      <div
-        key={hour.hour}
-        className={`flex flex-col items-center flex-1 cursor-pointer h-full ${
-          isSelected ? 'opacity-100' : 'opacity-80 hover:opacity-100'
-        }`}
-        onClick={() => setSelectedHour(isSelected ? null : {
-          hour: hour.hour,
-          label: hour.label,
-          sales: hour.sales,
-          projected: hour.projected,
-          estimatedPizzas: hour.estimatedPizzas,
-        })}
-      >
-        <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 h-4 flex items-center shrink-0">
-          {formatCurrency(hour.sales)}
-        </span>
-        <div className="w-full flex-1 rounded-t-md overflow-visible relative">
-          {/* Shaded projection background - matching SalesSummaryChart */}
-          <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: `${projectedHeightPercent}%` }}
-            transition={{ delay: animDelay, duration: 0.4 }}
-            className="absolute bottom-0 left-0 right-0 bg-muted-foreground/25 rounded-t-md"
-          />
-          {/* Sales bar - primary color like SalesSummaryChart */}
-          <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: `${barHeightPercent}%` }}
-            transition={{ delay: animDelay + 0.1, duration: 0.4 }}
-            className={`absolute bottom-0 left-0 right-0 bg-primary rounded-t-md ${
-              isSelected ? 'ring-2 ring-white/50' : ''
-            }`}
-          />
-        </div>
-        <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 h-4 flex items-center shrink-0 ${
-          isSelected ? 'text-white font-semibold' : 'text-white/60'
-        }`}>{hour.label}</span>
-      </div>
-    );
-  };
+}: { 
+  hours: HourlyChartData[]; 
+  formatCurrency: (value: number) => string;
+}) {
+  const chartData = hours.map(h => ({
+    label: h.label,
+    sales: h.sales,
+    projected: h.projected,
+  }));
 
   return (
-    <div className="relative flex-1 flex flex-col gap-1 pb-1 min-h-0">
-      {/* First row (always shown) - minimum height for bars */}
-      <div className={`flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 ${usesTwoRows ? 'h-1/2' : 'h-full'} min-h-[80px]`}>
-        {firstRowHours.map((hour, i) => renderHourBar(hour, i, 0))}
-      </div>
-      
-      {/* Second row (when >4 hours) */}
-      {usesTwoRows && secondRowHours.length > 0 && (
-        <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 h-1/2 min-h-[80px]">
-          {secondRowHours.map((hour, i) => renderHourBar(hour, i, 1))}
-          {/* Fill remaining slots to align with first row */}
-          {Array.from({ length: 4 - secondRowHours.length }).map((_, i) => (
-            <div key={`empty-${i}`} className="flex-1" />
-          ))}
-        </div>
-      )}
+    <div className="flex-1 min-h-0 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart
+          data={chartData}
+          barCategoryGap="15%"
+          margin={{ top: 10, right: 5, left: -10, bottom: 5 }}
+        >
+          <XAxis
+            dataKey="label"
+            tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }}
+            tickFormatter={(value) => `$${value}`}
+            axisLine={false}
+            tickLine={false}
+            width={35}
+          />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const data = payload[0]?.payload as any;
+              return (
+                <div className="bg-slate-800 border border-white/20 rounded-md p-2 shadow-lg">
+                  <p className="font-medium text-white text-sm">{label}</p>
+                  <p className="text-white/60 text-xs">
+                    Projected: <span className="text-white">{formatCurrency(data?.projected || 0)}</span>
+                  </p>
+                  <p className="text-primary text-xs">
+                    Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span>
+                  </p>
+                </div>
+              );
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="projected"
+            stroke="rgba(255,255,255,0.4)"
+            strokeWidth={2}
+            fill="rgba(255,255,255,0.15)"
+          />
+          <Bar 
+            dataKey="sales" 
+            fill="hsl(var(--primary))" 
+            radius={[4, 4, 0, 0]} 
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -637,7 +619,7 @@ export function ManagerDashboardOverlay({
     }).format(date);
   };
 
-  const maxHourlySale = Math.max(...salesHours.map(h => Math.max(h.sales, h.projected)), 1);
+  // maxHourlySale removed - using recharts auto-scaling
 
   // Labor Cut Functions
   const getCutForEmployee = (userId: string): LaborCut | undefined => {
@@ -890,11 +872,8 @@ export function ManagerDashboardOverlay({
                   </AnimatePresence>
                   
                   {salesHours.some(h => h.sales > 0) ? (
-                    <HourlyChartShaded 
+                    <HourlyChartRecharts 
                       hours={salesHours} 
-                      maxHourlySale={maxHourlySale}
-                      selectedHour={selectedHour}
-                      setSelectedHour={setSelectedHour}
                       formatCurrency={formatCurrency}
                     />
                   ) : (
@@ -937,21 +916,21 @@ export function ManagerDashboardOverlay({
                 </div>
               </div>
 
-              {/* Labor Section - Below Time */}
-              <Card className="bg-white/10 border-white/20 mt-3 w-full max-w-xs">
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-white/80 text-xs font-semibold flex items-center gap-1.5">
-                      <Gauge className="h-3 w-3" />
+              {/* Labor Section - Larger, Below Time */}
+              <Card className="bg-white/10 border-white/20 mt-4 w-full max-w-sm">
+                <CardContent className="p-4 lg:p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white text-sm lg:text-base font-semibold flex items-center gap-2">
+                      <Gauge className="h-4 w-4 lg:h-5 lg:w-5" />
                       Labor
                       {cutsSaved && hasAnyCuts && (
-                        <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1">
-                          Cuts
+                        <Badge className="bg-green-500/20 text-green-300 text-xs px-1.5">
+                          Cuts Active
                         </Badge>
                       )}
                     </h3>
                     <Badge 
-                      className={`text-[10px] ${
+                      className={`text-xs lg:text-sm px-2 py-0.5 ${
                         laborStatus === 'good' 
                           ? 'bg-green-500/20 text-green-300' 
                           : laborStatus === 'warning'
@@ -962,40 +941,62 @@ export function ManagerDashboardOverlay({
                       Target: {laborTarget}%
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between text-[10px] mb-1">
-                        <span className="text-white/60">Current</span>
-                        <div className="flex items-center gap-1">
-                          {cutsSaved && hasAnyCuts ? (
-                            <>
-                              <span className="text-white/40 line-through">
-                                {laborPercentage.toFixed(1)}%
-                              </span>
-                              <span className="text-green-400 font-bold">
-                                {calculateLaborSavings.newLaborPercent.toFixed(1)}%
-                              </span>
-                            </>
-                          ) : (
-                            <span className={`font-bold ${
-                              laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
-                            }`}>
+                  
+                  {/* Main labor stats row */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div className="text-center">
+                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Percentage</p>
+                      <div className="flex items-center justify-center gap-1">
+                        {cutsSaved && hasAnyCuts ? (
+                          <>
+                            <span className="text-white/40 line-through text-sm lg:text-base">
                               {laborPercentage.toFixed(1)}%
                             </span>
-                          )}
-                        </div>
+                            <span className="text-green-400 font-bold text-lg lg:text-xl">
+                              {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                            </span>
+                          </>
+                        ) : (
+                          <span className={`font-bold text-lg lg:text-xl ${
+                            laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                          }`}>
+                            {laborPercentage.toFixed(1)}%
+                          </span>
+                        )}
                       </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Cost</p>
+                      <p className="text-lg lg:text-xl font-bold text-white">
+                        {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-white/60 text-xs lg:text-sm mb-0.5">Hours</p>
+                      <p className="text-lg lg:text-xl font-bold text-white">
+                        {(laborData?.laborHours || 0).toFixed(1)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-white/60">0%</span>
+                      <span className="text-white/60">{laborTarget}%</span>
+                      <span className="text-white/60">40%</span>
+                    </div>
+                    <div className="relative">
                       <Progress 
                         value={Math.min(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage, 40)} 
                         max={40}
-                        className="h-1.5 bg-white/10"
+                        className="h-2.5 lg:h-3 bg-white/10"
                       />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white/60 text-[10px]">Cost</p>
-                      <p className="text-sm font-bold text-white">
-                        {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
-                      </p>
+                      {/* Target line indicator */}
+                      <div 
+                        className="absolute top-0 bottom-0 w-0.5 bg-white/60"
+                        style={{ left: `${(laborTarget / 40) * 100}%` }}
+                      />
                     </div>
                   </div>
                 </CardContent>
