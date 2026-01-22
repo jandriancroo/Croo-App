@@ -479,6 +479,13 @@ export default function Dashboard() {
   useEffect(() => {
     // Wait for timezone/closeTime to load before calculating completion data
     // This ensures business day boundaries are accurate
+    console.log('[Dashboard] Completion useEffect:', {
+      checklistsLength: checklists.length,
+      timezoneLoading,
+      closeTime,
+      locationId: currentLocation?.id,
+      willRun: checklists.length > 0 && !timezoneLoading && !!currentLocation?.id
+    });
     if (checklists.length > 0 && !timezoneLoading && currentLocation?.id) {
       loadCompletionData();
     }
@@ -509,6 +516,14 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
+    console.log('[Dashboard] loadCompletionData:', {
+      businessDateStr,
+      currentDay,
+      periodStartBusiness: periodStartBusiness.toISOString(),
+      periodEndBusiness: periodEndBusiness.toISOString(),
+      closeTime
+    });
+    
     // Monthly period
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
@@ -537,6 +552,12 @@ export default function Dashboard() {
       .gte('created_at', monthStart.toISOString())
       .lte('created_at', monthEnd.toISOString());
     
+    console.log('[Dashboard] Query results:', {
+      itemCount: allChecklistItems?.length || 0,
+      responseCount: allResponses?.length || 0,
+      monthStart: monthStart.toISOString(),
+      monthEnd: monthEnd.toISOString()
+    });
     // Group items by checklist_id
     const itemsByChecklist = new Map<string, typeof allChecklistItems>();
     allChecklistItems?.forEach(item => {
