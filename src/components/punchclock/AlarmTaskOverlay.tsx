@@ -32,6 +32,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const snoozeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const snoozedAlarmRef = useRef<AlarmTask | null>(null);
+  const alarmLoopRef = useRef<NodeJS.Timeout | null>(null);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -114,7 +115,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             interval_key: intervalKey,
           });
           setIsVisible(true);
-          void playAlarmSound();
+          startAlarmLoop();
           
           // Calculate remaining time (30s from trigger)
           const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
@@ -163,8 +164,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               });
               setIsVisible(true);
               
-              // Play alarm sound
-              void playAlarmSound();
+              // Play alarm sound loop
+              startAlarmLoop();
               
               // Auto-dismiss 30s after trigger (with a minimum of 5s)
               if (timeoutRef.current) {
@@ -185,6 +186,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
     return () => {
       supabase.removeChannel(channel);
+      stopAlarmLoop();
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -213,7 +215,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }, 1000);
   };
 
-  const playAlarmSound = async () => {
+  const playAlarmBurst = async () => {
     try {
       const audioContext = getAudioContext();
       if (audioContext.state === "suspended") {
@@ -245,7 +247,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         oscillator.stop(audioContext.currentTime + time + duration);
       };
 
-      // Alarm pattern - 3 cycles
+      // Alarm pattern - 3 cycles (~3.6 seconds)
       for (let cycle = 0; cycle < 3; cycle++) {
         const offset = cycle * 1.2;
         playBeep(offset + 0, 880, 0.15);
@@ -256,6 +258,26 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       }
     } catch (e) {
       console.log("Could not play alarm sound:", e);
+    }
+  };
+
+  const startAlarmLoop = () => {
+    // Stop any existing loop
+    stopAlarmLoop();
+    
+    // Play immediately
+    void playAlarmBurst();
+    
+    // Repeat every 4 seconds (3.6s sound + 0.4s pause)
+    alarmLoopRef.current = setInterval(() => {
+      void playAlarmBurst();
+    }, 4000);
+  };
+
+  const stopAlarmLoop = () => {
+    if (alarmLoopRef.current) {
+      clearInterval(alarmLoopRef.current);
+      alarmLoopRef.current = null;
     }
   };
 
@@ -297,6 +319,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     snoozedAlarmRef.current = activeAlarm;
     setIsSnoozed(true);
     setIsVisible(false);
+    stopAlarmLoop();
     
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -316,7 +339,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         setActiveAlarm(snoozedAlarmRef.current);
         setIsVisible(true);
         setIsSnoozed(false);
-        void playAlarmSound();
+        startAlarmLoop();
         setCountdown(30);
         startCountdown(30);
         
@@ -339,6 +362,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     setIsVisible(false);
     setIsSnoozed(false);
     snoozedAlarmRef.current = null;
+    stopAlarmLoop();
     
     if (snoozeTimeoutRef.current) {
       clearTimeout(snoozeTimeoutRef.current);
