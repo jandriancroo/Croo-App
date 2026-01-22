@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, differenceInMinutes, differenceInHours, parseISO } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
@@ -17,8 +17,7 @@ import {
   X,
   Gauge,
   Scissors,
-  Calculator,
-  ChevronRight
+  Calculator
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +57,7 @@ interface ActiveShift {
   breakType: string | null;
   position?: string;
   hourlyWage?: number;
+  scheduledStartTime?: string; // HH:mm format from shift template
   scheduledEndTime?: string; // HH:mm format from shift template
 }
 
@@ -98,49 +98,18 @@ interface HourlyChartProps {
   formatCurrency: (value: number) => string;
 }
 
-// Separate component for the hourly chart with SVG line
-function HourlyChart({ hours, maxHourlySale, selectedHour, setSelectedHour, formatCurrency }: HourlyChartProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dotRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [linePath, setLinePath] = useState<string>('');
-  const [lineReady, setLineReady] = useState(false);
-  
-  // Calculate line path from dot positions after render
-  useEffect(() => {
-    const calculatePath = () => {
-      if (!containerRef.current) return;
-      
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const points: { x: number; y: number }[] = [];
-      
-      dotRefs.current.forEach((dot, i) => {
-        if (dot && hours[i]?.projected > 0) {
-          const dotRect = dot.getBoundingClientRect();
-          // Get center of dot relative to container
-          const x = dotRect.left - containerRect.left + dotRect.width / 2;
-          const y = dotRect.top - containerRect.top + dotRect.height / 2;
-          points.push({ x, y });
-        }
-      });
-      
-      if (points.length >= 2) {
-        const pathStr = points.map((p, i) => 
-          `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
-        ).join(' ');
-        setLinePath(pathStr);
-        setLineReady(true);
-      }
-    };
-    
-    // Small delay to ensure dots are positioned
-    const timer = setTimeout(calculatePath, 800);
-    return () => clearTimeout(timer);
-  }, [hours]);
-  
+// Hourly chart component with shaded projection area (matching Dashboard style)
+function HourlyChartShaded({ 
+  hours, 
+  maxHourlySale, 
+  selectedHour, 
+  setSelectedHour, 
+  formatCurrency 
+}: HourlyChartProps) {
   return (
-    <div ref={containerRef} className="relative flex-1 pb-2">
-      {/* Chart container with bars and projection line */}
-      <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 h-full relative">
+    <div className="relative flex-1 pb-2">
+      {/* Chart container with bars and shaded projection area */}
+      <div className="flex items-end justify-around gap-1.5 sm:gap-2 lg:gap-3 h-full relative">
         {hours.map((hour, i) => {
           const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
           const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
@@ -159,60 +128,51 @@ function HourlyChart({ hours, maxHourlySale, selectedHour, setSelectedHour, form
                 estimatedPizzas: hour.estimatedPizzas,
               })}
             >
-              <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
+              <span className="text-white font-bold text-[9px] sm:text-[10px] lg:text-xs mb-0.5 lg:mb-1">
                 {formatCurrency(hour.sales)}
               </span>
-              <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-visible relative min-h-[50px]">
+              <div className="w-full flex-1 rounded-t-md overflow-visible relative min-h-[40px]">
+                {/* Shaded projection background area */}
+                {hour.projected > 0 && (
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${projectedHeightPercent}%` }}
+                    transition={{ delay: 0.3 + i * 0.08, duration: 0.4 }}
+                    className="absolute bottom-0 left-0 right-0 bg-muted-foreground/15 rounded-t-md"
+                  />
+                )}
                 {/* Sales bar */}
                 <motion.div
                   initial={{ height: 0 }}
                   animate={{ height: `${barHeightPercent}%` }}
-                  transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
-                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg ${
+                  transition={{ delay: 0.4 + i * 0.08, duration: 0.5 }}
+                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-md ${
                     isSelected ? 'ring-2 ring-white/50' : ''
                   }`}
                 />
-                {/* Projection dot */}
-                {hour.projected > 0 && (
-                  <motion.div
-                    ref={el => dotRefs.current[i] = el}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
-                    className="absolute left-1/2 -translate-x-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-white/40 shadow-lg z-10"
-                    style={{ bottom: `${projectedHeightPercent}%`, transform: 'translateX(-50%) translateY(50%)' }}
-                  />
-                )}
               </div>
-              <span className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2 ${
+              <span className={`text-[8px] sm:text-[10px] lg:text-xs mt-0.5 lg:mt-1 ${
                 isSelected ? 'text-white font-semibold' : 'text-white/60'
               }`}>{hour.label}</span>
             </div>
           );
         })}
-        
-        {/* Projection line connecting dots */}
-        {hours.some(h => h.projected > 0) && linePath && (
-          <svg 
-            className="absolute inset-0 pointer-events-none overflow-visible" 
-            style={{ zIndex: 5 }}
-          >
-            <motion.path
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: lineReady ? 1 : 0, opacity: lineReady ? 1 : 0 }}
-              transition={{ duration: 0.6 }}
-              d={linePath}
-              fill="none"
-              stroke="rgba(255,255,255,0.6)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
       </div>
     </div>
   );
+}
+
+// Helper to format shift time from HH:mm to display format
+function formatShiftTime(time: string | undefined): string {
+  if (!time) return '';
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
 }
 
 export function ManagerDashboardOverlay({ 
@@ -388,16 +348,17 @@ export function ManagerDashboardOverlay({
         .select('id, full_name, profile_photo_url, hourly_wage')
         .in('id', userIds);
 
-      // Get today's shifts for positions and end times
+      // Get today's shifts for positions and start/end times
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
-        .select('user_id, template:shift_templates(position, end_time)')
+        .select('user_id, template:shift_templates(position, start_time, end_time)')
         .eq('shift_date', todayStr)
         .in('user_id', userIds);
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const shiftMap = new Map((shifts || []).map(s => [s.user_id, { 
         position: s.template?.position, 
+        startTime: s.template?.start_time,
         endTime: s.template?.end_time 
       }]));
 
@@ -414,6 +375,7 @@ export function ManagerDashboardOverlay({
           breakType: u.breakType,
           position: shiftInfo?.position || undefined,
           hourlyWage: profile?.hourly_wage || 16, // Default to $16/hr if not set
+          scheduledStartTime: shiftInfo?.startTime || undefined,
           scheduledEndTime: shiftInfo?.endTime || undefined,
         } as ActiveShift;
       }).sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -533,8 +495,8 @@ export function ManagerDashboardOverlay({
     return cachedHourly?.reduce((sum, h) => sum + (h.sales || 0), 0) || 0;
   }, [cachedHourly]);
   
-  // Get last 4 hours with actual sales (filter out empty hours)
-  const last4Hours = useMemo(() => {
+  // Get hours with actual sales - up to 8 hours shown in two rows
+  const salesHours = useMemo(() => {
     // Build a list of all hours up to current hour that have sales
     const hoursWithSales: Array<{
       hour: number;
@@ -571,8 +533,8 @@ export function ManagerDashboardOverlay({
       }
     }
     
-    // Return last 4 hours with sales
-    return hoursWithSales.slice(-4);
+    // Return up to 8 hours with sales
+    return hoursWithSales.slice(-8);
   }, [currentHour, cachedHourly, hourlyData, totalHourlySales, pizzaCount]);
 
   // Calculate pace delta and status
@@ -651,7 +613,7 @@ export function ManagerDashboardOverlay({
     }).format(date);
   };
 
-  const maxHourlySale = Math.max(...last4Hours.map(h => Math.max(h.sales, h.projected)), 1);
+  const maxHourlySale = Math.max(...salesHours.map(h => Math.max(h.sales, h.projected)), 1);
 
   // Labor Cut Functions
   const getCutForEmployee = (userId: string): LaborCut | undefined => {
@@ -770,7 +732,6 @@ export function ManagerDashboardOverlay({
     };
   }, [laborCuts, activeShifts, laborData?.laborCost, totalSales]);
 
-  const hasPendingCuts = laborCuts.length > 0 && !cutsSaved;
   const hasAnyCuts = laborCuts.length > 0;
 
   return (
@@ -847,21 +808,21 @@ export function ManagerDashboardOverlay({
 
               {/* Hourly Chart */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px]">
-                <CardContent className="p-2 sm:p-4 lg:p-6 h-full flex flex-col">
-                  <div className="flex items-center justify-between mb-2 lg:mb-4">
-                    <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold flex items-center gap-2">
-                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
-                      Last 4 Hours
+                <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-1 lg:mb-2">
+                    <h3 className="text-white/80 text-xs sm:text-sm lg:text-base font-semibold flex items-center gap-2">
+                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
+                      Hourly Sales
                     </h3>
                     {/* Legend */}
-                    {last4Hours.some(h => h.projected > 0) && (
-                      <div className="flex items-center gap-3 text-[10px] sm:text-xs">
+                    {salesHours.some(h => h.projected > 0) && (
+                      <div className="flex items-center gap-2 text-[9px] sm:text-[10px]">
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-sm bg-primary/60" />
+                          <div className="w-2 h-2 rounded-sm bg-primary" />
                           <span className="text-white/60">Actual</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white/80 border border-white/40" />
+                          <div className="w-2 h-2 rounded-sm bg-muted-foreground/30" />
                           <span className="text-white/60">Projected</span>
                         </div>
                       </div>
@@ -875,27 +836,27 @@ export function ManagerDashboardOverlay({
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="mb-3 p-2 sm:p-3 bg-white/10 rounded-lg border border-white/20"
+                        className="mb-2 p-2 bg-white/10 rounded-lg border border-white/20"
                         onClick={() => setSelectedHour(null)}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-white font-semibold text-sm sm:text-base">{selectedHour.label}</span>
-                          <X className="h-4 w-4 text-white/60 cursor-pointer hover:text-white" onClick={() => setSelectedHour(null)} />
+                          <span className="text-white font-semibold text-sm">{selectedHour.label}</span>
+                          <X className="h-3 w-3 text-white/60 cursor-pointer hover:text-white" onClick={() => setSelectedHour(null)} />
                         </div>
-                        <div className="grid grid-cols-3 gap-2 mt-2">
+                        <div className="grid grid-cols-3 gap-2 mt-1">
                           <div className="text-center">
-                            <p className="text-white/60 text-[10px] sm:text-xs">Sales</p>
-                            <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(selectedHour.sales)}</p>
+                            <p className="text-white/60 text-[9px]">Sales</p>
+                            <p className="text-white font-bold text-sm">{formatCurrency(selectedHour.sales)}</p>
                           </div>
                           <div className="text-center">
-                            <p className="text-white/60 text-[10px] sm:text-xs">Projected</p>
-                            <p className="text-white/80 font-bold text-sm sm:text-lg">
+                            <p className="text-white/60 text-[9px]">Projected</p>
+                            <p className="text-white/80 font-bold text-sm">
                               {selectedHour.projected > 0 ? formatCurrency(selectedHour.projected) : '—'}
                             </p>
                           </div>
                           <div className="text-center">
-                            <p className="text-white/60 text-[10px] sm:text-xs">🍕 Pizzas</p>
-                            <p className="text-white/80 font-bold text-sm sm:text-lg">
+                            <p className="text-white/60 text-[9px]">🍕</p>
+                            <p className="text-white/80 font-bold text-sm">
                               {selectedHour.estimatedPizzas > 0 ? selectedHour.estimatedPizzas : '—'}
                             </p>
                           </div>
@@ -904,9 +865,9 @@ export function ManagerDashboardOverlay({
                     )}
                   </AnimatePresence>
                   
-                  {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
-                    <HourlyChart 
-                      hours={last4Hours} 
+                  {salesHours.some(h => h.sales > 0) ? (
+                    <HourlyChartShaded 
+                      hours={salesHours} 
                       maxHourlySale={maxHourlySale}
                       selectedHour={selectedHour}
                       setSelectedHour={setSelectedHour}
@@ -914,76 +875,59 @@ export function ManagerDashboardOverlay({
                     />
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
-                      <p className="text-white/40 text-xs sm:text-sm lg:text-base xl:text-lg">No hourly data yet</p>
+                      <p className="text-white/40 text-xs sm:text-sm lg:text-base">No hourly data yet</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Center Column - Time Display */}
+            {/* Center Column - Time Display with contrasting style */}
             <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.05 }}
-              className="flex flex-col items-center justify-center px-6"
+              className="flex flex-col items-center justify-start px-4 lg:px-6 pt-2"
             >
-              <div className="relative">
-                {/* Liquid Glass container */}
-                <div className="relative px-6 sm:px-10 py-3 sm:py-5 rounded-3xl overflow-hidden">
-                  {/* Glass background layers */}
-                  <div className="absolute inset-0 bg-white/[0.08] backdrop-blur-2xl rounded-3xl" />
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/5 rounded-3xl" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/[0.03] to-white/10 rounded-3xl" />
-                  
-                  {/* Inner glow effect */}
-                  <div className="absolute inset-[1px] rounded-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),inset_0_-1px_1px_rgba(0,0,0,0.1)]" />
-                  
-                  {/* Subtle border */}
-                  <div className="absolute inset-0 rounded-3xl border border-white/20" />
-                  
-                  {/* Light reflection */}
-                  <div className="absolute top-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-                  
-                  {/* Content */}
-                  <div className="relative flex flex-col items-center gap-1 sm:gap-2">
-                    <div className="flex items-center gap-2 sm:gap-4">
-                      <Clock className="h-6 w-6 sm:h-10 sm:w-10 text-white/80 drop-shadow-lg" />
-                      <span 
-                        className="text-4xl sm:text-7xl font-light text-white tracking-tight drop-shadow-2xl"
-                        style={{ 
-                          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                          textShadow: '0 2px 20px rgba(255,255,255,0.15)'
-                        }}
-                      >
-                        {formatTimeDisplay(currentTime)}
-                      </span>
-                    </div>
-                    <p className="text-white/50 text-xs sm:text-sm font-light tracking-wide">
-                      {format(currentTime, 'EEEE, MMMM d')}
-                    </p>
-                  </div>
-                </div>
+              {/* Clock section with accent contrast */}
+              <div className="relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/40 shadow-xl">
+                {/* Inner glow */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/5" />
                 
-                {/* Ambient glow behind the glass */}
-                <div className="absolute -inset-4 bg-primary/20 rounded-full blur-3xl -z-10 opacity-50" />
+                {/* Content */}
+                <div className="relative flex flex-col items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2 sm:gap-4">
+                    <Clock className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-primary drop-shadow-lg" />
+                    <span 
+                      className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight"
+                      style={{ 
+                        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      }}
+                    >
+                      {formatTimeDisplay(currentTime)}
+                    </span>
+                  </div>
+                  <p className="text-white/60 text-xs sm:text-sm font-medium tracking-wide">
+                    {format(currentTime, 'EEEE, MMMM d')}
+                  </p>
+                </div>
               </div>
 
               {/* Labor Section - Below Time */}
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 mt-4 w-full max-w-sm">
-                <CardContent className="p-4">
+              <Card className="bg-white/10 border-white/20 mt-3 w-full max-w-xs">
+                <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-white/80 text-sm font-semibold flex items-center gap-2">
-                      <Gauge className="h-4 w-4" />
+                    <h3 className="text-white/80 text-xs font-semibold flex items-center gap-1.5">
+                      <Gauge className="h-3 w-3" />
                       Labor
                       {cutsSaved && hasAnyCuts && (
-                        <Badge className="bg-green-500/20 text-green-300 text-xs">
+                        <Badge className="bg-green-500/20 text-green-300 text-[10px] px-1">
                           Cuts
                         </Badge>
                       )}
                     </h3>
                     <Badge 
-                      className={`text-xs ${
+                      className={`text-[10px] ${
                         laborStatus === 'good' 
                           ? 'bg-green-500/20 text-green-300' 
                           : laborStatus === 'warning'
@@ -994,14 +938,14 @@ export function ManagerDashboardOverlay({
                       Target: {laborTarget}%
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="flex justify-between text-xs mb-1">
+                      <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-white/60">Current</span>
                         <div className="flex items-center gap-1">
                           {cutsSaved && hasAnyCuts ? (
                             <>
-                              <span className="text-white/40 line-through text-xs">
+                              <span className="text-white/40 line-through">
                                 {laborPercentage.toFixed(1)}%
                               </span>
                               <span className="text-green-400 font-bold">
@@ -1020,12 +964,12 @@ export function ManagerDashboardOverlay({
                       <Progress 
                         value={Math.min(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage, 40)} 
                         max={40}
-                        className="h-2 bg-white/10"
+                        className="h-1.5 bg-white/10"
                       />
                     </div>
                     <div className="text-center">
-                      <p className="text-white/60 text-xs">Cost</p>
-                      <p className="text-lg font-bold text-white">
+                      <p className="text-white/60 text-[10px]">Cost</p>
+                      <p className="text-sm font-bold text-white">
                         {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
                       </p>
                     </div>
@@ -1039,23 +983,23 @@ export function ManagerDashboardOverlay({
               initial={{ x: 20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.15 }}
-              className="flex-1 flex flex-col gap-2 sm:gap-3 lg:gap-4"
+              className="flex-1 flex flex-col gap-2 lg:gap-3"
             >
-              {/* Active Shifts */}
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1">
-                <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold mb-1 sm:mb-2 lg:mb-3 flex items-center gap-1 sm:gap-2">
-                    <Users className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
+              {/* Active Shifts - Limit to 6 visible, scrollable */}
+              <Card className="bg-white/10 border-white/20 max-h-[240px] lg:max-h-[280px]">
+                <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
+                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                     On The Clock
-                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs lg:text-sm">
+                    <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs">
                       {activeShifts.length}
                     </Badge>
                   </h3>
-                  <div className="space-y-1 sm:space-y-1.5 lg:space-y-2 xl:space-y-3 flex-1 overflow-y-auto">
+                  <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto max-h-[180px] lg:max-h-[220px]">
                     {activeShifts.length === 0 ? (
-                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm lg:text-base">No one clocked in</p>
+                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm">No one clocked in</p>
                     ) : (
-                      activeShifts.map((shift) => {
+                      activeShifts.slice(0, 6).map((shift) => {
                         const cut = getCutForEmployee(shift.userId);
                         return (
                           <Popover 
@@ -1074,7 +1018,7 @@ export function ManagerDashboardOverlay({
                           >
                             <PopoverTrigger asChild>
                               <div
-                                className={`flex items-center gap-2 lg:gap-3 p-1.5 lg:p-2 xl:p-3 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
+                                className={`flex items-center gap-2 p-1.5 lg:p-2 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
                                   shift.isOnBreak 
                                     ? 'bg-amber-500/20' 
                                     : cut 
@@ -1082,21 +1026,21 @@ export function ManagerDashboardOverlay({
                                       : 'bg-white/5'
                                 }`}
                               >
-                                <Avatar className="h-7 w-7 lg:h-9 lg:w-9 xl:h-11 xl:w-11">
+                                <Avatar className="h-6 w-6 lg:h-8 lg:w-8">
                                   <AvatarImage src={shift.profilePhoto || undefined} />
-                                  <AvatarFallback className="bg-primary/20 text-primary text-xs lg:text-sm xl:text-base">
+                                  <AvatarFallback className="bg-primary/20 text-primary text-[10px] lg:text-xs">
                                     {shift.fullName.charAt(0)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1 lg:gap-2">
-                                    <p className="text-white text-xs lg:text-sm xl:text-base font-medium truncate">
+                                  <div className="flex items-center gap-1">
+                                    <p className="text-white text-xs lg:text-sm font-medium truncate">
                                       {shift.fullName.split(' ')[0]}
                                     </p>
                                     {cut && (
                                       <Badge 
                                         variant="secondary" 
-                                        className="bg-red-500/30 text-red-300 text-[10px] lg:text-xs px-1 py-0"
+                                        className="bg-red-500/30 text-red-300 text-[9px] lg:text-[10px] px-1 py-0"
                                       >
                                         {cutsSaved 
                                           ? cut.customEndTime 
@@ -1109,11 +1053,22 @@ export function ManagerDashboardOverlay({
                                       </Badge>
                                     )}
                                   </div>
+                                  {/* Show scheduled shift times */}
+                                  {(shift.scheduledStartTime || shift.scheduledEndTime) && !cut && (
+                                    <p className="text-white/40 text-[9px] lg:text-[10px]">
+                                      {shift.scheduledStartTime && shift.scheduledEndTime 
+                                        ? `${formatShiftTime(shift.scheduledStartTime)} - ${formatShiftTime(shift.scheduledEndTime)}`
+                                        : shift.scheduledEndTime 
+                                          ? `until ${formatShiftTime(shift.scheduledEndTime)}`
+                                          : ''
+                                      }
+                                    </p>
+                                  )}
                                 </div>
                                 {shift.isOnBreak && shift.breakStartTime ? (
-                                  <div className="flex items-center gap-1 lg:gap-2">
-                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 xl:h-5 xl:w-5 text-amber-400" />
-                                    <span className={`text-[10px] lg:text-xs xl:text-sm font-bold ${
+                                  <div className="flex items-center gap-1">
+                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 text-amber-400" />
+                                    <span className={`text-[9px] lg:text-[10px] font-bold ${
                                       getBreakReturnTime(shift.breakStartTime).isOverdue 
                                         ? 'text-red-400' 
                                         : 'text-amber-300'
@@ -1122,7 +1077,7 @@ export function ManagerDashboardOverlay({
                                     </span>
                                   </div>
                                 ) : (
-                                  <Scissors className="h-3 w-3 lg:h-4 lg:w-4 xl:h-5 xl:w-5 text-white/40" />
+                                  <Scissors className="h-3 w-3 lg:h-4 lg:w-4 text-white/40" />
                                 )}
                               </div>
                             </PopoverTrigger>
@@ -1187,6 +1142,12 @@ export function ManagerDashboardOverlay({
                         );
                       })
                     )}
+                    {/* Show scroll indicator if more than 6 */}
+                    {activeShifts.length > 6 && (
+                      <p className="text-white/40 text-center text-[9px] pt-1">
+                        +{activeShifts.length - 6} more (scroll to see)
+                      </p>
+                    )}
                   </div>
                   
                   {/* Labor Savings Preview Button */}
@@ -1198,7 +1159,7 @@ export function ManagerDashboardOverlay({
                     >
                       <Button
                         size="sm"
-                        className={`w-full h-8 text-xs ${
+                        className={`w-full h-7 text-[10px] ${
                           cutsSaved 
                             ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' 
                             : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
@@ -1215,21 +1176,26 @@ export function ManagerDashboardOverlay({
                 </CardContent>
               </Card>
 
-              {/* Quick Tasks */}
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                <CardContent className="p-2 sm:p-3">
+              {/* Quick Tasks - Taller, show more tasks */}
+              <Card className="bg-white/10 border-white/20 flex-1 min-h-[160px] lg:min-h-[200px]">
+                <CardContent className="p-2 sm:p-3 h-full flex flex-col">
                   <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
                     <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Tasks
+                    {quickTasks.length > 0 && (
+                      <Badge variant="secondary" className="ml-auto bg-white/10 text-white/60 text-[10px]">
+                        {quickTasks.length}
+                      </Badge>
+                    )}
                   </h3>
-                  <div className="space-y-1">
+                  <div className="space-y-1 flex-1 overflow-y-auto">
                     {quickTasks.length === 0 ? (
-                      <p className="text-white/40 text-center py-2 text-[10px] sm:text-xs">No tasks today</p>
+                      <p className="text-white/40 text-center py-4 text-[10px] sm:text-xs">No tasks today</p>
                     ) : (
-                      quickTasks.slice(0, 3).map((task: any) => (
+                      quickTasks.slice(0, 6).map((task: any) => (
                         <div
                           key={task.id}
-                          className="flex items-center gap-1 sm:gap-2 p-1 sm:p-1.5 rounded bg-white/5"
+                          className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5"
                         >
                           <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
                           <div className="flex-1 min-w-0">
@@ -1237,7 +1203,7 @@ export function ManagerDashboardOverlay({
                               {task.event_name}
                             </p>
                           </div>
-                          <span className="text-white/40 text-[9px] sm:text-[10px]">
+                          <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
                             {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
                           </span>
                         </div>
