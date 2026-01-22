@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, X, Clock } from "lucide-react";
+import { Bell, Check, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AlarmTask {
@@ -25,10 +25,13 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [isCompleting, setIsCompleting] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [isSnoozed, setIsSnoozed] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const snoozeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const snoozedAlarmRef = useRef<AlarmTask | null>(null);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -120,7 +123,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
           startCountdown(remaining);
           
           timeoutRef.current = setTimeout(() => {
-            handleDismiss();
+            handleSnooze();
           }, remaining * 1000);
         }
       }
@@ -172,7 +175,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               startCountdown(remaining);
               
               timeoutRef.current = setTimeout(() => {
-                handleDismiss();
+                handleSnooze();
               }, remaining * 1000);
             }
           }
@@ -187,6 +190,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       }
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
+      }
+      if (snoozeTimeoutRef.current) {
+        clearTimeout(snoozeTimeoutRef.current);
       }
     };
   }, [locationId]);
@@ -276,7 +282,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       if (error) throw error;
 
       toast.success("Task completed!");
-      handleDismiss();
+      handleDismissComplete();
       onComplete?.();
     } catch (error: any) {
       console.error("Error completing alarm task:", error);
@@ -286,17 +292,67 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }
   };
 
-  const handleDismiss = () => {
+  const handleSnooze = () => {
+    // Store the alarm for snooze
+    snoozedAlarmRef.current = activeAlarm;
+    setIsSnoozed(true);
     setIsVisible(false);
-    setTimeout(() => {
-      setActiveAlarm(null);
-    }, 300);
+    
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
+    
+    // Clear any existing snooze timer
+    if (snoozeTimeoutRef.current) {
+      clearTimeout(snoozeTimeoutRef.current);
+    }
+    
+    // Show again in 2 minutes
+    snoozeTimeoutRef.current = setTimeout(() => {
+      if (snoozedAlarmRef.current) {
+        setActiveAlarm(snoozedAlarmRef.current);
+        setIsVisible(true);
+        setIsSnoozed(false);
+        void playAlarmSound();
+        setCountdown(30);
+        startCountdown(30);
+        
+        // Auto-dismiss after 30 seconds
+        timeoutRef.current = setTimeout(() => {
+          handleSnooze();
+        }, 30000);
+      }
+    }, 120000); // 2 minutes
+    
+    setTimeout(() => {
+      setActiveAlarm(null);
+    }, 300);
+    
+    toast.info("Snoozed for 2 minutes", { duration: 2000 });
+  };
+
+  const handleDismissComplete = () => {
+    // Full dismiss after task is completed - no snooze
+    setIsVisible(false);
+    setIsSnoozed(false);
+    snoozedAlarmRef.current = null;
+    
+    if (snoozeTimeoutRef.current) {
+      clearTimeout(snoozeTimeoutRef.current);
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+    
+    setTimeout(() => {
+      setActiveAlarm(null);
+    }, 300);
   };
 
   if (!activeAlarm) return null;
@@ -310,7 +366,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          onClick={handleDismiss}
+          onClick={handleSnooze}
         >
           {/* Backdrop with animated gradient */}
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" />
@@ -412,10 +468,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                     variant="outline"
                     size="lg"
                     className="flex-1 gap-2 h-14 text-base rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
-                    onClick={handleDismiss}
+                    onClick={handleSnooze}
                   >
-                    <X className="h-5 w-5" />
-                    Dismiss
+                    <Clock className="h-5 w-5" />
+                    Snooze
                   </Button>
                   <Button
                     size="lg"
