@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Bell, Check, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AlarmTask {
@@ -247,36 +246,95 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         oscillator.stop(audioContext.currentTime + time + duration);
       };
 
-      // Alarm pattern - 3 cycles (~3.6 seconds)
-      for (let cycle = 0; cycle < 3; cycle++) {
-        const offset = cycle * 1.2;
-        playBeep(offset + 0, 880, 0.15);
-        playBeep(offset + 0.2, 660, 0.15);
-        playBeep(offset + 0.4, 880, 0.15);
-        playBeep(offset + 0.6, 660, 0.15);
-        playBeep(offset + 0.8, 988, 0.25);
-      }
+      // Alarm pattern - 1 cycle only (~1.2 seconds)
+      playBeep(0, 880, 0.15);
+      playBeep(0.2, 660, 0.15);
+      playBeep(0.4, 880, 0.15);
+      playBeep(0.6, 660, 0.15);
+      playBeep(0.8, 988, 0.25);
     } catch (e) {
       console.log("Could not play alarm sound:", e);
     }
+  };
+
+  const speakAlarmName = async (title: string): Promise<void> => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-alarm-tts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ text: title }),
+        }
+      );
+
+      if (!response.ok) {
+        console.log("TTS request failed:", response.status);
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.audioContent) return;
+
+      // Play using data URI
+      const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
+      const audio = new Audio(audioUrl);
+      
+      return new Promise((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+        audio.play().catch(() => resolve());
+      });
+    } catch (e) {
+      console.log("TTS error:", e);
+    }
+  };
+
+  const playAlarmSequence = async (title: string) => {
+    // Play beep once
+    await playAlarmBurst();
+    
+    // Wait for beep to finish (~1.2 seconds)
+    await new Promise((r) => setTimeout(r, 1300));
+    
+    // Speak the alarm name
+    await speakAlarmName(title);
+    
+    // Small pause
+    await new Promise((r) => setTimeout(r, 300));
+    
+    // Play beep again
+    await playAlarmBurst();
   };
 
   const startAlarmLoop = () => {
     // Stop any existing loop
     stopAlarmLoop();
     
-    // Play immediately
-    void playAlarmBurst();
+    if (!activeAlarm) return;
     
-    // Repeat every 4 seconds (3.6s sound + 0.4s pause)
-    alarmLoopRef.current = setInterval(() => {
-      void playAlarmBurst();
-    }, 4000);
+    const title = activeAlarm.title;
+    
+    // Play the sequence
+    const runSequence = async () => {
+      await playAlarmSequence(title);
+      
+      // Schedule next loop after sequence completes + pause
+      alarmLoopRef.current = setTimeout(() => {
+        runSequence();
+      }, 2000);
+    };
+    
+    runSequence();
   };
 
   const stopAlarmLoop = () => {
     if (alarmLoopRef.current) {
-      clearInterval(alarmLoopRef.current);
+      clearTimeout(alarmLoopRef.current);
       alarmLoopRef.current = null;
     }
   };
