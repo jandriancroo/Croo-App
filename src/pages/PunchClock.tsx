@@ -178,6 +178,12 @@ export default function PunchClock() {
   const [customBackgroundUrls, setCustomBackgroundUrls] = useState<string[]>([]);
   const [customOverlayTexts, setCustomOverlayTexts] = useState<string[]>([]);
   const [customSlideIndex, setCustomSlideIndex] = useState(0);
+  
+  // Crossfade state - track which layer is active (true = layer A, false = layer B)
+  const [crossfadeActive, setCrossfadeActive] = useState(true);
+  const [prevNatureImage, setPrevNatureImage] = useState(NATURE_IMAGES[0]);
+  const [prevHistoricalImage, setPrevHistoricalImage] = useState(HISTORICAL_IMAGES[0]);
+  const [prevCustomImage, setPrevCustomImage] = useState<string | null>(null);
 
   const currentFact = DAILY_FACTS[currentFactIndex];
   const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
@@ -217,15 +223,26 @@ export default function PunchClock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Rotate facts and custom slides every 30 seconds
+  // Rotate facts and custom slides every 30 seconds with crossfade
   useEffect(() => {
     const factTimer = setInterval(() => {
+      // Store current images as previous before updating
+      setPrevNatureImage(NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length]);
+      setPrevHistoricalImage(HISTORICAL_IMAGES[currentImageIndex % HISTORICAL_IMAGES.length]);
+      if (customBackgroundUrls.length > 0) {
+        setPrevCustomImage(customBackgroundUrls[customSlideIndex % customBackgroundUrls.length]);
+      }
+      
+      // Toggle crossfade layer
+      setCrossfadeActive(prev => !prev);
+      
+      // Update indices
       setCurrentFactIndex((prev) => (prev + 1) % DAILY_FACTS.length);
       setCurrentImageIndex((prev) => (prev + 1) % 10);
       setCustomSlideIndex((prev) => prev + 1);
     }, 30000);
     return () => clearInterval(factTimer);
-  }, []);
+  }, [currentImageIndex, customSlideIndex, customBackgroundUrls]);
 
   // Detect brightness of current background image
   useEffect(() => {
@@ -983,16 +1000,36 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                 </div>
               ) : customBackground === "historical_quotes" ? (
-                // Historical theme with rotating landmarks and quotes
-                <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
+                // Historical theme with rotating landmarks and quotes - dual layer crossfade
+                <div className="relative h-full min-h-[600px] overflow-hidden">
+                  {/* Layer A */}
+                  <div 
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ backgroundImage: `url(${crossfadeActive ? currentHistoricalImage : prevHistoricalImage})` }}
+                  />
+                  {/* Layer B */}
+                  <div 
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                    style={{ backgroundImage: `url(${crossfadeActive ? prevHistoricalImage : currentHistoricalImage})` }}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
                   </div>
                 </div>
               ) : customBackground === "nature_facts" || !customBackground ? (
-                // Nature theme with rotating landscapes and facts (default)
-                <div className="relative h-full min-h-[600px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
+                // Nature theme with rotating landscapes and facts (default) - dual layer crossfade
+                <div className="relative h-full min-h-[600px] overflow-hidden">
+                  {/* Layer A */}
+                  <div 
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                    style={{ backgroundImage: `url(${crossfadeActive ? currentNatureImage : prevNatureImage})` }}
+                  />
+                  {/* Layer B */}
+                  <div 
+                    className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                    style={{ backgroundImage: `url(${crossfadeActive ? prevNatureImage : currentNatureImage})` }}
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <h2 className="text-3xl font-bold mb-3 drop-shadow-lg">Did You Know?</h2>
@@ -1003,17 +1040,39 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                 </div>
               ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
-                // Multi-slide custom theme - only custom text, no time
+                // Multi-slide custom theme - dual layer crossfade
                 <div className="relative h-full min-h-[600px] flex flex-col overflow-hidden">
-                  {/* Image area - takes full height for overlay, partial for below */}
-                  <div 
-                    className={`bg-cover bg-center transition-all duration-1000 ${textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
-                    style={{ backgroundImage: `url(${currentCustomImage})` }}
-                  >
-                    {textPosition === 'overlay' && (
+                  {/* Image layers for crossfade */}
+                  {textPosition === 'below' ? (
+                    // For "below" position, image takes flex-1
+                    <div className="relative flex-1 overflow-hidden">
+                      {/* Layer A */}
+                      <div 
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
+                      />
+                      {/* Layer B */}
+                      <div 
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
+                      />
+                    </div>
+                  ) : (
+                    // For "overlay" position, image is absolute
+                    <>
+                      {/* Layer A */}
+                      <div 
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-100' : 'opacity-0'}`}
+                        style={{ backgroundImage: `url(${crossfadeActive ? currentCustomImage : prevCustomImage || currentCustomImage})` }}
+                      />
+                      {/* Layer B */}
+                      <div 
+                        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${crossfadeActive ? 'opacity-0' : 'opacity-100'}`}
+                        style={{ backgroundImage: `url(${crossfadeActive ? prevCustomImage || currentCustomImage : currentCustomImage})` }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
-                    )}
-                  </div>
+                    </>
+                  )}
                   {currentCustomText && textPosition === 'overlay' && (
                     <div className="absolute inset-0 z-10 flex flex-col justify-center items-center p-8">
                       <h2 
