@@ -117,6 +117,7 @@ const AppContent = () => {
   // This prevents blocking the auth page
   return (
         <Routes>
+          <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
