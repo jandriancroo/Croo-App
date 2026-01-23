@@ -129,29 +129,29 @@ export function InterviewInviteMessage({
 
         {/* Manager actions - cancel/reschedule */}
         {!isApplicantView && canModify && (onCancel || onReschedule) && (
-          <div className="flex gap-2 pt-2 border-t border-border/50 mt-2">
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 mt-2">
             {onReschedule && (
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-1 text-xs"
+                className="text-xs h-8 px-2"
                 onClick={onReschedule}
                 disabled={responding}
               >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Reschedule
+                <RefreshCw className="h-3 w-3 mr-1 shrink-0" />
+                <span className="truncate">Reschedule</span>
               </Button>
             )}
             {onCancel && (
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-1 text-xs border-red-500/30 text-red-600 hover:bg-red-500/10"
+                className="text-xs h-8 px-2 border-red-500/30 text-red-600 hover:bg-red-500/10"
                 onClick={onCancel}
                 disabled={responding}
               >
-                <CalendarX className="h-3 w-3 mr-1" />
-                Cancel
+                <CalendarX className="h-3 w-3 mr-1 shrink-0" />
+                <span className="truncate">Cancel</span>
               </Button>
             )}
           </div>
