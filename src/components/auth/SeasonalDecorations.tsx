@@ -43,25 +43,23 @@ const WinterTopSnow = () => (
   </div>
 );
 
-// Full page snowfall - TOP LAYER (z-50) with blur
+// Full page snowfall - GPU-accelerated simple circles for 120hz performance
 export const WinterSnowfall = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
-    {[...Array(50)].map((_, i) => (
+    {[...Array(35)].map((_, i) => (
       <div
         key={i}
-        className="absolute text-white animate-snowfall"
+        className="absolute rounded-full bg-white/80 animate-snowfall"
         style={{
           left: `${Math.random() * 100}%`,
-          top: `-5%`,
+          top: `-2%`,
+          width: `${4 + Math.random() * 6}px`,
+          height: `${4 + Math.random() * 6}px`,
           animationDelay: `${Math.random() * 8}s`,
-          animationDuration: `${6 + Math.random() * 6}s`,
-          fontSize: `${8 + Math.random() * 14}px`,
-          opacity: 0.6 + Math.random() * 0.4,
-          filter: `blur(${0.5 + Math.random() * 1.5}px)`,
+          animationDuration: `${7 + Math.random() * 5}s`,
+          willChange: 'transform',
         }}
-      >
-        ❄
-      </div>
+      />
     ))}
   </div>
 );
