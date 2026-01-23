@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MessageCircle, ExternalLink, Copy, Check, Calendar, Clock } from 'lucide-react';
+
+import { MessageCircle, ExternalLink, Copy, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -18,17 +18,11 @@ interface Message {
 interface HiringChatPreviewProps {
   applicationId: string;
   applicantName: string;
-  interviewDate?: string | null;
-  interviewTime?: string | null;
-  interviewStatus?: string | null;
 }
 
 export function HiringChatPreview({ 
   applicationId, 
-  applicantName,
-  interviewDate,
-  interviewTime,
-  interviewStatus 
+  applicantName
 }: HiringChatPreviewProps) {
   const navigate = useNavigate();
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -93,23 +87,6 @@ export function HiringChatPreview({
     }
   };
 
-  const getInterviewStatusBadge = () => {
-    if (!interviewDate || !interviewStatus) return null;
-    
-    const statusColors: Record<string, string> = {
-      pending: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
-      accepted: 'bg-green-500/20 text-green-700 dark:text-green-300',
-      declined: 'bg-red-500/20 text-red-700 dark:text-red-300',
-      cancelled: 'bg-muted text-muted-foreground',
-    };
-
-    return (
-      <Badge className={statusColors[interviewStatus] || 'bg-muted'}>
-        {interviewStatus === 'pending' ? 'Invite Sent' : interviewStatus}
-      </Badge>
-    );
-  };
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -143,29 +120,6 @@ export function HiringChatPreview({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* Interview Info */}
-        {interviewDate && (
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Interview Scheduled</span>
-              </div>
-              {getInterviewStatusBadge()}
-            </div>
-            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-              <span>{format(new Date(interviewDate + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</span>
-              {interviewTime && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  {interviewTime}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Recent Messages Preview */}
         {loading ? (
           <p className="text-sm text-muted-foreground text-center py-2">Loading...</p>
         ) : messageCount === 0 ? (

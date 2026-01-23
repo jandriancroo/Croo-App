@@ -516,7 +516,8 @@ export default function Hiring() {
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
-                              {app.interview_date && (
+                              {/* Only show interview info when in interviewing phase */}
+                              {app.status === 'interviewing' && app.interview_date && (
                                 <span className="flex items-center gap-1 text-primary">
                                   <Calendar className="h-3 w-3" />
                                   {format(new Date(app.interview_date + 'T00:00:00'), 'MMM d')}
