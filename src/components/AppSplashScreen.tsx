@@ -34,24 +34,30 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
   return (
     <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
       <div className="relative flex flex-col items-center gap-8">
-        {/* Logo with dramatic zoom */}
+        {/* Logo with breathing zoom while loading */}
         <motion.img 
           src={crooLogo} 
           alt="Croo" 
           className="w-24 h-24 object-contain"
           style={{ willChange: 'transform, opacity' }}
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={phase === 'reveal' ? {
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={phase === 'loading' ? {
             opacity: 1,
-            scale: 1,
+            scale: [0.9, 1.08, 0.9],
           } : {
             opacity: 1,
-            scale: [0.4, 1.15, 1],
+            scale: 1,
           }}
-          transition={{ 
-            duration: 0.6, 
-            ease: [0.34, 1.56, 0.64, 1], // Bouncy overshoot
-            times: [0, 0.7, 1],
+          transition={phase === 'loading' ? {
+            opacity: { duration: 0.3 },
+            scale: {
+              duration: 1.2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+          } : {
+            duration: 0.3,
+            ease: 'easeOut',
           }}
         />
         

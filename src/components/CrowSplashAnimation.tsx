@@ -38,18 +38,30 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
       <div className="relative flex flex-col items-center gap-8">
-        {/* Logo with dramatic zoom */}
+        {/* Logo with breathing zoom while loading */}
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
           className="h-28 w-auto"
           style={{ willChange: 'transform, opacity' }}
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={{ opacity: 1, scale: [0.4, 1.15, 1] }}
-          transition={{ 
-            duration: 0.6, 
-            ease: [0.34, 1.56, 0.64, 1], // Bouncy overshoot
-            times: [0, 0.7, 1],
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={phase === 'loading' ? {
+            opacity: 1,
+            scale: [0.9, 1.08, 0.9],
+          } : {
+            opacity: 1,
+            scale: 1,
+          }}
+          transition={phase === 'loading' ? {
+            opacity: { duration: 0.3 },
+            scale: {
+              duration: 1.2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            },
+          } : {
+            duration: 0.3,
+            ease: 'easeOut',
           }}
         />
         
