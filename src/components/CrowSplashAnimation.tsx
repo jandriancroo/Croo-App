@@ -25,7 +25,8 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
     <motion.div 
       className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.8) 50%, hsl(var(--accent)) 100%)'
+        background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.8) 50%, hsl(var(--accent)) 100%)',
+        willChange: 'opacity, transform',
       }}
       initial={{ opacity: 1 }}
       animate={phase === 'exit' ? { 
@@ -34,16 +35,16 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
       } : { opacity: 1 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
     >
-      {/* Ripple effects */}
+      {/* Ripple effects - using scale instead of width/height for GPU acceleration */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        {[...Array(3)].map((_, i) => (
+        {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full border-2 border-primary-foreground/20"
-            initial={{ width: 80, height: 80, opacity: 0 }}
+            className="absolute w-20 h-20 rounded-full border-2 border-primary-foreground/20"
+            style={{ willChange: 'transform, opacity' }}
+            initial={{ scale: 1, opacity: 0 }}
             animate={{ 
-              width: [80, 400, 600],
-              height: [80, 400, 600],
+              scale: [1, 7, 9],
               opacity: [0, 0.4, 0],
             }}
             transition={{
@@ -56,9 +57,10 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
         ))}
       </div>
 
-      {/* Liquid blob morphing into logo */}
+      {/* Logo container */}
       <motion.div
         className="relative z-10"
+        style={{ willChange: 'transform, opacity' }}
         initial={{ scale: 0.3, opacity: 0 }}
         animate={{ 
           scale: phase === 'morphing' ? [0.3, 1.15, 1] : 1,
@@ -66,18 +68,15 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
         }}
         transition={{ 
           duration: 0.6, 
-          ease: [0.34, 1.56, 0.64, 1], // Bouncy spring
+          ease: [0.34, 1.56, 0.64, 1],
         }}
       >
-        {/* Glow behind logo */}
-        <motion.div
-          className="absolute inset-0 blur-2xl"
+        {/* Glow - static, no animation needed */}
+        <div
+          className="absolute inset-0 blur-2xl scale-150 opacity-80"
           style={{
             background: 'radial-gradient(circle, hsl(var(--primary-foreground)/0.3) 0%, transparent 70%)',
           }}
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1.5, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
         />
         
         {/* Logo */}
@@ -85,6 +84,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
           src={crooLogo} 
           alt="Logo" 
           className="h-28 w-auto drop-shadow-lg relative z-10"
+          style={{ willChange: 'filter' }}
           initial={{ filter: 'blur(20px)' }}
           animate={{ filter: 'blur(0px)' }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -94,6 +94,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
       {/* Welcome text */}
       <motion.div 
         className="mt-6 relative z-10"
+        style={{ willChange: 'transform, opacity' }}
         initial={{ opacity: 0, y: 20, scale: 0.9 }}
         animate={phase !== 'morphing' ? { 
           opacity: 1, 
@@ -102,9 +103,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
         } : {}}
         transition={{ duration: 0.4, ease: 'easeOut' }}
       >
-        <span 
-          className="font-pacifico text-5xl md:text-6xl text-primary-foreground drop-shadow-md"
-        >
+        <span className="font-pacifico text-5xl md:text-6xl text-primary-foreground drop-shadow-md">
           welcome
         </span>
       </motion.div>
