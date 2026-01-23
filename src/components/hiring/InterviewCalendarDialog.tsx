@@ -3,13 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 
-import { format, parseISO, isSameDay, startOfWeek, endOfWeek, addDays } from 'date-fns';
-import { Loader2, CalendarDays, Users, Clock, UserCircle } from 'lucide-react';
+import { format, parseISO, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
+import { Loader2, CalendarDays, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InterviewCalendarDialogProps {
@@ -155,8 +153,8 @@ export function InterviewCalendarDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />
             Interview Calendar
@@ -168,7 +166,7 @@ export function InterviewCalendarDialog({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-4 flex-1 overflow-hidden">
+          <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0 overflow-hidden">
             {/* Calendar */}
             <div className="flex-shrink-0">
               <Calendar
@@ -188,16 +186,16 @@ export function InterviewCalendarDialog({
               />
             </div>
 
-            {/* Day Details */}
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-4 pr-4">
-                <div className="text-center pb-2 border-b">
+            {/* Day Details - scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="space-y-4 pr-2">
+                <div className="text-center pb-2 border-b sticky top-0 bg-background z-10">
                   <h3 className="font-semibold text-lg">
                     {format(selectedDate, 'EEEE, MMMM d')}
                   </h3>
                 </div>
 
-                {/* Interviews */}
+                {/* Interviews - compact 3-column table */}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
                     <CalendarDays className="h-4 w-4" />
@@ -208,29 +206,40 @@ export function InterviewCalendarDialog({
                       No interviews scheduled
                     </p>
                   ) : (
-                    selectedDateInterviews.map(interview => (
-                      <Card key={interview.id} className="bg-primary/5 border-primary/20">
-                        <CardContent className="py-2 px-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{interview.full_name}</p>
-                              <p className="text-sm text-muted-foreground">
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="text-left px-3 py-1.5 font-medium">Name</th>
+                            <th className="text-left px-3 py-1.5 font-medium">Time</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {selectedDateInterviews.map(interview => (
+                            <tr key={interview.id} className="hover:bg-muted/30">
+                              <td className="px-3 py-2 font-medium">{interview.full_name}</td>
+                              <td className="px-3 py-2 text-muted-foreground">
                                 {formatTime12h(interview.interview_time)}
-                              </p>
-                            </div>
-                            <Badge 
-                              className={cn(
-                                interview.interview_status === 'accepted' 
-                                  ? 'bg-green-500/20 text-green-700 dark:text-green-300'
-                                  : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                              )}
-                            >
-                              {interview.interview_status}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    "text-xs",
+                                    interview.interview_status === 'accepted' 
+                                      ? 'bg-green-500/10 text-green-600 border-green-500/30'
+                                      : 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                                  )}
+                                >
+                                  {interview.interview_status === 'accepted' ? 'Confirmed' : 'Invite Sent'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
 
@@ -267,7 +276,7 @@ export function InterviewCalendarDialog({
                   )}
                 </div>
               </div>
-            </ScrollArea>
+            </div>
           </div>
         )}
       </DialogContent>
