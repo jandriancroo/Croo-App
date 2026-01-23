@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { Flag, Check, ChevronDown, History, Loader2 } from 'lucide-react';
+import { Flag, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface FlagOption {
   description: string;
   bgClass: string;
   dotClass: string;
+  emoji: string;
 }
 
 const FLAG_OPTIONS: FlagOption[] = [
@@ -25,28 +26,32 @@ const FLAG_OPTIONS: FlagOption[] = [
     label: 'Strong Yes', 
     description: 'Ready to hire',
     bgClass: 'bg-green-500/20 hover:bg-green-500/30 border-green-500/50',
-    dotClass: 'bg-green-500'
+    dotClass: 'bg-green-500',
+    emoji: '🟢'
   },
   { 
     color: 'yellow', 
     label: 'Maybe', 
     description: 'On the fence',
     bgClass: 'bg-yellow-500/20 hover:bg-yellow-500/30 border-yellow-500/50',
-    dotClass: 'bg-yellow-500'
+    dotClass: 'bg-yellow-500',
+    emoji: '🟡'
   },
   { 
     color: 'red', 
     label: 'Concerns', 
     description: 'Likely not a fit',
     bgClass: 'bg-red-500/20 hover:bg-red-500/30 border-red-500/50',
-    dotClass: 'bg-red-500'
+    dotClass: 'bg-red-500',
+    emoji: '🔴'
   },
   { 
     color: 'none', 
     label: 'Clear Flag', 
     description: 'Remove rating',
     bgClass: 'bg-muted hover:bg-muted/80 border-muted-foreground/20',
-    dotClass: 'bg-muted-foreground/30'
+    dotClass: 'bg-muted-foreground/30',
+    emoji: '⚪'
   },
 ];
 
@@ -60,7 +65,6 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
   const [open, setOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState<FlagColor | null>(null);
   const [reason, setReason] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
 
   // Fetch current flag
   const { data: currentFlag, isLoading: flagLoading } = useQuery({
@@ -78,33 +82,32 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
     enabled: !!applicationId,
   });
 
-  // Fetch flag history
-  const { data: flagHistory } = useQuery({
-    queryKey: ['applicant-flag-history', applicationId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('applicant_flags')
-        .select(`
-          *,
-          setter:profiles!applicant_flags_set_by_fkey(full_name)
-        `)
-        .eq('application_id', applicationId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!applicationId && showHistory,
-  });
-
-  // Set flag mutation
+  // Set flag mutation - also appends to internal notes
   const setFlagMutation = useMutation({
     mutationFn: async ({ color, flagReason }: { color: FlagColor; flagReason: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // Get user's name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      const userName = profile?.full_name || 'Unknown';
+      const flagOption = FLAG_OPTIONS.find(f => f.color === color);
+      const timestamp = format(new Date(), 'MMM d, yyyy \'at\' h:mm a');
+
+      // Build the note entry
+      let noteEntry = `${flagOption?.emoji} **${flagOption?.label}**`;
+      if (flagReason) {
+        noteEntry += ` — "${flagReason}"`;
+      }
+      noteEntry += ` — *${userName}, ${timestamp}*`;
+
+      // Insert the flag
+      const { error: flagError } = await supabase
         .from('applicant_flags')
         .insert({
           application_id: applicationId,
@@ -113,11 +116,31 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
           set_by: user.id,
         });
 
-      if (error) throw error;
+      if (flagError) throw flagError;
+
+      // Get current notes and append
+      const { data: app } = await supabase
+        .from('job_applications')
+        .select('internal_notes')
+        .eq('id', applicationId)
+        .single();
+
+      const currentNotes = app?.internal_notes || '';
+      const updatedNotes = currentNotes 
+        ? `${currentNotes}\n\n${noteEntry}`
+        : noteEntry;
+
+      // Update internal notes
+      const { error: notesError } = await supabase
+        .from('job_applications')
+        .update({ internal_notes: updatedNotes })
+        .eq('id', applicationId);
+
+      if (notesError) throw notesError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applicant-flag', applicationId] });
-      queryClient.invalidateQueries({ queryKey: ['applicant-flag-history', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['application-detail', applicationId] });
       queryClient.invalidateQueries({ queryKey: ['job-applications'] });
       toast.success('Flag updated');
       setOpen(false);
@@ -224,45 +247,6 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
                 )}
               </button>
             ))}
-            
-            {/* History toggle */}
-            {currentFlag && (
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <History className="h-4 w-4" />
-                {showHistory ? 'Hide History' : 'View History'}
-              </button>
-            )}
-
-            {/* Flag History */}
-            {showHistory && flagHistory && flagHistory.length > 0 && (
-              <div className="border-t mt-2 pt-2 px-2 max-h-48 overflow-y-auto">
-                <div className="text-xs font-medium text-muted-foreground mb-2">History</div>
-                <div className="space-y-2">
-                  {flagHistory.map((entry: any) => {
-                    const flagOpt = FLAG_OPTIONS.find(f => f.color === entry.flag_color);
-                    return (
-                      <div key={entry.id} className="text-xs border-l-2 pl-2" style={{ borderColor: flagOpt?.dotClass.includes('green') ? '#22c55e' : flagOpt?.dotClass.includes('yellow') ? '#eab308' : flagOpt?.dotClass.includes('red') ? '#ef4444' : '#888' }}>
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium">{flagOpt?.label || 'Unknown'}</span>
-                          <span className="text-muted-foreground">
-                            by {entry.setter?.full_name || 'Unknown'}
-                          </span>
-                        </div>
-                        {entry.reason && (
-                          <p className="text-muted-foreground mt-0.5">{entry.reason}</p>
-                        )}
-                        <p className="text-muted-foreground/70 mt-0.5">
-                          {format(new Date(entry.created_at), 'MMM d, h:mm a')}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className="p-4 space-y-4">
