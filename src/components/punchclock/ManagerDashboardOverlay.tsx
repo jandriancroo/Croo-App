@@ -577,6 +577,7 @@ export function ManagerDashboardOverlay({
   
   // Pace Adjusted: use localStorage cache (SAME source as Dashboard SalesSummary)
   // CRITICAL: This is the TRUE pace number from Dashboard
+  // If no cached pace, calculate on-the-fly using: actualSales + remainingHoursProjected
   const paceAdjusted = useMemo(() => {
     // First try localStorage cache - this is EXACTLY what Dashboard shows
     if (localStorageProjections?.todayPaceAdjusted && localStorageProjections.todayPaceAdjusted > 0) {
@@ -587,9 +588,39 @@ export function ManagerDashboardOverlay({
     const livePace = cachedSalesOverviewData?.projections?.todayPaceAdjusted;
     if (livePace && livePace > 0) return livePace;
     
-    // Fall back to EOD goal if no pace data (not totalSales which is wrong)
+    // Calculate pace on-the-fly when cache is stale/missing
+    // Pace = actual sales so far + projected remaining hours
+    // Get current hour in timezone
+    const now = new Date();
+    const tzHour = new Date(now.toLocaleString('en-US', { timeZone: timezone })).getHours();
+    
+    // Get hourly data from sales_cache
+    const hourlyArray = (salesData?.hourly_data as unknown as HourlySale[] | null) || [];
+    
+    // Calculate remaining projection from hourly data
+    let remainingProjected = 0;
+    hourlyArray.forEach(h => {
+      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
+      // Add projections for hours after current hour
+      if (hourNum > tzHour && h.projected) {
+        remainingProjected += h.projected;
+      }
+    });
+    
+    // If we have both actual sales and remaining projections, calculate pace
+    if (totalSales > 0 && remainingProjected > 0) {
+      return totalSales + remainingProjected;
+    }
+    
+    // If we have actual sales but no hourly projections, use MAX(actual, goal)
+    // This prevents showing misleading low pace early in the day
+    if (totalSales > 0 && eodGoal > 0) {
+      return Math.max(totalSales, eodGoal);
+    }
+    
+    // Last resort: show EOD goal (better than showing 0)
     return eodGoal;
-  }, [localStorageProjections, cachedSalesOverviewData, eodGoal]);
+  }, [localStorageProjections, cachedSalesOverviewData, totalSales, eodGoal, salesData?.hourly_data, timezone]);
 
   // Get hourly sales with projections from cached SalesOverview data
   // Only show hours that have actual sales recorded (not empty hours)
