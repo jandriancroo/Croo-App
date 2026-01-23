@@ -23,30 +23,86 @@ function getSeason(): Season {
   return 'fall';
 }
 
-// Icicles for winter
-const WinterIcicles = () => (
-  <div className="absolute -top-1 left-0 right-0 flex justify-around pointer-events-none overflow-hidden">
-    {[...Array(8)].map((_, i) => (
-      <svg
-        key={i}
-        width="20"
-        height={30 + (i % 3) * 15}
-        viewBox="0 0 20 60"
-        className="opacity-80"
-        style={{ marginTop: -2 }}
-      >
-        <defs>
-          <linearGradient id={`icicle-${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#b8e4f0" />
-            <stop offset="100%" stopColor="#7dd3fc" stopOpacity="0.6" />
-          </linearGradient>
-        </defs>
-        <path
-          d={`M10 0 Q15 ${20 + (i % 2) * 10} 12 ${40 + (i % 3) * 15} Q10 ${50 + (i % 3) * 10} 10 60 Q10 ${50 + (i % 3) * 10} 8 ${40 + (i % 3) * 15} Q5 ${20 + (i % 2) * 10} 10 0`}
-          fill={`url(#icicle-${i})`}
-        />
-      </svg>
-    ))}
+// Snow cap with icicles for the top edge
+const WinterTopSnow = () => (
+  <div className="absolute -top-3 left-4 right-4 pointer-events-none" style={{ zIndex: 10 }}>
+    <svg width="100%" height="35" viewBox="0 0 300 35" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="snow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="60%" stopColor="#e8f4f8" />
+          <stop offset="100%" stopColor="#d1e7ed" />
+        </linearGradient>
+        <linearGradient id="icicle-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#d1e7ed" />
+          <stop offset="50%" stopColor="#a5d8e6" />
+          <stop offset="100%" stopColor="#7cc4d8" stopOpacity="0.7" />
+        </linearGradient>
+      </defs>
+      {/* Snow cap base */}
+      <path
+        d="M0 8 Q10 4 25 6 Q50 2 75 8 Q100 3 125 7 Q150 2 175 6 Q200 4 225 8 Q250 3 275 6 Q290 4 300 8 L300 12 Q280 14 260 12 Q240 16 220 13 Q200 15 180 12 Q160 16 140 13 Q120 15 100 12 Q80 16 60 13 Q40 15 20 12 Q10 14 0 12 Z"
+        fill="url(#snow-gradient)"
+      />
+      {/* Icicles dripping down */}
+      <path d="M30 12 Q32 18 31 28 Q30 32 29 28 Q28 18 30 12" fill="url(#icicle-grad)" />
+      <path d="M55 13 Q58 22 56 35 Q55 30 54 35 Q52 22 55 13" fill="url(#icicle-grad)" />
+      <path d="M90 12 Q92 16 91 22 Q90 24 89 22 Q88 16 90 12" fill="url(#icicle-grad)" />
+      <path d="M120 13 Q123 20 121 30 Q120 32 119 30 Q117 20 120 13" fill="url(#icicle-grad)" />
+      <path d="M150 12 Q152 17 151 25 Q150 27 149 25 Q148 17 150 12" fill="url(#icicle-grad)" />
+      <path d="M180 13 Q183 21 181 32 Q180 35 179 32 Q177 21 180 13" fill="url(#icicle-grad)" />
+      <path d="M210 12 Q212 16 211 20 Q210 22 209 20 Q208 16 210 12" fill="url(#icicle-grad)" />
+      <path d="M245 13 Q248 20 246 28 Q245 30 244 28 Q242 20 245 13" fill="url(#icicle-grad)" />
+      <path d="M270 12 Q272 18 271 26 Q270 28 269 26 Q268 18 270 12" fill="url(#icicle-grad)" />
+    </svg>
+  </div>
+);
+
+// Corner snow wrapping top-left
+const WinterCornerTopLeft = () => (
+  <div className="absolute -top-4 -left-4 pointer-events-none" style={{ zIndex: 10 }}>
+    <svg width="50" height="60" viewBox="0 0 50 60">
+      <defs>
+        <linearGradient id="snow-corner-tl" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#d1e7ed" />
+        </linearGradient>
+        <linearGradient id="icicle-corner" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#d1e7ed" />
+          <stop offset="100%" stopColor="#7cc4d8" stopOpacity="0.6" />
+        </linearGradient>
+      </defs>
+      {/* Snow cap wrapping corner */}
+      <path
+        d="M50 10 Q45 8 40 12 Q30 6 20 14 Q10 10 5 18 Q2 22 0 30 L0 35 Q5 28 8 22 Q12 16 20 18 Q30 12 40 16 Q48 12 50 15 Z"
+        fill="url(#snow-corner-tl)"
+      />
+      {/* Icicle dripping from corner */}
+      <path d="M8 30 Q12 40 10 55 Q8 60 6 55 Q4 40 8 30" fill="url(#icicle-corner)" />
+      <path d="M20 18 Q22 24 21 32 Q20 34 19 32 Q18 24 20 18" fill="url(#icicle-corner)" />
+    </svg>
+  </div>
+);
+
+// Corner snow wrapping top-right
+const WinterCornerTopRight = () => (
+  <div className="absolute -top-4 -right-4 pointer-events-none" style={{ zIndex: 10 }}>
+    <svg width="50" height="60" viewBox="0 0 50 60">
+      <defs>
+        <linearGradient id="snow-corner-tr" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#d1e7ed" />
+        </linearGradient>
+      </defs>
+      {/* Snow cap wrapping corner */}
+      <path
+        d="M0 10 Q5 8 10 12 Q20 6 30 14 Q40 10 45 18 Q48 22 50 30 L50 35 Q45 28 42 22 Q38 16 30 18 Q20 12 10 16 Q2 12 0 15 Z"
+        fill="url(#snow-corner-tr)"
+      />
+      {/* Icicle dripping from corner */}
+      <path d="M42 30 Q46 42 44 55 Q42 60 40 55 Q38 42 42 30" fill="url(#icicle-corner)" />
+      <path d="M30 18 Q32 24 31 32 Q30 34 29 32 Q28 24 30 18" fill="url(#icicle-corner)" />
+    </svg>
   </div>
 );
 
@@ -233,21 +289,36 @@ const FallPumpkins = () => (
   </>
 );
 
-// Button decorations
+// Button decorations - snow cap on top of button
 export const SeasonalButtonDecor = () => {
   const season = getSeason();
   
   if (season === 'winter') {
     return (
-      <div className="absolute -top-1 left-2 right-2 flex justify-around pointer-events-none">
-        {[...Array(4)].map((_, i) => (
-          <svg key={i} width="8" height={10 + i * 3} viewBox="0 0 8 20" className="opacity-70">
-            <path
-              d={`M4 0 Q6 8 5 ${15 + i * 2} Q4 ${18 + i} 4 20 Q4 ${18 + i} 3 ${15 + i * 2} Q2 8 4 0`}
-              fill="#93c5fd"
-            />
-          </svg>
-        ))}
+      <div className="absolute -top-2 left-1 right-1 pointer-events-none" style={{ zIndex: 10 }}>
+        <svg width="100%" height="18" viewBox="0 0 200 18" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="btn-snow" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#e0eff4" />
+            </linearGradient>
+            <linearGradient id="btn-icicle" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#d1e7ed" />
+              <stop offset="100%" stopColor="#7cc4d8" stopOpacity="0.5" />
+            </linearGradient>
+          </defs>
+          {/* Snow cap */}
+          <path
+            d="M0 6 Q15 3 30 5 Q60 2 90 6 Q120 3 150 5 Q175 2 190 6 Q198 4 200 6 L200 10 Q180 12 160 10 Q130 13 100 10 Q70 13 40 10 Q20 12 0 10 Z"
+            fill="url(#btn-snow)"
+          />
+          {/* Small icicles */}
+          <path d="M25 10 Q26 13 25 16 Q24 13 25 10" fill="url(#btn-icicle)" />
+          <path d="M70 10 Q72 14 71 18 Q70 14 70 10" fill="url(#btn-icicle)" />
+          <path d="M100 10 Q101 12 100 15 Q99 12 100 10" fill="url(#btn-icicle)" />
+          <path d="M130 10 Q132 14 131 18 Q130 14 130 10" fill="url(#btn-icicle)" />
+          <path d="M175 10 Q176 13 175 16 Q174 13 175 10" fill="url(#btn-icicle)" />
+        </svg>
       </div>
     );
   }
@@ -263,7 +334,9 @@ export const SeasonalCardDecor = () => {
     <>
       {season === 'winter' && (
         <>
-          <WinterIcicles />
+          <WinterTopSnow />
+          <WinterCornerTopLeft />
+          <WinterCornerTopRight />
           <WinterSnowflakes />
         </>
       )}
