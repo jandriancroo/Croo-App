@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, MessageCircle } from 'lucide-react';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { HiringChatPanel } from './HiringChatPanel';
 import { ApplicantFlagSelector } from './ApplicantFlagSelector';
+import { ApplicantNotesSection } from './ApplicantNotesSection';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -36,7 +36,6 @@ interface ApplicantProfileProps {
 
 export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange }: ApplicantProfileProps) {
   const queryClient = useQueryClient();
-  const [internalNotes, setInternalNotes] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: application, isLoading } = useQuery({
@@ -62,30 +61,6 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
     enabled: !!applicationId && open,
   });
 
-  // Sync local notes state when application data changes (including after flag updates)
-  useEffect(() => {
-    if (application?.internal_notes !== undefined) {
-      setInternalNotes(application.internal_notes || '');
-    }
-  }, [application?.internal_notes]);
-
-  const updateNotesMutation = useMutation({
-    mutationFn: async () => {
-      if (!applicationId) return;
-      const { error } = await supabase
-        .from('job_applications')
-        .update({ internal_notes: internalNotes })
-        .eq('id', applicationId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['application-detail'] });
-      toast.success('Notes saved');
-    },
-    onError: () => {
-      toast.error('Failed to save notes');
-    },
-  });
 
   const deleteApplicationMutation = useMutation({
     mutationFn: async () => {
@@ -366,29 +341,8 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                 </Card>
               )}
 
-              {/* Internal Notes */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Internal Notes</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Textarea
-                    value={internalNotes}
-                    onChange={e => setInternalNotes(e.target.value)}
-                    placeholder="Add private notes about this applicant..."
-                    rows={3}
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => updateNotesMutation.mutate()}
-                    disabled={updateNotesMutation.isPending}
-                  >
-                    {updateNotesMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Save Notes
-                  </Button>
-                </CardContent>
-              </Card>
+              {/* Notes Section */}
+              <ApplicantNotesSection applicationId={application.id} />
 
               {/* Hiring Chat */}
               <HiringChatPanel 
