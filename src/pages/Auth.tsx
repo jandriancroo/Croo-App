@@ -160,16 +160,17 @@ export default function Auth() {
 
   return (
     <>
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-0">
-            <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
-          </div>
-          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm -mt-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 gap-6">
+        {/* Logo above card */}
+        <div className="flex flex-col items-center gap-2">
+          <img src={crooLogo} alt="Croo Logo" className="h-32 w-auto" />
+          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
             food service made smart
           </p>
-          
+        </div>
+        
+      <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
+        <CardHeader className="text-center pb-2 pt-4">
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -271,6 +272,11 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
+      
+      {/* Powered by Croo branding */}
+      <p className="text-xs text-muted-foreground mt-4">
+        Powered by <span className="font-semibold text-primary">Croo</span>
+      </p>
     </div>
     </>
   );
