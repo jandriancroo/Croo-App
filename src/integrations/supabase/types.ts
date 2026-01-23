@@ -127,6 +127,38 @@ export type Database = {
           },
         ]
       }
+      applicant_notes: {
+        Row: {
+          application_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applicant_push_subscriptions: {
         Row: {
           conversation_id: string

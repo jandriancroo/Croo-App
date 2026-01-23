@@ -82,7 +82,7 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
     enabled: !!applicationId,
   });
 
-  // Set flag mutation - also appends to internal notes
+  // Set flag mutation - also creates a note in applicant_notes
   const setFlagMutation = useMutation({
     mutationFn: async ({ color, flagReason }: { color: FlagColor; flagReason: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -118,30 +118,20 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
 
       if (flagError) throw flagError;
 
-      // Get current notes and append
-      const { data: app } = await supabase
-        .from('job_applications')
-        .select('internal_notes')
-        .eq('id', applicationId)
-        .single();
+      // Insert a note into applicant_notes
+      const { error: noteError } = await supabase
+        .from('applicant_notes')
+        .insert({
+          application_id: applicationId,
+          note: noteEntry,
+          created_by: user.id,
+        });
 
-      const currentNotes = app?.internal_notes || '';
-      const updatedNotes = currentNotes 
-        ? `${currentNotes}\n\n${noteEntry}`
-        : noteEntry;
-
-      // Update internal notes
-      const { error: notesError } = await supabase
-        .from('job_applications')
-        .update({ internal_notes: updatedNotes })
-        .eq('id', applicationId);
-
-      if (notesError) throw notesError;
+      if (noteError) throw noteError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applicant-flag', applicationId] });
-      // Refetch application detail to update the notes textarea with fresh data
-      queryClient.refetchQueries({ queryKey: ['application-detail', applicationId] });
+      queryClient.invalidateQueries({ queryKey: ['applicant-notes', applicationId] });
       queryClient.invalidateQueries({ queryKey: ['job-applications'] });
       toast.success('Flag updated');
       setOpen(false);
