@@ -179,31 +179,25 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
     );
   }
 
-  // Full view for profile dialog
+  // Full view for profile dialog - styled as a badge/tag
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm"
+        <button 
           className={cn(
-            "gap-2",
-            currentFlagOption && currentFlagOption.color !== 'none' && currentFlagOption.bgClass
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer border",
+            currentFlagOption && currentFlagOption.color !== 'none' 
+              ? currentFlagOption.bgClass
+              : "bg-muted hover:bg-muted/80 border-muted-foreground/20 text-muted-foreground"
           )}
         >
           {currentFlagOption && currentFlagOption.color !== 'none' ? (
-            <>
-              <div className={cn("w-3 h-3 rounded-full", currentFlagOption.dotClass)} />
-              {currentFlagOption.label}
-            </>
+            <div className={cn("w-2.5 h-2.5 rounded-full", currentFlagOption.dotClass)} />
           ) : (
-            <>
-              <Flag className="h-4 w-4" />
-              Rate Candidate
-            </>
+            <Flag className="h-3 w-3" />
           )}
           <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         {!selectedColor ? (

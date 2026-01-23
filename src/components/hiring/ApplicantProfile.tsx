@@ -118,37 +118,32 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
           </div>
         ) : application ? (
           <>
-            <DialogHeader>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <DialogTitle className="text-2xl">{application.full_name}</DialogTitle>
+            <DialogHeader className="pr-8">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="text-xl sm:text-2xl">{application.full_name}</DialogTitle>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <Badge className={STATUS_COLORS[application.status as ApplicationStatus]}>
-                      {application.status}
-                    </Badge>
+                    <ApplicantFlagSelector applicationId={application.id} />
                     {application.template && (
-                      <Badge variant="outline">{application.template.name}</Badge>
+                      <Badge variant="outline" className="text-xs">{application.template.name}</Badge>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <ApplicantFlagSelector applicationId={application.id} />
-                  <Select 
-                    value={application.status} 
-                    onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="interested">Interested</SelectItem>
-                      <SelectItem value="interviewing">Interviewing</SelectItem>
-                      <SelectItem value="hired">Hired</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select 
+                  value={application.status} 
+                  onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
+                >
+                  <SelectTrigger className="w-full sm:w-[140px] shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="interviewing">Interviewing</SelectItem>
+                    <SelectItem value="hired">Hired</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </DialogHeader>
 
