@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2 } from 'lucide-react';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, Calendar, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -90,9 +90,26 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
   const availability = application?.availability as Record<string, { am: boolean; pm: boolean }> | null;
   const customResponses = application?.custom_responses as Record<string, string> | null;
 
+  const getInterviewStatusBadge = () => {
+    if (!application?.interview_date || !application?.interview_status) return null;
+    
+    const statusColors: Record<string, string> = {
+      pending: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+      accepted: 'bg-green-500/20 text-green-700 dark:text-green-300',
+      declined: 'bg-red-500/20 text-red-700 dark:text-red-300',
+      cancelled: 'bg-muted text-muted-foreground',
+    };
+
+    return (
+      <Badge className={statusColors[application.interview_status] || 'bg-muted'}>
+        {application.interview_status === 'pending' ? 'Invite Sent' : application.interview_status}
+      </Badge>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -129,6 +146,28 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
             </DialogHeader>
 
             <div className="space-y-6 mt-4">
+              {/* Interview Info - shown at the top when scheduled */}
+              {application.interview_date && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Interview Scheduled</span>
+                    </div>
+                    {getInterviewStatusBadge()}
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    <span>{format(new Date(application.interview_date + 'T00:00:00'), 'EEEE, MMMM d, yyyy')}</span>
+                    {application.interview_time && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {application.interview_time}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Contact Info */}
               <Card>
                 <CardHeader className="pb-2">
@@ -344,13 +383,10 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
               {/* Notes Section */}
               <ApplicantNotesSection applicationId={application.id} />
 
-              {/* Chat Preview + Interview Info */}
+              {/* Chat Preview */}
               <HiringChatPreview 
                 applicationId={application.id} 
                 applicantName={application.full_name}
-                interviewDate={application.interview_date}
-                interviewTime={application.interview_time}
-                interviewStatus={application.interview_status}
               />
 
               {/* Delete Application */}
