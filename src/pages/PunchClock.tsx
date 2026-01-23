@@ -12,6 +12,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
+import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
 
 // Function to calculate average brightness of an image
@@ -960,6 +961,11 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Alarm Task Overlay */}
       {currentLocation?.id && (
         <AlarmTaskOverlay locationId={currentLocation.id} />
+      )}
+      
+      {/* QR Task Report Overlay */}
+      {currentLocation?.id && (
+        <QRTaskReportOverlay locationId={currentLocation.id} />
       )}
       
       {/* Master code 0223 on keypad exits to dashboard */}
