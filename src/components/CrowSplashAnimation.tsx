@@ -13,8 +13,8 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
 
   useEffect(() => {
     const welcomeTimer = setTimeout(() => setPhase('welcome'), loadingDuration);
-    const exitTimer = setTimeout(() => setPhase('exit'), loadingDuration + 600);
-    const completeTimer = setTimeout(() => onComplete(), loadingDuration + 1000);
+    const exitTimer = setTimeout(() => setPhase('exit'), loadingDuration + 800);
+    const completeTimer = setTimeout(() => onComplete(), loadingDuration + 1300);
     
     return () => {
       clearTimeout(welcomeTimer);
@@ -87,8 +87,8 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
                 scaleX: [1, 1.1, 1],
               }}
               transition={phase !== 'loading' ? {
-                duration: 0.25,
-                delay: i * 0.02,
+                duration: 0.4,
+                delay: i * 0.05,
                 ease: 'easeOut',
               } : {
                 duration: 0.5,
