@@ -885,11 +885,16 @@ export default function PunchClock() {
       return;
     }
 
+    // IMPORTANT: Use the active (open) shift_id from the last punch.
+    // After midnight, "todayShift" may switch to the next day's scheduled shift,
+    // which can incorrectly link break_end/clock_out to the wrong shift.
+    const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
+
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
-        shift_id: todayShift?.id,
+        shift_id: activeShiftId,
         punch_type: 'break_end',
         punch_time: new Date().toISOString(),
         location_id: currentLocation?.id,
@@ -913,11 +918,14 @@ export default function PunchClock() {
   };
 
   const handleClockOut = async () => {
+    // Use the open shift_id from the last punch (handles overnight shifts).
+    const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
+
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
-        shift_id: todayShift?.id,
+        shift_id: activeShiftId,
         punch_type: 'clock_out',
         punch_time: new Date().toISOString(),
         location_id: currentLocation?.id,
