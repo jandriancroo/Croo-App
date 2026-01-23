@@ -43,44 +43,6 @@ const WinterTopSnow = () => (
   </div>
 );
 
-// Corner snow wrapping top-left - thick, no icicles
-const WinterCornerTopLeft = () => (
-  <div className="absolute -top-6 -left-6 pointer-events-none" style={{ zIndex: 10, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }}>
-    <svg width="65" height="50" viewBox="0 0 65 50">
-      <defs>
-        <linearGradient id="snow-corner-tl" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e0eff4" />
-        </linearGradient>
-      </defs>
-      {/* Thick snow cap wrapping corner */}
-      <path
-        d="M65 16 C58 12 50 18 40 12 C30 6 20 14 12 12 C6 10 2 16 0 24 L0 32 C4 26 8 18 14 18 C22 18 32 12 42 18 C52 14 60 18 65 20 Z"
-        fill="url(#snow-corner-tl)"
-      />
-    </svg>
-  </div>
-);
-
-// Corner snow wrapping top-right - thick, no icicles
-const WinterCornerTopRight = () => (
-  <div className="absolute -top-6 -right-6 pointer-events-none" style={{ zIndex: 10, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }}>
-    <svg width="65" height="50" viewBox="0 0 65 50">
-      <defs>
-        <linearGradient id="snow-corner-tr" x1="100%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e0eff4" />
-        </linearGradient>
-      </defs>
-      {/* Thick snow cap wrapping corner */}
-      <path
-        d="M0 16 C7 12 15 18 25 12 C35 6 45 14 53 12 C59 10 63 16 65 24 L65 32 C61 26 57 18 51 18 C43 18 33 12 23 18 C13 14 5 18 0 20 Z"
-        fill="url(#snow-corner-tr)"
-      />
-    </svg>
-  </div>
-);
-
 // Full page snowfall background
 export const WinterSnowfall = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
@@ -301,8 +263,6 @@ export const SeasonalCardDecor = () => {
       {season === 'winter' && (
         <>
           <WinterTopSnow />
-          <WinterCornerTopLeft />
-          <WinterCornerTopRight />
         </>
       )}
       {season === 'spring' && (
