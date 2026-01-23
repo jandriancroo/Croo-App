@@ -34,21 +34,25 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
   return (
     <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
       <div className="relative flex flex-col items-center gap-8">
-        {/* Logo */}
+        {/* Logo with dramatic zoom */}
         <motion.img 
           src={crooLogo} 
           alt="Croo" 
           className="w-24 h-24 object-contain"
           style={{ willChange: 'transform, opacity' }}
-          initial={{ opacity: 0.7, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.4 }}
           animate={phase === 'reveal' ? {
             opacity: 1,
             scale: 1,
           } : {
-            opacity: 0.7,
-            scale: 0.95,
+            opacity: 1,
+            scale: [0.4, 1.15, 1],
           }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          transition={{ 
+            duration: 0.6, 
+            ease: [0.34, 1.56, 0.64, 1], // Bouncy overshoot
+            times: [0, 0.7, 1],
+          }}
         />
         
         {/* Google-style bouncing dots */}

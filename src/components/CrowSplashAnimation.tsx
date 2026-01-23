@@ -38,15 +38,19 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
       transition={{ duration: 0.4, ease: 'easeOut' }}
     >
       <div className="relative flex flex-col items-center gap-8">
-        {/* Logo */}
+        {/* Logo with dramatic zoom */}
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
           className="h-28 w-auto"
           style={{ willChange: 'transform, opacity' }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: [0.4, 1.15, 1] }}
+          transition={{ 
+            duration: 0.6, 
+            ease: [0.34, 1.56, 0.64, 1], // Bouncy overshoot
+            times: [0, 0.7, 1],
+          }}
         />
         
         {/* Bouncing dots - fade out when welcome appears */}
