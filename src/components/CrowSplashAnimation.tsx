@@ -7,12 +7,12 @@ interface CrowSplashAnimationProps {
 }
 
 const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete }) => {
-  const [phase, setPhase] = useState<'morphing' | 'welcome' | 'exit'>('morphing');
+  const [phase, setPhase] = useState<'loading' | 'welcome' | 'exit'>('loading');
 
   useEffect(() => {
-    const welcomeTimer = setTimeout(() => setPhase('welcome'), 600);
-    const exitTimer = setTimeout(() => setPhase('exit'), 1400);
-    const completeTimer = setTimeout(() => onComplete(), 1900);
+    const welcomeTimer = setTimeout(() => setPhase('welcome'), 800);
+    const exitTimer = setTimeout(() => setPhase('exit'), 1600);
+    const completeTimer = setTimeout(() => onComplete(), 2000);
     
     return () => {
       clearTimeout(welcomeTimer);
@@ -21,92 +21,86 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
     };
   }, [onComplete]);
 
+  // Google-style bouncing dots with brand colors
+  const dots = [
+    { color: 'hsl(var(--primary))' },
+    { color: 'hsl(var(--accent))' },
+    { color: 'hsl(var(--primary))' },
+    { color: 'hsl(var(--accent))' },
+  ];
+
   return (
     <motion.div 
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
-      style={{
-        background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.8) 50%, hsl(var(--accent)) 100%)',
-        willChange: 'opacity, transform',
-      }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-background"
+      style={{ willChange: 'opacity' }}
       initial={{ opacity: 1 }}
-      animate={phase === 'exit' ? { 
-        opacity: 0,
-        scale: 1.1,
-      } : { opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      animate={phase === 'exit' ? { opacity: 0 } : { opacity: 1 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
     >
-      {/* Ripple effects - using scale instead of width/height for GPU acceleration */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="absolute w-20 h-20 rounded-full border-2 border-primary-foreground/20"
-            style={{ willChange: 'transform, opacity' }}
-            initial={{ scale: 1, opacity: 0 }}
-            animate={{ 
-              scale: [1, 7, 9],
-              opacity: [0, 0.4, 0],
-            }}
-            transition={{
-              duration: 2,
-              delay: i * 0.3,
-              repeat: Infinity,
-              ease: 'easeOut',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Logo container */}
-      <motion.div
-        className="relative z-10"
-        style={{ willChange: 'transform, opacity' }}
-        initial={{ scale: 0.3, opacity: 0 }}
-        animate={{ 
-          scale: phase === 'morphing' ? [0.3, 1.15, 1] : 1,
-          opacity: 1,
-        }}
-        transition={{ 
-          duration: 0.6, 
-          ease: [0.34, 1.56, 0.64, 1],
-        }}
-      >
-        {/* Glow - static, no animation needed */}
-        <div
-          className="absolute inset-0 blur-2xl scale-150 opacity-80"
-          style={{
-            background: 'radial-gradient(circle, hsl(var(--primary-foreground)/0.3) 0%, transparent 70%)',
-          }}
-        />
-        
+      <div className="relative flex flex-col items-center gap-8">
         {/* Logo */}
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
-          className="h-28 w-auto drop-shadow-lg relative z-10"
-          style={{ willChange: 'filter' }}
-          initial={{ filter: 'blur(20px)' }}
-          animate={{ filter: 'blur(0px)' }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+          className="h-28 w-auto"
+          style={{ willChange: 'transform, opacity' }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
         />
-      </motion.div>
+        
+        {/* Bouncing dots - fade out when welcome appears */}
+        <div 
+          className={`flex items-center gap-2 transition-opacity duration-300 ${
+            phase !== 'loading' ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ willChange: 'opacity' }}
+        >
+          {dots.map((dot, i) => (
+            <motion.div
+              key={i}
+              className="w-3 h-3 rounded-full"
+              style={{ 
+                backgroundColor: dot.color,
+                willChange: 'transform',
+              }}
+              animate={{
+                y: [0, -12, 0],
+                scaleY: [1, 0.8, 1],
+                scaleX: [1, 1.1, 1],
+              }}
+              transition={{
+                duration: 0.5,
+                delay: i * 0.1,
+                repeat: Infinity,
+                repeatDelay: 0.3,
+                ease: [0.45, 0, 0.55, 1],
+              }}
+            />
+          ))}
+        </div>
 
-      {/* Welcome text */}
-      <motion.div 
-        className="mt-6 relative z-10"
-        style={{ willChange: 'transform, opacity' }}
-        initial={{ opacity: 0, y: 20, scale: 0.9 }}
-        animate={phase !== 'morphing' ? { 
-          opacity: 1, 
-          y: 0, 
-          scale: 1,
-        } : {}}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-      >
-        <span className="font-pacifico text-5xl md:text-6xl text-primary-foreground drop-shadow-md">
-          welcome
-        </span>
-      </motion.div>
+        {/* Welcome text - appears after dots */}
+        <motion.div 
+          className="absolute -bottom-4"
+          style={{ willChange: 'transform, opacity' }}
+          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+          animate={phase !== 'loading' ? { 
+            opacity: 1, 
+            y: 0, 
+            scale: 1,
+          } : {
+            opacity: 0,
+            y: 10,
+            scale: 0.95,
+          }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          <span className="font-pacifico text-5xl md:text-6xl text-primary drop-shadow-sm">
+            welcome
+          </span>
+        </motion.div>
+      </div>
     </motion.div>
   );
 };
