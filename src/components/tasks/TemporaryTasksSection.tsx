@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare, Pencil, AlarmClock } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare, Pencil, AlarmClock, QrCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateTemporaryTaskDialog } from "./CreateTemporaryTaskDialog";
 import { EditTemporaryTaskDialog } from "./EditTemporaryTaskDialog";
+import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
 import { formatDistanceToNow, isPast, format } from "date-fns";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,6 +42,7 @@ export function TemporaryTasksSection() {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
+  const [qrDialogTask, setQrDialogTask] = useState<any>(null);
 
   // Fetch temporary tasks
   const { data: tasks = [], isLoading } = useQuery({
@@ -153,6 +155,16 @@ export function TemporaryTasksSection() {
                             >
                               <AlarmClock className="h-2.5 w-2.5" />
                               ALARM
+                            </Badge>
+                          )}
+                          {task.is_qr_triggered && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] px-1.5 gap-0.5"
+                              style={{ borderColor: task.accent_color, color: task.accent_color }}
+                            >
+                              <QrCode className="h-2.5 w-2.5" />
+                              QR
                             </Badge>
                           )}
                           {hasSubtasks && (
@@ -355,12 +367,41 @@ export function TemporaryTasksSection() {
               </div>
             )}
 
-            <p className="text-xs text-muted-foreground text-center pt-2">
-              Employees complete this task from their Dashboard
-            </p>
+            {/* QR Code section for QR tasks */}
+            {selectedTask?.is_qr_triggered && selectedTask?.qr_code && (
+              <div className="space-y-2 pt-2 border-t">
+                <p className="text-xs font-medium text-muted-foreground">QR Code</p>
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2"
+                  onClick={() => {
+                    setSelectedTask(null);
+                    setQrDialogTask(selectedTask);
+                  }}
+                >
+                  <QrCode className="h-4 w-4" />
+                  View QR Code & Link
+                </Button>
+              </div>
+            )}
+
+            {!selectedTask?.is_qr_triggered && (
+              <p className="text-xs text-muted-foreground text-center pt-2">
+                Employees complete this task from their Dashboard
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* QR Code Dialog */}
+      <QRTaskCodeDialog
+        open={!!qrDialogTask}
+        onOpenChange={(open) => !open && setQrDialogTask(null)}
+        taskTitle={qrDialogTask?.title || ''}
+        qrCode={qrDialogTask?.qr_code || ''}
+        accentColor={qrDialogTask?.accent_color || '#8B5CF6'}
+      />
 
       <AlertDialog open={!!deleteTaskId} onOpenChange={(open) => !open && setDeleteTaskId(null)}>
         <AlertDialogContent>
