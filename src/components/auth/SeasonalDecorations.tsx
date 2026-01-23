@@ -23,9 +23,9 @@ function getSeason(): Season {
   return 'fall';
 }
 
-// Thick snow cap for the top edge - no icicles, with drop shadow
+// Thick snow cap for the top edge - no icicles, with stronger drop shadow
 const WinterTopSnow = () => (
-  <div className="absolute -top-5 left-2 right-2 pointer-events-none" style={{ zIndex: 10, filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))' }}>
+  <div className="absolute -top-5 left-2 right-2 pointer-events-none" style={{ zIndex: 10, filter: 'drop-shadow(0 6px 10px rgba(0,0,0,0.25))' }}>
     <svg width="100%" height="28" viewBox="0 0 300 28" preserveAspectRatio="none">
       <defs>
         <linearGradient id="snow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -43,7 +43,7 @@ const WinterTopSnow = () => (
   </div>
 );
 
-// Full page snowfall - TOP LAYER (z-50)
+// Full page snowfall - TOP LAYER (z-50) with blur
 export const WinterSnowfall = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
     {[...Array(50)].map((_, i) => (
@@ -56,7 +56,8 @@ export const WinterSnowfall = () => (
           animationDelay: `${Math.random() * 8}s`,
           animationDuration: `${6 + Math.random() * 6}s`,
           fontSize: `${8 + Math.random() * 14}px`,
-          opacity: 0.5 + Math.random() * 0.5,
+          opacity: 0.6 + Math.random() * 0.4,
+          filter: `blur(${0.5 + Math.random() * 1.5}px)`,
         }}
       >
         ❄
