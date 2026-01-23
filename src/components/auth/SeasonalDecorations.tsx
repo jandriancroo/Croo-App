@@ -23,106 +23,94 @@ function getSeason(): Season {
   return 'fall';
 }
 
-// Snow cap with icicles for the top edge
+// Snow cap with icicles for the top edge - cartoon style like reference
 const WinterTopSnow = () => (
   <div className="absolute -top-3 left-4 right-4 pointer-events-none" style={{ zIndex: 10 }}>
-    <svg width="100%" height="40" viewBox="0 0 300 40" preserveAspectRatio="none">
+    <svg width="100%" height="45" viewBox="0 0 300 45" preserveAspectRatio="none">
       <defs>
         <linearGradient id="snow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="60%" stopColor="#e8f4f8" />
-          <stop offset="100%" stopColor="#d1e7ed" />
+          <stop offset="50%" stopColor="#f0f8fa" />
+          <stop offset="100%" stopColor="#daeef3" />
         </linearGradient>
         <linearGradient id="icicle-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#e0f0f5" />
-          <stop offset="40%" stopColor="#c5e4ed" />
-          <stop offset="100%" stopColor="#9ed4e4" stopOpacity="0.85" />
+          <stop offset="0%" stopColor="#daeef3" />
+          <stop offset="30%" stopColor="#c2e4ed" />
+          <stop offset="70%" stopColor="#a8dae8" />
+          <stop offset="100%" stopColor="#8ccfdf" />
         </linearGradient>
       </defs>
-      {/* Snow cap base */}
+      {/* Snow cap base - puffy rounded */}
       <path
-        d="M0 8 Q10 4 25 6 Q50 2 75 8 Q100 3 125 7 Q150 2 175 6 Q200 4 225 8 Q250 3 275 6 Q290 4 300 8 L300 12 Q280 14 260 12 Q240 16 220 13 Q200 15 180 12 Q160 16 140 13 Q120 15 100 12 Q80 16 60 13 Q40 15 20 12 Q10 14 0 12 Z"
+        d="M0 10 C15 6 25 8 40 5 C60 2 80 9 100 6 C120 3 140 8 160 5 C180 2 200 7 220 6 C240 4 260 8 280 5 C295 7 300 10 300 10 L300 14 C280 16 260 13 240 15 C220 17 200 13 180 15 C160 17 140 14 120 16 C100 18 80 14 60 16 C40 18 20 14 0 16 Z"
         fill="url(#snow-gradient)"
       />
-      {/* Rounder, organic icicles */}
-      <ellipse cx="40" cy="18" rx="5" ry="8" fill="url(#icicle-grad)" />
-      <ellipse cx="40" cy="30" rx="3" ry="6" fill="url(#icicle-grad)" />
-      <ellipse cx="40" cy="38" rx="1.5" ry="2" fill="url(#icicle-grad)" />
-      
-      <ellipse cx="85" cy="16" rx="4" ry="6" fill="url(#icicle-grad)" />
-      <ellipse cx="85" cy="24" rx="2.5" ry="4" fill="url(#icicle-grad)" />
-      
-      <ellipse cx="130" cy="18" rx="6" ry="9" fill="url(#icicle-grad)" />
-      <ellipse cx="130" cy="32" rx="3.5" ry="7" fill="url(#icicle-grad)" />
-      <ellipse cx="130" cy="40" rx="1.5" ry="2" fill="url(#icicle-grad)" />
-      
-      <ellipse cx="170" cy="16" rx="4" ry="5" fill="url(#icicle-grad)" />
-      <ellipse cx="170" cy="22" rx="2" ry="3" fill="url(#icicle-grad)" />
-      
-      <ellipse cx="215" cy="17" rx="5" ry="7" fill="url(#icicle-grad)" />
-      <ellipse cx="215" cy="28" rx="3" ry="5" fill="url(#icicle-grad)" />
-      <ellipse cx="215" cy="35" rx="1.5" ry="2" fill="url(#icicle-grad)" />
-      
-      <ellipse cx="260" cy="16" rx="4" ry="6" fill="url(#icicle-grad)" />
-      <ellipse cx="260" cy="24" rx="2" ry="3" fill="url(#icicle-grad)" />
+      {/* Cartoon icicles - bulbous top, tapered point */}
+      <path d="M25 14 C30 14 32 18 31 24 C30 30 28 38 26 42 C26 42 25 44 24 42 C22 38 20 30 19 24 C18 18 20 14 25 14" fill="url(#icicle-grad)" />
+      <path d="M55 15 C59 15 61 18 60 22 C59 26 58 30 56 33 C56 33 55 34 54 33 C52 30 51 26 50 22 C49 18 51 15 55 15" fill="url(#icicle-grad)" />
+      <path d="M90 14 C95 14 98 19 96 26 C94 34 91 40 88 45 C88 45 87 45 86 45 C83 40 80 34 78 26 C76 19 79 14 84 14 C86 14 88 14 90 14" fill="url(#icicle-grad)" />
+      <path d="M125 15 C128 15 130 17 129 21 C128 25 127 28 126 30 C126 30 125 31 124 30 C123 28 122 25 121 21 C120 17 122 15 125 15" fill="url(#icicle-grad)" />
+      <path d="M155 14 C160 14 163 18 161 25 C159 32 156 38 153 42 C153 42 152 43 151 42 C148 38 145 32 143 25 C141 18 144 14 149 14 C151 14 153 14 155 14" fill="url(#icicle-grad)" />
+      <path d="M190 15 C194 15 196 18 195 23 C194 28 192 32 190 35 C190 35 189 36 188 35 C186 32 184 28 183 23 C182 18 184 15 188 15 C189 15 190 15 190 15" fill="url(#icicle-grad)" />
+      <path d="M220 14 C225 14 228 19 226 27 C224 35 220 42 217 45 C217 45 216 45 215 45 C212 42 208 35 206 27 C204 19 207 14 212 14 C215 14 218 14 220 14" fill="url(#icicle-grad)" />
+      <path d="M250 15 C253 15 255 17 254 21 C253 25 252 28 251 30 C251 30 250 31 249 30 C248 28 247 25 246 21 C245 17 247 15 250 15" fill="url(#icicle-grad)" />
+      <path d="M275 14 C279 14 281 17 280 22 C279 27 277 32 275 36 C275 36 274 37 273 36 C271 32 269 27 268 22 C267 17 269 14 273 14 C274 14 275 14 275 14" fill="url(#icicle-grad)" />
     </svg>
   </div>
 );
 
-// Corner snow wrapping top-left
+// Corner snow wrapping top-left with cartoon icicles
 const WinterCornerTopLeft = () => (
-  <div className="absolute -top-4 -left-4 pointer-events-none" style={{ zIndex: 10 }}>
-    <svg width="55" height="70" viewBox="0 0 55 70">
+  <div className="absolute -top-4 -left-5 pointer-events-none" style={{ zIndex: 10 }}>
+    <svg width="60" height="75" viewBox="0 0 60 75">
       <defs>
         <linearGradient id="snow-corner-tl" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#d1e7ed" />
+          <stop offset="100%" stopColor="#daeef3" />
         </linearGradient>
-        <linearGradient id="icicle-corner" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#e0f0f5" />
-          <stop offset="100%" stopColor="#9ed4e4" stopOpacity="0.8" />
+        <linearGradient id="icicle-corner-l" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#daeef3" />
+          <stop offset="50%" stopColor="#b5dfea" />
+          <stop offset="100%" stopColor="#8ccfdf" />
         </linearGradient>
       </defs>
-      {/* Snow cap wrapping corner */}
+      {/* Snow cap wrapping corner - puffy */}
       <path
-        d="M55 10 Q50 8 45 12 Q35 6 25 14 Q15 10 8 18 Q4 22 2 28 L0 35 Q3 30 6 24 Q10 16 20 18 Q32 12 42 16 Q52 12 55 15 Z"
+        d="M60 12 C55 10 50 14 42 10 C34 6 26 12 18 10 C12 8 6 14 3 20 C1 26 0 32 0 38 L0 40 C2 34 5 26 8 20 C12 14 18 14 26 16 C34 12 44 16 52 14 C58 12 60 14 60 14 Z"
         fill="url(#snow-corner-tl)"
       />
-      {/* Rounded icicle dripping from corner */}
-      <ellipse cx="6" cy="38" rx="5" ry="8" fill="url(#icicle-corner)" />
-      <ellipse cx="6" cy="52" rx="3.5" ry="7" fill="url(#icicle-corner)" />
-      <ellipse cx="6" cy="64" rx="2" ry="4" fill="url(#icicle-corner)" />
-      <ellipse cx="6" cy="70" rx="1" ry="2" fill="url(#icicle-corner)" />
-      
-      <ellipse cx="22" cy="20" rx="4" ry="5" fill="url(#icicle-corner)" />
-      <ellipse cx="22" cy="28" rx="2.5" ry="4" fill="url(#icicle-corner)" />
+      {/* Big corner icicle */}
+      <path d="M6 38 C12 38 15 44 13 54 C11 64 8 72 5 75 C5 75 4 75 3 75 C0 72 -3 64 -1 54 C1 44 0 38 6 38" fill="url(#icicle-corner-l)" />
+      {/* Smaller icicle */}
+      <path d="M22 16 C26 16 28 20 27 26 C26 32 24 36 22 38 C22 38 21 38 20 38 C18 36 16 32 15 26 C14 20 16 16 20 16 C21 16 22 16 22 16" fill="url(#icicle-corner-l)" />
     </svg>
   </div>
 );
 
-// Corner snow wrapping top-right
+// Corner snow wrapping top-right with cartoon icicles
 const WinterCornerTopRight = () => (
-  <div className="absolute -top-4 -right-4 pointer-events-none" style={{ zIndex: 10 }}>
-    <svg width="55" height="70" viewBox="0 0 55 70">
+  <div className="absolute -top-4 -right-5 pointer-events-none" style={{ zIndex: 10 }}>
+    <svg width="60" height="75" viewBox="0 0 60 75">
       <defs>
         <linearGradient id="snow-corner-tr" x1="100%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#d1e7ed" />
+          <stop offset="100%" stopColor="#daeef3" />
+        </linearGradient>
+        <linearGradient id="icicle-corner-r" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#daeef3" />
+          <stop offset="50%" stopColor="#b5dfea" />
+          <stop offset="100%" stopColor="#8ccfdf" />
         </linearGradient>
       </defs>
-      {/* Snow cap wrapping corner */}
+      {/* Snow cap wrapping corner - puffy */}
       <path
-        d="M0 10 Q5 8 10 12 Q20 6 30 14 Q40 10 47 18 Q51 22 53 28 L55 35 Q52 30 49 24 Q45 16 35 18 Q23 12 13 16 Q3 12 0 15 Z"
+        d="M0 12 C5 10 10 14 18 10 C26 6 34 12 42 10 C48 8 54 14 57 20 C59 26 60 32 60 38 L60 40 C58 34 55 26 52 20 C48 14 42 14 34 16 C26 12 16 16 8 14 C2 12 0 14 0 14 Z"
         fill="url(#snow-corner-tr)"
       />
-      {/* Rounded icicle dripping from corner */}
-      <ellipse cx="49" cy="38" rx="5" ry="8" fill="url(#icicle-corner)" />
-      <ellipse cx="49" cy="52" rx="3.5" ry="7" fill="url(#icicle-corner)" />
-      <ellipse cx="49" cy="64" rx="2" ry="4" fill="url(#icicle-corner)" />
-      <ellipse cx="49" cy="70" rx="1" ry="2" fill="url(#icicle-corner)" />
-      
-      <ellipse cx="33" cy="20" rx="4" ry="5" fill="url(#icicle-corner)" />
-      <ellipse cx="33" cy="28" rx="2.5" ry="4" fill="url(#icicle-corner)" />
+      {/* Big corner icicle */}
+      <path d="M54 38 C60 38 63 44 61 54 C59 64 56 72 53 75 C53 75 52 75 51 75 C48 72 45 64 47 54 C49 44 48 38 54 38" fill="url(#icicle-corner-r)" />
+      {/* Smaller icicle */}
+      <path d="M38 16 C42 16 44 20 43 26 C42 32 40 36 38 38 C38 38 37 38 36 38 C34 36 32 32 31 26 C30 20 32 16 36 16 C37 16 38 16 38 16" fill="url(#icicle-corner-r)" />
     </svg>
   </div>
 );
@@ -310,38 +298,33 @@ const FallPumpkins = () => (
   </>
 );
 
-// Button decorations - snow cap on top of button
+// Button decorations - snow cap on top of button with cartoon icicles
 export const SeasonalButtonDecor = () => {
   const season = getSeason();
   
   if (season === 'winter') {
     return (
-      <div className="absolute -top-2 left-0 right-0 pointer-events-none" style={{ zIndex: 10 }}>
-        <svg width="100%" height="20" viewBox="0 0 200 20" preserveAspectRatio="none">
+      <div className="absolute -top-3 left-0 right-0 pointer-events-none" style={{ zIndex: 10 }}>
+        <svg width="100%" height="22" viewBox="0 0 200 22" preserveAspectRatio="none">
           <defs>
             <linearGradient id="btn-snow" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="#ffffff" />
-              <stop offset="100%" stopColor="#e0eff4" />
+              <stop offset="100%" stopColor="#e8f4f7" />
             </linearGradient>
             <linearGradient id="btn-icicle" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#e0f0f5" />
-              <stop offset="100%" stopColor="#9ed4e4" stopOpacity="0.7" />
+              <stop offset="0%" stopColor="#daeef3" />
+              <stop offset="100%" stopColor="#a8dae8" />
             </linearGradient>
           </defs>
-          {/* Snow cap */}
+          {/* Puffy snow cap */}
           <path
-            d="M0 6 Q15 3 30 5 Q60 2 90 6 Q120 3 150 5 Q175 2 190 6 Q198 4 200 6 L200 10 Q180 12 160 10 Q130 13 100 10 Q70 13 40 10 Q20 12 0 10 Z"
+            d="M0 8 C20 5 40 9 60 6 C80 3 100 8 120 5 C140 3 160 7 180 5 C195 6 200 8 200 8 L200 11 C180 13 160 10 140 12 C120 14 100 11 80 13 C60 15 40 11 20 13 C5 14 0 12 0 12 Z"
             fill="url(#btn-snow)"
           />
-          {/* Rounded icicles */}
-          <ellipse cx="35" cy="12" rx="3" ry="4" fill="url(#btn-icicle)" />
-          <ellipse cx="35" cy="17" rx="1.5" ry="2" fill="url(#btn-icicle)" />
-          
-          <ellipse cx="100" cy="12" rx="3.5" ry="5" fill="url(#btn-icicle)" />
-          <ellipse cx="100" cy="18" rx="2" ry="2" fill="url(#btn-icicle)" />
-          
-          <ellipse cx="165" cy="12" rx="3" ry="4" fill="url(#btn-icicle)" />
-          <ellipse cx="165" cy="17" rx="1.5" ry="2" fill="url(#btn-icicle)" />
+          {/* Cartoon icicles */}
+          <path d="M40 11 C44 11 46 13 45 17 C44 20 42 22 40 22 C38 22 36 20 35 17 C34 13 36 11 40 11" fill="url(#btn-icicle)" />
+          <path d="M100 11 C105 11 107 14 106 18 C105 21 102 22 100 22 C98 22 95 21 94 18 C93 14 95 11 100 11" fill="url(#btn-icicle)" />
+          <path d="M160 11 C164 11 166 13 165 17 C164 20 162 22 160 22 C158 22 156 20 155 17 C154 13 156 11 160 11" fill="url(#btn-icicle)" />
         </svg>
       </div>
     );
