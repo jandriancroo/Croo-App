@@ -893,5 +893,7 @@ All colors MUST be HSL.
     animation: snowfall 8s linear infinite;
     backface-visibility: hidden;
     perspective: 1000px;
+    filter: blur(1px);
+    will-change: transform;
   }
 }
