@@ -432,7 +432,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.open(`/hiring-chat/${accessToken}?staff=true`, '_blank')}
+              onClick={() => window.open(`/messages?tab=hiring&applicationId=${applicationId}`, '_blank')}
               className="text-xs"
             >
               <ExternalLink className="h-3 w-3" />

@@ -65,6 +65,7 @@ export default function Messages() {
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support'>('chats');
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
+  const [pendingHiringApplicationId, setPendingHiringApplicationId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const urlChatIdProcessed = useRef(false);
 
@@ -391,6 +392,20 @@ export default function Messages() {
   // Handle URL chat parameter - auto-open the chat from URL
   useEffect(() => {
     const urlChatId = searchParams.get('chat');
+    const urlTab = searchParams.get('tab');
+    const urlApplicationId = searchParams.get('applicationId');
+    
+    // Handle hiring tab with applicationId
+    if (urlTab === 'hiring' && urlApplicationId && !urlChatIdProcessed.current) {
+      setViewMode('hiring');
+      setPendingHiringApplicationId(urlApplicationId);
+      urlChatIdProcessed.current = true;
+      setShowChatList(false);
+      // Clear the URL params after processing
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    
     if (!urlChatId || urlChatIdProcessed.current || loading || chats.length === 0) return;
 
     // Find the chat in our list to determine if it's an announcement
@@ -499,8 +514,12 @@ export default function Messages() {
           
           {viewMode === 'hiring' ? (
             <HiringChatList
-              onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
+              onSelectConversation={(conv) => {
+                setSelectedHiringConversation(conv);
+                setPendingHiringApplicationId(null);
+              }}
               selectedId={selectedHiringConversation?.id}
+              autoSelectApplicationId={pendingHiringApplicationId}
             />
           ) : viewMode === 'support' ? (
             null // Support panel takes full width, no sidebar list needed
@@ -631,8 +650,12 @@ export default function Messages() {
             <SupportChatPanel />
           ) : viewMode === 'hiring' ? (
             <HiringChatList
-              onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
+              onSelectConversation={(conv) => {
+                setSelectedHiringConversation(conv);
+                setPendingHiringApplicationId(null);
+              }}
               selectedId={selectedHiringConversation?.id}
+              autoSelectApplicationId={pendingHiringApplicationId}
             />
           ) : viewMode !== 'marketplace' && (
             <>
