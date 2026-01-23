@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -31,20 +31,33 @@ interface HiringConversation {
 interface HiringChatListProps {
   onSelectConversation: (conversation: HiringConversation) => void;
   selectedId?: string;
+  autoSelectApplicationId?: string | null;
 }
 
-export function HiringChatList({ onSelectConversation, selectedId }: HiringChatListProps) {
+export function HiringChatList({ onSelectConversation, selectedId, autoSelectApplicationId }: HiringChatListProps) {
   const { currentLocation } = useLocation();
   const [conversations, setConversations] = useState<HiringConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<HiringConversation | null>(null);
+  const autoSelectDone = useRef(false);
 
   useEffect(() => {
     if (currentLocation?.id) {
       fetchConversations();
     }
   }, [currentLocation?.id]);
+
+  // Auto-select conversation by applicationId when it becomes available
+  useEffect(() => {
+    if (autoSelectApplicationId && !autoSelectDone.current && conversations.length > 0) {
+      const target = conversations.find(c => c.application_id === autoSelectApplicationId);
+      if (target) {
+        onSelectConversation(target);
+        autoSelectDone.current = true;
+      }
+    }
+  }, [autoSelectApplicationId, conversations, onSelectConversation]);
 
   const fetchConversations = async () => {
     try {

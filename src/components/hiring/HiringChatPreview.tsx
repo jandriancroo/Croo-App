@@ -81,10 +81,8 @@ export function HiringChatPreview({
   };
 
   const openChat = () => {
-    if (accessToken) {
-      // Navigate to hiring chat page
-      navigate(`/hiring-chat/${accessToken}?staff=true`);
-    }
+    // Navigate to internal Messages page with hiring tab and applicationId
+    navigate(`/messages?tab=hiring&applicationId=${applicationId}`);
   };
 
   return (
