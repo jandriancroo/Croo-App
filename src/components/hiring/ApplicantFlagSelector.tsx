@@ -140,7 +140,8 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applicant-flag', applicationId] });
-      queryClient.invalidateQueries({ queryKey: ['application-detail', applicationId] });
+      // Refetch application detail to update the notes textarea with fresh data
+      queryClient.refetchQueries({ queryKey: ['application-detail', applicationId] });
       queryClient.invalidateQueries({ queryKey: ['job-applications'] });
       toast.success('Flag updated');
       setOpen(false);
