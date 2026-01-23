@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,9 @@ const urlBase64ToUint8Array = (base64String: string) => {
 
 export default function HiringChat() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const isStaffView = useMemo(() => searchParams.get('staff') === 'true', [searchParams]);
+
   const [conversation, setConversation] = useState<ConversationData | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -60,6 +63,7 @@ export default function HiringChat() {
   const [error, setError] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [respondingToMessageId, setRespondingToMessageId] = useState<string | null>(null);
+  const [staffUserId, setStaffUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pushSetupDone = useRef(false);
 
@@ -70,11 +74,25 @@ export default function HiringChat() {
   }, [token]);
 
   useEffect(() => {
+    let mounted = true;
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setStaffUserId(data.session?.user?.id ?? null);
+    };
+    loadSession();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Set up push notifications for applicants when they enable notifications
   useEffect(() => {
+    if (isStaffView) return;
     if (!conversation || pushSetupDone.current) return;
     
     const setupApplicantPush = async () => {
@@ -133,7 +151,7 @@ export default function HiringChat() {
     };
 
     setupApplicantPush();
-  }, [conversation, notificationsEnabled]);
+  }, [conversation, notificationsEnabled, isStaffView]);
 
   useEffect(() => {
     if (!conversation) return;
@@ -285,37 +303,43 @@ export default function HiringChat() {
     const messageContent = newMessage.trim();
     setSending(true);
     try {
+      if (isStaffView && !staffUserId) {
+        toast.error('Please open this chat from within the app while logged in.');
+        return;
+      }
+
       const { error: sendError } = await supabase
         .from('hiring_messages')
         .insert({
           conversation_id: conversation.id,
-          sender_type: 'applicant',
-          sender_id: null,
+          sender_type: isStaffView ? 'staff' : 'applicant',
+          sender_id: isStaffView ? staffUserId : null,
           content: messageContent
         });
 
       if (sendError) throw sendError;
       setNewMessage('');
 
-      // Get the application to find managers/admins to notify
-      const { data: application } = await supabase
-        .from('job_applications')
-        .select('organization_id, location_id')
-        .eq('id', conversation.application_id)
-        .single();
+      // Only notify staff when an applicant sends a message
+      if (!isStaffView) {
+        const { data: application } = await supabase
+          .from('job_applications')
+          .select('organization_id, location_id')
+          .eq('id', conversation.application_id)
+          .single();
 
-      if (application?.location_id) {
-        // Notify managers and admins at the location
-        supabase.functions.invoke('send-push-notification', {
-          body: {
-            roles: ['admin', 'manager', 'general_manager'],
-            location_id: application.location_id,
-            title: `${conversation.application.full_name}`,
-            body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
-            notification_type: 'chat_messages',
-            data: { type: 'hiring_message', conversation_id: conversation.id }
-          }
-        }).catch(err => console.error('Failed to send push notification:', err));
+        if (application?.location_id) {
+          supabase.functions.invoke('send-push-notification', {
+            body: {
+              roles: ['admin', 'manager', 'general_manager'],
+              location_id: application.location_id,
+              title: `${conversation.application.full_name}`,
+              body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
+              notification_type: 'chat_messages',
+              data: { type: 'hiring_message', conversation_id: conversation.id }
+            }
+          }).catch(err => console.error('Failed to send push notification:', err));
+        }
       }
     } catch (err) {
       console.error('Error sending message:', err);
@@ -404,6 +428,23 @@ export default function HiringChat() {
   const orgLogo = conversation.application.organization?.logo_url;
   const orgName = conversation.application.organization?.name || 'Hiring Team';
 
+  // If someone opens the staff link without being logged in, don't show the applicant UI.
+  if (isStaffView && staffUserId === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Open in Croo</h2>
+            <p className="text-muted-foreground">
+              This is a staff-only chat link. Please open it from inside the Croo app while logged in.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -417,22 +458,26 @@ export default function HiringChat() {
             />
             <div>
               <h1 className="font-semibold">{orgName}</h1>
-              <p className="text-xs text-muted-foreground">Hiring Chat</p>
+              <p className="text-xs text-muted-foreground">
+                Hiring Chat {isStaffView ? '(Staff)' : '(Applicant)'}
+              </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={requestNotifications}
-            className={notificationsEnabled ? 'text-primary' : 'text-muted-foreground'}
-          >
-            {notificationsEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
-          </Button>
+          {!isStaffView && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={requestNotifications}
+              className={notificationsEnabled ? 'text-primary' : 'text-muted-foreground'}
+            >
+              {notificationsEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Install Banner */}
-      {!window.matchMedia('(display-mode: standalone)').matches && (
+      {!isStaffView && !window.matchMedia('(display-mode: standalone)').matches && (
         <div className="bg-primary/10 border-b border-primary/20 px-4 py-3">
           <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
             <p className="text-sm text-primary-foreground/80">
@@ -459,20 +504,21 @@ export default function HiringChat() {
           ) : (
             messages.map((message) => {
               const isInterviewInvite = message.content.startsWith('INTERVIEW_INVITE:');
+              const isMine = message.sender_type === (isStaffView ? 'staff' : 'applicant');
               
               return (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender_type === 'applicant' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                      message.sender_type === 'applicant'
+                      isMine
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
                     }`}
                   >
-                    {message.sender_type === 'staff' && message.sender && (
+                    {isStaffView && message.sender_type === 'staff' && message.sender && (
                       <p className="text-xs font-medium mb-1 opacity-70">
                         {message.sender.full_name}
                       </p>
@@ -480,7 +526,7 @@ export default function HiringChat() {
                     {isInterviewInvite ? (
                       <InterviewInviteMessage 
                         content={message.content} 
-                        isApplicantView={true}
+                        isApplicantView={!isStaffView}
                         onRespond={(accepted) => handleRespondToInterview(message.id, accepted)}
                         responding={respondingToMessageId === message.id}
                       />
@@ -488,7 +534,7 @@ export default function HiringChat() {
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     )}
                     <p className={`text-xs mt-1 ${
-                      message.sender_type === 'applicant' 
+                      isMine 
                         ? 'text-primary-foreground/60' 
                         : 'text-muted-foreground'
                     }`}>
