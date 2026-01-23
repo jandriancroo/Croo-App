@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.png';
 import { LoginSplashScreen } from '@/components/LoginSplashScreen';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
-import { SeasonalCardDecor, SeasonalButtonDecor } from '@/components/auth/SeasonalDecorations';
+import { SeasonalCardDecor, SeasonalButtonDecor, WinterSnowfall, getSeason } from '@/components/auth/SeasonalDecorations';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -159,9 +159,14 @@ export default function Auth() {
     return <CrowSplashAnimation onComplete={handleSplashComplete} />;
   }
 
+  const season = getSeason();
+
   return (
     <>
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 gap-6">
+      {/* Full page snowfall for winter */}
+      {season === 'winter' && <WinterSnowfall />}
+      
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 gap-6 relative z-10">
         {/* Powered by Croo branding with large logo */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center justify-center gap-3">
