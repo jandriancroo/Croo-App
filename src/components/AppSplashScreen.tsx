@@ -11,10 +11,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
   const [phase, setPhase] = useState<'loading' | 'reveal' | 'done'>('loading');
 
   useEffect(() => {
-    const revealTimer = setTimeout(() => {
-      setPhase('reveal');
-    }, 1200);
-
+    const revealTimer = setTimeout(() => setPhase('reveal'), 1200);
     const completeTimer = setTimeout(() => {
       setPhase('done');
       onComplete?.();
@@ -26,71 +23,61 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
     };
   }, [onComplete, minDuration]);
 
-  // Orbiting dots configuration
-  const orbitDots = [
-    { delay: 0, size: 10 },
-    { delay: 0.25, size: 8 },
-    { delay: 0.5, size: 6 },
-    { delay: 0.75, size: 8 },
-  ];
-
   return (
     <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center">
       <div className="relative flex flex-col items-center gap-6">
         {/* Logo container with orbiting dots */}
         <div className="relative w-40 h-40 flex items-center justify-center">
           
-          {/* Orbiting dots */}
+          {/* Orbiting dots - using rotate + translateX for GPU-only animation */}
           <div 
             className={`absolute inset-0 transition-opacity duration-300 ${
               phase === 'reveal' ? 'opacity-0' : 'opacity-100'
             }`}
+            style={{ willChange: 'opacity' }}
           >
-            {orbitDots.map((dot, i) => (
+            {[0, 1, 2, 3].map((i) => (
               <motion.div
                 key={i}
-                className="absolute rounded-full bg-primary"
-                style={{
-                  width: dot.size,
-                  height: dot.size,
-                  left: '50%',
-                  top: '50%',
-                  marginLeft: -dot.size / 2,
-                  marginTop: -dot.size / 2,
-                }}
-                animate={{
-                  x: [
-                    Math.cos(0) * 60,
-                    Math.cos(Math.PI / 2) * 50,
-                    Math.cos(Math.PI) * 60,
-                    Math.cos((3 * Math.PI) / 2) * 50,
-                    Math.cos(2 * Math.PI) * 60,
-                  ],
-                  y: [
-                    Math.sin(0) * 40,
-                    Math.sin(Math.PI / 2) * 50,
-                    Math.sin(Math.PI) * 40,
-                    Math.sin((3 * Math.PI) / 2) * 50,
-                    Math.sin(2 * Math.PI) * 40,
-                  ],
-                  opacity: [0.4, 1, 0.4, 1, 0.4],
-                  scale: [0.8, 1.2, 0.8, 1.2, 0.8],
-                }}
+                className="absolute left-1/2 top-1/2 -ml-1 -mt-1"
+                style={{ willChange: 'transform' }}
+                animate={{ rotate: 360 }}
                 transition={{
                   duration: 2,
-                  delay: dot.delay,
+                  delay: i * 0.25,
                   repeat: Infinity,
-                  ease: 'easeInOut',
+                  ease: 'linear',
                 }}
-              />
+              >
+                <motion.div
+                  className="rounded-full bg-primary"
+                  style={{
+                    width: [10, 8, 6, 8][i],
+                    height: [10, 8, 6, 8][i],
+                    transform: 'translateX(55px)',
+                    willChange: 'transform, opacity',
+                  }}
+                  animate={{
+                    scale: [0.8, 1.2, 0.8],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 1,
+                    delay: i * 0.25,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                />
+              </motion.div>
             ))}
           </div>
 
-          {/* Soft glow pulse */}
+          {/* Soft glow pulse - using scale + opacity only */}
           <motion.div
             className="absolute inset-0 rounded-full"
             style={{
               background: 'radial-gradient(circle, hsl(var(--primary)/0.15) 0%, transparent 70%)',
+              willChange: 'transform, opacity',
             }}
             animate={{
               scale: [1, 1.3, 1],
@@ -108,6 +95,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
             src={crooLogo} 
             alt="Croo" 
             className="w-24 h-24 object-contain relative z-10"
+            style={{ willChange: 'transform, opacity' }}
             initial={{ opacity: 0.6, scale: 0.9 }}
             animate={phase === 'reveal' ? {
               opacity: 1,
@@ -132,6 +120,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
           className={`flex items-center gap-1 text-muted-foreground text-sm transition-opacity duration-300 ${
             phase === 'reveal' ? 'opacity-0' : 'opacity-100'
           }`}
+          style={{ willChange: 'opacity' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: phase === 'loading' ? 0.7 : 0 }}
           transition={{ delay: 0.3 }}
