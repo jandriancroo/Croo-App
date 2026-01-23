@@ -758,164 +758,171 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
               </div>
             </>
           )}
-          <div className="space-y-2">
-            <Label>Assign To</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={assignmentType === "employees" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("employees");
-                  setSelectedRoles([]);
-                }}
-              >
-                Employees
-              </Button>
-              <Button
-                type="button"
-                variant={assignmentType === "roles" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("roles");
-                  setSelectedEmployees([]);
-                }}
-              >
-                Roles
-              </Button>
-            </div>
-          </div>
-
-          {/* Employee Selection */}
-          {assignmentType === "employees" && (
-            <div className="space-y-2">
-              <Label>Select Employees *</Label>
-              <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                {employees.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No employees found</p>
-                ) : (
-                  employees.map((emp: any) => (
-                    <div key={emp.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={emp.id}
-                        checked={selectedEmployees.includes(emp.id)}
-                        onCheckedChange={() => toggleEmployee(emp.id)}
-                      />
-                      <label htmlFor={emp.id} className="text-sm cursor-pointer">
-                        {emp.full_name || emp.email}
-                      </label>
-                    </div>
-                  ))
-                )}
+          {/* Assignment Section - Hidden for QR tasks */}
+          {taskStyle !== "qr" && (
+            <>
+              <div className="space-y-2">
+                <Label>Assign To</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={assignmentType === "employees" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("employees");
+                      setSelectedRoles([]);
+                    }}
+                  >
+                    Employees
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignmentType === "roles" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("roles");
+                      setSelectedEmployees([]);
+                    }}
+                  >
+                    Roles
+                  </Button>
+                </div>
               </div>
-              {selectedEmployees.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {selectedEmployees.map(id => {
-                    const emp = employees.find((e: any) => e.id === id);
-                    return emp ? (
-                      <Badge key={id} variant="secondary" className="gap-1">
-                        {emp.full_name?.split(' ')[0] || emp.email}
-                        <X 
-                          className="h-3 w-3 cursor-pointer" 
-                          onClick={() => toggleEmployee(id)}
+
+              {/* Employee Selection */}
+              {assignmentType === "employees" && (
+                <div className="space-y-2">
+                  <Label>Select Employees *</Label>
+                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                    {employees.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No employees found</p>
+                    ) : (
+                      employees.map((emp: any) => (
+                        <div key={emp.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={emp.id}
+                            checked={selectedEmployees.includes(emp.id)}
+                            onCheckedChange={() => toggleEmployee(emp.id)}
+                          />
+                          <label htmlFor={emp.id} className="text-sm cursor-pointer">
+                            {emp.full_name || emp.email}
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {selectedEmployees.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedEmployees.map(id => {
+                        const emp = employees.find((e: any) => e.id === id);
+                        return emp ? (
+                          <Badge key={id} variant="secondary" className="gap-1">
+                            {emp.full_name?.split(' ')[0] || emp.email}
+                            <X 
+                              className="h-3 w-3 cursor-pointer" 
+                              onClick={() => toggleEmployee(id)}
+                            />
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Role Selection */}
+              {assignmentType === "roles" && (
+                <div className="space-y-2">
+                  <Label>Select Roles *</Label>
+                  <div className="border rounded-lg p-3 space-y-2">
+                    {ROLE_OPTIONS.map(role => (
+                      <div key={role.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={role.value}
+                          checked={selectedRoles.includes(role.value)}
+                          onCheckedChange={() => toggleRole(role.value)}
                         />
-                      </Badge>
-                    ) : null;
-                  })}
+                        <label htmlFor={role.value} className="text-sm cursor-pointer">
+                          {role.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Subtasks - Hidden for QR tasks */}
+          {taskStyle !== "qr" && (
+            <div className="space-y-2">
+              <Label>Subtasks (Optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                  placeholder="Add a subtask"
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
+                />
+                <Select value={newSubtaskType} onValueChange={(v) => setNewSubtaskType(v as "checkbox" | "photo")}>
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checkbox">
+                      <div className="flex items-center gap-2">
+                        <CheckSquare className="h-3.5 w-3.5" />
+                        Check
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="photo">
+                      <div className="flex items-center gap-2">
+                        <Camera className="h-3.5 w-3.5" />
+                        Photo
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  type="button" 
+                  size="icon" 
+                  variant="outline"
+                  onClick={handleAddSubtask}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {subtasks.length > 0 && (
+                <div className="border rounded-lg p-3 space-y-2">
+                  {subtasks.map((subtask, index) => (
+                    <div key={index} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {subtask.item_type === "photo" ? (
+                          <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <span className="text-sm">{subtask.title}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5">
+                          {subtask.item_type === "photo" ? "Photo" : "Check"}
+                        </Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleRemoveSubtask(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
-
-          {/* Role Selection */}
-          {assignmentType === "roles" && (
-            <div className="space-y-2">
-              <Label>Select Roles *</Label>
-              <div className="border rounded-lg p-3 space-y-2">
-                {ROLE_OPTIONS.map(role => (
-                  <div key={role.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={role.value}
-                      checked={selectedRoles.includes(role.value)}
-                      onCheckedChange={() => toggleRole(role.value)}
-                    />
-                    <label htmlFor={role.value} className="text-sm cursor-pointer">
-                      {role.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Subtasks */}
-          <div className="space-y-2">
-            <Label>Subtasks (Optional)</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newSubtask}
-                onChange={(e) => setNewSubtask(e.target.value)}
-                placeholder="Add a subtask"
-                className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
-              />
-              <Select value={newSubtaskType} onValueChange={(v) => setNewSubtaskType(v as "checkbox" | "photo")}>
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="checkbox">
-                    <div className="flex items-center gap-2">
-                      <CheckSquare className="h-3.5 w-3.5" />
-                      Check
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="photo">
-                    <div className="flex items-center gap-2">
-                      <Camera className="h-3.5 w-3.5" />
-                      Photo
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                type="button" 
-                size="icon" 
-                variant="outline"
-                onClick={handleAddSubtask}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {subtasks.length > 0 && (
-              <div className="border rounded-lg p-3 space-y-2">
-                {subtasks.map((subtask, index) => (
-                  <div key={index} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {subtask.item_type === "photo" ? (
-                        <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : (
-                        <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                      <span className="text-sm">{subtask.title}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5">
-                        {subtask.item_type === "photo" ? "Photo" : "Check"}
-                      </Badge>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={() => handleRemoveSubtask(index)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <DialogFooter>
@@ -927,6 +934,22 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* QR Code Dialog - shown after creating a QR task */}
+      {createdQrCode && (
+        <QRTaskCodeDialog
+          open={showQrDialog}
+          onOpenChange={(open) => {
+            setShowQrDialog(open);
+            if (!open) {
+              onOpenChange(false);
+            }
+          }}
+          taskTitle={title}
+          qrCode={createdQrCode}
+          accentColor={accentColor}
+        />
+      )}
     </Dialog>
   );
 }
