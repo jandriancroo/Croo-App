@@ -494,32 +494,26 @@ export default function Hiring() {
                             onClick={e => toggleSelection(app.id, e)}
                             className="shrink-0"
                           />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                            {/* Row 1: Name + Status + AI Match icon */}
+                            <div className="flex items-center gap-2">
                               <ApplicantFlagDot applicationId={app.id} />
                               <h3 className="font-semibold truncate">{app.full_name}</h3>
-                              <Badge className={STATUS_COLORS[app.status as ApplicationStatus]}>
+                              <Badge className={`${STATUS_COLORS[app.status as ApplicationStatus]} text-[10px] px-1.5 py-0`}>
                                 {app.status}
                               </Badge>
                               {isAiMatch && (
-                                <Badge className="bg-gradient-to-r from-primary to-purple-500 text-white border-0 flex items-center gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  Croo AI Match!
-                                </Badge>
+                                <Sparkles className="h-4 w-4 text-primary shrink-0" />
                               )}
                             </div>
-                            {/* Interview info - shown right below name when in interviewing phase */}
-                            {app.status === 'interviewing' && app.interview_date && (
+                            
+                            {/* Row 2: Interview info OR Previous employer */}
+                            {app.status === 'interviewing' && app.interview_date ? (
                               <div className="flex items-center gap-2 mt-1 text-xs">
-                                <span className="flex items-center gap-1 text-primary font-medium">
-                                  <Calendar className="h-3 w-3" />
+                                <Calendar className="h-3 w-3 text-primary" />
+                                <span className="text-primary font-medium">
                                   {format(new Date(app.interview_date + 'T00:00:00'), 'MMM d')}
-                                  {app.interview_time && (
-                                    <>
-                                      <span className="mx-1">@</span>
-                                      {app.interview_time}
-                                    </>
-                                  )}
+                                  {app.interview_time && ` @ ${app.interview_time}`}
                                 </span>
                                 {app.interview_status === 'accepted' && (
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
@@ -532,21 +526,17 @@ export default function Hiring() {
                                   </Badge>
                                 )}
                               </div>
-                            )}
-                            {mostRecentEmployer && (
-                              <p className="text-sm text-muted-foreground truncate">
+                            ) : mostRecentEmployer ? (
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
                                 Previously at {mostRecentEmployer}
                               </p>
-                            )}
-                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
+                            ) : null}
+                            
+                            {/* Row 3: Location + Date */}
+                            <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
                             </div>
-                            {app.ai_match_reason && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">
-                                {app.ai_match_reason}
-                              </p>
-                            )}
                           </div>
                           {app.status === 'pending' && (
                             <Button
