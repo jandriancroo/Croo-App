@@ -48,6 +48,7 @@ import { Input } from '@/components/ui/input';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
+import { resolveProjection } from '@/hooks/useResolvedProjection';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
 
@@ -259,7 +260,7 @@ export function ManagerDashboardOverlay({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales, pizza_count')
+        .select('net_sales, hourly_data, projected_sales, pizza_count, initial_projection, living_projection, override_projection')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();
@@ -561,6 +562,7 @@ export function ManagerDashboardOverlay({
   }, [localStorageLiveSales, cachedSalesOverviewData, salesData?.pizza_count]);
   
   // EOD Goal: use localStorage cache (SAME source as Dashboard SalesSummary)
+  // Falls back to resolveProjection which uses: override > living > initial > legacy
   const eodGoal = useMemo(() => {
     // First try localStorage cache - this is what Dashboard shows
     if (localStorageProjections?.todayProjected && localStorageProjections.todayProjected > 0) {
@@ -571,9 +573,11 @@ export function ManagerDashboardOverlay({
     const liveProjected = cachedSalesOverviewData?.projections?.todayProjected;
     if (liveProjected && liveProjected > 0) return liveProjected;
     
-    // Fall back to sales_cache.projected_sales
-    return Number(salesData?.projected_sales) || 0;
-  }, [localStorageProjections, cachedSalesOverviewData, salesData?.projected_sales]);
+    // Fall back to sales_cache using proper resolution (override > living > initial > legacy)
+    // This matches how Dashboard resolves projections
+    const resolved = resolveProjection(salesData);
+    return resolved.value || 0;
+  }, [localStorageProjections, cachedSalesOverviewData, salesData]);
   
   // Pace Adjusted: use localStorage cache (SAME source as Dashboard SalesSummary)
   // CRITICAL: This is the TRUE pace number from Dashboard
