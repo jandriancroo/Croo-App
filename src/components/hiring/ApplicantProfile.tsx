@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { HiringChatPanel } from './HiringChatPanel';
@@ -57,11 +57,17 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
         .single();
 
       if (error) throw error;
-      setInternalNotes(data.internal_notes || '');
       return data;
     },
     enabled: !!applicationId && open,
   });
+
+  // Sync local notes state when application data changes (including after flag updates)
+  useEffect(() => {
+    if (application?.internal_notes !== undefined) {
+      setInternalNotes(application.internal_notes || '');
+    }
+  }, [application?.internal_notes]);
 
   const updateNotesMutation = useMutation({
     mutationFn: async () => {
