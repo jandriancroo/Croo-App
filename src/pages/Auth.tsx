@@ -161,12 +161,14 @@ export default function Auth() {
   return (
     <>
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 gap-6">
-        {/* Powered by Croo branding with logo */}
-        <div className="flex flex-col items-center gap-1">
-          <img src={crooLogo} alt="Croo Logo" className="h-20 w-auto" />
-          <p className="text-sm text-muted-foreground">
-            Powered by <span className="font-semibold text-primary">Croo</span>
-          </p>
+        {/* Powered by Croo branding with logo - same style as punch clock */}
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-base text-muted-foreground font-medium">Powered by</span>
+          <img 
+            src={crooLogo} 
+            alt="Croo" 
+            className="h-10 w-auto opacity-70"
+          />
         </div>
         
       <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
