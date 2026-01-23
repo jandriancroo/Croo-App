@@ -9,7 +9,7 @@ interface CrowSplashAnimationProps {
 const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete }) => {
   const [phase, setPhase] = useState<'loading' | 'welcome' | 'exit'>('loading');
 
-  const loadingDuration = 1000; // How long the loading phase lasts
+  const loadingDuration = 1000;
 
   useEffect(() => {
     const welcomeTimer = setTimeout(() => setPhase('welcome'), loadingDuration);
@@ -23,7 +23,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
     };
   }, [onComplete]);
 
-  // Dots with disperse directions
+  // Dots with disperse directions - pre-calculated
   const dots = [
     { color: 'hsl(var(--primary))', exitX: -40, exitY: -30 },
     { color: 'hsl(var(--accent))', exitX: -15, exitY: -40 },
@@ -34,38 +34,52 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
   return (
     <motion.div 
       className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden bg-background"
-      style={{ willChange: 'opacity' }}
+      style={{ 
+        willChange: 'opacity',
+        contain: 'layout style paint',
+      }}
       initial={{ opacity: 1 }}
-      animate={phase === 'exit' ? { opacity: 0 } : { opacity: 1 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
+      animate={{ opacity: phase === 'exit' ? 0 : 1 }}
+      transition={{ 
+        duration: 0.4, 
+        ease: 'linear',
+      }}
     >
-      <div className="relative flex flex-col items-center gap-8">
-        {/* Logo - slow zoom then crossfade when welcome appears */}
+      <div 
+        className="relative flex flex-col items-center gap-8"
+        style={{ contain: 'layout style' }}
+      >
+        {/* Logo - GPU accelerated with slow zoom */}
         <motion.img 
           src={crooLogo} 
           alt="Logo" 
           className="h-28 w-auto"
-          style={{ willChange: 'transform, opacity' }}
+          style={{ 
+            willChange: 'transform, opacity',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+          }}
           initial={{ opacity: 1, scale: 1 }}
-          animate={phase === 'loading' ? {
-            opacity: 1,
-            scale: 1.25,
-          } : {
-            opacity: 0,
+          animate={{
+            opacity: phase === 'loading' ? 1 : 0,
             scale: 1.25,
           }}
           transition={{
-            duration: phase === 'loading' ? loadingDuration / 1000 : 0.3,
-            ease: 'easeOut',
+            opacity: { duration: 0.3, ease: 'linear' },
+            scale: { 
+              duration: loadingDuration / 1000,
+              ease: [0.25, 0.1, 0.25, 1],
+            },
           }}
         />
         
-        {/* Bouncing dots - disperse when welcome appears */}
+        {/* Bouncing dots - GPU layers */}
         <motion.div 
           className="flex items-center gap-2"
+          style={{ willChange: 'opacity' }}
           initial={{ opacity: 1 }}
-          animate={phase !== 'loading' ? { opacity: 0 } : { opacity: 1 }}
-          transition={{ duration: 0.2 }}
+          animate={{ opacity: phase !== 'loading' ? 0 : 1 }}
+          transition={{ duration: 0.2, ease: 'linear' }}
         >
           {dots.map((dot, i) => (
             <motion.div
@@ -74,8 +88,10 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
               style={{ 
                 backgroundColor: dot.color,
                 willChange: 'transform, opacity',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
               }}
-              initial={{ x: 0, y: 0 }}
+              initial={{ x: 0, y: 0, scale: 1 }}
               animate={phase !== 'loading' ? {
                 x: dot.exitX,
                 y: dot.exitY,
@@ -83,28 +99,31 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
                 opacity: 0,
               } : {
                 y: [0, -12, 0],
-                scaleY: [1, 0.8, 1],
-                scaleX: [1, 1.1, 1],
+                scale: [1, 0.9, 1],
               }}
               transition={phase !== 'loading' ? {
                 duration: 0.4,
                 delay: i * 0.05,
-                ease: 'easeOut',
+                ease: [0.25, 0.1, 0.25, 1],
               } : {
-                duration: 0.5,
+                duration: 0.6,
                 delay: i * 0.1,
                 repeat: Infinity,
-                repeatDelay: 0.3,
+                repeatDelay: 0.2,
                 ease: [0.45, 0, 0.55, 1],
               }}
             />
           ))}
         </motion.div>
 
-        {/* Welcome text - appears after logo/dots fade */}
+        {/* Welcome text - GPU accelerated */}
         <motion.div 
           className="absolute inset-0 flex items-center justify-center"
-          style={{ willChange: 'transform, opacity' }}
+          style={{ 
+            willChange: 'transform, opacity',
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+          }}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={phase !== 'loading' ? { 
             opacity: 1, 
@@ -113,7 +132,10 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete })
             opacity: 0,
             scale: 0.9,
           }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
+          transition={{ 
+            duration: 0.4, 
+            ease: [0.25, 0.1, 0.25, 1],
+          }}
         >
           <span className="font-pacifico text-5xl md:text-6xl text-primary drop-shadow-sm">
             welcome
