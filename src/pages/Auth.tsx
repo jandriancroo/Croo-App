@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.png';
 import { LoginSplashScreen } from '@/components/LoginSplashScreen';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
+import { SeasonalCardDecor, SeasonalButtonDecor } from '@/components/auth/SeasonalDecorations';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -176,7 +177,9 @@ export default function Auth() {
           </p>
         </div>
         
-      <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
+      <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] relative overflow-visible">
+        {/* Seasonal decorations */}
+        <SeasonalCardDecor />
         <CardHeader className="text-center pb-2 pt-4">
         </CardHeader>
         <CardContent>
@@ -208,9 +211,12 @@ export default function Auth() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </Button>
+                <div className="relative">
+                  <SeasonalButtonDecor />
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </Button>
+                </div>
                 <div className="text-center">
                   <button
                     type="button"
