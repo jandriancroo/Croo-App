@@ -11,11 +11,11 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
   const [phase, setPhase] = useState<'loading' | 'exit' | 'done'>('loading');
 
   useEffect(() => {
-    const exitTimer = setTimeout(() => setPhase('exit'), minDuration - 400);
+    const exitTimer = setTimeout(() => setPhase('exit'), minDuration - 600);
     const completeTimer = setTimeout(() => {
       setPhase('done');
       onComplete?.();
-    }, minDuration);
+    }, minDuration + 200); // Give extra time for disperse animation
 
     return () => {
       clearTimeout(exitTimer);
@@ -36,7 +36,7 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
       className="fixed inset-0 z-[100] bg-background flex items-center justify-center"
       initial={{ opacity: 1 }}
       animate={phase === 'exit' ? { opacity: 0 } : { opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.5, delay: phase === 'exit' ? 0.3 : 0 }}
     >
       <div className="relative flex flex-col items-center gap-8">
         {/* Logo - slow zoom then crossfade */}
@@ -81,8 +81,8 @@ export function AppSplashScreen({ onComplete, minDuration = 1800 }: AppSplashScr
                 scaleX: [1, 1.1, 1],
               }}
               transition={phase === 'exit' ? {
-                duration: 0.3,
-                delay: i * 0.03,
+                duration: 0.4,
+                delay: i * 0.05,
                 ease: 'easeOut',
               } : {
                 duration: 0.5,
