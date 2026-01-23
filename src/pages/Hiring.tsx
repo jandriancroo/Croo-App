@@ -495,20 +495,28 @@ export default function Hiring() {
                             className="shrink-0"
                           />
                         <div className="flex-1 min-w-0">
-                            {/* Row 1: Name + Status + AI Match icon */}
-                            <div className="flex items-center gap-2">
+                            {/* Row 1: Name + Status + AI Match */}
+                            <div className="flex items-center gap-2 flex-wrap">
                               <ApplicantFlagDot applicationId={app.id} />
                               <h3 className="font-semibold truncate">{app.full_name}</h3>
-                              <Badge className={`${STATUS_COLORS[app.status as ApplicationStatus]} text-[10px] px-1.5 py-0`}>
+                              <Badge className={STATUS_COLORS[app.status as ApplicationStatus]}>
                                 {app.status}
                               </Badge>
                               {isAiMatch && (
-                                <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                                <>
+                                  {/* Mobile: icon only */}
+                                  <Sparkles className="h-4 w-4 text-primary shrink-0 sm:hidden" />
+                                  {/* Tablet+: full badge */}
+                                  <Badge className="hidden sm:flex bg-gradient-to-r from-primary to-purple-500 text-white border-0 items-center gap-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    Croo AI Match!
+                                  </Badge>
+                                </>
                               )}
                             </div>
                             
-                            {/* Row 2: Interview info OR Previous employer */}
-                            {app.status === 'interviewing' && app.interview_date ? (
+                            {/* Row 2: Interview info when interviewing */}
+                            {app.status === 'interviewing' && app.interview_date && (
                               <div className="flex items-center gap-2 mt-1 text-xs">
                                 <Calendar className="h-3 w-3 text-primary" />
                                 <span className="text-primary font-medium">
@@ -526,17 +534,27 @@ export default function Hiring() {
                                   </Badge>
                                 )}
                               </div>
-                            ) : mostRecentEmployer ? (
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            )}
+                            
+                            {/* Previous employer */}
+                            {mostRecentEmployer && (
+                              <p className="text-sm text-muted-foreground truncate">
                                 Previously at {mostRecentEmployer}
                               </p>
-                            ) : null}
+                            )}
                             
-                            {/* Row 3: Location + Date */}
-                            <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                            {/* Location + Date */}
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
                             </div>
+                            
+                            {/* AI match reason */}
+                            {app.ai_match_reason && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">
+                                {app.ai_match_reason}
+                              </p>
+                            )}
                           </div>
                           {app.status === 'pending' && (
                             <Button
