@@ -166,7 +166,7 @@ export default function Auth() {
       {/* Full page snowfall for winter */}
       {season === 'winter' && <WinterSnowfall />}
       
-      <div className={`flex min-h-screen flex-col items-center justify-center p-4 gap-6 relative z-10 ${season === 'winter' ? 'bg-gradient-to-br from-slate-300 via-slate-400/80 to-slate-500/60' : 'bg-gradient-to-br from-background via-primary/5 to-accent/10'}`}>
+      <div className={`flex min-h-screen flex-col items-center justify-center p-4 gap-6 relative z-10 ${season === 'winter' ? 'bg-gradient-to-br from-slate-400 via-slate-500/80 to-slate-600/60' : 'bg-gradient-to-br from-background via-primary/5 to-accent/10'}`}>
         {/* Powered by Croo branding with large logo */}
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center justify-center gap-3">

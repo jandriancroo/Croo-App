@@ -43,9 +43,9 @@ const WinterTopSnow = () => (
   </div>
 );
 
-// Full page snowfall background
+// Full page snowfall - TOP LAYER (z-50)
 export const WinterSnowfall = () => (
-  <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+  <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
     {[...Array(50)].map((_, i) => (
       <div
         key={i}
@@ -56,7 +56,7 @@ export const WinterSnowfall = () => (
           animationDelay: `${Math.random() * 8}s`,
           animationDuration: `${6 + Math.random() * 6}s`,
           fontSize: `${8 + Math.random() * 14}px`,
-          opacity: 0.4 + Math.random() * 0.4,
+          opacity: 0.5 + Math.random() * 0.5,
         }}
       >
         ❄
