@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { HiringChatPanel } from './HiringChatPanel';
+import { HiringChatPreview } from './HiringChatPreview';
 import { ApplicantFlagSelector } from './ApplicantFlagSelector';
 import { ApplicantNotesSection } from './ApplicantNotesSection';
 
@@ -344,10 +344,13 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
               {/* Notes Section */}
               <ApplicantNotesSection applicationId={application.id} />
 
-              {/* Hiring Chat */}
-              <HiringChatPanel 
+              {/* Chat Preview + Interview Info */}
+              <HiringChatPreview 
                 applicationId={application.id} 
-                applicantName={application.full_name} 
+                applicantName={application.full_name}
+                interviewDate={application.interview_date}
+                interviewTime={application.interview_time}
+                interviewStatus={application.interview_status}
               />
 
               {/* Delete Application */}
