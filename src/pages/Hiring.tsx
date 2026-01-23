@@ -26,6 +26,7 @@ import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
 import { BulkApplicantActionsBar } from '@/components/hiring/BulkApplicantActionsBar';
+import { ApplicantFlagDot } from '@/components/hiring/ApplicantFlagSelector';
 import { QRCodeSVG } from 'qrcode.react';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -495,6 +496,7 @@ export default function Hiring() {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
+                              <ApplicantFlagDot applicationId={app.id} />
                               <h3 className="font-semibold truncate">{app.full_name}</h3>
                               <Badge className={STATUS_COLORS[app.status as ApplicationStatus]}>
                                 {app.status}

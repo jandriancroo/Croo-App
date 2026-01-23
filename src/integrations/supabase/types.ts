@@ -92,6 +92,41 @@ export type Database = {
           },
         ]
       }
+      applicant_flags: {
+        Row: {
+          application_id: string
+          created_at: string
+          flag_color: Database["public"]["Enums"]["applicant_flag_color"]
+          id: string
+          reason: string | null
+          set_by: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          flag_color?: Database["public"]["Enums"]["applicant_flag_color"]
+          id?: string
+          reason?: string | null
+          set_by?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          flag_color?: Database["public"]["Enums"]["applicant_flag_color"]
+          id?: string
+          reason?: string | null
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_flags_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applicant_push_subscriptions: {
         Row: {
           conversation_id: string
@@ -5192,7 +5227,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      applicant_current_flags: {
+        Row: {
+          application_id: string | null
+          created_at: string | null
+          flag_color: Database["public"]["Enums"]["applicant_flag_color"] | null
+          reason: string | null
+          set_by: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applicant_flags_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       assign_user_to_location: {
@@ -5286,6 +5338,7 @@ export type Database = {
         | "org_admin"
         | "brand_admin"
         | "fbc"
+      applicant_flag_color: "none" | "green" | "yellow" | "red"
       application_status:
         | "pending"
         | "interested"
@@ -5439,6 +5492,7 @@ export const Constants = {
         "brand_admin",
         "fbc",
       ],
+      applicant_flag_color: ["none", "green", "yellow", "red"],
       application_status: [
         "pending",
         "interested",

@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { HiringChatPanel } from './HiringChatPanel';
+import { ApplicantFlagSelector } from './ApplicantFlagSelector';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -130,21 +131,24 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                     )}
                   </div>
                 </div>
-                <Select 
-                  value={application.status} 
-                  onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="interested">Interested</SelectItem>
-                    <SelectItem value="interviewing">Interviewing</SelectItem>
-                    <SelectItem value="hired">Hired</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <ApplicantFlagSelector applicationId={application.id} />
+                  <Select 
+                    value={application.status} 
+                    onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
+                  >
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="interested">Interested</SelectItem>
+                      <SelectItem value="interviewing">Interviewing</SelectItem>
+                      <SelectItem value="hired">Hired</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </DialogHeader>
 
