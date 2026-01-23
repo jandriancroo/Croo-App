@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar, Clock } from 'lucide-react';
+import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { RejectionEmailTemplates } from '@/components/hiring/RejectionEmailTemplates';
@@ -508,6 +508,31 @@ export default function Hiring() {
                                 </Badge>
                               )}
                             </div>
+                            {/* Interview info - shown right below name when in interviewing phase */}
+                            {app.status === 'interviewing' && app.interview_date && (
+                              <div className="flex items-center gap-2 mt-1 text-xs">
+                                <span className="flex items-center gap-1 text-primary font-medium">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(app.interview_date + 'T00:00:00'), 'MMM d')}
+                                  {app.interview_time && (
+                                    <>
+                                      <span className="mx-1">@</span>
+                                      {app.interview_time}
+                                    </>
+                                  )}
+                                </span>
+                                {app.interview_status === 'accepted' && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
+                                    Confirmed
+                                  </Badge>
+                                )}
+                                {app.interview_status === 'pending' && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                    Invite Sent
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                             {mostRecentEmployer && (
                               <p className="text-sm text-muted-foreground truncate">
                                 Previously at {mostRecentEmployer}
@@ -516,29 +541,6 @@ export default function Hiring() {
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
-                              {/* Only show interview info when in interviewing phase */}
-                              {app.status === 'interviewing' && app.interview_date && (
-                                <span className="flex items-center gap-1 text-primary">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(app.interview_date + 'T00:00:00'), 'MMM d')}
-                                  {app.interview_time && (
-                                    <>
-                                      <Clock className="h-3 w-3 ml-1" />
-                                      {app.interview_time}
-                                    </>
-                                  )}
-                                  {app.interview_status === 'accepted' && (
-                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
-                                      Confirmed
-                                    </Badge>
-                                  )}
-                                  {app.interview_status === 'pending' && (
-                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
-                                      Invite Sent
-                                    </Badge>
-                                  )}
-                                </span>
-                              )}
                             </div>
                             {app.ai_match_reason && (
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">
