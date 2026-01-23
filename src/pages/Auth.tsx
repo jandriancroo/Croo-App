@@ -161,11 +161,11 @@ export default function Auth() {
   return (
     <>
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4 gap-6">
-        {/* Logo above card */}
-        <div className="flex flex-col items-center gap-2">
-          <img src={crooLogo} alt="Croo Logo" className="h-32 w-auto" />
-          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
-            food service made smart
+        {/* Powered by Croo branding with logo */}
+        <div className="flex flex-col items-center gap-1">
+          <img src={crooLogo} alt="Croo Logo" className="h-20 w-auto" />
+          <p className="text-sm text-muted-foreground">
+            Powered by <span className="font-semibold text-primary">Croo</span>
           </p>
         </div>
         
@@ -272,11 +272,6 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
-      
-      {/* Powered by Croo branding */}
-      <p className="text-xs text-muted-foreground mt-4">
-        Powered by <span className="font-semibold text-primary">Croo</span>
-      </p>
     </div>
     </>
   );
