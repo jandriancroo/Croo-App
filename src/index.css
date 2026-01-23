@@ -882,19 +882,16 @@ All colors MUST be HSL.
 
   @keyframes snowfall {
     0% {
-      transform: translateY(-5vh) translateX(0) rotate(0deg);
-      opacity: 0;
-    }
-    5% {
-      opacity: 1;
+      transform: translate3d(0, -5vh, 0);
     }
     100% {
-      transform: translateY(105vh) translateX(20px) rotate(360deg);
-      opacity: 0.3;
+      transform: translate3d(15px, 105vh, 0);
     }
   }
 
   .animate-snowfall {
     animation: snowfall 8s linear infinite;
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 }
