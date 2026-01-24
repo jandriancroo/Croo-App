@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, getDateInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
 interface Profile {
@@ -175,10 +175,15 @@ export function MobileScheduleView({
       
       const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
       const offset = getTimezoneOffset(timezone);
-      const startOfDayTime = new Date(`${todayStr}T00:00:00${offset}`).toISOString();
-      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
-      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
-      const endOfDayTime = endOfDayPlus.toISOString();
+      // Query window:
+      // - Start: a small lookback before midnight so we can see the *true* shift-start clock_in
+      //   for overnight activity that might still be visible around midnight.
+      // - End: end of the calendar day (no forward spillover).
+      const startOfDayLocal = new Date(`${todayStr}T00:00:00${offset}`);
+      startOfDayLocal.setHours(startOfDayLocal.getHours() - 16);
+      const startOfDayTime = startOfDayLocal.toISOString();
+
+      const endOfDayTime = new Date(`${todayStr}T23:59:59${offset}`).toISOString();
       
       // Parallel queries for all data
       const [punchesRes, scheduledRes, eventsRes] = await Promise.all([
@@ -249,9 +254,20 @@ export function MobileScheduleView({
       const punchSummaries: DayPunch[] = [];
 
       Object.entries(userPunches).forEach(([userId, punches]) => {
-        // Skip users who don't have a clock_in (they only have orphaned punches like clock_out from yesterday)
-        const hasClockIn = punches.some(p => p.punch_type === 'clock_in');
-        if (!hasClockIn) return;
+        // We consider a "shift" to belong to the business date of its first clock_in.
+        // This prevents yesterday's overnight activity (e.g., break resume right after midnight)
+        // from showing up on "Today".
+        const clockIns = punches.filter(p => p.punch_type === 'clock_in');
+        if (clockIns.length === 0) return;
+
+        const firstClockInPunch = clockIns.reduce((min, p) =>
+          new Date(p.punch_time).getTime() < new Date(min.punch_time).getTime() ? p : min
+        );
+        const firstClockInBusinessDate = getDateInTimezone(
+          new Date(firstClockInPunch.punch_time),
+          timezone
+        );
+        if (firstClockInBusinessDate !== todayStr) return;
         
         let isClockedIn = false;
         let isOnBreak = false;
