@@ -9,9 +9,16 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { Clock, Coffee, LogOut } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import {
+  getEndOfDateStringInTimezone,
+  getStartOfTodayInTimezone,
+  getTodayInTimezone,
+  toISOStringInTimezone,
+} from '@/utils/timezoneUtils';
 
 interface QuickPunchDialogProps {
   open: boolean;
@@ -27,9 +34,10 @@ interface ActivePunch {
 
 export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDialogProps) {
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [date, setDate] = useState(() => getTodayInTimezone(timezone));
   const [clockIn, setClockIn] = useState('');
   const [clockOut, setClockOut] = useState('');
   const [includeMealBreak, setIncludeMealBreak] = useState(false);
@@ -51,10 +59,10 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
       setClockOut(`${hours}:${minutes}`);
       setSelectedEmployee('');
       setIncludeMealBreak(false);
-      setDate(format(new Date(), 'yyyy-MM-dd'));
+      setDate(getTodayInTimezone(timezone));
       setMode('new');
     }
-  }, [open]);
+  }, [open, timezone]);
 
   // When employee is selected, check if they're clocked in
   useEffect(() => {
@@ -88,10 +96,9 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
   const fetchActivePunches = async () => {
     if (!currentLocation) return;
     
-    // Get today's date range
-    const today = new Date();
-    const startOfToday = startOfDay(today).toISOString();
-    const endOfToday = endOfDay(today).toISOString();
+    // Get today's date range in the LOCATION timezone (prevents device timezone shifting)
+    const startOfToday = getStartOfTodayInTimezone(timezone).toISOString();
+    const endOfToday = getEndOfDateStringInTimezone(getTodayInTimezone(timezone), timezone).toISOString();
 
     // Fetch all clock_in punches for today at this location
     const { data: clockIns } = await supabase
@@ -112,7 +119,6 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
       .lte('punch_time', endOfToday);
 
     // Find employees who are clocked in but not clocked out
-    const clockOutUserIds = new Set(clockOuts?.map(p => p.user_id) || []);
     const activeMap: Record<string, ActivePunch> = {};
     
     clockIns?.forEach(punch => {
@@ -155,7 +161,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           .insert({
             user_id: selectedEmployee,
             punch_type: 'clock_out',
-            punch_time: new Date(`${date}T${clockOut}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, clockOut, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy, // Manager who entered this
             notes: 'Manual entry by manager'
@@ -180,7 +186,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         {
           user_id: selectedEmployee,
           punch_type: 'clock_in',
-          punch_time: new Date(`${date}T${clockIn}`).toISOString(),
+          punch_time: toISOStringInTimezone(date, clockIn, timezone),
           location_id: currentLocation?.id,
           created_by: createdBy,
           notes: 'Manual entry by manager'
@@ -194,7 +200,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           punches.push({
             user_id: selectedEmployee,
             punch_type: 'break_start',
-            punch_time: new Date(`${date}T${mealBreakStart}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, mealBreakStart, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy,
             notes: '30 minute meal break (manual entry)'
@@ -202,7 +208,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           punches.push({
             user_id: selectedEmployee,
             punch_type: 'break_end',
-            punch_time: new Date(`${date}T${mealBreakEnd}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, mealBreakEnd, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy,
             notes: '30 minute meal break (manual entry)'
@@ -212,7 +218,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         punches.push({
           user_id: selectedEmployee,
           punch_type: 'clock_out',
-          punch_time: new Date(`${date}T${clockOut}`).toISOString(),
+          punch_time: toISOStringInTimezone(date, clockOut, timezone),
           location_id: currentLocation?.id,
           created_by: createdBy,
           notes: 'Manual entry by manager'
