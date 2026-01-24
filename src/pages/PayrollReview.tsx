@@ -1022,11 +1022,17 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
-                // Calculate previous day using UTC to avoid browser timezone issues
+                // Calculate previous day in location's timezone (no UTC conversion)
                 const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
-                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
-                const prevDay = dateAtNoon.toISOString().slice(0, 10);
+                const [y, m, d] = localDateStr.split('-').map(Number);
+                const dateAtNoon = new Date(y, m - 1, d, 12, 0, 0);
+                dateAtNoon.setDate(dateAtNoon.getDate() - 1);
+                const prevDay = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: timezone,
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                }).format(dateAtNoon);
                 // Only reassign if previous day has a clock_in
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
@@ -1043,10 +1049,17 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
+                // Calculate previous day in location's timezone (no UTC conversion)
                 const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
-                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
-                const prevDay = dateAtNoon.toISOString().slice(0, 10);
+                const [y, m, d] = localDateStr.split('-').map(Number);
+                const dateAtNoon = new Date(y, m - 1, d, 12, 0, 0);
+                dateAtNoon.setDate(dateAtNoon.getDate() - 1);
+                const prevDay = new Intl.DateTimeFormat('en-CA', {
+                  timeZone: timezone,
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                }).format(dateAtNoon);
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
                 }
