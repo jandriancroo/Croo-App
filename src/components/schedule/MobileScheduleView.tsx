@@ -175,7 +175,13 @@ export function MobileScheduleView({
       
       const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
       const offset = getTimezoneOffset(timezone);
-      const startOfDayTime = new Date(`${todayStr}T00:00:00${offset}`).toISOString();
+      
+      // Query a wider window to capture overnight shifts that started yesterday
+      // but extend into today (e.g., clock_in yesterday evening, clock_out today early AM)
+      const queryStartDate = new Date(`${todayStr}T00:00:00${offset}`);
+      queryStartDate.setHours(queryStartDate.getHours() - 16); // Look back 16 hours
+      const startOfDayTime = queryStartDate.toISOString();
+      
       const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
       const endOfDayTime = endOfDayPlus.toISOString();
@@ -239,11 +245,48 @@ export function MobileScheduleView({
       const creatorMap = new Map((creatorRes.data || []).map(p => [p.id, p.full_name]));
       const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
       
-      // Group and process punches
+      // Helper to get business date in location timezone
+      const getBusinessDate = (punchTime: string): string => {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(punchTime));
+      };
+      
+      // Group punches by user, but only include punches where the clock_in belongs to today
       const userPunches: Record<string, typeof allPunches> = {};
+      
+      // First pass: identify all clock_ins and their business dates
+      const clockInDates = new Map<string, string>(); // punch.id -> business date
       allPunches.forEach(p => {
-        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
-        userPunches[p.user_id].push(p);
+        if (p.punch_type === 'clock_in') {
+          clockInDates.set(p.id, getBusinessDate(p.punch_time));
+        }
+      });
+      
+      // Group punches by user
+      const allUserPunches: Record<string, typeof allPunches> = {};
+      allPunches.forEach(p => {
+        if (!allUserPunches[p.user_id]) allUserPunches[p.user_id] = [];
+        allUserPunches[p.user_id].push(p);
+      });
+      
+      // For each user, only keep shifts where the clock_in is from today
+      Object.entries(allUserPunches).forEach(([userId, punches]) => {
+        // Find the first clock_in for today
+        const todayClockIn = punches.find(p => 
+          p.punch_type === 'clock_in' && clockInDates.get(p.id) === todayStr
+        );
+        
+        if (todayClockIn) {
+          // Include all punches for this user that are on or after today's clock_in
+          const clockInTime = new Date(todayClockIn.punch_time).getTime();
+          userPunches[userId] = punches.filter(p => 
+            new Date(p.punch_time).getTime() >= clockInTime
+          );
+        }
       });
 
       const punchSummaries: DayPunch[] = [];
