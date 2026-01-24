@@ -36,6 +36,8 @@ import {
   parseDateStringInTimezone,
   getEndOfDateStringInTimezone,
   calculateCutoffHour,
+  getDayOfWeekIndexForDateStringInTimezone,
+  getPreviousDateStringInTimezone,
 } from '@/utils/timezoneUtils';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
@@ -180,9 +182,9 @@ function EditShiftForm({
     // it means the time crosses midnight and should be on the next day
     // Use threshold: if time is < 12 and reference is >= 12, it's likely next day
     if (timeHour < 12 && refHour >= 12) {
-      const nextDay = new Date(baseDate);
-      nextDay.setDate(nextDay.getDate() + 1);
-      return nextDay.toISOString().slice(0, 10);
+      const base = parseDateStringInTimezone(baseDate, timezone);
+      const nextDay = addDays(base, 1);
+      return getDateInTimezone(nextDay, timezone);
     }
     return baseDate;
   };
@@ -987,8 +989,7 @@ export default function PayrollReview() {
         
         // Helper to get cutoff hour for a given date
         const getCutoffForDate = (dateStr: string): number => {
-          const d = new Date(dateStr + 'T12:00:00Z');
-          const dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon, etc.
+          const dayOfWeek = getDayOfWeekIndexForDateStringInTimezone(dateStr, timezone);
           return cutoffByDayOfWeek.get(dayOfWeek) ?? defaultCutoff;
         };
         
@@ -1022,17 +1023,7 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
-                // Calculate previous day in location's timezone (no UTC conversion)
-                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const [y, m, d] = localDateStr.split('-').map(Number);
-                const dateAtNoon = new Date(y, m - 1, d, 12, 0, 0);
-                dateAtNoon.setDate(dateAtNoon.getDate() - 1);
-                const prevDay = new Intl.DateTimeFormat('en-CA', {
-                  timeZone: timezone,
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                }).format(dateAtNoon);
+                const prevDay = getPreviousDateStringInTimezone(day, timezone);
                 // Only reassign if previous day has a clock_in
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
@@ -1049,17 +1040,7 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
-                // Calculate previous day in location's timezone (no UTC conversion)
-                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
-                const [y, m, d] = localDateStr.split('-').map(Number);
-                const dateAtNoon = new Date(y, m - 1, d, 12, 0, 0);
-                dateAtNoon.setDate(dateAtNoon.getDate() - 1);
-                const prevDay = new Intl.DateTimeFormat('en-CA', {
-                  timeZone: timezone,
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                }).format(dateAtNoon);
+                const prevDay = getPreviousDateStringInTimezone(day, timezone);
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
                 }
