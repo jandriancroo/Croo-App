@@ -21,7 +21,7 @@ interface DesktopTimeTrackingTableProps {
   groupPunchesByWeek: (punchesByDay: { [key: string]: any[] }) => [string, { start: Date; end: Date; days: { [day: string]: any[] } }][];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
-  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean };
 }
 
 export function DesktopTimeTrackingTable({
