@@ -21,6 +21,19 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Timezone hardening: Flag raw date patterns that should use timezoneUtils
+      // NOTE: These are warnings to catch accidental usage - not blocking
+      "no-restricted-syntax": [
+        "warn",
+        {
+          "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          "message": "Avoid Date.now() in business logic. Use getNowISOString() from timezoneUtils for timestamps."
+        },
+        {
+          "selector": "NewExpression[callee.name='Date'][arguments.length=0]",
+          "message": "Avoid raw 'new Date()' in business logic. Use timezone-aware functions from timezoneUtils.ts"
+        }
+      ]
     },
   },
 );
