@@ -278,7 +278,7 @@ export function MobileDayByDayCard({
                             </Badge>
                           )}
                           {entry.hasAutoClockOut && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
                               Auto Out
                             </Badge>
                           )}
