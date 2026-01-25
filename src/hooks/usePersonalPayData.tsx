@@ -185,8 +185,9 @@ export function usePersonalPayData(periodOffset: number = 0) {
           // Get dynamic cutoff for this calendar day
           const cutoffHour = getCutoffForDate(day);
           
-          // If punch is before cutoff hour, it might belong to previous business day
-          if (punch.punch_type !== 'clock_in' && punchHour < cutoffHour) {
+          // If punch is at or before cutoff hour, it might belong to previous business day
+          // Use <= to include punches exactly at the cutoff hour (e.g., 3:00 AM when cutoff is 3)
+          if (punch.punch_type !== 'clock_in' && punchHour <= cutoffHour) {
             const sameDayClockIn = clockInsByDay.get(day);
             const shouldMoveToPrevDay = !sameDayClockIn || 
               new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();

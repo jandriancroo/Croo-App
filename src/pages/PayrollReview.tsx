@@ -1020,10 +1020,11 @@ export default function PayrollReview() {
           // Since cutoff is close_time + 3hrs, a 1 AM punch on Tuesday uses Monday's cutoff
           const cutoffHour = getCutoffForDate(day);
           
-          // Check if this is an overnight clock_out (early AM before cutoff without clock_in on same day BEFORE it)
+          // Check if this is an overnight clock_out (early AM before/at cutoff without clock_in on same day BEFORE it)
           if (punch.punch_type === 'clock_out') {
-            // If clock_out is before the cutoff hour (dynamic, not hardcoded 6)
-            if (punchHour < cutoffHour) {
+            // If clock_out is at or before the cutoff hour (dynamic, not hardcoded 6)
+            // Use <= to include punches exactly at the cutoff hour (e.g., 3:00 AM when cutoff is 3)
+            if (punchHour <= cutoffHour) {
               const sameDayClockIn = clockInsByDay.get(day);
               // Move to previous day if:
               // 1. No clock_in on same day, OR
@@ -1047,7 +1048,7 @@ export default function PayrollReview() {
           
           // Also handle break_start/break_end that might belong to previous day's overnight shift
           if (punch.punch_type === 'break_end' || punch.punch_type === 'break_start') {
-            if (punchHour < cutoffHour) {
+            if (punchHour <= cutoffHour) {
               const sameDayClockIn = clockInsByDay.get(day);
               const shouldMoveToPrevDay = !sameDayClockIn || 
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
