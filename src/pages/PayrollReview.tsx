@@ -836,6 +836,7 @@ export default function PayrollReview() {
 
     let hasAutoClockOut = false;
     let hasBreakViolation = false;
+    let hasOpenShift = false;
     const usedClockOutIds = new Set<string>();
     const earliestClockInTime = shiftStartClockIns.length > 0 
       ? new Date(shiftStartClockIns[0].punch_time).getTime() 
@@ -870,14 +871,17 @@ export default function PayrollReview() {
           });
           if (!hasMealBreak) hasBreakViolation = true;
         }
+      } else {
+        // No clock_out = open shift
+        hasOpenShift = true;
       }
-      // No clock_out = open shift → no flags for auto-punch or break violation
     });
 
     return {
       hasAutoClockOut,
       hasBreakViolation,
-      hasAnyFlag: hasAutoClockOut || hasBreakViolation,
+      hasOpenShift,
+      hasAnyFlag: hasAutoClockOut || hasBreakViolation || hasOpenShift,
     };
   };
 
@@ -1554,6 +1558,11 @@ export default function PayrollReview() {
 
             if (filterFlag === 'break_violation' && flags.hasBreakViolation) {
               filteredPunchesByDay[day] = dayPunches;
+              return;
+            }
+
+            if (filterFlag === 'open_shift' && flags.hasOpenShift) {
+              filteredPunchesByDay[day] = dayPunches;
             }
           });
 
@@ -2112,12 +2121,13 @@ export default function PayrollReview() {
                     <div className="flex items-center gap-1.5">
                       <Flag className="h-4 w-4 sm:hidden shrink-0" />
                       <span className="hidden sm:inline"><SelectValue placeholder="All shifts" /></span>
-                      <span className="sm:hidden text-xs">{filterFlag === 'all' ? 'Flags' : filterFlag === 'flagged' ? 'All' : filterFlag === 'auto_punch' ? 'Auto' : 'Break'}</span>
+                      <span className="sm:hidden text-xs">{filterFlag === 'all' ? 'Flags' : filterFlag === 'flagged' ? 'All' : filterFlag === 'open_shift' ? 'Open' : filterFlag === 'auto_punch' ? 'Auto' : 'Break'}</span>
                     </div>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All shifts</SelectItem>
                     <SelectItem value="flagged">Flagged only</SelectItem>
+                    <SelectItem value="open_shift">Open shifts</SelectItem>
                     <SelectItem value="auto_punch">Auto clock-out</SelectItem>
                     <SelectItem value="break_violation">Missed break</SelectItem>
                   </SelectContent>

@@ -19,7 +19,7 @@ interface MobileDayByDayCardProps {
   sortPunches: (punches: any[]) => any[];
   currentLocationId: string;
   approvingPunchIds: Set<string>;
-  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean };
 }
 
 export function MobileDayByDayCard({

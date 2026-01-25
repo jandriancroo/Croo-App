@@ -20,7 +20,7 @@ interface DayByDayViewProps {
   currentLocationId: string;
   approvingPunchIds: Set<string>;
   periodDates: { value: string; label: string }[];
-  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasAnyFlag: boolean };
+  getDayFlags: (dayPunches: any[]) => { hasAutoClockOut: boolean; hasBreakViolation: boolean; hasOpenShift: boolean; hasAnyFlag: boolean };
 }
 
 export function DayByDayView({
