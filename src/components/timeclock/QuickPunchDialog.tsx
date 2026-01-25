@@ -150,12 +150,16 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           return;
         }
 
+        // Use timezone-aware conversion for punch time
+        const { toISOStringInTimezone } = await import('@/utils/timezoneUtils');
+        const timezone = 'America/Los_Angeles'; // TODO: Get from location
+        
         const { error } = await supabase
           .from('time_punches')
           .insert({
             user_id: selectedEmployee,
             punch_type: 'clock_out',
-            punch_time: new Date(`${date}T${clockOut}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, clockOut, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy, // Manager who entered this
             notes: 'Manual entry by manager'
@@ -176,11 +180,15 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         return;
       }
 
+      // Use timezone-aware conversion for all punch times
+      const { toISOStringInTimezone } = await import('@/utils/timezoneUtils');
+      const timezone = 'America/Los_Angeles'; // TODO: Get from location
+      
       const punches: any[] = [
         {
           user_id: selectedEmployee,
           punch_type: 'clock_in',
-          punch_time: new Date(`${date}T${clockIn}`).toISOString(),
+          punch_time: toISOStringInTimezone(date, clockIn, timezone),
           location_id: currentLocation?.id,
           created_by: createdBy,
           notes: 'Manual entry by manager'
@@ -194,7 +202,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           punches.push({
             user_id: selectedEmployee,
             punch_type: 'break_start',
-            punch_time: new Date(`${date}T${mealBreakStart}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, mealBreakStart, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy,
             notes: '30 minute meal break (manual entry)'
@@ -202,7 +210,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           punches.push({
             user_id: selectedEmployee,
             punch_type: 'break_end',
-            punch_time: new Date(`${date}T${mealBreakEnd}`).toISOString(),
+            punch_time: toISOStringInTimezone(date, mealBreakEnd, timezone),
             location_id: currentLocation?.id,
             created_by: createdBy,
             notes: '30 minute meal break (manual entry)'
@@ -212,7 +220,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
         punches.push({
           user_id: selectedEmployee,
           punch_type: 'clock_out',
-          punch_time: new Date(`${date}T${clockOut}`).toISOString(),
+          punch_time: toISOStringInTimezone(date, clockOut, timezone),
           location_id: currentLocation?.id,
           created_by: createdBy,
           notes: 'Manual entry by manager'

@@ -1,9 +1,40 @@
 /**
- * Timezone utilities for consistent date/time handling across the application.
- * All date operations should use these utilities to ensure proper timezone handling.
+ * TIMEZONE GATEWAY - SINGLE SOURCE OF TRUTH
+ * ==========================================
+ * All date operations MUST use these utilities to ensure proper timezone handling.
+ * 
+ * FORBIDDEN in business logic (use these utils instead):
+ * - new Date().toISOString() → use toISOStringInTimezone() or getNowISOString()
+ * - new Date('YYYY-MM-DD') → use parseDateStringInTimezone()
+ * - .getTime() for grouping → use getDateInTimezone() first
+ * 
+ * This prevents timezone drift, overnight shift errors, and date-rollover bugs.
  */
 
-const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+export const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+
+/**
+ * Runtime guard - logs warning if timezone is missing or UTC in business logic.
+ * Call this at the start of any function that requires timezone awareness.
+ */
+export const assertTimezone = (timezone: string | undefined, context: string): string => {
+  if (!timezone) {
+    console.warn(`[TIMEZONE GUARD] Missing timezone in ${context} — defaulting to ${DEFAULT_TIMEZONE}`);
+    return DEFAULT_TIMEZONE;
+  }
+  if (timezone === 'UTC') {
+    console.warn(`[TIMEZONE GUARD] UTC timezone used in ${context} — this may cause wrong-day grouping`);
+  }
+  return timezone;
+};
+
+/**
+ * Get current timestamp as ISO string (for database writes).
+ * Use this instead of new Date().toISOString() for punch_time fields.
+ */
+export const getNowISOString = (): string => {
+  return new Date().toISOString();
+};
 
 /**
  * Get the current timezone offset string (e.g., "-08:00" or "-07:00" during DST)

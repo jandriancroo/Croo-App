@@ -785,13 +785,16 @@ export default function PunchClock() {
       }
     }
 
+    // Use timezone-aware timestamp for punch recording
+    const { getNowISOString } = await import('@/utils/timezoneUtils');
+    
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
         shift_id: todayShift?.id || null,
         punch_type: 'clock_in',
-        punch_time: new Date().toISOString(),
+        punch_time: getNowISOString(),
         location_id: currentLocation?.id,
         created_by: currentUser.id // Self-punch
       });
@@ -816,13 +819,19 @@ export default function PunchClock() {
   };
 
   const handleBreak = async (type: 'break_start' | 'break_end', duration: number) => {
+    // Use timezone-aware timestamp for punch recording
+    const { getNowISOString } = await import('@/utils/timezoneUtils');
+    
+    // IMPORTANT: Use shift_id from last punch for shift continuity across midnight
+    const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
+    
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
-        shift_id: todayShift?.id,
+        shift_id: activeShiftId,
         punch_type: type,
-        punch_time: new Date().toISOString(),
+        punch_time: getNowISOString(),
         notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`,
         location_id: currentLocation?.id,
         created_by: currentUser.id // Self-punch
@@ -890,13 +899,16 @@ export default function PunchClock() {
     // which can incorrectly link break_end/clock_out to the wrong shift.
     const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
 
+    // Use timezone-aware timestamp for punch recording
+    const { getNowISOString } = await import('@/utils/timezoneUtils');
+    
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
         shift_id: activeShiftId,
         punch_type: 'break_end',
-        punch_time: new Date().toISOString(),
+        punch_time: getNowISOString(),
         location_id: currentLocation?.id,
         created_by: currentUser.id // Self-punch
       });
@@ -921,13 +933,16 @@ export default function PunchClock() {
     // Use the open shift_id from the last punch (handles overnight shifts).
     const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
 
+    // Use timezone-aware timestamp for punch recording
+    const { getNowISOString } = await import('@/utils/timezoneUtils');
+    
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
         shift_id: activeShiftId,
         punch_type: 'clock_out',
-        punch_time: new Date().toISOString(),
+        punch_time: getNowISOString(),
         location_id: currentLocation?.id,
         created_by: currentUser.id // Self-punch
       });
