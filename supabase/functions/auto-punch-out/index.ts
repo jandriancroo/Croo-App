@@ -113,14 +113,13 @@ serve(async (req) => {
       const yesterdayStart = `${yesterdayStr}T00:00:00`;
       const yesterdayEnd = `${yesterdayStr}T23:59:59`;
 
-      // Use explicit FK relationship to avoid ambiguity (user_id vs created_by)
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
         .select(`
           id,
           user_id,
           punch_time,
-          profiles!time_punches_user_id_fkey(full_name)
+          profiles!inner(full_name)
         `)
         .eq('location_id', location.id)
         .eq('punch_type', 'clock_in')
