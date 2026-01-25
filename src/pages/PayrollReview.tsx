@@ -36,8 +36,6 @@ import {
   parseDateStringInTimezone,
   getEndOfDateStringInTimezone,
   calculateCutoffHour,
-  getDayOfWeekIndexForDateStringInTimezone,
-  getPreviousDateStringInTimezone,
 } from '@/utils/timezoneUtils';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
@@ -182,9 +180,9 @@ function EditShiftForm({
     // it means the time crosses midnight and should be on the next day
     // Use threshold: if time is < 12 and reference is >= 12, it's likely next day
     if (timeHour < 12 && refHour >= 12) {
-      const base = parseDateStringInTimezone(baseDate, timezone);
-      const nextDay = addDays(base, 1);
-      return getDateInTimezone(nextDay, timezone);
+      const nextDay = new Date(baseDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      return nextDay.toISOString().slice(0, 10);
     }
     return baseDate;
   };
@@ -980,70 +978,56 @@ export default function PayrollReview() {
         
         const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
 
-        // Group punches by the business date of the FIRST clock_in (Pacific timezone).
-        // This ensures that overnight activity (clock_out after midnight) correctly
-        // groups with the shift that started the previous calendar day.
+        // Group punches by day (in the location timezone) and attach creator names
+        // IMPORTANT: Handle overnight shifts - if a clock_out is early AM (before cutoff) without
+        // a clock_in on the same day, associate it with the previous day's shift
+        // Uses dynamic cutoff based on location's close_time + 3 hours
         const punchesByDay: { [key: string]: any[] } = {};
         const allPunches = punches || [];
         
         // Helper to get cutoff hour for a given date
         const getCutoffForDate = (dateStr: string): number => {
-          const dayOfWeek = getDayOfWeekIndexForDateStringInTimezone(dateStr, timezone);
+          const d = new Date(dateStr + 'T12:00:00Z');
+          const dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon, etc.
           return cutoffByDayOfWeek.get(dayOfWeek) ?? defaultCutoff;
         };
         
-        // First pass: identify the FIRST clock_in to establish the shift's business date
-        const clockIns = allPunches.filter(p => p.punch_type === 'clock_in');
-        if (clockIns.length === 0) {
-          return {
-            profile: { ...profile, currentWage },
-            punchesByDay: {},
-            shiftsByDate,
-            totalHours: 0,
-            issues: []
-          };
-        }
-        
-        const firstClockIn = clockIns.reduce((min, p) =>
-          new Date(p.punch_time).getTime() < new Date(min.punch_time).getTime() ? p : min
-        );
-        const shiftBusinessDate = getDateInTimezone(new Date(firstClockIn.punch_time), timezone);
-        
-        // Build a map of clock-ins by their business date (for pairing logic below)
-        const clockInsByDay = new Map<string, any[]>();
+        // First pass: identify all clock_ins by day
+        const clockInsByDay = new Map<string, any>();
         allPunches.forEach((punch) => {
           if (punch.punch_type === 'clock_in') {
             const day = getDateInTimezone(new Date(punch.punch_time), timezone);
-            if (!clockInsByDay.has(day)) clockInsByDay.set(day, []);
-            clockInsByDay.get(day)!.push(punch);
+            clockInsByDay.set(day, punch);
           }
         });
         
         allPunches.forEach((punch) => {
           const punchTime = new Date(punch.punch_time);
-          let day: string;
-          
-          // All punches from this shift belong to the first clock-in's business date
-          // (even if they cross midnight UTC)
-          if (punch.punch_type === 'clock_in') {
-            day = getDateInTimezone(punchTime, timezone);
-          } else {
-            // For clock_out, break_start, break_end: pair with the shift's first clock_in date
-            day = shiftBusinessDate;
-          }
-          
+          let day = getDateInTimezone(punchTime, timezone);
           const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
+          
+          // Get the cutoff hour for this calendar day (based on previous day's close time)
+          // Since cutoff is close_time + 3hrs, a 1 AM punch on Tuesday uses Monday's cutoff
           const cutoffHour = getCutoffForDate(day);
           
-          // Special case: clock_out/break_end happening early AM (before cutoff) might belong to prev day
-          if (punch.punch_type === 'clock_out' || punch.punch_type === 'break_end' || punch.punch_type === 'break_start') {
+          // Check if this is an overnight clock_out (early AM before cutoff without clock_in on same day BEFORE it)
+          if (punch.punch_type === 'clock_out') {
+            // If clock_out is before the cutoff hour (dynamic, not hardcoded 6)
             if (punchHour < cutoffHour) {
-              const sameDayClockIns = clockInsByDay.get(day) || [];
-              const hasEarlierClockIn = sameDayClockIns.some(ci => 
-                new Date(ci.punch_time).getTime() <= punchTime.getTime()
-              );
-              if (!hasEarlierClockIn) {
-                const prevDay = getPreviousDateStringInTimezone(day, timezone);
+              const sameDayClockIn = clockInsByDay.get(day);
+              // Move to previous day if:
+              // 1. No clock_in on same day, OR
+              // 2. The clock_in on same day is AFTER this clock_out (meaning clock_out belongs to prev day)
+              const shouldMoveToPrevDay = !sameDayClockIn || 
+                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+              
+              if (shouldMoveToPrevDay) {
+                // Calculate previous day using UTC to avoid browser timezone issues
+                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
+                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
+                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
+                const prevDay = dateAtNoon.toISOString().slice(0, 10);
+                // Only reassign if previous day has a clock_in
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
                 }
@@ -1051,6 +1035,24 @@ export default function PayrollReview() {
             }
           }
           
+          // Also handle break_start/break_end that might belong to previous day's overnight shift
+          if (punch.punch_type === 'break_end' || punch.punch_type === 'break_start') {
+            if (punchHour < cutoffHour) {
+              const sameDayClockIn = clockInsByDay.get(day);
+              const shouldMoveToPrevDay = !sameDayClockIn || 
+                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+              
+              if (shouldMoveToPrevDay) {
+                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
+                const dateAtNoon = new Date(localDateStr + 'T12:00:00Z');
+                dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
+                const prevDay = dateAtNoon.toISOString().slice(0, 10);
+                if (clockInsByDay.has(prevDay)) {
+                  day = prevDay;
+                }
+              }
+            }
+          }
           // Only keep days inside the selected period (dates are yyyy-MM-dd so string compare is safe)
           if (day < selectedPeriod.startDate || day > selectedPeriod.endDate) {
             return;
