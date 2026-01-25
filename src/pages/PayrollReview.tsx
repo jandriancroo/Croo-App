@@ -814,7 +814,6 @@ export default function PayrollReview() {
   // Shared flag detection (used by filters + UI) — keep in sync with EditPunchDialog keywords
   const getDayFlags = (dayPunches: any[]) => {
     const sortedPunches = sortPunches(dayPunches);
-    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
 
     // identify shift-starting clock-ins (not return-from-break clock-ins)
     const shiftStartClockIns: any[] = [];
@@ -835,33 +834,44 @@ export default function PayrollReview() {
       return notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid');
     });
 
+    let hasAutoClockOut = false;
     let hasBreakViolation = false;
     const usedClockOutIds = new Set<string>();
+    const earliestClockInTime = shiftStartClockIns.length > 0 
+      ? new Date(shiftStartClockIns[0].punch_time).getTime() 
+      : Infinity;
 
     shiftStartClockIns.forEach((clockIn: any, idx: number) => {
-      if (hasBreakViolation) return;
       const clockInMs = new Date(clockIn.punch_time).getTime();
       const nextStart = shiftStartClockIns[idx + 1];
       const nextStartMs = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
 
+      // Find clock_out that belongs to THIS shift (same logic as calculateDayHours)
       const shiftClockOuts = clockOuts.filter((co: any) => {
         const coMs = new Date(co.punch_time).getTime();
-        return coMs > clockInMs && coMs < nextStartMs && !usedClockOutIds.has(co.id);
+        return coMs > clockInMs && coMs < nextStartMs && !usedClockOutIds.has(co.id) && coMs > earliestClockInTime;
       });
       const clockOut = shiftClockOuts.length ? shiftClockOuts[shiftClockOuts.length - 1] : null;
-      if (!clockOut) return;
-      usedClockOutIds.add(clockOut.id);
-
-      const clockOutMs = new Date(clockOut.punch_time).getTime();
-      const shiftHours = (clockOutMs - clockInMs) / 3600000;
-      if (shiftHours <= 5) return;
-
-      const hasMealBreak = unpaidBreakStarts.some((b: any) => {
-        const bMs = new Date(b.punch_time).getTime();
-        return bMs > clockInMs && bMs < clockOutMs;
-      });
-
-      if (!hasMealBreak) hasBreakViolation = true;
+      
+      // Check auto-punch flag ONLY on the clock_out that closes THIS shift
+      if (clockOut) {
+        usedClockOutIds.add(clockOut.id);
+        if (clockOut.is_auto_punched_out) {
+          hasAutoClockOut = true;
+        }
+        
+        // Check break violation for this shift
+        const clockOutMs = new Date(clockOut.punch_time).getTime();
+        const shiftHours = (clockOutMs - clockInMs) / 3600000;
+        if (shiftHours > 5) {
+          const hasMealBreak = unpaidBreakStarts.some((b: any) => {
+            const bMs = new Date(b.punch_time).getTime();
+            return bMs > clockInMs && bMs < clockOutMs;
+          });
+          if (!hasMealBreak) hasBreakViolation = true;
+        }
+      }
+      // No clock_out = open shift → no flags for auto-punch or break violation
     });
 
     return {
