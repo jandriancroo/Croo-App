@@ -164,6 +164,7 @@ export function DesktopTimeTrackingTable({
                     const flags = getDayFlags(dayPunches);
                     const hasAutoClockOut = flags.hasAutoClockOut;
                     const hasBreakViolation = flags.hasBreakViolation;
+                    const hasOpenShift = flags.hasOpenShift;
                     const hasAnyFlag = flags.hasAnyFlag;
                     const isApproving = dayPunches.some((p: any) => approvingPunchIds.has(p.id));
                     
@@ -278,6 +279,11 @@ export function DesktopTimeTrackingTable({
                             {hasAutoClockOut && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-amber-600 border-amber-400 bg-amber-50 dark:bg-amber-950/30 font-medium whitespace-nowrap">
                                 Auto Out
+                              </Badge>
+                            )}
+                            {hasOpenShift && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-red-600 border-red-400 bg-red-50 dark:bg-red-950/30 font-medium whitespace-nowrap">
+                                Open
                               </Badge>
                             )}
                           </div>
