@@ -61,11 +61,10 @@ function getHourlyPatternCacheKey(locationId: string): string {
   return `${HOURLY_PATTERN_CACHE_KEY}${locationId}`;
 }
 
+// Check if date is in the past (in PST timezone for consistency)
 function isDateInPast(dateStr: string): boolean {
-  const targetDate = new Date(dateStr + 'T00:00:00');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return targetDate < today;
+  const { date: todayPST } = getPSTDate();
+  return dateStr < todayPST; // Simple string comparison works for YYYY-MM-DD format
 }
 
 // Get current date/time in PST timezone
