@@ -854,12 +854,16 @@ export default function PunchClock() {
   };
 
   // Check if user is currently on break and calculate time remaining
+  // Buffer of 10 seconds ensures recorded breaks are always ≥30 min (or ≥10 min for short breaks)
+  const BREAK_BUFFER_SECONDS = 10;
+  
   const getBreakStatus = () => {
     if (!lastPunch || lastPunch.punch_type !== 'break_start') return null;
     
     const breakDuration = lastPunch.notes?.includes('30 minute') ? 30 : 10;
     const breakStartTime = new Date(lastPunch.punch_time);
-    const breakEndTime = new Date(breakStartTime.getTime() + breakDuration * 60000);
+    // Add buffer to ensure recorded duration meets minimum
+    const breakEndTime = new Date(breakStartTime.getTime() + (breakDuration * 60000) + (BREAK_BUFFER_SECONDS * 1000));
     const now = new Date();
     const remainingMs = breakEndTime.getTime() - now.getTime();
     
