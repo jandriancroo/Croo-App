@@ -137,7 +137,15 @@ export function MobileTimeTrackingCard({
                                 <div className="flex items-center gap-3">
                                   <span className="font-bold text-sm">{dayHours.toFixed(1)} hrs</span>
                                   <div onClick={(e) => e.stopPropagation()}>
-                                    {isApproved ? (
+                                    {hasOpenShift ? (
+                                      <button 
+                                        className="h-8 w-8 rounded-lg flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
+                                        disabled
+                                        title="Cannot approve open shift"
+                                      >
+                                        <span className="text-muted-foreground text-xs">—</span>
+                                      </button>
+                                    ) : isApproved ? (
                                       <button 
                                         className={`h-8 w-8 rounded-lg flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                                         onClick={() => onUnapproveDay(dayPunches)}

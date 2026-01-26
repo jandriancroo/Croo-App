@@ -296,7 +296,15 @@ export function DesktopTimeTrackingTable({
 
                         {/* Approve - full width button */}
                         <TableCell className="py-1 pr-3" onClick={(e) => e.stopPropagation()}>
-                          {isApproved ? (
+                          {hasOpenShift ? (
+                            <button 
+                              className="h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/30 border border-dashed border-muted-foreground/30 text-xs text-muted-foreground cursor-not-allowed"
+                              disabled
+                              title="Cannot approve open shift - add clock-out first"
+                            >
+                              —
+                            </button>
+                          ) : isApproved ? (
                             <button 
                               className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}

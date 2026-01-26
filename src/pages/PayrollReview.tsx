@@ -1369,7 +1369,7 @@ export default function PayrollReview() {
   };
 
   const handleApproveAll = async () => {
-    // Separate clean and flagged shifts
+    // Separate clean and flagged shifts - SKIP open shifts entirely (they can't be approved)
     const cleanPunchIds: string[] = [];
     const flaggedShifts: { employeeName: string, date: string, flags: string[] }[] = [];
     let hasAnyFlags = false;
@@ -1378,6 +1378,10 @@ export default function PayrollReview() {
       Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
         const hasUnapproved = dayPunches.some((p: any) => !p.approved_at);
         if (!hasUnapproved) return;
+        
+        // Skip open shifts - they cannot be approved until closed
+        const dayFlags = getDayFlags(dayPunches);
+        if (dayFlags.hasOpenShift) return;
         
         // Check for flags
         const flags: string[] = [];
@@ -1580,11 +1584,18 @@ export default function PayrollReview() {
   }, [timeCards, filterEmployee, filterDay, filterFlag]);
 
   // Count shifts (unique days) awaiting approval, not individual punch records
+  // EXCLUDES open shifts - they cannot be approved until they have a clock-out
   const countShiftsAwaitingApproval = (cards: typeof timeCards) => {
     return cards.reduce((sum, card) => {
-      // Count days that have any unapproved punches
+      // Count days that have any unapproved punches AND are NOT open shifts
       const daysWithUnapproved = Object.values(card.punchesByDay).filter(
-        (dayPunches: any[]) => dayPunches.some((p: any) => !p.approved_at)
+        (dayPunches: any[]) => {
+          const hasUnapproved = dayPunches.some((p: any) => !p.approved_at);
+          if (!hasUnapproved) return false;
+          // Exclude open shifts from approval count
+          const flags = getDayFlags(dayPunches);
+          return !flags.hasOpenShift;
+        }
       );
       return sum + daysWithUnapproved.length;
     }, 0);

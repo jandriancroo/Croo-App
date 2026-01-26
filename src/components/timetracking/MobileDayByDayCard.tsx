@@ -176,7 +176,15 @@ export function MobileDayByDayCard({
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-sm">{(entry.dayHours || 0).toFixed(1)}h</span>
                         <div onClick={(e) => e.stopPropagation()}>
-                          {entry.isApproved ? (
+                          {entry.hasOpenShift ? (
+                            <button 
+                              className="h-7 w-7 rounded-md flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
+                              disabled
+                              title="Cannot approve open shift"
+                            >
+                              <span className="text-muted-foreground text-xs">—</span>
+                            </button>
+                          ) : entry.isApproved ? (
                             <button 
                               className={`h-7 w-7 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
                               onClick={() => onUnapproveDay(entry.dayPunches)}
