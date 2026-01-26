@@ -52,17 +52,17 @@ export function EventCard({
         style={{ borderLeft: `4px solid ${accentColor}` }}
         onClick={handleCardClick}
       >
-        <CardContent className="p-2.5 flex items-center justify-between gap-2">
+        <CardContent className="py-1.5 px-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div
-              className="p-1.5 rounded-md shrink-0"
+              className="p-1 rounded shrink-0"
               style={{ backgroundColor: `${accentColor}20` }}
             >
               <Icon className="h-3.5 w-3.5" style={{ color: accentColor }} />
             </div>
             <div className="min-w-0">
-              <p className="font-medium text-sm truncate">{name}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="font-medium text-sm truncate leading-tight">{name}</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">
                 {formatTime12Hour(time)}
               </p>
             </div>
