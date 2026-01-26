@@ -119,7 +119,7 @@ serve(async (req) => {
           id,
           user_id,
           punch_time,
-          profiles!inner(full_name)
+          profiles:user_id!inner(full_name)
         `)
         .eq('location_id', location.id)
         .eq('punch_type', 'clock_in')
