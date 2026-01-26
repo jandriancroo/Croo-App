@@ -4,36 +4,16 @@ import { Badge } from "@/components/ui/badge";
 
 const fonts = [
   { 
-    name: "Current (System Default)", 
-    class: "", 
-    description: "Current font", 
-    vibe: "What you're using now",
-    readability: 7,
-    readabilityNote: "Varies by device, generally good"
-  },
-  { 
-    name: "DM Sans", 
-    class: "font-dm-sans", 
-    description: "Clean geometric", 
-    vibe: "Professional, minimal, Google-style",
-    readability: 9,
-    readabilityNote: "Excellent x-height, open counters, crisp at all sizes"
-  },
-  { 
-    name: "Figtree", 
-    class: "font-figtree", 
-    description: "Modern geometric", 
-    vibe: "Fresh, business-forward, balanced",
-    readability: 9,
-    readabilityNote: "Designed for screens, wide apertures, very legible"
-  },
-  { 
-    name: "Manrope", 
+    name: "Manrope (Current)", 
     class: "font-manrope", 
-    description: "Humanist, Apple-like", 
-    vibe: "Professional, warm, readable",
-    readability: 10,
-    readabilityNote: "High x-height, semi-rounded, exceptional clarity"
+    description: "Your current font", 
+    readabilityNote: "High x-height, semi-rounded, exceptional clarity. Google Font."
+  },
+  { 
+    name: "Apple System (SF Pro)", 
+    class: "font-apple-system", 
+    description: "Apple's native font", 
+    readabilityNote: "San Francisco Pro. Renders natively on Apple devices, falls back on others."
   },
 ];
 
@@ -50,22 +30,9 @@ export function FontPreview() {
       <div className="grid gap-4">
         {fonts.map((font) => (
           <Card key={font.name} className="p-5 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold">{font.name}</h2>
-                <Badge variant="secondary" className="text-xs">{font.description}</Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Readability:</span>
-                  <Badge 
-                    variant={font.readability >= 9 ? "default" : "secondary"} 
-                    className={`text-xs ${font.readability === 10 ? 'bg-primary' : ''}`}
-                  >
-                    {font.readability}/10
-                  </Badge>
-                </div>
-              </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-xl font-bold">{font.name}</h2>
+              <Badge variant="secondary" className="text-xs">{font.description}</Badge>
             </div>
             
             <div className="text-xs text-muted-foreground -mt-2">
@@ -81,6 +48,9 @@ export function FontPreview() {
               </div>
               <div className="text-base">
                 The quick brown fox jumps over the lazy dog. Managing your restaurant has never been easier.
+              </div>
+              <div className="text-sm text-muted-foreground">
+                abcdefghijklmnopqrstuvwxyz 0123456789
               </div>
               <div className="flex gap-2 pt-2">
                 <Button size="sm" className={font.class}>Primary Button</Button>

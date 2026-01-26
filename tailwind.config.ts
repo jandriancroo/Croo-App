@@ -30,6 +30,7 @@ export default {
         'figtree': ['Figtree', 'sans-serif'],
         'sora': ['Sora', 'sans-serif'],
         'work-sans': ['Work Sans', 'sans-serif'],
+        'apple-system': ['-apple-system', 'BlinkMacSystemFont', 'SF Pro', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
