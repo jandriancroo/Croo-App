@@ -523,9 +523,9 @@ export function LaborTotals({
     return null;
   }
 
-  return <div className="border-t border-border bg-muted/30 text-xs">
+  return <div className="border-t border-border bg-muted/30 text-xs min-w-[700px]">
       {/* Daily Labor Totals */}
-      <div className="grid grid-cols-8 gap-0 border-b border-border">
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
         <div className="p-2 border-r border-border bg-muted/50">
           <p className="text-xs font-semibold">Week
 
@@ -548,7 +548,7 @@ export function LaborTotals({
       </div>
 
       {/* Projected Sales Row */}
-      <div className="grid grid-cols-8 gap-0 border-b border-border">
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
         <div className="p-2 border-r border-border bg-muted/50">
           <div className="flex items-center gap-1">
             <p className="text-xs font-semibold">Sales</p>
@@ -667,7 +667,7 @@ export function LaborTotals({
       </div>
 
       {/* Labor Percentage Row */}
-      <div className="grid grid-cols-8 gap-0 border-b border-border">
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
         <div className="p-2 border-r border-border bg-muted/50">
           <p className="text-xs font-semibold">Labor %</p>
           {weeklyTotals.sales > 0 ? <p className={`text-xs font-bold mt-1 ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -689,7 +689,7 @@ export function LaborTotals({
       </div>
 
       {/* Sales Per Labor Hour Row */}
-      <div className="grid grid-cols-8 gap-0">
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
         <div className="p-2 border-r border-border bg-muted/50">
           <p className="text-xs font-semibold">$/LH</p>
           {(() => {
