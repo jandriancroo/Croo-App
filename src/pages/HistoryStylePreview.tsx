@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   AlertCircle,
   CalendarIcon,
-  Users,
   Clock
 } from 'lucide-react';
 
@@ -192,37 +191,22 @@ const CompletionIndicator = ({ level, label }: { level: number; label?: string }
 
 // ==================== CONTRIBUTORS DISPLAY ====================
 const ContributorsDisplay = ({ contributors }: { contributors: Contributor[] }) => {
-  if (contributors.length === 1) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Avatar className="h-5 w-5">
-          <AvatarFallback className="text-[10px] bg-muted">{contributors[0].name.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <span>{contributors[0].name}</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Users className="h-3.5 w-3.5" />
-        <span className="font-medium">{contributors.length} team members</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {contributors.map((contributor, index) => (
-          <div 
-            key={index}
-            className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5"
-          >
-            <Avatar className="h-4 w-4">
-              <AvatarFallback className="text-[8px] bg-muted">{contributor.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <span className="text-[10px] text-muted-foreground">{contributor.name}</span>
-            <span className="text-[9px] text-muted-foreground/70">({contributor.itemsCompleted})</span>
-          </div>
-        ))}
-      </div>
+    <div className="flex flex-wrap gap-2 mt-1">
+      {contributors.map((contributor, idx) => (
+        <div 
+          key={idx}
+          className="flex items-center gap-2 bg-muted/60 rounded-full px-3 py-1.5"
+        >
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-xs font-medium bg-primary/20 text-primary">
+              {contributor.name.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">{contributor.name}</span>
+          <span className="text-xs text-muted-foreground">({contributor.itemsCompleted})</span>
+        </div>
+      ))}
     </div>
   );
 };
@@ -233,11 +217,17 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
   const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
   const dateLabel = format(selectedDate, 'MMMM d, yyyy');
 
-  // Sort items by completion time
+  // Sort items by completion time - earliest first (top of screen)
   const sortedItems = [...items].sort((a, b) => {
-    const timeA = a.finalCompletedAt;
-    const timeB = b.finalCompletedAt;
-    return timeA.localeCompare(timeB);
+    // Parse times for proper sorting (AM/PM aware)
+    const parseTime = (time: string) => {
+      const [timePart, period] = time.split(' ');
+      let [hours, minutes] = timePart.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      return hours * 60 + minutes;
+    };
+    return parseTime(a.finalCompletedAt) - parseTime(b.finalCompletedAt);
   });
 
   return (
