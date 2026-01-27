@@ -526,35 +526,25 @@ export function LaborTotals({
   return <div className="border-t border-border bg-muted/30 text-xs min-w-[700px]">
       {/* Daily Labor Totals */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="p-2 border-r border-border bg-muted/50">
-          <p className="text-xs font-semibold">Week
-
-
-
-
-
-
-
-        </p>
-          <p className="text-xs font-bold mt-1">{weeklyTotals.hours.toFixed(1)}h</p>
-          {canViewAllWages && <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>}
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">Week</span>
+          <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
+          {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
         </div>
-        {dailyTotals.map((day, index) => <div key={index} className="p-2 border-r border-border text-center">
-            {isLoadingWages ? <p className="text-xs text-muted-foreground">...</p> : <>
-                <p className="text-xs font-semibold">{day.hours.toFixed(1)}h</p>
-                {canViewAllWages && <p className="text-[10px] text-muted-foreground">${day.wages.toFixed(0)}</p>}
+        {dailyTotals.map((day, index) => <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
+            {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
+                <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
               </>}
           </div>)}
       </div>
 
       {/* Projected Sales Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="p-2 border-r border-border bg-muted/50">
-          <div className="flex items-center gap-1">
-            <p className="text-xs font-semibold">Sales</p>
-            {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-          </div>
-          <p className="text-xs font-bold mt-1">${weeklyTotals.sales.toFixed(0)}</p>
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">Sales</span>
+          {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          <span className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</span>
         </div>
         {weekDays.map((day, index) => {
           const source = salesSource[index];
@@ -668,11 +658,11 @@ export function LaborTotals({
 
       {/* Labor Percentage Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="p-2 border-r border-border bg-muted/50">
-          <p className="text-xs font-semibold">Labor %</p>
-          {weeklyTotals.sales > 0 ? <p className={`text-xs font-bold mt-1 ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">Labor %</span>
+          {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
               {weeklyTotals.laborPercent.toFixed(1)}%
-            </p> : <p className="text-xs text-muted-foreground mt-1">-</p>}
+            </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
         {dailyTotals.map((day, index) => {
         const sales = projectedSales[index] || 0;
@@ -680,29 +670,29 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className="p-2 border-r border-border text-center">
-              {isLoadingWages || isLoadingSales ? <p className="text-xs text-muted-foreground">...</p> : sales > 0 ? <p className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
+              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
-                </p> : <p className="text-xs text-muted-foreground">-</p>}
+                </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
       })}
       </div>
 
       {/* Sales Per Labor Hour Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="p-2 border-r border-border bg-muted/50">
-          <p className="text-xs font-semibold">$/LH</p>
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">$/LH</span>
           {(() => {
           const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
-          return weeklySalesPerLH > 0 ? <p className="text-xs font-bold mt-1">${weeklySalesPerLH.toFixed(2)}</p> : <p className="text-xs text-muted-foreground mt-1">-</p>;
+          return weeklySalesPerLH > 0 ? <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
         })()}
         </div>
         {dailyTotals.map((day, index) => {
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className="p-2 border-r border-border text-center">
-              {isLoadingWages || isLoadingSales ? <p className="text-xs text-muted-foreground">...</p> : day.hours > 0 && salesPerLH > 0 ? <p className="text-xs font-semibold text-foreground">
+        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
+              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
                   ${salesPerLH.toFixed(2)}
-                </p> : <p className="text-xs text-muted-foreground">-</p>}
+                </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
       })}
       </div>
