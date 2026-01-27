@@ -12,153 +12,148 @@ import { cn } from '@/lib/utils';
 import { 
   ClipboardCheck, 
   ClipboardList, 
-  Calendar, 
   ChevronRight,
   ChevronLeft,
   UtensilsCrossed,
   CalendarCheck,
   CheckCircle2,
   AlertCircle,
-  CalendarIcon
+  CalendarIcon,
+  Users,
+  Clock
 } from 'lucide-react';
-// Sample data for preview - multiple days with completion levels
-const sampleDays = [
-  {
-    label: 'Today',
-    date: 'Mon, Jan 27',
-    items: [
-      {
-        id: '1',
-        type: 'checklist',
-        title: 'Opening Checklist',
-        frequency: 'daily',
-        completedBy: 'Jordan A.',
-        completedAt: '9:15 AM',
-        completionLevel: 100,
-        totalItems: 12,
-        completedItems: 12,
-      },
-      {
-        id: '2',
-        type: 'task',
-        title: 'Restock napkins in lobby',
-        accentColor: '#8B5CF6',
-        completedBy: 'Marcus T.',
-        completedAt: '10:30 AM',
-        completionLevel: 100,
-        subtasks: 3,
-        completedSubtasks: 3,
-      },
-      {
-        id: '3',
-        type: 'catering',
-        title: 'Smith Wedding Order',
-        customerName: 'John Smith',
-        completedBy: 'Sarah M.',
-        completedAt: '11:45 AM',
-        completionLevel: 100,
-        itemCount: 45,
-      },
-      {
-        id: '4',
-        type: 'checklist',
-        title: 'Food Safety Temps',
-        frequency: 'daily',
-        completedBy: 'Alex K.',
-        completedAt: '2:00 PM',
-        completionLevel: 85,
-        totalItems: 8,
-        completedItems: 7,
-      },
-    ],
-  },
-  {
-    label: 'Yesterday',
-    date: 'Sun, Jan 26',
-    items: [
-      {
-        id: '5',
-        type: 'checklist',
-        title: 'Closing Checklist',
-        frequency: 'daily',
-        completedBy: 'Jordan A.',
-        completedAt: '10:15 PM',
-        completionLevel: 100,
-        totalItems: 15,
-        completedItems: 15,
-      },
-      {
-        id: '6',
-        type: 'event',
-        title: 'Birthday Party Setup',
-        eventName: 'Table 5 Party',
-        completedBy: 'Marcus T.',
-        completedAt: '4:30 PM',
-        completionLevel: 100,
-      },
+
+interface Contributor {
+  name: string;
+  completedAt: string;
+  itemsCompleted: number;
+}
+
+interface HistoryItem {
+  id: string;
+  type: 'checklist' | 'task' | 'catering' | 'event';
+  title: string;
+  frequency?: string;
+  accentColor?: string;
+  customerName?: string;
+  eventName?: string;
+  contributors: Contributor[];
+  finalCompletedAt: string;
+  completionLevel: number;
+  totalItems?: number;
+  completedItems?: number;
+  subtasks?: number;
+  completedSubtasks?: number;
+  itemCount?: number;
+}
+
+// Sample data for a single day with completion levels and contributors
+const getSampleItemsForDate = (date: Date): HistoryItem[] => {
+  const dayOfWeek = date.getDay();
+  
+  const baseItems: HistoryItem[] = [
+    {
+      id: '1',
+      type: 'checklist',
+      title: 'Opening Checklist',
+      frequency: 'daily',
+      contributors: [
+        { name: 'Jordan A.', completedAt: '9:00 AM', itemsCompleted: 8 },
+        { name: 'Marcus T.', completedAt: '9:15 AM', itemsCompleted: 4 },
+      ],
+      finalCompletedAt: '9:15 AM',
+      completionLevel: 100,
+      totalItems: 12,
+      completedItems: 12,
+    },
+    {
+      id: '2',
+      type: 'task',
+      title: 'Restock napkins in lobby',
+      accentColor: '#8B5CF6',
+      contributors: [
+        { name: 'Marcus T.', completedAt: '10:30 AM', itemsCompleted: 3 },
+      ],
+      finalCompletedAt: '10:30 AM',
+      completionLevel: 100,
+      subtasks: 3,
+      completedSubtasks: 3,
+    },
+    {
+      id: '3',
+      type: 'catering',
+      title: 'Smith Wedding Order',
+      customerName: 'John Smith',
+      contributors: [
+        { name: 'Sarah M.', completedAt: '11:45 AM', itemsCompleted: 1 },
+      ],
+      finalCompletedAt: '11:45 AM',
+      completionLevel: 100,
+      itemCount: 45,
+    },
+    {
+      id: '4',
+      type: 'checklist',
+      title: 'Food Safety Temps',
+      frequency: 'daily',
+      contributors: [
+        { name: 'Alex K.', completedAt: '2:00 PM', itemsCompleted: 5 },
+        { name: 'Jordan A.', completedAt: '2:15 PM', itemsCompleted: 2 },
+      ],
+      finalCompletedAt: '2:15 PM',
+      completionLevel: 85,
+      totalItems: 8,
+      completedItems: 7,
+    },
+    {
+      id: '5',
+      type: 'event',
+      title: 'Birthday Party Setup',
+      eventName: 'Table 5 Party',
+      contributors: [
+        { name: 'Marcus T.', completedAt: '4:30 PM', itemsCompleted: 1 },
+      ],
+      finalCompletedAt: '4:30 PM',
+      completionLevel: 100,
+    },
+    {
+      id: '6',
+      type: 'checklist',
+      title: 'Closing Checklist',
+      frequency: 'daily',
+      contributors: [
+        { name: 'Sarah M.', completedAt: '9:30 PM', itemsCompleted: 6 },
+        { name: 'Alex K.', completedAt: '9:45 PM', itemsCompleted: 5 },
+        { name: 'Jordan A.', completedAt: '10:00 PM', itemsCompleted: 4 },
+      ],
+      finalCompletedAt: '10:00 PM',
+      completionLevel: 100,
+      totalItems: 15,
+      completedItems: 15,
+    },
+  ];
+
+  // Vary items based on day
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return [
+      ...baseItems,
       {
         id: '7',
-        type: 'task',
-        title: 'Deep clean walk-in cooler',
-        accentColor: '#EC4899',
-        completedBy: 'Sarah M.',
-        completedAt: '3:00 PM',
-        completionLevel: 100,
-        subtasks: 5,
-        completedSubtasks: 5,
-      },
-      {
-        id: '8',
-        type: 'checklist',
-        title: 'Opening Checklist',
-        frequency: 'daily',
-        completedBy: 'Alex K.',
-        completedAt: '9:00 AM',
-        completionLevel: 92,
-        totalItems: 12,
-        completedItems: 11,
-      },
-    ],
-  },
-  {
-    label: 'Saturday',
-    date: 'Sat, Jan 25',
-    items: [
-      {
-        id: '9',
         type: 'catering',
         title: 'Corporate Lunch - TechCorp',
         customerName: 'TechCorp Inc.',
-        completedBy: 'Jordan A.',
-        completedAt: '11:00 AM',
+        contributors: [
+          { name: 'Jordan A.', completedAt: '11:00 AM', itemsCompleted: 1 },
+        ],
+        finalCompletedAt: '11:00 AM',
         completionLevel: 100,
         itemCount: 60,
       },
-      {
-        id: '10',
-        type: 'checklist',
-        title: 'Weekly Deep Clean',
-        frequency: 'weekly',
-        completedBy: 'Team',
-        completedAt: '6:00 PM',
-        completionLevel: 78,
-        totalItems: 18,
-        completedItems: 14,
-      },
-      {
-        id: '11',
-        type: 'task',
-        title: 'Replace CO2 tanks',
-        accentColor: '#F59E0B',
-        completedBy: 'Marcus T.',
-        completedAt: '2:30 PM',
-        completionLevel: 100,
-        subtasks: 2,
-        completedSubtasks: 2,
-      },
-    ],
-  },
-];
+    ];
+  }
+  
+  return baseItems;
+};
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -173,13 +168,13 @@ const getTypeIcon = (type: string) => {
 const getCompletionColor = (level: number) => {
   if (level === 100) return 'text-emerald-500';
   if (level >= 80) return 'text-amber-500';
-  return 'text-red-500';
+  return 'text-destructive';
 };
 
-const getProgressColor = (level: number) => {
+const getTimelineDotColor = (level: number) => {
   if (level === 100) return 'bg-emerald-500';
   if (level >= 80) return 'bg-amber-500';
-  return 'bg-red-500';
+  return 'bg-destructive';
 };
 
 const CompletionIndicator = ({ level, label }: { level: number; label?: string }) => (
@@ -195,253 +190,147 @@ const CompletionIndicator = ({ level, label }: { level: number; label?: string }
   </div>
 );
 
-// ==================== STYLE 1: TIMELINE ====================
-const TimelineView = ({ days }: { days: typeof sampleDays }) => (
-  <div className="space-y-6">
-    <h3 className="text-lg font-semibold text-center mb-4">Option 1: Timeline View</h3>
-    
-    {days.map((day) => (
-      <div key={day.label} className="relative">
-        {/* Day header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-            {day.label}
+// ==================== CONTRIBUTORS DISPLAY ====================
+const ContributorsDisplay = ({ contributors }: { contributors: Contributor[] }) => {
+  if (contributors.length === 1) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Avatar className="h-5 w-5">
+          <AvatarFallback className="text-[10px] bg-muted">{contributors[0].name.charAt(0)}</AvatarFallback>
+        </Avatar>
+        <span>{contributors[0].name}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Users className="h-3.5 w-3.5" />
+        <span className="font-medium">{contributors.length} team members</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {contributors.map((contributor, index) => (
+          <div 
+            key={index}
+            className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5"
+          >
+            <Avatar className="h-4 w-4">
+              <AvatarFallback className="text-[8px] bg-muted">{contributor.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="text-[10px] text-muted-foreground">{contributor.name}</span>
+            <span className="text-[9px] text-muted-foreground/70">({contributor.itemsCompleted})</span>
           </div>
-          <span className="text-sm text-muted-foreground">{day.date}</span>
-          <div className="flex-1 h-px bg-border" />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ==================== TIMELINE VIEW ====================
+const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedDate: Date }) => {
+  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
+  const dateLabel = format(selectedDate, 'MMMM d, yyyy');
+
+  // Sort items by completion time
+  const sortedItems = [...items].sort((a, b) => {
+    const timeA = a.finalCompletedAt;
+    const timeB = b.finalCompletedAt;
+    return timeA.localeCompare(timeB);
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Day header */}
+      <div className="flex items-center gap-3">
+        <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
+          {dayLabel}
         </div>
+        <span className="text-sm text-muted-foreground">{dateLabel}</span>
+        <div className="flex-1 h-px bg-border" />
+        <Badge variant="secondary" className="text-xs">
+          {items.length} completed
+        </Badge>
+      </div>
+      
+      <div className="relative ml-4">
+        {/* Vertical line */}
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
         
-        <div className="relative ml-6">
-          {/* Vertical line */}
-          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
-          
-          {day.items.map((item) => (
-            <div key={item.id} className="relative flex items-start mb-4 pl-6">
-              {/* Timeline dot */}
+        {sortedItems.map((item, index) => (
+          <div key={item.id} className="relative flex items-start mb-4 pl-8">
+            {/* Timeline dot with time */}
+            <div className="absolute left-0 top-0 -translate-x-1/2 flex flex-col items-center">
               <div 
-                className="absolute left-0 top-2 -translate-x-1/2 w-2.5 h-2.5 rounded-full ring-2 ring-background"
-                style={{ 
-                  backgroundColor: item.completionLevel === 100 
-                    ? '#10B981' 
-                    : item.completionLevel >= 80 
-                      ? '#F59E0B' 
-                      : '#EF4444'
-                }}
+                className={`w-3 h-3 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
               />
-              
-              <Card className="flex-1">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <div className="p-1.5 rounded-md bg-muted shrink-0">
-                        {getTypeIcon(item.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{item.title}</span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {item.type}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <Avatar className="h-4 w-4">
-                            <AvatarFallback className="text-[8px]">{item.completedBy.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <span>{item.completedBy}</span>
-                          <span>•</span>
-                          <span>{item.completedAt}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <CompletionIndicator 
-                      level={item.completionLevel} 
-                      label={item.type === 'checklist' ? `(${(item as any).completedItems}/${(item as any).totalItems})` : undefined}
-                    />
-                  </div>
-                  {item.completionLevel < 100 && (
-                    <div className="mt-2">
-                      <Progress value={item.completionLevel} className="h-1.5" />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
-// ==================== STYLE 2: COMPACT ACTIVITY FEED ====================
-const CompactFeedView = ({ days }: { days: typeof sampleDays }) => (
-  <div className="space-y-6">
-    <h3 className="text-lg font-semibold text-center mb-4">Option 2: Compact Activity Feed</h3>
-    
-    {days.map((day) => (
-      <div key={day.label}>
-        {/* Day header */}
-        <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold">{day.label}</span>
-          <span className="text-xs text-muted-foreground">{day.date}</span>
-          <div className="flex-1 h-px bg-border" />
-          <Badge variant="outline" className="text-xs">
-            {day.items.length} items
-          </Badge>
-        </div>
-        
-        <Card>
-          <CardContent className="p-0 divide-y divide-border">
-            {day.items.map((item) => (
-              <div 
-                key={item.id} 
-                className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors cursor-pointer group"
-              >
-                {/* Completion dot */}
-                <div 
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ 
-                    backgroundColor: item.completionLevel === 100 
-                      ? '#10B981' 
-                      : item.completionLevel >= 80 
-                        ? '#F59E0B' 
-                        : '#EF4444'
-                  }}
-                />
-                
-                {/* Icon */}
-                <div 
-                  className="p-1.5 rounded-md shrink-0"
-                  style={{ 
-                    backgroundColor: item.type === 'task' 
-                      ? `${(item as any).accentColor || '#8B5CF6'}20` 
-                      : 'hsl(var(--muted))'
-                  }}
-                >
-                  {getTypeIcon(item.type)}
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate">{item.title}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {item.completedBy} • {item.completedAt}
-                  </div>
-                </div>
-                
-                {/* Completion indicator */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {item.type === 'checklist' && (
-                    <span className="text-xs text-muted-foreground">
-                      {(item as any).completedItems}/{(item as any).totalItems}
-                    </span>
-                  )}
-                  <span className={`text-xs font-semibold ${getCompletionColor(item.completionLevel)}`}>
-                    {item.completionLevel}%
-                  </span>
-                </div>
-                
-                {/* Arrow */}
-                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-    ))}
-  </div>
-);
-
-// ==================== STYLE 3: GROUPED CARD GRID ====================
-const GroupedGridView = ({ days }: { days: typeof sampleDays }) => (
-  <div className="space-y-6">
-    <h3 className="text-lg font-semibold text-center mb-4">Option 3: Grouped Card Grid</h3>
-    
-    {days.map((day) => (
-      <div key={day.label}>
-        {/* Day header */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="bg-muted px-3 py-1 rounded-lg">
-            <span className="text-sm font-semibold">{day.label}</span>
-            <span className="text-xs text-muted-foreground ml-2">{day.date}</span>
-          </div>
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted-foreground">{day.items.length} completed</span>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          {day.items.map((item) => (
-            <Card 
-              key={item.id} 
-              className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-            >
-              {/* Progress bar as top accent */}
-              <div className="h-1 bg-muted relative overflow-hidden">
-                <div 
-                  className={`h-full ${getProgressColor(item.completionLevel)}`}
-                  style={{ width: `${item.completionLevel}%` }}
-                />
-              </div>
-              
+            
+            {/* Time label */}
+            <div className="absolute left-6 top-0 flex items-center gap-1 text-xs text-muted-foreground font-medium min-w-[70px]">
+              <Clock className="h-3 w-3" />
+              {item.finalCompletedAt}
+            </div>
+            
+            <Card className="flex-1 ml-16 hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div 
-                    className="p-1 rounded shrink-0"
-                    style={{ 
-                      backgroundColor: item.type === 'task' 
-                        ? `${(item as any).accentColor || '#8B5CF6'}20` 
-                        : 'hsl(var(--muted))'
-                    }}
-                  >
-                    {getTypeIcon(item.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-sm line-clamp-1">{item.title}</span>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                      {item.type}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <div 
+                      className="p-1.5 rounded-md shrink-0"
+                      style={{ 
+                        backgroundColor: item.type === 'task' && item.accentColor
+                          ? `${item.accentColor}20` 
+                          : 'hsl(var(--muted))'
+                      }}
+                    >
+                      {getTypeIcon(item.type)}
                     </div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[10px]">{item.completedBy.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs text-muted-foreground truncate max-w-[60px]">{item.completedBy}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm">{item.title}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                          {item.type}
+                        </Badge>
+                      </div>
+                      
+                      {/* Contributors section */}
+                      <div className="mt-2">
+                        <ContributorsDisplay contributors={item.contributors} />
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center gap-1">
-                    {item.completionLevel === 100 ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                    ) : (
-                      <>
-                        <span className={`text-xs font-semibold ${getCompletionColor(item.completionLevel)}`}>
-                          {item.completionLevel}%
-                        </span>
-                      </>
-                    )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <CompletionIndicator 
+                      level={item.completionLevel} 
+                      label={item.type === 'checklist' && item.totalItems 
+                        ? `(${item.completedItems}/${item.totalItems})` 
+                        : undefined
+                      }
+                    />
                   </div>
                 </div>
                 
-                <div className="text-[10px] text-muted-foreground mt-1 text-right">
-                  {item.completedAt}
-                </div>
+                {item.completionLevel < 100 && (
+                  <div className="mt-3">
+                    <Progress value={item.completionLevel} className="h-1.5" />
+                  </div>
+                )}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
-);
+    </div>
+  );
+};
 
 // ==================== DATE SELECTOR COMPONENT ====================
 const DateSelector = ({ selectedDate, onDateChange }: { selectedDate: Date; onDateChange: (date: Date) => void }) => {
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   
   return (
     <div className="flex items-center justify-between gap-2 p-3 bg-card rounded-xl border border-border shadow-sm">
@@ -480,7 +369,7 @@ const DateSelector = ({ selectedDate, onDateChange }: { selectedDate: Date; onDa
         variant="ghost" 
         size="icon"
         onClick={() => onDateChange(addDays(selectedDate, 1))}
-        disabled={selectedDate >= new Date()}
+        disabled={isToday}
       >
         <ChevronRight className="h-5 w-5" />
       </Button>
@@ -491,52 +380,23 @@ const DateSelector = ({ selectedDate, onDateChange }: { selectedDate: Date; onDa
 export default function HistoryStylePreview() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Generate dynamic sample days based on selected date
-  const getDynamicDays = () => {
-    const days = [];
-    for (let i = 0; i < 3; i++) {
-      const date = subDays(selectedDate, i);
-      const isToday = i === 0 && format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-      const isYesterday = i === 1 || (i === 0 && format(subDays(new Date(), 1), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
-      
-      days.push({
-        label: isToday ? 'Today' : isYesterday && i === 1 ? 'Yesterday' : format(date, 'EEEE'),
-        date: format(date, 'EEE, MMM d'),
-        items: sampleDays[i % sampleDays.length].items,
-      });
-    }
-    return days;
-  };
-  
-  const dynamicDays = getDynamicDays();
+  const items = getSampleItemsForDate(selectedDate);
   
   return (
     <Layout>
       <div className="space-y-6 pb-20">
         <div className="text-center">
-          <h2 className="text-2xl font-bold">History Page Style Preview</h2>
+          <h2 className="text-2xl font-bold">History</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            Select a date and compare the 3 layout options
+            View completed tasks and checklists
           </p>
         </div>
         
         {/* Date Selector */}
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
         
-        {/* Option 1: Timeline */}
-        <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 bg-primary/5">
-          <TimelineView days={dynamicDays} />
-        </div>
-        
-        {/* Option 2: Compact Feed */}
-        <div className="border-2 border-dashed border-secondary/30 rounded-xl p-4 bg-secondary/5">
-          <CompactFeedView days={dynamicDays} />
-        </div>
-        
-        {/* Option 3: Grouped Grid */}
-        <div className="border-2 border-dashed border-accent/30 rounded-xl p-4 bg-accent/5">
-          <GroupedGridView days={dynamicDays} />
-        </div>
+        {/* Timeline View */}
+        <TimelineView items={items} selectedDate={selectedDate} />
       </div>
     </Layout>
   );
