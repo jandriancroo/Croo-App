@@ -1604,28 +1604,14 @@ export default function Schedule() {
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="container max-w-7xl mx-auto px-4 py-2">
-                <Collapsible defaultOpen={false}>
-                  {/* Labor Totals Header */}
-                  <div className="border-b border-border pb-1 flex items-center justify-between">
-                    <h3 className="font-semibold text-xs">Schedule Tools</h3>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-
-                  <CollapsibleContent>
-                    {/* Labor Totals Summary */}
-                    <LaborTotals
-                      shifts={shifts}
-                      profiles={profiles}
-                      currentWeekStart={currentWeekStart}
-                      scheduleId={scheduleId}
-                      isEditable={isAdmin || isManager}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
+                {/* Labor Totals Summary */}
+                <LaborTotals
+                  shifts={shifts}
+                  profiles={profiles}
+                  currentWeekStart={currentWeekStart}
+                  scheduleId={scheduleId}
+                  isEditable={isAdmin || isManager}
+                />
                 
                 {/* Shift Templates - Always visible */}
                 <div className="flex items-start gap-3 border-t border-border pt-1">
