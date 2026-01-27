@@ -18,7 +18,6 @@ import {
   CalendarCheck,
   CheckCircle2,
   CalendarIcon,
-  Clock,
   Bell
 } from 'lucide-react';
 
@@ -273,17 +272,21 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
           // Mini inline row for alarm tasks
           if (item.type === 'alarm') {
             return (
-              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8">
+              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-6">
                 {/* Timeline dot - smaller for alarms */}
                 <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
                   <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 ring-2 ring-background" />
                 </div>
                 
-                {/* Compact inline content - amber accent */}
-                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
+                {/* Time on left */}
+                <span className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 font-medium w-12 sm:w-14 shrink-0">
+                  {item.finalCompletedAt}
+                </span>
+                
+                {/* Compact inline content - right aligned */}
+                <div className="flex items-center justify-end gap-1 sm:gap-2 flex-1 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
                   <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
-                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
-                  <span className="text-foreground font-medium truncate max-w-[80px] sm:max-w-none">{item.title}</span>
+                  <span className="text-foreground font-medium truncate">{item.title}</span>
                   <span className="text-muted-foreground hidden sm:inline">•</span>
                   <span className="text-muted-foreground hidden sm:inline">{item.contributors[0]?.name}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
@@ -292,19 +295,24 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
             );
           }
 
-          // Regular card for other items - mobile optimized
+          // Regular card for other items - time on left, content right-aligned
           return (
-            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
+            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-6">
               {/* Timeline dot */}
-              <div className="absolute left-0 top-2 -translate-x-1/2">
+              <div className="absolute left-0 top-3 -translate-x-1/2">
                 <div 
                   className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
                 />
               </div>
               
+              {/* Time on left */}
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-medium w-12 sm:w-14 shrink-0 pt-1.5">
+                {item.finalCompletedAt}
+              </span>
+              
               <Card className="flex-1 hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
-                  {/* Single row: icon + title + time + completion */}
+                  {/* Single row: icon + title + completion - right aligned */}
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div 
                       className="p-1 rounded shrink-0"
@@ -317,13 +325,8 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                       {getTypeIcon(item.type)}
                     </div>
                     
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium text-sm truncate block">{item.title}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground shrink-0">
-                      <Clock className="h-3 w-3 hidden sm:block" />
-                      <span>{item.finalCompletedAt}</span>
+                    <div className="flex-1 min-w-0 text-right">
+                      <span className="font-medium text-sm">{item.title}</span>
                     </div>
                     
                     <div className="shrink-0">
@@ -337,8 +340,14 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                     </div>
                   </div>
                   
-                  {/* Contributors row - compact avatars only on mobile */}
-                  <div className="flex items-center justify-between mt-1 gap-2">
+                  {/* Contributors row - right aligned */}
+                  <div className="flex items-center justify-end mt-1 gap-2">
+                    {item.type === 'checklist' && item.totalItems && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.completedItems}/{item.totalItems} items
+                      </span>
+                    )}
+                    
                     <div className="flex items-center gap-0.5">
                       {item.contributors.map((contributor, idx) => (
                         <Avatar key={idx} className="h-5 w-5 -ml-1 first:ml-0 ring-1 ring-background">
@@ -351,12 +360,6 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                         {item.contributors.map(c => c.name).join(', ')}
                       </span>
                     </div>
-                    
-                    {item.type === 'checklist' && item.totalItems && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {item.completedItems}/{item.totalItems} items
-                      </span>
-                    )}
                   </div>
                   
                   {item.completionLevel < 100 && (
