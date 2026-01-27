@@ -7,13 +7,13 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
-import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 interface Profile {
   id: string;
   full_name: string;
@@ -517,6 +517,9 @@ export function LaborTotals({
       laborPercent: avgLaborPercent
     };
   }, [dailyTotals, projectedSales]);
+
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
+
   // Only show labor totals to users who can view sales/labor
   // (shift managers and above, OR team members with location setting enabled)
   if (!canSeeSales) {
@@ -524,20 +527,41 @@ export function LaborTotals({
   }
 
   return <div className="border-t border-border bg-muted/30 text-xs min-w-[700px]">
-      {/* Daily Labor Totals */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Week</span>
-          <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
-          {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
-        </div>
-        {dailyTotals.map((day, index) => <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
-            {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
-                <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
-                {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
-              </>}
-          </div>)}
-      </div>
+      <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
+        {/* Toggle Header */}
+        <CollapsibleTrigger asChild>
+          <button className="w-full grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <BarChart3 className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs font-semibold">Schedule Tools</span>
+              {isToolsOpen ? <ChevronUp className="h-3 w-3 text-muted-foreground ml-auto" /> : <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto" />}
+            </div>
+            {/* Summary preview when collapsed */}
+            {dailyTotals.map((day, index) => (
+              <div key={index} className="px-2 py-1.5 border-r border-border text-center flex items-center justify-center gap-1">
+                {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : (
+                  <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                )}
+              </div>
+            ))}
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          {/* Daily Labor Totals */}
+          <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
+            <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <span className="text-xs font-semibold">Week</span>
+              <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
+              {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
+            </div>
+            {dailyTotals.map((day, index) => <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
+                {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
+                    <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                    {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
+                  </>}
+              </div>)}
+          </div>
 
       {/* Projected Sales Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
@@ -695,6 +719,8 @@ export function LaborTotals({
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
       })}
-      </div>
+        </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>;
 }
