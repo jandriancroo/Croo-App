@@ -71,6 +71,7 @@ import PizzaPaddleGame from "./pages/PizzaPaddleGame";
 import MarcManGame from "./pages/MarcManGame";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
 import QRQuickTaskReport from "./pages/QRQuickTaskReport";
+import HistoryStylePreview from "./pages/HistoryStylePreview";
 import FeatureTree from "./pages/FeatureTree";
 import ArchitectureMap from "./pages/ArchitectureMap";
 import RoleDashboardCustomizer from "./pages/RoleDashboardCustomizer";
@@ -126,6 +127,7 @@ const AppContent = () => {
           <Route path="/install" element={<InstallGuide />} />
           <Route path="/apply/:orgSlug" element={<PublicApplication />} />
           <Route path="/qr/:qrCode" element={<QRQuickTaskReport />} />
+          <Route path="/history-preview" element={<HistoryStylePreview />} />
           <Route path="/hiring-chat/:token" element={<HiringChat />} />
           <Route path="/my-applications" element={<ApplicantPortal />} />
           <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
