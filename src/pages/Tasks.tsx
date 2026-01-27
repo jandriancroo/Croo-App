@@ -286,17 +286,43 @@ export default function Tasks() {
 
       if (checklistInfo.length === 0) return [];
 
-      // BATCH QUERY 1: Get all submissions for all checklists in one query
-      // Use business day range to capture late-night submissions correctly
-      const checklistIds = checklistInfo.map(c => c.id);
-      const { data: allSubmissions } = await supabase
-        .from('checklist_submissions')
-        .select('id, checklist_id, submitted_by')
-        .in('checklist_id', checklistIds)
-        .gte('submitted_at', periodStartBusiness.toISOString())
-        .lte('submitted_at', periodEndBusiness.toISOString());
+      // Split checklists by frequency for proper date range queries
+      const dailyChecklists = checklistInfo.filter(c => c.frequency !== 'monthly');
+      const monthlyChecklists = checklistInfo.filter(c => c.frequency === 'monthly');
+      
+      // Calculate month boundaries for monthly checklists
+      const monthStart = new Date(historyDate.getFullYear(), historyDate.getMonth(), 1, 0, 0, 0, 0);
+      const monthEnd = new Date(historyDate.getFullYear(), historyDate.getMonth() + 1, 0, 23, 59, 59, 999);
 
-      const submissionIds = allSubmissions?.map(s => s.id) || [];
+      // BATCH QUERY 1: Get submissions for daily and monthly checklists separately
+      const dailyChecklistIds = dailyChecklists.map(c => c.id);
+      const monthlyChecklistIds = monthlyChecklists.map(c => c.id);
+      
+      const [dailySubmissionsResult, monthlySubmissionsResult] = await Promise.all([
+        dailyChecklistIds.length > 0
+          ? supabase
+              .from('checklist_submissions')
+              .select('id, checklist_id, submitted_by')
+              .in('checklist_id', dailyChecklistIds)
+              .gte('submitted_at', periodStartBusiness.toISOString())
+              .lte('submitted_at', periodEndBusiness.toISOString())
+          : Promise.resolve({ data: [] }),
+        monthlyChecklistIds.length > 0
+          ? supabase
+              .from('checklist_submissions')
+              .select('id, checklist_id, submitted_by')
+              .in('checklist_id', monthlyChecklistIds)
+              .gte('submitted_at', monthStart.toISOString())
+              .lte('submitted_at', monthEnd.toISOString())
+          : Promise.resolve({ data: [] }),
+      ]);
+      
+      const allSubmissions = [
+        ...(dailySubmissionsResult.data || []),
+        ...(monthlySubmissionsResult.data || []),
+      ];
+
+      const submissionIds = allSubmissions.map(s => s.id);
       
       // BATCH QUERY 2: Get all responses for all submissions in one query
       let allResponses: any[] = [];
@@ -374,7 +400,7 @@ export default function Tasks() {
     enabled: !!user && !!currentLocation?.id && !timezoneLoading,
   });
 
-  // Fetch completed quick tasks for selected date
+  // Fetch completed quick tasks AND alarm completions for selected date
   // Historical data is immutable - cache for 1 hour, today's data refreshes more often
   const { data: completedTempTasks = [] } = useQuery({
     queryKey: ['completed-temp-tasks', historyDateStr, currentLocation?.id, closeTime],
@@ -386,26 +412,90 @@ export default function Tasks() {
       // Use business day range for consistency with checklists
       const { start: periodStart, end: periodEnd } = getBusinessDayRangeInTimezone(historyDateStr);
 
-      const { data: tasks, error } = await supabase
-        .from('temporary_tasks')
-        .select('id, title, description, completed_at, completed_by, accent_color')
-        .eq('location_id', currentLocation.id)
-        .not('completed_at', 'is', null)
-        .gte('completed_at', periodStart.toISOString())
-        .lte('completed_at', periodEnd.toISOString())
-        .order('completed_at', { ascending: false });
+      // Fetch one-time completed tasks AND alarm tasks in parallel
+      const [{ data: oneTimeTasks, error: oneTimeError }, { data: alarmTasks }] = await Promise.all([
+        supabase
+          .from('temporary_tasks')
+          .select('id, title, description, completed_at, completed_by, accent_color, task_style')
+          .eq('location_id', currentLocation.id)
+          .not('completed_at', 'is', null)
+          .gte('completed_at', periodStart.toISOString())
+          .lte('completed_at', periodEnd.toISOString())
+          .order('completed_at', { ascending: false }),
+        supabase
+          .from('temporary_tasks')
+          .select('id, title, description, accent_color, task_style')
+          .eq('location_id', currentLocation.id)
+          .eq('task_style', 'alarm')
+          .eq('is_active', true),
+      ]);
 
-      if (error) throw error;
-      if (!tasks || tasks.length === 0) return [];
+      if (oneTimeError) throw oneTimeError;
 
-      const taskIds = tasks.map(t => t.id);
-      const completerIds = [...new Set(tasks.map(t => t.completed_by).filter(Boolean))] as string[];
+      // Fetch alarm completions for the selected date
+      const alarmTaskIds = alarmTasks?.map(t => t.id) || [];
+      let alarmCompletions: any[] = [];
+      if (alarmTaskIds.length > 0) {
+        const { data: completions } = await supabase
+          .from('alarm_task_completions')
+          .select('id, task_id, completed_at, completed_by')
+          .in('task_id', alarmTaskIds)
+          .gte('completed_at', periodStart.toISOString())
+          .lte('completed_at', periodEnd.toISOString())
+          .order('completed_at', { ascending: false });
+        alarmCompletions = completions || [];
+      }
+
+      // Map alarm tasks by ID for quick lookup
+      const alarmTaskMap = (alarmTasks || []).reduce((acc: Record<string, any>, t) => {
+        acc[t.id] = t;
+        return acc;
+      }, {});
+
+      // Convert alarm completions to task-like objects
+      const alarmTaskItems = alarmCompletions.map(completion => {
+        const task = alarmTaskMap[completion.task_id];
+        return {
+          id: completion.id, // Use completion ID to make each unique
+          title: task?.title || 'Unknown Alarm',
+          description: task?.description || null,
+          completed_at: completion.completed_at,
+          completed_by: completion.completed_by,
+          accent_color: task?.accent_color || null,
+          task_style: 'alarm' as const,
+          subtaskTotal: 0,
+          subtaskCompleted: 0,
+          completerName: null as string | null,
+          completerPhoto: null as string | null,
+        };
+      });
+
+      // Combine one-time tasks (with task_style) 
+      const oneTimeItems = (oneTimeTasks || []).map(t => ({
+        ...t,
+        task_style: t.task_style || null,
+        subtaskTotal: 0,
+        subtaskCompleted: 0,
+        completerName: null as string | null,
+        completerPhoto: null as string | null,
+      }));
+
+      const allItems = [...oneTimeItems, ...alarmTaskItems];
+      if (allItems.length === 0) return [];
+
+      // Get all completer IDs
+      const completerIds = [...new Set(allItems.map(t => t.completed_by).filter(Boolean))] as string[];
+      
+      // Get subtask data for one-time tasks only
+      const oneTimeTaskIds = (oneTimeTasks || []).map(t => t.id);
 
       const [{ data: subtasks }, { data: completers }] = await Promise.all([
-        supabase
-          .from('temporary_task_subtasks')
-          .select('task_id, completed_at')
-          .in('task_id', taskIds),
+        oneTimeTaskIds.length > 0
+          ? supabase
+              .from('temporary_task_subtasks')
+              .select('task_id, completed_at')
+              .in('task_id', oneTimeTaskIds)
+          : Promise.resolve({ data: [] }),
         completerIds.length > 0
           ? supabase
               .from('profiles')
@@ -430,7 +520,7 @@ export default function Tasks() {
         {}
       );
 
-      return tasks.map(t => {
+      return allItems.map(t => {
         const agg = subtaskAgg[t.id] || { total: 0, completed: 0 };
         const completer = t.completed_by ? completerMap[t.completed_by] : null;
         return {
