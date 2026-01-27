@@ -1,26 +1,25 @@
 import { useState } from 'react';
 import { format, subDays, addDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { 
   ClipboardCheck, 
   ClipboardList, 
   ChevronRight,
   ChevronLeft,
-  ChevronDown,
   UtensilsCrossed,
   CalendarCheck,
   CheckCircle2,
   CalendarIcon,
-  Bell,
-  AlertTriangle
+  Clock,
+  Bell
 } from 'lucide-react';
 
 interface Contributor {
@@ -45,7 +44,6 @@ interface HistoryItem {
   subtasks?: number;
   completedSubtasks?: number;
   itemCount?: number;
-  notes?: string;
 }
 
 // Sample data for a single day with completion levels and contributors
@@ -109,7 +107,6 @@ const getSampleItemsForDate = (date: Date): HistoryItem[] => {
       completionLevel: 100,
       totalItems: 12,
       completedItems: 12,
-      notes: 'All stations checked and ready for service.',
     },
     {
       id: '2',
@@ -149,7 +146,6 @@ const getSampleItemsForDate = (date: Date): HistoryItem[] => {
       completionLevel: 85,
       totalItems: 8,
       completedItems: 7,
-      notes: 'Walk-in cooler temp slightly elevated, maintenance notified.',
     },
     {
       id: '5',
@@ -204,192 +200,27 @@ const getSampleItemsForDate = (date: Date): HistoryItem[] => {
 
 const getTypeIcon = (type: string) => {
   switch (type) {
-    case 'checklist': return ClipboardCheck;
-    case 'task': return ClipboardList;
-    case 'catering': return UtensilsCrossed;
-    case 'event': return CalendarCheck;
-    case 'alarm': return Bell;
-    default: return CheckCircle2;
+    case 'checklist': return <ClipboardCheck className="h-4 w-4" />;
+    case 'task': return <ClipboardList className="h-4 w-4" />;
+    case 'catering': return <UtensilsCrossed className="h-4 w-4" />;
+    case 'event': return <CalendarCheck className="h-4 w-4" />;
+    case 'alarm': return <Bell className="h-3 w-3" />;
+    default: return <CheckCircle2 className="h-4 w-4" />;
   }
 };
 
-// ==================== TIMELINE ROW COMPONENT ====================
-const TimelineRow = ({ item }: { item: HistoryItem }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const Icon = getTypeIcon(item.type);
-  const isComplete = item.completionLevel === 100;
-  const isPartial = item.completionLevel > 0 && item.completionLevel < 100;
-  const isAlarm = item.type === 'alarm';
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <button 
-          className={cn(
-            "w-full flex items-center gap-2 py-2.5 px-1 rounded-lg transition-colors",
-            "active:bg-muted/50 hover:bg-muted/30",
-            isAlarm && "py-1.5"
-          )}
-        >
-          {/* LEFT: Time */}
-          <div className={cn(
-            "w-16 shrink-0 text-right pr-2",
-            isAlarm ? "text-[11px]" : "text-xs",
-            "font-medium text-muted-foreground"
-          )}>
-            {item.finalCompletedAt}
-          </div>
-
-          {/* CENTER: Timeline dot/indicator */}
-          <div className="flex flex-col items-center shrink-0">
-            {isComplete ? (
-              <div className={cn(
-                "rounded-full flex items-center justify-center",
-                isAlarm 
-                  ? "w-3 h-3 bg-amber-500" 
-                  : "w-4 h-4 bg-emerald-500"
-              )}>
-                {!isAlarm && <CheckCircle2 className="w-3 h-3 text-white" />}
-              </div>
-            ) : isPartial ? (
-              <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center">
-                <span className="text-[8px] font-bold text-white">{item.completionLevel}</span>
-              </div>
-            ) : (
-              <div className="w-4 h-4 rounded-full bg-destructive flex items-center justify-center">
-                <AlertTriangle className="w-2.5 h-2.5 text-white" />
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT: Task details */}
-          <div className="flex-1 min-w-0 flex items-center gap-2">
-            {/* Icon + Title */}
-            <div className={cn(
-              "p-1 rounded shrink-0",
-              isAlarm 
-                ? "bg-amber-500/20" 
-                : item.type === 'task' && item.accentColor 
-                  ? "" 
-                  : "bg-muted"
-            )}
-              style={item.type === 'task' && item.accentColor ? { backgroundColor: `${item.accentColor}20` } : undefined}
-            >
-              <Icon className={cn(
-                isAlarm ? "h-3 w-3 text-amber-600" : "h-3.5 w-3.5"
-              )} />
-            </div>
-            
-            <span className={cn(
-              "font-medium truncate",
-              isAlarm ? "text-xs" : "text-sm"
-            )}>
-              {item.title}
-            </span>
-
-            {/* Assignees (avatars) */}
-            <div className="flex items-center -space-x-1.5 shrink-0 ml-auto">
-              {item.contributors.slice(0, 3).map((contributor, idx) => (
-                <Avatar key={idx} className={cn(
-                  "ring-2 ring-background",
-                  isAlarm ? "h-5 w-5" : "h-6 w-6"
-                )}>
-                  <AvatarFallback className={cn(
-                    "font-medium bg-primary/20 text-primary",
-                    isAlarm ? "text-[8px]" : "text-[10px]"
-                  )}>
-                    {contributor.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {item.contributors.length > 3 && (
-                <Avatar className={cn("ring-2 ring-background", isAlarm ? "h-5 w-5" : "h-6 w-6")}>
-                  <AvatarFallback className="text-[8px] bg-muted">
-                    +{item.contributors.length - 3}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-            </div>
-
-            {/* Status indicator */}
-            {!isAlarm && (
-              <div className="shrink-0 flex items-center gap-1">
-                {isComplete ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                ) : isPartial ? (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300">
-                    {item.completionLevel}%
-                  </Badge>
-                ) : (
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                )}
-              </div>
-            )}
-
-            {/* Expand chevron */}
-            {!isAlarm && (
-              <ChevronDown className={cn(
-                "h-4 w-4 text-muted-foreground shrink-0 transition-transform",
-                isOpen && "rotate-180"
-              )} />
-            )}
-          </div>
-        </button>
-      </CollapsibleTrigger>
-
-      {/* Expanded details */}
-      {!isAlarm && (
-        <CollapsibleContent>
-          <div className="ml-[72px] mr-2 mb-3 p-3 rounded-lg bg-muted/50 space-y-2">
-            {/* Item counts */}
-            {item.totalItems && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Items completed</span>
-                <span className="font-medium">{item.completedItems}/{item.totalItems}</span>
-              </div>
-            )}
-            {item.subtasks && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Subtasks</span>
-                <span className="font-medium">{item.completedSubtasks}/{item.subtasks}</span>
-              </div>
-            )}
-            {item.itemCount && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Items</span>
-                <span className="font-medium">{item.itemCount}</span>
-              </div>
-            )}
-
-            {/* Progress bar for partial */}
-            {isPartial && (
-              <Progress value={item.completionLevel} className="h-1.5" />
-            )}
-
-            {/* Contributors breakdown */}
-            <div className="pt-1 space-y-1">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Contributors</span>
-              {item.contributors.map((c, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs">
-                  <span>{c.name}</span>
-                  <span className="text-muted-foreground">{c.itemsCompleted} items • {c.completedAt}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Notes */}
-            {item.notes && (
-              <div className="pt-1">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Notes</span>
-                <p className="text-xs mt-0.5">{item.notes}</p>
-              </div>
-            )}
-          </div>
-        </CollapsibleContent>
-      )}
-    </Collapsible>
-  );
+const getCompletionColor = (level: number) => {
+  if (level === 100) return 'text-emerald-500';
+  if (level >= 80) return 'text-amber-500';
+  return 'text-destructive';
 };
+
+const getTimelineDotColor = (level: number) => {
+  if (level === 100) return 'bg-emerald-500';
+  if (level >= 80) return 'bg-amber-500';
+  return 'bg-destructive';
+};
+
 
 // ==================== TIMELINE VIEW ====================
 const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedDate: Date }) => {
@@ -397,7 +228,7 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
   const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
   const dateLabel = format(selectedDate, 'MMMM d, yyyy');
 
-  // Sort items by completion time - earliest first
+  // Sort items by completion time - earliest first (top of screen)
   const sortedItems = [...items].sort((a, b) => {
     const parseTime = (time: string) => {
       const [timePart, period] = time.split(' ');
@@ -410,42 +241,132 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
   });
 
   const alarmCount = items.filter(i => i.type === 'alarm').length;
-  const completeCount = items.filter(i => i.completionLevel === 100).length;
+  const regularCount = items.filter(i => i.type !== 'alarm').length;
 
   return (
     <div className="space-y-3">
-      {/* Day header */}
+      {/* Day header - compact on mobile */}
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs font-semibold">
+        <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold">
           {dayLabel}
         </div>
-        <span className="text-xs text-muted-foreground">{dateLabel}</span>
+        <span className="text-xs sm:text-sm text-muted-foreground">{dateLabel}</span>
         <div className="flex-1 h-px bg-border hidden sm:block" />
         <div className="flex items-center gap-1.5 ml-auto">
-          <Badge variant="secondary" className="text-[10px] px-1.5 gap-1">
-            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-            {completeCount}/{items.length}
+          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+            {regularCount}
           </Badge>
           {alarmCount > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5 border-amber-300 text-amber-600">
-              <Bell className="h-2.5 w-2.5" />
+            <Badge variant="outline" className="text-[10px] sm:text-xs gap-0.5 px-1.5">
+              <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               {alarmCount}
             </Badge>
           )}
         </div>
       </div>
       
-      {/* Timeline with vertical line */}
-      <div className="relative">
-        {/* Vertical timeline line - positioned at center of dots (72px from left = 16px time + 8px gap + 8px half of dot area) */}
-        <div className="absolute left-[72px] top-0 bottom-0 w-0.5 bg-border -translate-x-1/2" />
+      <div className="relative ml-2 sm:ml-4">
+        {/* Vertical line */}
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
         
-        {/* Timeline rows */}
-        <div className="relative">
-          {sortedItems.map((item) => (
-            <TimelineRow key={item.id} item={item} />
-          ))}
-        </div>
+        {sortedItems.map((item) => {
+          // Mini inline row for alarm tasks
+          if (item.type === 'alarm') {
+            return (
+              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8">
+                {/* Timeline dot - smaller for alarms */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 ring-2 ring-background" />
+                </div>
+                
+                {/* Compact inline content - amber accent */}
+                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
+                  <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
+                  <span className="text-foreground font-medium truncate max-w-[80px] sm:max-w-none">{item.title}</span>
+                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground hidden sm:inline">{item.contributors[0]?.name}</span>
+                  <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          // Regular card for other items - mobile optimized
+          return (
+            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
+              {/* Timeline dot */}
+              <div className="absolute left-0 top-2 -translate-x-1/2">
+                <div 
+                  className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
+                />
+              </div>
+              
+              <Card className="flex-1 hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
+                  {/* Single row: icon + title + time + completion */}
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div 
+                      className="p-1 rounded shrink-0"
+                      style={{ 
+                        backgroundColor: item.type === 'task' && item.accentColor
+                          ? `${item.accentColor}20` 
+                          : 'hsl(var(--muted))'
+                      }}
+                    >
+                      {getTypeIcon(item.type)}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm truncate block">{item.title}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground shrink-0">
+                      <Clock className="h-3 w-3 hidden sm:block" />
+                      <span>{item.finalCompletedAt}</span>
+                    </div>
+                    
+                    <div className="shrink-0">
+                      {item.completionLevel === 100 ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <span className={`text-[10px] sm:text-xs font-medium ${getCompletionColor(item.completionLevel)}`}>
+                          {item.completionLevel}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Contributors row - compact avatars only on mobile */}
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {item.contributors.map((contributor, idx) => (
+                        <Avatar key={idx} className="h-5 w-5 -ml-1 first:ml-0 ring-1 ring-background">
+                          <AvatarFallback className="text-[9px] font-medium bg-primary/20 text-primary">
+                            {contributor.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      <span className="text-[10px] text-muted-foreground ml-1 hidden sm:inline">
+                        {item.contributors.map(c => c.name).join(', ')}
+                      </span>
+                    </div>
+                    
+                    {item.type === 'checklist' && item.totalItems && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.completedItems}/{item.totalItems} items
+                      </span>
+                    )}
+                  </div>
+                  
+                  {item.completionLevel < 100 && (
+                    <Progress value={item.completionLevel} className="h-1 mt-1.5" />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -468,9 +389,9 @@ const DateSelector = ({ selectedDate, onDateChange }: { selectedDate: Date; onDa
       
       <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="gap-2 font-semibold text-sm">
+          <Button variant="outline" className="gap-2 font-semibold">
             <CalendarIcon className="h-4 w-4" />
-            {format(selectedDate, 'EEE, MMM d')}
+            {format(selectedDate, 'EEEE, MMM d, yyyy')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="center">
@@ -508,11 +429,11 @@ export default function HistoryStylePreview() {
   
   return (
     <Layout>
-      <div className="space-y-4 pb-20">
+      <div className="space-y-6 pb-20">
         <div className="text-center">
-          <h2 className="text-xl font-bold">History</h2>
-          <p className="text-muted-foreground text-xs mt-0.5">
-            Completed tasks and checklists
+          <h2 className="text-2xl font-bold">History</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            View completed tasks and checklists
           </p>
         </div>
         
