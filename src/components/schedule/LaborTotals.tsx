@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Loader2, RotateCcw, CheckCircle2, Pencil, Save, Radio, Sparkles } from 'lucide-react';
+import { Loader2, RotateCcw, CheckCircle2, Radio, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -617,18 +617,7 @@ export function LaborTotals({
                       </Tooltip>
                     </TooltipProvider>
                   )}
-                  {isOverride && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Pencil className="h-3 w-3 text-amber-500 shrink-0" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p className="text-xs">Manager Override</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+                  {/* Pencil icon removed - amber border already indicates override */}
                   {isHistorical && (
                     <TooltipProvider>
                       <Tooltip>
@@ -668,7 +657,7 @@ export function LaborTotals({
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
                   {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
-                  {isOverride && <Pencil className="h-2.5 w-2.5 text-amber-500" />}
+                  {/* Pencil icon removed - amber border already indicates override */}
                   {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
                 </div>
               )}
