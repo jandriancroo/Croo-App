@@ -117,10 +117,18 @@ export function TasksHistoryTimeline({
     }> = [];
 
     // Add checklists with their last completion time
+    // For monthly checklists, don't show a time since they accumulate across days
     historyStats?.forEach(stat => {
-      const displayTime = stat.lastCompletedAt 
+      const isMonthlyChecklist = stat.title?.toLowerCase().includes('monthly');
+      
+      // Only show time for non-monthly checklists (daily/weekly)
+      const displayTime = (!isMonthlyChecklist && stat.lastCompletedAt)
         ? formatInTimeZone(new Date(stat.lastCompletedAt), timezone, 'h:mm a')
         : undefined;
+      
+      // Monthly checklists should sort by title at the bottom (no time = end of list)
+      // Daily checklists sort by their last completion time
+      const completedAt = isMonthlyChecklist ? undefined : (stat.lastCompletedAt || undefined);
       
       items.push({
         id: `checklist-${stat.id}`,
@@ -130,7 +138,7 @@ export function TasksHistoryTimeline({
         contributors: stat.contributors,
         totalItems: stat.itemCount,
         completedItems: stat.completedCount,
-        completedAt: stat.lastCompletedAt || undefined,
+        completedAt,
         displayTime,
         onClick: () => navigate(`/complete-checklist/${stat.id}?date=${format(selectedDate, 'yyyy-MM-dd')}`),
       });
