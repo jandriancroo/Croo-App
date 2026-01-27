@@ -10,6 +10,8 @@ import {
   ClipboardList, 
   CheckCircle2,
   Bell,
+  Calendar,
+  BookOpen,
   History as HistoryIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -28,17 +30,37 @@ interface ChecklistStat {
   itemCount: number;
   completedCount: number;
   contributors: Contributor[];
+  lastCompletedAt?: string | null;
 }
 
 interface CompletedTask {
   id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
+  completed_at: string;
+  accent_color?: string | null;
+  task_style?: string | null;
+  subtaskTotal?: number;
+  subtaskCompleted?: number;
+  completerName: string | null;
+  completerPhoto: string | null;
+}
+
+interface EventCompletion {
+  id: string;
+  title: string;
   completed_at: string;
   accent_color: string | null;
-  task_style?: string | null;
-  subtaskTotal: number;
-  subtaskCompleted: number;
+  task_style: 'event';
+  completerName: string | null;
+  completerPhoto: string | null;
+}
+
+interface LogbookEntry {
+  id: string;
+  title: string;
+  completed_at: string;
+  task_style: 'logbook';
   completerName: string | null;
   completerPhoto: string | null;
 }
@@ -46,6 +68,8 @@ interface CompletedTask {
 interface TasksHistoryTimelineProps {
   historyStats: ChecklistStat[] | undefined;
   completedTempTasks: CompletedTask[];
+  eventCompletions: EventCompletion[];
+  logbookEntries: LogbookEntry[];
   selectedDate: Date;
   onTaskClick: (task: CompletedTask) => void;
 }
@@ -65,6 +89,8 @@ const getCompletionColor = (level: number) => {
 export function TasksHistoryTimeline({ 
   historyStats, 
   completedTempTasks, 
+  eventCompletions,
+  logbookEntries,
   selectedDate,
   onTaskClick 
 }: TasksHistoryTimelineProps) {
@@ -74,11 +100,11 @@ export function TasksHistoryTimeline({
   const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
   const dateLabel = format(selectedDate, 'MMMM d, yyyy');
 
-  // Combine checklists and tasks into timeline items, sorted chronologically
+  // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
     const items: Array<{
       id: string;
-      type: 'checklist' | 'task' | 'alarm';
+      type: 'checklist' | 'task' | 'alarm' | 'event' | 'logbook';
       title: string;
       completionLevel: number;
       contributors: Contributor[];
@@ -90,8 +116,12 @@ export function TasksHistoryTimeline({
       onClick?: () => void;
     }> = [];
 
-    // Add checklists (no specific completion time, show at top)
+    // Add checklists with their last completion time
     historyStats?.forEach(stat => {
+      const displayTime = stat.lastCompletedAt 
+        ? formatInTimeZone(new Date(stat.lastCompletedAt), timezone, 'h:mm a')
+        : undefined;
+      
       items.push({
         id: `checklist-${stat.id}`,
         type: 'checklist',
@@ -100,7 +130,8 @@ export function TasksHistoryTimeline({
         contributors: stat.contributors,
         totalItems: stat.itemCount,
         completedItems: stat.completedCount,
-        completedAt: undefined, // Checklists don't have a single completion time
+        completedAt: stat.lastCompletedAt || undefined,
+        displayTime,
         onClick: () => navigate(`/complete-checklist/${stat.id}?date=${format(selectedDate, 'yyyy-MM-dd')}`),
       });
     });
@@ -125,16 +156,46 @@ export function TasksHistoryTimeline({
       });
     });
 
-    // Sort: Checklists first (no time), then tasks/alarms by completion time (earliest first)
+    // Add event completions
+    eventCompletions.forEach(event => {
+      const displayTime = formatInTimeZone(new Date(event.completed_at), timezone, 'h:mm a');
+      
+      items.push({
+        id: `event-${event.id}`,
+        type: 'event',
+        title: event.title,
+        completionLevel: 100,
+        contributors: event.completerName ? [{ name: event.completerName, photo: event.completerPhoto }] : [],
+        accentColor: event.accent_color || undefined,
+        completedAt: event.completed_at,
+        displayTime,
+      });
+    });
+
+    // Add logbook entries (safe counts, drawer counts)
+    logbookEntries.forEach(entry => {
+      const displayTime = formatInTimeZone(new Date(entry.completed_at), timezone, 'h:mm a');
+      
+      items.push({
+        id: `logbook-${entry.id}`,
+        type: 'logbook',
+        title: entry.title,
+        completionLevel: 100,
+        contributors: entry.completerName ? [{ name: entry.completerName, photo: entry.completerPhoto }] : [],
+        completedAt: entry.completed_at,
+        displayTime,
+      });
+    });
+
+    // Sort all items chronologically by completion time (earliest first)
+    // Items without times go to the top
     return items.sort((a, b) => {
-      // Checklists without time go first
       if (!a.completedAt && !b.completedAt) return 0;
       if (!a.completedAt) return -1;
       if (!b.completedAt) return 1;
-      // Sort by completion time (earliest first for chronological order)
       return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
     });
-  }, [historyStats, completedTempTasks, navigate, selectedDate, onTaskClick, timezone]);
+  }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
 
   const alarmCount = timelineItems.filter(i => i.type === 'alarm').length;
   const regularCount = timelineItems.filter(i => i.type !== 'alarm').length;
@@ -204,7 +265,36 @@ export function TasksHistoryTimeline({
             );
           }
 
-          // Regular card for other items - mobile optimized
+          // Compact inline row for event and logbook items
+          if (item.type === 'event' || item.type === 'logbook') {
+            const bgColor = item.type === 'event' ? 'bg-blue-500/15 border-blue-500/30' : 'bg-green-500/15 border-green-500/30';
+            const textColor = item.type === 'event' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400';
+            const Icon = item.type === 'event' ? Calendar : BookOpen;
+            
+            return (
+              <div 
+                key={item.id} 
+                className="relative flex items-center mb-1 pl-4 sm:pl-8"
+              >
+                {/* Timeline dot */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ring-2 ring-background ${item.type === 'event' ? 'bg-blue-400' : 'bg-green-400'}`} />
+                </div>
+                
+                {/* Compact inline content */}
+                <div className={`flex items-center gap-1 sm:gap-2 py-0.5 px-2 border rounded-full text-[10px] sm:text-xs ${bgColor}`}>
+                  <Icon className={`h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 ${textColor}`} />
+                  {item.displayTime && (
+                    <span className={`font-medium shrink-0 ${textColor}`}>{item.displayTime}</span>
+                  )}
+                  <span className="text-foreground font-medium">{item.title}</span>
+                  <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          // Regular card for checklists and tasks - mobile optimized
           return (
             <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
               {/* Timeline dot */}
@@ -219,12 +309,12 @@ export function TasksHistoryTimeline({
                 onClick={item.onClick}
               >
                 <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
-                  {/* Single row: icon + title + completion */}
+                  {/* Single row: icon + title + time/completion */}
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div 
                       className="p-1 rounded shrink-0"
                       style={{ 
-                        backgroundColor: item.type === 'task' && item.accentColor
+                        backgroundColor: (item.type === 'task' && item.accentColor)
                           ? `${item.accentColor}20` 
                           : 'hsl(var(--muted))'
                       }}
@@ -239,6 +329,13 @@ export function TasksHistoryTimeline({
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-sm truncate block">{item.title}</span>
                     </div>
+
+                    {/* Show time for items with displayTime */}
+                    {item.displayTime && (
+                      <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">
+                        {item.displayTime}
+                      </span>
+                    )}
                     
                     <div className="shrink-0">
                       {item.completionLevel === 100 ? (

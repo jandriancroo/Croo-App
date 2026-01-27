@@ -325,11 +325,12 @@ export default function Tasks() {
       const submissionIds = allSubmissions.map(s => s.id);
       
       // BATCH QUERY 2: Get all responses for all submissions in one query
+      // Include created_at to track last completion time
       let allResponses: any[] = [];
       if (submissionIds.length > 0) {
         const { data: responses } = await supabase
           .from('checklist_responses')
-          .select('id, submission_id, completed_by')
+          .select('id, submission_id, completed_by, created_at')
           .in('submission_id', submissionIds)
           .not('completed_by', 'is', null);
         allResponses = responses || [];
@@ -370,12 +371,17 @@ export default function Tasks() {
         
         let completedCount = 0;
         const contributorIds = new Set<string>();
+        let lastCompletedAt: string | null = null;
         
         submissionIdsForChecklist.forEach(subId => {
           const responses = responsesBySubmission[subId] || [];
           completedCount += responses.length;
           responses.forEach((r: any) => {
             if (r.completed_by) contributorIds.add(r.completed_by);
+            // Track the most recent completion time
+            if (r.created_at && (!lastCompletedAt || r.created_at > lastCompletedAt)) {
+              lastCompletedAt = r.created_at;
+            }
           });
         });
 
@@ -393,7 +399,8 @@ export default function Tasks() {
           completionRate,
           itemCount: checklist.itemCount,
           completedCount: cappedCompletedCount,
-          contributors
+          contributors,
+          lastCompletedAt, // Add last completion time for sorting
         };
       });
     },
@@ -535,6 +542,107 @@ export default function Tasks() {
     enabled: !!currentLocation?.id,
   });
 
+  // Fetch event completions for selected date
+  const { data: eventCompletions = [] } = useQuery({
+    queryKey: ['event-completions', historyDateStr, currentLocation?.id],
+    staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+
+      const { data: completions, error } = await supabase
+        .from('event_task_completions')
+        .select(`
+          id,
+          completed_at,
+          completed_by,
+          event:schedule_events!inner(
+            id,
+            title,
+            event_color,
+            location_id
+          )
+        `)
+        .eq('completed_date', historyDateStr)
+        .eq('event.location_id', currentLocation.id);
+
+      if (error) throw error;
+      if (!completions || completions.length === 0) return [];
+
+      // Get completer profiles
+      const completerIds = [...new Set(completions.map(c => c.completed_by).filter(Boolean))];
+      let completersMap: Record<string, any> = {};
+      if (completerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .in('id', completerIds);
+        profiles?.forEach((p: any) => {
+          completersMap[p.id] = p;
+        });
+      }
+
+      return completions.map(c => ({
+        id: c.id,
+        title: (c.event as any)?.title || 'Event',
+        completed_at: c.completed_at,
+        completed_by: c.completed_by,
+        accent_color: (c.event as any)?.event_color || null,
+        task_style: 'event' as const,
+        completerName: completersMap[c.completed_by]?.full_name || null,
+        completerPhoto: completersMap[c.completed_by]?.profile_photo_url || null,
+      }));
+    },
+    enabled: !!currentLocation?.id,
+  });
+
+  // Fetch logbook entries (safe counts, drawer counts) for selected date
+  const { data: logbookEntries = [] } = useQuery({
+    queryKey: ['logbook-completions', historyDateStr, currentLocation?.id],
+    staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+
+      const { data: entries, error } = await supabase
+        .from('logbook_entries')
+        .select(`
+          id,
+          created_at,
+          created_by,
+          category:logbook_categories(name)
+        `)
+        .eq('location_id', currentLocation.id)
+        .eq('entry_date', historyDateStr);
+
+      if (error) throw error;
+      if (!entries || entries.length === 0) return [];
+
+      // Get creator profiles
+      const creatorIds = [...new Set(entries.map(e => e.created_by).filter(Boolean))];
+      let creatorsMap: Record<string, any> = {};
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .in('id', creatorIds);
+        profiles?.forEach((p: any) => {
+          creatorsMap[p.id] = p;
+        });
+      }
+
+      return entries.map(e => ({
+        id: e.id,
+        title: (e.category as any)?.name || 'Logbook Entry',
+        completed_at: e.created_at,
+        completed_by: e.created_by,
+        accent_color: null,
+        task_style: 'logbook' as const,
+        completerName: creatorsMap[e.created_by]?.full_name || null,
+        completerPhoto: creatorsMap[e.created_by]?.profile_photo_url || null,
+      }));
+    },
+    enabled: !!currentLocation?.id,
+  });
+
   // Prefetch past 14 days of history for instant navigation (same pattern as Schedule)
   useEffect(() => {
     if (!user?.id || !currentLocation?.id || timezoneLoading) return;
@@ -608,6 +716,8 @@ export default function Tasks() {
             <TasksHistoryTimeline
               historyStats={historyStats}
               completedTempTasks={completedTempTasks}
+              eventCompletions={eventCompletions}
+              logbookEntries={logbookEntries}
               selectedDate={historyDate}
               onTaskClick={setSelectedCompletedTask}
             />
