@@ -171,7 +171,7 @@ export default function CompleteChecklist() {
     if (items.length === 0) return;
     const completedCount = items.filter(item => {
       const response = responses[item.id];
-      if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') {
+      if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') {
         return response === true;
       }
       if (item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') {
@@ -1228,7 +1228,7 @@ export default function CompleteChecklist() {
                       </div>
                     );
                   })()}
-                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && <div className="flex items-center space-x-2 py-2">
+                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center space-x-2 py-2">
                       <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
                       <Label 
                         htmlFor={`confirm-${item.id}`} 
