@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   AlertCircle,
   CalendarIcon,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 
 interface Contributor {
@@ -30,7 +31,7 @@ interface Contributor {
 
 interface HistoryItem {
   id: string;
-  type: 'checklist' | 'task' | 'catering' | 'event';
+  type: 'checklist' | 'task' | 'catering' | 'event' | 'alarm';
   title: string;
   frequency?: string;
   accentColor?: string;
@@ -49,6 +50,49 @@ interface HistoryItem {
 // Sample data for a single day with completion levels and contributors
 const getSampleItemsForDate = (date: Date): HistoryItem[] => {
   const dayOfWeek = date.getDay();
+  
+  const alarmTasks: HistoryItem[] = [
+    {
+      id: 'alarm-1',
+      type: 'alarm',
+      title: 'Bathroom Check',
+      contributors: [{ name: 'Alex K.', completedAt: '10:00 AM', itemsCompleted: 1 }],
+      finalCompletedAt: '10:02 AM',
+      completionLevel: 100,
+    },
+    {
+      id: 'alarm-2',
+      type: 'alarm',
+      title: 'Bathroom Check',
+      contributors: [{ name: 'Jordan A.', completedAt: '10:30 AM', itemsCompleted: 1 }],
+      finalCompletedAt: '10:31 AM',
+      completionLevel: 100,
+    },
+    {
+      id: 'alarm-3',
+      type: 'alarm',
+      title: 'Bathroom Check',
+      contributors: [{ name: 'Marcus T.', completedAt: '11:00 AM', itemsCompleted: 1 }],
+      finalCompletedAt: '11:03 AM',
+      completionLevel: 100,
+    },
+    {
+      id: 'alarm-4',
+      type: 'alarm',
+      title: 'Lobby Sweep',
+      contributors: [{ name: 'Sarah M.', completedAt: '12:00 PM', itemsCompleted: 1 }],
+      finalCompletedAt: '12:05 PM',
+      completionLevel: 100,
+    },
+    {
+      id: 'alarm-5',
+      type: 'alarm',
+      title: 'Bathroom Check',
+      contributors: [{ name: 'Alex K.', completedAt: '1:00 PM', itemsCompleted: 1 }],
+      finalCompletedAt: '1:02 PM',
+      completionLevel: 100,
+    },
+  ];
   
   const baseItems: HistoryItem[] = [
     {
@@ -136,6 +180,7 @@ const getSampleItemsForDate = (date: Date): HistoryItem[] => {
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     return [
       ...baseItems,
+      ...alarmTasks,
       {
         id: '7',
         type: 'catering',
@@ -151,7 +196,7 @@ const getSampleItemsForDate = (date: Date): HistoryItem[] => {
     ];
   }
   
-  return baseItems;
+  return [...baseItems, ...alarmTasks];
 };
 
 const getTypeIcon = (type: string) => {
@@ -160,6 +205,7 @@ const getTypeIcon = (type: string) => {
     case 'task': return <ClipboardList className="h-4 w-4" />;
     case 'catering': return <UtensilsCrossed className="h-4 w-4" />;
     case 'event': return <CalendarCheck className="h-4 w-4" />;
+    case 'alarm': return <Bell className="h-3 w-3" />;
     default: return <CheckCircle2 className="h-4 w-4" />;
   }
 };
@@ -219,7 +265,6 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
 
   // Sort items by completion time - earliest first (top of screen)
   const sortedItems = [...items].sort((a, b) => {
-    // Parse times for proper sorting (AM/PM aware)
     const parseTime = (time: string) => {
       const [timePart, period] = time.split(' ');
       let [hours, minutes] = timePart.split(':').map(Number);
@@ -229,6 +274,9 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
     };
     return parseTime(a.finalCompletedAt) - parseTime(b.finalCompletedAt);
   });
+
+  const alarmCount = items.filter(i => i.type === 'alarm').length;
+  const regularCount = items.filter(i => i.type !== 'alarm').length;
 
   return (
     <div className="space-y-4">
@@ -240,78 +288,108 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
         <span className="text-sm text-muted-foreground">{dateLabel}</span>
         <div className="flex-1 h-px bg-border" />
         <Badge variant="secondary" className="text-xs">
-          {items.length} completed
+          {regularCount} completed
         </Badge>
+        {alarmCount > 0 && (
+          <Badge variant="outline" className="text-xs gap-1">
+            <Bell className="h-3 w-3" />
+            {alarmCount}
+          </Badge>
+        )}
       </div>
       
       <div className="relative ml-4">
         {/* Vertical line */}
         <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
         
-        {sortedItems.map((item, index) => (
-          <div key={item.id} className="relative flex items-start mb-4 pl-8">
-            {/* Timeline dot with time */}
-            <div className="absolute left-0 top-0 -translate-x-1/2 flex flex-col items-center">
-              <div 
-                className={`w-3 h-3 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
-              />
-            </div>
-            
-            {/* Time label */}
-            <div className="absolute left-6 top-0 flex items-center gap-1 text-xs text-muted-foreground font-medium min-w-[70px]">
-              <Clock className="h-3 w-3" />
-              {item.finalCompletedAt}
-            </div>
-            
-            <Card className="flex-1 ml-16 hover:shadow-md transition-shadow cursor-pointer">
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <div 
-                      className="p-1.5 rounded-md shrink-0"
-                      style={{ 
-                        backgroundColor: item.type === 'task' && item.accentColor
-                          ? `${item.accentColor}20` 
-                          : 'hsl(var(--muted))'
-                      }}
-                    >
-                      {getTypeIcon(item.type)}
+        {sortedItems.map((item) => {
+          // Mini inline row for alarm tasks
+          if (item.type === 'alarm') {
+            return (
+              <div key={item.id} className="relative flex items-center mb-2 pl-8">
+                {/* Timeline dot - smaller for alarms */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-2 h-2 rounded-full bg-muted-foreground/40 ring-2 ring-background" />
+                </div>
+                
+                {/* Compact inline content */}
+                <div className="flex items-center gap-2 ml-16 py-1 px-2.5 bg-muted/40 rounded-full text-xs">
+                  <Bell className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground font-medium">{item.finalCompletedAt}</span>
+                  <span className="text-foreground">{item.title}</span>
+                  <span className="text-muted-foreground">• {item.contributors[0]?.name}</span>
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                </div>
+              </div>
+            );
+          }
+
+          // Regular card for other items
+          return (
+            <div key={item.id} className="relative flex items-start mb-4 pl-8">
+              {/* Timeline dot with time */}
+              <div className="absolute left-0 top-0 -translate-x-1/2 flex flex-col items-center">
+                <div 
+                  className={`w-3 h-3 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
+                />
+              </div>
+              
+              {/* Time label */}
+              <div className="absolute left-6 top-0 flex items-center gap-1 text-xs text-muted-foreground font-medium min-w-[70px]">
+                <Clock className="h-3 w-3" />
+                {item.finalCompletedAt}
+              </div>
+              
+              <Card className="flex-1 ml-16 hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <div 
+                        className="p-1.5 rounded-md shrink-0"
+                        style={{ 
+                          backgroundColor: item.type === 'task' && item.accentColor
+                            ? `${item.accentColor}20` 
+                            : 'hsl(var(--muted))'
+                        }}
+                      >
+                        {getTypeIcon(item.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{item.title}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                            {item.type}
+                          </Badge>
+                        </div>
+                        
+                        {/* Contributors section */}
+                        <div className="mt-2">
+                          <ContributorsDisplay contributors={item.contributors} />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{item.title}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
-                          {item.type}
-                        </Badge>
-                      </div>
-                      
-                      {/* Contributors section */}
-                      <div className="mt-2">
-                        <ContributorsDisplay contributors={item.contributors} />
-                      </div>
+                    
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <CompletionIndicator 
+                        level={item.completionLevel} 
+                        label={item.type === 'checklist' && item.totalItems 
+                          ? `(${item.completedItems}/${item.totalItems})` 
+                          : undefined
+                        }
+                      />
                     </div>
                   </div>
                   
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <CompletionIndicator 
-                      level={item.completionLevel} 
-                      label={item.type === 'checklist' && item.totalItems 
-                        ? `(${item.completedItems}/${item.totalItems})` 
-                        : undefined
-                      }
-                    />
-                  </div>
-                </div>
-                
-                {item.completionLevel < 100 && (
-                  <div className="mt-3">
-                    <Progress value={item.completionLevel} className="h-1.5" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ))}
+                  {item.completionLevel < 100 && (
+                    <div className="mt-3">
+                      <Progress value={item.completionLevel} className="h-1.5" />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
