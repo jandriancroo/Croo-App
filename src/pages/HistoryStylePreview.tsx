@@ -1,19 +1,26 @@
+import { useState } from 'react';
+import { format, subDays, addDays } from 'date-fns';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { 
   ClipboardCheck, 
   ClipboardList, 
   Calendar, 
   ChevronRight,
+  ChevronLeft,
   UtensilsCrossed,
   CalendarCheck,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  CalendarIcon
 } from 'lucide-react';
-
 // Sample data for preview - multiple days with completion levels
 const sampleDays = [
   {
@@ -189,11 +196,11 @@ const CompletionIndicator = ({ level, label }: { level: number; label?: string }
 );
 
 // ==================== STYLE 1: TIMELINE ====================
-const TimelineView = () => (
+const TimelineView = ({ days }: { days: typeof sampleDays }) => (
   <div className="space-y-6">
     <h3 className="text-lg font-semibold text-center mb-4">Option 1: Timeline View</h3>
     
-    {sampleDays.map((day) => (
+    {days.map((day) => (
       <div key={day.label} className="relative">
         {/* Day header */}
         <div className="flex items-center gap-3 mb-4">
@@ -267,11 +274,11 @@ const TimelineView = () => (
 );
 
 // ==================== STYLE 2: COMPACT ACTIVITY FEED ====================
-const CompactFeedView = () => (
+const CompactFeedView = ({ days }: { days: typeof sampleDays }) => (
   <div className="space-y-6">
     <h3 className="text-lg font-semibold text-center mb-4">Option 2: Compact Activity Feed</h3>
     
-    {sampleDays.map((day) => (
+    {days.map((day) => (
       <div key={day.label}>
         {/* Day header */}
         <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background/95 backdrop-blur-sm py-2 z-10">
@@ -349,11 +356,11 @@ const CompactFeedView = () => (
 );
 
 // ==================== STYLE 3: GROUPED CARD GRID ====================
-const GroupedGridView = () => (
+const GroupedGridView = ({ days }: { days: typeof sampleDays }) => (
   <div className="space-y-6">
     <h3 className="text-lg font-semibold text-center mb-4">Option 3: Grouped Card Grid</h3>
     
-    {sampleDays.map((day) => (
+    {days.map((day) => (
       <div key={day.label}>
         {/* Day header */}
         <div className="flex items-center gap-2 mb-3">
@@ -432,30 +439,103 @@ const GroupedGridView = () => (
   </div>
 );
 
+// ==================== DATE SELECTOR COMPONENT ====================
+const DateSelector = ({ selectedDate, onDateChange }: { selectedDate: Date; onDateChange: (date: Date) => void }) => {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  
+  return (
+    <div className="flex items-center justify-between gap-2 p-3 bg-card rounded-xl border border-border shadow-sm">
+      <Button 
+        variant="ghost" 
+        size="icon"
+        onClick={() => onDateChange(subDays(selectedDate, 1))}
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </Button>
+      
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="gap-2 font-semibold">
+            <CalendarIcon className="h-4 w-4" />
+            {format(selectedDate, 'EEEE, MMM d, yyyy')}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="center">
+          <CalendarComponent
+            mode="single"
+            selected={selectedDate}
+            onSelect={(date) => {
+              if (date) {
+                onDateChange(date);
+                setCalendarOpen(false);
+              }
+            }}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+      
+      <Button 
+        variant="ghost" 
+        size="icon"
+        onClick={() => onDateChange(addDays(selectedDate, 1))}
+        disabled={selectedDate >= new Date()}
+      >
+        <ChevronRight className="h-5 w-5" />
+      </Button>
+    </div>
+  );
+};
+
 export default function HistoryStylePreview() {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Generate dynamic sample days based on selected date
+  const getDynamicDays = () => {
+    const days = [];
+    for (let i = 0; i < 3; i++) {
+      const date = subDays(selectedDate, i);
+      const isToday = i === 0 && format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+      const isYesterday = i === 1 || (i === 0 && format(subDays(new Date(), 1), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
+      
+      days.push({
+        label: isToday ? 'Today' : isYesterday && i === 1 ? 'Yesterday' : format(date, 'EEEE'),
+        date: format(date, 'EEE, MMM d'),
+        items: sampleDays[i % sampleDays.length].items,
+      });
+    }
+    return days;
+  };
+  
+  const dynamicDays = getDynamicDays();
+  
   return (
     <Layout>
-      <div className="space-y-8 pb-20">
+      <div className="space-y-6 pb-20">
         <div className="text-center">
           <h2 className="text-2xl font-bold">History Page Style Preview</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            3 days of sample data with completion levels
+            Select a date and compare the 3 layout options
           </p>
         </div>
         
+        {/* Date Selector */}
+        <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
+        
         {/* Option 1: Timeline */}
         <div className="border-2 border-dashed border-primary/30 rounded-xl p-4 bg-primary/5">
-          <TimelineView />
+          <TimelineView days={dynamicDays} />
         </div>
         
         {/* Option 2: Compact Feed */}
         <div className="border-2 border-dashed border-secondary/30 rounded-xl p-4 bg-secondary/5">
-          <CompactFeedView />
+          <CompactFeedView days={dynamicDays} />
         </div>
         
         {/* Option 3: Grouped Grid */}
         <div className="border-2 border-dashed border-accent/30 rounded-xl p-4 bg-accent/5">
-          <GroupedGridView />
+          <GroupedGridView days={dynamicDays} />
         </div>
       </div>
     </Layout>
