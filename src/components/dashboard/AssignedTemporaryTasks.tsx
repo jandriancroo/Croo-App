@@ -146,6 +146,37 @@ export function AssignedTemporaryTasks({
     refetchInterval: 30000,
   });
 
+  // Fetch subtask counts for all tasks
+  const taskIds = tasks.map(t => t.id);
+  const { data: subtaskCounts = {} } = useQuery({
+    queryKey: ["task-subtask-counts", taskIds],
+    queryFn: async () => {
+      if (taskIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("temporary_task_subtasks")
+        .select("task_id, completed_at")
+        .in("task_id", taskIds);
+
+      if (error) throw error;
+
+      // Group by task_id and count completed/total
+      const counts: Record<string, { completed: number; total: number }> = {};
+      (data || []).forEach(subtask => {
+        if (!counts[subtask.task_id]) {
+          counts[subtask.task_id] = { completed: 0, total: 0 };
+        }
+        counts[subtask.task_id].total++;
+        if (subtask.completed_at) {
+          counts[subtask.task_id].completed++;
+        }
+      });
+      return counts;
+    },
+    enabled: taskIds.length > 0,
+    staleTime: 10 * 1000,
+  });
+
   // Fetch catering orders for today
   const { data: cateringOrders = [], refetch: refetchCatering } = useQuery({
     queryKey: ["today-catering-orders", currentLocation?.id, includeCateringOrders],
@@ -331,20 +362,25 @@ export function AssignedTemporaryTasks({
   return (
     <>
       {/* Incomplete temporary tasks */}
-      {incompleteTasks.map((task) => (
-        <TemporaryTaskCard
-          key={task.id}
-          id={task.id}
-          title={task.title}
-          subtitle={task.description || undefined}
-          icon={getIconComponent(task.icon_name || "ClipboardList")}
-          accentColor={task.accent_color || "#8B5CF6"}
-          buttonLabel={task.write_up_id ? "Sign" : "Done"}
-          onAction={() => setSelectedTask(task)}
-          taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
-          showShare={!task.write_up_id}
-        />
-      ))}
+      {incompleteTasks.map((task) => {
+        const counts = subtaskCounts[task.id];
+        return (
+          <TemporaryTaskCard
+            key={task.id}
+            id={task.id}
+            title={task.title}
+            subtitle={task.description || undefined}
+            icon={getIconComponent(task.icon_name || "ClipboardList")}
+            accentColor={task.accent_color || "#8B5CF6"}
+            buttonLabel={task.write_up_id ? "Sign" : "Done"}
+            onAction={() => setSelectedTask(task)}
+            taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
+            showShare={!task.write_up_id}
+            subtasksCompleted={counts?.completed}
+            subtasksTotal={counts?.total}
+          />
+        );
+      })}
 
       {/* Pending catering orders */}
       {pendingOrders.map((order) => (

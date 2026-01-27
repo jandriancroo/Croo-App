@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, LucideIcon, AlarmClock, Send } from "lucide-react";
+import { Check, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 
 export interface TemporaryTaskCardProps {
@@ -34,6 +34,10 @@ export interface TemporaryTaskCardProps {
   showShare?: boolean;
   /** Custom share details (defaults to title) */
   shareDetails?: string;
+  /** Subtask progress - completed count */
+  subtasksCompleted?: number;
+  /** Subtask progress - total count */
+  subtasksTotal?: number;
 }
 
 export function TemporaryTaskCard({
@@ -49,8 +53,12 @@ export function TemporaryTaskCard({
   iconStyle = "default",
   showShare = true,
   shareDetails,
+  subtasksCompleted,
+  subtasksTotal,
 }: TemporaryTaskCardProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
+  const subtaskProgress = hasSubtasks ? (subtasksCompleted || 0) / subtasksTotal : 0;
 
   return (
     <>
@@ -86,6 +94,18 @@ export function TemporaryTaskCard({
                   style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
                 >
                   RECURRING
+                </span>
+              )}
+              {hasSubtasks && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                  style={{
+                    backgroundColor: subtaskProgress === 1 ? '#22c55e20' : `${accentColor}20`,
+                    color: subtaskProgress === 1 ? '#22c55e' : accentColor,
+                  }}
+                >
+                  <ListChecks className="h-3 w-3" />
+                  {subtasksCompleted}/{subtasksTotal}
                 </span>
               )}
               {badge && (
