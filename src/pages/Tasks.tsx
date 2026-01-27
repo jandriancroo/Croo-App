@@ -3,22 +3,22 @@ import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff, AlertCircle, GripVertical } from "lucide-react";
+import { Plus } from "lucide-react";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { format, addDays, subDays, eachDayOfInterval } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -26,7 +26,8 @@ import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem'
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
 import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
-import { getTodayInTimezone, getDateInTimezone, getStartOfDateInTimezone, getDayOfWeekInTimezone, getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
+import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
+import { getTodayInTimezone, getDateInTimezone, getDayOfWeekInTimezone, getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -504,181 +505,22 @@ export default function Tasks() {
             <PageHeaderDivider />
           </div>
 
-          <TabsContent value="history" className="space-y-6">
+          <TabsContent value="history" className="space-y-4">
+            {/* Date Navigator */}
+            <DateNavigator
+              onPrev={() => setHistoryDate(subDays(historyDate, 1))}
+              onNext={() => setHistoryDate(addDays(historyDate, 1))}
+              label={`${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
+              canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
+            />
 
-            {/* Completion History */}
-            <Card>
-              <CardHeader className="py-3">
-              <DateNavigator
-                  onPrev={() => setHistoryDate(subDays(historyDate, 1))}
-                  onNext={() => setHistoryDate(addDays(historyDate, 1))}
-                  label={`${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
-                  canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Checklists */}
-                  <section className="space-y-4">
-                    {historyStats && historyStats.length > 0 ? (
-                      <div className="space-y-4">
-                        {historyStats.map((stat: any) => {
-                          const completionPercent = stat.completionRate * 100;
-                          const isComplete = stat.completionRate === 1;
-                          const isPartial = stat.completionRate > 0 && stat.completionRate < 1;
-                          const barColor = isComplete ? 'bg-green-500' : isPartial ? 'bg-yellow-500' : 'bg-red-500';
-
-                          return (
-                            <div 
-                              key={stat.id} 
-                              className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => navigate(`/complete-checklist/${stat.id}?date=${format(historyDate, 'yyyy-MM-dd')}`)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{stat.title}</span>
-                                <div className="text-xl">
-                                  {isComplete ? '🎉' : isPartial ? '😕' : '😞'}
-                                </div>
-                              </div>
-
-                              {/* Progress bar */}
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>{stat.completedCount} of {stat.itemCount} items</span>
-                                  <span>{completionPercent.toFixed(0)}%</span>
-                                </div>
-                                <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                                  <div 
-                                    className={`h-full ${barColor} transition-all`}
-                                    style={{ width: `${completionPercent}%` }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Contributors */}
-                              {stat.contributors.length > 0 && (
-                                <div className="flex items-center gap-2 pt-2 border-t">
-                                  <span className="text-xs text-muted-foreground">Completed by:</span>
-                                  <div className="flex -space-x-2">
-                                    {stat.contributors.slice(0, 5).map((contributor: any, idx: number) => (
-                                      <div
-                                        key={idx}
-                                        className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
-                                        title={contributor.name}
-                                      >
-                                        {contributor.photo ? (
-                                          <img 
-                                            src={contributor.photo} 
-                                            alt={contributor.name}
-                                            className="h-full w-full object-cover"
-                                          />
-                                        ) : (
-                                          <div className="h-full w-full flex items-center justify-center text-xs font-medium">
-                                            {contributor.name?.charAt(0)}
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {stat.contributors.length > 5 && (
-                                      <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs">
-                                        +{stat.contributors.length - 5}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          No checklists available for this date.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </section>
-
-                  {/* Quick Tasks */}
-                  <section className="space-y-3">
-                    <div className="text-sm font-semibold">Quick Tasks</div>
-                    {completedTempTasks.length > 0 ? (
-                      <div className="space-y-3">
-                        {completedTempTasks.map((t: any) => {
-                          const total = t.subtaskTotal || 0;
-                          const done = t.subtaskCompleted || 0;
-                          const pct = total > 0 ? Math.round((done / total) * 100) : 100;
-
-                          return (
-                            <div 
-                              key={t.id} 
-                              className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                              onClick={() => setSelectedCompletedTask(t)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div
-                                    className="w-3 h-3 rounded-full shrink-0"
-                                    style={{ backgroundColor: t.accent_color || '#8B5CF6' }}
-                                  />
-                                  <span className="font-medium truncate">{t.title}</span>
-                                </div>
-                                <div className="text-xl">🎉</div>
-                              </div>
-
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>{done} of {total} subtasks</span>
-                                  <span>{pct}%</span>
-                                </div>
-                                <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-primary transition-all"
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
-                              </div>
-
-                              {(t.completerName || t.completerPhoto) && (
-                                <div className="flex items-center gap-2 pt-2 border-t">
-                                  <span className="text-xs text-muted-foreground">Completed by:</span>
-                                  <div className="flex -space-x-2">
-                                    <div
-                                      className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
-                                      title={t.completerName || 'User'}
-                                    >
-                                      {t.completerPhoto ? (
-                                        <img
-                                          src={t.completerPhoto}
-                                          alt={t.completerName || 'Completed by'}
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="h-full w-full flex items-center justify-center text-xs font-medium">
-                                          {t.completerName?.charAt(0) || '?'}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {t.description && (
-                                <p className="text-sm text-muted-foreground">{t.description}</p>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No quick tasks completed on this date.</p>
-                    )}
-                  </section>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Timeline View */}
+            <TasksHistoryTimeline
+              historyStats={historyStats}
+              completedTempTasks={completedTempTasks}
+              selectedDate={historyDate}
+              onTaskClick={setSelectedCompletedTask}
+            />
           </TabsContent>
 
           <TabsContent value="edit" className="space-y-6">
