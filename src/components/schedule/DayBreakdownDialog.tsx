@@ -80,26 +80,19 @@ export function DayBreakdownDialog({
         
         if (!error && data) {
           // Build hourly sales map from "hourly" array
-          let hourlyMap: Record<number, number> = {};
+          // For future dates, use "projected" field; for past/today use "sales"
+          const hourlyMap: Record<number, number> = {};
           if (data.hourly && Array.isArray(data.hourly)) {
-            data.hourly.forEach((item: { hour: string; sales: number }) => {
+            data.hourly.forEach((item: { hour: string; sales: number; projected?: number }) => {
               const hourNum = parseInt(item.hour.split(':')[0]);
-              hourlyMap[hourNum] = item.sales || 0;
+              // Use projected for future dates, actual sales for past/today
+              hourlyMap[hourNum] = isFuture ? (item.projected || 0) : (item.sales || 0);
             });
           }
           
           const dailyProjection = isFuture 
             ? (data.projections?.todayProjected || 0)
             : (data.daily || 0);
-          
-          // For future dates, calculate hourly projections from historical patterns
-          if (isFuture && dailyProjection > 0 && Object.keys(hourlyMap).length === 0) {
-            hourlyMap = await calculateHourlyProjections(
-              currentLocation.id, 
-              date, 
-              dailyProjection
-            );
-          }
           
           // Cache past data for future use
           if (isPast && data.daily > 0) {
