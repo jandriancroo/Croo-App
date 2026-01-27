@@ -125,6 +125,45 @@ export const getTimeInTimezone = (timezone: string = DEFAULT_TIMEZONE): string =
 };
 
 /**
+ * Generate an alarm task interval key from a timestamp.
+ * Uses the location's timezone to ensure the date and time components
+ * are correct for the local business day.
+ * 
+ * Format: YYYY-MM-DD_HHMM (e.g., "2026-01-26_1430")
+ * 
+ * CRITICAL: This must match the format used in the trigger-alarm-tasks edge function!
+ */
+export const getAlarmIntervalKey = (
+  timestamp: Date | string,
+  timezone: string = DEFAULT_TIMEZONE
+): string => {
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+  
+  // Get the local date in YYYY-MM-DD format
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+  
+  // Get the local time parts
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    hourCycle: 'h23'
+  });
+  
+  const parts = formatter.formatToParts(date);
+  const hour = parts.find(p => p.type === 'hour')?.value || '00';
+  const minute = parts.find(p => p.type === 'minute')?.value || '00';
+  
+  return `${localDate}_${hour}${minute}`;
+};
+
+/**
  * Format a date for display in specified timezone
  */
 export const formatDateTimeInTimezone = (
