@@ -128,6 +128,35 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Check if current time is within the alarm's active hours window
+      const alarmStartTime = task.alarm_start_time?.slice(0, 5) || '09:00';
+      const alarmEndTime = task.alarm_end_time?.slice(0, 5) || '21:00';
+      
+      // Parse times for comparison (as minutes since midnight)
+      const parseTimeToMinutes = (timeStr: string): number => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        return hours * 60 + minutes;
+      };
+      
+      const currentMinutes = parseTimeToMinutes(currentTimeStr);
+      const startMinutes = parseTimeToMinutes(alarmStartTime);
+      const endMinutes = parseTimeToMinutes(alarmEndTime);
+      
+      // Handle overnight windows (e.g., 22:00 to 02:00)
+      let isWithinTimeWindow: boolean;
+      if (startMinutes <= endMinutes) {
+        // Normal window (e.g., 09:00 to 21:00)
+        isWithinTimeWindow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      } else {
+        // Overnight window (e.g., 22:00 to 02:00)
+        isWithinTimeWindow = currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+      }
+      
+      if (!isWithinTimeWindow) {
+        console.log(`[Alarm Tasks] Task ${task.id} outside active hours (${alarmStartTime}-${alarmEndTime}), current: ${currentTimeStr}`);
+        continue;
+      }
+
       // Check if it's time to trigger this task
       let shouldTrigger = false;
       let matchedTimeStr: string | null = null;
