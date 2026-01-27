@@ -4,7 +4,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
+import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,6 +18,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   CalendarIcon,
+  Clock,
   Bell
 } from 'lucide-react';
 
@@ -221,7 +222,7 @@ const getTimelineDotColor = (level: number) => {
 };
 
 
-// ==================== TREE TIMELINE VIEW ====================
+// ==================== TIMELINE VIEW ====================
 const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedDate: Date }) => {
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
@@ -244,13 +245,14 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
 
   return (
     <div className="space-y-3">
-      {/* Day header */}
-      <div className="flex items-center gap-2 flex-wrap justify-center">
+      {/* Day header - compact on mobile */}
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold">
           {dayLabel}
         </div>
         <span className="text-xs sm:text-sm text-muted-foreground">{dateLabel}</span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex-1 h-px bg-border hidden sm:block" />
+        <div className="flex items-center gap-1.5 ml-auto">
           <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
             {regularCount}
           </Badge>
@@ -263,85 +265,105 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
         </div>
       </div>
       
-      {/* Tree Timeline - center spine */}
-      <div className="relative">
-        {/* Central vertical line */}
-        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-border -translate-x-1/2" />
+      <div className="relative ml-2 sm:ml-4">
+        {/* Vertical line */}
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
         
         {sortedItems.map((item) => {
-          const isAlarm = item.type === 'alarm';
-          
+          // Mini inline row for alarm tasks
+          if (item.type === 'alarm') {
+            return (
+              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8">
+                {/* Timeline dot - smaller for alarms */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 ring-2 ring-background" />
+                </div>
+                
+                {/* Compact inline content - amber accent */}
+                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
+                  <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
+                  <span className="text-foreground font-medium truncate max-w-[80px] sm:max-w-none">{item.title}</span>
+                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="text-muted-foreground hidden sm:inline">{item.contributors[0]?.name}</span>
+                  <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          // Regular card for other items - mobile optimized
           return (
-            <div key={item.id} className="relative flex items-center mb-2">
-              {/* Left side - Tasks/Checklists */}
-              <div className="flex-1 flex justify-end pr-2 sm:pr-4">
-                {!isAlarm && (
-                  <Card className="max-w-[160px] sm:max-w-[220px] hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
-                      <div className="flex items-center gap-1.5">
-                        <div 
-                          className="p-1 rounded shrink-0"
-                          style={{ 
-                            backgroundColor: item.type === 'task' && item.accentColor
-                              ? `${item.accentColor}20` 
-                              : 'hsl(var(--muted))'
-                          }}
-                        >
-                          {getTypeIcon(item.type)}
-                        </div>
-                        <span className="font-medium text-xs sm:text-sm truncate">{item.title}</span>
-                        {item.completionLevel === 100 ? (
-                          <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-500 shrink-0" />
-                        ) : (
-                          <span className={`text-[9px] sm:text-[10px] font-medium ${getCompletionColor(item.completionLevel)}`}>
-                            {item.completionLevel}%
-                          </span>
-                        )}
-                      </div>
-                      {/* Contributors */}
-                      <div className="flex items-center justify-end mt-1 gap-1">
-                        {item.type === 'checklist' && item.totalItems && (
-                          <span className="text-[9px] text-muted-foreground">
-                            {item.completedItems}/{item.totalItems}
-                          </span>
-                        )}
-                        <div className="flex items-center">
-                          {item.contributors.slice(0, 3).map((contributor, idx) => (
-                            <Avatar key={idx} className="h-4 w-4 -ml-1 first:ml-0 ring-1 ring-background">
-                              <AvatarFallback className="text-[8px] font-medium bg-primary/20 text-primary">
-                                {contributor.name.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-              
-              {/* Center - Time + Dot */}
-              <div className="flex flex-col items-center z-10 w-12 sm:w-16 shrink-0">
+            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
+              {/* Timeline dot */}
+              <div className="absolute left-0 top-2 -translate-x-1/2">
                 <div 
-                  className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-background ${
-                    isAlarm ? 'bg-amber-400' : getTimelineDotColor(item.completionLevel)
-                  }`}
+                  className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
                 />
-                <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium mt-0.5">
-                  {item.finalCompletedAt}
-                </span>
               </div>
               
-              {/* Right side - Alarms */}
-              <div className="flex-1 flex justify-start pl-2 sm:pl-4">
-                {isAlarm && (
-                  <div className="flex items-center gap-1 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs max-w-[160px] sm:max-w-[220px]">
-                    <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
-                    <span className="text-foreground font-medium truncate">{item.title}</span>
-                    <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+              <Card className="flex-1 hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
+                  {/* Single row: icon + title + time + completion */}
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div 
+                      className="p-1 rounded shrink-0"
+                      style={{ 
+                        backgroundColor: item.type === 'task' && item.accentColor
+                          ? `${item.accentColor}20` 
+                          : 'hsl(var(--muted))'
+                      }}
+                    >
+                      {getTypeIcon(item.type)}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm truncate block">{item.title}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground shrink-0">
+                      <Clock className="h-3 w-3 hidden sm:block" />
+                      <span>{item.finalCompletedAt}</span>
+                    </div>
+                    
+                    <div className="shrink-0">
+                      {item.completionLevel === 100 ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <span className={`text-[10px] sm:text-xs font-medium ${getCompletionColor(item.completionLevel)}`}>
+                          {item.completionLevel}%
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                  
+                  {/* Contributors row - compact avatars only on mobile */}
+                  <div className="flex items-center justify-between mt-1 gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {item.contributors.map((contributor, idx) => (
+                        <Avatar key={idx} className="h-5 w-5 -ml-1 first:ml-0 ring-1 ring-background">
+                          <AvatarFallback className="text-[9px] font-medium bg-primary/20 text-primary">
+                            {contributor.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      <span className="text-[10px] text-muted-foreground ml-1 hidden sm:inline">
+                        {item.contributors.map(c => c.name).join(', ')}
+                      </span>
+                    </div>
+                    
+                    {item.type === 'checklist' && item.totalItems && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {item.completedItems}/{item.totalItems} items
+                      </span>
+                    )}
+                  </div>
+                  
+                  {item.completionLevel < 100 && (
+                    <Progress value={item.completionLevel} className="h-1 mt-1.5" />
+                  )}
+                </CardContent>
+              </Card>
             </div>
           );
         })}
