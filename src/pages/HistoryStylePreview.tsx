@@ -235,28 +235,6 @@ const CompletionIndicator = ({ level, label }: { level: number; label?: string }
   </div>
 );
 
-// ==================== CONTRIBUTORS DISPLAY ====================
-const ContributorsDisplay = ({ contributors }: { contributors: Contributor[] }) => {
-  return (
-    <div className="flex flex-wrap gap-2 mt-1">
-      {contributors.map((contributor, idx) => (
-        <div 
-          key={idx}
-          className="flex items-center gap-2 bg-muted/60 rounded-full px-3 py-1.5"
-        >
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="text-xs font-medium bg-primary/20 text-primary">
-              {contributor.name.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium">{contributor.name}</span>
-          <span className="text-xs text-muted-foreground">({contributor.itemsCompleted})</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
 // ==================== TIMELINE VIEW ====================
 const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedDate: Date }) => {
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
@@ -306,17 +284,17 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
           // Mini inline row for alarm tasks
           if (item.type === 'alarm') {
             return (
-              <div key={item.id} className="relative flex items-center mb-2 pl-8">
+              <div key={item.id} className="relative flex items-center mb-1.5 pl-8">
                 {/* Timeline dot - smaller for alarms */}
                 <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground/40 ring-2 ring-background" />
+                  <div className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
                 </div>
                 
-                {/* Compact inline content */}
-                <div className="flex items-center gap-2 ml-16 py-1 px-2.5 bg-muted/40 rounded-full text-xs">
-                  <Bell className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground font-medium">{item.finalCompletedAt}</span>
-                  <span className="text-foreground">{item.title}</span>
+                {/* Compact inline content - amber accent */}
+                <div className="flex items-center gap-2 ml-16 py-1 px-2.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-xs">
+                  <Bell className="h-3 w-3 text-amber-600" />
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
+                  <span className="text-foreground font-medium">{item.title}</span>
                   <span className="text-muted-foreground">• {item.contributors[0]?.name}</span>
                   <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 </div>
@@ -326,26 +304,26 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
 
           // Regular card for other items
           return (
-            <div key={item.id} className="relative flex items-start mb-4 pl-8">
+            <div key={item.id} className="relative flex items-start mb-3 pl-8">
               {/* Timeline dot with time */}
-              <div className="absolute left-0 top-0 -translate-x-1/2 flex flex-col items-center">
+              <div className="absolute left-0 top-1 -translate-x-1/2 flex flex-col items-center">
                 <div 
-                  className={`w-3 h-3 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
+                  className={`w-2.5 h-2.5 rounded-full ring-2 ring-background ${getTimelineDotColor(item.completionLevel)}`}
                 />
               </div>
               
               {/* Time label */}
-              <div className="absolute left-6 top-0 flex items-center gap-1 text-xs text-muted-foreground font-medium min-w-[70px]">
+              <div className="absolute left-6 top-0.5 flex items-center gap-1 text-[11px] text-muted-foreground font-medium min-w-[65px]">
                 <Clock className="h-3 w-3" />
                 {item.finalCompletedAt}
               </div>
               
-              <Card className="flex-1 ml-16 hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
+              <Card className="flex-1 ml-14 hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="py-2 px-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div 
-                        className="p-1.5 rounded-md shrink-0"
+                        className="p-1 rounded shrink-0"
                         style={{ 
                           backgroundColor: item.type === 'task' && item.accentColor
                             ? `${item.accentColor}20` 
@@ -355,21 +333,34 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                         {getTypeIcon(item.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{item.title}</span>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium text-sm truncate">{item.title}</span>
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 capitalize shrink-0">
                             {item.type}
                           </Badge>
                         </div>
                         
-                        {/* Contributors section */}
-                        <div className="mt-2">
-                          <ContributorsDisplay contributors={item.contributors} />
+                        {/* Compact contributors */}
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {item.contributors.map((contributor, idx) => (
+                            <div 
+                              key={idx}
+                              className="flex items-center gap-1.5 bg-muted/50 rounded-full px-2 py-0.5"
+                            >
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px] font-medium bg-primary/20 text-primary">
+                                  {contributor.name.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">{contributor.name}</span>
+                              <span className="text-[10px] text-muted-foreground">({contributor.itemsCompleted})</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="shrink-0">
                       <CompletionIndicator 
                         level={item.completionLevel} 
                         label={item.type === 'checklist' && item.totalItems 
