@@ -1559,37 +1559,65 @@ export default function Schedule() {
                       team_member: 'Team Members'
                     };
                     const roleLabel = roleLabels[roleFilter] || roleFilter;
+                    
+                    // Calculate total scheduled hours for this role group
+                    const roleShifts = shifts.filter(s => roleProfiles.some(p => p.id === s.user_id));
+                    const roleTotalHours = roleShifts.reduce((total, shift) => {
+                      const [startHour, startMin] = shift.start_time.split(':').map(Number);
+                      const [endHour, endMin] = shift.end_time.split(':').map(Number);
+                      let shiftMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+                      if (shiftMinutes < 0) shiftMinutes += 24 * 60;
+                      const shiftHours = shiftMinutes / 60;
+                      return total + (shiftHours > 5 ? shiftHours - 0.5 : shiftHours);
+                    }, 0);
 
                     return (
-                      <div key={roleFilter} className={`${roleColorClass}`}>
-                        <div className="px-3 py-1 font-semibold text-sm uppercase tracking-wide">
-                          {roleLabel}
+                      <Collapsible key={roleFilter} defaultOpen={true}>
+                        <div className={`${roleColorClass}`}>
+                          <CollapsibleTrigger asChild>
+                            <button className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                                <span className="font-semibold text-sm uppercase tracking-wide">
+                                  {roleLabel}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-normal normal-case">
+                                  ({roleProfiles.length} {roleProfiles.length === 1 ? 'employee' : 'employees'})
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground font-medium">
+                                {roleTotalHours.toFixed(1)} hrs
+                              </span>
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SortableContext
+                              items={roleProfiles.map(p => p.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {roleProfiles.map((profile) => (
+                                <EmployeeRow
+                                  key={profile.id}
+                                  profile={profile}
+                                  shifts={shifts.filter((s) => s.user_id === profile.id)}
+                                  templates={templates}
+                                  availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                                  currentWeekStart={currentWeekStart}
+                                  isEditable={isAdmin || isManager}
+                                  onUpdate={fetchScheduleData}
+                                  canTakeShifts={isAdmin || isManager}
+                                  currentUserId={currentUserId || undefined}
+                                  onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
+                                  isDraggable={isAdmin || isManager}
+                                  isPublished={isPublished}
+                                  publishedSnapshot={publishedSnapshot}
+                                  canViewAllWages={canViewAllWages}
+                                />
+                              ))}
+                            </SortableContext>
+                          </CollapsibleContent>
                         </div>
-                        <SortableContext
-                          items={roleProfiles.map(p => p.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {roleProfiles.map((profile) => (
-                            <EmployeeRow
-                              key={profile.id}
-                              profile={profile}
-                              shifts={shifts.filter((s) => s.user_id === profile.id)}
-                              templates={templates}
-                              availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                              currentWeekStart={currentWeekStart}
-                              isEditable={isAdmin || isManager}
-                              onUpdate={fetchScheduleData}
-                              canTakeShifts={isAdmin || isManager}
-                              currentUserId={currentUserId || undefined}
-                              onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
-                              isDraggable={isAdmin || isManager}
-                              isPublished={isPublished}
-                              publishedSnapshot={publishedSnapshot}
-                              canViewAllWages={canViewAllWages}
-                            />
-                          ))}
-                        </SortableContext>
-                      </div>
+                      </Collapsible>
                     );
                   })}
 
