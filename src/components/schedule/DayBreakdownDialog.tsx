@@ -288,6 +288,24 @@ export function DayBreakdownDialog({
               </div>
               <div className="p-4 overflow-x-auto">
                 <div className="min-w-[600px]">
+                  {/* Labor hours per hour */}
+                  <div className="flex mb-1">
+                    <div className="w-32 flex-shrink-0"></div>
+                    <div className="flex-1 flex">
+                      {timelineHours.map((hour) => {
+                        const data = hourlyBreakdown[hour] || { hours: 0, cost: 0, count: 0 };
+                        return (
+                          <div
+                            key={hour}
+                            className="flex-1 text-center text-[10px] font-semibold text-primary"
+                          >
+                            {data.hours > 0 ? data.hours.toFixed(1) : ""}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
                   {/* Hour labels */}
                   <div className="flex mb-2">
                     <div className="w-32 flex-shrink-0"></div>
