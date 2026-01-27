@@ -272,21 +272,17 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
           // Mini inline row for alarm tasks
           if (item.type === 'alarm') {
             return (
-              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-6">
+              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8">
                 {/* Timeline dot - smaller for alarms */}
                 <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
                   <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 ring-2 ring-background" />
                 </div>
                 
-                {/* Time on left */}
-                <span className="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 font-medium w-12 sm:w-14 shrink-0">
-                  {item.finalCompletedAt}
-                </span>
-                
-                {/* Compact inline content - right aligned */}
-                <div className="flex items-center justify-end gap-1 sm:gap-2 flex-1 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
+                {/* Compact inline content - time on left inside tag */}
+                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
+                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
                   <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
-                  <span className="text-foreground font-medium truncate">{item.title}</span>
+                  <span className="text-foreground font-medium truncate max-w-[100px] sm:max-w-none">{item.title}</span>
                   <span className="text-muted-foreground hidden sm:inline">•</span>
                   <span className="text-muted-foreground hidden sm:inline">{item.contributors[0]?.name}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
@@ -295,9 +291,9 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
             );
           }
 
-          // Regular card for other items - time on left, content right-aligned
+          // Regular card for other items - time on left inside card
           return (
-            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-6">
+            <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
               {/* Timeline dot */}
               <div className="absolute left-0 top-3 -translate-x-1/2">
                 <div 
@@ -305,15 +301,14 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                 />
               </div>
               
-              {/* Time on left */}
-              <span className="text-[10px] sm:text-xs text-muted-foreground font-medium w-12 sm:w-14 shrink-0 pt-1.5">
-                {item.finalCompletedAt}
-              </span>
-              
               <Card className="flex-1 hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
-                  {/* Single row: icon + title + completion - right aligned */}
+                  {/* Single row: time + icon + title + completion */}
                   <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground font-medium shrink-0">
+                      {item.finalCompletedAt}
+                    </span>
+                    
                     <div 
                       className="p-1 rounded shrink-0"
                       style={{ 
