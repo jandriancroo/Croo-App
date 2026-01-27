@@ -81,6 +81,8 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
   const [frequencyType, setFrequencyType] = useState("60");
   const [customTimes, setCustomTimes] = useState<string[]>([]);
   const [newCustomTime, setNewCustomTime] = useState("");
+  const [alarmStartTime, setAlarmStartTime] = useState("09:00");
+  const [alarmEndTime, setAlarmEndTime] = useState("21:00");
   const [notifyOnlyWorking, setNotifyOnlyWorking] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [showOnPunchClock, setShowOnPunchClock] = useState(false);
@@ -154,6 +156,9 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
           : task.frequency_minutes?.toString() || "60"
       );
       setCustomTimes(task.custom_times || []);
+      // Parse time from DB format (HH:MM:SS or HH:MM) to input format (HH:MM)
+      setAlarmStartTime(task.alarm_start_time?.slice(0, 5) || "09:00");
+      setAlarmEndTime(task.alarm_end_time?.slice(0, 5) || "21:00");
       setNotifyOnlyWorking(task.notify_only_working ?? true);
       setPushEnabled(task.push_enabled ?? true);
       setShowOnPunchClock(task.show_on_punch_clock ?? false);
@@ -277,6 +282,8 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
         taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
         taskData.custom_times = frequencyType === "custom" ? customTimes : null;
+        taskData.alarm_start_time = alarmStartTime;
+        taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.show_on_punch_clock = showOnPunchClock;
       }
@@ -537,6 +544,29 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                   )}
                 </div>
               )}
+
+              {/* Active Hours (Time Window) */}
+              <div className="space-y-2">
+                <Label>Active Hours</Label>
+                <p className="text-xs text-muted-foreground">
+                  Alarm will only trigger between these times
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={alarmStartTime}
+                    onChange={(e) => setAlarmStartTime(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input
+                    type="time"
+                    value={alarmEndTime}
+                    onChange={(e) => setAlarmEndTime(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
 
               {/* Only Working Toggle */}
               <div className="flex items-center justify-between">

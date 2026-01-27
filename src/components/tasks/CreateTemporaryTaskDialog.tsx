@@ -93,6 +93,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [frequencyType, setFrequencyType] = useState("60");
   const [customTimes, setCustomTimes] = useState<string[]>([]);
   const [newCustomTime, setNewCustomTime] = useState("");
+  const [alarmStartTime, setAlarmStartTime] = useState("09:00");
+  const [alarmEndTime, setAlarmEndTime] = useState("21:00");
   const [notifyOnlyWorking, setNotifyOnlyWorking] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [showOnPunchClock, setShowOnPunchClock] = useState(false);
@@ -300,6 +302,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
         taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
         taskData.custom_times = frequencyType === "custom" ? customTimes : null;
+        taskData.alarm_start_time = alarmStartTime;
+        taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.push_enabled = pushEnabled;
         taskData.show_on_punch_clock = showOnPunchClock;
@@ -599,6 +603,29 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                   )}
                 </div>
               )}
+
+              {/* Active Hours (Time Window) */}
+              <div className="space-y-2">
+                <Label>Active Hours</Label>
+                <p className="text-xs text-muted-foreground">
+                  Alarm will only trigger between these times
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    value={alarmStartTime}
+                    onChange={(e) => setAlarmStartTime(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input
+                    type="time"
+                    value={alarmEndTime}
+                    onChange={(e) => setAlarmEndTime(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
 
               {/* Accent Color for Alarm */}
               <div className="space-y-2">

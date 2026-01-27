@@ -4491,6 +4491,8 @@ export type Database = {
       temporary_tasks: {
         Row: {
           accent_color: string | null
+          alarm_end_time: string | null
+          alarm_start_time: string | null
           audit_id: string | null
           audit_item_index: number | null
           audit_priority_level: string | null
@@ -4525,6 +4527,8 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          alarm_end_time?: string | null
+          alarm_start_time?: string | null
           audit_id?: string | null
           audit_item_index?: number | null
           audit_priority_level?: string | null
@@ -4559,6 +4563,8 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          alarm_end_time?: string | null
+          alarm_start_time?: string | null
           audit_id?: string | null
           audit_item_index?: number | null
           audit_priority_level?: string | null
