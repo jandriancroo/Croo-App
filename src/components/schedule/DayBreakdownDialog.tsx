@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { format } from "date-fns";
+import { format, subWeeks } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { formatTime12Hour } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -49,9 +49,9 @@ export function DayBreakdownDialog({
       if (!open || !currentLocation?.id) return;
       
       const todayStr = getTodayInTimezone(timezone);
-      const targetDate = parseDateStringInTimezone(dateStr, timezone);
       const isPast = dateStr < todayStr;
       const isTodayDate = dateStr === todayStr;
+      const isFuture = dateStr > todayStr;
       
       // Check cache for past dates first
       if (isPast) {
@@ -80,12 +80,25 @@ export function DayBreakdownDialog({
         
         if (!error && data) {
           // Build hourly sales map from "hourly" array
-          const hourlyMap: Record<number, number> = {};
+          let hourlyMap: Record<number, number> = {};
           if (data.hourly && Array.isArray(data.hourly)) {
             data.hourly.forEach((item: { hour: string; sales: number }) => {
               const hourNum = parseInt(item.hour.split(':')[0]);
               hourlyMap[hourNum] = item.sales || 0;
             });
+          }
+          
+          const dailyProjection = isFuture 
+            ? (data.projections?.todayProjected || 0)
+            : (data.daily || 0);
+          
+          // For future dates, calculate hourly projections from historical patterns
+          if (isFuture && dailyProjection > 0 && Object.keys(hourlyMap).length === 0) {
+            hourlyMap = await calculateHourlyProjections(
+              currentLocation.id, 
+              date, 
+              dailyProjection
+            );
           }
           
           // Cache past data for future use
@@ -98,9 +111,9 @@ export function DayBreakdownDialog({
           }
           
           setSalesData({
-            daily: isPast || isTodayDate ? (data.daily || 0) : (data.projections?.todayProjected || 0),
+            daily: dailyProjection,
             hourly: hourlyMap,
-            isProjection: !isPast && !isTodayDate
+            isProjection: isFuture
           });
         }
       } catch (err) {
@@ -112,6 +125,65 @@ export function DayBreakdownDialog({
     
     fetchSalesData();
   }, [open, currentLocation?.id, dateStr]);
+  
+  // Calculate hourly projections for future dates based on historical patterns
+  const calculateHourlyProjections = async (
+    locationId: string,
+    targetDate: Date,
+    dailyProjection: number
+  ): Promise<Record<number, number>> => {
+    // Get the last 4 same-day-of-week dates
+    const sameDayDates: string[] = [];
+    for (let i = 1; i <= 4; i++) {
+      const pastDate = subWeeks(targetDate, i);
+      sameDayDates.push(format(pastDate, 'yyyy-MM-dd'));
+    }
+    
+    // Query sales_cache for historical hourly data
+    const { data: historicalData } = await supabase
+      .from('sales_cache')
+      .select('sale_date, hourly_data')
+      .eq('location_id', locationId)
+      .in('sale_date', sameDayDates);
+    
+    if (!historicalData || historicalData.length === 0) {
+      return {};
+    }
+    
+    // Aggregate hourly percentages across all historical dates
+    const hourlyTotals: Record<number, number[]> = {};
+    
+    historicalData.forEach((day) => {
+      if (!day.hourly_data) return;
+      
+      // Calculate daily total for this historical day
+      const hourlyData = day.hourly_data as { hour: string; sales: number }[];
+      const dayTotal = hourlyData.reduce((sum, h) => sum + (h.sales || 0), 0);
+      
+      if (dayTotal <= 0) return;
+      
+      // Calculate percentage for each hour
+      hourlyData.forEach((h) => {
+        const hourNum = parseInt(h.hour.split(':')[0]);
+        const percentage = (h.sales || 0) / dayTotal;
+        
+        if (!hourlyTotals[hourNum]) {
+          hourlyTotals[hourNum] = [];
+        }
+        hourlyTotals[hourNum].push(percentage);
+      });
+    });
+    
+    // Calculate average percentage for each hour and apply to daily projection
+    const hourlyProjections: Record<number, number> = {};
+    
+    Object.entries(hourlyTotals).forEach(([hour, percentages]) => {
+      const avgPercentage = percentages.reduce((a, b) => a + b, 0) / percentages.length;
+      hourlyProjections[parseInt(hour)] = dailyProjection * avgPercentage;
+    });
+    
+    return hourlyProjections;
+  };
 
   // Use in-memory shifts from the Schedule page so we always match what the grid shows
   const dayShifts = (shifts || []).filter(
