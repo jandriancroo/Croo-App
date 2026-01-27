@@ -282,10 +282,8 @@ const TimelineView = ({ items, selectedDate }: { items: HistoryItem[]; selectedD
                 {/* Compact inline content - amber accent */}
                 <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
                   <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
-                  <span className="text-amber-700 dark:text-amber-400 font-medium">{item.finalCompletedAt}</span>
-                  <span className="text-foreground font-medium truncate max-w-[80px] sm:max-w-none">{item.title}</span>
-                  <span className="text-muted-foreground hidden sm:inline">•</span>
-                  <span className="text-muted-foreground hidden sm:inline">{item.contributors[0]?.name}</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-medium shrink-0">{item.finalCompletedAt}</span>
+                  <span className="text-foreground font-medium">{item.title}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
                 </div>
               </div>
