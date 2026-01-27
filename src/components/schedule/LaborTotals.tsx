@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
 interface Profile {
   id: string;
   full_name: string;
@@ -526,28 +526,30 @@ export function LaborTotals({
     return null;
   }
 
-  return <div className="border-t border-border bg-muted/30 text-xs min-w-[700px]">
-      <Collapsible open={isToolsOpen} onOpenChange={setIsToolsOpen}>
-        {/* Toggle Header */}
-        <CollapsibleTrigger asChild>
-          <button className="w-full grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border hover:bg-muted/50 transition-colors cursor-pointer">
-            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
-              <BarChart3 className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs font-semibold">Schedule Tools</span>
-              {isToolsOpen ? <ChevronUp className="h-3 w-3 text-muted-foreground ml-auto" /> : <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto" />}
-            </div>
-            {/* Summary preview when collapsed */}
-            {dailyTotals.map((day, index) => (
-              <div key={index} className="px-2 py-1.5 border-r border-border text-center flex items-center justify-center gap-1">
-                {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : (
-                  <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
-                )}
-              </div>
-            ))}
-          </button>
-        </CollapsibleTrigger>
+  return <div className="text-xs min-w-[700px] relative">
+      {/* Folder Tab */}
+      <div className="flex items-end">
+        <button 
+          onClick={() => setIsToolsOpen(!isToolsOpen)}
+          className={`
+            px-3 py-1 flex items-center gap-1.5 rounded-t-md border border-b-0 border-border
+            transition-colors cursor-pointer text-xs font-medium
+            ${isToolsOpen 
+              ? 'bg-muted/50 text-foreground' 
+              : 'bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground'
+            }
+          `}
+        >
+          <BarChart3 className="h-3 w-3" />
+          <span>Schedule Tools</span>
+          {isToolsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+        </button>
+        <div className="flex-1 border-b border-border" />
+      </div>
 
-        <CollapsibleContent>
+      {/* Content Panel */}
+      {isToolsOpen && (
+        <div className="border-x border-b border-border bg-muted/30 animate-accordion-down">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
@@ -720,7 +722,7 @@ export function LaborTotals({
             </div>;
       })}
         </div>
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      )}
     </div>;
 }
