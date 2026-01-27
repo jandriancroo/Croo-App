@@ -196,11 +196,11 @@ export function TasksHistoryTimeline({
     });
 
     // Sort all items chronologically by completion time (earliest first)
-    // Items without times go to the top
+    // Items without times (monthly checklists) go to the BOTTOM
     return items.sort((a, b) => {
       if (!a.completedAt && !b.completedAt) return 0;
-      if (!a.completedAt) return -1;
-      if (!b.completedAt) return 1;
+      if (!a.completedAt) return 1;  // No time = bottom of list
+      if (!b.completedAt) return -1; // Has time = above items without time
       return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
     });
   }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
