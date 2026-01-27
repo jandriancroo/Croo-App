@@ -15,6 +15,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { EventCard } from "@/components/schedule/EventCard";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
+import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -55,7 +56,7 @@ export function AssignedTemporaryTasks({
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
@@ -130,7 +131,8 @@ export function AssignedTemporaryTasks({
           // For alarm tasks, check if the current interval is completed
           if (task.last_triggered_at) {
             const triggeredAt = new Date(task.last_triggered_at);
-            const taskIntervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+            // Use timezone-aware interval key generation
+            const taskIntervalKey = getAlarmIntervalKey(triggeredAt, timezone);
             return !completedIntervals.has(`${task.id}_${taskIntervalKey}`);
           }
           return true;

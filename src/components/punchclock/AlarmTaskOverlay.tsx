@@ -4,6 +4,7 @@ import { Bell, Check, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAlarmIntervalKey, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
 
 interface AlarmTask {
   id: string;
@@ -25,6 +26,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [isSnoozed, setIsSnoozed] = useState(false);
+  const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
 
   // Avoid stale-closure bugs inside realtime/poll handlers
   const activeAlarmRef = useRef<AlarmTask | null>(null);
@@ -81,6 +83,25 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     };
   }, []);
 
+  // Fetch timezone when locationId changes
+  useEffect(() => {
+    if (!locationId) return;
+    
+    const fetchTimezone = async () => {
+      const { data: settings } = await supabase
+        .from('location_settings')
+        .select('timezone')
+        .eq('location_id', locationId)
+        .single();
+      
+      if (settings?.timezone) {
+        setTimezone(settings.timezone);
+      }
+    };
+    
+    fetchTimezone();
+  }, [locationId]);
+
   // Check for recently triggered alarms on mount and subscribe to updates
   useEffect(() => {
     if (!locationId) return;
@@ -103,7 +124,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         const task = pendingTasks[0];
         const triggeredAt = new Date(task.last_triggered_at);
         const now = new Date();
-        const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+        // Use timezone-aware interval key generation
+        const intervalKey = getAlarmIntervalKey(triggeredAt, timezone);
 
         // If we're already showing this exact alarm interval, don't start another loop.
         if (
@@ -180,7 +202,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             
             // Show if triggered within last 30 seconds (realtime events can arrive late)
             if (secondsSinceTrigger <= 30) {
-              const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+              // Use timezone-aware interval key generation
+              const intervalKey = getAlarmIntervalKey(triggeredAt, timezone);
 
               // If we're already showing this exact alarm interval, don't start another loop.
               if (
@@ -234,7 +257,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         clearTimeout(snoozeTimeoutRef.current);
       }
     };
-  }, [locationId]);
+  }, [locationId, timezone]);
 
   const startCountdown = (seconds: number) => {
     if (countdownRef.current) {

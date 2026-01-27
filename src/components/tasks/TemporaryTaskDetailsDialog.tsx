@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { compressImage, uploadWithRetry } from "@/utils/imageCompression";
 import { WriteUpSignatureView } from "@/components/logbook/WriteUpSignatureView";
+import { getAlarmIntervalKey, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
 
 interface TemporaryTaskDetailsDialogProps {
   open: boolean;
@@ -218,12 +219,10 @@ export function TemporaryTaskDetailsDialog({
       // For alarm tasks, record completion in alarm_task_completions with null completed_by (represents "Store")
       if (task.task_style === 'alarm') {
         const now = new Date();
+        // Use timezone-aware interval key generation (default to PST for all Blaze locations)
         const intervalKey = task.last_triggered_at 
-          ? (() => {
-              const triggeredAt = new Date(task.last_triggered_at);
-              return `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
-            })()
-          : `${now.toISOString().split('T')[0]}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+          ? getAlarmIntervalKey(task.last_triggered_at, DEFAULT_TIMEZONE)
+          : getAlarmIntervalKey(now, DEFAULT_TIMEZONE);
 
         const { error } = await supabase
           .from('alarm_task_completions')
