@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, User } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
 interface DayBreakdownDialogProps {
@@ -297,9 +297,14 @@ export function DayBreakdownDialog({
                         return (
                           <div
                             key={hour}
-                            className="flex-1 text-center text-[10px] font-semibold text-primary"
+                            className="flex-1 flex items-center justify-center gap-0.5 text-[10px] font-semibold text-primary"
                           >
-                            {data.hours > 0 ? data.hours.toFixed(1) : ""}
+                            {data.hours > 0 && (
+                              <>
+                                <User className="h-2.5 w-2.5" />
+                                {data.hours.toFixed(1)}
+                              </>
+                            )}
                           </div>
                         );
                       })}
