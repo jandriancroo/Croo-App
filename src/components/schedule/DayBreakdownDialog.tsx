@@ -325,8 +325,18 @@ export function DayBreakdownDialog({
                     </div>
                   </div>
 
-                  {/* Shift bars */}
-                  <div className="space-y-2">
+                  {/* Shift bars with vertical grid lines */}
+                  <div className="space-y-2 relative">
+                    {/* Vertical grid lines overlay */}
+                    <div className="absolute inset-0 flex pointer-events-none" style={{ marginLeft: '128px' }}>
+                      {timelineHours.map((hour, index) => (
+                        <div
+                          key={hour}
+                          className={`flex-1 ${index > 0 ? 'border-l border-border/40' : ''}`}
+                        />
+                      ))}
+                    </div>
+                    
                     {sortedDayShifts
                       .filter((shift: any) => !shift.is_time_off)
                       .map((shift: any) => {
@@ -347,7 +357,7 @@ export function DayBreakdownDialog({
                         const widthPercent = ((endTime - startTime) / totalRange) * 100;
 
                         return (
-                          <div key={shift.id} className="flex items-center">
+                          <div key={shift.id} className="flex items-center relative z-10">
                             <div className="w-32 flex-shrink-0 text-sm font-medium truncate pr-2">
                               {profile?.full_name ?? (shift.user_id ? "Hidden" : "Unassigned")}
                             </div>
