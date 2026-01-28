@@ -183,6 +183,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Rejection email sent to:", recipientEmail, emailResponse);
 
+    // Track which template was used for this rejection
+    await supabase
+      .from("job_applications")
+      .update({
+        rejection_template_id: templateId,
+        rejection_email_sent_at: new Date().toISOString(),
+      })
+      .eq("id", applicationId);
+
     return new Response(
       JSON.stringify({ success: true, emailId: emailResponse.data?.id }),
       {

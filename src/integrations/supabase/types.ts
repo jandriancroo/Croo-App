@@ -2191,6 +2191,8 @@ export type Database = {
           location_id: string | null
           organization_id: string
           phone: string | null
+          rejection_email_sent_at: string | null
+          rejection_template_id: string | null
           resume_url: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -2215,6 +2217,8 @@ export type Database = {
           location_id?: string | null
           organization_id: string
           phone?: string | null
+          rejection_email_sent_at?: string | null
+          rejection_template_id?: string | null
           resume_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2239,6 +2243,8 @@ export type Database = {
           location_id?: string | null
           organization_id?: string
           phone?: string | null
+          rejection_email_sent_at?: string | null
+          rejection_template_id?: string | null
           resume_url?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2260,6 +2266,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_rejection_template_id_fkey"
+            columns: ["rejection_template_id"]
+            isOneToOne: false
+            referencedRelation: "rejection_email_templates"
             referencedColumns: ["id"]
           },
           {
