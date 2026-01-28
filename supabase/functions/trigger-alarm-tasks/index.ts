@@ -169,26 +169,39 @@ Deno.serve(async (req) => {
         const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
         const intervalMinutes = task.frequency_minutes;
 
-        // Calculate boundary times
-        const minutesSinceHourStart = currentHour * 60 + currentMinute;
-        const lastBoundaryMinuteOfDay = Math.floor(minutesSinceHourStart / intervalMinutes) * intervalMinutes;
-        const lastBoundaryHour = Math.floor(lastBoundaryMinuteOfDay / 60);
-        const lastBoundaryMinute = lastBoundaryMinuteOfDay % 60;
+        // Calculate the current minute-of-day
+        const currentMinuteOfDay = currentHour * 60 + currentMinute;
+        
+        // Calculate the boundary minute-of-day we should be at or near
+        const lastBoundaryMinuteOfDay = Math.floor(currentMinuteOfDay / intervalMinutes) * intervalMinutes;
+        const nextBoundaryMinuteOfDay = lastBoundaryMinuteOfDay + intervalMinutes;
+        
+        // Check if we're within tolerance of a boundary (±1 minute to account for cron drift)
+        const TOLERANCE_MINUTES = 1;
+        const distanceToLast = currentMinuteOfDay - lastBoundaryMinuteOfDay;
+        const distanceToNext = nextBoundaryMinuteOfDay - currentMinuteOfDay;
+        
+        // We're at a boundary if we're within tolerance of it
+        const isAtLastBoundary = distanceToLast <= TOLERANCE_MINUTES;
+        const isAtNextBoundary = distanceToNext <= TOLERANCE_MINUTES;
+        
+        let boundaryMinuteOfDay: number | null = null;
+        if (isAtLastBoundary) {
+          boundaryMinuteOfDay = lastBoundaryMinuteOfDay;
+        } else if (isAtNextBoundary) {
+          boundaryMinuteOfDay = nextBoundaryMinuteOfDay;
+        }
 
-        // STRICT: Only trigger at EXACT boundary minute (no tolerance window)
-        // Cron runs every minute so we should hit the exact boundary
-        const isExactBoundary = currentMinute === lastBoundaryMinute && (currentHour === lastBoundaryHour || (lastBoundaryMinute === 0 && currentMinute === 0));
-
-        if (isExactBoundary) {
-          // Build the aligned time string based on the BOUNDARY
-          const alignedMinute = lastBoundaryMinute.toString().padStart(2, '0');
-          const alignedHour = currentHour.toString().padStart(2, '0');
-          matchedTimeStr = `${alignedHour}:${alignedMinute}`;
+        if (boundaryMinuteOfDay !== null) {
+          // Build the aligned time string based on the BOUNDARY (not current time)
+          const alignedHour = Math.floor(boundaryMinuteOfDay / 60) % 24;
+          const alignedMinute = boundaryMinuteOfDay % 60;
+          matchedTimeStr = `${alignedHour.toString().padStart(2, '0')}:${alignedMinute.toString().padStart(2, '0')}`;
           shouldTrigger = true;
         }
 
         console.log(
-          `[Alarm Tasks] Task ${task.id}: interval=${intervalMinutes}min, currentMinute=${currentMinute}, boundaryMinute=${lastBoundaryMinute}, isExactBoundary=${isExactBoundary}, shouldTrigger=${shouldTrigger}`,
+          `[Alarm Tasks] Task ${task.id}: interval=${intervalMinutes}min, currentMinute=${currentMinute}, lastBoundary=${lastBoundaryMinuteOfDay % 60}, distToLast=${distanceToLast}, shouldTrigger=${shouldTrigger}`,
         );
       } else if (task.frequency_type === 'custom' && task.custom_times) {
         // Check if current time matches any custom time (in local timezone)
