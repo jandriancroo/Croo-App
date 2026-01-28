@@ -629,11 +629,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
-    }] : []), {
+    }] : []), 
+    ...(FEATURE_FLAGS.ARCADE_ENABLED ? [{
       path: '/games',
       label: 'Arcade',
       icon: Gamepad2
-    }, {
+    }] : []), {
       path: '/settings',
       label: 'Settings',
       icon: SettingsIcon
@@ -771,10 +772,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       My Team
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
-                    <Gamepad2 className="h-4 w-4" />
-                    Arcade
-                  </DropdownMenuItem>
+                  {FEATURE_FLAGS.ARCADE_ENABLED && (
+                    <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
+                      <Gamepad2 className="h-4 w-4" />
+                      Arcade
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                     <SettingsIcon className="h-4 w-4" />
                     Settings
