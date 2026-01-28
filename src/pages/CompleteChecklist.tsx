@@ -119,18 +119,43 @@ export default function CompleteChecklist() {
   }, [completionPercentage, hideCompletedKey]);
 
   // Check if checklist is locked based on lock_until_time
+  // Only applies to TODAY's checklist - historical views are never locked
   const isLocked = useMemo(() => {
     if (!checklist?.lock_until_time) return false;
     
-    // Get current time in location timezone
+    // Get today's date in PST
     const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-US', { 
+    const dateFormatter = new Intl.DateTimeFormat('en-US', { 
+      timeZone: 'America/Los_Angeles', 
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const todayParts = dateFormatter.formatToParts(now);
+    const todayYear = parseInt(todayParts.find(p => p.type === 'year')?.value || '0');
+    const todayMonth = parseInt(todayParts.find(p => p.type === 'month')?.value || '0');
+    const todayDay = parseInt(todayParts.find(p => p.type === 'day')?.value || '0');
+    
+    // Check if viewDate is before today (historical) - if so, never lock
+    const viewYear = viewDate.getFullYear();
+    const viewMonth = viewDate.getMonth() + 1;
+    const viewDay = viewDate.getDate();
+    
+    const isHistorical = 
+      viewYear < todayYear || 
+      (viewYear === todayYear && viewMonth < todayMonth) ||
+      (viewYear === todayYear && viewMonth === todayMonth && viewDay < todayDay);
+    
+    if (isHistorical) return false;
+    
+    // For today's checklist, check if current time is before lock time
+    const timeFormatter = new Intl.DateTimeFormat('en-US', { 
       timeZone: 'America/Los_Angeles', 
       hour: '2-digit', 
       minute: '2-digit',
       hour12: false 
     });
-    const currentTimeStr = formatter.format(now);
+    const currentTimeStr = timeFormatter.format(now);
     const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
     const [lockHour, lockMinute] = checklist.lock_until_time.split(':').map(Number);
     
@@ -138,7 +163,7 @@ export default function CompleteChecklist() {
     const lockMinutes = lockHour * 60 + lockMinute;
     
     return currentMinutes < lockMinutes;
-  }, [checklist?.lock_until_time]);
+  }, [checklist?.lock_until_time, viewDate]);
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
