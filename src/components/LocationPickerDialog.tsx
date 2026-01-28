@@ -85,11 +85,16 @@ export function LocationPickerDialog({
       if (canSeeAllOrgs) {
         // Super admin: see all orgs and all locations
         const [orgsResult, locsResult] = await Promise.all([
-          supabase.from('organizations').select('id, name, brand_name, logo_url').eq('is_active', true).order('name'),
+          supabase.from('organizations').select('id, name, brand_name, logo_url, brands(logo_url)').eq('is_active', true).order('name'),
           supabase.from('locations').select('*, organizations(name, brand_name)').order('name'),
         ]);
 
-        setOrganizations((orgsResult.data || []) as Organization[]);
+        // Map organizations to include brand logo fallback
+        const orgs = (orgsResult.data || []).map((org: any) => ({
+          ...org,
+          logo_url: org.logo_url || org.brands?.logo_url || null,
+        }));
+        setOrganizations(orgs as Organization[]);
         setLocations(
           (locsResult.data || []).map((loc: any) => ({
             ...loc,
@@ -100,12 +105,18 @@ export function LocationPickerDialog({
         // Org admin: see their org's locations
         const { data: orgMemberships } = await supabase
           .from('organization_members')
-          .select('organization_id, organizations(id, name, brand_name, logo_url)')
+          .select('organization_id, organizations(id, name, brand_name, logo_url, brands(logo_url))')
           .eq('user_id', user!.id)
           .eq('org_role', 'admin');
 
         const orgIds = orgMemberships?.map((m: any) => m.organization_id) || [];
-        const orgs = orgMemberships?.map((m: any) => m.organizations).filter(Boolean) || [];
+        const orgs = orgMemberships?.map((m: any) => {
+          const org = m.organizations;
+          if (org) {
+            return { ...org, logo_url: org.logo_url || org.brands?.logo_url || null };
+          }
+          return null;
+        }).filter(Boolean) || [];
 
         setOrganizations(orgs);
 
@@ -127,14 +138,15 @@ export function LocationPickerDialog({
         // User has all_locations_enabled - get all locations in their org
         const { data: userLocs } = await supabase
           .from('user_locations')
-          .select('locations(organization_id, organizations(id, name, brand_name, logo_url))')
+          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brands(logo_url)))')
           .eq('user_id', user!.id)
           .limit(1);
 
-        const orgData = userLocs?.[0]?.locations?.organizations;
+        const rawOrgData = userLocs?.[0]?.locations?.organizations;
         const orgId = userLocs?.[0]?.locations?.organization_id;
 
-        if (orgId && orgData) {
+        if (orgId && rawOrgData) {
+          const orgData = { ...rawOrgData, logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null };
           setOrganizations([orgData as Organization]);
           
           const { data: orgLocs } = await supabase
@@ -163,11 +175,15 @@ export function LocationPickerDialog({
         const orgIds = [...new Set(locs.map((l: any) => l.organization_id).filter(Boolean))];
         
         if (orgIds.length > 0) {
-          const { data: orgs } = await supabase
+          const { data: orgsData } = await supabase
             .from('organizations')
-            .select('id, name, brand_name, logo_url')
+            .select('id, name, brand_name, logo_url, brands(logo_url)')
             .in('id', orgIds);
-          setOrganizations((orgs || []) as Organization[]);
+          const orgs = (orgsData || []).map((org: any) => ({
+            ...org,
+            logo_url: org.logo_url || org.brands?.logo_url || null,
+          }));
+          setOrganizations(orgs as Organization[]);
         }
 
         setLocations(
