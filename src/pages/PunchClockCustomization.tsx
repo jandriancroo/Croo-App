@@ -31,6 +31,7 @@ interface PunchClockTheme {
   text_color: string;
   text_shadow: boolean;
   text_position: 'overlay' | 'below';
+  slide_duration: number;
   start_at: string | null;
   end_at: string | null;
   is_active: boolean;
@@ -46,6 +47,7 @@ const BUILTIN_THEMES: Omit<PunchClockTheme, 'id' | 'start_at' | 'end_at' | 'is_a
     text_color: "#FFFFFF",
     text_shadow: false,
     text_position: 'overlay' as const,
+    slide_duration: 10,
     is_builtin: true,
   },
   {
@@ -55,6 +57,7 @@ const BUILTIN_THEMES: Omit<PunchClockTheme, 'id' | 'start_at' | 'end_at' | 'is_a
     text_color: "#FFFFFF",
     text_shadow: false,
     text_position: 'overlay' as const,
+    slide_duration: 10,
     is_builtin: true,
   },
 ];
@@ -99,6 +102,7 @@ export default function PunchClockCustomization() {
   const [formTextColor, setFormTextColor] = useState("#FFFFFF");
   const [formTextShadow, setFormTextShadow] = useState(false);
   const [formTextPosition, setFormTextPosition] = useState<'overlay' | 'below'>('overlay');
+  const [formSlideDuration, setFormSlideDuration] = useState(10);
   
   // Image crop state
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -152,7 +156,7 @@ export default function PunchClockCustomization() {
     try {
       const { data, error } = await supabase
         .from("punch_clock_templates")
-        .select("*")
+        .select("*, slide_duration")
         .eq("location_id", locationId)
         .order("created_at", { ascending: true });
 
@@ -193,6 +197,7 @@ export default function PunchClockCustomization() {
         text_color: t.text_color || "#FFFFFF",
         text_shadow: (t as any).text_shadow || false,
         text_position: ((t as any).text_position as 'overlay' | 'below') || 'overlay',
+        slide_duration: (t as any).slide_duration ?? 10,
         start_at: t.start_at,
         end_at: t.end_at,
         is_active: t.is_active ?? true,
@@ -394,6 +399,7 @@ export default function PunchClockCustomization() {
     setFormTextColor("#FFFFFF");
     setFormTextShadow(false);
     setFormTextPosition('overlay');
+    setFormSlideDuration(10);
     setEditingTheme(null);
   };
 
@@ -408,6 +414,7 @@ export default function PunchClockCustomization() {
     setFormTextColor(theme.text_color);
     setFormTextShadow(theme.text_shadow);
     setFormTextPosition(theme.text_position || 'overlay');
+    setFormSlideDuration(theme.slide_duration ?? 10);
     
     const slides: ThemeSlide[] = [];
     const maxLen = Math.max(theme.background_urls.length, theme.overlay_texts.length, 1);
@@ -465,6 +472,7 @@ export default function PunchClockCustomization() {
             text_color: formTextColor,
             text_shadow: formTextShadow,
             text_position: formTextPosition,
+            slide_duration: formSlideDuration,
           })
           .eq("id", editingTheme.id);
 
@@ -481,6 +489,7 @@ export default function PunchClockCustomization() {
             text_color: formTextColor,
             text_shadow: formTextShadow,
             text_position: formTextPosition,
+            slide_duration: formSlideDuration,
             start_at: new Date('2000-01-01T00:00:00').toISOString(),
             end_at: new Date('2099-12-31T23:59:59').toISOString(),
             created_by: user?.id,
@@ -1107,6 +1116,31 @@ export default function PunchClockCustomization() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Choose whether text appears on top of the image or in a separate area below it
+              </p>
+            </div>
+
+            {/* Slide Duration */}
+            <div className="space-y-2">
+              <Label>Slide Duration</Label>
+              <Select 
+                value={formSlideDuration.toString()} 
+                onValueChange={(v) => setFormSlideDuration(parseInt(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 seconds</SelectItem>
+                  <SelectItem value="10">10 seconds (default)</SelectItem>
+                  <SelectItem value="15">15 seconds</SelectItem>
+                  <SelectItem value="20">20 seconds</SelectItem>
+                  <SelectItem value="30">30 seconds</SelectItem>
+                  <SelectItem value="45">45 seconds</SelectItem>
+                  <SelectItem value="60">1 minute</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How long each slide displays before transitioning to the next
               </p>
             </div>
 

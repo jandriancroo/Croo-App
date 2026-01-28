@@ -3455,6 +3455,7 @@ export type Database = {
           name: string
           overlay_text: string | null
           overlay_texts: Json | null
+          slide_duration: number | null
           start_at: string
           text_color: string | null
           text_position: string | null
@@ -3473,6 +3474,7 @@ export type Database = {
           name: string
           overlay_text?: string | null
           overlay_texts?: Json | null
+          slide_duration?: number | null
           start_at: string
           text_color?: string | null
           text_position?: string | null
@@ -3491,6 +3493,7 @@ export type Database = {
           name?: string
           overlay_text?: string | null
           overlay_texts?: Json | null
+          slide_duration?: number | null
           start_at?: string
           text_color?: string | null
           text_position?: string | null

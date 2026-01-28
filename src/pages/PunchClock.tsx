@@ -179,6 +179,7 @@ export default function PunchClock() {
   const [customBackgroundUrls, setCustomBackgroundUrls] = useState<string[]>([]);
   const [customOverlayTexts, setCustomOverlayTexts] = useState<string[]>([]);
   const [customSlideIndex, setCustomSlideIndex] = useState(0);
+  const [slideDuration, setSlideDuration] = useState(10); // seconds
   
   // Crossfade state - track which layer is active (true = layer A, false = layer B)
   const [crossfadeActive, setCrossfadeActive] = useState(true);
@@ -224,8 +225,9 @@ export default function PunchClock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Rotate facts and custom slides every 30 seconds with crossfade
+  // Rotate facts and custom slides with crossfade (using dynamic slideDuration)
   useEffect(() => {
+    const durationMs = slideDuration * 1000;
     const factTimer = setInterval(() => {
       // Store current images as previous before updating
       setPrevNatureImage(NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length]);
@@ -241,9 +243,9 @@ export default function PunchClock() {
       setCurrentFactIndex((prev) => (prev + 1) % DAILY_FACTS.length);
       setCurrentImageIndex((prev) => (prev + 1) % 10);
       setCustomSlideIndex((prev) => prev + 1);
-    }, 30000);
+    }, durationMs);
     return () => clearInterval(factTimer);
-  }, [currentImageIndex, customSlideIndex, customBackgroundUrls]);
+  }, [currentImageIndex, customSlideIndex, customBackgroundUrls, slideDuration]);
 
   // Detect brightness of current background image
   useEffect(() => {
@@ -316,7 +318,7 @@ export default function PunchClock() {
       const now = new Date().toISOString();
       const { data: activeTemplate, error: templateError } = await supabase
         .from("punch_clock_templates")
-        .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position, start_at, end_at")
+        .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position, slide_duration, start_at, end_at")
         .eq("location_id", currentLocation.id)
         .eq("is_active", true)
         .not("start_at", "is", null)
@@ -344,6 +346,7 @@ export default function PunchClock() {
         setCustomTextColor(activeTemplate.text_color || "#FFFFFF");
         setTextShadowEnabled((activeTemplate as any).text_shadow ?? false);
         setTextPosition((activeTemplate as any).text_position || 'overlay');
+        setSlideDuration((activeTemplate as any).slide_duration ?? 10);
       } else {
         // Otherwise, check for default theme from location settings
         const { data, error } = await supabase
@@ -362,7 +365,7 @@ export default function PunchClock() {
             // Fetch the custom theme
             const { data: customTheme } = await supabase
               .from("punch_clock_templates")
-              .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position")
+              .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, text_position, slide_duration")
               .eq("id", selectedThemeId)
               .maybeSingle();
             
@@ -381,6 +384,7 @@ export default function PunchClock() {
               setCustomTextColor(customTheme.text_color || "#FFFFFF");
               setTextShadowEnabled((customTheme as any).text_shadow ?? false);
               setTextPosition((customTheme as any).text_position || 'overlay');
+              setSlideDuration((customTheme as any).slide_duration ?? 10);
             } else {
               // Theme not found, fall back to nature
               setCustomBackground("nature_facts");
