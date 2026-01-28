@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, X, Plus, Trash2, Edit, Image, Cake, Sparkles, ArrowLeft, Eye, Calendar, Check, Crop } from "lucide-react";
 import { compressImage } from "@/utils/imageCompression";
 import { format, addDays, addHours } from "date-fns";
-import crooLogo from "@/assets/croo-logo.png";
+
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 
 interface ThemeSlide {
@@ -546,6 +546,8 @@ export default function PunchClockCustomization() {
         overlayText: theme.overlay_texts[slideIdx] || "",
         textColor: theme.text_color,
         textShadow: theme.text_shadow,
+        textPosition: theme.text_position || 'overlay',
+        slideDuration: theme.slide_duration ?? 10,
       };
     }
     
@@ -554,18 +556,21 @@ export default function PunchClockCustomization() {
       overlayText: null,
       textColor: "#FFFFFF",
       textShadow: false,
+      textPosition: 'overlay' as const,
+      slideDuration: 10,
     };
   };
 
   const previewData = getPreviewData();
   
-  // Auto-rotate preview slides
+  // Auto-rotate preview slides using the theme's slide duration
   useEffect(() => {
+    const durationMs = previewData.slideDuration * 1000;
     const timer = setInterval(() => {
       setPreviewSlideIndex(prev => prev + 1);
-    }, 3000);
+    }, durationMs);
     return () => clearInterval(timer);
-  }, []);
+  }, [previewData.slideDuration]);
 
   return (
     <Layout>
@@ -861,40 +866,46 @@ export default function PunchClockCustomization() {
           </DialogHeader>
           <div className="grid md:grid-cols-2">
             {/* Left Side - Theme Preview */}
-            <div
-              className="relative min-h-[500px] bg-cover bg-center transition-all duration-500"
-              style={{ 
-                backgroundImage: previewData.backgroundImage 
-                  ? `url(${previewData.backgroundImage})` 
-                  : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
-              }}
-            >
-              <div className="absolute inset-0 bg-black/40" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8">
-                <img 
-                  src={crooLogo} 
-                  alt="Logo" 
-                  className="h-16 mb-4 transition-all duration-500"
-                  style={{ filter: 'brightness(0) invert(1)' }}
-                />
-                <div className="text-5xl font-bold mb-2">
-                  {format(new Date(), "h:mm:ss a")}
-                </div>
-                <div className="text-lg mb-6 opacity-80">
-                  {format(new Date(), "EEEE, MMMM d, yyyy")}
-                </div>
-                {previewData.overlayText && (
-                  <div 
-                    className={`text-xl font-medium text-center max-w-sm ${previewData.textShadow ? '' : 'drop-shadow-lg'}`}
-                    style={{ 
-                      color: previewData.textColor,
-                      textShadow: previewData.textShadow ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                    }}
-                  >
-                    {previewData.overlayText}
-                  </div>
+            <div className={`relative min-h-[500px] flex flex-col transition-all duration-500 ${previewData.textPosition === 'below' ? '' : ''}`}>
+              {/* Image Area */}
+              <div
+                className={`bg-cover bg-center transition-all duration-500 ${previewData.textPosition === 'below' ? 'flex-1' : 'absolute inset-0'}`}
+                style={{ 
+                  backgroundImage: previewData.backgroundImage 
+                    ? `url(${previewData.backgroundImage})` 
+                    : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
+                }}
+              >
+                {previewData.textPosition === 'overlay' && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                 )}
               </div>
+              
+              {/* Overlay mode content */}
+              {previewData.textPosition === 'overlay' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8 z-10">
+                  {previewData.overlayText && (
+                    <div 
+                      className={`text-4xl font-bold text-center max-w-sm ${previewData.textShadow ? '' : 'drop-shadow-lg'}`}
+                      style={{ 
+                        color: previewData.textColor,
+                        textShadow: previewData.textShadow ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {previewData.overlayText}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Below mode content - text pinned under image */}
+              {previewData.textPosition === 'below' && previewData.overlayText && (
+                <div className="bg-background border-t border-border px-6 py-4">
+                  <h2 className="text-2xl font-bold text-foreground text-center">
+                    {previewData.overlayText}
+                  </h2>
+                </div>
+              )}
             </div>
 
             {/* Right Side - Number Pad Preview */}
