@@ -45,6 +45,7 @@ export default function Hiring() {
   const [activeTab, setActiveTab] = useState('applicants');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [rejectionTemplateFilter, setRejectionTemplateFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -101,9 +102,25 @@ export default function Hiring() {
     enabled: !!organization?.id,
   });
 
+  // Fetch rejection templates for filtering
+  const { data: rejectionTemplates = [] } = useQuery({
+    queryKey: ['rejection-templates-list', organization?.id],
+    queryFn: async () => {
+      if (!organization?.id) return [];
+      const { data, error } = await supabase
+        .from('rejection_email_templates')
+        .select('id, name')
+        .eq('organization_id', organization.id)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
   // Fetch applications
   const { data: applications, isLoading: appsLoading } = useQuery({
-    queryKey: ['job-applications', organization?.id, currentLocation?.id, statusFilter, locationFilter],
+    queryKey: ['job-applications', organization?.id, currentLocation?.id, statusFilter, locationFilter, rejectionTemplateFilter],
     queryFn: async () => {
       if (!organization?.id) return [];
 
@@ -113,7 +130,8 @@ export default function Hiring() {
           *,
           location:locations(name),
           template:job_application_templates(name),
-          work_history:job_application_work_history(*)
+          work_history:job_application_work_history(*),
+          rejection_template:rejection_email_templates(id, name)
         `)
         .eq('organization_id', organization.id)
         .order('submitted_at', { ascending: false });
@@ -127,6 +145,15 @@ export default function Hiring() {
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter as ApplicationStatus);
+      }
+
+      // Filter by rejection template
+      if (rejectionTemplateFilter !== 'all') {
+        if (rejectionTemplateFilter === 'no_email') {
+          query = query.is('rejection_template_id', null).eq('status', 'rejected');
+        } else {
+          query = query.eq('rejection_template_id', rejectionTemplateFilter);
+        }
       }
 
       const { data, error } = await query;
@@ -388,9 +415,9 @@ export default function Hiring() {
               </div>
               
               {/* Mobile: Dropdowns */}
-              <div className="sm:hidden flex gap-2">
+              <div className="sm:hidden flex flex-wrap gap-2">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="flex-1 min-w-[120px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -404,13 +431,28 @@ export default function Hiring() {
                 </Select>
                 {orgLocations && orgLocations.length > 1 && (
                   <Select value={locationFilter} onValueChange={setLocationFilter}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="flex-1 min-w-[120px]">
                       <SelectValue placeholder="Filter by location" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Locations</SelectItem>
                       {orgLocations.map(loc => (
                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {/* Rejection template filter - only show when viewing rejected */}
+                {statusFilter === 'rejected' && rejectionTemplates.length > 0 && (
+                  <Select value={rejectionTemplateFilter} onValueChange={setRejectionTemplateFilter}>
+                    <SelectTrigger className="flex-1 min-w-[140px]">
+                      <SelectValue placeholder="All Emails" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Emails</SelectItem>
+                      <SelectItem value="no_email">No Email Sent</SelectItem>
+                      {rejectionTemplates.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -431,7 +473,13 @@ export default function Hiring() {
                     key={status.value}
                     variant={statusFilter === status.value ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setStatusFilter(status.value)}
+                    onClick={() => {
+                      setStatusFilter(status.value);
+                      // Clear rejection template filter when switching away from rejected
+                      if (status.value !== 'rejected') {
+                        setRejectionTemplateFilter('all');
+                      }
+                    }}
                     className="min-w-[80px]"
                   >
                     {status.label}
@@ -448,6 +496,23 @@ export default function Hiring() {
                       <SelectItem value="all">All Locations</SelectItem>
                       {orgLocations.map(loc => (
                         <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                
+                {/* Rejection template filter - only show when viewing rejected */}
+                {statusFilter === 'rejected' && rejectionTemplates.length > 0 && (
+                  <Select value={rejectionTemplateFilter} onValueChange={setRejectionTemplateFilter}>
+                    <SelectTrigger className="w-[180px] ml-2">
+                      <Mail className="h-4 w-4 mr-2 opacity-50" />
+                      <SelectValue placeholder="All Emails" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Emails</SelectItem>
+                      <SelectItem value="no_email">No Email Sent</SelectItem>
+                      {rejectionTemplates.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -532,6 +597,20 @@ export default function Hiring() {
                                   <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                                     Invite Sent
                                   </Badge>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Rejection email info when rejected */}
+                            {app.status === 'rejected' && (
+                              <div className="flex items-center gap-2 mt-1 text-xs">
+                                <Mail className="h-3 w-3 text-muted-foreground" />
+                                {app.rejection_template ? (
+                                  <span className="text-muted-foreground">
+                                    Sent: <span className="font-medium">{app.rejection_template.name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground italic">No email sent</span>
                                 )}
                               </div>
                             )}
