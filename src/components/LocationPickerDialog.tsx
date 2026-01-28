@@ -85,27 +85,28 @@ export function LocationPickerDialog({
       if (canSeeAllOrgs) {
         // Super admin: see all orgs and all locations
         const [orgsResult, locsResult] = await Promise.all([
-          supabase.from('organizations').select('id, name, brand_name, logo_url, brands(logo_url)').eq('is_active', true).order('name'),
-          supabase.from('locations').select('*, organizations(name, brand_name)').order('name'),
+          supabase.from('organizations').select('id, name, brand_name, logo_url, brands(name, logo_url)').eq('is_active', true).order('name'),
+          supabase.from('locations').select('*, organizations(name, brand_name, brands(name))').order('name'),
         ]);
 
-        // Map organizations to include brand logo fallback
+        // Map organizations to include brand name/logo fallback
         const orgs = (orgsResult.data || []).map((org: any) => ({
           ...org,
+          brand_name: org.brand_name || org.brands?.name || null,
           logo_url: org.logo_url || org.brands?.logo_url || null,
         }));
         setOrganizations(orgs as Organization[]);
         setLocations(
           (locsResult.data || []).map((loc: any) => ({
             ...loc,
-            org_name: loc.organizations?.brand_name || loc.organizations?.name,
+            org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
           }))
         );
       } else if (isOrgLevel) {
         // Org admin: see their org's locations
         const { data: orgMemberships } = await supabase
           .from('organization_members')
-          .select('organization_id, organizations(id, name, brand_name, logo_url, brands(logo_url))')
+          .select('organization_id, organizations(id, name, brand_name, logo_url, brands(name, logo_url))')
           .eq('user_id', user!.id)
           .eq('org_role', 'admin');
 
@@ -113,7 +114,11 @@ export function LocationPickerDialog({
         const orgs = orgMemberships?.map((m: any) => {
           const org = m.organizations;
           if (org) {
-            return { ...org, logo_url: org.logo_url || org.brands?.logo_url || null };
+            return { 
+              ...org, 
+              brand_name: org.brand_name || org.brands?.name || null,
+              logo_url: org.logo_url || org.brands?.logo_url || null 
+            };
           }
           return null;
         }).filter(Boolean) || [];
@@ -123,14 +128,14 @@ export function LocationPickerDialog({
         if (orgIds.length > 0) {
           const { data: locs } = await supabase
             .from('locations')
-            .select('*, organizations(name, brand_name)')
+            .select('*, organizations(name, brand_name, brands(name))')
             .in('organization_id', orgIds)
             .order('name');
 
           setLocations(
             (locs || []).map((loc: any) => ({
               ...loc,
-              org_name: loc.organizations?.brand_name || loc.organizations?.name,
+              org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
             }))
           );
         }
@@ -138,7 +143,7 @@ export function LocationPickerDialog({
         // User has all_locations_enabled - get all locations in their org
         const { data: userLocs } = await supabase
           .from('user_locations')
-          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brands(logo_url)))')
+          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brands(name, logo_url)))')
           .eq('user_id', user!.id)
           .limit(1);
 
@@ -146,19 +151,23 @@ export function LocationPickerDialog({
         const orgId = userLocs?.[0]?.locations?.organization_id;
 
         if (orgId && rawOrgData) {
-          const orgData = { ...rawOrgData, logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null };
+          const orgData = { 
+            ...rawOrgData, 
+            brand_name: rawOrgData.brand_name || rawOrgData.brands?.name || null,
+            logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null 
+          };
           setOrganizations([orgData as Organization]);
           
           const { data: orgLocs } = await supabase
             .from('locations')
-            .select('*, organizations(name, brand_name)')
+            .select('*, organizations(name, brand_name, brands(name))')
             .eq('organization_id', orgId)
             .order('name');
 
           setLocations(
             (orgLocs || []).map((loc: any) => ({
               ...loc,
-              org_name: loc.organizations?.brand_name || loc.organizations?.name,
+              org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
             }))
           );
         }
@@ -166,7 +175,7 @@ export function LocationPickerDialog({
         // Regular admin/user: see their assigned locations
         const { data: userLocs } = await supabase
           .from('user_locations')
-          .select('location_id, locations(*, organizations(name, brand_name))')
+          .select('location_id, locations(*, organizations(name, brand_name, brands(name)))')
           .eq('user_id', user!.id);
 
         const locs = userLocs?.map((ul: any) => ul.locations).filter(Boolean) || [];
@@ -177,10 +186,11 @@ export function LocationPickerDialog({
         if (orgIds.length > 0) {
           const { data: orgsData } = await supabase
             .from('organizations')
-            .select('id, name, brand_name, logo_url, brands(logo_url)')
+            .select('id, name, brand_name, logo_url, brands(name, logo_url)')
             .in('id', orgIds);
           const orgs = (orgsData || []).map((org: any) => ({
             ...org,
+            brand_name: org.brand_name || org.brands?.name || null,
             logo_url: org.logo_url || org.brands?.logo_url || null,
           }));
           setOrganizations(orgs as Organization[]);
@@ -189,7 +199,7 @@ export function LocationPickerDialog({
         setLocations(
           locs.map((loc: any) => ({
             ...loc,
-            org_name: loc.organizations?.brand_name || loc.organizations?.name,
+            org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
           }))
         );
       }
