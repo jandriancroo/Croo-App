@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { FEATURE_FLAGS } from "@/config/featureFlags";
 
 interface HighScore {
   id: string;
@@ -25,6 +26,13 @@ interface HighScore {
 const Games = () => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
+
+  // Redirect if arcade is disabled
+  useEffect(() => {
+    if (!FEATURE_FLAGS.ARCADE_ENABLED) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const fetchScores = async (gameType: string) => {
     const { data, error } = await supabase

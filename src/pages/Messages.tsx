@@ -23,11 +23,13 @@ import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
 import { ChatTabBadge } from '@/components/messages/ChatTabBadge';
 import { useChatUnreadCounts, triggerChatCountRefetch } from '@/hooks/useChatUnreadCounts';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 interface Chat {
   id: string;
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
+  is_arcade?: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -258,9 +260,15 @@ export default function Messages() {
       setFilteredChats([]);
       return;
     }
-    const filtered = mode === 'announcements' 
+    let filtered = mode === 'announcements' 
       ? chatList.filter(chat => chat.is_announcement)
       : chatList.filter(chat => !chat.is_announcement);
+    
+    // Hide arcade chats when arcade is disabled
+    if (!FEATURE_FLAGS.ARCADE_ENABLED) {
+      filtered = filtered.filter(chat => !chat.is_arcade);
+    }
+    
     setFilteredChats(filtered);
   };
 
