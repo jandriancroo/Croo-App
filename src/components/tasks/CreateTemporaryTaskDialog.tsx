@@ -20,6 +20,7 @@ interface CreateTemporaryTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  initialTemplate?: any;
 }
 
 interface Subtask {
@@ -73,7 +74,7 @@ const FREQUENCY_OPTIONS = [
   { value: "custom", label: "Custom times", minutes: null },
 ];
 
-export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: CreateTemporaryTaskDialogProps) {
+export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initialTemplate }: CreateTemporaryTaskDialogProps) {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   
@@ -181,6 +182,61 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
       resetForm();
     }
   }, [open]);
+
+  // Apply template when provided
+  useEffect(() => {
+    if (open && initialTemplate) {
+      setTitle(initialTemplate.name ? `${initialTemplate.name}` : "");
+      setDescription(initialTemplate.description || "");
+      setAccentColor(initialTemplate.accent_color || "#8B5CF6");
+      
+      // Determine task style
+      if (initialTemplate.is_qr_triggered) {
+        setTaskStyle("qr");
+      } else if (initialTemplate.task_style === "alarm") {
+        setTaskStyle("alarm");
+      } else {
+        setTaskStyle("standard");
+      }
+      
+      // Standard task
+      setDuration(initialTemplate.default_duration || "none");
+      
+      // Alarm task
+      if (initialTemplate.days_of_week) setDaysOfWeek(initialTemplate.days_of_week);
+      if (initialTemplate.frequency_type === "custom") {
+        setFrequencyType("custom");
+      } else if (initialTemplate.frequency_minutes) {
+        setFrequencyType(initialTemplate.frequency_minutes.toString());
+      }
+      if (initialTemplate.custom_times) setCustomTimes(initialTemplate.custom_times);
+      if (initialTemplate.alarm_start_time) setAlarmStartTime(initialTemplate.alarm_start_time.slice(0, 5));
+      if (initialTemplate.alarm_end_time) setAlarmEndTime(initialTemplate.alarm_end_time.slice(0, 5));
+      setNotifyOnlyWorking(initialTemplate.notify_only_working ?? true);
+      setPushEnabled(initialTemplate.push_enabled ?? true);
+      setShowOnPunchClock(initialTemplate.show_on_punch_clock ?? false);
+      setShowOnDashboard(initialTemplate.show_on_dashboard ?? true);
+      
+      // QR task
+      if (initialTemplate.qr_issue_options) setQrIssueOptions(initialTemplate.qr_issue_options);
+      setQrAllowNotes(initialTemplate.qr_allow_notes ?? true);
+      setQrNotifyPunchClock(initialTemplate.qr_notify_punch_clock ?? true);
+      
+      // Assignment
+      if (initialTemplate.assignment_type === "roles" && initialTemplate.default_roles?.length > 0) {
+        setAssignmentType("roles");
+        setSelectedRoles(initialTemplate.default_roles);
+      }
+      
+      // Subtasks
+      if (initialTemplate.subtasks && Array.isArray(initialTemplate.subtasks)) {
+        setSubtasks(initialTemplate.subtasks.map((s: any) => ({
+          title: s.title,
+          item_type: s.item_type || "checkbox",
+        })));
+      }
+    }
+  }, [open, initialTemplate]);
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {

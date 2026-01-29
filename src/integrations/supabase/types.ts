@@ -3605,6 +3605,111 @@ export type Database = {
           },
         ]
       }
+      quick_task_templates: {
+        Row: {
+          accent_color: string
+          alarm_end_time: string | null
+          alarm_start_time: string | null
+          assignment_type: string | null
+          created_at: string
+          created_by: string | null
+          custom_times: string[] | null
+          days_of_week: number[] | null
+          default_duration: string | null
+          default_roles: string[] | null
+          description: string | null
+          frequency_minutes: number | null
+          frequency_type: string | null
+          id: string
+          is_qr_triggered: boolean | null
+          location_id: string | null
+          name: string
+          notify_only_working: boolean | null
+          push_enabled: boolean | null
+          qr_allow_notes: boolean | null
+          qr_issue_options: string[] | null
+          qr_notify_punch_clock: boolean | null
+          show_on_dashboard: boolean | null
+          show_on_punch_clock: boolean | null
+          subtasks: Json | null
+          task_style: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          alarm_end_time?: string | null
+          alarm_start_time?: string | null
+          assignment_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_times?: string[] | null
+          days_of_week?: number[] | null
+          default_duration?: string | null
+          default_roles?: string[] | null
+          description?: string | null
+          frequency_minutes?: number | null
+          frequency_type?: string | null
+          id?: string
+          is_qr_triggered?: boolean | null
+          location_id?: string | null
+          name: string
+          notify_only_working?: boolean | null
+          push_enabled?: boolean | null
+          qr_allow_notes?: boolean | null
+          qr_issue_options?: string[] | null
+          qr_notify_punch_clock?: boolean | null
+          show_on_dashboard?: boolean | null
+          show_on_punch_clock?: boolean | null
+          subtasks?: Json | null
+          task_style?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          alarm_end_time?: string | null
+          alarm_start_time?: string | null
+          assignment_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_times?: string[] | null
+          days_of_week?: number[] | null
+          default_duration?: string | null
+          default_roles?: string[] | null
+          description?: string | null
+          frequency_minutes?: number | null
+          frequency_type?: string | null
+          id?: string
+          is_qr_triggered?: boolean | null
+          location_id?: string | null
+          name?: string
+          notify_only_working?: boolean | null
+          push_enabled?: boolean | null
+          qr_allow_notes?: boolean | null
+          qr_issue_options?: string[] | null
+          qr_notify_punch_clock?: boolean | null
+          show_on_dashboard?: boolean | null
+          show_on_punch_clock?: boolean | null
+          subtasks?: Json | null
+          task_style?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_task_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_task_templates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejection_email_templates: {
         Row: {
           body: string
