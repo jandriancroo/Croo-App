@@ -10,8 +10,10 @@ import {
   AlarmClock, 
   QrCode, 
   Search,
-  FileText
+  FileText,
+  Pencil
 } from "lucide-react";
+import { EditTemplateDialog } from "./EditTemplateDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,6 +44,7 @@ export function QuickTaskTemplateLibrary({
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [editTemplate, setEditTemplate] = useState<any>(null);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['quick-task-templates', currentLocation?.id],
@@ -183,8 +186,18 @@ export function QuickTaskTemplateLibrary({
                       <Button
                         size="icon"
                         variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => setEditTemplate(template)}
+                        title="Edit template"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setDeleteTemplateId(template.id)}
+                        title="Delete template"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -216,6 +229,12 @@ export function QuickTaskTemplateLibrary({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditTemplateDialog
+        open={!!editTemplate}
+        onOpenChange={(open) => !open && setEditTemplate(null)}
+        template={editTemplate}
+      />
     </>
   );
 }
