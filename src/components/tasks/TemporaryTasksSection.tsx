@@ -2,15 +2,25 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare, Pencil, AlarmClock, QrCode } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateTemporaryTaskDialog } from "./CreateTemporaryTaskDialog";
 import { EditTemporaryTaskDialog } from "./EditTemporaryTaskDialog";
 import { QRTaskCodeDialog } from "./QRTaskCodeDialog";
+import { QuickTaskTemplateLibrary } from "./QuickTaskTemplateLibrary";
+import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 import { formatDistanceToNow, isPast, format } from "date-fns";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -36,6 +46,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function TemporaryTasksSection() {
   const { currentLocation } = useAppLocation();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { canCreateTasks } = useUserRole();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -43,6 +54,9 @@ export function TemporaryTasksSection() {
   const [editTask, setEditTask] = useState<any>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
   const [qrDialogTask, setQrDialogTask] = useState<any>(null);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [saveAsTemplateTask, setSaveAsTemplateTask] = useState<any>(null);
+  const [templateToApply, setTemplateToApply] = useState<any>(null);
 
   // Fetch temporary tasks
   const { data: tasks = [], isLoading } = useQuery({
@@ -103,6 +117,93 @@ export function TemporaryTasksSection() {
     }
   };
 
+  const handleDuplicate = async (task: any) => {
+    if (!currentLocation?.id || !user?.id) return;
+
+    try {
+      // Create duplicate task
+      const taskData: any = {
+        location_id: currentLocation.id,
+        title: `${task.title} (Copy)`,
+        description: task.description,
+        accent_color: task.accent_color,
+        created_by: user.id,
+        task_style: task.task_style || 'standard',
+        is_recurring: task.is_recurring,
+        show_on_dashboard: task.show_on_dashboard ?? true,
+        days_of_week: task.days_of_week,
+        frequency_type: task.frequency_type,
+        frequency_minutes: task.frequency_minutes,
+        custom_times: task.custom_times,
+        alarm_start_time: task.alarm_start_time,
+        alarm_end_time: task.alarm_end_time,
+        notify_only_working: task.notify_only_working,
+        push_enabled: task.push_enabled,
+        show_on_punch_clock: task.show_on_punch_clock,
+        is_qr_triggered: task.is_qr_triggered,
+        qr_issue_options: task.qr_issue_options,
+        qr_allow_notes: task.qr_allow_notes,
+        qr_notify_punch_clock: task.qr_notify_punch_clock,
+      };
+
+      // Generate new QR code if QR task
+      if (task.is_qr_triggered) {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let newQrCode = '';
+        for (let i = 0; i < 8; i++) {
+          newQrCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        taskData.qr_code = newQrCode;
+      }
+
+      const { data: newTask, error: taskError } = await supabase
+        .from('temporary_tasks')
+        .insert(taskData)
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+
+      // Duplicate assignments
+      if (task.assignments?.length > 0) {
+        const assignments = task.assignments.map((a: any) => ({
+          task_id: newTask.id,
+          user_id: a.user_id,
+          role: a.role,
+        }));
+
+        await supabase
+          .from('temporary_task_assignments')
+          .insert(assignments);
+      }
+
+      // Duplicate subtasks (without completion status)
+      if (task.subtasks?.length > 0) {
+        const subtasks = task.subtasks.map((s: any, index: number) => ({
+          task_id: newTask.id,
+          title: s.title,
+          item_type: s.item_type,
+          order_index: index,
+        }));
+
+        await supabase
+          .from('temporary_task_subtasks')
+          .insert(subtasks);
+      }
+
+      toast.success("Task duplicated");
+      handleRefresh();
+    } catch (error) {
+      console.error("Error duplicating task:", error);
+      toast.error("Failed to duplicate task");
+    }
+  };
+
+  const handleSelectTemplate = (template: any) => {
+    setTemplateToApply(template);
+    setShowCreateDialog(true);
+  };
+
   return (
     <>
       <Card>
@@ -110,13 +211,23 @@ export function TemporaryTasksSection() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Quick Tasks</CardTitle>
             {canCreateTasks && (
-              <Button
-                size="icon"
-                onClick={() => setShowCreateDialog(true)}
-                title="New Quick Task"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setShowTemplateLibrary(true)}
+                  title="Template Library"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  onClick={() => setShowCreateDialog(true)}
+                  title="New Quick Task"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -223,29 +334,44 @@ export function TemporaryTasksSection() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
-                          onClick={() => setEditTask(task)}
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
                           onClick={() => setSelectedTask(task)}
                           title="View"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => setDeleteTaskId(task.id)}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditTask(task)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(task)}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSaveAsTemplateTask(task)}>
+                              <Save className="h-4 w-4 mr-2" />
+                              Save as Template
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => setDeleteTaskId(task.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
@@ -258,8 +384,12 @@ export function TemporaryTasksSection() {
 
       <CreateTemporaryTaskDialog
         open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
+        onOpenChange={(open) => {
+          setShowCreateDialog(open);
+          if (!open) setTemplateToApply(null);
+        }}
         onSuccess={handleRefresh}
+        initialTemplate={templateToApply}
       />
 
       <EditTemporaryTaskDialog
@@ -419,6 +549,18 @@ export function TemporaryTasksSection() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <QuickTaskTemplateLibrary
+        open={showTemplateLibrary}
+        onOpenChange={setShowTemplateLibrary}
+        onSelectTemplate={handleSelectTemplate}
+      />
+
+      <SaveAsTemplateDialog
+        open={!!saveAsTemplateTask}
+        onOpenChange={(open) => !open && setSaveAsTemplateTask(null)}
+        task={saveAsTemplateTask}
+      />
     </>
   );
 }
