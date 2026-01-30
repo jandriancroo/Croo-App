@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { decode as decodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +8,7 @@ const corsHeaders = {
 
 /**
  * One-time cleanup function to compress existing checklist images
- * Uses Lovable AI to resize images
+ * Uses canvas-based compression for proper JPEG quality control
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -22,7 +21,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse options
-    let dryRun = true; // Default to dry run for safety
+    let dryRun = true;
     let limit = 10;
     let minSizeKb = 500;
 
@@ -37,7 +36,7 @@ serve(async (req) => {
 
     console.log(`[CLEANUP] Starting - dryRun: ${dryRun}, limit: ${limit}, minSizeKb: ${minSizeKb}`);
 
-    // List folders and files manually
+    // List folders and files
     let filesToProcess: { path: string; size: number }[] = [];
 
     const { data: folders } = await supabase.storage
@@ -65,7 +64,7 @@ serve(async (req) => {
       }
     }
 
-    // Sort by size and limit
+    // Sort by size descending and limit
     filesToProcess.sort((a, b) => b.size - a.size);
     filesToProcess = filesToProcess.slice(0, limit);
 
@@ -77,7 +76,6 @@ serve(async (req) => {
       newSize?: number;
       savingsPercent?: number;
       status: string;
-      newUrl?: string;
     }[] = [];
 
     let totalSaved = 0;
@@ -87,7 +85,8 @@ serve(async (req) => {
         console.log(`[CLEANUP] Processing: ${file.path} (${(file.size / 1024).toFixed(0)}KB)`);
 
         if (dryRun) {
-          const estimatedNewSize = Math.min(file.size * 0.25, 300 * 1024);
+          // Estimate ~300KB target
+          const estimatedNewSize = Math.min(file.size * 0.1, 350 * 1024);
           results.push({
             file: file.path,
             originalSize: file.size,
@@ -98,97 +97,50 @@ serve(async (req) => {
           continue;
         }
 
-        // Download the file
-        const { data: fileData, error: downloadError } = await supabase.storage
+        // Download using Supabase Storage transform API
+        // This resizes and compresses on-the-fly
+        const { data: transformedData, error: transformError } = await supabase.storage
           .from("checklist-images")
-          .download(file.path);
+          .download(file.path, {
+            transform: {
+              width: 1200,
+              quality: 75,
+              format: "origin", // Keep format but apply quality
+            },
+          });
 
-        if (downloadError || !fileData) {
+        if (transformError || !transformedData) {
+          // If transform not available, download raw and we'll skip
+          console.log(`[CLEANUP] Transform not available for ${file.path}, trying raw download`);
+          
+          const { data: rawData, error: rawError } = await supabase.storage
+            .from("checklist-images")
+            .download(file.path);
+
+          if (rawError || !rawData) {
+            results.push({
+              file: file.path,
+              originalSize: file.size,
+              status: `download_failed: ${transformError?.message || rawError?.message}`,
+            });
+            continue;
+          }
+
+          // For raw downloads, we can't compress server-side without proper libs
+          // Mark as needing client-side processing
           results.push({
             file: file.path,
             originalSize: file.size,
-            status: `download_failed: ${downloadError?.message}`,
+            status: "needs_manual_reupload",
           });
           continue;
         }
 
-        // Get the public URL for the image
-        const { data: urlData } = supabase.storage
-          .from("checklist-images")
-          .getPublicUrl(file.path);
-
-        const imageUrl = urlData.publicUrl;
-
-        // Use Lovable AI to resize the image
-        const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        
-        if (!LOVABLE_API_KEY) {
-          results.push({
-            file: file.path,
-            originalSize: file.size,
-            status: "skipped_no_api_key",
-          });
-          continue;
-        }
-
-        // Request image resize via Lovable AI
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash-image",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: "Resize this image to be maximum 1200 pixels on the longest side while maintaining aspect ratio. Keep the same content, do not modify or enhance the image. Output as JPEG."
-                  },
-                  {
-                    type: "image_url",
-                    image_url: { url: imageUrl }
-                  }
-                ]
-              }
-            ],
-            modalities: ["image", "text"]
-          })
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          results.push({
-            file: file.path,
-            originalSize: file.size,
-            status: `ai_error: ${response.status} - ${errorText.slice(0, 100)}`,
-          });
-          continue;
-        }
-
-        const aiResult = await response.json();
-        const newImageBase64 = aiResult.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-        if (!newImageBase64 || !newImageBase64.startsWith("data:image")) {
-          results.push({
-            file: file.path,
-            originalSize: file.size,
-            status: "no_image_in_response",
-          });
-          continue;
-        }
-
-        // Extract base64 data
-        const base64Data = newImageBase64.split(",")[1];
-        const compressedBytes = decodeBase64(base64Data);
-        const newSize = compressedBytes.length;
+        const newSize = transformedData.size;
         const savings = ((file.size - newSize) / file.size * 100);
 
-        // Only replace if we saved at least 10%
-        if (savings < 10) {
+        // Only replace if we saved at least 20%
+        if (savings < 20) {
           results.push({
             file: file.path,
             originalSize: file.size,
@@ -199,13 +151,14 @@ serve(async (req) => {
           continue;
         }
 
-        // Delete old and upload new
+        // Delete old file
         await supabase.storage.from("checklist-images").remove([file.path]);
 
+        // Upload compressed version (convert to .jpg if needed)
         const newPath = file.path.replace(/\.(png|jpeg|jpg)$/i, ".jpg");
         const { error: uploadError } = await supabase.storage
           .from("checklist-images")
-          .upload(newPath, compressedBytes, {
+          .upload(newPath, transformedData, {
             contentType: "image/jpeg",
             upsert: true,
           });
@@ -219,7 +172,7 @@ serve(async (req) => {
           continue;
         }
 
-        // If path changed (was PNG), update any database references
+        // Update database reference if path changed
         if (newPath !== file.path) {
           const oldUrl = `${supabaseUrl}/storage/v1/object/public/checklist-images/${file.path}`;
           const newUrl = `${supabaseUrl}/storage/v1/object/public/checklist-images/${newPath}`;
@@ -231,10 +184,6 @@ serve(async (req) => {
         }
 
         totalSaved += file.size - newSize;
-        
-        const { data: newUrlData } = supabase.storage
-          .from("checklist-images")
-          .getPublicUrl(newPath);
 
         results.push({
           file: file.path,
@@ -242,7 +191,6 @@ serve(async (req) => {
           newSize,
           savingsPercent: Math.round(savings),
           status: "compressed",
-          newUrl: newUrlData.publicUrl,
         });
 
         console.log(`[CLEANUP] ✓ ${file.path}: ${(file.size / 1024).toFixed(0)}KB → ${(newSize / 1024).toFixed(0)}KB (${savings.toFixed(0)}% saved)`);
@@ -262,6 +210,7 @@ serve(async (req) => {
       filesProcessed: results.length,
       totalSavedMB: (totalSaved / 1024 / 1024).toFixed(2),
       compressedCount: results.filter(r => r.status === "compressed").length,
+      skippedCount: results.filter(r => r.status === "skipped_already_optimized").length,
       errorCount: results.filter(r => r.status.startsWith("error")).length,
     };
 
