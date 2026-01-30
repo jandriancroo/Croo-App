@@ -19,22 +19,24 @@ export const triggerChatCountRefetch = () => {
   refetchEvent.dispatchEvent(new Event(REFETCH_EVENT));
 };
 
+const DEFAULT_COUNTS: ChatUnreadCounts = {
+  chats: 0,
+  announcements: 0,
+  marketplace: 0,
+  hiring: 0,
+  support: 0,
+  total: 0,
+};
+
 export function useChatUnreadCounts(locationId: string | null) {
   const { user } = useAuth();
-  const [counts, setCounts] = useState<ChatUnreadCounts>({
-    chats: 0,
-    announcements: 0,
-    marketplace: 0,
-    hiring: 0,
-    support: 0,
-    total: 0,
-  });
+  const [counts, setCounts] = useState<ChatUnreadCounts>(DEFAULT_COUNTS);
   const [loading, setLoading] = useState(true);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchCounts = useCallback(async () => {
     if (!user || !locationId) {
-      setCounts({ chats: 0, announcements: 0, marketplace: 0, hiring: 0, support: 0, total: 0 });
+      setCounts(DEFAULT_COUNTS);
       setLoading(false);
       return;
     }
@@ -42,154 +44,22 @@ export function useChatUnreadCounts(locationId: string | null) {
     const startTime = performance.now();
 
     try {
-      // Fetch all chats user is member of with their unread status
-      const { data: memberChats, error: memberError } = await supabase
-        .from('chat_members')
-        .select(`
-          chat_id,
-          last_read_at,
-          chats!inner(
-            id,
-            title,
-            is_announcement,
-            is_group,
-            location_id,
-            updated_at
-          )
-        `)
-        .eq('user_id', user.id);
+      // Single RPC call to get all counts
+      const { data, error } = await supabase.rpc('get_chat_unread_counts', {
+        _user_id: user.id,
+        _location_id: locationId,
+      });
 
-      if (memberError) throw memberError;
+      if (error) throw error;
 
-      // Get latest message per chat for accurate unread detection
-      const chatIds = memberChats?.map(m => m.chat_id) || [];
-      
-      if (chatIds.length === 0) {
-        setCounts({ chats: 0, announcements: 0, marketplace: 0, hiring: 0, support: 0, total: 0 });
-        setLoading(false);
-        return;
-      }
-
-      // Batch fetch latest messages
-      const { data: latestMessages } = await supabase
-        .from('messages')
-        .select('chat_id, sender_id, created_at')
-        .in('chat_id', chatIds)
-        .order('created_at', { ascending: false });
-
-      // Build map of latest message per chat
-      const latestPerChat = new Map<string, { sender_id: string; created_at: string }>();
-      for (const msg of latestMessages || []) {
-        if (!latestPerChat.has(msg.chat_id)) {
-          latestPerChat.set(msg.chat_id, { sender_id: msg.sender_id, created_at: msg.created_at });
-        }
-      }
-
-      // Calculate unread counts by category
-      let chatsCount = 0;
-      let announcementsCount = 0;
-      let marketplaceCount = 0;
-
-      for (const member of memberChats || []) {
-        const chat = member.chats as any;
-        if (!chat || chat.location_id !== locationId) continue;
-
-        const latest = latestPerChat.get(member.chat_id);
-        if (!latest) continue;
-
-        // Check if unread: latest message is from someone else AND after last_read_at
-        const isUnread = 
-          latest.sender_id !== user.id &&
-          (!member.last_read_at || new Date(latest.created_at) > new Date(member.last_read_at));
-
-        if (!isUnread) continue;
-
-        // Categorize
-        if (chat.title === 'Shift Marketplace') {
-          marketplaceCount++;
-        } else if (chat.is_announcement) {
-          announcementsCount++;
-        } else {
-          chatsCount++;
-        }
-      }
-
-      // Fetch hiring unread count (location-scoped; uses last_read_at tracking)
-      let hiringCount = 0;
-      try {
-        // 1) Load conversations for this location only
-        const { data: hiringConvs, error: convErr } = await supabase
-          .from('hiring_conversations')
-          .select(`
-            id,
-            last_read_at,
-            application:job_applications!inner(location_id)
-          `)
-          .eq('application.location_id', locationId);
-
-        if (convErr) throw convErr;
-
-        const convIds = (hiringConvs || []).map((c: any) => c.id as string);
-        if (convIds.length === 0) {
-          // nothing to count
-        } else {
-          // 2) Fetch latest message per conversation (ordered desc, then first occurrence)
-          const { data: hiringMsgs, error: msgErr } = await supabase
-            .from('hiring_messages')
-            .select('conversation_id, sender_type, created_at')
-            .in('conversation_id', convIds)
-            .order('created_at', { ascending: false });
-
-          if (msgErr) throw msgErr;
-
-          const latestPerConv = new Map<string, { sender_type: string; created_at: string }>();
-          for (const msg of hiringMsgs || []) {
-            if (!latestPerConv.has((msg as any).conversation_id)) {
-              latestPerConv.set((msg as any).conversation_id, {
-                sender_type: (msg as any).sender_type,
-                created_at: (msg as any).created_at,
-              });
-            }
-          }
-
-          for (const conv of hiringConvs || []) {
-            const latest = latestPerConv.get((conv as any).id);
-            if (!latest) continue;
-
-            const isUnread =
-              latest.sender_type === 'applicant' &&
-              (!(conv as any).last_read_at || new Date(latest.created_at) > new Date((conv as any).last_read_at));
-
-            if (isUnread) hiringCount++;
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching hiring unread:', err);
-      }
-
-      // Support count - for super admins, count open tickets
-      // Simple heuristic: any open/in_progress ticket = potential unread
-      let supportCount = 0;
-      try {
-        const { count } = await supabase
-          .from('support_tickets')
-          .select('id', { count: 'exact', head: true })
-          .in('status', ['open', 'in_progress']);
-        
-        supportCount = count || 0;
-      } catch {
-        // Support table might not exist for all users
-      }
-
-      const total = chatsCount + announcementsCount + marketplaceCount + hiringCount + supportCount;
-
+      const result = data as unknown as ChatUnreadCounts;
       setCounts({
-        chats: chatsCount,
-        announcements: announcementsCount,
-        marketplace: marketplaceCount,
-        hiring: hiringCount,
-        support: supportCount,
-        total,
+        chats: result?.chats ?? 0,
+        announcements: result?.announcements ?? 0,
+        marketplace: result?.marketplace ?? 0,
+        hiring: result?.hiring ?? 0,
+        support: result?.support ?? 0,
+        total: result?.total ?? 0,
       });
 
       const endTime = performance.now();
@@ -211,7 +81,7 @@ export function useChatUnreadCounts(locationId: string | null) {
   // Initial fetch and realtime subscription
   useEffect(() => {
     if (!user || !locationId) {
-      setCounts({ chats: 0, announcements: 0, marketplace: 0, hiring: 0, support: 0, total: 0 });
+      setCounts(DEFAULT_COUNTS);
       setLoading(false);
       return;
     }
@@ -230,7 +100,6 @@ export function useChatUnreadCounts(locationId: string | null) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         () => {
-          // Instant fetch on new message
           fetchCounts();
         }
       )
@@ -238,7 +107,6 @@ export function useChatUnreadCounts(locationId: string | null) {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` },
         () => {
-          // Instant fetch on read status update
           fetchCounts();
         }
       )
