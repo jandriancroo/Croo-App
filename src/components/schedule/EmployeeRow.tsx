@@ -6,6 +6,7 @@ import { ShiftCard } from "./ShiftCard";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Clock } from "lucide-react";
+import { getTodayInPST } from "@/utils/dateUtils";
 
 interface DayAvailability {
   available: boolean;
@@ -152,6 +153,7 @@ export function EmployeeRow({
 
       {weekDays.map((day, dayIndex) => {
       const cellDateStr = format(day, "yyyy-MM-dd");
+      const isToday = cellDateStr === getTodayInPST();
       // Filter by shift_date (source of truth) instead of day_of_week which can be inconsistent
       const dayShifts = shifts.filter(s => s.shift_date === cellDateStr);
       const dayAvailability = availabilityRequests.filter(r => {
@@ -179,7 +181,8 @@ export function EmployeeRow({
         currentUserId={currentUserId} 
         onEditShift={onEditShift} 
         isPublished={isPublished} 
-        publishedSnapshot={publishedSnapshot} 
+        publishedSnapshot={publishedSnapshot}
+        isToday={isToday}
       />;
     })}
     </div>;
@@ -195,7 +198,8 @@ function DayCell({
   currentUserId,
   onEditShift,
   isPublished,
-  publishedSnapshot
+  publishedSnapshot,
+  isToday = false
 }: {
   userId: string;
   dayIndex: number;
@@ -208,6 +212,7 @@ function DayCell({
   onEditShift?: (shift: any) => void;
   isPublished?: boolean;
   publishedSnapshot?: any[];
+  isToday?: boolean;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -234,7 +239,7 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
+  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isToday ? "bg-primary/5 ring-2 ring-inset ring-primary/20" : ""} ${isOver ? "bg-accent/50" : !isToday ? "hover:bg-muted/30" : "hover:bg-primary/10"}`}>
       <div className="space-y-1">
         {/* Weekly Availability Indicator */}
         {hasLimitedAvailability && userId !== "unassigned" && (

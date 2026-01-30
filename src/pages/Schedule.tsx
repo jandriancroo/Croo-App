@@ -1470,11 +1470,12 @@ export default function Schedule() {
                 const dayString = format(day, "yyyy-MM-dd");
                 const dayHolidays = holidays.filter(h => h.holiday_date === dayString);
                 const isBlackout = blackoutDates.includes(dayString);
+                const isToday = dayString === getTodayInTimezone();
                 
                 return (
                   <div 
                     key={index} 
-                    className={`text-center p-2 border-r last:border-r-0 border-border bg-muted/50 ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-muted transition-colors' : ''}`}
+                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary/10 ring-2 ring-inset ring-primary/30' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-muted transition-colors' : ''}`}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
@@ -1482,8 +1483,8 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className="font-semibold text-sm">{format(day, "EEE")}</div>
-                    <div className="text-xs text-muted-foreground">{format(day, "M/d")}</div>
+                    <div className={`font-semibold text-sm ${isToday ? 'text-primary' : ''}`}>{format(day, "EEE")}</div>
+                    <div className={`text-xs ${isToday ? 'text-primary/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
                     {dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
