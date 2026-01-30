@@ -536,7 +536,7 @@ export function LaborTotals({
             transition-all cursor-pointer text-xs font-medium
             ${isToolsOpen 
               ? 'bg-card text-foreground shadow-sm' 
-              : 'bg-muted/50 hover:bg-card text-muted-foreground hover:text-foreground'
+              : 'bg-muted hover:bg-card text-muted-foreground hover:text-foreground'
             }
           `}
         >
