@@ -465,8 +465,9 @@ export function LaborTotals({
   };
   
   const dailyTotals = useMemo(() => {
-    return weekDays.map((day, dayIndex) => {
-      const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
+    return weekDays.map((day) => {
+      const dayStr = format(day, 'yyyy-MM-dd');
+      const dayShifts = shifts.filter(s => s.shift_date === dayStr);
       let totalHours = 0;
       let totalWages = 0;
       dayShifts.forEach(shift => {
