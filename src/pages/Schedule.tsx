@@ -1630,9 +1630,9 @@ export default function Schedule() {
 
           {/* Floating Templates Bar - Bottom (Admin/Manager only) */}
           {(isAdmin || isManager) && (
-            <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
-              <div className="container max-w-7xl mx-auto px-4 py-2">
-                {/* Labor Totals Summary */}
+            <div className="fixed bottom-0 left-0 right-0 z-50">
+              <div className="container max-w-7xl mx-auto px-4 pb-2">
+                {/* Labor Lens - Floating above card */}
                 <LaborTotals
                   shifts={shifts}
                   profiles={profiles}
@@ -1641,8 +1641,8 @@ export default function Schedule() {
                   isEditable={isAdmin || isManager}
                 />
                 
-                {/* Shift Templates - Always visible */}
-                <div className="flex items-start gap-3 bg-muted/30 rounded-md p-2 mt-1">
+                {/* Shift Templates - In its own card */}
+                <div className="flex items-start gap-3 bg-card border border-border rounded-lg p-2 shadow-lg">
                   <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
                   {templates.length > 0 ? (
                     <div className="flex flex-wrap gap-2 flex-1">
