@@ -239,7 +239,7 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isToday ? "bg-primary/8" : ""} ${isOver ? "bg-accent/50" : !isToday ? "hover:bg-muted/30" : "hover:bg-primary/10"}`}>
+  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isToday ? "bg-primary/10" : ""} ${isOver ? "bg-accent/50" : !isToday ? "hover:bg-muted/30" : "hover:bg-primary/15"}`}>
       <div className="space-y-1">
         {/* Weekly Availability Indicator */}
         {hasLimitedAvailability && userId !== "unassigned" && (
