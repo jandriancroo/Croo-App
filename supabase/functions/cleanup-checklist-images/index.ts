@@ -7,8 +7,8 @@ const corsHeaders = {
 };
 
 /**
- * One-time cleanup function to compress existing checklist images
- * Uses canvas-based compression for proper JPEG quality control
+ * Cleanup function to compress existing checklist images
+ * Supports both counting and processing modes
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,12 +21,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Parse options
+    let mode = "process"; // "count" or "process"
     let dryRun = true;
     let limit = 10;
     let minSizeKb = 500;
 
     try {
       const body = await req.json();
+      mode = body.mode || "process";
       dryRun = body.dryRun !== false;
       limit = Math.min(body.limit || 10, 50);
       minSizeKb = body.minSizeKb || 500;
@@ -34,41 +36,103 @@ serve(async (req) => {
       // Use defaults
     }
 
-    console.log(`[CLEANUP] Starting - dryRun: ${dryRun}, limit: ${limit}, minSizeKb: ${minSizeKb}`);
+    console.log(`[CLEANUP] Mode: ${mode}, dryRun: ${dryRun}, limit: ${limit}, minSizeKb: ${minSizeKb}`);
 
-    // List folders and files
-    let filesToProcess: { path: string; size: number }[] = [];
+    // Collect all files from all folders
+    const allFiles: { path: string; size: number }[] = [];
+    let folderOffset = 0;
+    const folderBatchSize = 100;
+    
+    // Paginate through all folders
+    while (true) {
+      const { data: folders, error: folderError } = await supabase.storage
+        .from("checklist-images")
+        .list("", { limit: folderBatchSize, offset: folderOffset });
 
-    const { data: folders } = await supabase.storage
-      .from("checklist-images")
-      .list("", { limit: 200 });
+      if (folderError || !folders || folders.length === 0) break;
 
-    for (const folder of folders || []) {
-      if (!folder.metadata && filesToProcess.length < limit * 2) {
-        const { data: files } = await supabase.storage
-          .from("checklist-images")
-          .list(folder.name, { limit: 200 });
+      for (const folder of folders) {
+        // Skip if it's a file (has metadata)
+        if (folder.metadata) continue;
+        
+        // List files in this folder
+        let fileOffset = 0;
+        while (true) {
+          const { data: files, error: fileError } = await supabase.storage
+            .from("checklist-images")
+            .list(folder.name, { limit: 1000, offset: fileOffset });
 
-        for (const file of files || []) {
-          if (file.metadata) {
-            const size = (file.metadata as any).size || 0;
-            const mimetype = (file.metadata as any).mimetype || "";
-            if (size > minSizeKb * 1024 && mimetype.startsWith("image/")) {
-              filesToProcess.push({
-                path: `${folder.name}/${file.name}`,
-                size,
-              });
+          if (fileError || !files || files.length === 0) break;
+
+          for (const file of files) {
+            if (file.metadata) {
+              const size = (file.metadata as any).size || 0;
+              const mimetype = (file.metadata as any).mimetype || "";
+              if (mimetype.startsWith("image/")) {
+                allFiles.push({
+                  path: `${folder.name}/${file.name}`,
+                  size,
+                });
+              }
             }
           }
+
+          if (files.length < 1000) break;
+          fileOffset += 1000;
         }
       }
+
+      if (folders.length < folderBatchSize) break;
+      folderOffset += folderBatchSize;
     }
 
-    // Sort by size descending and limit
-    filesToProcess.sort((a, b) => b.size - a.size);
-    filesToProcess = filesToProcess.slice(0, limit);
+    console.log(`[CLEANUP] Found ${allFiles.length} total image files`);
 
-    console.log(`[CLEANUP] Found ${filesToProcess.length} files to process`);
+    // COUNT MODE - just return statistics
+    if (mode === "count") {
+      const thresholds = [500, 600, 700, 1000, 2000, 3000];
+      const counts: Record<string, number> = {};
+      const totalSizes: Record<string, number> = {};
+      
+      for (const threshold of thresholds) {
+        const matching = allFiles.filter(f => f.size > threshold * 1024);
+        counts[`>${threshold}KB`] = matching.length;
+        totalSizes[`>${threshold}KB_MB`] = Math.round(matching.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024);
+      }
+
+      // Size distribution
+      const distribution = {
+        "0-100KB": allFiles.filter(f => f.size <= 100 * 1024).length,
+        "100-300KB": allFiles.filter(f => f.size > 100 * 1024 && f.size <= 300 * 1024).length,
+        "300-500KB": allFiles.filter(f => f.size > 300 * 1024 && f.size <= 500 * 1024).length,
+        "500KB-1MB": allFiles.filter(f => f.size > 500 * 1024 && f.size <= 1024 * 1024).length,
+        "1-2MB": allFiles.filter(f => f.size > 1024 * 1024 && f.size <= 2048 * 1024).length,
+        "2-3MB": allFiles.filter(f => f.size > 2048 * 1024 && f.size <= 3072 * 1024).length,
+        ">3MB": allFiles.filter(f => f.size > 3072 * 1024).length,
+      };
+
+      const totalStorageMB = Math.round(allFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024);
+
+      return new Response(
+        JSON.stringify({ 
+          totalFiles: allFiles.length,
+          totalStorageMB,
+          counts,
+          totalSizes,
+          distribution,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // PROCESS MODE - compress files
+    // Filter and sort by size descending
+    let filesToProcess = allFiles
+      .filter(f => f.size > minSizeKb * 1024)
+      .sort((a, b) => b.size - a.size)
+      .slice(0, limit);
+
+    console.log(`[CLEANUP] Processing ${filesToProcess.length} files over ${minSizeKb}KB`);
 
     const results: {
       file: string;
@@ -85,7 +149,6 @@ serve(async (req) => {
         console.log(`[CLEANUP] Processing: ${file.path} (${(file.size / 1024).toFixed(0)}KB)`);
 
         if (dryRun) {
-          // Estimate ~300KB target
           const estimatedNewSize = Math.min(file.size * 0.1, 350 * 1024);
           results.push({
             file: file.path,
@@ -98,40 +161,21 @@ serve(async (req) => {
         }
 
         // Download using Supabase Storage transform API
-        // This resizes and compresses on-the-fly
         const { data: transformedData, error: transformError } = await supabase.storage
           .from("checklist-images")
           .download(file.path, {
             transform: {
               width: 1200,
               quality: 75,
-              format: "origin", // Keep format but apply quality
+              format: "origin",
             },
           });
 
         if (transformError || !transformedData) {
-          // If transform not available, download raw and we'll skip
-          console.log(`[CLEANUP] Transform not available for ${file.path}, trying raw download`);
-          
-          const { data: rawData, error: rawError } = await supabase.storage
-            .from("checklist-images")
-            .download(file.path);
-
-          if (rawError || !rawData) {
-            results.push({
-              file: file.path,
-              originalSize: file.size,
-              status: `download_failed: ${transformError?.message || rawError?.message}`,
-            });
-            continue;
-          }
-
-          // For raw downloads, we can't compress server-side without proper libs
-          // Mark as needing client-side processing
           results.push({
             file: file.path,
             originalSize: file.size,
-            status: "needs_manual_reupload",
+            status: `transform_failed: ${transformError?.message}`,
           });
           continue;
         }
@@ -154,7 +198,7 @@ serve(async (req) => {
         // Delete old file
         await supabase.storage.from("checklist-images").remove([file.path]);
 
-        // Upload compressed version (convert to .jpg if needed)
+        // Upload compressed version
         const newPath = file.path.replace(/\.(png|jpeg|jpg)$/i, ".jpg");
         const { error: uploadError } = await supabase.storage
           .from("checklist-images")
@@ -211,7 +255,7 @@ serve(async (req) => {
       totalSavedMB: (totalSaved / 1024 / 1024).toFixed(2),
       compressedCount: results.filter(r => r.status === "compressed").length,
       skippedCount: results.filter(r => r.status === "skipped_already_optimized").length,
-      errorCount: results.filter(r => r.status.startsWith("error")).length,
+      errorCount: results.filter(r => r.status.startsWith("error") || r.status.includes("failed")).length,
     };
 
     console.log("[CLEANUP] Complete:", JSON.stringify(summary));
