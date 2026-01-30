@@ -527,16 +527,17 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px] relative">
-      {/* Floating Tab */}
-      <div className="mb-1">
+      {/* Manila Folder Tab */}
+      <div className="flex items-end">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1.5 flex items-center gap-1.5 rounded-md
-            transition-colors cursor-pointer text-xs font-medium
+            px-4 py-1.5 flex items-center gap-1.5 rounded-t-lg
+            transition-all cursor-pointer text-xs font-medium
+            border border-b-0 border-border
             ${isToolsOpen 
-              ? 'bg-primary/10 text-primary' 
-              : 'bg-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+              ? 'bg-muted/50 text-foreground shadow-sm -mb-px z-10' 
+              : 'bg-muted/20 hover:bg-muted/40 text-muted-foreground hover:text-foreground'
             }
           `}
         >
@@ -548,7 +549,7 @@ export function LaborTotals({
 
       {/* Content Panel */}
       {isToolsOpen && (
-        <div className="border-x border-b border-border bg-muted/30 animate-accordion-down">
+        <div className="border border-border rounded-b-lg rounded-tr-lg bg-muted/30 animate-accordion-down">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
