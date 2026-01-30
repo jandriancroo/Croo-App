@@ -528,15 +528,15 @@ export function LaborTotals({
 
   return <div className="text-xs min-w-[700px] relative">
       {/* Schedule Tools - Floating above the card */}
-      <div className="absolute -top-9 left-0 z-10">
+      <div className="absolute -top-7 left-0 z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1.5 flex items-center gap-1.5 rounded-lg border shadow-sm
+            px-3 py-1.5 flex items-center gap-1.5 rounded-t-lg border-t border-x border-border
             transition-all cursor-pointer text-xs font-medium
             ${isToolsOpen 
-              ? 'bg-primary text-primary-foreground border-primary shadow-md' 
-              : 'bg-card hover:bg-muted/80 text-foreground border-border hover:shadow-md'
+              ? 'bg-card text-foreground shadow-sm' 
+              : 'bg-muted/50 hover:bg-card text-muted-foreground hover:text-foreground'
             }
           `}
         >
