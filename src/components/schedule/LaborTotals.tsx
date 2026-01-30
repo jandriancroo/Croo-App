@@ -526,12 +526,12 @@ export function LaborTotals({
     return null;
   }
 
-  return <div className="text-xs min-w-[700px] relative">
-      {/* Folder Tab - Right aligned */}
-      <div className="flex items-end justify-end">
+  return <div className="text-xs relative">
+      {/* Folder Tab - Right aligned, inline with templates */}
+      <div className="flex items-center justify-end mb-1">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
-          className="px-2 py-0.5 flex items-center gap-1 rounded-t-md border border-b-0 border-border transition-colors cursor-pointer text-xs font-medium bg-card text-muted-foreground hover:text-foreground"
+          className="px-2 py-0.5 flex items-center gap-1 rounded-md border border-border transition-colors cursor-pointer text-xs font-medium bg-card text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-3 w-3" />
           <span>Weekly Keys</span>
@@ -541,7 +541,7 @@ export function LaborTotals({
 
       {/* Content Panel */}
       {isToolsOpen && (
-        <div className="border-x border-b border-border bg-muted/30 animate-accordion-down">
+        <div className="min-w-[700px] border border-border rounded-md bg-muted/30 animate-accordion-down mb-1">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
