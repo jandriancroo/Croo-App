@@ -527,24 +527,23 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px] relative">
-      {/* Folder Tab */}
-      <div className="flex items-end">
+      {/* Floating Tab */}
+      <div className="mb-1">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1 flex items-center gap-1.5 rounded-t-md border border-b-0 border-border
+            px-3 py-1.5 flex items-center gap-1.5 rounded-md
             transition-colors cursor-pointer text-xs font-medium
             ${isToolsOpen 
-              ? 'bg-muted/50 text-foreground' 
-              : 'bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground'
+              ? 'bg-primary/10 text-primary' 
+              : 'bg-transparent hover:bg-muted/50 text-muted-foreground hover:text-foreground'
             }
           `}
         >
-          <BarChart3 className="h-3 w-3" />
-          <span>Schedule Tools</span>
-          {isToolsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          <BarChart3 className="h-3.5 w-3.5" />
+          <span>Labor Lens</span>
+          {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
-        <div className="flex-1 border-b border-border" />
       </div>
 
       {/* Content Panel */}
