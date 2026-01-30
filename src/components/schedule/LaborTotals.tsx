@@ -528,18 +528,10 @@ export function LaborTotals({
 
   return <div className="text-xs min-w-[700px] relative">
       {/* Folder Tab - Right aligned */}
-      <div className="flex items-end">
-        <div className="flex-1 border-b border-border" />
+      <div className="flex items-end justify-end">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
-          className={`
-            px-2 py-0.5 flex items-center gap-1 rounded-t-md border border-b-0 border-border
-            transition-colors cursor-pointer text-xs font-medium
-            ${isToolsOpen 
-              ? 'bg-muted/50 text-foreground' 
-              : 'bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground'
-            }
-          `}
+          className="px-2 py-0.5 flex items-center gap-1 rounded-t-md border border-b-0 border-border transition-colors cursor-pointer text-xs font-medium bg-card text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-3 w-3" />
           <span>Weekly Keys</span>
