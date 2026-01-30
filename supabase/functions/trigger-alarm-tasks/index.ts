@@ -197,6 +197,23 @@ Deno.serve(async (req) => {
           const alignedHour = Math.floor(boundaryMinuteOfDay / 60) % 24;
           const alignedMinute = boundaryMinuteOfDay % 60;
           matchedTimeStr = `${alignedHour.toString().padStart(2, '0')}:${alignedMinute.toString().padStart(2, '0')}`;
+          
+          // CRITICAL FIX: Enforce minimum gap based on frequency_minutes to prevent double-triggers
+          // If last_triggered_at is within (frequency_minutes - 2) minutes, skip this trigger
+          if (task.last_triggered_at) {
+            const lastTriggered = new Date(task.last_triggered_at);
+            const msSinceLastTrigger = now.getTime() - lastTriggered.getTime();
+            const minutesSinceLastTrigger = msSinceLastTrigger / (1000 * 60);
+            const minGapMinutes = intervalMinutes - 2; // Allow 2-minute tolerance
+            
+            if (minutesSinceLastTrigger < minGapMinutes) {
+              console.log(
+                `[Alarm Tasks] Task ${task.id}: Skipping - only ${minutesSinceLastTrigger.toFixed(1)}min since last trigger (min gap: ${minGapMinutes}min)`
+              );
+              continue;
+            }
+          }
+          
           shouldTrigger = true;
         }
 
