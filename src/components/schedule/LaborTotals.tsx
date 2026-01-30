@@ -162,9 +162,11 @@ export function LaborTotals({
   );
 
   // Auto-fill from Qu data:
-  // - Past days: use localStorage cache or fetch actuals
-  // - Today: fetch live from API (real-time pace)
-  // - Future days: read from sales_cache.projected_sales (fixed monthly projection)
+  // - Past days: use net_sales from sales_cache (fast)
+  // - Today: fetch live from API (slow - done in background)
+  // - Future days: read from sales_cache.projected_sales (fast)
+  // 
+  // OPTIMIZATION: Load cached data immediately, then fetch today's live data in background
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
@@ -178,6 +180,7 @@ export function LaborTotals({
         const futureDates: string[] = [];
         const pastDayIndexMap: Record<string, number> = {};
         const futureDayIndexMap: Record<string, number> = {};
+        let todayIndex: number | null = null;
         
         weekDays.forEach((day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
@@ -187,157 +190,115 @@ export function LaborTotals({
           if (isPast) {
             pastDates.push(dateStr);
             pastDayIndexMap[dateStr] = dayIndex;
-          } else if (!isTodayDate) {
+          } else if (isTodayDate) {
+            todayIndex = dayIndex;
+          } else {
             futureDates.push(dateStr);
             futureDayIndexMap[dateStr] = dayIndex;
           }
         });
         
-        // Batch fetch actuals for past dates from sales_cache
-        let cachedActuals: Record<string, number> = {};
-        if (pastDates.length > 0) {
-          const { data: pastData } = await supabase
-            .from('sales_cache')
-            .select('sale_date, net_sales')
-            .eq('location_id', currentLocation.id)
-            .in('sale_date', pastDates);
-          
-          if (pastData) {
-            pastData.forEach(row => {
-              if (row.net_sales && row.net_sales > 0) {
-                cachedActuals[row.sale_date] = row.net_sales;
-              }
-            });
-          }
-        }
+        // PHASE 1: Batch fetch from sales_cache (FAST - ~200ms)
+        // Fetch both past actuals and future projections in parallel
+        const [pastResponse, futureResponse, todayCacheResponse] = await Promise.all([
+          pastDates.length > 0 
+            ? supabase.from('sales_cache').select('sale_date, net_sales').eq('location_id', currentLocation.id).in('sale_date', pastDates)
+            : Promise.resolve({ data: null }),
+          futureDates.length > 0
+            ? supabase.from('sales_cache').select('sale_date, initial_projection, living_projection, override_projection, projected_sales').eq('location_id', currentLocation.id).in('sale_date', futureDates)
+            : Promise.resolve({ data: null }),
+          // Also try to get today's cached data for instant display
+          todayIndex !== null
+            ? supabase.from('sales_cache').select('sale_date, net_sales, initial_projection, living_projection, override_projection').eq('location_id', currentLocation.id).eq('sale_date', todayPST).maybeSingle()
+            : Promise.resolve({ data: null })
+        ]);
         
-        // Batch fetch cached projections for future dates from sales_cache
-        // Use new projection columns: override_projection > living_projection > initial_projection
-        let cachedProjections: Record<string, { value: number; source: 'override' | 'living' | 'initial' | 'ai' }> = {};
-        if (futureDates.length > 0) {
-          const { data: cacheData } = await supabase
-            .from('sales_cache')
-            .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
-            .eq('location_id', currentLocation.id)
-            .in('sale_date', futureDates);
-          
-          if (cacheData) {
-            cacheData.forEach(row => {
-              // Resolution priority: override > living > initial > legacy
-              const resolved = resolveProjection({
-                initial_projection: row.initial_projection,
-                living_projection: row.living_projection,
-                override_projection: row.override_projection,
-                projected_sales: row.projected_sales
-              });
-              
-              if (resolved.value && resolved.value > 0) {
-                cachedProjections[row.sale_date] = { 
-                  value: resolved.value, 
-                  source: resolved.source === 'legacy' ? 'ai' : resolved.source as 'override' | 'living' | 'initial'
-                };
-              }
-            });
-          }
-        }
-        
-        // Process all days
-        const salesPromises = weekDays.map(async (day, dayIndex) => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const isPast = dateStr < todayPST;
-          const isTodayDate = dateStr === todayPST;
-          
-          // PAST DAYS: Use net_sales from sales_cache
-          if (isPast) {
-            const actualSales = cachedActuals[dateStr];
-            if (actualSales) {
-              return { dayIndex, sales: Math.round(actualSales * 100) / 100, source: 'historical' as const };
-            }
-            // Fallback to localStorage cache
-            const cached = getCachedSalesData(currentLocation.id, dateStr);
-            if (cached) {
-              const salesValue = Math.round(cached.daily * 100) / 100;
-              return { dayIndex, sales: salesValue, source: 'historical' as const };
-            }
-          }
-          
-          // FUTURE DAYS: Use cached projection from sales_cache (with resolution priority)
-          if (!isPast && !isTodayDate) {
-            const cachedProjection = cachedProjections[dateStr];
-            if (cachedProjection) {
-              return { dayIndex, sales: Math.round(cachedProjection.value * 100) / 100, source: cachedProjection.source };
-            }
-            // No cached projection - will need to trigger a fetch to populate it
-          }
-          
-          // TODAY or cache miss: Fetch live from API
-          try {
-            // For "today", don't pass targetDate - let edge function use PST "today"
-            // This avoids timezone mismatch where browser thinks it's "tomorrow" but store is still "today"
-            const body = isTodayDate 
-              ? { locationId: currentLocation.id }
-              : { locationId: currentLocation.id, targetDate: dateStr };
-            
-            const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", { body });
-            
-            if (!error && data) {
-              // Cache past data for future use (localStorage)
-              if (isPast && data.daily > 0) {
-                setCachedSalesData(currentLocation.id, dateStr, {
-                  daily: data.daily,
-                  hourly: data.hourly || [],
-                  guestCount: data.guestCount || { daily: 0 }
-                });
-              }
-              
-              if (isPast) {
-                // Past days: use actual sales (historical)
-                const salesValue = Math.round((data.daily || 0) * 100) / 100;
-                return { dayIndex, sales: salesValue, source: 'historical' as const };
-              } else if (isTodayDate) {
-                // Today: use live actual sales (real-time)
-                const salesValue = Math.round((data.daily || 0) * 100) / 100;
-                return { dayIndex, sales: salesValue, source: 'historical' as const };
-              } else {
-                // Future: use projection (goal/target)
-                const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
-                return { dayIndex, sales: salesValue, source: 'ai' as const };
-              }
-            }
-          } catch (err) {
-            console.error(`Failed to fetch Qu sales for ${dateStr}:`, err);
-          }
-          return null;
-        });
-        
-        const results = await Promise.all(salesPromises);
-        
+        // Process cached data immediately
         const newSales: Record<number, number> = { ...projectedSales };
         const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = { ...salesSource };
         
-        results.forEach(result => {
-          if (result && result.sales > 0) {
-            const day = weekDays[result.dayIndex];
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const isPastDay = dayStr <= todayPST;
+        // Past days from net_sales
+        if (pastResponse.data) {
+          pastResponse.data.forEach(row => {
+            if (row.net_sales && row.net_sales > 0) {
+              const dayIndex = pastDayIndexMap[row.sale_date];
+              if (dayIndex !== undefined) {
+                newSales[dayIndex] = Math.round(row.net_sales * 100) / 100;
+                newSources[dayIndex] = 'historical';
+              }
+            }
+          });
+        }
+        
+        // Future days from projections
+        if (futureResponse.data) {
+          futureResponse.data.forEach(row => {
+            const resolved = resolveProjection({
+              initial_projection: row.initial_projection,
+              living_projection: row.living_projection,
+              override_projection: row.override_projection,
+              projected_sales: row.projected_sales
+            });
             
-            // For past/today days: always use actuals and mark as historical
-            // For future days: only auto-fill if no manual entry exists
-            if (isPastDay) {
-              newSales[result.dayIndex] = result.sales;
-              newSources[result.dayIndex] = 'historical';
-            } else if (!projectedSales[result.dayIndex]) {
-              newSales[result.dayIndex] = result.sales;
-              newSources[result.dayIndex] = result.source;
+            if (resolved.value && resolved.value > 0) {
+              const dayIndex = futureDayIndexMap[row.sale_date];
+              if (dayIndex !== undefined && !projectedSales[dayIndex]) {
+                newSales[dayIndex] = Math.round(resolved.value * 100) / 100;
+                newSources[dayIndex] = resolved.source === 'legacy' ? 'ai' : resolved.source as 'override' | 'living' | 'initial';
+              }
+            }
+          });
+        }
+        
+        // Today's cached data (show immediately while live fetch happens)
+        if (todayCacheResponse.data && todayIndex !== null) {
+          const row = todayCacheResponse.data;
+          // Use net_sales if available (from recent sync), otherwise use projection as placeholder
+          if (row.net_sales && row.net_sales > 0) {
+            newSales[todayIndex] = Math.round(row.net_sales * 100) / 100;
+            newSources[todayIndex] = 'living';
+          } else {
+            const resolved = resolveProjection({
+              initial_projection: row.initial_projection,
+              living_projection: row.living_projection,
+              override_projection: row.override_projection,
+              projected_sales: null
+            });
+            if (resolved.value && resolved.value > 0) {
+              newSales[todayIndex] = Math.round(resolved.value * 100) / 100;
+              newSources[todayIndex] = 'initial';
             }
           }
-        });
+        }
         
+        // Update state immediately with cached data
         setProjectedSales(newSales);
         setSalesSource(newSources);
+        setIsLoadingQuSales(false);
+        
+        // PHASE 2: Fetch today's LIVE data in background (SLOW - ~10s)
+        // This updates the display when ready without blocking initial render
+        if (todayIndex !== null) {
+          supabase.functions.invoke("fetch-qubeyond-sales", { 
+            body: { locationId: currentLocation.id } 
+          }).then(({ data, error }) => {
+            if (!error && data && data.daily > 0) {
+              setProjectedSales(prev => ({
+                ...prev,
+                [todayIndex as number]: Math.round(data.daily * 100) / 100
+              }));
+              setSalesSource(prev => ({
+                ...prev,
+                [todayIndex as number]: 'living'
+              }));
+            }
+          }).catch(err => {
+            console.error('Failed to fetch live sales for today:', err);
+          });
+        }
+        
       } catch (error) {
-        console.error('Error fetching Qu sales data:', error);
-      } finally {
+        console.error('Error fetching sales data:', error);
         setIsLoadingQuSales(false);
       }
     };
