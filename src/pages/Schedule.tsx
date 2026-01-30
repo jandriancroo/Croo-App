@@ -1475,7 +1475,7 @@ export default function Schedule() {
                 return (
                   <div 
                     key={index} 
-                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary/10' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-muted transition-colors' : ''}`}
+                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground rounded-md' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
@@ -1483,8 +1483,8 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className={`font-semibold text-sm ${isToday ? 'text-primary' : ''}`}>{format(day, "EEE")}</div>
-                    <div className={`text-xs ${isToday ? 'text-primary/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
+                    <div className={`font-semibold text-sm`}>{format(day, "EEE")}</div>
+                    <div className={`text-xs ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
                     {dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
