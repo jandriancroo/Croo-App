@@ -526,22 +526,30 @@ export function LaborTotals({
     return null;
   }
 
-  return <div className="text-xs relative">
-      {/* Folder Tab - Right aligned, inline with templates */}
-      <div className="flex items-center justify-end mb-1">
+  return <div className="text-xs min-w-[700px] relative">
+      {/* Folder Tab */}
+      <div className="flex items-end">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
-          className="px-2 py-0.5 flex items-center gap-1 rounded-md border border-border transition-colors cursor-pointer text-xs font-medium bg-card text-muted-foreground hover:text-foreground"
+          className={`
+            px-3 py-1 flex items-center gap-1.5 rounded-t-md border border-b-0 border-border
+            transition-colors cursor-pointer text-xs font-medium
+            ${isToolsOpen 
+              ? 'bg-muted/50 text-foreground' 
+              : 'bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground'
+            }
+          `}
         >
           <BarChart3 className="h-3 w-3" />
-          <span>Weekly Keys</span>
+          <span>Schedule Tools</span>
           {isToolsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
         </button>
+        <div className="flex-1 border-b border-border" />
       </div>
 
       {/* Content Panel */}
       {isToolsOpen && (
-        <div className="min-w-[700px] border border-border rounded-md bg-muted/30 animate-accordion-down mb-1">
+        <div className="border-x border-b border-border bg-muted/30 animate-accordion-down">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
