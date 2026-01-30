@@ -162,8 +162,10 @@ export function LaborTotals({
       
       setIsLoadingQuSales(true);
       try {
-        // Collect all future dates to batch-fetch from sales_cache
+        // Collect past and future dates to batch-fetch from sales_cache
+        const pastDates: string[] = [];
         const futureDates: string[] = [];
+        const pastDayIndexMap: Record<string, number> = {};
         const futureDayIndexMap: Record<string, number> = {};
         
         weekDays.forEach((day, dayIndex) => {
@@ -171,11 +173,32 @@ export function LaborTotals({
           const isPast = isBefore(day, today);
           const isTodayDate = isToday(day);
           
-          if (!isPast && !isTodayDate) {
+          if (isPast) {
+            pastDates.push(dateStr);
+            pastDayIndexMap[dateStr] = dayIndex;
+          } else if (!isTodayDate) {
             futureDates.push(dateStr);
             futureDayIndexMap[dateStr] = dayIndex;
           }
         });
+        
+        // Batch fetch actuals for past dates from sales_cache
+        let cachedActuals: Record<string, number> = {};
+        if (pastDates.length > 0) {
+          const { data: pastData } = await supabase
+            .from('sales_cache')
+            .select('sale_date, net_sales')
+            .eq('location_id', currentLocation.id)
+            .in('sale_date', pastDates);
+          
+          if (pastData) {
+            pastData.forEach(row => {
+              if (row.net_sales && row.net_sales > 0) {
+                cachedActuals[row.sale_date] = row.net_sales;
+              }
+            });
+          }
+        }
         
         // Batch fetch cached projections for future dates from sales_cache
         // Use new projection columns: override_projection > living_projection > initial_projection
@@ -213,8 +236,13 @@ export function LaborTotals({
           const isPast = isBefore(day, today);
           const isTodayDate = isToday(day);
           
-          // PAST DAYS: Check localStorage cache first
+          // PAST DAYS: Use net_sales from sales_cache
           if (isPast) {
+            const actualSales = cachedActuals[dateStr];
+            if (actualSales) {
+              return { dayIndex, sales: Math.round(actualSales * 100) / 100, source: 'historical' as const };
+            }
+            // Fallback to localStorage cache
             const cached = getCachedSalesData(currentLocation.id, dateStr);
             if (cached) {
               const salesValue = Math.round(cached.daily * 100) / 100;
