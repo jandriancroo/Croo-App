@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, addDays, isBefore, isToday, startOfDay } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -14,6 +14,16 @@ import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { useAuth } from '@/lib/auth';
 
+// Get current date in PST timezone (YYYY-MM-DD format)
+function getTodayPST(): string {
+  const now = new Date();
+  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const pstDate = new Date(pstString);
+  const year = pstDate.getFullYear();
+  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(pstDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 interface Profile {
   id: string;
   full_name: string;
@@ -158,7 +168,7 @@ export function LaborTotals({
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
       
-      const today = startOfDay(new Date());
+      const todayPST = getTodayPST();
       
       setIsLoadingQuSales(true);
       try {
@@ -170,8 +180,8 @@ export function LaborTotals({
         
         weekDays.forEach((day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
-          const isPast = isBefore(day, today);
-          const isTodayDate = isToday(day);
+          const isPast = dateStr < todayPST;
+          const isTodayDate = dateStr === todayPST;
           
           if (isPast) {
             pastDates.push(dateStr);
@@ -233,8 +243,8 @@ export function LaborTotals({
         // Process all days
         const salesPromises = weekDays.map(async (day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
-          const isPast = isBefore(day, today);
-          const isTodayDate = isToday(day);
+          const isPast = dateStr < todayPST;
+          const isTodayDate = dateStr === todayPST;
           
           // PAST DAYS: Use net_sales from sales_cache
           if (isPast) {
@@ -303,7 +313,8 @@ export function LaborTotals({
         results.forEach(result => {
           if (result && result.sales > 0) {
             const day = weekDays[result.dayIndex];
-            const isPastDay = isBefore(day, today) || isToday(day);
+            const dayStr = format(day, 'yyyy-MM-dd');
+            const isPastDay = dayStr <= todayPST;
             
             // For past/today days: always use actuals and mark as historical
             // For future days: only auto-fill if no manual entry exists
@@ -382,9 +393,9 @@ export function LaborTotals({
     
     const day = weekDays[dayIndex];
     const dateStr = format(day, 'yyyy-MM-dd');
-    const today = startOfDay(new Date());
-    const isPast = isBefore(day, today);
-    const isTodayDate = isToday(day);
+    const todayPST = getTodayPST();
+    const isPast = dateStr < todayPST;
+    const isTodayDate = dateStr === todayPST;
     
     try {
       // Clear override from sales_cache
@@ -649,8 +660,9 @@ export function LaborTotals({
           const isOverride = source === 'override' || source === 'manual';
           
           // Determine if this is a past day (no reload possible - use actuals)
-          const today = startOfDay(new Date());
-          const isPastDay = isBefore(day, today) || isToday(day);
+          const dayStr = format(day, 'yyyy-MM-dd');
+          const todayPST = getTodayPST();
+          const isPastDay = dayStr <= todayPST;
           
           // Only show reload button for future days with overrides
           const canReload = isOverride && !isPastDay;
