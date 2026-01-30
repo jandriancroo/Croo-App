@@ -661,7 +661,7 @@ export function LaborTotals({
               const dayStr = format(weekDays[index], 'yyyy-MM-dd');
               const isToday = dayStr === getTodayPST();
               return (
-                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${isToday ? 'bg-primary/8' : ''}`}>
+                <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1 ${isToday ? 'bg-primary/10' : ''}`}>
                   {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
                       <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
                       {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
@@ -687,7 +687,7 @@ export function LaborTotals({
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${isToday ? 'bg-primary/8' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${isToday ? 'bg-primary/10' : ''}`}>
               {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -708,7 +708,7 @@ export function LaborTotals({
         const dayStr = format(weekDays[index], 'yyyy-MM-dd');
         const isToday = dayStr === getTodayPST();
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${isToday ? 'bg-primary/8' : ''}`}>
+        return <div key={index} className={`px-2 py-1 border-r border-border text-center flex items-center justify-center ${isToday ? 'bg-primary/10' : ''}`}>
               {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
@@ -740,7 +740,7 @@ export function LaborTotals({
           const canReload = isOverride && !isPastDay;
           
           // Determine background color based on source (today highlight takes precedence)
-          const bgClass = isToday ? 'bg-primary/8' :
+          const bgClass = isToday ? 'bg-primary/10' :
                          isHistorical ? 'bg-green-500/10' : 
                          isOverride ? 'bg-amber-500/10' : 
                          isLiving ? 'bg-primary/5' : '';
