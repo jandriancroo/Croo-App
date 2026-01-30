@@ -1642,7 +1642,7 @@ export default function Schedule() {
                 />
                 
                 {/* Shift Templates - Always visible */}
-                <div className="flex items-start gap-3 border-t border-border pt-1">
+                <div className="flex items-start gap-3 bg-muted/30 rounded-md p-2 mt-1">
                   <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
                   {templates.length > 0 ? (
                     <div className="flex flex-wrap gap-2 flex-1">
