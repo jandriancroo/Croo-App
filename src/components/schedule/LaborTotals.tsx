@@ -527,29 +527,28 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px] relative">
-      {/* Folder Tab */}
-      <div className="flex items-end">
+      {/* Schedule Tools - Floating above the card */}
+      <div className="absolute -top-9 left-0 z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
-            px-3 py-1 flex items-center gap-1.5 rounded-t-md border border-b-0 border-border
-            transition-colors cursor-pointer text-xs font-medium
+            px-3 py-1.5 flex items-center gap-1.5 rounded-lg border shadow-sm
+            transition-all cursor-pointer text-xs font-medium
             ${isToolsOpen 
-              ? 'bg-muted/50 text-foreground' 
-              : 'bg-background hover:bg-muted/30 text-muted-foreground hover:text-foreground'
+              ? 'bg-primary text-primary-foreground border-primary shadow-md' 
+              : 'bg-card hover:bg-muted/80 text-foreground border-border hover:shadow-md'
             }
           `}
         >
-          <BarChart3 className="h-3 w-3" />
+          <BarChart3 className="h-3.5 w-3.5" />
           <span>Schedule Tools</span>
-          {isToolsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
-        <div className="flex-1 border-b border-border" />
       </div>
 
       {/* Content Panel */}
       {isToolsOpen && (
-        <div className="border-x border-b border-border bg-muted/30 animate-accordion-down">
+        <div className="border border-border rounded-lg bg-card shadow-md overflow-hidden animate-accordion-down mb-2">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
