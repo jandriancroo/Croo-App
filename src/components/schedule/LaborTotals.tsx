@@ -565,8 +565,49 @@ export function LaborTotals({
               </div>)}
           </div>
 
-      {/* Projected Sales Row */}
+      {/* Labor Percentage Row */}
       <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">Labor %</span>
+          {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {weeklyTotals.laborPercent.toFixed(1)}%
+            </span> : <span className="text-xs text-muted-foreground">-</span>}
+        </div>
+        {dailyTotals.map((day, index) => {
+        const sales = projectedSales[index] || 0;
+        const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
+        const isGood = laborPercent > 0 && laborPercent <= 30;
+        const isWarning = laborPercent > 30 && laborPercent <= 35;
+        const isBad = laborPercent > 35;
+        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
+              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+                  {laborPercent.toFixed(1)}%
+                </span> : <span className="text-xs text-muted-foreground">-</span>}
+            </div>;
+      })}
+      </div>
+
+      {/* Sales Per Labor Hour Row */}
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
+        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
+          <span className="text-xs font-semibold">$/LH</span>
+          {(() => {
+          const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
+          return weeklySalesPerLH > 0 ? <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
+        })()}
+        </div>
+        {dailyTotals.map((day, index) => {
+        const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
+        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
+              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
+                  ${salesPerLH.toFixed(2)}
+                </span> : <span className="text-xs text-muted-foreground">-</span>}
+            </div>;
+      })}
+        </div>
+
+      {/* Projected Sales Row - Now at bottom */}
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
         <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
           <span className="text-xs font-semibold">Sales</span>
           {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
@@ -633,7 +674,6 @@ export function LaborTotals({
                       </Tooltip>
                     </TooltipProvider>
                   )}
-                  {/* Pencil icon removed - amber border already indicates override */}
                   {isHistorical && (
                     <TooltipProvider>
                       <Tooltip>
@@ -673,7 +713,6 @@ export function LaborTotals({
                   </p>
                   {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
                   {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
-                  {/* Pencil icon removed - amber border already indicates override */}
                   {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
                 </div>
               )}
@@ -681,47 +720,6 @@ export function LaborTotals({
           );
         })}
       </div>
-
-      {/* Labor Percentage Row */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">Labor %</span>
-          {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
-              {weeklyTotals.laborPercent.toFixed(1)}%
-            </span> : <span className="text-xs text-muted-foreground">-</span>}
-        </div>
-        {dailyTotals.map((day, index) => {
-        const sales = projectedSales[index] || 0;
-        const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
-        const isGood = laborPercent > 0 && laborPercent <= 30;
-        const isWarning = laborPercent > 30 && laborPercent <= 35;
-        const isBad = laborPercent > 35;
-        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
-                  {laborPercent.toFixed(1)}%
-                </span> : <span className="text-xs text-muted-foreground">-</span>}
-            </div>;
-      })}
-      </div>
-
-      {/* Sales Per Labor Hour Row */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0">
-        <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
-          <span className="text-xs font-semibold">$/LH</span>
-          {(() => {
-          const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
-          return weeklySalesPerLH > 0 ? <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span> : <span className="text-xs text-muted-foreground">-</span>;
-        })()}
-        </div>
-        {dailyTotals.map((day, index) => {
-        const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
-        return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
-                  ${salesPerLH.toFixed(2)}
-                </span> : <span className="text-xs text-muted-foreground">-</span>}
-            </div>;
-      })}
-        </div>
         </div>
       )}
     </div>;
