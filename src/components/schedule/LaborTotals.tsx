@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { ScheduleToolsPanel } from './ScheduleToolsPanel';
 
@@ -43,28 +41,14 @@ export function LaborTotals({
   }
 
   return (
-    <>
-      {/* Floating trigger button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsToolsOpen(true)}
-        className="gap-1.5"
-      >
-        <BarChart3 className="h-4 w-4" />
-        <span>Schedule Tools</span>
-      </Button>
-
-      {/* Side panel */}
-      <ScheduleToolsPanel
-        shifts={shifts}
-        profiles={profiles}
-        currentWeekStart={currentWeekStart}
-        scheduleId={scheduleId}
-        isEditable={isEditable}
-        open={isToolsOpen}
-        onOpenChange={setIsToolsOpen}
-      />
-    </>
+    <ScheduleToolsPanel
+      shifts={shifts}
+      profiles={profiles}
+      currentWeekStart={currentWeekStart}
+      scheduleId={scheduleId}
+      isEditable={isEditable}
+      open={isToolsOpen}
+      onOpenChange={setIsToolsOpen}
+    />
   );
 }
