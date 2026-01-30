@@ -78,6 +78,7 @@ export function LaborTotals({
   const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'>>({});
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
+  const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
   const { user } = useAuth();
 
   // Compute a stable key for shifts to trigger wage refetch
@@ -344,6 +345,46 @@ export function LaborTotals({
     fetchQuSalesData();
   }, [currentLocation?.id, isLoadingSales, weekDatesKey]);
 
+  // Fetch actual labor data from labor_cache for past days
+  useEffect(() => {
+    const fetchActualLabor = async () => {
+      if (!currentLocation?.id) return;
+      
+      const todayPST = getTodayPST();
+      const pastDates = weekDays
+        .map(d => format(d, 'yyyy-MM-dd'))
+        .filter(dateStr => dateStr < todayPST);
+      
+      if (pastDates.length === 0) {
+        setActualLabor({});
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('labor_cache')
+        .select('labor_date, labor_hours, labor_cost')
+        .eq('location_id', currentLocation.id)
+        .in('labor_date', pastDates);
+      
+      if (error) {
+        console.error('Error fetching actual labor:', error);
+        return;
+      }
+      
+      const laborMap: Record<string, { hours: number; cost: number }> = {};
+      data?.forEach(row => {
+        laborMap[row.labor_date] = {
+          hours: row.labor_hours || 0,
+          cost: row.labor_cost || 0
+        };
+      });
+      
+      setActualLabor(laborMap);
+    };
+    
+    fetchActualLabor();
+  }, [currentLocation?.id, weekDatesKey]);
+
   const handleSalesChange = async (dayIndex: number, value: string) => {
     if (!currentLocation?.id) return;
     const numValue = parseFloat(value) || 0;
@@ -508,8 +549,23 @@ export function LaborTotals({
   };
   
   const dailyTotals = useMemo(() => {
+    const todayPST = getTodayPST();
+    
     return weekDays.map((day) => {
       const dayStr = format(day, 'yyyy-MM-dd');
+      const isPast = dayStr < todayPST;
+      
+      // For past days: use actual labor from labor_cache
+      if (isPast && actualLabor[dayStr]) {
+        return {
+          date: format(day, 'EEE'),
+          hours: actualLabor[dayStr].hours,
+          wages: actualLabor[dayStr].cost,
+          isActual: true
+        };
+      }
+      
+      // For today and future: calculate from scheduled shifts
       const dayShifts = shifts.filter(s => s.shift_date === dayStr);
       let totalHours = 0;
       let totalWages = 0;
@@ -545,10 +601,11 @@ export function LaborTotals({
       return {
         date: format(day, 'EEE'),
         hours: totalHours,
-        wages: totalWages
+        wages: totalWages,
+        isActual: false
       };
     });
-  }, [shifts, profiles, weekDays, shiftWages, isLoadingWages]);
+  }, [shifts, profiles, weekDays, shiftWages, isLoadingWages, actualLabor]);
   const weeklyTotals = useMemo(() => {
     const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
     const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);
