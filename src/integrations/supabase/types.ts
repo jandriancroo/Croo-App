@@ -5420,6 +5420,10 @@ export type Database = {
       }
       generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
+      get_chat_unread_counts: {
+        Args: { _location_id: string; _user_id: string }
+        Returns: Json
+      }
       get_current_wage: {
         Args: { p_date?: string; p_user_id: string }
         Returns: number
