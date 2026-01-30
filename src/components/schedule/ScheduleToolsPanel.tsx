@@ -40,7 +40,6 @@ interface ScheduleToolsPanelProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Fetch wages for a specific user+date combo
 async function fetchWageForShift(userId: string, shiftDate: string): Promise<number | null> {
   try {
     const { data, error } = await supabase.rpc('get_current_wage', {
@@ -75,12 +74,10 @@ export function ScheduleToolsPanel({
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
   const { user } = useAuth();
 
-  // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
     return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}`).join('|');
   }, [shifts]);
 
-  // Use React Query for wage fetching with staleTime
   const { data: shiftWages = {}, isLoading: isLoadingWages } = useQuery({
     queryKey: ['shift-wages', shiftsKey],
     queryFn: async () => {
@@ -116,7 +113,6 @@ export function ScheduleToolsPanel({
     gcTime: 30 * 60 * 1000,
   });
 
-  // Fetch saved projected sales first
   useEffect(() => {
     const fetchProjectedSales = async () => {
       if (!scheduleId) {
@@ -147,13 +143,11 @@ export function ScheduleToolsPanel({
     fetchProjectedSales();
   }, [scheduleId]);
 
-  // Memoize the week dates string to prevent unnecessary re-fetches
   const weekDatesKey = useMemo(() => 
     weekDays.map(d => format(d, 'yyyy-MM-dd')).join(','), 
     [currentWeekStart]
   );
 
-  // Auto-fill from Qu data
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
@@ -460,7 +454,6 @@ export function ScheduleToolsPanel({
       });
       return {
         date: format(day, 'EEE'),
-        fullDate: format(day, 'MMM d'),
         hours: totalHours,
         wages: totalWages
       };
@@ -486,84 +479,175 @@ export function ScheduleToolsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="pb-4 border-b">
-          <SheetTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
+      <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto p-4">
+        <SheetHeader className="pb-3 border-b mb-3">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="h-4 w-4" />
             Schedule Tools
           </SheetTitle>
         </SheetHeader>
 
-        <div className="py-4 space-y-6">
-          {/* Weekly Summary Card */}
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-semibold">Weekly Summary</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Hours</p>
-                <p className="text-lg font-bold">{weeklyTotals.hours.toFixed(1)}h</p>
-              </div>
-              {canViewAllWages && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Total Wages</p>
-                  <p className="text-lg font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-muted-foreground">Total Sales</p>
-                <p className="text-lg font-bold flex items-center gap-1">
-                  ${weeklyTotals.sales.toFixed(0)}
-                  {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin" />}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Labor %</p>
-                <p className={`text-lg font-bold ${
-                  weeklyTotals.laborPercent <= 30 ? 'text-green-600' : 
-                  weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'
-                }`}>
-                  {weeklyTotals.laborPercent.toFixed(1)}%
-                </p>
-              </div>
+        <div className="text-xs space-y-0">
+          {/* Daily Labor Totals - Week Row */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-0 border-b border-border">
+            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <span className="text-xs font-semibold">Week</span>
+              <span className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</span>
+              {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
+            {dailyTotals.map((day, index) => (
+              <div key={index} className="px-1.5 py-1.5 border-r border-border text-center flex items-center justify-center gap-1">
+                {isLoadingWages ? (
+                  <span className="text-xs text-muted-foreground">...</span>
+                ) : (
+                  <>
+                    <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                    {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* Daily Breakdown */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Daily Breakdown</h3>
-            <div className="space-y-2">
-              {dailyTotals.map((day, index) => {
-                const sales = projectedSales[index] || 0;
-                const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
-                const salesPerLH = day.hours > 0 ? sales / day.hours : 0;
-                const source = salesSource[index];
-                const isLiving = source === 'living';
-                const isInitial = source === 'initial' || source === 'ai';
-                const isHistorical = source === 'historical';
-                const isOverride = source === 'override' || source === 'manual';
-                
-                const today = startOfDay(new Date());
-                const dayDate = weekDays[index];
-                const isPastDay = isBefore(dayDate, today) || isToday(dayDate);
-                const canReload = isOverride && !isPastDay;
+          {/* Labor Percentage Row */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-0 border-b border-border">
+            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <span className="text-xs font-semibold">Labor %</span>
+              {weeklyTotals.sales > 0 ? (
+                <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {weeklyTotals.laborPercent.toFixed(1)}%
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">-</span>
+              )}
+            </div>
+            {dailyTotals.map((day, index) => {
+              const sales = projectedSales[index] || 0;
+              const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
+              const isGood = laborPercent > 0 && laborPercent <= 30;
+              const isWarning = laborPercent > 30 && laborPercent <= 35;
+              const isBad = laborPercent > 35;
+              return (
+                <div key={index} className="px-1.5 py-1.5 border-r border-border text-center flex items-center justify-center">
+                  {isLoadingWages || isLoadingSales ? (
+                    <span className="text-xs text-muted-foreground">...</span>
+                  ) : sales > 0 ? (
+                    <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+                      {laborPercent.toFixed(1)}%
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-                return (
-                  <div 
-                    key={index} 
-                    className={`rounded-lg border p-3 space-y-2 ${
-                      isHistorical ? 'bg-green-500/5 border-green-500/20' :
-                      isOverride ? 'bg-amber-500/5 border-amber-500/20' :
-                      isLiving ? 'bg-primary/5 border-primary/20' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{day.date}</span>
-                        <span className="text-xs text-muted-foreground">{day.fullDate}</span>
-                        {isLiving && <Radio className="h-3 w-3 text-primary animate-pulse" />}
-                        {isInitial && <Sparkles className="h-3 w-3 text-primary/60" />}
-                        {isHistorical && <CheckCircle2 className="h-3 w-3 text-green-500" />}
-                      </div>
+          {/* Sales Per Labor Hour Row */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-0 border-b border-border">
+            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <span className="text-xs font-semibold">$/LH</span>
+              {(() => {
+                const weeklySalesPerLH = weeklyTotals.hours > 0 ? weeklyTotals.sales / weeklyTotals.hours : 0;
+                return weeklySalesPerLH > 0 ? (
+                  <span className="text-xs font-bold">${weeklySalesPerLH.toFixed(2)}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">-</span>
+                );
+              })()}
+            </div>
+            {dailyTotals.map((day, index) => {
+              const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
+              return (
+                <div key={index} className="px-1.5 py-1.5 border-r border-border text-center flex items-center justify-center">
+                  {isLoadingWages || isLoadingSales ? (
+                    <span className="text-xs text-muted-foreground">...</span>
+                  ) : day.hours > 0 && salesPerLH > 0 ? (
+                    <span className="text-xs font-semibold text-foreground">${salesPerLH.toFixed(2)}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Projected Sales Row */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-0">
+            <div className="px-2 py-1.5 border-r border-border bg-muted/50 flex items-center gap-1.5">
+              <span className="text-xs font-semibold">Sales</span>
+              {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              <span className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</span>
+            </div>
+            {weekDays.map((day, index) => {
+              const source = salesSource[index];
+              const isLiving = source === 'living';
+              const isInitial = source === 'initial' || source === 'ai';
+              const isHistorical = source === 'historical';
+              const isOverride = source === 'override' || source === 'manual';
+              
+              const today = startOfDay(new Date());
+              const isPastDay = isBefore(day, today) || isToday(day);
+              const canReload = isOverride && !isPastDay;
+              
+              const bgClass = isHistorical ? 'bg-green-500/10' : 
+                             isOverride ? 'bg-amber-500/10' : 
+                             isLiving ? 'bg-primary/5' : '';
+              
+              return (
+                <div key={index} className={`p-1 border-r border-border text-center relative ${bgClass}`}>
+                  {isEditable ? (
+                    <div className="relative flex items-center gap-0.5">
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        value={projectedSales[index] || ''} 
+                        onChange={e => handleSalesChange(index, e.target.value)} 
+                        className={`h-6 text-center text-xs p-1 flex-1 ${
+                          isLiving ? 'border-primary/30' : 
+                          isInitial ? 'border-primary/20' : 
+                          isOverride ? 'border-amber-500/30 bg-amber-500/5' :
+                          isHistorical ? 'border-green-500/30 bg-green-500/5' : ''
+                        }`} 
+                        placeholder="$0" 
+                      />
+                      {isLiving && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Radio className="h-3 w-3 text-primary animate-pulse shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">Live AI Projection</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {isInitial && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Sparkles className="h-3 w-3 text-primary/60 shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">AI Projection</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {isHistorical && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">Actual Sales</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {canReload && (
                         <TooltipProvider>
                           <Tooltip>
@@ -571,76 +655,42 @@ export function ScheduleToolsPanel({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6"
+                                className="h-5 w-5 p-0 shrink-0"
                                 onClick={() => handleReloadProjection(index)}
                               >
-                                <RotateCcw className="h-3 w-3" />
+                                <RotateCcw className="h-3 w-3 text-muted-foreground hover:text-primary" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent side="top">
                               <p className="text-xs">Clear override & reload AI projection</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
                     </div>
-                    
-                    <div className="grid grid-cols-4 gap-2 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">Hours</p>
-                        <p className="font-semibold">
-                          {isLoadingWages ? '...' : `${day.hours.toFixed(1)}h`}
-                        </p>
-                      </div>
-                      {canViewAllWages && (
-                        <div>
-                          <p className="text-muted-foreground">Wages</p>
-                          <p className="font-semibold">
-                            {isLoadingWages ? '...' : `$${day.wages.toFixed(0)}`}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-muted-foreground">Labor %</p>
-                        <p className={`font-semibold ${
-                          laborPercent <= 30 ? 'text-green-600' : 
-                          laborPercent <= 35 ? 'text-yellow-600' : 
-                          laborPercent > 35 ? 'text-red-600' : ''
-                        }`}>
-                          {sales > 0 ? `${laborPercent.toFixed(1)}%` : '-'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">$/LH</p>
-                        <p className="font-semibold">
-                          {day.hours > 0 && salesPerLH > 0 ? `$${salesPerLH.toFixed(0)}` : '-'}
-                        </p>
-                      </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-0.5 py-1">
+                      <p className="text-xs">
+                        {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
+                      </p>
+                      {isLiving && <Radio className="h-2.5 w-2.5 text-primary animate-pulse" />}
+                      {isInitial && <Sparkles className="h-2.5 w-2.5 text-primary/60" />}
+                      {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
                     </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Sales</p>
-                      {isEditable ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={projectedSales[index] || ''}
-                          onChange={e => handleSalesChange(index, e.target.value)}
-                          className="h-8 text-sm"
-                          placeholder="$0"
-                        />
-                      ) : (
-                        <p className="font-semibold">
-                          {isLoadingSales || isLoadingQuSales ? '...' : 
-                           projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Day Headers Row */}
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] gap-0 border-t border-border mt-2 pt-2">
+            <div className="px-2 py-1 text-xs font-medium text-muted-foreground">Day</div>
+            {weekDays.map((day, index) => (
+              <div key={index} className="px-1.5 py-1 text-center text-xs font-medium text-muted-foreground">
+                {format(day, 'EEE')}
+              </div>
+            ))}
           </div>
         </div>
       </SheetContent>
