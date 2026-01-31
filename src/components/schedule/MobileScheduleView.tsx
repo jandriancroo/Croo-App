@@ -4,7 +4,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
-import { EventCard } from './EventCard';
+import { MobileEventDialog } from './MobileEventDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
@@ -138,8 +138,9 @@ export function MobileScheduleView({
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
-  const [todayEvents, setTodayEvents] = useState<Event[]>([]);
+  const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
@@ -699,6 +700,16 @@ export function MobileScheduleView({
               >
                 <CalendarPlus className="h-4 w-4" />
               </Button>
+              {/* Add Event Button */}
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8"
+                onClick={() => setEventDialogOpen(true)}
+                title="Add Event"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+              </Button>
               {/* Three states: Go Live (unpublished), Update (published with changes), LIVE (published, no changes) */}
               {!isPublished ? (
                 <Button
@@ -924,6 +935,19 @@ export function MobileScheduleView({
           locationId={currentLocation.id}
           onPunchUpdated={() => {
             refetchPunches();
+            onUpdate?.();
+          }}
+        />
+      )}
+
+      {currentLocation?.id && scheduleId && (
+        <MobileEventDialog
+          open={eventDialogOpen}
+          onOpenChange={setEventDialogOpen}
+          scheduleId={scheduleId}
+          locationId={currentLocation.id}
+          selectedDayOfWeek={selectedDayOfWeek}
+          onEventCreated={() => {
             onUpdate?.();
           }}
         />
