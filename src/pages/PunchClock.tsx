@@ -730,7 +730,14 @@ export default function PunchClock() {
   };
 
   const canClockIn = () => {
+    // Cannot clock in if already clocked in
     if (lastPunch?.punch_type === 'clock_in') return false;
+    
+    // Cannot clock in if on break - must end break first
+    if (lastPunch?.punch_type === 'break_start') return false;
+    
+    // Cannot clock in if just returned from break (already in shift)
+    if (lastPunch?.punch_type === 'break_end') return false;
     
     // Check if clocking in without a schedule is allowed
     if (!todayShift) {
@@ -755,7 +762,20 @@ export default function PunchClock() {
   };
 
   const handleClockIn = async () => {
+    // Block if already clocked in
     if (lastPunch?.punch_type === 'clock_in') {
+      toast.error('You are already clocked in');
+      return;
+    }
+    
+    // Block if on break - must end break first
+    if (lastPunch?.punch_type === 'break_start') {
+      toast.error('You are on break. Please end your break first.');
+      return;
+    }
+    
+    // Block if just returned from break (already in active shift)
+    if (lastPunch?.punch_type === 'break_end') {
       toast.error('You are already clocked in');
       return;
     }
