@@ -372,10 +372,10 @@ export function AssignedTemporaryTasks({
             subtitle={task.description || undefined}
             icon={getIconComponent(task.icon_name || "ClipboardList")}
             accentColor={task.accent_color || "#8B5CF6"}
-            buttonLabel={task.write_up_id ? "Sign" : "Done"}
+            buttonLabel={task.write_up_id ? "Sign" : undefined}
             onAction={() => setSelectedTask(task)}
             taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
-            showShare={!task.write_up_id}
+            showShare={!task.write_up_id && !(counts?.total && counts.total > 0)}
             subtasksCompleted={counts?.completed}
             subtasksTotal={counts?.total}
           />
