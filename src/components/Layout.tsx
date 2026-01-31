@@ -181,17 +181,17 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                     if (showOrgBubble) setShowOrgBubble(false);
                     // Trigger bounce animation
                     setBouncingItem(item.path);
-                    setTimeout(() => setBouncingItem(null), 250);
+                    setTimeout(() => setBouncingItem(null), 300);
                     navigate(itemPath);
                   }}
                   onTouchStart={handleTouchStart}
                   onTouchEnd={handleTouchEnd}
                   onTouchCancel={handleTouchEnd}
-                  className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
+                  className={`dock-nav-button flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
                     isActive 
                       ? 'bg-white/20 text-accent-foreground' 
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
-                  } ${bouncingItem === item.path ? 'animate-dock-bounce' : ''}`}
+                  } ${bouncingItem === item.path ? 'dock-bouncing' : ''}`}
                 >
                   <Icon className="h-6 w-6" strokeWidth={1.5} />
                   <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
