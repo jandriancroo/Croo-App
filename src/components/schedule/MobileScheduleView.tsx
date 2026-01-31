@@ -4,7 +4,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck, UserPlus } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
@@ -507,6 +507,15 @@ export function MobileScheduleView({
               <h3 className="text-sm font-medium text-muted-foreground">
                 {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
               </h3>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setQuickPunchOpen(true)}
+                className="gap-1"
+              >
+                <UserPlus className="h-4 w-4" />
+                Quick Punch
+              </Button>
             </div>
             
             {/* Assigned Tasks - includes temp tasks, catering orders, event tasks */}
