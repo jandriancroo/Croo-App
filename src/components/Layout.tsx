@@ -189,8 +189,8 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
                   }`}
                 >
-                  <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
-                  <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                  <Icon className="h-6 w-6" strokeWidth={1.5} />
+                  <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
                   {showBadge && (
                     <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
                   )}

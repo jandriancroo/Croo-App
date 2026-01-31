@@ -45,13 +45,13 @@ export function TemporaryTaskCard({
   subtitle,
   icon: Icon,
   accentColor,
-  buttonLabel = "Done",
+  buttonLabel,
   isLoading = false,
   onAction,
   badge,
   taskStyle = "standard",
   iconStyle = "default",
-  showShare = true,
+  showShare = false,
   shareDetails,
   subtasksCompleted,
   subtasksTotal,
@@ -59,6 +59,9 @@ export function TemporaryTaskCard({
   const [shareOpen, setShareOpen] = useState(false);
   const hasSubtasks = subtasksTotal !== undefined && subtasksTotal > 0;
   const subtaskProgress = hasSubtasks ? (subtasksCompleted || 0) / subtasksTotal : 0;
+  
+  // Smart button label: "Start" for subtasks, "Done" for simple tasks
+  const resolvedButtonLabel = buttonLabel ?? (hasSubtasks ? "Start" : "Done");
 
   return (
     <>
@@ -129,7 +132,7 @@ export function TemporaryTaskCard({
               disabled={isLoading}
             >
               <Check className="h-3.5 w-3.5" />
-              {buttonLabel}
+              {resolvedButtonLabel}
             </Button>
             {showShare && (
               <Button
