@@ -1343,26 +1343,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   userRole={currentUserRole as any}
                   onDismiss={handlePostClockInDismiss}
                 />
-              ) : !isClockedIn ? (
-                <div className="space-y-4">
-                  <Button
-                    className="w-full h-16 text-lg"
-                    onClick={handleClockIn}
-                    disabled={!canClockIn()}
-                  >
-                    <Clock className="mr-2 h-5 w-5" />
-                    Clock In
-                  </Button>
-                  {!todayShift && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      You can clock in without a scheduled shift, but it will require admin approval in payroll.
-                    </p>
-                  )}
-                  <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
-                    Cancel
-                  </Button>
-                </div>
               ) : isOnBreak ? (
+                // IMPORTANT: Check isOnBreak BEFORE !isClockedIn
+                // When on break, lastPunch.punch_type === 'break_start', which makes isClockedIn false
+                // So we must check for break status first to show the break UI
                 <div className="space-y-3">
                   {/* On Break UI */}
                   <div className="text-center py-4 bg-amber-500/10 rounded-lg border border-amber-500/20">
@@ -1396,7 +1380,28 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     Back
                   </Button>
                 </div>
+              ) : !isClockedIn ? (
+                // Not clocked in - show Clock In button
+                <div className="space-y-4">
+                  <Button
+                    className="w-full h-16 text-lg"
+                    onClick={handleClockIn}
+                    disabled={!canClockIn()}
+                  >
+                    <Clock className="mr-2 h-5 w-5" />
+                    Clock In
+                  </Button>
+                  {!todayShift && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      You can clock in without a scheduled shift, but it will require admin approval in payroll.
+                    </p>
+                  )}
+                  <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
+                    Cancel
+                  </Button>
+                </div>
               ) : (
+                // Clocked in - show break options and clock out
                 <div className="space-y-3">
                   {!todayShift && (
                     <div className="text-center py-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
