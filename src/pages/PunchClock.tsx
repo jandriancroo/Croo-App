@@ -14,6 +14,7 @@ import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
 import { ManagerDashboardOverlay } from '@/components/punchclock/ManagerDashboardOverlay';
+import { ShiftSummaryCard } from '@/components/punchclock/ShiftSummaryCard';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -1278,64 +1279,40 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
           {/* Logo - larger size */}
           <div className="mb-8">
-            <img src={crooLogo} alt="Croo" className="h-32 w-auto" />
+            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
           </div>
           
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center space-y-2">
-              <div className="text-4xl font-bold text-primary">
-                {format(currentTime, 'h:mm:ss a')}
-              </div>
-              <CardTitle className="text-xl">Hello, {currentUser.full_name}!</CardTitle>
-              
-              {/* Certification Expiry Alerts */}
-              {expiringCerts.length > 0 && (
-                <Alert variant="destructive" className="mt-4 text-left">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Certification Expiring Soon!</AlertTitle>
-                  <AlertDescription>
-                    {expiringCerts.map((cert) => {
-                      const daysUntilExpiry = differenceInDays(
-                        new Date(cert.expiration_date),
-                        new Date()
-                      );
-                      const certTypeName = cert.certification_type === 'food_handlers' 
-                        ? 'Food Handlers Card' 
-                        : 'ServSafe Certification';
-                      
-                      return (
-                        <div key={cert.id} className="mt-1">
-                          Your <strong>{certTypeName}</strong> expires in{' '}
-                          <strong>{daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}</strong>
-                          {' '}({format(new Date(cert.expiration_date), 'MMM d, yyyy')}).
-                          Please upload your renewed certificate.
-                        </div>
-                      );
-                    })}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {todayShift && !isClockedIn && (
-                <p className="text-sm text-muted-foreground">
-                  Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
-                </p>
-              )}
-              {!todayShift && !isClockedIn && (
-                <p className="text-sm text-amber-600 font-medium">
-                  ⚠ Not scheduled today - punch will be flagged
-                </p>
-              )}
-              {todayShift && isClockedIn && (
-                <div className="mt-2 p-3 bg-primary/10 rounded-lg">
-                  <p className="text-sm font-medium mb-1">Today's Shift</p>
-                  <p className="text-lg font-bold">
-                    {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
-                  </p>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {showPostClockInTasks ? (
+          {/* Certification Expiry Alerts */}
+          {expiringCerts.length > 0 && (
+            <Alert variant="destructive" className="mb-4 max-w-md text-left">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Certification Expiring Soon!</AlertTitle>
+              <AlertDescription>
+                {expiringCerts.map((cert) => {
+                  const daysUntilExpiry = differenceInDays(
+                    new Date(cert.expiration_date),
+                    new Date()
+                  );
+                  const certTypeName = cert.certification_type === 'food_handlers' 
+                    ? 'Food Handlers Card' 
+                    : 'ServSafe Certification';
+                  
+                  return (
+                    <div key={cert.id} className="mt-1">
+                      Your <strong>{certTypeName}</strong> expires in{' '}
+                      <strong>{daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}</strong>
+                      {' '}({format(new Date(cert.expiration_date), 'MMM d, yyyy')}).
+                      Please upload your renewed certificate.
+                    </div>
+                  );
+                })}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {showPostClockInTasks ? (
+            <Card className="w-full max-w-md">
+              <CardContent className="p-6">
                 <PostClockInTasks
                   userId={currentUser.id}
                   locationId={currentLocation?.id || ''}
@@ -1343,111 +1320,35 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   userRole={currentUserRole as any}
                   onDismiss={handlePostClockInDismiss}
                 />
-              ) : isOnBreak ? (
-                // IMPORTANT: Check isOnBreak BEFORE !isClockedIn
-                // When on break, lastPunch.punch_type === 'break_start', which makes isClockedIn false
-                // So we must check for break status first to show the break UI
-                <div className="space-y-3">
-                  {/* On Break UI */}
-                  <div className="text-center py-4 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                    <Coffee className="h-8 w-8 mx-auto mb-2 text-amber-600" />
-                    <p className="text-lg font-semibold text-amber-700 dark:text-amber-400">
-                      On {breakStatus?.breakDuration} Min Break
-                    </p>
-                    {!breakStatus?.canEnd ? (
-                      <div className="mt-2">
-                        <p className="text-2xl font-mono font-bold text-amber-600">
-                          {Math.floor(breakStatus!.remaining / 60)}:{(breakStatus!.remaining % 60).toString().padStart(2, '0')}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">until you can clock back in</p>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-green-600 font-medium mt-2">Ready to clock back in!</p>
-                    )}
-                  </div>
-                  
-                  <Button
-                    variant={breakStatus?.canEnd ? 'default' : 'outline'}
-                    className={`w-full h-14 ${!breakStatus?.canEnd ? 'opacity-50' : ''}`}
-                    onClick={handleEndBreak}
-                    disabled={!breakStatus?.canEnd}
-                  >
-                    <Coffee className="mr-2 h-5 w-5" />
-                    {breakStatus?.canEnd ? 'End Break & Clock Back In' : `Wait ${Math.floor(breakStatus!.remaining / 60)}:${(breakStatus!.remaining % 60).toString().padStart(2, '0')}`}
-                  </Button>
-                  
-                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="w-full">
-                    Back
-                  </Button>
-                </div>
-              ) : !isClockedIn ? (
-                // Not clocked in - show Clock In button
-                <div className="space-y-4">
-                  <Button
-                    className="w-full h-16 text-lg"
-                    onClick={handleClockIn}
-                    disabled={!canClockIn()}
-                  >
-                    <Clock className="mr-2 h-5 w-5" />
-                    Clock In
-                  </Button>
-                  {!todayShift && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      You can clock in without a scheduled shift, but it will require admin approval in payroll.
-                    </p>
-                  )}
-                  <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                // Clocked in - show break options and clock out
-                <div className="space-y-3">
-                  {!todayShift && (
-                    <div className="text-center py-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">⚠ No Scheduled Shift</p>
-                    </div>
-                  )}
-                  {todayShift && (
-                    <div className="text-center py-2 bg-primary/10 rounded-lg">
-                      <p className="text-sm font-medium">Currently Clocked In</p>
-                    </div>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    className="w-full h-14"
-                    onClick={() => handleBreak('break_start', 30)}
-                  >
-                    <Coffee className="mr-2 h-5 w-5" />
-                    30 Min Meal Break (Unpaid)
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="w-full h-14"
-                    onClick={() => handleBreak('break_start', 10)}
-                  >
-                    <Coffee className="mr-2 h-5 w-5" />
-                    10 Min Break (Paid)
-                  </Button>
-                  
-                  <Button
-                    variant="destructive"
-                    className="w-full h-14"
-                    onClick={handleClockOut}
-                  >
-                    <LogOut className="mr-2 h-5 w-5" />
-                    Clock Out
-                  </Button>
-                  
-                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="w-full">
-                    Back
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <ShiftSummaryCard
+              user={{
+                id: currentUser.id,
+                full_name: currentUser.full_name,
+                profile_photo_url: currentUser.profile_photo_url,
+              }}
+              todayShift={todayShift}
+              lastPunch={lastPunch}
+              breakStatus={breakStatus}
+              locationId={currentLocation?.id || ''}
+              timezone={timezone}
+              onClockIn={handleClockIn}
+              onBreak={handleBreak}
+              onClockOut={handleClockOut}
+              onEndBreak={handleEndBreak}
+              onBack={() => {
+                setCurrentUser(null);
+                setPin('');
+                setTodayShift(null);
+                setLastPunch(null);
+              }}
+              canClockIn={canClockIn()}
+              isClockedIn={isClockedIn}
+              isOnBreak={isOnBreak}
+            />
+          )}
         </div>
       )}
 
