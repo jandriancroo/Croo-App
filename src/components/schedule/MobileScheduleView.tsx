@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
-import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
@@ -508,15 +507,6 @@ export function MobileScheduleView({
               <h3 className="text-sm font-medium text-muted-foreground">
                 {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
               </h3>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setQuickPunchOpen(true)}
-                className="gap-1"
-              >
-                <UserPlus className="h-4 w-4" />
-                Quick Punch
-              </Button>
             </div>
             
             {/* Assigned Tasks - includes temp tasks, catering orders, event tasks */}
@@ -674,14 +664,6 @@ export function MobileScheduleView({
           </div>
           {(isAdmin || isManager) && (
             <>
-              <Button 
-                size="sm" 
-                variant="ghost"
-                onClick={() => setQuickPunchOpen(true)}
-                title="Quick Punch"
-              >
-                <UserPlus className="h-5 w-5" />
-              </Button>
               <Button 
                 size="sm" 
                 variant="ghost"
