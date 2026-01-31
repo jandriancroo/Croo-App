@@ -305,24 +305,36 @@ export function ShiftSummaryCard({
             }
           </Button>
         ) : (
-          <>
-            <Button
-              variant="outline"
-              className="flex-1 h-14"
-              onClick={() => onBreak('break_start', 30)}
-            >
-              <Coffee className="mr-2 h-5 w-5" />
-              Break
-            </Button>
+          <div className="w-full space-y-3">
+            {/* Break Type Selection */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => onBreak('break_start', 30)}
+              >
+                <Coffee className="mr-2 h-4 w-4" />
+                30m Meal
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => onBreak('break_start', 10)}
+              >
+                <Coffee className="mr-2 h-4 w-4" />
+                10m Rest
+              </Button>
+            </div>
+            {/* End Shift */}
             <Button
               variant="destructive"
-              className="flex-1 h-14"
+              className="w-full h-14"
               onClick={onClockOut}
             >
               <LogOut className="mr-2 h-5 w-5" />
               End Shift
             </Button>
-          </>
+          </div>
         )}
       </div>
 
