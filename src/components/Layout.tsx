@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette } from 'lucide-react';
+import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Notebook, DoorOpen, Wallet, MapPin, NotebookPen, Briefcase, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -569,7 +569,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
-    icon: Scroll
+    icon: Notebook
   }] : []), {
     path: '/schedule',
     label: 'Schedule',
