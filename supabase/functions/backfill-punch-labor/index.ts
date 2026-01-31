@@ -182,14 +182,37 @@ function calculateDayHours(dayPunches: PunchRecord[]): number {
 }
 
 // ============================================================================
+// Helper: Get hour from timestamp in timezone
+// ============================================================================
+function getHourInTimezone(date: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    hour12: false
+  });
+  return parseInt(formatter.format(date), 10);
+}
+
+// ============================================================================
+// Helper: Get previous day string
+// ============================================================================
+function getPreviousDayString(dateStr: string): string {
+  const dateAtNoon = new Date(dateStr + 'T12:00:00Z');
+  dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
+  return dateAtNoon.toISOString().slice(0, 10);
+}
+
+// ============================================================================
 // Calculate labor for a specific date using the SAME logic as Time Tracking
+// INCLUDING overnight shift grouping with dynamic cutoff
 // ============================================================================
 async function calculateLaborFromPunches(
   supabaseClient: any,
   locationId: string,
   dateStr: string,
   timezone: string,
-  wageMap: Map<string, number>
+  wageMap: Map<string, number>,
+  cutoffByDayOfWeek: Map<number, number>
 ): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; doubleTimeHours: number; employeeBreakdown: any[] } | null> {
   try {
     // Fetch ALL punches for this location on this date (in PST)
@@ -197,8 +220,8 @@ async function calculateLaborFromPunches(
     const startOfDayPST = new Date(`${dateStr}T00:00:00-08:00`);
     const endOfDayPST = new Date(`${dateStr}T23:59:59-08:00`);
     
-    // Expand range to catch overnight shifts (look back 8h, look ahead 16h)
-    const queryStart = new Date(startOfDayPST.getTime() - 8 * 60 * 60 * 1000);
+    // Expand range to catch overnight shifts (look back 12h, look ahead 16h)
+    const queryStart = new Date(startOfDayPST.getTime() - 12 * 60 * 60 * 1000);
     const queryEnd = new Date(endOfDayPST.getTime() + 16 * 60 * 60 * 1000);
     
     const { data: punches, error: punchError } = await supabaseClient
@@ -220,36 +243,90 @@ async function calculateLaborFromPunches(
       return { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, doubleTimeHours: 0, employeeBreakdown: [] };
     }
     
-    // Group punches by user, then by business date
-    // A punch belongs to a business date based on the CLOCK_IN time
-    const punchesByUserByDate = new Map<string, Map<string, PunchRecord[]>>();
+    // Default cutoff if no hours configured
+    const defaultCutoff = 5;
     
+    // Helper to get cutoff hour for a given date based on PREVIOUS day's close time
+    // (since overnight punches belong to the shift that started the previous day)
+    const getCutoffForDate = (dateString: string): number => {
+      const d = new Date(dateString + 'T12:00:00Z');
+      // Get previous day's day_of_week (0=Sunday in JS, but we store 0=Monday in DB)
+      // DB: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+      // JS: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+      // To convert: (jsDay + 6) % 7 gives DB day
+      const jsDayOfWeek = d.getUTCDay();
+      const prevJsDay = (jsDayOfWeek + 6) % 7; // Previous day in JS format
+      const prevDbDay = (prevJsDay + 6) % 7; // Convert to DB format
+      return cutoffByDayOfWeek.get(prevDbDay) ?? defaultCutoff;
+    };
+    
+    // Group punches by user
+    const punchesByUser = new Map<string, PunchRecord[]>();
     for (const punch of allPunches) {
-      if (!punchesByUserByDate.has(punch.user_id)) {
-        punchesByUserByDate.set(punch.user_id, new Map());
+      if (!punchesByUser.has(punch.user_id)) {
+        punchesByUser.set(punch.user_id, []);
       }
-      const userMap = punchesByUserByDate.get(punch.user_id)!;
-      
-      // Determine which business date this punch belongs to
-      const punchDate = getDateStringForTimezone(new Date(punch.punch_time), timezone);
-      
-      if (!userMap.has(punchDate)) {
-        userMap.set(punchDate, []);
-      }
-      userMap.get(punchDate)!.push(punch);
+      punchesByUser.get(punch.user_id)!.push(punch);
     }
     
     let totalHoursWorked = 0;
     let totalLaborCost = 0;
     const employeeBreakdown: any[] = [];
     
-    // Calculate hours for each user for the target date
-    for (const [userId, dateMap] of punchesByUserByDate) {
-      const dayPunches = dateMap.get(dateStr) || [];
+    // Process each user's punches with overnight grouping logic
+    for (const [userId, userPunches] of punchesByUser) {
+      // First pass: identify all clock_ins by date
+      const clockInsByDay = new Map<string, PunchRecord>();
+      for (const punch of userPunches) {
+        if (punch.punch_type === 'clock_in') {
+          const day = getDateStringForTimezone(new Date(punch.punch_time), timezone);
+          clockInsByDay.set(day, punch);
+        }
+      }
+      
+      // Group punches by business date with overnight logic (same as PayrollReview)
+      const punchesByDay = new Map<string, PunchRecord[]>();
+      
+      for (const punch of userPunches) {
+        const punchTime = new Date(punch.punch_time);
+        let day = getDateStringForTimezone(punchTime, timezone);
+        const punchHour = getHourInTimezone(punchTime, timezone);
+        
+        // Get the cutoff hour based on PREVIOUS day's close time
+        const cutoffHour = getCutoffForDate(day);
+        
+        // Check if this is an overnight punch (early AM before/at cutoff)
+        if (punch.punch_type === 'clock_out' || punch.punch_type === 'break_start' || punch.punch_type === 'break_end') {
+          if (punchHour <= cutoffHour) {
+            const sameDayClockIn = clockInsByDay.get(day);
+            // Move to previous day if:
+            // 1. No clock_in on same day, OR
+            // 2. The clock_in on same day is AFTER this punch
+            const shouldMoveToPrevDay = !sameDayClockIn || 
+              new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+            
+            if (shouldMoveToPrevDay) {
+              const prevDay = getPreviousDayString(day);
+              // Only reassign if previous day has a clock_in
+              if (clockInsByDay.has(prevDay)) {
+                day = prevDay;
+              }
+            }
+          }
+        }
+        
+        if (!punchesByDay.has(day)) {
+          punchesByDay.set(day, []);
+        }
+        punchesByDay.get(day)!.push(punch);
+      }
+      
+      // Get punches for the target date
+      const dayPunches = punchesByDay.get(dateStr) || [];
       
       if (dayPunches.length === 0) continue;
       
-      const wage = wageMap.get(userId) || 15;
+      const wage = wageMap.get(userId) ?? 15;
       const hoursWorked = calculateDayHours(dayPunches);
       
       if (hoursWorked > 0) {
@@ -313,6 +390,26 @@ serve(async (req) => {
     
     const locationName = locationData?.name || 'Unknown';
     console.log(`[BACKFILL] Location: ${locationName}`);
+
+    // Fetch location hours for dynamic cutoff calculation (same as PayrollReview)
+    const { data: locationHours } = await supabase
+      .from('location_hours')
+      .select('day_of_week, close_time')
+      .eq('location_id', locationId);
+    
+    // Create map of day_of_week -> cutoff hour (close_time + 3 hours, capped at 6)
+    const cutoffByDayOfWeek = new Map<number, number>();
+    (locationHours || []).forEach((h: { day_of_week: number; close_time: string | null }) => {
+      if (!h.close_time) {
+        cutoffByDayOfWeek.set(h.day_of_week, 5); // Default 5 AM
+        return;
+      }
+      const [hours] = h.close_time.split(':').map(Number);
+      // Close time + 3 hours, but cap at 6 AM
+      const cutoff = Math.min((hours + 3) % 24, 6);
+      cutoffByDayOfWeek.set(h.day_of_week, cutoff);
+    });
+    console.log(`[BACKFILL] Loaded ${cutoffByDayOfWeek.size} day cutoffs for overnight grouping`);
 
     // Calculate date range
     const today = new Date();
@@ -427,7 +524,7 @@ serve(async (req) => {
       
       const batchResults = await Promise.all(
         batch.map(async (dateStr) => {
-          const labor = await calculateLaborFromPunches(supabase, locationId, dateStr, timezone, wageMap);
+          const labor = await calculateLaborFromPunches(supabase, locationId, dateStr, timezone, wageMap, cutoffByDayOfWeek);
           return { dateStr, labor };
         })
       );
