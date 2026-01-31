@@ -864,7 +864,11 @@ export default function PunchClock() {
   const getBreakStatus = () => {
     if (!lastPunch || lastPunch.punch_type !== 'break_start') return null;
     
-    const breakDuration = lastPunch.notes?.includes('30 minute') ? 30 : 10;
+    // Detect break duration from notes - check for "30 minute" first, then fallback to "unpaid"/"meal"
+    // This handles both new format ("30 minute unpaid break") and legacy format ("unpaid break")
+    const notes = lastPunch.notes?.toLowerCase() || '';
+    const is30MinBreak = notes.includes('30 minute') || notes.includes('unpaid') || notes.includes('meal');
+    const breakDuration = is30MinBreak ? 30 : 10;
     const breakStartTime = new Date(lastPunch.punch_time);
     // Add buffer to ensure recorded duration meets minimum
     const breakEndTime = new Date(breakStartTime.getTime() + (breakDuration * 60000) + (BREAK_BUFFER_SECONDS * 1000));

@@ -139,9 +139,12 @@ export function QuickPunchDialog({
       if (clockInError) throw clockInError;
 
       // If break included, create break punches
+      // IMPORTANT: Use full format "30 minute unpaid break" or "10 minute paid break"
+      // to match PunchClock.tsx format - otherwise break enforcement reads wrong duration
       if (includeBreak && breakStartTime) {
         const breakStartISO = toISO(punchDate, breakStartTime);
-        const breakNotes = `${breakType} break`;
+        const duration = breakType === 'unpaid' ? 30 : 10;
+        const breakNotes = `${duration} minute ${breakType} break`;
         
         const { error: breakStartError } = await supabase
           .from('time_punches')

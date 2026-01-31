@@ -289,9 +289,12 @@ export function EditPunchDialog({
       }
 
       // Add all breaks to updates
+      // IMPORTANT: Use full format "30 minute unpaid break" or "10 minute paid break"
+      // to match PunchClock.tsx format - otherwise break enforcement reads wrong duration
       for (const brk of breaks) {
         if (brk.startTime) {
-          const breakNotes = `${brk.type} break`;
+          const duration = brk.type === 'unpaid' ? 30 : 10;
+          const breakNotes = `${duration} minute ${brk.type} break`;
           updates.push({ type: 'break_start', time: brk.startTime, existingId: brk.id, notes: breakNotes });
           if (brk.endTime) {
             updates.push({ type: 'break_end', time: brk.endTime, existingId: brk.endId, notes: breakNotes });
