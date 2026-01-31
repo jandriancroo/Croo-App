@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Plus, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
+import { cn } from "@/lib/utils";
 import {
   Drawer,
   DrawerContent,
@@ -70,14 +72,17 @@ export function MobileEventDialog({
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [eventMode, setEventMode] = useState<"one-time" | "recurring">("one-time");
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [formData, setFormData] = useState({
     event_name: "",
     event_time: "08:00",
+    event_end_time: "" as string,
+    event_date: null as Date | null,
     selected_days: [selectedDayOfWeek] as number[],
     notes: "",
     tagged_roles: [] as string[],
-    is_recurring: true,
     category_id: "" as string,
     is_daily_task: false,
   });
@@ -91,17 +96,26 @@ export function MobileEventDialog({
   // Reset form when dialog opens with new day
   useEffect(() => {
     if (open) {
-      setFormData(prev => ({
-        ...prev,
+      // Calculate initial date from selectedDayOfWeek
+      const today = new Date();
+      const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const initialDate = addDays(currentWeekStart, selectedDayOfWeek);
+      // If that date is in the past, move to next week
+      const eventDate = initialDate < today ? addDays(initialDate, 7) : initialDate;
+      
+      setFormData({
         event_name: "",
         event_time: "08:00",
+        event_end_time: "",
+        event_date: eventDate,
         selected_days: [selectedDayOfWeek],
         notes: "",
         tagged_roles: [],
-        is_recurring: true,
         category_id: "",
         is_daily_task: false,
-      }));
+      });
+      setEventMode("one-time");
+      setShowDatePicker(false);
     }
   }, [open, selectedDayOfWeek]);
 
@@ -161,18 +175,28 @@ export function MobileEventDialog({
     setSaving(true);
 
     try {
-      const dbDays = formData.selected_days;
-
-      if (dbDays.length === 1) {
+      if (eventMode === "one-time") {
+        // One-time event with specific date
+        if (!formData.event_date) {
+          toast.error("Please select a date");
+          setSaving(false);
+          return;
+        }
+        
+        const eventDateStr = format(formData.event_date, "yyyy-MM-dd");
+        const dayOfWeek = (formData.event_date.getDay() + 6) % 7; // Convert to Monday=0 format
+        
         const { error } = await supabase.from("schedule_events").insert({
-          schedule_id: formData.is_recurring ? null : scheduleId,
+          schedule_id: scheduleId,
           event_name: formData.event_name,
           event_time: formData.event_time,
-          day_of_week: dbDays[0],
+          event_end_time: formData.event_end_time || null,
+          event_date: eventDateStr,
+          day_of_week: dayOfWeek,
           days_of_week: null,
           notes: formData.notes || null,
           tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-          is_recurring: formData.is_recurring,
+          is_recurring: false,
           category_id: formData.category_id || null,
           is_daily_task: formData.is_daily_task,
           location_id: locationId,
@@ -180,15 +204,19 @@ export function MobileEventDialog({
 
         if (error) throw error;
       } else {
+        // Recurring event
+        const dbDays = formData.selected_days;
+
         const { error } = await supabase.from("schedule_events").insert({
-          schedule_id: formData.is_recurring ? null : scheduleId,
+          schedule_id: null,
           event_name: formData.event_name,
           event_time: formData.event_time,
+          event_end_time: formData.event_end_time || null,
           day_of_week: dbDays[0],
-          days_of_week: dbDays,
+          days_of_week: dbDays.length > 1 ? dbDays : null,
           notes: formData.notes || null,
           tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-          is_recurring: formData.is_recurring,
+          is_recurring: true,
           category_id: formData.category_id || null,
           is_daily_task: formData.is_daily_task,
           location_id: locationId,
@@ -236,34 +264,116 @@ export function MobileEventDialog({
             />
           </div>
 
+          {/* Event Type Toggle */}
           <div>
-            <Label htmlFor="event_time">Time</Label>
-            <Input
-              id="event_time"
-              type="time"
-              value={formData.event_time}
-              onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
-              required
-            />
+            <Label>Event Type</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setEventMode("one-time")}
+                className={cn(
+                  "p-2 text-sm rounded-md border transition-colors",
+                  eventMode === "one-time"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background border-border hover:bg-muted"
+                )}
+              >
+                One-time
+              </button>
+              <button
+                type="button"
+                onClick={() => setEventMode("recurring")}
+                className={cn(
+                  "p-2 text-sm rounded-md border transition-colors",
+                  eventMode === "recurring"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background border-border hover:bg-muted"
+                )}
+              >
+                Recurring
+              </button>
+            </div>
           </div>
 
-          <div>
-            <Label>Days of Week</Label>
-            <div className="grid grid-cols-7 gap-1 mt-2">
-              {weekDays.map((day, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => toggleDay(index)}
-                  className={`p-2 text-xs rounded-md border transition-colors ${
-                    formData.selected_days.includes(index)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-muted"
-                  }`}
-                >
-                  {format(day, "EEE")}
-                </button>
-              ))}
+          {/* Date picker for one-time events */}
+          {eventMode === "one-time" && (
+            <div>
+              <Label>Date</Label>
+              <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal mt-1",
+                      !formData.event_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.event_date ? format(formData.event_date, "PPP") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.event_date || undefined}
+                    onSelect={(date) => {
+                      setFormData({ ...formData, event_date: date || null });
+                      setShowDatePicker(false);
+                    }}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* Days of week for recurring events */}
+          {eventMode === "recurring" && (
+            <div>
+              <Label>Days of Week</Label>
+              <div className="grid grid-cols-7 gap-1 mt-2">
+                {weekDays.map((day, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => toggleDay(index)}
+                    className={cn(
+                      "p-2 text-xs rounded-md border transition-colors",
+                      formData.selected_days.includes(index)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background border-border hover:bg-muted"
+                    )}
+                  >
+                    {format(day, "EEE")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Time fields */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="event_time">Start Time</Label>
+              <Input
+                id="event_time"
+                type="time"
+                value={formData.event_time}
+                onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="event_end_time">End Time (optional)</Label>
+              <Input
+                id="event_end_time"
+                type="time"
+                value={formData.event_end_time}
+                onChange={(e) => setFormData({ ...formData, event_end_time: e.target.value })}
+                placeholder="Optional"
+              />
             </div>
           </div>
 
@@ -372,19 +482,6 @@ export function MobileEventDialog({
               placeholder="Additional notes..."
               rows={2}
             />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is_recurring"
-              checked={formData.is_recurring}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, is_recurring: checked as boolean })
-              }
-            />
-            <Label htmlFor="is_recurring" className="text-sm">
-              Recurring weekly event
-            </Label>
           </div>
 
           <div className="flex items-center space-x-2">
