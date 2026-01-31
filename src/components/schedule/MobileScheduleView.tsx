@@ -175,7 +175,16 @@ export function MobileScheduleView({
       
       const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
       const offset = getTimezoneOffset(timezone);
-      const startOfDayTime = new Date(`${todayStr}T00:00:00${offset}`).toISOString();
+
+      // IMPORTANT: Query a window that looks BACK before midnight as well as AFTER.
+      // Otherwise we can fetch a clock_out (after midnight) without its matching clock_in
+      // (before midnight), which then incorrectly pairs with a later clock_in and produces
+      // negative hours (e.g., Anthony Tolentino: 7:09 PM in paired with 1:00 AM out).
+      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`);
+      const startMinus = new Date(startOfDay);
+      startMinus.setHours(startMinus.getHours() - 12);
+      const startOfDayTime = startMinus.toISOString();
+
       const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
       const endOfDayTime = endOfDayPlus.toISOString();
@@ -248,7 +257,7 @@ export function MobileScheduleView({
 
       const punchSummaries: DayPunch[] = [];
 
-      Object.entries(userPunches).forEach(([userId, punches]) => {
+        Object.entries(userPunches).forEach(([userId, punches]) => {
         let isClockedIn = false;
         let isOnBreak = false;
         let firstClockIn: { id: string; punch_time: string; created_by: string | null } | null = null;
@@ -264,14 +273,25 @@ export function MobileScheduleView({
             }
             if (!isClockedIn) {
               isClockedIn = true;
-              if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time, created_by: p.created_by };
+                // Always treat a new clock_in (after being clocked out) as a new shift.
+                // This prevents an earlier clock_out (e.g., 1:00 AM) from being paired with
+                // a later clock_in (e.g., 7:09 PM) for the same user.
+                firstClockIn = { id: p.id, punch_time: p.punch_time, created_by: p.created_by };
+                lastClockOut = null;
+                breakStart = null;
+                breakEnd = null;
             }
             return;
           }
           if (p.punch_type === 'clock_out') {
-            isClockedIn = false;
-            isOnBreak = false;
-            lastClockOut = { punch_time: p.punch_time };
+              // Ignore clock_outs that happen before we've seen the matching clock_in in this window.
+              // Those belong to a shift that started before our query window and should not be paired
+              // with a later clock_in (which creates negative hours).
+              if (!firstClockIn) return;
+
+              isClockedIn = false;
+              isOnBreak = false;
+              lastClockOut = { punch_time: p.punch_time };
             return;
           }
           if (p.punch_type === 'break_start') {
@@ -289,8 +309,10 @@ export function MobileScheduleView({
         if (firstClockIn) {
           const profile = profileMap.get(userId) || profiles.find(p => p.id === userId);
           const clockOutTime = lastClockOut?.punch_time || null;
+          const clockInMs = new Date(firstClockIn.punch_time).getTime();
           const endTime = clockOutTime ? new Date(clockOutTime).getTime() : new Date().getTime();
-          const hoursWorked = (endTime - new Date(firstClockIn.punch_time).getTime()) / 3600000;
+          // Defensive clamp: if we ever get a negative due to missing/odd punch ordering, show 0.
+          const hoursWorked = Math.max(0, (endTime - clockInMs) / 3600000);
           const scheduledShift = todayScheduledShifts.find(s => s.user_id === userId);
           
           const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
