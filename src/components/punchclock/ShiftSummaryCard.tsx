@@ -310,18 +310,18 @@ export function ShiftSummaryCard({
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                className="flex-1 h-14 text-base"
+                className="flex-1 h-20 text-lg flex-col gap-1"
                 onClick={() => onBreak('break_start', 30)}
               >
-                <Coffee className="mr-2 h-5 w-5" />
+                <Coffee className="h-6 w-6" />
                 30m Meal
               </Button>
               <Button
                 variant="outline"
-                className="flex-1 h-14 text-base"
+                className="flex-1 h-20 text-lg flex-col gap-1"
                 onClick={() => onBreak('break_start', 10)}
               >
-                <Coffee className="mr-2 h-5 w-5" />
+                <Coffee className="h-6 w-6" />
                 10m Rest
               </Button>
             </div>
