@@ -248,16 +248,15 @@ async function calculateLaborFromPunches(
     
     // Helper to get cutoff hour for a given date based on PREVIOUS day's close time
     // (since overnight punches belong to the shift that started the previous day)
+    // MUST match PayrollReview.tsx getCutoffForPreviousDay logic exactly!
     const getCutoffForDate = (dateString: string): number => {
       const d = new Date(dateString + 'T12:00:00Z');
-      // Get previous day's day_of_week (0=Sunday in JS, but we store 0=Monday in DB)
-      // DB: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-      // JS: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-      // To convert: (jsDay + 6) % 7 gives DB day
-      const jsDayOfWeek = d.getUTCDay();
-      const prevJsDay = (jsDayOfWeek + 6) % 7; // Previous day in JS format
-      const prevDbDay = (prevJsDay + 6) % 7; // Convert to DB format
-      return cutoffByDayOfWeek.get(prevDbDay) ?? defaultCutoff;
+      // Get previous day's day_of_week (in DB format: 0=Mon, 1=Tue, ..., 6=Sun)
+      // JS getUTCDay: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+      // PayrollReview formula: (d.getUTCDay() + 6) % 7 converts JS day to "days since Monday"
+      // which matches DB format where 0=Monday
+      const prevDayOfWeek = (d.getUTCDay() + 6) % 7; // Sunday->6, Monday->0, Tuesday->1, etc.
+      return cutoffByDayOfWeek.get(prevDayOfWeek) ?? defaultCutoff;
     };
     
     // Group punches by user
