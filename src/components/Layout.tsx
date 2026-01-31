@@ -569,7 +569,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
-    icon: NotebookPen
+    icon: Scroll
   }] : []), {
     path: '/schedule',
     label: 'Schedule',
