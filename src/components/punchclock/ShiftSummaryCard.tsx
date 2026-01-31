@@ -307,21 +307,21 @@ export function ShiftSummaryCard({
         ) : (
           <div className="w-full space-y-3">
             {/* Break Type Selection */}
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
-                variant="outline"
-                className="flex-1 h-12"
+                variant="secondary"
+                className="flex-1 h-16 text-lg font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
                 onClick={() => onBreak('break_start', 30)}
               >
-                <Coffee className="mr-2 h-4 w-4" />
+                <Coffee className="mr-2 h-5 w-5" />
                 30m Meal
               </Button>
               <Button
-                variant="outline"
-                className="flex-1 h-12"
+                variant="secondary"
+                className="flex-1 h-16 text-lg font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
                 onClick={() => onBreak('break_start', 10)}
               >
-                <Coffee className="mr-2 h-4 w-4" />
+                <Coffee className="mr-2 h-5 w-5" />
                 10m Rest
               </Button>
             </div>
