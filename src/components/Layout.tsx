@@ -41,6 +41,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const navigate = useNavigate();
   const location = useLocation();
   const { message, isVisible, dockContent } = useDockToast();
+  const [bouncingItem, setBouncingItem] = useState<string | null>(null);
 
   // Format currency for smart dock
   const formatCurrency = (value: number) => {
@@ -178,6 +179,9 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   key={item.path}
                   onClick={() => {
                     if (showOrgBubble) setShowOrgBubble(false);
+                    // Trigger bounce animation
+                    setBouncingItem(item.path);
+                    setTimeout(() => setBouncingItem(null), 250);
                     navigate(itemPath);
                   }}
                   onTouchStart={handleTouchStart}
@@ -187,7 +191,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                     isActive 
                       ? 'bg-white/20 text-accent-foreground' 
                       : 'text-accent-foreground/70 hover:text-accent-foreground'
-                  }`}
+                  } ${bouncingItem === item.path ? 'animate-dock-bounce' : ''}`}
                 >
                   <Icon className="h-6 w-6" strokeWidth={1.5} />
                   <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>

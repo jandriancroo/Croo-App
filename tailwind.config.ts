@@ -133,6 +133,17 @@ export default {
             transform: "scaleY(0.7)",
           },
         },
+        "dock-bounce": {
+          "0%": {
+            transform: "scale(1)",
+          },
+          "50%": {
+            transform: "scale(1.15)",
+          },
+          "100%": {
+            transform: "scale(1)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -143,6 +154,7 @@ export default {
         "wifi-bar-4": "wifi-bar 1.5s ease-in-out 0.6s infinite",
         "fly-crow": "fly-crow 1.5s ease-out forwards",
         "flap": "flap 0.15s ease-in-out infinite",
+        "dock-bounce": "dock-bounce 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
       },
     },
   },
