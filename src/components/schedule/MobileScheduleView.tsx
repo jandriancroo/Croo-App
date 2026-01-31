@@ -342,14 +342,22 @@ export function MobileScheduleView({
         }
       });
       
+      // Filter to only include punches where clock-in occurred on today's business date
+      const todayOnlyPunches = punchSummaries.filter(punch => {
+        const clockInDate = new Date(punch.clockInTime);
+        // Convert to location timezone and extract date
+        const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
+        return clockInLocalDate === todayStr;
+      });
+      
       // Sort: active first, then by clock-in time
-      punchSummaries.sort((a, b) => {
+      todayOnlyPunches.sort((a, b) => {
         if (a.isActive && !b.isActive) return -1;
         if (!a.isActive && b.isActive) return 1;
         return new Date(a.clockInTime).getTime() - new Date(b.clockInTime).getTime();
       });
       
-      return punchSummaries;
+      return todayOnlyPunches;
     },
     enabled: activeTab === 'today' && !!currentLocation?.id && !!timezone,
     staleTime: 30 * 1000, // 30 seconds
