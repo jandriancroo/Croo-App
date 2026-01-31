@@ -614,6 +614,34 @@ All colors MUST be HSL.
     will-change: transform;
   }
 
+  /* Dock button with GPU-accelerated bounce animation */
+  .dock-nav-button {
+    /* Promote to GPU layer for smooth 60/120fps animations */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    will-change: transform;
+    /* Contain layout to prevent reflow */
+    contain: layout style;
+  }
+
+  .dock-nav-button.dock-bouncing {
+    animation: dock-bounce-gpu 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes dock-bounce-gpu {
+    0% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    40% {
+      transform: translate3d(0, 0, 0) scale(1.2);
+    }
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
   /* Unified nav bar for desktop/tablet */
   .nav-bar-unified {
     position: relative;
