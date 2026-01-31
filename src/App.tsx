@@ -77,6 +77,7 @@ const QRQuickTaskReport = lazy(() => import("./pages/QRQuickTaskReport"));
 const FeatureTree = lazy(() => import("./pages/FeatureTree"));
 const ArchitectureMap = lazy(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazy(() => import("./pages/RoleDashboardCustomizer"));
+const DockStylePreview = lazy(() => import("./pages/DockStylePreview"));
 
 const queryClient = new QueryClient();
 
@@ -188,6 +189,7 @@ const AppContent = () => {
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
+        <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
