@@ -557,7 +557,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
-    icon: BarChart3
+    icon: LayoutDashboard
   }, {
     path: '/messages',
     label: 'Chat',
