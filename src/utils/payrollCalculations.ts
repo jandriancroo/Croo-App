@@ -75,7 +75,31 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
     }
     
     const prevPunch = sortedPunches[idx - 1];
+    
+    // A clock_in after a clock_out starts a new shift
     if (prevPunch.punch_type === 'clock_out') {
+      shiftStartClockIns.push(punch);
+      return;
+    }
+    
+    // A clock_in after a break_start is an IMPLICIT break_end (return from break)
+    // NOT a new shift start - skip adding to shiftStartClockIns
+    if (prevPunch.punch_type === 'break_start') {
+      return;
+    }
+    
+    // A clock_in after another clock_in or break_end is unusual - treat as new shift if no open break
+    // Check if there's an unclosed break_start before this
+    const hasOpenBreak = sortedPunches.slice(0, idx).some((p, i) => {
+      if (p.punch_type !== 'break_start') return false;
+      // Check if this break_start was closed before current punch
+      const hasMatchingEnd = sortedPunches.slice(i + 1, idx).some(
+        np => np.punch_type === 'break_end' || np.punch_type === 'clock_in'
+      );
+      return !hasMatchingEnd;
+    });
+    
+    if (!hasOpenBreak) {
       shiftStartClockIns.push(punch);
     }
   });
