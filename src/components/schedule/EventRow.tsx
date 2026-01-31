@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Palette, ClipboardCheck } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Plus, ClipboardCheck, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
-import { formatTime12Hour } from "@/lib/utils";
+import { formatTime12Hour, cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,14 +86,16 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [eventMode, setEventMode] = useState<"one-time" | "recurring">("one-time");
   
   const [formData, setFormData] = useState({
     event_name: "",
     event_time: "08:00",
+    event_end_time: "" as string,
+    event_date: null as Date | null,
     selected_days: [0] as number[],
     notes: "",
     tagged_roles: [] as string[],
-    is_recurring: true,
     category_id: "" as string,
     is_daily_task: false,
   });
@@ -144,50 +147,56 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scheduleId || !locationId) return;
-    if (formData.selected_days.length === 0) {
-      toast.error("Please select at least one day");
-      return;
-    }
 
     try {
-      // Convert UI indices to DB indices before saving
-      const dbDays = formData.selected_days.map(uiIndexToDbIndex);
-      
       if (editingEvent) {
-        // Update existing event - for multi-day, update the first day and create others
+        // Update existing event - preserve existing mode
+        const dbDays = formData.selected_days.map(uiIndexToDbIndex);
         const primaryDay = dbDays[0];
         const { error } = await supabase
           .from("schedule_events")
           .update({
             event_name: formData.event_name,
             event_time: formData.event_time,
+            event_end_time: formData.event_end_time || null,
             day_of_week: primaryDay,
             days_of_week: dbDays.length > 1 ? dbDays : null,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-            is_recurring: formData.is_recurring,
-            schedule_id: formData.is_recurring ? null : scheduleId,
+            is_recurring: eventMode === "recurring",
+            schedule_id: eventMode === "recurring" ? null : scheduleId,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
             location_id: locationId,
+            event_date: eventMode === "one-time" && formData.event_date ? format(formData.event_date, "yyyy-MM-dd") : null,
           })
           .eq("id", editingEvent.id);
 
         if (error) throw error;
         toast.success("Event updated");
       } else {
-        // Create new event(s) - one for each selected day, or one with days_of_week array
-        if (dbDays.length === 1) {
-          // Single day event
+        // Create new event
+        if (eventMode === "one-time") {
+          // One-time event with specific date
+          if (!formData.event_date) {
+            toast.error("Please select a date");
+            return;
+          }
+          
+          const eventDateStr = format(formData.event_date, "yyyy-MM-dd");
+          const dayOfWeek = (formData.event_date.getDay() + 6) % 7; // Convert to Monday=0 format
+          
           const { error } = await supabase.from("schedule_events").insert({
-            schedule_id: formData.is_recurring ? null : scheduleId,
+            schedule_id: scheduleId,
             event_name: formData.event_name,
             event_time: formData.event_time,
-            day_of_week: dbDays[0],
+            event_end_time: formData.event_end_time || null,
+            event_date: eventDateStr,
+            day_of_week: dayOfWeek,
             days_of_week: null,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-            is_recurring: formData.is_recurring,
+            is_recurring: false,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
             location_id: locationId,
@@ -195,16 +204,24 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
 
           if (error) throw error;
         } else {
-          // Multi-day event - create one record with days_of_week array
+          // Recurring event
+          if (formData.selected_days.length === 0) {
+            toast.error("Please select at least one day");
+            return;
+          }
+          
+          const dbDays = formData.selected_days.map(uiIndexToDbIndex);
+
           const { error } = await supabase.from("schedule_events").insert({
-            schedule_id: formData.is_recurring ? null : scheduleId,
+            schedule_id: null,
             event_name: formData.event_name,
             event_time: formData.event_time,
-            day_of_week: dbDays[0], // Primary day for backward compat
-            days_of_week: dbDays,
+            event_end_time: formData.event_end_time || null,
+            day_of_week: dbDays[0],
+            days_of_week: dbDays.length > 1 ? dbDays : null,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-            is_recurring: formData.is_recurring,
+            is_recurring: true,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
             location_id: locationId,
@@ -229,13 +246,15 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     setFormData({
       event_name: "",
       event_time: "08:00",
+      event_end_time: "",
+      event_date: new Date(),
       selected_days: [0],
       notes: "",
       tagged_roles: [],
-      is_recurring: true,
       category_id: "",
       is_daily_task: false,
     });
+    setEventMode("one-time");
     setShowNewCategory(false);
     setNewCategoryName("");
   };
@@ -251,13 +270,15 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     setFormData({
       event_name: event.event_name,
       event_time: event.event_time,
+      event_end_time: (event as any).event_end_time || "",
+      event_date: (event as any).event_date ? new Date((event as any).event_date) : null,
       selected_days: uiDays,
       notes: event.notes || "",
       tagged_roles: event.tagged_roles || [],
-      is_recurring: event.is_recurring,
       category_id: event.category_id || "",
       is_daily_task: event.is_daily_task || false,
     });
+    setEventMode(event.is_recurring ? "recurring" : "one-time");
     setDialogOpen(true);
   };
 
@@ -356,38 +377,116 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                   />
                 </div>
 
+                {/* Event Type Toggle */}
                 <div>
-                  <Label htmlFor="event_time">Time</Label>
-                  <Input
-                    id="event_time"
-                    type="time"
-                    value={formData.event_time}
-                    onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
-                    required
-                  />
+                  <Label>Event Type</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setEventMode("one-time")}
+                      className={cn(
+                        "p-2 text-sm rounded-md border transition-colors",
+                        eventMode === "one-time"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:bg-muted"
+                      )}
+                    >
+                      One-time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEventMode("recurring")}
+                      className={cn(
+                        "p-2 text-sm rounded-md border transition-colors",
+                        eventMode === "recurring"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:bg-muted"
+                      )}
+                    >
+                      Recurring
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <Label>Days of Week</Label>
-                  <div className="grid grid-cols-7 gap-1 mt-2">
-                    {weekDays.map((day, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => toggleDay(index)}
-                        className={`p-2 text-xs rounded-md border transition-colors ${
-                          formData.selected_days.includes(index)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background border-border hover:bg-muted"
-                        }`}
-                      >
-                        {format(day, "EEE")}
-                      </button>
-                    ))}
+                {/* Date picker for one-time events */}
+                {eventMode === "one-time" && (
+                  <div>
+                    <Label>Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal mt-1",
+                            !formData.event_date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.event_date ? format(formData.event_date, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.event_date || undefined}
+                          onSelect={(date) => setFormData({ ...formData, event_date: date || null })}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Select multiple days for recurring events on multiple weekdays
-                  </p>
+                )}
+
+                {/* Days of week for recurring events */}
+                {eventMode === "recurring" && (
+                  <div>
+                    <Label>Days of Week</Label>
+                    <div className="grid grid-cols-7 gap-1 mt-2">
+                      {weekDays.map((day, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => toggleDay(index)}
+                          className={cn(
+                            "p-2 text-xs rounded-md border transition-colors",
+                            formData.selected_days.includes(index)
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background border-border hover:bg-muted"
+                          )}
+                        >
+                          {format(day, "EEE")}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select multiple days for recurring events on multiple weekdays
+                    </p>
+                  </div>
+                )}
+
+                {/* Time fields */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="event_time">Start Time</Label>
+                    <Input
+                      id="event_time"
+                      type="time"
+                      value={formData.event_time}
+                      onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="event_end_time">End Time (optional)</Label>
+                    <Input
+                      id="event_end_time"
+                      type="time"
+                      value={formData.event_end_time}
+                      onChange={(e) => setFormData({ ...formData, event_end_time: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -524,18 +623,6 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_recurring"
-                    checked={formData.is_recurring}
-                    onCheckedChange={(checked) => 
-                      setFormData({ ...formData, is_recurring: checked as boolean })
-                    }
-                  />
-                  <label htmlFor="is_recurring" className="text-sm cursor-pointer">
-                    Repeat weekly on selected days
-                  </label>
-                </div>
 
                 <div className="flex items-center space-x-2 p-3 bg-accent/10 rounded-md border border-accent/20">
                   <Checkbox
