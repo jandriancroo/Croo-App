@@ -725,31 +725,21 @@ export default function LogBook() {
     const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'employee write up' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup' || currentCategoryName === 'write up';
     const isReadAndSign = currentCategoryName === 'read & sign' || currentCategoryName === 'read and sign' || currentCategoryName === 'read-and-sign';
     
-    // Read & Sign form
+    // Read & Sign form - no inner header, the outer wrapper handles it
     if (isReadAndSign) {
       return (
-        <>
-          <SheetHeader className="mb-4">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => setWizardStep('category')}>
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <SheetTitle>Read & Sign</SheetTitle>
-            </div>
-          </SheetHeader>
-          <ReadAndSignForm
-            locationId={currentLocation!.id}
-            employees={employees}
-            onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
-              setShowNewEntrySheet(false);
-              setActiveTab('search');
-            }}
-            onCancel={() => {
-              setShowNewEntrySheet(false);
-            }}
-          />
-        </>
+        <ReadAndSignForm
+          locationId={currentLocation!.id}
+          employees={employees}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
+            setShowNewEntrySheet(false);
+            setActiveTab('search');
+          }}
+          onCancel={() => {
+            setShowNewEntrySheet(false);
+          }}
+        />
       );
     }
     
