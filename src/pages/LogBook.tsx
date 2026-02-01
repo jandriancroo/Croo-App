@@ -290,22 +290,31 @@ export default function LogBook() {
     queryKey: ['location-employees', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation) return [];
-      const { data, error } = await supabase
+      // Get user_ids for this location first
+      const { data: locationUsers, error: locError } = await supabase
         .from('user_locations')
-        .select(`
-          user_id,
-          profiles!inner(id, full_name, profile_photo_url, is_active)
-        `)
+        .select('user_id')
         .eq('location_id', currentLocation.id);
 
-      if (error) throw error;
-      return (data || [])
-        .filter((ul: any) => ul.profiles?.is_active)
-        .map((ul: any) => ({
-          id: ul.profiles.id,
-          full_name: ul.profiles.full_name,
-          profile_photo_url: ul.profiles.profile_photo_url,
-        }));
+      if (locError) throw locError;
+      if (!locationUsers || locationUsers.length === 0) return [];
+
+      const userIds = locationUsers.map(ul => ul.user_id);
+
+      // Then fetch profiles for those users
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url, is_active')
+        .in('id', userIds)
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (profileError) throw profileError;
+      return (profiles || []).map(p => ({
+        id: p.id,
+        full_name: p.full_name,
+        profile_photo_url: p.profile_photo_url,
+      }));
     },
     enabled: !!currentLocation,
     staleTime: 5 * 60 * 1000,
