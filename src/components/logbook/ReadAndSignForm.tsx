@@ -583,6 +583,15 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                 </Button>
               </div>
             )}
+            {/* Hidden file input for Upload mode */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
+              multiple
+              onChange={handleFileUpload}
+            />
           </div>
         )}
 
@@ -597,7 +606,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
               Attach PDFs, images, or other files that employees must view before signing.
             </p>
             
-            {/* Hidden file input */}
+            {/* Hidden file input for Build mode */}
             <input
               ref={fileInputRef}
               type="file"
