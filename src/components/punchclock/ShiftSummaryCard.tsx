@@ -219,163 +219,165 @@ export function ShiftSummaryCard({
   };
 
   return (
-    <div className="w-full flex items-start justify-center gap-4 px-4 pt-2">
+    <div className="w-full flex items-start justify-center gap-3 px-4 pt-2">
       {/* Back Button - Left of Card */}
       <Button 
         variant="ghost" 
         onClick={onBack} 
-        className="mt-4 shrink-0"
+        className="mt-6 shrink-0"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back
       </Button>
 
-      {/* White Card Container */}
-      <div className="w-full max-w-sm bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-6 space-y-5">
-        {/* Centered Profile Avatar */}
-        <div className="flex justify-center">
-          <Avatar className="h-20 w-20 border-4 border-primary/20 shadow-lg">
-            <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
-            <AvatarFallback className="text-xl font-semibold bg-primary/10 text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        </div>
+      {/* White Card Container - Two Column Layout */}
+      <div className="w-full max-w-2xl bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-6">
+        <div className="flex gap-6">
+          {/* Left Column - Profile, Name, Hours */}
+          <div className="flex flex-col items-center justify-center min-w-[180px] space-y-4 border-r border-border pr-6">
+            <Avatar className="h-24 w-24 border-4 border-primary/20 shadow-lg">
+              <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
+              <AvatarFallback className="text-2xl font-semibold bg-primary/10 text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
 
-        {/* Name and Date */}
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground">{user.full_name}</h2>
-          <p className="text-sm text-muted-foreground">
-            {format(currentTime, 'EEEE, MMMM d')}
-          </p>
-        </div>
-
-        {/* Hours Worked - Large Display */}
-        {(isClockedIn || isOnBreak) && (
-          <div className="text-center py-2">
-            <p className="text-5xl font-bold font-mono text-foreground tracking-tight">
-              {formatTimeWorked()}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">Hours Worked</p>
-            <Badge variant="secondary" className="mt-2 bg-primary/10 text-primary">
-              {isOnBreak ? 'On Break' : 'Clocked In'}
-            </Badge>
-          </div>
-        )}
-
-        {/* Schedule/Status Info */}
-        <div className="w-full text-center p-3 rounded-xl bg-muted/50">
-          {clockInTime && (isClockedIn || isOnBreak) ? (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>Started at {format(clockInTime, 'h:mm a')}</span>
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-foreground">{user.full_name}</h2>
+              <p className="text-sm text-muted-foreground">
+                {format(currentTime, 'EEEE, MMMM d')}
+              </p>
             </div>
-          ) : todayShift ? (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>
-                Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 text-amber-600 text-sm font-medium">
-              <span>⚠️ Not scheduled today — punch will be flagged</span>
-            </div>
-          )}
-        </div>
 
-        {/* Action Buttons */}
-        <div className="w-full flex gap-3">
-          {!isClockedIn && !isOnBreak ? (
-            <Button
-              className="flex-1 h-14 text-lg"
-              onClick={onClockIn}
-              disabled={!canClockIn}
-            >
-              <Play className="mr-2 h-5 w-5" />
-              Clock In
-            </Button>
-          ) : isOnBreak ? (
-            <Button
-              className="flex-1 h-14 text-lg"
-              variant={breakStatus?.canEnd ? 'default' : 'outline'}
-              onClick={onEndBreak}
-              disabled={!breakStatus?.canEnd}
-            >
-              <Coffee className="mr-2 h-5 w-5" />
-              {breakStatus?.canEnd 
-                ? 'End Break' 
-                : `Wait ${Math.floor((breakStatus?.remaining || 0) / 60)}:${((breakStatus?.remaining || 0) % 60).toString().padStart(2, '0')}`
-              }
-            </Button>
-          ) : (
-            <div className="w-full space-y-3">
-              {/* Break Type Selection */}
-              <div className="flex gap-3">
-                <Button
-                  variant="secondary"
-                  className="flex-1 h-14 text-base font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
-                  onClick={() => onBreak('break_start', 30)}
-                >
-                  <Coffee className="mr-2 h-5 w-5" />
-                  30m Meal
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="flex-1 h-14 text-base font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
-                  onClick={() => onBreak('break_start', 10)}
-                >
-                  <Coffee className="mr-2 h-5 w-5" />
-                  10m Rest
-                </Button>
+            {/* Hours Worked */}
+            {(isClockedIn || isOnBreak) && (
+              <div className="text-center">
+                <p className="text-4xl font-bold font-mono text-foreground tracking-tight">
+                  {formatTimeWorked()}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Hours Worked</p>
+                <Badge variant="secondary" className="mt-2 bg-primary/10 text-primary">
+                  {isOnBreak ? 'On Break' : 'Clocked In'}
+                </Badge>
               </div>
-              {/* End Shift */}
-              <Button
-                variant="destructive"
-                className="w-full h-14"
-                onClick={onClockOut}
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                End Shift
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Break History */}
-        {breaks.length > 0 && (
-          <div className="w-full space-y-2 pt-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Break History</p>
-            {breaks.map((breakRecord, index) => (
-              <div key={breakRecord.id || index} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <Coffee className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{getBreakLabel(breakRecord.type)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(breakRecord.startTime, 'h:mm a')}
-                      {breakRecord.endTime && ` - ${format(breakRecord.endTime, 'h:mm a')}`}
-                    </p>
-                  </div>
+          {/* Right Column - Status, Actions, Break History */}
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            {/* Schedule/Status Info */}
+            <div className="w-full text-center p-3 rounded-xl bg-muted/50">
+              {clockInTime && (isClockedIn || isOnBreak) ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Started at {format(clockInTime, 'h:mm a')}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {breakRecord.status === 'in_progress' 
-                      ? `${breakRecord.duration}m...` 
-                      : `${breakRecord.duration}m`
-                    }
+              ) : todayShift ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
                   </span>
-                  {breakRecord.status === 'taken' && (
-                    <Check className="h-4 w-4 text-emerald-500" />
-                  )}
-                  {breakRecord.status === 'in_progress' && (
-                    <Badge variant="secondary" className="text-xs">Active</Badge>
-                  )}
                 </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-amber-600 text-sm font-medium">
+                  <span>⚠️ Not scheduled today</span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="w-full">
+              {!isClockedIn && !isOnBreak ? (
+                <Button
+                  className="w-full h-14 text-lg"
+                  onClick={onClockIn}
+                  disabled={!canClockIn}
+                >
+                  <Play className="mr-2 h-5 w-5" />
+                  Clock In
+                </Button>
+              ) : isOnBreak ? (
+                <Button
+                  className="w-full h-14 text-lg"
+                  variant={breakStatus?.canEnd ? 'default' : 'outline'}
+                  onClick={onEndBreak}
+                  disabled={!breakStatus?.canEnd}
+                >
+                  <Coffee className="mr-2 h-5 w-5" />
+                  {breakStatus?.canEnd 
+                    ? 'End Break' 
+                    : `Wait ${Math.floor((breakStatus?.remaining || 0) / 60)}:${((breakStatus?.remaining || 0) % 60).toString().padStart(2, '0')}`
+                  }
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 h-12 text-sm font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                      onClick={() => onBreak('break_start', 30)}
+                    >
+                      <Coffee className="mr-2 h-4 w-4" />
+                      30m Meal
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-1 h-12 text-sm font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
+                      onClick={() => onBreak('break_start', 10)}
+                    >
+                      <Coffee className="mr-2 h-4 w-4" />
+                      10m Rest
+                    </Button>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    className="w-full h-12"
+                    onClick={onClockOut}
+                  >
+                    <LogOut className="mr-2 h-5 w-5" />
+                    End Shift
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Break History */}
+            {breaks.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Break History</p>
+                {breaks.map((breakRecord, index) => (
+                  <div key={breakRecord.id || index} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <Coffee className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">{getBreakLabel(breakRecord.type)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(breakRecord.startTime, 'h:mm a')}
+                          {breakRecord.endTime && ` - ${format(breakRecord.endTime, 'h:mm a')}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {breakRecord.status === 'in_progress' 
+                          ? `${breakRecord.duration}m...` 
+                          : `${breakRecord.duration}m`
+                        }
+                      </span>
+                      {breakRecord.status === 'taken' && (
+                        <Check className="h-4 w-4 text-emerald-500" />
+                      )}
+                      {breakRecord.status === 'in_progress' && (
+                        <Badge variant="secondary" className="text-xs">Active</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
