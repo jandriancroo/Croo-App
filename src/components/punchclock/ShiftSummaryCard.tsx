@@ -229,60 +229,60 @@ export function ShiftSummaryCard({
       </div>
 
       {/* White Card Container - Square, Two Column Layout */}
-      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-10 min-h-[480px] min-w-[680px] max-w-3xl">
-        <div className="flex gap-10 h-full">
-          {/* Left Column - Profile, Name, Hours */}
-          <div className="flex flex-col items-center justify-between min-w-[240px] py-4 border-r border-border pr-10">
-            <Avatar className="h-36 w-36 border-4 border-primary/20 shadow-xl">
+      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-12 min-h-[520px] min-w-[720px] max-w-4xl">
+        <div className="flex gap-12 h-full">
+          {/* Left Column - Profile, Name, Status */}
+          <div className="flex flex-col items-center justify-between min-w-[260px] py-6 border-r border-border pr-12">
+            <Avatar className="h-40 w-40 border-4 border-primary/20 shadow-xl">
               <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
-              <AvatarFallback className="text-4xl font-semibold bg-primary/10 text-primary">
+              <AvatarFallback className="text-5xl font-semibold bg-primary/10 text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
 
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-foreground">{user.full_name}</h2>
-              <p className="text-sm text-muted-foreground">
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-semibold text-foreground">{user.full_name}</h2>
+              <p className="text-base text-muted-foreground">
                 {format(currentTime, 'EEEE, MMMM d')}
               </p>
             </div>
 
             {/* Status Badge - Below Name */}
             {(isClockedIn || isOnBreak) && (
-              <Badge variant="secondary" className="bg-primary/10 text-primary">
+              <Badge variant="secondary" className="text-base px-4 py-1 bg-primary/10 text-primary">
                 {isOnBreak ? 'On Break' : 'Clocked In'}
               </Badge>
             )}
           </div>
 
           {/* Right Column - Status, Actions, Break History */}
-          <div className="flex-1 flex flex-col justify-between py-4">
+          <div className="flex-1 flex flex-col justify-between py-6">
             {/* Hours Worked - Above Started At */}
             {(isClockedIn || isOnBreak) && (
               <div className="text-center">
-                <p className="text-4xl font-bold font-mono text-foreground tracking-tight">
+                <p className="text-5xl font-bold font-mono text-foreground tracking-tight">
                   {formatTimeWorked()}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Hours Worked</p>
+                <p className="text-sm text-muted-foreground mt-2">Hours Worked</p>
               </div>
             )}
 
             {/* Schedule/Status Info */}
-            <div className="w-full text-center p-3 rounded-xl bg-muted/50">
+            <div className="w-full text-center p-4 rounded-xl bg-muted/50">
               {clockInTime && (isClockedIn || isOnBreak) ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
+                <div className="flex items-center justify-center gap-2 text-base text-muted-foreground">
+                  <Clock className="h-5 w-5" />
                   <span>Started at {format(clockInTime, 'h:mm a')}</span>
                 </div>
               ) : todayShift ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
+                <div className="flex items-center justify-center gap-2 text-base text-muted-foreground">
+                  <Clock className="h-5 w-5" />
                   <span>
                     Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-2 text-amber-600 text-sm font-medium">
+                <div className="flex items-center justify-center gap-2 text-amber-600 text-base font-medium">
                   <span>⚠️ Not scheduled today</span>
                 </div>
               )}
@@ -292,52 +292,52 @@ export function ShiftSummaryCard({
             <div className="w-full">
               {!isClockedIn && !isOnBreak ? (
                 <Button
-                  className="w-full h-16 text-xl"
+                  className="w-full h-18 text-2xl py-6"
                   onClick={onClockIn}
                   disabled={!canClockIn}
                 >
-                  <Play className="mr-2 h-6 w-6" />
+                  <Play className="mr-3 h-7 w-7" />
                   Clock In
                 </Button>
               ) : isOnBreak ? (
                 <Button
-                  className="w-full h-16 text-xl"
+                  className="w-full h-18 text-2xl py-6"
                   variant={breakStatus?.canEnd ? 'default' : 'outline'}
                   onClick={onEndBreak}
                   disabled={!breakStatus?.canEnd}
                 >
-                  <Coffee className="mr-2 h-6 w-6" />
+                  <Coffee className="mr-3 h-7 w-7" />
                   {breakStatus?.canEnd 
                     ? 'End Break' 
                     : `Wait ${Math.floor((breakStatus?.remaining || 0) / 60)}:${((breakStatus?.remaining || 0) % 60).toString().padStart(2, '0')}`
                   }
                 </Button>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex gap-4">
+                <div className="space-y-5">
+                  <div className="flex gap-5">
                     <Button
                       variant="secondary"
-                      className="flex-1 h-14 text-base font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                      className="flex-1 h-16 text-lg font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
                       onClick={() => onBreak('break_start', 30)}
                     >
-                      <Coffee className="mr-2 h-5 w-5" />
+                      <Coffee className="mr-2 h-6 w-6" />
                       30m Meal
                     </Button>
                     <Button
                       variant="secondary"
-                      className="flex-1 h-14 text-base font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
+                      className="flex-1 h-16 text-lg font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
                       onClick={() => onBreak('break_start', 10)}
                     >
-                      <Coffee className="mr-2 h-5 w-5" />
+                      <Coffee className="mr-2 h-6 w-6" />
                       10m Rest
                     </Button>
                   </div>
                   <Button
                     variant="destructive"
-                    className="w-full h-14 text-base"
+                    className="w-full h-16 text-lg"
                     onClick={onClockOut}
                   >
-                    <LogOut className="mr-2 h-5 w-5" />
+                    <LogOut className="mr-2 h-6 w-6" />
                     End Shift
                   </Button>
                 </div>
