@@ -780,8 +780,22 @@ export default function PunchClock() {
       return;
     }
 
+    // CRITICAL: Fetch FRESH schedule data to avoid stale cache issues
+    // This ensures we always validate against the latest schedule, even if
+    // a manager just updated it seconds ago
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const { data: freshShift } = await supabase
+      .from('scheduled_shifts')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('shift_date', today)
+      .maybeSingle();
+    
+    // Update local state with fresh data
+    setTodayShift(freshShift);
+
     // Check if clocking in without a scheduled shift
-    if (!todayShift) {
+    if (!freshShift) {
       if (laborRules && !laborRules.allow_unscheduled_clock_in) {
         toast.error('You do not have a shift scheduled today. Please contact your manager.');
         return;
@@ -790,7 +804,7 @@ export default function PunchClock() {
     } else {
       // Check if clocking in early for a scheduled shift
       const now = new Date();
-      const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
+      const shiftStart = new Date(`${freshShift.shift_date}T${freshShift.start_time}`);
       
       if (!laborRules?.allow_early_clock_in) {
         // Early clock-in disabled
@@ -817,7 +831,7 @@ export default function PunchClock() {
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
-        shift_id: todayShift?.id || null,
+        shift_id: freshShift?.id || null,
         punch_type: 'clock_in',
         punch_time: getNowISOString(),
         location_id: currentLocation?.id,
