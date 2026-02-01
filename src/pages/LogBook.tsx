@@ -728,28 +728,28 @@ export default function LogBook() {
     // Read & Sign form
     if (isReadAndSign) {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center gap-2 mb-4">
-            <Button variant="ghost" size="icon" onClick={() => setWizardStep('category')}>
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <h2 className="text-lg font-semibold">Read & Sign</h2>
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6">
-            <ReadAndSignForm
-              locationId={currentLocation!.id}
-              employees={employees}
-              onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
-                setShowNewEntrySheet(false);
-                setActiveTab('search');
-              }}
-              onCancel={() => {
-                setShowNewEntrySheet(false);
-              }}
-            />
-          </div>
-        </div>
+        <>
+          <SheetHeader className="mb-4">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setWizardStep('category')}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <SheetTitle>Read & Sign</SheetTitle>
+            </div>
+          </SheetHeader>
+          <ReadAndSignForm
+            locationId={currentLocation!.id}
+            employees={employees}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
+              setShowNewEntrySheet(false);
+              setActiveTab('search');
+            }}
+            onCancel={() => {
+              setShowNewEntrySheet(false);
+            }}
+          />
+        </>
       );
     }
     
