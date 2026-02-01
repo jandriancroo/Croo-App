@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { SignedDocumentsSection } from '@/components/users/SignedDocumentsSection';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -751,6 +752,9 @@ export function EmployeeProfileDialog({
                   )}
                 </div>
               </div>
+
+              {/* Signed Documents Section */}
+              {user && <SignedDocumentsSection userId={user.id} />}
             </div>
           </div>
 
