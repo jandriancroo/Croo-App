@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
-import { Check, ChevronsUpDown, Loader2, Star, User } from "lucide-react";
+import { Camera, Check, ChevronsUpDown, Loader2, Star, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery } from "@tanstack/react-query";
@@ -31,6 +31,8 @@ interface RatingItem {
   description: string | null;
   rating: number;
   notes: string;
+  imageUrls: string[];
+  isUploadingPhoto: boolean;
 }
 
 // Star Rating Component
@@ -137,10 +139,56 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
           description: item.description,
           rating: 0,
           notes: "",
+          imageUrls: [],
+          isUploadingPhoto: false,
         }))
       );
     }
   }, [reviewItemsData, ratingItems.length]);
+
+  const handlePhotoUpload = async (itemId: string, file: File) => {
+    // Mark as uploading
+    setRatingItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, isUploadingPhoto: true } : item
+    ));
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `performance-reviews/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logbook-uploads')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logbook-uploads')
+        .getPublicUrl(filePath);
+
+      // Add the URL to the item
+      setRatingItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, imageUrls: [...item.imageUrls, publicUrl], isUploadingPhoto: false }
+          : item
+      ));
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast.error('Failed to upload photo');
+      setRatingItems(prev => prev.map(item => 
+        item.id === itemId ? { ...item, isUploadingPhoto: false } : item
+      ));
+    }
+  };
+
+  const removePhoto = (itemId: string, urlToRemove: string) => {
+    setRatingItems(prev => prev.map(item => 
+      item.id === itemId 
+        ? { ...item, imageUrls: item.imageUrls.filter(url => url !== urlToRemove) }
+        : item
+    ));
+  };
 
   const updateRating = (itemId: string, field: 'rating' | 'notes', value: number | string) => {
     setRatingItems(prev => 
@@ -175,6 +223,7 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
           itemName: item.name,
           rating: item.rating,
           notes: item.notes,
+          imageUrls: item.imageUrls.length > 0 ? item.imageUrls : undefined,
         })),
       followUpNotes: followUpNotes.trim(),
     });
@@ -267,6 +316,63 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
                 rows={2}
                 className="text-sm"
               />
+              
+              {/* Photo Upload Section */}
+              <div className="space-y-2">
+                {/* Photo Thumbnails */}
+                {item.imageUrls.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {item.imageUrls.map((url, idx) => (
+                      <div key={idx} className="relative group">
+                        <img 
+                          src={url} 
+                          alt={`Rating photo ${idx + 1}`}
+                          className="h-16 w-16 object-cover rounded-md border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(item.id, url)}
+                          className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Add Photo Button */}
+                <label className="inline-flex">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoUpload(item.id, file);
+                      e.target.value = '';
+                    }}
+                    disabled={item.isUploadingPhoto}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={item.isUploadingPhoto}
+                    asChild
+                  >
+                    <span>
+                      {item.isUploadingPhoto ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="h-3.5 w-3.5" />
+                      )}
+                      {item.isUploadingPhoto ? "Uploading..." : "Add Photo"}
+                    </span>
+                  </Button>
+                </label>
+              </div>
             </CardContent>
           </Card>
         ))}
