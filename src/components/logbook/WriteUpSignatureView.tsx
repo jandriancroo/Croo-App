@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { SignaturePad } from "@/components/ui/signature-pad";
-import { AlertTriangle, Calendar, FileText, Loader2, RotateCw, User } from "lucide-react";
+import { LandscapeSignatureOverlay } from "@/components/ui/LandscapeSignatureOverlay";
+import { AlertTriangle, FileText, Loader2, User, PenLine } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,13 +22,12 @@ interface WriteUpSignatureViewProps {
     location?: { name: string };
   };
   onComplete: () => void;
-  onClose: () => void;
 }
 
-export function WriteUpSignatureView({ writeUp, onComplete, onClose }: WriteUpSignatureViewProps) {
+export function WriteUpSignatureView({ writeUp, onComplete }: WriteUpSignatureViewProps) {
   const { user } = useAuth();
   const [isSigning, setIsSigning] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
+  const [showSignatureOverlay, setShowSignatureOverlay] = useState(false);
 
   const handleSignature = async (signatureDataUrl: string) => {
     setIsSigning(true);
@@ -96,9 +95,9 @@ export function WriteUpSignatureView({ writeUp, onComplete, onClose }: WriteUpSi
   const ACKNOWLEDGMENT_MESSAGE = "This write-up documents an area where we need improvement to meet team standards. Please read through it carefully, note the next steps, and sign below with your finger to show you understand and agree to work on this going forward.";
 
   return (
-    <div className={`fixed inset-0 z-50 bg-background flex flex-col ${isLandscape ? 'landscape-mode' : ''}`}>
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-destructive/10">
+      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-destructive/10">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-destructive" />
           <h1 className="font-semibold text-lg">Employee Write-Up</h1>
@@ -109,7 +108,7 @@ export function WriteUpSignatureView({ writeUp, onComplete, onClose }: WriteUpSi
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {/* Reason Badge */}
         <div className="flex items-center gap-2">
           <Badge variant="destructive" className="text-sm">
@@ -172,21 +171,28 @@ export function WriteUpSignatureView({ writeUp, onComplete, onClose }: WriteUpSi
             </p>
           </CardContent>
         </Card>
-
-        {/* Landscape Prompt */}
-        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2">
-          <RotateCw className="h-4 w-4" />
-          <span>Rotate phone to landscape for best signing experience</span>
-        </div>
-
-        {/* Signature Pad */}
-        <div className="pb-4">
-          <SignaturePad 
-            onSave={handleSignature}
-            disabled={isSigning}
-          />
-        </div>
       </div>
+
+      {/* Sign Button - Fixed Footer */}
+      <div className="flex-shrink-0 border-t bg-background p-4 pb-safe">
+        <Button
+          className="w-full h-12 text-base gap-2"
+          onClick={() => setShowSignatureOverlay(true)}
+          disabled={isSigning}
+        >
+          <PenLine className="h-5 w-5" />
+          Tap to Acknowledge & Sign
+        </Button>
+      </div>
+
+      {/* Landscape Signature Overlay */}
+      <LandscapeSignatureOverlay
+        open={showSignatureOverlay}
+        onClose={() => setShowSignatureOverlay(false)}
+        onSave={handleSignature}
+        title="Acknowledge Write-Up"
+        disabled={isSigning}
+      />
 
       {/* Loading overlay */}
       {isSigning && (
