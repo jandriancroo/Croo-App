@@ -247,7 +247,11 @@ export function ShiftSummaryCard({
               </p>
             </div>
 
-            {/* Hours Worked */}
+          </div>
+
+          {/* Right Column - Status, Actions, Break History */}
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            {/* Hours Worked - Above Started At */}
             {(isClockedIn || isOnBreak) && (
               <div className="text-center">
                 <p className="text-4xl font-bold font-mono text-foreground tracking-tight">
@@ -259,10 +263,7 @@ export function ShiftSummaryCard({
                 </Badge>
               </div>
             )}
-          </div>
 
-          {/* Right Column - Status, Actions, Break History */}
-          <div className="flex-1 flex flex-col justify-center space-y-4">
             {/* Schedule/Status Info */}
             <div className="w-full text-center p-3 rounded-xl bg-muted/50">
               {clockInTime && (isClockedIn || isOnBreak) ? (
