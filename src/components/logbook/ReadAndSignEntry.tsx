@@ -8,10 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronDown, ChevronRight, PenLine, CheckCircle2, Clock, Users, MoreVertical, Trash2, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronRight, PenLine, CheckCircle2, Clock, Users, MoreVertical, Trash2, RotateCcw, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
+import { EditReadAndSignDialog } from "./EditReadAndSignDialog";
 
 interface ReadAndSignEntryProps {
   documentId: string;
@@ -35,6 +36,7 @@ export function ReadAndSignEntry({
 }: ReadAndSignEntryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const { isAdmin, isManager } = useUserRole();
   const queryClient = useQueryClient();
   const canManage = isAdmin || isManager;
@@ -199,6 +201,15 @@ export function ReadAndSignEntry({
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation();
+                            setShowEditDialog(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setShowDeleteConfirm(true);
                           }}
                           className="text-destructive focus:text-destructive"
@@ -340,6 +351,15 @@ export function ReadAndSignEntry({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Dialog */}
+      <EditReadAndSignDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        documentId={documentId}
+        currentTitle={title}
+        signedCount={signedCount}
+      />
     </>
   );
 }
