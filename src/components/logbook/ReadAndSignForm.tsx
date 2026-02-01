@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, Calendar, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Calendar, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -32,13 +32,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
   const [title, setTitle] = useState("");
-  const [listStyle, setListStyle] = useState<"numbered" | "bulleted" | "checklist">("numbered");
   const [items, setItems] = useState<DocumentItem[]>([{ id: crypto.randomUUID(), content: "", children: [] }]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleHour, setScheduleHour] = useState<string>("09");
   const [scheduleMinute, setScheduleMinute] = useState<string>("00");
@@ -50,16 +48,6 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     { id: "shift_manager", label: "Shift Managers" },
     { id: "team_member", label: "Team Members" },
   ];
-
-  const toggleExpanded = (id: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedItems(newExpanded);
-  };
 
   const addItem = () => {
     setItems([...items, { id: crypto.randomUUID(), content: "", children: [] }]);
@@ -75,8 +63,6 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
       }
       return item;
     }));
-    // Auto-expand parent when adding child
-    setExpandedItems(new Set([...expandedItems, parentId]));
   };
 
   const updateItem = (id: string, content: string, parentId?: string) => {
@@ -156,8 +142,8 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
 
     setSaving(true);
     try {
-      // Map form listStyle to database allowed values ('bullet' or 'number')
-      const dbListStyle = listStyle === 'bulleted' ? 'bullet' : 'number';
+      // Always use numbered list style
+      const dbListStyle = 'number';
 
       // Calculate scheduled_at timestamp if date is set
       let scheduledAt: string | null = null;
@@ -268,102 +254,98 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           />
         </div>
 
-        {/* List Style */}
-        <div className="space-y-2">
-          <Label>List Style</Label>
-          <Select value={listStyle} onValueChange={(v) => setListStyle(v as any)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="numbered">Numbered (1, 2, 3...)</SelectItem>
-              <SelectItem value="bulleted">Bulleted (•)</SelectItem>
-              <SelectItem value="checklist">Checklist (☐)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Items */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Label>Document Items</Label>
           {items.map((item, index) => (
-            <div key={item.id} className="space-y-2">
-              <div className="flex items-start gap-2">
-                <div className="flex items-center gap-1 text-muted-foreground min-w-[32px] pt-2">
-                  {item.children.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => toggleExpanded(item.id)}
-                      className="p-0.5 hover:bg-muted rounded"
-                    >
-                      {expandedItems.has(item.id) ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </button>
-                  )}
-                  <span className="text-sm font-medium">{index + 1}.</span>
-                </div>
-                <Textarea
-                  value={item.content}
-                  onChange={(e) => updateItem(item.id, e.target.value)}
-                  placeholder="Enter item text..."
-                  className="min-h-[60px] flex-1"
-                />
-                <div className="flex flex-col gap-1">
+            <div key={item.id} className="space-y-2 bg-muted/30 rounded-lg p-3">
+              {/* Item header with number and delete */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
+                {items.length > 1 && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => addSubItem(item.id)}
-                    title="Add sub-item"
+                    onClick={() => removeItem(item.id)}
+                    className="text-destructive hover:text-destructive h-8 w-8 p-0"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                  {items.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeItem(item.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
+              
+              {/* Main text area - auto-expanding */}
+              <Textarea
+                value={item.content}
+                onChange={(e) => {
+                  updateItem(item.id, e.target.value);
+                  // Auto-expand textarea
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                placeholder="Enter item text..."
+                className="w-full min-h-[80px] resize-none overflow-hidden"
+                style={{ height: 'auto' }}
+                onFocus={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+              />
 
               {/* Sub-items */}
               {item.children.length > 0 && (
-                <div className="ml-10 space-y-2 border-l-2 border-muted pl-4">
+                <div className="space-y-2 border-l-2 border-primary/30 pl-3 ml-2">
                   {item.children.map((child, childIndex) => (
-                    <div key={child.id} className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground min-w-[24px]">
-                        {String.fromCharCode(97 + childIndex)}.
-                      </span>
-                      <Input
+                    <div key={child.id} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {String.fromCharCode(97 + childIndex)}.
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem(child.id, item.id)}
+                          className="text-destructive hover:text-destructive h-6 w-6 p-0"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Textarea
                         value={child.content}
-                        onChange={(e) => updateItem(child.id, e.target.value, item.id)}
+                        onChange={(e) => {
+                          updateItem(child.id, e.target.value, item.id);
+                          e.target.style.height = 'auto';
+                          e.target.style.height = e.target.scrollHeight + 'px';
+                        }}
                         placeholder="Sub-item text..."
-                        className="flex-1"
+                        className="w-full min-h-[60px] resize-none overflow-hidden text-sm"
+                        onFocus={(e) => {
+                          e.target.style.height = 'auto';
+                          e.target.style.height = e.target.scrollHeight + 'px';
+                        }}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(child.id, item.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Add sub-item button */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => addSubItem(item.id)}
+                className="text-xs text-muted-foreground h-8"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add sub-item
+              </Button>
             </div>
           ))}
+          
+          {/* Add new item button */}
           <Button type="button" variant="outline" onClick={addItem} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
             Add Item
