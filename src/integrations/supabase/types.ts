@@ -3245,6 +3245,163 @@ export type Database = {
           },
         ]
       }
+      performance_review_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          location_id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          location_id: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          location_id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_review_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_review_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          notes: string | null
+          rating: number
+          review_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          rating: number
+          review_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          rating?: number
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_review_ratings_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "performance_review_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_review_ratings_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "performance_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      performance_reviews: {
+        Row: {
+          created_at: string
+          created_by: string
+          employee_id: string
+          follow_up_notes: string | null
+          id: string
+          location_id: string
+          review_period_end: string | null
+          review_period_start: string | null
+          signature_url: string | null
+          signed_at: string | null
+          task_id: string | null
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          employee_id: string
+          follow_up_notes?: string | null
+          id?: string
+          location_id: string
+          review_period_end?: string | null
+          review_period_start?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          follow_up_notes?: string | null
+          id?: string
+          location_id?: string
+          review_period_end?: string | null
+          review_period_start?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_reviews_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pfg_orders: {
         Row: {
           created_at: string
