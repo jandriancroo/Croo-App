@@ -85,6 +85,7 @@ export function MobileEventDialog({
     tagged_roles: [] as string[],
     category_id: "" as string,
     is_daily_task: false,
+    is_meeting: false,
   });
 
   useEffect(() => {
@@ -113,6 +114,7 @@ export function MobileEventDialog({
         tagged_roles: [],
         category_id: "",
         is_daily_task: false,
+        is_meeting: false,
       });
       setEventMode("one-time");
       setShowDatePicker(false);
@@ -199,6 +201,7 @@ export function MobileEventDialog({
           is_recurring: false,
           category_id: formData.category_id || null,
           is_daily_task: formData.is_daily_task,
+          is_meeting: formData.is_meeting,
           location_id: locationId,
         });
 
@@ -219,6 +222,7 @@ export function MobileEventDialog({
           is_recurring: true,
           category_id: formData.category_id || null,
           is_daily_task: formData.is_daily_task,
+          is_meeting: formData.is_meeting,
           location_id: locationId,
         });
 
@@ -496,6 +500,24 @@ export function MobileEventDialog({
               Show as a daily task
             </Label>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="is_meeting"
+              checked={formData.is_meeting}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, is_meeting: checked as boolean })
+              }
+            />
+            <Label htmlFor="is_meeting" className="text-sm">
+              Allow attendees to punch in (meeting)
+            </Label>
+          </div>
+          {formData.is_meeting && (
+            <p className="text-xs text-muted-foreground pl-6">
+              After saving, you can add attendees who will be able to punch in during this event.
+            </p>
+          )}
         </form>
         <DrawerFooter className="pt-4">
           <Button onClick={handleSubmit} disabled={saving}>

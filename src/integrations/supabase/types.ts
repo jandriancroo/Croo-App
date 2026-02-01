@@ -1381,6 +1381,52 @@ export type Database = {
           },
         ]
       }
+      event_attendees: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attendees_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_attendees_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_attendees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_categories: {
         Row: {
           color: string
@@ -4449,6 +4495,7 @@ export type Database = {
           event_time: string
           id: string
           is_daily_task: boolean
+          is_meeting: boolean
           is_recurring: boolean
           location_id: string | null
           notes: string | null
@@ -4467,6 +4514,7 @@ export type Database = {
           event_time: string
           id?: string
           is_daily_task?: boolean
+          is_meeting?: boolean
           is_recurring?: boolean
           location_id?: string | null
           notes?: string | null
@@ -4485,6 +4533,7 @@ export type Database = {
           event_time?: string
           id?: string
           is_daily_task?: boolean
+          is_meeting?: boolean
           is_recurring?: boolean
           location_id?: string | null
           notes?: string | null

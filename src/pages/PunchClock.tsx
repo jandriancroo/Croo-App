@@ -147,6 +147,8 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  // Active meeting event (if user is assigned to one happening now)
+  const [activeMeetingEvent, setActiveMeetingEvent] = useState<any>(null);
   // Labor rules for clock-in restrictions
   const [laborRules, setLaborRules] = useState<{
     allow_unscheduled_clock_in: boolean;
@@ -474,7 +476,8 @@ export default function PunchClock() {
       Promise.all([
         checkTodayShift(),
         checkLastPunch(),
-        checkExpiringCertifications()
+        checkExpiringCertifications(),
+        checkActiveMeetingEvent()
       ]);
     }
   }, [currentUser]);
@@ -706,6 +709,86 @@ export default function PunchClock() {
     });
   };
 
+  // Check if user is assigned to an active meeting event that allows punch-in
+  const checkActiveMeetingEvent = async () => {
+    if (!currentUser || !currentLocation?.id) {
+      setActiveMeetingEvent(null);
+      return;
+    }
+
+    try {
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const currentTime = format(now, 'HH:mm:ss');
+      const dayOfWeek = (now.getDay() + 6) % 7; // Convert to Monday=0 format
+
+      // Find meeting events the user is assigned to that are active now
+      // An event is active if:
+      // 1. It's marked as is_meeting = true
+      // 2. It's today (one-time) or recurring on this day of week
+      // 3. Current time is within event_time to event_end_time (or 2 hours after start if no end time)
+      
+      const { data: attendeeRecords, error: attendeeError } = await supabase
+        .from('event_attendees')
+        .select('event_id')
+        .eq('user_id', currentUser.id);
+
+      if (attendeeError) throw attendeeError;
+
+      if (!attendeeRecords || attendeeRecords.length === 0) {
+        setActiveMeetingEvent(null);
+        return;
+      }
+
+      const eventIds = attendeeRecords.map((a: { event_id: string }) => a.event_id);
+
+      // Fetch meeting events
+      const { data: events, error: eventsError } = await supabase
+        .from('schedule_events')
+        .select('*')
+        .in('id', eventIds)
+        .eq('is_meeting', true)
+        .eq('location_id', currentLocation.id);
+
+      if (eventsError) throw eventsError;
+
+      // Find an active meeting
+      const activeMeeting = (events || []).find((event: any) => {
+        // Check if event applies today
+        const isToday = event.is_recurring
+          ? (event.days_of_week?.includes(dayOfWeek) || event.day_of_week === dayOfWeek)
+          : event.event_date === today;
+
+        if (!isToday) return false;
+
+        // Check time window
+        const eventStartTime = event.event_time;
+        const eventEndTime = event.event_end_time;
+
+        // If no end time, use 2 hours after start
+        if (!eventEndTime) {
+          const [startH, startM] = eventStartTime.split(':').map(Number);
+          const startMinutes = startH * 60 + startM;
+          const endMinutes = startMinutes + 120; // 2 hours
+          const [nowH, nowM] = currentTime.split(':').map(Number);
+          const nowMinutes = nowH * 60 + nowM;
+          return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+        }
+
+        return currentTime >= eventStartTime && currentTime <= eventEndTime;
+      });
+
+      setActiveMeetingEvent(activeMeeting || null);
+
+      if (activeMeeting) {
+        console.log('[PunchClock] Active meeting found:', activeMeeting.event_name);
+      }
+    } catch (error) {
+      console.error('Error checking meeting events:', error);
+      setActiveMeetingEvent(null);
+    }
+  };
+
   const checkExpiringCertifications = async () => {
     if (!currentUser) return;
 
@@ -738,6 +821,11 @@ export default function PunchClock() {
     
     // Cannot clock in if just returned from break (already in shift)
     if (lastPunch?.punch_type === 'break_end') return false;
+    
+    // MEETING OVERRIDE: If user is assigned to an active meeting event, allow clock-in
+    if (activeMeetingEvent) {
+      return true;
+    }
     
     // Check if clocking in without a schedule is allowed
     if (!todayShift) {
@@ -794,38 +882,48 @@ export default function PunchClock() {
     // Update local state with fresh data
     setTodayShift(freshShift);
 
-    // Check if clocking in without a scheduled shift
-    if (!freshShift) {
-      if (laborRules && !laborRules.allow_unscheduled_clock_in) {
-        toast.error('You do not have a shift scheduled today. Please contact your manager.');
-        return;
-      }
-      // Allowed - will be flagged for payroll review
-    } else {
-      // Check if clocking in early for a scheduled shift
-      const now = new Date();
-      const shiftStart = new Date(`${freshShift.shift_date}T${freshShift.start_time}`);
-      
-      if (!laborRules?.allow_early_clock_in) {
-        // Early clock-in disabled
-        if (now < shiftStart) {
-          toast.error('You cannot clock in early. Please wait until your shift starts.');
+    // MEETING OVERRIDE: If user is assigned to an active meeting, skip normal validation
+    const isMeetingPunchIn = !!activeMeetingEvent;
+    
+    if (!isMeetingPunchIn) {
+      // Check if clocking in without a scheduled shift
+      if (!freshShift) {
+        if (laborRules && !laborRules.allow_unscheduled_clock_in) {
+          toast.error('You do not have a shift scheduled today. Please contact your manager.');
           return;
         }
+        // Allowed - will be flagged for payroll review
       } else {
-        // Early clock-in allowed with configured limit
-        const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
-        const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
+        // Check if clocking in early for a scheduled shift
+        const now = new Date();
+        const shiftStart = new Date(`${freshShift.shift_date}T${freshShift.start_time}`);
         
-        if (now < earliestClockIn) {
-          toast.error(`You cannot clock in yet. Please wait until ${earlyMinutes} minutes before your shift.`);
-          return;
+        if (!laborRules?.allow_early_clock_in) {
+          // Early clock-in disabled
+          if (now < shiftStart) {
+            toast.error('You cannot clock in early. Please wait until your shift starts.');
+            return;
+          }
+        } else {
+          // Early clock-in allowed with configured limit
+          const earlyMinutes = laborRules?.early_clock_in_minutes ?? 30;
+          const earliestClockIn = new Date(shiftStart.getTime() - earlyMinutes * 60000);
+          
+          if (now < earliestClockIn) {
+            toast.error(`You cannot clock in yet. Please wait until ${earlyMinutes} minutes before your shift.`);
+            return;
+          }
         }
       }
     }
 
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
+    
+    // Add note if this is a meeting punch-in
+    const punchNotes = isMeetingPunchIn 
+      ? `Meeting: ${activeMeetingEvent.event_name}` 
+      : undefined;
     
     const { error } = await supabase
       .from('time_punches')
@@ -835,7 +933,8 @@ export default function PunchClock() {
         punch_type: 'clock_in',
         punch_time: getNowISOString(),
         location_id: currentLocation?.id,
-        created_by: currentUser.id // Self-punch
+        created_by: currentUser.id, // Self-punch
+        notes: punchNotes
       });
 
     if (error) {
