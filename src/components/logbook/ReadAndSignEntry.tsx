@@ -25,7 +25,27 @@ export function ReadAndSignEntry({
 }: ReadAndSignEntryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Fetch document details, items, and assignments
+  // Fetch assignment counts immediately for the badge
+  const { data: assignmentCounts } = useQuery({
+    queryKey: ["read-and-sign-counts", documentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("read_and_sign_assignments")
+        .select("id, signed_at")
+        .eq("document_id", documentId);
+
+      if (error) throw error;
+      
+      const assignments = data || [];
+      return {
+        signed: assignments.filter((a) => a.signed_at).length,
+        total: assignments.length,
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch document details, items, and assignments (only when expanded)
   const { data } = useQuery({
     queryKey: ["read-and-sign-details", documentId],
     queryFn: async () => {
@@ -70,8 +90,8 @@ export function ReadAndSignEntry({
     staleTime: 5 * 60 * 1000,
   });
 
-  const signedCount = data?.assignments?.filter((a) => a.signed_at)?.length || 0;
-  const totalCount = data?.assignments?.length || 0;
+  const signedCount = assignmentCounts?.signed || 0;
+  const totalCount = assignmentCounts?.total || 0;
   const allSigned = totalCount > 0 && signedCount === totalCount;
 
   return (
