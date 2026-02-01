@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, DollarSign, ClipboardList, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ArrowLeftRight, UtensilsCrossed, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ArrowLeftRight, UtensilsCrossed, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -38,6 +38,8 @@ import { EmployeeWriteUpForm, WriteUpData } from "@/components/logbook/EmployeeW
 import { EmployeeWriteUpEntry } from "@/components/logbook/EmployeeWriteUpEntry";
 import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
 import { ReadAndSignEntry } from "@/components/logbook/ReadAndSignEntry";
+import { PerformanceReviewForm, PerformanceReviewData } from "@/components/logbook/PerformanceReviewForm";
+import { PerformanceReviewEntry } from "@/components/logbook/PerformanceReviewEntry";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
@@ -285,7 +287,31 @@ export default function LogBook() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
-  // Fetch employees for Read & Sign form
+  // Fetch Performance Reviews for the location (manager+ only)
+  const { data: performanceReviews = [] } = useQuery({
+    queryKey: ['performance-reviews', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return [];
+      const { data, error } = await supabase
+        .from('performance_reviews')
+        .select(`
+          *,
+          employee:profiles!performance_reviews_employee_id_fkey(full_name, profile_photo_url),
+          created_by_profile:profiles!performance_reviews_created_by_fkey(full_name, profile_photo_url)
+        `)
+        .eq('location_id', currentLocation.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentLocation && (isAdmin || isManager),
+    staleTime: LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
+  });
+
+  // Fetch employees for Read & Sign and Performance Review forms
   const { data: employees = [] } = useQuery({
     queryKey: ['location-employees', currentLocation?.id],
     queryFn: async () => {
@@ -411,12 +437,25 @@ export default function LogBook() {
     _virtualId: `readandsign-${doc.id}`,
   }));
 
-  // Use search results when searching, otherwise combine recent entries with write-ups and read & sign docs
+  // Convert Performance Reviews to log entry format (manager+ only)
+  const performanceReviewEntries = performanceReviews.map((review: any) => ({
+    id: review.id,
+    entry_date: format(new Date(review.created_at), 'yyyy-MM-dd'),
+    created_at: review.created_at,
+    created_by: review.created_by,
+    profiles: review.created_by_profile,
+    logbook_categories: { name: 'Performance Review' },
+    _isPerformanceReview: true,
+    _performanceReviewData: review,
+    _virtualId: `review-${review.id}`,
+  }));
+
+  // Use search results when searching, otherwise combine recent entries with write-ups, read & sign docs, and performance reviews
   const allEntries = searchTerms.length > 0
-    ? [...searchResults, ...writeUpEntries, ...readAndSignEntries].sort((a: any, b: any) => 
+    ? [...searchResults, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries].sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
-    : [...recentEntries, ...writeUpEntries, ...readAndSignEntries].sort((a: any, b: any) => 
+    : [...recentEntries, ...writeUpEntries, ...readAndSignEntries, ...performanceReviewEntries].sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ).slice(0, 100);
 
@@ -733,6 +772,100 @@ export default function LogBook() {
     const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
     const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'employee write up' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup' || currentCategoryName === 'write up';
     const isReadAndSign = currentCategoryName === 'read & sign' || currentCategoryName === 'read and sign' || currentCategoryName === 'read-and-sign';
+    const isPerformanceReview = currentCategoryName === 'performance review' || currentCategoryName === 'performance-review';
+    
+    // Performance Review form - manager+ only
+    if (isPerformanceReview) {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Performance Review</h2>
+          <PerformanceReviewForm
+            onSave={async (data: PerformanceReviewData) => {
+              if (isSavingSpecialForm) return;
+              setIsSavingSpecialForm(true);
+              try {
+                // 1. Create the performance review
+                const { data: review, error: reviewError } = await supabase
+                  .from('performance_reviews')
+                  .insert({
+                    location_id: currentLocation!.id,
+                    employee_id: data.employeeId,
+                    created_by: user!.id,
+                    review_period_start: data.reviewPeriodStart ? format(data.reviewPeriodStart, 'yyyy-MM-dd') : null,
+                    review_period_end: data.reviewPeriodEnd ? format(data.reviewPeriodEnd, 'yyyy-MM-dd') : null,
+                    follow_up_notes: data.followUpNotes || null,
+                  })
+                  .select()
+                  .single();
+                
+                if (reviewError) throw reviewError;
+                
+                // 2. Insert all ratings
+                if (data.ratings.length > 0) {
+                  const ratingsToInsert = data.ratings.map(r => ({
+                    review_id: review.id,
+                    item_id: r.itemId,
+                    rating: r.rating,
+                    notes: r.notes || null,
+                  }));
+                  
+                  const { error: ratingsError } = await supabase
+                    .from('performance_review_ratings')
+                    .insert(ratingsToInsert);
+                  
+                  if (ratingsError) throw ratingsError;
+                }
+                
+                // 3. Create a temporary task assigned to the employee for signature
+                const { data: task, error: taskError } = await supabase
+                  .from('temporary_tasks')
+                  .insert({
+                    location_id: currentLocation!.id,
+                    title: `Sign Performance Review`,
+                    description: 'You have a performance review that requires your acknowledgment and signature.',
+                    created_by: user!.id,
+                    accent_color: '#3b82f6', // blue for reviews
+                    task_style: 'quick',
+                    is_active: true,
+                    push_enabled: true,
+                  })
+                  .select()
+                  .single();
+                
+                if (taskError) throw taskError;
+                
+                // 4. Create task assignment for the employee
+                if (task) {
+                  await supabase
+                    .from('temporary_task_assignments')
+                    .insert({
+                      task_id: task.id,
+                      user_id: data.employeeId,
+                    });
+                  
+                  // Update review with task_id
+                  await supabase
+                    .from('performance_reviews')
+                    .update({ task_id: task.id })
+                    .eq('id', review.id);
+                }
+
+                toast({ title: "Performance review submitted", description: `${data.employeeName} will be notified to sign.` });
+                queryClient.invalidateQueries({ queryKey: ['performance-reviews'] });
+                queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+              } catch (error: any) {
+                toast({ title: "Error saving review", description: error.message, variant: "destructive" });
+              } finally {
+                setIsSavingSpecialForm(false);
+              }
+            }}
+            isSaving={isSavingSpecialForm}
+          />
+        </div>
+      );
+    }
     
     // Read & Sign form - no inner header, the outer wrapper handles it
     if (isReadAndSign) {
@@ -1532,6 +1665,7 @@ export default function LogBook() {
                             if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
                             if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
                             if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
+                            if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
                             if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
                             if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
                             if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
@@ -1624,6 +1758,24 @@ export default function LogBook() {
                       const isWriteUp = entry._isWriteUp || entry.logbook_categories?.name?.toLowerCase()?.includes('write');
                       const isFinalWarning = entry._writeUpData?.is_final_warning;
                       const isReadAndSign = entry._isReadAndSign;
+                      const isPerformanceReview = entry._isPerformanceReview;
+                      
+                      // Special rendering for Performance Review entries (manager+ only)
+                      if (isPerformanceReview) {
+                        const reviewData = entry._performanceReviewData;
+                        return (
+                          <PerformanceReviewEntry
+                            key={entry._virtualId}
+                            reviewId={reviewData.id}
+                            employeeName={reviewData.employee?.full_name || 'Unknown'}
+                            employeePhoto={reviewData.employee?.profile_photo_url}
+                            createdAt={reviewData.created_at}
+                            createdByName={reviewData.created_by_profile?.full_name}
+                            isSigned={!!reviewData.signed_at}
+                            signedAt={reviewData.signed_at}
+                          />
+                        );
+                      }
                       
                       // Special rendering for Read & Sign entries
                       if (isReadAndSign) {
