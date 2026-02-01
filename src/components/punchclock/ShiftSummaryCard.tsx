@@ -230,14 +230,14 @@ export function ShiftSummaryCard({
         Back
       </Button>
 
-      {/* White Card Container - Two Column Layout */}
-      <div className="w-full max-w-2xl bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-6">
-        <div className="flex gap-6">
+      {/* White Card Container - Square, Two Column Layout */}
+      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-8 min-h-[420px] min-w-[600px] max-w-3xl">
+        <div className="flex gap-8 h-full">
           {/* Left Column - Profile, Name, Hours */}
-          <div className="flex flex-col items-center justify-center min-w-[180px] space-y-4 border-r border-border pr-6">
-            <Avatar className="h-24 w-24 border-4 border-primary/20 shadow-lg">
+          <div className="flex flex-col items-center justify-center min-w-[220px] space-y-5 border-r border-border pr-8">
+            <Avatar className="h-36 w-36 border-4 border-primary/20 shadow-xl">
               <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
-              <AvatarFallback className="text-2xl font-semibold bg-primary/10 text-primary">
+              <AvatarFallback className="text-4xl font-semibold bg-primary/10 text-primary">
                 {initials}
               </AvatarFallback>
             </Avatar>
