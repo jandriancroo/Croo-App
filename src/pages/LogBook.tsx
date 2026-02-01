@@ -1634,6 +1634,8 @@ export default function LogBook() {
                             title={entry._readAndSignData.title}
                             createdAt={entry._readAndSignData.created_at}
                             createdByName={entry._readAndSignData.created_by_profile?.full_name}
+                            revisionNumber={entry._readAndSignData.revision_number || 0}
+                            revisedAt={entry._readAndSignData.revised_at}
                           />
                         );
                       }
