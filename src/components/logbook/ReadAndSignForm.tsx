@@ -47,7 +47,8 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const buildFileInputRef = useRef<HTMLInputElement>(null);
   const [scheduleHour, setScheduleHour] = useState<string>("09");
   const [scheduleMinute, setScheduleMinute] = useState<string>("00");
   const [scheduleAmPm, setScheduleAmPm] = useState<"AM" | "PM">("AM");
@@ -210,8 +211,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
       toast.error("Failed to upload file");
     } finally {
       setUploadingFile(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (uploadFileInputRef.current) {
+        uploadFileInputRef.current.value = "";
+      }
+      if (buildFileInputRef.current) {
+        buildFileInputRef.current.value = "";
       }
     }
   };
@@ -538,7 +542,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             {attachments.length === 0 ? (
               <div 
                 className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => uploadFileInputRef.current?.click()}
               >
                 <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
                 <p className="text-sm font-medium">Click to upload document</p>
@@ -571,7 +575,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => uploadFileInputRef.current?.click()}
                   disabled={uploadingFile}
                 >
                   {uploadingFile ? (
@@ -585,7 +589,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             )}
             {/* Hidden file input for Upload mode */}
             <input
-              ref={fileInputRef}
+              ref={uploadFileInputRef}
               type="file"
               className="hidden"
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
@@ -608,7 +612,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             
             {/* Hidden file input for Build mode */}
             <input
-              ref={fileInputRef}
+              ref={buildFileInputRef}
               type="file"
               multiple
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
@@ -620,7 +624,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             <Button
               type="button"
               variant="outline"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => buildFileInputRef.current?.click()}
               disabled={uploadingFile}
               className="w-full"
             >
