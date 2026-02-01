@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { useUserRole } from "@/hooks/useUserRole";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useQuery } from "@tanstack/react-query";
 
 interface DocumentItem {
   id: string;
@@ -30,7 +29,6 @@ interface ReadAndSignFormProps {
 
 export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: ReadAndSignFormProps) {
   const { user } = useAuth();
-  const { isAdmin, isManager } = useUserRole();
   const [title, setTitle] = useState("");
   const [items, setItems] = useState<DocumentItem[]>([{ id: crypto.randomUUID(), content: "", children: [] }]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -42,11 +40,46 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   const [scheduleMinute, setScheduleMinute] = useState<string>("00");
   const [scheduleAmPm, setScheduleAmPm] = useState<"AM" | "PM">("AM");
 
+  // Fetch employee roles
+  const { data: employeeRoles = {} } = useQuery({
+    queryKey: ["employee-roles", employees.map(e => e.id)],
+    queryFn: async () => {
+      const employeeIds = employees.map(e => e.id);
+      if (employeeIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("user_id", employeeIds);
+      
+      if (error) throw error;
+      
+      // Create a map of user_id -> roles[]
+      const roleMap: Record<string, string[]> = {};
+      data?.forEach(row => {
+        if (!roleMap[row.user_id]) {
+          roleMap[row.user_id] = [];
+        }
+        roleMap[row.user_id].push(row.role);
+      });
+      return roleMap;
+    },
+    enabled: employees.length > 0,
+  });
+
+  // Get employees by role
+  const getEmployeesByRole = (roleId: string) => {
+    return employees.filter(emp => {
+      const roles = employeeRoles[emp.id] || [];
+      return roles.includes(roleId);
+    });
+  };
+
   const roles = [
-    { id: "admin", label: "Admins" },
-    { id: "manager", label: "Managers" },
-    { id: "shift_manager", label: "Shift Managers" },
-    { id: "team_member", label: "Team Members" },
+    { id: "admin", label: "Admins", count: getEmployeesByRole("admin").length },
+    { id: "manager", label: "Managers", count: getEmployeesByRole("manager").length },
+    { id: "shift_manager", label: "Shift Managers", count: getEmployeesByRole("shift_manager").length },
+    { id: "team_member", label: "Team Members", count: getEmployeesByRole("team_member").length },
   ];
 
   const addItem = () => {
@@ -233,11 +266,38 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   };
 
   const toggleRole = (roleId: string) => {
+    const employeesWithRole = getEmployeesByRole(roleId);
+    const employeeIds = employeesWithRole.map(e => e.id);
+    
     if (selectedRoles.includes(roleId)) {
+      // Deselecting role - remove employees that only have this role selected
       setSelectedRoles(selectedRoles.filter(id => id !== roleId));
+      
+      // Remove employees unless they're covered by another selected role
+      const remainingRoles = selectedRoles.filter(id => id !== roleId);
+      const stillCoveredEmployees = new Set<string>();
+      remainingRoles.forEach(role => {
+        getEmployeesByRole(role).forEach(emp => stillCoveredEmployees.add(emp.id));
+      });
+      
+      setSelectedEmployees(prev => prev.filter(id => 
+        stillCoveredEmployees.has(id) || !employeeIds.includes(id)
+      ));
     } else {
+      // Selecting role - add all employees with this role
       setSelectedRoles([...selectedRoles, roleId]);
+      setSelectedEmployees(prev => {
+        const newSelection = new Set([...prev, ...employeeIds]);
+        return Array.from(newSelection);
+      });
     }
+    
+    // Update selectAll state
+    const allEmployeeIds = new Set(employees.map(e => e.id));
+    const newSelected = selectedRoles.includes(roleId)
+      ? selectedEmployees.filter(id => !employeeIds.includes(id) || employeeIds.some(eId => selectedRoles.filter(r => r !== roleId).some(r => getEmployeesByRole(r).map(e => e.id).includes(eId))))
+      : [...new Set([...selectedEmployees, ...employeeIds])];
+    setSelectAll(newSelected.length === employees.length);
   };
 
   return (
@@ -432,19 +492,29 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             Assign by Role
           </Label>
           <div className="grid grid-cols-2 gap-2">
-            {roles.map((role) => (
-              <div key={role.id} className="flex items-center gap-2">
+            {roles.filter(role => role.count > 0).map((role) => (
+              <div 
+                key={role.id} 
+                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                  selectedRoles.includes(role.id) ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                }`}
+                onClick={() => toggleRole(role.id)}
+              >
                 <Checkbox
                   id={`role-${role.id}`}
                   checked={selectedRoles.includes(role.id)}
                   onCheckedChange={() => toggleRole(role.id)}
                 />
-                <label htmlFor={`role-${role.id}`} className="text-sm cursor-pointer">
+                <label htmlFor={`role-${role.id}`} className="text-sm cursor-pointer flex-1">
                   {role.label}
+                  <span className="text-muted-foreground ml-1">({role.count})</span>
                 </label>
               </div>
             ))}
           </div>
+          {roles.every(role => role.count === 0) && (
+            <p className="text-sm text-muted-foreground">No role data available</p>
+          )}
         </div>
 
         {/* Employee Selection */}
