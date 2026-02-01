@@ -176,30 +176,24 @@ export function EditReadAndSignDialog({
 
     setSaving(true);
     try {
-      // Update document title and revision info
-      const { error: docError } = await supabase
-        .from("read_and_sign_documents")
-        .update({
-          title: title.trim(),
-          revised_at: new Date().toISOString(),
-        })
-        .eq("id", documentId);
-
-      if (docError) throw docError;
-
-      // Increment revision number separately
+      // Get current revision number first
       const { data: currentDoc } = await supabase
         .from("read_and_sign_documents")
         .select("revision_number")
         .eq("id", documentId)
         .single();
-      
-      if (currentDoc) {
-        await supabase
-          .from("read_and_sign_documents")
-          .update({ revision_number: (currentDoc.revision_number || 0) + 1 })
-          .eq("id", documentId);
-      }
+
+      // Update document title, revision timestamp, and increment revision_number atomically
+      const { error: docError } = await supabase
+        .from("read_and_sign_documents")
+        .update({
+          title: title.trim(),
+          revised_at: new Date().toISOString(),
+          revision_number: (currentDoc?.revision_number || 0) + 1,
+        })
+        .eq("id", documentId);
+
+      if (docError) throw docError;
 
       // Delete existing items
       await supabase.from("read_and_sign_items").delete().eq("document_id", documentId);
