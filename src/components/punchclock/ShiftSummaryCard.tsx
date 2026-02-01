@@ -247,6 +247,12 @@ export function ShiftSummaryCard({
               </p>
             </div>
 
+            {/* Status Badge - Below Name */}
+            {(isClockedIn || isOnBreak) && (
+              <Badge variant="secondary" className="bg-primary/10 text-primary">
+                {isOnBreak ? 'On Break' : 'Clocked In'}
+              </Badge>
+            )}
           </div>
 
           {/* Right Column - Status, Actions, Break History */}
@@ -258,9 +264,6 @@ export function ShiftSummaryCard({
                   {formatTimeWorked()}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">Hours Worked</p>
-                <Badge variant="secondary" className="mt-2 bg-primary/10 text-primary">
-                  {isOnBreak ? 'On Break' : 'Clocked In'}
-                </Badge>
               </div>
             )}
 
