@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, FileText, DollarSign, ClipboardList, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, DollarSign, ClipboardList, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ArrowLeftRight, UtensilsCrossed, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -1520,13 +1520,18 @@ export default function LogBook() {
                             return (a.display_order || 0) - (b.display_order || 0);
                           })
                           .map((category: any) => {
-                          const getCategoryIcon = (name: string) => {
+                        const getCategoryIcon = (name: string) => {
                             const lower = name.toLowerCase();
                             if (lower.includes('write') && lower.includes('up')) return <UserX className="h-6 w-6" />;
                             if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
                             if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
                             if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
-                            if (lower.includes('refund')) return <FileText className="h-6 w-6" />;
+                            if (lower.includes('refund')) return <ArrowLeftRight className="h-6 w-6" />;
+                            if (lower.includes('remake')) return <UtensilsCrossed className="h-6 w-6" />;
+                            if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
+                            if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
+                            if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
+                            if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
                             if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
                             if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
                             if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
