@@ -10,6 +10,7 @@ import { Plus, ClipboardCheck, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
+import { MeetingAttendeeManager } from "./MeetingAttendeeManager";
 import { formatTime12Hour, cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -98,6 +99,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     tagged_roles: [] as string[],
     category_id: "" as string,
     is_daily_task: false,
+    is_meeting: false,
   });
 
   useEffect(() => {
@@ -167,6 +169,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
             schedule_id: eventMode === "recurring" ? null : scheduleId,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
+            is_meeting: formData.is_meeting,
             location_id: locationId,
             event_date: eventMode === "one-time" && formData.event_date ? format(formData.event_date, "yyyy-MM-dd") : null,
           })
@@ -199,6 +202,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
             is_recurring: false,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
+            is_meeting: formData.is_meeting,
             location_id: locationId,
           });
 
@@ -224,6 +228,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
             is_recurring: true,
             category_id: formData.category_id || null,
             is_daily_task: formData.is_daily_task,
+            is_meeting: formData.is_meeting,
             location_id: locationId,
           });
 
@@ -253,6 +258,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
       tagged_roles: [],
       category_id: "",
       is_daily_task: false,
+      is_meeting: false,
     });
     setEventMode("one-time");
     setShowNewCategory(false);
@@ -277,6 +283,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
       tagged_roles: event.tagged_roles || [],
       category_id: event.category_id || "",
       is_daily_task: event.is_daily_task || false,
+      is_meeting: (event as any).is_meeting || false,
     });
     setEventMode(event.is_recurring ? "recurring" : "one-time");
     setDialogOpen(true);
@@ -623,7 +630,6 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                   </div>
                 </div>
 
-
                 <div className="flex items-center space-x-2 p-3 bg-accent/10 rounded-md border border-accent/20">
                   <Checkbox
                     id="is_daily_task"
@@ -641,6 +647,32 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                     </p>
                   </div>
                 </div>
+
+                <div className="flex items-center space-x-2 p-3 bg-blue-500/10 rounded-md border border-blue-500/20">
+                  <Checkbox
+                    id="is_meeting"
+                    checked={formData.is_meeting}
+                    onCheckedChange={(checked) => 
+                      setFormData({ ...formData, is_meeting: checked as boolean })
+                    }
+                  />
+                  <div>
+                    <label htmlFor="is_meeting" className="text-sm cursor-pointer font-medium">
+                      Allow Punch-In (Meeting)
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Attendees can punch in during this event, even without a scheduled shift
+                    </p>
+                  </div>
+                </div>
+
+                {editingEvent && formData.is_meeting && (
+                  <MeetingAttendeeManager
+                    eventId={editingEvent.id}
+                    eventName={formData.event_name}
+                    locationId={locationId || ""}
+                  />
+                )}
 
                 <Button type="submit" className="w-full">
                   {editingEvent ? "Update Event" : "Create Event"}

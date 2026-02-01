@@ -46,11 +46,26 @@ These rules are now **configurable per-location** in Settings → Labor Rules:
 | Scheduled shift + `allow_early_clock_in: false` + before shift start | ❌ Cannot clock in yet |
 | Scheduled shift + `allow_early_clock_in: true` + more than X mins before start | ❌ Cannot clock in yet |
 | Scheduled shift + within allowed early window or after start | ✅ Can clock in |
+| Assigned to active meeting event | ✅ Can clock in (bypasses all restrictions) |
+
+### Meeting Event Override
+
+When an employee is assigned to a **meeting event** (`is_meeting = true` in `schedule_events`), they can punch in during the meeting's time window regardless of their regular shift schedule. This is useful for:
+- All-store meetings
+- Manager-only meetings
+- Training sessions
+
+**How it works:**
+1. Create a schedule event with "Allow Punch-In (Meeting)" enabled
+2. Add attendees via the "Attendees" button
+3. Assigned employees can punch in during the event time (start to end, or 2 hours if no end time)
+4. Their punch will be noted as "Meeting: [Event Name]"
 
 ### What Happens on Clock In:
 - Inserts a `clock_in` punch with current timestamp
 - Links to `shift_id` if scheduled shift exists (null otherwise)
 - Sets `created_by` to the employee's user ID (self-punch)
+- If meeting punch-in, adds note: "Meeting: [Event Name]"
 - Triggers post-clock-in tasks screen (alarm tasks, etc.)
 
 ---
