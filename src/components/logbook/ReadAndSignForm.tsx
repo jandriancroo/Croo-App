@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Calendar, Users, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, Calendar, Users, Paperclip, X, FileText, Image as ImageIcon, Upload, Hammer } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,8 +33,11 @@ interface ReadAndSignFormProps {
   onCancel: () => void;
 }
 
+type DocumentMode = "build" | "upload";
+
 export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: ReadAndSignFormProps) {
   const { user } = useAuth();
+  const [mode, setMode] = useState<DocumentMode>("build");
   const [title, setTitle] = useState("");
   const [items, setItems] = useState<DocumentItem[]>([{ id: crypto.randomUUID(), content: "", children: [] }]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
@@ -235,9 +238,19 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     }
 
     const validItems = items.filter(item => item.content.trim());
-    if (validItems.length === 0) {
-      toast.error("Please add at least one item");
-      return;
+    
+    // Validation depends on mode
+    if (mode === "build") {
+      if (validItems.length === 0) {
+        toast.error("Please add at least one item");
+        return;
+      }
+    } else {
+      // Upload mode - require at least one attachment
+      if (attachments.length === 0) {
+        toast.error("Please upload at least one document");
+        return;
+      }
     }
 
     if (selectedEmployees.length === 0) {
@@ -377,6 +390,34 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     <div className="flex flex-col h-full min-h-0">
       <div className="flex-1 overflow-y-auto pr-3 pb-4">
         <div className="space-y-6">
+        {/* Mode Selector */}
+        <div className="flex gap-2 p-1 bg-muted rounded-lg">
+          <button
+            type="button"
+            onClick={() => setMode("build")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              mode === "build"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Hammer className="h-4 w-4" />
+            Build
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("upload")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              mode === "upload"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Upload className="h-4 w-4" />
+            Upload
+          </button>
+        </div>
+
         {/* Title */}
         <div className="space-y-2">
           <Label>Document Title</Label>
@@ -387,172 +428,234 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           />
         </div>
 
-        {/* Items */}
-        <div className="space-y-4">
-          <Label>Document Items</Label>
-          {items.map((item, index) => (
-            <div key={item.id} className="space-y-2 bg-muted/30 rounded-lg p-3">
-              {/* Item header with number and delete */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
-                {items.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeItem(item.id)}
-                    className="text-destructive hover:text-destructive h-8 w-8 p-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              
-              {/* Main text area - auto-expanding */}
-              <Textarea
-                value={item.content}
-                onChange={(e) => {
-                  updateItem(item.id, e.target.value);
-                  // Auto-expand textarea
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-                placeholder="Enter item text..."
-                className="w-full min-h-[80px] resize-none overflow-hidden"
-                style={{ height: 'auto' }}
-                onFocus={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-              />
+        {/* Build Mode - Items */}
+        {mode === "build" && (
+          <div className="space-y-4">
+            <Label>Document Items</Label>
+            {items.map((item, index) => (
+              <div key={item.id} className="space-y-2 bg-muted/30 rounded-lg p-3">
+                {/* Item header with number and delete */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
+                  {items.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeItem(item.id)}
+                      className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Main text area - auto-expanding */}
+                <Textarea
+                  value={item.content}
+                  onChange={(e) => {
+                    updateItem(item.id, e.target.value);
+                    // Auto-expand textarea
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                  placeholder="Enter item text..."
+                  className="w-full min-h-[80px] resize-none overflow-hidden"
+                  style={{ height: 'auto' }}
+                  onFocus={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
+                />
 
-              {/* Sub-items */}
-              {item.children.length > 0 && (
-                <div className="space-y-2 border-l-2 border-primary/30 pl-3 ml-2">
-                  {item.children.map((child, childIndex) => (
-                    <div key={child.id} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {String.fromCharCode(97 + childIndex)}.
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(child.id, item.id)}
-                          className="text-destructive hover:text-destructive h-6 w-6 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                {/* Sub-items */}
+                {item.children.length > 0 && (
+                  <div className="space-y-2 border-l-2 border-primary/30 pl-3 ml-2">
+                    {item.children.map((child, childIndex) => (
+                      <div key={child.id} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {String.fromCharCode(97 + childIndex)}.
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem(child.id, item.id)}
+                            className="text-destructive hover:text-destructive h-6 w-6 p-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={child.content}
+                          onChange={(e) => {
+                            updateItem(child.id, e.target.value, item.id);
+                            e.target.style.height = 'auto';
+                            e.target.style.height = e.target.scrollHeight + 'px';
+                          }}
+                          placeholder="Sub-item text..."
+                          className="w-full min-h-[60px] resize-none overflow-hidden text-sm"
+                          onFocus={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = e.target.scrollHeight + 'px';
+                          }}
+                        />
                       </div>
-                      <Textarea
-                        value={child.content}
-                        onChange={(e) => {
-                          updateItem(child.id, e.target.value, item.id);
-                          e.target.style.height = 'auto';
-                          e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        placeholder="Sub-item text..."
-                        className="w-full min-h-[60px] resize-none overflow-hidden text-sm"
-                        onFocus={(e) => {
-                          e.target.style.height = 'auto';
-                          e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add sub-item button */}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => addSubItem(item.id)}
-                className="text-xs text-muted-foreground h-8"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Add sub-item
-              </Button>
-            </div>
-          ))}
-          
-          {/* Add new item button */}
-          <Button type="button" variant="outline" onClick={addItem} className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
-          </Button>
-        </div>
-
-        {/* Attachments Section */}
-        <div className="space-y-3">
-          <Label className="flex items-center gap-2">
-            <Paperclip className="h-4 w-4" />
-            Attachments (optional)
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            Attach PDFs, images, or other files that employees can view (e.g., handbooks, policies).
-          </p>
-          
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          
-          {/* Upload button */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingFile}
-            className="w-full"
-          >
-            {uploadingFile ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Attachment
-              </>
-            )}
-          </Button>
-          
-          {/* Attachment list */}
-          {attachments.length > 0 && (
-            <div className="space-y-2">
-              {attachments.map((attachment, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
-                >
-                  {getFileIcon(attachment.type)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{attachment.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                    ))}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeAttachment(index)}
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                )}
+
+                {/* Add sub-item button */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addSubItem(item.id)}
+                  className="text-xs text-muted-foreground h-8"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add sub-item
+                </Button>
+              </div>
+            ))}
+            
+            {/* Add new item button */}
+            <Button type="button" variant="outline" onClick={addItem} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Item
+            </Button>
+          </div>
+        )}
+
+        {/* Upload Mode - File Upload for Document */}
+        {mode === "upload" && (
+          <div className="space-y-3">
+            <Label>Upload Document</Label>
+            <p className="text-xs text-muted-foreground">
+              Upload a PDF or document file. Employees will need to view/download and sign to acknowledge.
+            </p>
+            {attachments.length === 0 ? (
+              <div 
+                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                <p className="text-sm font-medium">Click to upload document</p>
+                <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, or images (max 10MB)</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {attachments.map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    {getFileIcon(attachment.type)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAttachment(index)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFile}
+                >
+                  {uploadingFile ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
+                  Add another file
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Attachments Section - Only show in Build mode */}
+        {mode === "build" && (
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              Attachments (optional)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Attach PDFs, images, or other files that employees must view before signing.
+            </p>
+            
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            
+            {/* Upload button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingFile}
+              className="w-full"
+            >
+              {uploadingFile ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Attachment
+                </>
+              )}
+            </Button>
+            
+            {/* Attachment list */}
+            {attachments.length > 0 && (
+              <div className="space-y-2">
+                {attachments.map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
+                  >
+                    {getFileIcon(attachment.type)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAttachment(index)}
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Schedule Date & Time (optional) */}
         <div className="space-y-3">
