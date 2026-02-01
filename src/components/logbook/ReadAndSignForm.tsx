@@ -214,7 +214,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   };
 
   return (
-    <div className="flex flex-col space-y-6 pb-6">
+    <div className="space-y-6 pb-24">
       {/* Title */}
       <div className="space-y-2">
         <Label>Document Title</Label>
