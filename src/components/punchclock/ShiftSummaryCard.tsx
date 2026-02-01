@@ -222,8 +222,8 @@ export function ShiftSummaryCard({
     <div className="w-full grid grid-cols-[1fr_auto_1fr] items-start gap-3 px-4 pt-2">
       {/* Left column: Back button aligned to the card edge */}
       <div className="flex justify-end">
-        <Button variant="ghost" onClick={onBack} className="mt-6 shrink-0">
-          <ArrowLeft className="mr-2 h-4 w-4" />
+        <Button variant="ghost" onClick={onBack} className="mt-6 shrink-0 h-12 px-5 text-lg">
+          <ArrowLeft className="mr-2 h-6 w-6" />
           Back
         </Button>
       </div>
