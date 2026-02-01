@@ -219,19 +219,19 @@ export function ShiftSummaryCard({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col px-4 py-4">
-      {/* Back Button - Top Left */}
+    <div className="w-full flex items-start justify-center gap-4 px-4 pt-2">
+      {/* Back Button - Left of Card */}
       <Button 
         variant="ghost" 
         onClick={onBack} 
-        className="self-start -ml-2 mb-3"
+        className="mt-4 shrink-0"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back
       </Button>
 
       {/* White Card Container */}
-      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-6 space-y-5">
+      <div className="w-full max-w-sm bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-6 space-y-5">
         {/* Centered Profile Avatar */}
         <div className="flex justify-center">
           <Avatar className="h-20 w-20 border-4 border-primary/20 shadow-lg">
