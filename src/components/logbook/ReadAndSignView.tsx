@@ -66,8 +66,12 @@ export function ReadAndSignView({
       const response = await fetch(signatureDataUrl);
       const blob = await response.blob();
 
-      // Upload signature to storage
-      const fileName = `read-and-sign/${assignment.id}/${Date.now()}.png`;
+      // Get current user ID for storage policy compliance
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Upload signature to storage - path must start with user ID for RLS policy
+      const fileName = `${user.id}/read-and-sign/${assignment.id}/${Date.now()}.png`;
       const { error: uploadError } = await supabase.storage
         .from("logbook-attachments")
         .upload(fileName, blob);
