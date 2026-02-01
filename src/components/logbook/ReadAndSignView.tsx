@@ -136,7 +136,7 @@ export function ReadAndSignView({
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-primary/5">
+      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b bg-primary/5">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           <h1 className="font-semibold text-lg truncate">{document.title}</h1>
@@ -147,7 +147,7 @@ export function ReadAndSignView({
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {/* Info */}
         <div className="text-sm text-muted-foreground">
           Please read each item carefully and check the box to confirm you understand.
@@ -244,18 +244,18 @@ export function ReadAndSignView({
             </p>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Signature Pad */}
-        <div className="pb-4">
-          {!allChecked ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
-              <p className="text-sm">Please check all items before signing</p>
-            </div>
-          ) : (
-            <SignaturePad onSave={handleSignature} disabled={isSigning} />
-          )}
-        </div>
+      {/* Signature Pad - Fixed Footer */}
+      <div className="flex-shrink-0 border-t bg-background p-4 pb-safe">
+        {!allChecked ? (
+          <div className="text-center py-4 text-muted-foreground">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
+            <p className="text-sm">Please check all items before signing</p>
+          </div>
+        ) : (
+          <SignaturePad onSave={handleSignature} disabled={isSigning} />
+        )}
       </div>
 
       {/* Loading overlay */}
