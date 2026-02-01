@@ -219,16 +219,14 @@ export function ShiftSummaryCard({
   };
 
   return (
-    <div className="w-full flex items-start justify-center px-4 pt-2">
-      {/* Back Button - Adjacent to Card */}
-      <Button 
-        variant="ghost" 
-        onClick={onBack} 
-        className="mt-6 mr-4 shrink-0"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
-      </Button>
+    <div className="w-full grid grid-cols-[1fr_auto_1fr] items-start gap-3 px-4 pt-2">
+      {/* Left column: Back button aligned to the card edge */}
+      <div className="flex justify-end">
+        <Button variant="ghost" onClick={onBack} className="mt-6 shrink-0">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+      </div>
 
       {/* White Card Container - Square, Two Column Layout */}
       <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-8 min-h-[420px] min-w-[600px] max-w-3xl">
@@ -379,6 +377,8 @@ export function ShiftSummaryCard({
           </div>
         </div>
       </div>
+      {/* Right column: spacer to keep the card perfectly centered */}
+      <div />
     </div>
   );
 }
