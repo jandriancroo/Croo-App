@@ -189,7 +189,7 @@ export function ReadAndSignEntry({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-col items-center">
                   {canManage && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
