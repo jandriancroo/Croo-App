@@ -13,6 +13,7 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
+import { toISOStringInTimezone, getDateInTimezone, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
 
 interface Attachment {
   url: string;
@@ -268,14 +269,18 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
       const dbListStyle = 'number';
 
       // Calculate scheduled_at timestamp if date is set
+      // Use location timezone (America/Los_Angeles) to avoid timezone drift
       let scheduledAt: string | null = null;
       if (scheduleDate) {
-        const scheduledDateTime = new Date(scheduleDate);
+        // Get the date string in location timezone
+        const dateStr = getDateInTimezone(scheduleDate, DEFAULT_TIMEZONE);
+        // Convert hour to 24-hour format
         let hour = parseInt(scheduleHour, 10);
         if (scheduleAmPm === "PM" && hour !== 12) hour += 12;
         if (scheduleAmPm === "AM" && hour === 12) hour = 0;
-        scheduledDateTime.setHours(hour, parseInt(scheduleMinute, 10), 0, 0);
-        scheduledAt = scheduledDateTime.toISOString();
+        const timeStr = `${hour.toString().padStart(2, '0')}:${scheduleMinute}`;
+        // Create ISO string anchored to location timezone
+        scheduledAt = toISOStringInTimezone(dateStr, timeStr, DEFAULT_TIMEZONE);
       }
 
       // Create document
