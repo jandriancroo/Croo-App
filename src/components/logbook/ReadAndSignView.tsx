@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SignaturePad } from "@/components/ui/signature-pad";
-import { AlertTriangle, FileText, Loader2, CheckCircle2, Paperclip, Download, Image as ImageIcon, ExternalLink } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, CheckCircle2, Paperclip, Image as ImageIcon, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ export function ReadAndSignView({
   onComplete,
 }: ReadAndSignViewProps) {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [viewedAttachments, setViewedAttachments] = useState<Set<number>>(new Set());
   const [isSigning, setIsSigning] = useState(false);
 
   // Get all item IDs that need to be checked
@@ -57,6 +58,13 @@ export function ReadAndSignView({
   ]);
 
   const allChecked = allItemIds.every((id) => checkedItems.has(id));
+  
+  // Check if all attachments have been viewed
+  const attachmentCount = document.attachments?.length || 0;
+  const allAttachmentsViewed = attachmentCount === 0 || viewedAttachments.size >= attachmentCount;
+  
+  // Can only sign if all items checked AND all attachments viewed
+  const canSign = allChecked && allAttachmentsViewed;
 
   const toggleItem = (itemId: string) => {
     const newChecked = new Set(checkedItems);
@@ -147,7 +155,9 @@ export function ReadAndSignView({
     return <FileText className="h-4 w-4" />;
   };
 
-  const openAttachment = (attachment: Attachment) => {
+  const openAttachment = (attachment: Attachment, index: number) => {
+    // Mark attachment as viewed
+    setViewedAttachments(prev => new Set([...prev, index]));
     window.open(attachment.url, "_blank");
   };
 
@@ -176,26 +186,52 @@ export function ReadAndSignView({
 
         {/* Attachments */}
         {document.attachments && document.attachments.length > 0 && (
-          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+          <Card className={`border-2 transition-colors ${
+            allAttachmentsViewed 
+              ? 'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20' 
+              : 'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20'
+          }`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Paperclip className="h-4 w-4" />
-                Attachments ({document.attachments.length})
+                Attachments
+                <Badge variant={allAttachmentsViewed ? "default" : "secondary"} className="ml-auto text-xs">
+                  {viewedAttachments.size}/{attachmentCount} viewed
+                </Badge>
               </CardTitle>
+              {!allAttachmentsViewed && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  You must open each attachment before signing
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-2">
-              {document.attachments.map((attachment, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  className="w-full justify-start gap-2 h-auto py-2"
-                  onClick={() => openAttachment(attachment)}
-                >
-                  {getFileIcon(attachment.type)}
-                  <span className="flex-1 text-left truncate">{attachment.name}</span>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              ))}
+              {document.attachments.map((attachment, index) => {
+                const isViewed = viewedAttachments.has(index);
+                return (
+                  <Button
+                    key={index}
+                    variant={isViewed ? "default" : "outline"}
+                    className={`w-full justify-start gap-2 h-auto py-2 ${
+                      isViewed ? 'bg-green-600 hover:bg-green-700 text-white' : ''
+                    }`}
+                    onClick={() => openAttachment(attachment, index)}
+                  >
+                    {isViewed ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                    {getFileIcon(attachment.type)}
+                    <span className="flex-1 text-left truncate">{attachment.name}</span>
+                    {isViewed ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4 opacity-60" />
+                    )}
+                  </Button>
+                );
+              })}
             </CardContent>
           </Card>
         )}
@@ -292,10 +328,14 @@ export function ReadAndSignView({
 
       {/* Signature Pad - Fixed Footer */}
       <div className="flex-shrink-0 border-t bg-background p-4 pb-safe">
-        {!allChecked ? (
+        {!canSign ? (
           <div className="text-center py-4 text-muted-foreground">
             <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-amber-500" />
-            <p className="text-sm">Please check all items before signing</p>
+            {!allAttachmentsViewed && attachmentCount > 0 ? (
+              <p className="text-sm">Please open all attachments before signing</p>
+            ) : (
+              <p className="text-sm">Please check all items before signing</p>
+            )}
           </div>
         ) : (
           <SignaturePad onSave={handleSignature} disabled={isSigning} />
