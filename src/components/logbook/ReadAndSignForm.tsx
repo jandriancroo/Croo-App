@@ -413,7 +413,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
         </div>
 
         {/* Schedule Date & Time (optional) */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Label className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Schedule (optional)
@@ -421,68 +421,75 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           <p className="text-xs text-muted-foreground">
             Set a future date and time for this document to appear. Leave empty to send immediately.
           </p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                {scheduleDate 
-                  ? `${format(scheduleDate, "PPP")} at ${scheduleHour}:${scheduleMinute} ${scheduleAmPm}`
-                  : "Send immediately"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarPicker
-                mode="single"
-                selected={scheduleDate}
-                onSelect={setScheduleDate}
-                disabled={(date) => date < new Date()}
-                initialFocus
-              />
-              {scheduleDate && (
-                <>
-                  <div className="p-3 border-t space-y-2">
-                    <Label className="text-xs text-muted-foreground">Time</Label>
-                    <div className="flex items-center gap-2">
-                      <Select value={scheduleHour} onValueChange={setScheduleHour}>
-                        <SelectTrigger className="w-[70px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((h) => (
-                            <SelectItem key={h} value={h}>{h}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span>:</span>
-                      <Select value={scheduleMinute} onValueChange={setScheduleMinute}>
-                        <SelectTrigger className="w-[70px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["00", "15", "30", "45"].map((m) => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={scheduleAmPm} onValueChange={(v) => setScheduleAmPm(v as "AM" | "PM")}>
-                        <SelectTrigger className="w-[70px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+          
+          {/* Date Selector */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  {scheduleDate 
+                    ? format(scheduleDate, "EEEE, MMMM d, yyyy")
+                    : "Send immediately"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={scheduleDate}
+                  onSelect={setScheduleDate}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                />
+                {scheduleDate && (
                   <div className="p-2 border-t">
                     <Button variant="ghost" size="sm" onClick={() => setScheduleDate(undefined)} className="w-full">
                       Clear - Send Immediately
                     </Button>
                   </div>
-                </>
-              )}
-            </PopoverContent>
-          </Popover>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Time Selector - only show if date is selected */}
+          {scheduleDate && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Time</Label>
+              <div className="flex items-center gap-2">
+                <Select value={scheduleHour} onValueChange={setScheduleHour}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((h) => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground">:</span>
+                <Select value={scheduleMinute} onValueChange={setScheduleMinute}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["00", "15", "30", "45"].map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={scheduleAmPm} onValueChange={(v) => setScheduleAmPm(v as "AM" | "PM")}>
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Role Selection */}
