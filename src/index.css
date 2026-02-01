@@ -32,6 +32,12 @@ All colors MUST be HSL.
 */
 
 @layer base {
+  /* Allow iOS Dynamic Type text scaling */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   :root {
     --background: 40 33% 94%;
     --foreground: 220 25% 5%;
