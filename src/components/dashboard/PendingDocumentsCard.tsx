@@ -18,6 +18,8 @@ export function PendingDocumentsCard() {
     queryFn: async () => {
       if (!user?.id) return [];
 
+      const now = new Date().toISOString();
+      
       const { data, error } = await supabase
         .from("read_and_sign_assignments")
         .select(`
@@ -29,6 +31,7 @@ export function PendingDocumentsCard() {
             title,
             list_style,
             created_at,
+            scheduled_at,
             created_by_profile:profiles!read_and_sign_documents_created_by_fkey(full_name)
           )
         `)
@@ -37,7 +40,13 @@ export function PendingDocumentsCard() {
         .order("assigned_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Filter out documents that are scheduled for the future
+      return (data || []).filter(doc => {
+        const scheduledAt = doc.document?.scheduled_at;
+        if (!scheduledAt) return true; // No schedule = show immediately
+        return new Date(scheduledAt) <= new Date(now);
+      });
     },
     enabled: !!user?.id,
     staleTime: 60 * 1000,
