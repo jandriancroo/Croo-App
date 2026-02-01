@@ -240,9 +240,9 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-160px)]">
-      <ScrollArea className="flex-1 pr-3">
-        <div className="space-y-6 pb-4">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex-1 overflow-y-auto pr-3 pb-4">
+        <div className="space-y-6">
         {/* Title */}
         <div className="space-y-2">
           <Label>Document Title</Label>
@@ -455,10 +455,10 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           </p>
         </div>
         </div>
-      </ScrollArea>
+      </div>
 
-      {/* Actions - sticky at bottom of flex container */}
-      <div className="flex-shrink-0 flex gap-2 pt-4 pb-6 bg-background border-t mt-2">
+      {/* Actions - pinned at bottom */}
+      <div className="flex-shrink-0 flex gap-2 pt-4 pb-safe bg-background border-t">
         <Button variant="outline" onClick={onCancel} className="flex-1">
           Cancel
         </Button>
