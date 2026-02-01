@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,7 +60,7 @@ function StarRating({
             className={cn(
               "h-5 w-5 transition-colors",
               (hoverValue || value) >= star
-                ? "fill-yellow-400 text-yellow-400"
+                ? "fill-primary text-primary"
                 : "text-muted-foreground/30"
             )}
           />
@@ -128,7 +128,7 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
   });
 
   // Initialize rating items when data loads
-  useState(() => {
+  useEffect(() => {
     if (reviewItemsData.length > 0 && ratingItems.length === 0) {
       setRatingItems(
         reviewItemsData.map((item: any) => ({
@@ -140,20 +140,7 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
         }))
       );
     }
-  });
-
-  // Update rating items when data loads
-  if (reviewItemsData.length > 0 && ratingItems.length === 0) {
-    setRatingItems(
-      reviewItemsData.map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        rating: 0,
-        notes: "",
-      }))
-    );
-  }
+  }, [reviewItemsData, ratingItems.length]);
 
   const updateRating = (itemId: string, field: 'rating' | 'notes', value: number | string) => {
     setRatingItems(prev => 
