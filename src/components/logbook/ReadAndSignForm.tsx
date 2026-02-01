@@ -237,8 +237,9 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   };
 
   return (
-    <ScrollArea className="h-[calc(100vh-180px)] pr-3">
-      <div className="space-y-6 pb-32">
+    <div className="flex flex-col h-[calc(100vh-160px)]">
+      <ScrollArea className="flex-1 pr-3">
+        <div className="space-y-6 pb-4">
         {/* Title */}
         <div className="space-y-2">
           <Label>Document Title</Label>
@@ -450,26 +451,27 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             {selectedRoles.length > 0 && ` + ${selectedRoles.length} role(s)`}
           </p>
         </div>
-
-        {/* Actions - fixed at bottom */}
-        <div className="fixed bottom-0 left-0 right-0 flex gap-2 p-4 bg-background border-t z-50">
-          <Button variant="outline" onClick={onCancel} className="flex-1">
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving} className="flex-1">
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : scheduleDate ? (
-              `Schedule for ${format(scheduleDate, "MMM d")}`
-            ) : (
-              "Send to Employees"
-            )}
-          </Button>
         </div>
+      </ScrollArea>
+
+      {/* Actions - sticky at bottom of flex container */}
+      <div className="flex-shrink-0 flex gap-2 pt-4 pb-6 bg-background border-t mt-2">
+        <Button variant="outline" onClick={onCancel} className="flex-1">
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={saving} className="flex-1">
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Sending...
+            </>
+          ) : scheduleDate ? (
+            `Schedule for ${format(scheduleDate, "MMM d")}`
+          ) : (
+            "Send to Employees"
+          )}
+        </Button>
       </div>
-    </ScrollArea>
+    </div>
   );
 }
