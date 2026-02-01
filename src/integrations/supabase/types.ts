@@ -3773,6 +3773,9 @@ export type Database = {
           is_active: boolean
           list_style: string
           location_id: string
+          revised_at: string | null
+          revised_by: string | null
+          revision_number: number
           scheduled_at: string | null
           title: string
           updated_at: string
@@ -3787,6 +3790,9 @@ export type Database = {
           is_active?: boolean
           list_style?: string
           location_id: string
+          revised_at?: string | null
+          revised_by?: string | null
+          revision_number?: number
           scheduled_at?: string | null
           title: string
           updated_at?: string
@@ -3801,6 +3807,9 @@ export type Database = {
           is_active?: boolean
           list_style?: string
           location_id?: string
+          revised_at?: string | null
+          revised_by?: string | null
+          revision_number?: number
           scheduled_at?: string | null
           title?: string
           updated_at?: string
@@ -3818,6 +3827,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_documents_revised_by_fkey"
+            columns: ["revised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5678,6 +5694,10 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      revise_read_and_sign_document: {
+        Args: { p_document_id: string; p_user_id: string }
+        Returns: undefined
+      }
       validate_location_code: {
         Args: { p_code: string }
         Returns: {
