@@ -153,12 +153,15 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
 
     setSaving(true);
     try {
+      // Map form listStyle to database allowed values ('bullet' or 'number')
+      const dbListStyle = listStyle === 'bulleted' ? 'bullet' : 'number';
+
       // Create document
       const { data: doc, error: docError } = await supabase
         .from("read_and_sign_documents")
         .insert({
           title: title.trim(),
-          list_style: listStyle,
+          list_style: dbListStyle,
           location_id: locationId,
           created_by: user?.id,
         })
