@@ -7,8 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Trash2, ChevronDown, ChevronRight, Calendar, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { useUserRole } from "@/hooks/useUserRole";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface DocumentItem {
   id: string;
@@ -25,13 +30,23 @@ interface ReadAndSignFormProps {
 
 export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: ReadAndSignFormProps) {
   const { user } = useAuth();
+  const { isAdmin, isManager } = useUserRole();
   const [title, setTitle] = useState("");
   const [listStyle, setListStyle] = useState<"numbered" | "bulleted" | "checklist">("numbered");
   const [items, setItems] = useState<DocumentItem[]>([{ id: crypto.randomUUID(), content: "", children: [] }]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+
+  const roles = [
+    { id: "admin", label: "Admins" },
+    { id: "manager", label: "Managers" },
+    { id: "shift_manager", label: "Shift Managers" },
+    { id: "team_member", label: "Team Members" },
+  ];
 
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedItems);
@@ -213,173 +228,248 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     }
   };
 
+  const toggleRole = (roleId: string) => {
+    if (selectedRoles.includes(roleId)) {
+      setSelectedRoles(selectedRoles.filter(id => id !== roleId));
+    } else {
+      setSelectedRoles([...selectedRoles, roleId]);
+    }
+  };
+
   return (
-    <div className="space-y-6 overflow-x-hidden">
-      {/* Title */}
-      <div className="space-y-2">
-        <Label>Document Title</Label>
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g., New Cleaning Procedures"
-        />
-      </div>
+    <ScrollArea className="h-[calc(100vh-180px)] pr-3">
+      <div className="space-y-6 pb-32">
+        {/* Title */}
+        <div className="space-y-2">
+          <Label>Document Title</Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g., New Cleaning Procedures"
+          />
+        </div>
 
-      {/* List Style */}
-      <div className="space-y-2">
-        <Label>List Style</Label>
-        <Select value={listStyle} onValueChange={(v) => setListStyle(v as any)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="numbered">Numbered (1, 2, 3...)</SelectItem>
-            <SelectItem value="bulleted">Bulleted (•)</SelectItem>
-            <SelectItem value="checklist">Checklist (☐)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* List Style */}
+        <div className="space-y-2">
+          <Label>List Style</Label>
+          <Select value={listStyle} onValueChange={(v) => setListStyle(v as any)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="numbered">Numbered (1, 2, 3...)</SelectItem>
+              <SelectItem value="bulleted">Bulleted (•)</SelectItem>
+              <SelectItem value="checklist">Checklist (☐)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Items */}
-      <div className="space-y-3">
-        <Label>Document Items</Label>
-        {items.map((item, index) => (
-          <div key={item.id} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-muted-foreground min-w-[32px]">
-                {item.children.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(item.id)}
-                    className="p-0.5 hover:bg-muted rounded"
-                  >
-                    {expandedItems.has(item.id) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </button>
-                )}
-                <span className="text-sm font-medium">{index + 1}.</span>
-              </div>
-              <Textarea
-                value={item.content}
-                onChange={(e) => updateItem(item.id, e.target.value)}
-                placeholder="Enter item text..."
-                className="min-h-[60px] flex-1"
-              />
-              <div className="flex flex-col gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addSubItem(item.id)}
-                  title="Add sub-item"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                {items.length > 1 && (
+        {/* Items */}
+        <div className="space-y-3">
+          <Label>Document Items</Label>
+          {items.map((item, index) => (
+            <div key={item.id} className="space-y-2">
+              <div className="flex items-start gap-2">
+                <div className="flex items-center gap-1 text-muted-foreground min-w-[32px] pt-2">
+                  {item.children.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(item.id)}
+                      className="p-0.5 hover:bg-muted rounded"
+                    >
+                      {expandedItems.has(item.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+                  <span className="text-sm font-medium">{index + 1}.</span>
+                </div>
+                <Textarea
+                  value={item.content}
+                  onChange={(e) => updateItem(item.id, e.target.value)}
+                  placeholder="Enter item text..."
+                  className="min-h-[60px] flex-1"
+                />
+                <div className="flex flex-col gap-1">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeItem(item.id)}
-                    className="text-destructive hover:text-destructive"
+                    onClick={() => addSubItem(item.id)}
+                    title="Add sub-item"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Plus className="h-4 w-4" />
                   </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Sub-items */}
-            {item.children.length > 0 && (
-              <div className="ml-10 space-y-2 border-l-2 border-muted pl-4">
-                {item.children.map((child, childIndex) => (
-                  <div key={child.id} className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground min-w-[24px]">
-                      {String.fromCharCode(97 + childIndex)}.
-                    </span>
-                    <Input
-                      value={child.content}
-                      onChange={(e) => updateItem(child.id, e.target.value, item.id)}
-                      placeholder="Sub-item text..."
-                      className="flex-1"
-                    />
+                  {items.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeItem(child.id, item.id)}
+                      onClick={() => removeItem(item.id)}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
-        <Button type="button" variant="outline" onClick={addItem} className="w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Item
-        </Button>
-      </div>
 
-      {/* Employee Selection */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Assign to Employees</Label>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="select-all"
-              checked={selectAll}
-              onCheckedChange={handleSelectAll}
-            />
-            <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
-              Select All ({employees.length})
-            </label>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto border rounded-lg p-3">
-          {employees.map((employee) => (
-            <div key={employee.id} className="flex items-center gap-2">
-              <Checkbox
-                id={`emp-${employee.id}`}
-                checked={selectedEmployees.includes(employee.id)}
-                onCheckedChange={() => toggleEmployee(employee.id)}
-              />
-              <label
-                htmlFor={`emp-${employee.id}`}
-                className="text-sm cursor-pointer truncate"
-              >
-                {employee.full_name || "Unknown"}
-              </label>
+              {/* Sub-items */}
+              {item.children.length > 0 && (
+                <div className="ml-10 space-y-2 border-l-2 border-muted pl-4">
+                  {item.children.map((child, childIndex) => (
+                    <div key={child.id} className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground min-w-[24px]">
+                        {String.fromCharCode(97 + childIndex)}.
+                      </span>
+                      <Input
+                        value={child.content}
+                        onChange={(e) => updateItem(child.id, e.target.value, item.id)}
+                        placeholder="Sub-item text..."
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeItem(child.id, item.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
+          <Button type="button" variant="outline" onClick={addItem} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {selectedEmployees.length} employee(s) selected
-        </p>
-      </div>
 
-      {/* Actions - sticky at bottom */}
-      <div className="sticky bottom-0 left-0 right-0 flex gap-2 pt-4 pb-6 bg-background border-t mt-6 -mx-6 px-6">
-        <Button variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit} disabled={saving} className="flex-1">
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Sending...
-            </>
+        {/* Schedule Date (optional) */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Schedule (optional)
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Set a future date for this document to appear. Leave empty to send immediately.
+          </p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full justify-start text-left font-normal">
+                {scheduleDate ? format(scheduleDate, "PPP") : "Send immediately"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarPicker
+                mode="single"
+                selected={scheduleDate}
+                onSelect={setScheduleDate}
+                disabled={(date) => date < new Date()}
+                initialFocus
+              />
+              {scheduleDate && (
+                <div className="p-2 border-t">
+                  <Button variant="ghost" size="sm" onClick={() => setScheduleDate(undefined)} className="w-full">
+                    Clear - Send Immediately
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Role Selection */}
+        <div className="space-y-3">
+          <Label className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Assign by Role
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
+            {roles.map((role) => (
+              <div key={role.id} className="flex items-center gap-2">
+                <Checkbox
+                  id={`role-${role.id}`}
+                  checked={selectedRoles.includes(role.id)}
+                  onCheckedChange={() => toggleRole(role.id)}
+                />
+                <label htmlFor={`role-${role.id}`} className="text-sm cursor-pointer">
+                  {role.label}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Employee Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Or Select Individual Employees</Label>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="select-all"
+                checked={selectAll}
+                onCheckedChange={handleSelectAll}
+              />
+              <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
+                Select All ({employees.length})
+              </label>
+            </div>
+          </div>
+          {employees.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto border rounded-lg p-3">
+              {employees.map((employee) => (
+                <div key={employee.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`emp-${employee.id}`}
+                    checked={selectedEmployees.includes(employee.id)}
+                    onCheckedChange={() => toggleEmployee(employee.id)}
+                  />
+                  <label
+                    htmlFor={`emp-${employee.id}`}
+                    className="text-sm cursor-pointer truncate"
+                  >
+                    {employee.full_name || "Unknown"}
+                  </label>
+                </div>
+              ))}
+            </div>
           ) : (
-            "Send to Employees"
+            <div className="border rounded-lg p-4 text-center text-muted-foreground text-sm">
+              No employees found at this location
+            </div>
           )}
-        </Button>
+          <p className="text-xs text-muted-foreground">
+            {selectedEmployees.length} employee(s) selected
+            {selectedRoles.length > 0 && ` + ${selectedRoles.length} role(s)`}
+          </p>
+        </div>
+
+        {/* Actions - fixed at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 flex gap-2 p-4 bg-background border-t z-50">
+          <Button variant="outline" onClick={onCancel} className="flex-1">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving} className="flex-1">
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : scheduleDate ? (
+              `Schedule for ${format(scheduleDate, "MMM d")}`
+            ) : (
+              "Send to Employees"
+            )}
+          </Button>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }
