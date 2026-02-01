@@ -5,15 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, Check, ChevronsUpDown, Loader2, Star, User } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Star, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
 
 interface PerformanceReviewFormProps {
   onSave: (data: PerformanceReviewData) => Promise<void>;
@@ -23,9 +21,7 @@ interface PerformanceReviewFormProps {
 export interface PerformanceReviewData {
   employeeId: string;
   employeeName: string;
-  reviewPeriodStart?: Date;
-  reviewPeriodEnd?: Date;
-  ratings: { itemId: string; itemName: string; rating: number; notes: string }[];
+  ratings: { itemId: string; itemName: string; rating: number; notes: string; imageUrls?: string[] }[];
   followUpNotes: string;
 }
 
@@ -82,8 +78,6 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
   
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [employeeOpen, setEmployeeOpen] = useState(false);
-  const [reviewPeriodStart, setReviewPeriodStart] = useState<Date>();
-  const [reviewPeriodEnd, setReviewPeriodEnd] = useState<Date>();
   const [ratingItems, setRatingItems] = useState<RatingItem[]>([]);
   const [followUpNotes, setFollowUpNotes] = useState("");
 
@@ -187,8 +181,6 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
     await onSave({
       employeeId: selectedEmployee.id,
       employeeName: selectedEmployee.full_name,
-      reviewPeriodStart,
-      reviewPeriodEnd,
       ratings: ratingItems
         .filter(item => item.rating > 0)
         .map(item => ({
@@ -263,46 +255,6 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
             </Command>
           </PopoverContent>
         </Popover>
-      </div>
-
-      {/* Review Period (Optional) */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Period Start (Optional)</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {reviewPeriodStart ? format(reviewPeriodStart, "MMM d, yyyy") : "Select date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={reviewPeriodStart}
-                onSelect={setReviewPeriodStart}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div className="space-y-2">
-          <Label>Period End (Optional)</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {reviewPeriodEnd ? format(reviewPeriodEnd, "MMM d, yyyy") : "Select date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={reviewPeriodEnd}
-                onSelect={setReviewPeriodEnd}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
       </div>
 
       {/* Rating Items */}

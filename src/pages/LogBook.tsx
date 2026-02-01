@@ -791,8 +791,6 @@ export default function LogBook() {
                     location_id: currentLocation!.id,
                     employee_id: data.employeeId,
                     created_by: user!.id,
-                    review_period_start: data.reviewPeriodStart ? format(data.reviewPeriodStart, 'yyyy-MM-dd') : null,
-                    review_period_end: data.reviewPeriodEnd ? format(data.reviewPeriodEnd, 'yyyy-MM-dd') : null,
                     follow_up_notes: data.followUpNotes || null,
                   })
                   .select()

@@ -3287,24 +3287,33 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_urls: Json | null
+          images: Json | null
           item_id: string
           notes: string | null
+          photo_urls: Json | null
           rating: number
           review_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          image_urls?: Json | null
+          images?: Json | null
           item_id: string
           notes?: string | null
+          photo_urls?: Json | null
           rating: number
           review_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          image_urls?: Json | null
+          images?: Json | null
           item_id?: string
           notes?: string | null
+          photo_urls?: Json | null
           rating?: number
           review_id?: string
         }
@@ -3333,8 +3342,11 @@ export type Database = {
           follow_up_notes: string | null
           id: string
           location_id: string
+          next_review_event_id: string | null
+          next_review_scheduled_at: string | null
           review_period_end: string | null
           review_period_start: string | null
+          schedule_event_id: string | null
           signature_url: string | null
           signed_at: string | null
           task_id: string | null
@@ -3348,8 +3360,11 @@ export type Database = {
           follow_up_notes?: string | null
           id?: string
           location_id: string
+          next_review_event_id?: string | null
+          next_review_scheduled_at?: string | null
           review_period_end?: string | null
           review_period_start?: string | null
+          schedule_event_id?: string | null
           signature_url?: string | null
           signed_at?: string | null
           task_id?: string | null
@@ -3363,8 +3378,11 @@ export type Database = {
           follow_up_notes?: string | null
           id?: string
           location_id?: string
+          next_review_event_id?: string | null
+          next_review_scheduled_at?: string | null
           review_period_end?: string | null
           review_period_start?: string | null
+          schedule_event_id?: string | null
           signature_url?: string | null
           signed_at?: string | null
           task_id?: string | null
@@ -3391,6 +3409,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_reviews_schedule_event_id_fkey"
+            columns: ["schedule_event_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_events"
             referencedColumns: ["id"]
           },
           {
