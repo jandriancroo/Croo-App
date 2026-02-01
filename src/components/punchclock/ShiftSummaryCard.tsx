@@ -229,10 +229,10 @@ export function ShiftSummaryCard({
       </div>
 
       {/* White Card Container - Square, Two Column Layout */}
-      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-12 min-h-[520px] min-w-[720px] max-w-4xl">
+      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-12 min-h-[480px] min-w-[720px] max-w-4xl">
         <div className="flex gap-12 h-full">
           {/* Left Column - Profile, Name, Status */}
-          <div className="flex flex-col items-center justify-between min-w-[260px] py-6 border-r border-border pr-12">
+          <div className="flex flex-col items-center justify-center min-w-[260px] space-y-6 border-r border-border pr-12">
             <Avatar className="h-40 w-40 border-4 border-primary/20 shadow-xl">
               <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
               <AvatarFallback className="text-5xl font-semibold bg-primary/10 text-primary">
@@ -256,7 +256,7 @@ export function ShiftSummaryCard({
           </div>
 
           {/* Right Column - Status, Actions, Break History */}
-          <div className="flex-1 flex flex-col justify-between py-6">
+          <div className="flex-1 flex flex-col justify-center space-y-6">
             {/* Hours Worked - Above Started At */}
             {(isClockedIn || isOnBreak) && (
               <div className="text-center">
