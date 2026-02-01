@@ -2,9 +2,10 @@ import { useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SignaturePad } from "@/components/ui/signature-pad";
-import { AlertTriangle, FileText, Loader2, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, CheckCircle2, Paperclip, Download, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,6 +15,13 @@ interface DocumentItem {
   content: string;
   order_index: number;
   children?: DocumentItem[];
+}
+
+interface Attachment {
+  url: string;
+  name: string;
+  type: string;
+  size?: number;
 }
 
 interface ReadAndSignViewProps {
@@ -27,6 +35,7 @@ interface ReadAndSignViewProps {
     list_style: string;
     created_at: string;
     created_by_profile?: { full_name: string };
+    attachments?: Attachment[] | null;
   };
   items: DocumentItem[];
   onComplete: () => void;
@@ -133,6 +142,15 @@ export function ReadAndSignView({
     }
   };
 
+  const getFileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+    return <FileText className="h-4 w-4" />;
+  };
+
+  const openAttachment = (attachment: Attachment) => {
+    window.open(attachment.url, "_blank");
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
@@ -155,6 +173,32 @@ export function ReadAndSignView({
             <span> Created by {document.created_by_profile.full_name}.</span>
           )}
         </div>
+
+        {/* Attachments */}
+        {document.attachments && document.attachments.length > 0 && (
+          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Attachments ({document.attachments.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {document.attachments.map((attachment, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  className="w-full justify-start gap-2 h-auto py-2"
+                  onClick={() => openAttachment(attachment)}
+                >
+                  {getFileIcon(attachment.type)}
+                  <span className="flex-1 text-left truncate">{attachment.name}</span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Items */}
         <Card>

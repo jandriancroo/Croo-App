@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,13 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Calendar, Users } from "lucide-react";
+import { Loader2, Plus, Trash2, Calendar, Users, Paperclip, X, FileText, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 
+interface Attachment {
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+}
 interface DocumentItem {
   id: string;
   content: string;
@@ -36,6 +42,9 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   const [selectAll, setSelectAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [scheduleHour, setScheduleHour] = useState<string>("09");
   const [scheduleMinute, setScheduleMinute] = useState<string>("00");
   const [scheduleAmPm, setScheduleAmPm] = useState<"AM" | "PM">("AM");
@@ -156,6 +165,69 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingFile(true);
+    try {
+      for (const file of Array.from(files)) {
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File "${file.name}" is too large (max 10MB)`);
+          continue;
+        }
+
+        // Upload to storage
+        const fileName = `read-and-sign-attachments/${locationId}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("logbook-attachments")
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          toast.error(`Failed to upload "${file.name}"`);
+          continue;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("logbook-attachments")
+          .getPublicUrl(fileName);
+
+        setAttachments(prev => [...prev, {
+          url: publicUrl,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        }]);
+      }
+      toast.success("File(s) uploaded");
+    } catch (error: any) {
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
+    return <FileText className="h-4 w-4" />;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error("Please enter a title");
@@ -198,7 +270,8 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           location_id: locationId,
           created_by: user?.id,
           scheduled_at: scheduledAt,
-        })
+          attachments: attachments.length > 0 ? JSON.parse(JSON.stringify(attachments)) : null,
+        } as any)
         .select()
         .single();
 
@@ -410,6 +483,75 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
+        </div>
+
+        {/* Attachments Section */}
+        <div className="space-y-3">
+          <Label className="flex items-center gap-2">
+            <Paperclip className="h-4 w-4" />
+            Attachments (optional)
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Attach PDFs, images, or other files that employees can view (e.g., handbooks, policies).
+          </p>
+          
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          
+          {/* Upload button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingFile}
+            className="w-full"
+          >
+            {uploadingFile ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Attachment
+              </>
+            )}
+          </Button>
+          
+          {/* Attachment list */}
+          {attachments.length > 0 && (
+            <div className="space-y-2">
+              {attachments.map((attachment, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
+                >
+                  {getFileIcon(attachment.type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{attachment.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeAttachment(index)}
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Schedule Date & Time (optional) */}
