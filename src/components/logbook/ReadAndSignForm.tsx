@@ -214,7 +214,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Title */}
       <div className="space-y-2">
         <Label>Document Title</Label>
@@ -364,8 +364,8 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
         </p>
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 pt-4">
+      {/* Actions - sticky at bottom */}
+      <div className="sticky bottom-0 left-0 right-0 flex gap-2 pt-4 pb-6 bg-background border-t mt-6 -mx-6 px-6">
         <Button variant="outline" onClick={onCancel} className="flex-1">
           Cancel
         </Button>
