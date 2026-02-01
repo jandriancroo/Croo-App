@@ -16,6 +16,7 @@ import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporary
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
+import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -687,6 +688,9 @@ export default function Dashboard() {
     <div className="flex flex-col gap-3 max-h-[320px] overflow-y-auto pb-1 w-full">
       {/* Unread Announcements - High priority */}
       <UnreadAnnouncementsAlert />
+      
+      {/* Pending Read & Sign Documents */}
+      <PendingDocumentsCard />
       
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks />

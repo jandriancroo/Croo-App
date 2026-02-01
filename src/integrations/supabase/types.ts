@@ -3710,6 +3710,187 @@ export type Database = {
           },
         ]
       }
+      read_and_sign_assignments: {
+        Row: {
+          assigned_at: string
+          document_id: string
+          employee_id: string
+          id: string
+          signature_url: string | null
+          signed_at: string | null
+          task_id: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          document_id: string
+          employee_id: string
+          id?: string
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          document_id?: string
+          employee_id?: string
+          id?: string
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "read_and_sign_assignments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "read_and_sign_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      read_and_sign_documents: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          list_style: string
+          location_id: string
+          scheduled_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          list_style?: string
+          location_id: string
+          scheduled_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          list_style?: string
+          location_id?: string
+          scheduled_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "read_and_sign_documents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_documents_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      read_and_sign_item_checks: {
+        Row: {
+          assignment_id: string
+          checked_at: string
+          id: string
+          item_id: string
+        }
+        Insert: {
+          assignment_id: string
+          checked_at?: string
+          id?: string
+          item_id: string
+        }
+        Update: {
+          assignment_id?: string
+          checked_at?: string
+          id?: string
+          item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "read_and_sign_item_checks_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "read_and_sign_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_item_checks_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "read_and_sign_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      read_and_sign_items: {
+        Row: {
+          content: string
+          created_at: string
+          document_id: string
+          id: string
+          order_index: number
+          parent_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          document_id: string
+          id?: string
+          order_index?: number
+          parent_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          order_index?: number
+          parent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "read_and_sign_items_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "read_and_sign_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_and_sign_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "read_and_sign_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rejection_email_templates: {
         Row: {
           body: string

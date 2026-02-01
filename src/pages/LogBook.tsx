@@ -36,6 +36,8 @@ import { BankDepositForm, BankDepositData } from "@/components/logbook/BankDepos
 import { BankDepositEntry, parseBankDepositData } from "@/components/logbook/BankDepositEntry";
 import { EmployeeWriteUpForm, WriteUpData } from "@/components/logbook/EmployeeWriteUpForm";
 import { EmployeeWriteUpEntry } from "@/components/logbook/EmployeeWriteUpEntry";
+import { ReadAndSignForm } from "@/components/logbook/ReadAndSignForm";
+import { ReadAndSignEntry } from "@/components/logbook/ReadAndSignEntry";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
@@ -259,6 +261,56 @@ export default function LogBook() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
+  // Fetch Read & Sign documents for the location
+  const { data: readAndSignDocs = [] } = useQuery({
+    queryKey: ['read-and-sign-docs', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return [];
+      const { data, error } = await supabase
+        .from('read_and_sign_documents')
+        .select(`
+          *,
+          created_by_profile:profiles!read_and_sign_documents_created_by_fkey(full_name, profile_photo_url)
+        `)
+        .eq('location_id', currentLocation.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentLocation,
+    staleTime: LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
+  });
+
+  // Fetch employees for Read & Sign form
+  const { data: employees = [] } = useQuery({
+    queryKey: ['location-employees', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return [];
+      const { data, error } = await supabase
+        .from('user_locations')
+        .select(`
+          user_id,
+          profiles!inner(id, full_name, profile_photo_url, is_active)
+        `)
+        .eq('location_id', currentLocation.id);
+
+      if (error) throw error;
+      return (data || [])
+        .filter((ul: any) => ul.profiles?.is_active)
+        .map((ul: any) => ({
+          id: ul.profiles.id,
+          full_name: ul.profiles.full_name,
+          profile_photo_url: ul.profiles.profile_photo_url,
+        }));
+    },
+    enabled: !!currentLocation,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Debounced search query - only fires when user is actively searching
   const debouncedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
   
@@ -337,12 +389,25 @@ export default function LogBook() {
     _virtualId: `writeup-${wu.id}`, // Unique key for React
   }));
 
-  // Use search results when searching, otherwise combine recent entries with write-ups
+  // Convert Read & Sign documents to log entry format
+  const readAndSignEntries = readAndSignDocs.map((doc: any) => ({
+    id: doc.id,
+    entry_date: format(new Date(doc.created_at), 'yyyy-MM-dd'),
+    created_at: doc.created_at,
+    created_by: doc.created_by,
+    profiles: doc.created_by_profile,
+    logbook_categories: { name: 'Read & Sign' },
+    _isReadAndSign: true,
+    _readAndSignData: doc,
+    _virtualId: `readandsign-${doc.id}`,
+  }));
+
+  // Use search results when searching, otherwise combine recent entries with write-ups and read & sign docs
   const allEntries = searchTerms.length > 0
-    ? [...searchResults, ...writeUpEntries].sort((a: any, b: any) => 
+    ? [...searchResults, ...writeUpEntries, ...readAndSignEntries].sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
-    : [...recentEntries, ...writeUpEntries].sort((a: any, b: any) => 
+    : [...recentEntries, ...writeUpEntries, ...readAndSignEntries].sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ).slice(0, 100);
 
@@ -658,6 +723,28 @@ export default function LogBook() {
     // Bank deposit can be triggered via virtual 'bank-deposit' string OR by selecting the actual category
     const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
     const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'employee write up' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup' || currentCategoryName === 'write up';
+    const isReadAndSign = currentCategoryName === 'read & sign' || currentCategoryName === 'read and sign' || currentCategoryName === 'read-and-sign';
+    
+    // Read & Sign form
+    if (isReadAndSign) {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Read & Sign Document</h2>
+          <ReadAndSignForm
+            locationId={currentLocation!.id}
+            employees={employees}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
+              setShowNewEntrySheet(false);
+              setActiveTab('search');
+            }}
+            onCancel={() => {
+              setShowNewEntrySheet(false);
+            }}
+          />
+        </div>
+      );
+    }
     
     // Employee Write-Up form
     if (isEmployeeWriteUp) {
@@ -1525,6 +1612,21 @@ export default function LogBook() {
                       const isBankDeposit = entry.logbook_categories?.name?.toLowerCase() === 'bank deposit';
                       const isWriteUp = entry._isWriteUp || entry.logbook_categories?.name?.toLowerCase()?.includes('write');
                       const isFinalWarning = entry._writeUpData?.is_final_warning;
+                      const isReadAndSign = entry._isReadAndSign;
+                      
+                      // Special rendering for Read & Sign entries
+                      if (isReadAndSign) {
+                        return (
+                          <ReadAndSignEntry
+                            key={entry._virtualId}
+                            documentId={entry._readAndSignData.id}
+                            title={entry._readAndSignData.title}
+                            createdAt={entry._readAndSignData.created_at}
+                            createdByName={entry._readAndSignData.created_by_profile?.full_name}
+                          />
+                        );
+                      }
+                      
                       return (
                       <Card key={entry._virtualId || entry.id} className={
                         isWriteUp 
