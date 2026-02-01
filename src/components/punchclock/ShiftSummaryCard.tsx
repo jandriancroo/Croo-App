@@ -219,12 +219,12 @@ export function ShiftSummaryCard({
   };
 
   return (
-    <div className="w-full flex items-start justify-center gap-3 px-4 pt-2">
-      {/* Back Button - Left of Card */}
+    <div className="w-full flex items-start justify-center px-4 pt-2 relative">
+      {/* Back Button - Positioned Left */}
       <Button 
         variant="ghost" 
         onClick={onBack} 
-        className="mt-6 shrink-0"
+        className="absolute left-4 top-8 shrink-0"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back
