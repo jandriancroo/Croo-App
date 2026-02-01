@@ -28,6 +28,13 @@ const themes = [
   { value: 'blaze', label: 'Blaze Pizza' },
 ];
 
+const textSizes = [
+  { value: 'small', label: 'Small' },
+  { value: 'default', label: 'Default' },
+  { value: 'large', label: 'Large' },
+  { value: 'extra-large', label: 'Extra Large' },
+];
+
 const SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
@@ -44,6 +51,7 @@ export default function Settings() {
   const { isAdmin, isSuperAdmin, isOrgAdmin } = useUserRole();
   const { isChecklistOnlyLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
+  const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -61,6 +69,10 @@ export default function Settings() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-text-size', textSize);
+  }, [textSize]);
 
   useEffect(() => {
     if (isAdmin || isOrgAdmin) {
@@ -105,24 +117,49 @@ export default function Settings() {
     toast('Theme updated');
   };
 
+  const handleTextSizeChange = (value: string) => {
+    setTextSize(value);
+    localStorage.setItem('app-text-size', value);
+    document.documentElement.setAttribute('data-text-size', value);
+    toast('Text size updated');
+  };
+
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
       case 'theme':
         return (
-          <div className="space-y-2">
-            <Label htmlFor="theme">Color Theme</Label>
-            <Select value={theme} onValueChange={handleThemeChange}>
-              <SelectTrigger id="theme">
-                <SelectValue placeholder="Select a theme" />
-              </SelectTrigger>
-              <SelectContent>
-                {themes.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="theme">Color Theme</Label>
+              <Select value={theme} onValueChange={handleThemeChange}>
+                <SelectTrigger id="theme">
+                  <SelectValue placeholder="Select a theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  {themes.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="text-size">Text Size</Label>
+              <Select value={textSize} onValueChange={handleTextSizeChange}>
+                <SelectTrigger id="text-size">
+                  <SelectValue placeholder="Select text size" />
+                </SelectTrigger>
+                <SelectContent>
+                  {textSizes.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Adjust text size across the app</p>
+            </div>
           </div>
         );
 

@@ -38,6 +38,12 @@ All colors MUST be HSL.
     text-size-adjust: 100%;
   }
 
+  /* Text size scaling - applied to html element */
+  html[data-text-size="small"] { font-size: 14px; }
+  html[data-text-size="default"] { font-size: 16px; }
+  html[data-text-size="large"] { font-size: 18px; }
+  html[data-text-size="extra-large"] { font-size: 20px; }
+
   :root {
     --background: 40 33% 94%;
     --foreground: 220 25% 5%;
