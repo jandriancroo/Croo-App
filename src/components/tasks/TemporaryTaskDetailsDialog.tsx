@@ -292,7 +292,6 @@ export function TemporaryTaskDetailsDialog({
         <WriteUpSignatureView
           writeUp={writeUpData}
           onComplete={handleWriteUpComplete}
-          onClose={() => setShowWriteUpSignature(false)}
         />
       );
     }

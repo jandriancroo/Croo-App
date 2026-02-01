@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SignaturePad } from "@/components/ui/signature-pad";
-import { AlertTriangle, FileText, Loader2, CheckCircle2, Paperclip, Image as ImageIcon, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { LandscapeSignatureOverlay } from "@/components/ui/LandscapeSignatureOverlay";
+import { AlertTriangle, FileText, Loader2, CheckCircle2, Paperclip, Image as ImageIcon, ExternalLink, Eye, EyeOff, PenLine } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -50,6 +50,7 @@ export function ReadAndSignView({
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [viewedAttachments, setViewedAttachments] = useState<Set<number>>(new Set());
   const [isSigning, setIsSigning] = useState(false);
+  const [showSignatureOverlay, setShowSignatureOverlay] = useState(false);
 
   // Get all item IDs that need to be checked
   const allItemIds = items.flatMap((item) => [
@@ -326,7 +327,7 @@ export function ReadAndSignView({
         </Card>
       </div>
 
-      {/* Signature Pad - Fixed Footer */}
+      {/* Sign Button - Fixed Footer */}
       <div className="flex-shrink-0 border-t bg-background p-4 pb-safe">
         {!canSign ? (
           <div className="text-center py-4 text-muted-foreground">
@@ -338,9 +339,25 @@ export function ReadAndSignView({
             )}
           </div>
         ) : (
-          <SignaturePad onSave={handleSignature} disabled={isSigning} />
+          <Button
+            className="w-full h-12 text-base gap-2"
+            onClick={() => setShowSignatureOverlay(true)}
+            disabled={isSigning}
+          >
+            <PenLine className="h-5 w-5" />
+            Tap to Sign Document
+          </Button>
         )}
       </div>
+
+      {/* Landscape Signature Overlay */}
+      <LandscapeSignatureOverlay
+        open={showSignatureOverlay}
+        onClose={() => setShowSignatureOverlay(false)}
+        onSave={handleSignature}
+        title={`Sign: ${document.title}`}
+        disabled={isSigning}
+      />
 
       {/* Loading overlay */}
       {isSigning && (
