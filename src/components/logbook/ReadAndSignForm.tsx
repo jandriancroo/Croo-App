@@ -40,6 +40,9 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
   const [saving, setSaving] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleHour, setScheduleHour] = useState<string>("09");
+  const [scheduleMinute, setScheduleMinute] = useState<string>("00");
+  const [scheduleAmPm, setScheduleAmPm] = useState<"AM" | "PM">("AM");
 
   const roles = [
     { id: "admin", label: "Admins" },
@@ -156,6 +159,17 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
       // Map form listStyle to database allowed values ('bullet' or 'number')
       const dbListStyle = listStyle === 'bulleted' ? 'bullet' : 'number';
 
+      // Calculate scheduled_at timestamp if date is set
+      let scheduledAt: string | null = null;
+      if (scheduleDate) {
+        const scheduledDateTime = new Date(scheduleDate);
+        let hour = parseInt(scheduleHour, 10);
+        if (scheduleAmPm === "PM" && hour !== 12) hour += 12;
+        if (scheduleAmPm === "AM" && hour === 12) hour = 0;
+        scheduledDateTime.setHours(hour, parseInt(scheduleMinute, 10), 0, 0);
+        scheduledAt = scheduledDateTime.toISOString();
+      }
+
       // Create document
       const { data: doc, error: docError } = await supabase
         .from("read_and_sign_documents")
@@ -164,6 +178,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           list_style: dbListStyle,
           location_id: locationId,
           created_by: user?.id,
+          scheduled_at: scheduledAt,
         })
         .select()
         .single();
@@ -355,19 +370,21 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
           </Button>
         </div>
 
-        {/* Schedule Date (optional) */}
+        {/* Schedule Date & Time (optional) */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Schedule (optional)
           </Label>
           <p className="text-xs text-muted-foreground">
-            Set a future date for this document to appear. Leave empty to send immediately.
+            Set a future date and time for this document to appear. Leave empty to send immediately.
           </p>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full justify-start text-left font-normal">
-                {scheduleDate ? format(scheduleDate, "PPP") : "Send immediately"}
+                {scheduleDate 
+                  ? `${format(scheduleDate, "PPP")} at ${scheduleHour}:${scheduleMinute} ${scheduleAmPm}`
+                  : "Send immediately"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -379,11 +396,48 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                 initialFocus
               />
               {scheduleDate && (
-                <div className="p-2 border-t">
-                  <Button variant="ghost" size="sm" onClick={() => setScheduleDate(undefined)} className="w-full">
-                    Clear - Send Immediately
-                  </Button>
-                </div>
+                <>
+                  <div className="p-3 border-t space-y-2">
+                    <Label className="text-xs text-muted-foreground">Time</Label>
+                    <div className="flex items-center gap-2">
+                      <Select value={scheduleHour} onValueChange={setScheduleHour}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((h) => (
+                            <SelectItem key={h} value={h}>{h}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span>:</span>
+                      <Select value={scheduleMinute} onValueChange={setScheduleMinute}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["00", "15", "30", "45"].map((m) => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={scheduleAmPm} onValueChange={(v) => setScheduleAmPm(v as "AM" | "PM")}>
+                        <SelectTrigger className="w-[70px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="p-2 border-t">
+                    <Button variant="ghost" size="sm" onClick={() => setScheduleDate(undefined)} className="w-full">
+                      Clear - Send Immediately
+                    </Button>
+                  </div>
+                </>
               )}
             </PopoverContent>
           </Popover>
@@ -469,7 +523,7 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
               Sending...
             </>
           ) : scheduleDate ? (
-            `Schedule for ${format(scheduleDate, "MMM d")}`
+            `Schedule for ${format(scheduleDate, "MMM d")} ${scheduleHour}:${scheduleMinute} ${scheduleAmPm}`
           ) : (
             "Send to Employees"
           )}
