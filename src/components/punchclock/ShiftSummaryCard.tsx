@@ -229,10 +229,10 @@ export function ShiftSummaryCard({
       </div>
 
       {/* White Card Container - Square, Two Column Layout */}
-      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-8 min-h-[420px] min-w-[600px] max-w-3xl">
-        <div className="flex gap-8 h-full">
+      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-10 min-h-[480px] min-w-[680px] max-w-3xl">
+        <div className="flex gap-10 h-full">
           {/* Left Column - Profile, Name, Hours */}
-          <div className="flex flex-col items-center justify-center min-w-[220px] space-y-5 border-r border-border pr-8">
+          <div className="flex flex-col items-center justify-between min-w-[240px] py-4 border-r border-border pr-10">
             <Avatar className="h-36 w-36 border-4 border-primary/20 shadow-xl">
               <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
               <AvatarFallback className="text-4xl font-semibold bg-primary/10 text-primary">
@@ -256,7 +256,7 @@ export function ShiftSummaryCard({
           </div>
 
           {/* Right Column - Status, Actions, Break History */}
-          <div className="flex-1 flex flex-col justify-center space-y-4">
+          <div className="flex-1 flex flex-col justify-between py-4">
             {/* Hours Worked - Above Started At */}
             {(isClockedIn || isOnBreak) && (
               <div className="text-center">
@@ -292,49 +292,49 @@ export function ShiftSummaryCard({
             <div className="w-full">
               {!isClockedIn && !isOnBreak ? (
                 <Button
-                  className="w-full h-14 text-lg"
+                  className="w-full h-16 text-xl"
                   onClick={onClockIn}
                   disabled={!canClockIn}
                 >
-                  <Play className="mr-2 h-5 w-5" />
+                  <Play className="mr-2 h-6 w-6" />
                   Clock In
                 </Button>
               ) : isOnBreak ? (
                 <Button
-                  className="w-full h-14 text-lg"
+                  className="w-full h-16 text-xl"
                   variant={breakStatus?.canEnd ? 'default' : 'outline'}
                   onClick={onEndBreak}
                   disabled={!breakStatus?.canEnd}
                 >
-                  <Coffee className="mr-2 h-5 w-5" />
+                  <Coffee className="mr-2 h-6 w-6" />
                   {breakStatus?.canEnd 
                     ? 'End Break' 
                     : `Wait ${Math.floor((breakStatus?.remaining || 0) / 60)}:${((breakStatus?.remaining || 0) % 60).toString().padStart(2, '0')}`
                   }
                 </Button>
               ) : (
-                <div className="space-y-3">
-                  <div className="flex gap-3">
+                <div className="space-y-4">
+                  <div className="flex gap-4">
                     <Button
                       variant="secondary"
-                      className="flex-1 h-12 text-sm font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
+                      className="flex-1 h-14 text-base font-semibold bg-amber-500/20 hover:bg-amber-500/30 border-2 border-amber-500/50 text-amber-700 dark:text-amber-300"
                       onClick={() => onBreak('break_start', 30)}
                     >
-                      <Coffee className="mr-2 h-4 w-4" />
+                      <Coffee className="mr-2 h-5 w-5" />
                       30m Meal
                     </Button>
                     <Button
                       variant="secondary"
-                      className="flex-1 h-12 text-sm font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
+                      className="flex-1 h-14 text-base font-semibold bg-blue-500/20 hover:bg-blue-500/30 border-2 border-blue-500/50 text-blue-700 dark:text-blue-300"
                       onClick={() => onBreak('break_start', 10)}
                     >
-                      <Coffee className="mr-2 h-4 w-4" />
+                      <Coffee className="mr-2 h-5 w-5" />
                       10m Rest
                     </Button>
                   </div>
                   <Button
                     variant="destructive"
-                    className="w-full h-12"
+                    className="w-full h-14 text-base"
                     onClick={onClockOut}
                   >
                     <LogOut className="mr-2 h-5 w-5" />
