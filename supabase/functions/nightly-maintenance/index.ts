@@ -6,6 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Get yesterday's date in America/Los_Angeles timezone
+function getYesterdayInLA(): string {
+  const now = new Date();
+  const laTime = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  
+  // Parse the LA date and subtract 1 day
+  const [year, month, day] = laTime.split('-').map(Number);
+  const laDate = new Date(year, month - 1, day);
+  laDate.setDate(laDate.getDate() - 1);
+  
+  return laDate.toISOString().slice(0, 10);
+}
+
+// Get current day of week in LA (0 = Sunday)
+function getCurrentDayOfWeekInLA(): number {
+  const now = new Date();
+  const laWeekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    weekday: 'short',
+  }).format(now);
+  
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return dayMap[laWeekday] ?? 0;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,6 +49,20 @@ serve(async (req) => {
     console.log('[NIGHTLY-MAINTENANCE] Starting nightly maintenance tasks...');
     
     const results: { task: string; status: string; details?: any }[] = [];
+    
+    // Get yesterday's date for daily summaries
+    const yesterday = getYesterdayInLA();
+    const currentDayOfWeek = getCurrentDayOfWeekInLA();
+    
+    console.log(`[NIGHTLY-MAINTENANCE] Yesterday (LA): ${yesterday}, Current day: ${currentDayOfWeek} (0=Sun)`);
+    
+    // Get all active locations for processing
+    const { data: allLocations } = await supabase
+      .from('locations')
+      .select('id, name')
+      .eq('is_active', true);
+    
+    console.log(`[NIGHTLY-MAINTENANCE] Found ${allLocations?.length || 0} active locations`);
 
     // =========================================================================
     // TASK 1: Refresh stale labor cache
@@ -210,6 +254,145 @@ serve(async (req) => {
     } catch (err) {
       results.push({ task: 'backfill-yesterday', status: 'error', details: { error: String(err) } });
       console.error('[NIGHTLY-MAINTENANCE] ✗ Backfill error:', err);
+    }
+
+    // =========================================================================
+    // TASK 5: Send daily logbook summaries for yesterday (no longer dependent on safe count)
+    // =========================================================================
+    console.log('[NIGHTLY-MAINTENANCE] Task 5: Sending daily logbook summaries...');
+    
+    try {
+      let sentCount = 0;
+      let skippedCount = 0;
+      
+      for (const location of allLocations || []) {
+        // Check if summary already sent for this location/date
+        const { data: existingLog } = await supabase
+          .from('daily_summary_logs')
+          .select('id')
+          .eq('location_id', location.id)
+          .eq('summary_date', yesterday)
+          .maybeSingle();
+        
+        if (existingLog) {
+          console.log(`[NIGHTLY-MAINTENANCE] Daily summary already sent for ${location.name} on ${yesterday}`);
+          skippedCount++;
+          continue;
+        }
+        
+        // Send the daily logbook summary
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-daily-logbook-summary`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({
+            location_id: location.id,
+            entry_date: yesterday
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            sentCount++;
+            console.log(`[NIGHTLY-MAINTENANCE] ✓ Daily summary sent for ${location.name}`);
+          } else {
+            console.log(`[NIGHTLY-MAINTENANCE] ○ Skipped ${location.name}: ${result.message || 'unknown reason'}`);
+            skippedCount++;
+          }
+        } else {
+          console.error(`[NIGHTLY-MAINTENANCE] ✗ Daily summary failed for ${location.name}: ${response.status}`);
+          skippedCount++;
+        }
+      }
+      
+      results.push({ 
+        task: 'daily-logbook-summaries', 
+        status: 'success', 
+        details: { sent: sentCount, skipped: skippedCount }
+      });
+      console.log(`[NIGHTLY-MAINTENANCE] ✓ Daily summaries: ${sentCount} sent, ${skippedCount} skipped`);
+      
+    } catch (err) {
+      results.push({ task: 'daily-logbook-summaries', status: 'error', details: { error: String(err) } });
+      console.error('[NIGHTLY-MAINTENANCE] ✗ Daily summaries error:', err);
+    }
+
+    // =========================================================================
+    // TASK 6: Send weekly schedule emails (only on Monday morning at 3 AM)
+    // =========================================================================
+    console.log('[NIGHTLY-MAINTENANCE] Task 6: Checking if weekly schedule emails should be sent...');
+    
+    try {
+      // Only run on Monday (day 1)
+      if (currentDayOfWeek === 1) {
+        console.log('[NIGHTLY-MAINTENANCE] It is Monday - sending weekly schedule emails');
+        
+        let sentLocations = 0;
+        
+        for (const location of allLocations || []) {
+          // Get the current week's schedule for this location
+          const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Los_Angeles',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date());
+          
+          const { data: schedule } = await supabase
+            .from('schedules')
+            .select('id, week_start_date, week_end_date')
+            .eq('location_id', location.id)
+            .lte('week_start_date', today)
+            .gte('week_end_date', today)
+            .maybeSingle();
+          
+          if (!schedule) {
+            console.log(`[NIGHTLY-MAINTENANCE] No current schedule for ${location.name}`);
+            continue;
+          }
+          
+          // Send weekly schedule emails
+          const response = await fetch(`${supabaseUrl}/functions/v1/send-weekly-schedule-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`
+            },
+            body: JSON.stringify({
+              schedule_id: schedule.id,
+              location_id: location.id
+            })
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            sentLocations++;
+            console.log(`[NIGHTLY-MAINTENANCE] ✓ Weekly emails sent for ${location.name}: ${result.sent_count || 0} emails`);
+          } else {
+            console.error(`[NIGHTLY-MAINTENANCE] ✗ Weekly emails failed for ${location.name}: ${response.status}`);
+          }
+        }
+        
+        results.push({ 
+          task: 'weekly-schedule-emails', 
+          status: 'success', 
+          details: { locations: sentLocations, day: 'Monday' }
+        });
+      } else {
+        console.log(`[NIGHTLY-MAINTENANCE] Skipping weekly emails (not Monday, current day: ${currentDayOfWeek})`);
+        results.push({ 
+          task: 'weekly-schedule-emails', 
+          status: 'skipped', 
+          details: { reason: 'not Monday', currentDayOfWeek }
+        });
+      }
+      
+    } catch (err) {
+      results.push({ task: 'weekly-schedule-emails', status: 'error', details: { error: String(err) } });
+      console.error('[NIGHTLY-MAINTENANCE] ✗ Weekly emails error:', err);
     }
 
     console.log('[NIGHTLY-MAINTENANCE] Complete!');
