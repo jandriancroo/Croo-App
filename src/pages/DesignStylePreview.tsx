@@ -1,8 +1,5 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, Calendar, MessageSquare, CheckSquare, BookOpen, Clock, Flame, Check, ListChecks } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,17 +16,30 @@ const DesignStylePreview = () => {
     { id: 'glassmorphism', name: 'Glassmorphism', description: 'Frosted glass + blur effects' },
   ];
 
-  // Style-specific classes
-  const getCardStyle = (style: StyleOption) => {
+  // Style-specific classes - Current matches actual dashboard components
+  const getTaskCardStyle = (style: StyleOption, accentColor: string = 'hsl(var(--accent))') => {
     switch (style) {
       case 'full-3d':
-        return 'bg-card rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.15),-4px_-4px_12px_rgba(255,255,255,0.1)] border-0 transform hover:translate-y-[-2px] transition-all';
+        return {
+          card: 'bg-card rounded-2xl shadow-[6px_6px_12px_rgba(0,0,0,0.12),-3px_-3px_8px_rgba(255,255,255,0.08)] border-0 overflow-hidden',
+          borderStyle: { borderLeft: `4px solid ${accentColor}` },
+        };
       case 'flat-minimal':
-        return 'bg-card rounded-lg border border-border/50 shadow-none';
+        return {
+          card: 'bg-card rounded-lg border border-border/50 shadow-none overflow-hidden',
+          borderStyle: { borderLeft: `4px solid ${accentColor}` },
+        };
       case 'glassmorphism':
-        return 'bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-lg';
+        return {
+          card: 'bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-lg overflow-hidden',
+          borderStyle: { borderLeft: `4px solid ${accentColor}` },
+        };
       default:
-        return 'bg-card rounded-xl border shadow-sm';
+        // Current: matches TemporaryTaskCard - Card with left border accent
+        return {
+          card: 'bg-card rounded-xl border shadow-sm overflow-hidden',
+          borderStyle: { borderLeft: `4px solid ${accentColor}` },
+        };
     }
   };
 
@@ -43,7 +53,8 @@ const DesignStylePreview = () => {
         case 'glassmorphism':
           return 'bg-primary/80 backdrop-blur-sm text-primary-foreground rounded-xl border border-primary/30 shadow-lg hover:bg-primary/90';
         default:
-          return 'bg-primary text-primary-foreground rounded-lg';
+          // Current: matches actual button styling
+          return 'bg-primary text-primary-foreground rounded-lg shadow-sm';
       }
     } else {
       switch (style) {
@@ -59,43 +70,44 @@ const DesignStylePreview = () => {
     }
   };
 
-  const getTaskCardStyle = (style: StyleOption) => {
+  const getChecklistCardStyle = (style: StyleOption, accentColor: string = '#8B5CF6') => {
     switch (style) {
       case 'full-3d':
-        return 'bg-card rounded-2xl shadow-[6px_6px_12px_rgba(0,0,0,0.12),-3px_-3px_8px_rgba(255,255,255,0.08)] border-l-4 border-l-accent border-0 p-4';
+        return {
+          card: 'aspect-square rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.15),-4px_-4px_12px_rgba(255,255,255,0.1)] border-0 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
+          background: `linear-gradient(135deg, ${accentColor}15 0%, ${accentColor}25 100%)`,
+        };
       case 'flat-minimal':
-        return 'bg-card rounded-lg border-l-4 border-l-accent border border-border/30 p-4';
+        return {
+          card: 'aspect-square rounded-lg border border-border/50 shadow-none overflow-hidden cursor-pointer hover:bg-muted/50 transition-all',
+          background: 'hsl(var(--card))',
+        };
       case 'glassmorphism':
-        return 'bg-white/8 backdrop-blur-lg rounded-xl border-l-4 border-l-accent border border-white/10 p-4';
+        return {
+          card: 'aspect-square rounded-2xl backdrop-blur-xl border border-white/20 shadow-lg overflow-hidden cursor-pointer hover:bg-white/15 transition-all',
+          background: 'rgba(255,255,255,0.08)',
+        };
       default:
-        return 'bg-card rounded-xl border-l-4 border-l-accent shadow-sm p-4';
+        // Current: matches ChecklistCard - gradient background with accent
+        return {
+          card: 'aspect-square rounded-xl border shadow-sm overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
+          background: `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
+          borderColor: `${accentColor}25`,
+        };
     }
   };
 
-  const getChecklistStyle = (style: StyleOption) => {
+  const getSalesCubeStyle = (style: StyleOption, accentColor: string = 'hsl(var(--primary))') => {
     switch (style) {
       case 'full-3d':
-        return 'bg-card rounded-2xl shadow-[6px_6px_12px_rgba(0,0,0,0.12),-3px_-3px_8px_rgba(255,255,255,0.08)] border-0 p-4';
+        return `rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.25),-4px_-4px_12px_rgba(255,255,255,0.1)] p-4 text-white transform`;
       case 'flat-minimal':
-        return 'bg-card rounded-lg border border-border/50 p-4';
+        return `rounded-lg p-4 text-white shadow-none`;
       case 'glassmorphism':
-        return 'bg-white/8 backdrop-blur-lg rounded-xl border border-white/10 p-4';
+        return `rounded-2xl backdrop-blur-xl border border-white/20 p-4 text-white shadow-xl`;
       default:
-        return 'bg-card rounded-xl border shadow-sm p-4';
-    }
-  };
-
-  const getSalesCubeStyle = (style: StyleOption, color: 'primary' | 'accent') => {
-    const baseColor = color === 'primary' ? 'bg-primary' : 'bg-accent';
-    switch (style) {
-      case 'full-3d':
-        return `${baseColor} rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.25),-4px_-4px_12px_rgba(255,255,255,0.1)] p-4 text-white transform perspective-1000`;
-      case 'flat-minimal':
-        return `${baseColor} rounded-lg p-4 text-white`;
-      case 'glassmorphism':
-        return `${baseColor}/70 backdrop-blur-xl rounded-2xl border border-white/20 p-4 text-white shadow-xl`;
-      default:
-        return `${baseColor} rounded-xl p-4 text-white shadow-lg`;
+        // Current: solid color with shadow
+        return `rounded-xl p-4 text-white shadow-lg`;
     }
   };
 
@@ -104,24 +116,22 @@ const DesignStylePreview = () => {
       case 'full-3d':
         return 'bg-gradient-to-t from-accent via-accent/90 to-accent/80 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.3)] border-t-2 border-white/20';
       case 'flat-minimal':
-        return 'bg-accent border-t border-accent/20';
+        return 'bg-accent border-t border-border';
       case 'glassmorphism':
-        return 'bg-accent/60 backdrop-blur-2xl rounded-t-2xl border-t border-white/30';
+        return 'bg-accent/70 backdrop-blur-2xl rounded-t-2xl border-t border-white/30';
       default:
+        // Current: matches actual dock - gradient with rounded top
         return 'bg-gradient-to-t from-accent to-accent/90 rounded-t-2xl shadow-lg';
     }
   };
 
-  const getProgressStyle = (style: StyleOption) => {
+  const getPageContainerStyle = (style: StyleOption) => {
     switch (style) {
-      case 'full-3d':
-        return 'h-3 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1)]';
-      case 'flat-minimal':
-        return 'h-2 rounded-sm';
       case 'glassmorphism':
-        return 'h-3 rounded-full bg-white/10';
+        // Only glassmorphism has the gradient background on the page
+        return 'bg-gradient-to-br from-primary/20 via-background to-accent/20 min-h-screen';
       default:
-        return 'h-2.5 rounded-full';
+        return '';
     }
   };
 
@@ -160,60 +170,80 @@ const DesignStylePreview = () => {
       </div>
 
       {/* Preview Content */}
-      <div className={`px-4 space-y-4 ${activeStyle === 'glassmorphism' ? 'bg-gradient-to-br from-primary/20 via-background to-accent/20 min-h-screen -mt-4 pt-4' : ''}`}>
+      <div className={`px-4 space-y-6 pb-8 ${getPageContainerStyle(activeStyle)}`}>
         
         {/* Quick Tasks Section */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Quick Tasks</h2>
           
-          {/* Task Card 1 */}
-          <div className={getTaskCardStyle(activeStyle)}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${activeStyle === 'full-3d' ? 'bg-accent/10 shadow-inner' : activeStyle === 'glassmorphism' ? 'bg-white/10' : 'bg-accent/10'}`}>
-                  <Calendar className="h-4 w-4 text-accent" />
-                </div>
-                <div>
-                  <p className="font-medium">Day 3 Training - Diego</p>
-                  <div className="flex items-center gap-1 text-xs text-accent">
-                    <ListChecks className="h-3 w-3" />
-                    <span>0/4</span>
+          {/* Task Card 1 - matches TemporaryTaskCard */}
+          {(() => {
+            const taskStyle = getTaskCardStyle(activeStyle, 'hsl(var(--accent))');
+            return (
+              <div className={taskStyle.card} style={taskStyle.borderStyle}>
+                <div className="py-2 px-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div 
+                      className={`p-1.5 rounded-md shrink-0 ${activeStyle === 'full-3d' ? 'shadow-inner' : ''}`}
+                      style={{ backgroundColor: 'hsl(var(--accent) / 0.2)' }}
+                    >
+                      <Calendar className="h-4 w-4 text-accent" />
+                    </div>
+                    <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
+                      <p className="font-medium text-sm">Day 3 Training - Diego</p>
+                      <span 
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                        style={{ backgroundColor: 'hsl(var(--accent) / 0.2)', color: 'hsl(var(--accent))' }}
+                      >
+                        <ListChecks className="h-3 w-3" />
+                        0/4
+                      </span>
+                    </div>
                   </div>
+                  <button className={`h-8 px-4 text-xs font-medium flex items-center gap-1.5 ${getButtonStyle(activeStyle, 'primary')}`}>
+                    <Check className="h-3.5 w-3.5" />
+                    Start
+                  </button>
                 </div>
               </div>
-              <button className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 ${getButtonStyle(activeStyle, 'primary')}`}>
-                <Check className="h-4 w-4" />
-                Start
-              </button>
-            </div>
-          </div>
+            );
+          })()}
 
-          {/* Task Card 2 - Completed */}
-          <div className={`${getTaskCardStyle(activeStyle)} opacity-80`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${activeStyle === 'full-3d' ? 'bg-accent/10 shadow-inner' : activeStyle === 'glassmorphism' ? 'bg-white/10' : 'bg-accent/10'}`}>
-                  <Calendar className="h-4 w-4 text-accent" />
-                </div>
-                <div>
-                  <p className="font-medium">Order Produce</p>
-                  <p className="text-xs text-muted-foreground">9:00 AM</p>
+          {/* Task Card 2 */}
+          {(() => {
+            const taskStyle = getTaskCardStyle(activeStyle, 'hsl(var(--primary))');
+            return (
+              <div className={taskStyle.card} style={taskStyle.borderStyle}>
+                <div className="py-2 px-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div 
+                      className={`p-1.5 rounded-md shrink-0 ${activeStyle === 'full-3d' ? 'shadow-inner' : ''}`}
+                      style={{ backgroundColor: 'hsl(var(--primary) / 0.2)' }}
+                    >
+                      <Calendar className="h-4 w-4 text-primary" />
+                    </div>
+                    <p className="font-medium text-sm">Order Produce</p>
+                    <span className="text-xs text-muted-foreground">9:00 AM</span>
+                  </div>
+                  <button className={`h-8 px-4 text-xs font-medium flex items-center gap-1.5 ${getButtonStyle(activeStyle, 'primary')}`}>
+                    <Check className="h-3.5 w-3.5" />
+                    Done
+                  </button>
                 </div>
               </div>
-              <button className={`px-4 py-2 text-sm font-medium flex items-center gap-1.5 ${getButtonStyle(activeStyle, 'secondary')}`}>
-                <Check className="h-4 w-4" />
-                Done
-              </button>
-            </div>
-          </div>
+            );
+          })()}
         </div>
 
-        {/* Sales Cubes Section */}
-        <div className="space-y-3">
+        {/* Data Cubes Section */}
+        <div className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Data Cubes</h2>
           <div className="grid grid-cols-2 gap-3">
             {/* Daily Sales Cube */}
-            <div className={getSalesCubeStyle(activeStyle, 'primary')}>
+            <div 
+              className={getSalesCubeStyle(activeStyle, 'hsl(var(--primary))')}
+              style={{ backgroundColor: 'hsl(var(--primary))' }}
+            >
               <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Daily Sales</p>
               <p className="text-2xl font-bold mt-2">$2,847</p>
               <p className="text-xs opacity-75">Sales</p>
@@ -230,7 +260,10 @@ const DesignStylePreview = () => {
             </div>
 
             {/* Payment Cube */}
-            <div className={getSalesCubeStyle(activeStyle, 'accent')}>
+            <div 
+              className={getSalesCubeStyle(activeStyle, 'hsl(var(--accent))')}
+              style={{ backgroundColor: 'hsl(var(--accent))' }}
+            >
               <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Payment $</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <div>
@@ -250,59 +283,109 @@ const DesignStylePreview = () => {
           </div>
         </div>
 
-        {/* Checklists Section */}
-        <div className="space-y-3">
+        {/* Checklists Section - Grid like actual dashboard */}
+        <div className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Checklists</h2>
           
-          {/* Checklist Card 1 - In Progress */}
-          <div className={getChecklistStyle(activeStyle)}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-primary" />
-                <span className="font-medium">Morning Line Check</span>
-              </div>
-              <Badge variant="outline" className="text-xs">daily</Badge>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <button className={`w-full py-2 text-sm font-medium ${getButtonStyle(activeStyle, 'primary')}`}>
-                  Continue • 23/28
-                </button>
-              </div>
-              <span className="text-sm font-semibold text-muted-foreground">82%</span>
-            </div>
-            <div className={`mt-2 ${getProgressStyle(activeStyle)}`}>
-              <Progress value={82} className="h-full" />
-            </div>
-          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {/* Checklist Card 1 - 82% complete */}
+            {(() => {
+              const checklistStyle = getChecklistCardStyle(activeStyle, '#8B5CF6');
+              return (
+                <div 
+                  className={checklistStyle.card}
+                  style={{ 
+                    background: checklistStyle.background,
+                    borderColor: checklistStyle.borderColor,
+                  }}
+                >
+                  <div className="relative z-10 h-full flex flex-col p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div 
+                        className="flex items-center justify-center w-6 h-6 rounded-md"
+                        style={{ backgroundColor: '#8B5CF620' }}
+                      >
+                        <CheckSquare className="h-3.5 w-3.5" style={{ color: '#8B5CF6' }} />
+                      </div>
+                      <span className="text-[11px] font-semibold truncate" style={{ color: '#8B5CF6' }}>
+                        Morning Line
+                      </span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <div className="text-4xl font-black" style={{ color: '#8B5CF6' }}>82%</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">23 of 28</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
-          {/* Checklist Card 2 - Locked */}
-          <div className={`${getChecklistStyle(activeStyle)} opacity-60`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">Shift Change Line Check</span>
-              </div>
-              <Badge variant="outline" className="text-xs">daily</Badge>
-            </div>
-            <button className={`w-full py-2 text-sm ${getButtonStyle(activeStyle, 'secondary')} opacity-50 cursor-not-allowed`} disabled>
-              <Clock className="h-4 w-4 mr-2 inline" />
-              Locked until 2:00 PM
-            </button>
-          </div>
+            {/* Checklist Card 2 - Complete */}
+            {(() => {
+              const checklistStyle = getChecklistCardStyle(activeStyle, '#22c55e');
+              return (
+                <div 
+                  className={checklistStyle.card}
+                  style={{ 
+                    background: checklistStyle.background,
+                    borderColor: checklistStyle.borderColor,
+                  }}
+                >
+                  <div className="relative z-10 h-full flex flex-col p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div 
+                        className="flex items-center justify-center w-6 h-6 rounded-md"
+                        style={{ backgroundColor: '#22c55e20' }}
+                      >
+                        <CheckSquare className="h-3.5 w-3.5" style={{ color: '#22c55e' }} />
+                      </div>
+                      <span className="text-[11px] font-semibold truncate" style={{ color: '#22c55e' }}>
+                        Deep Clean
+                      </span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <div 
+                        className={`flex items-center justify-center w-12 h-12 rounded-full mb-2 ${activeStyle === 'full-3d' ? 'shadow-lg' : ''}`}
+                        style={{ backgroundColor: '#22c55e' }}
+                      >
+                        <Check className="h-6 w-6 text-white" strokeWidth={3} />
+                      </div>
+                      <div className="text-sm font-bold text-foreground">Done!</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
-          {/* Checklist Card 3 - Not Started */}
-          <div className={getChecklistStyle(activeStyle)}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-primary" />
-                <span className="font-medium">Daily Deep Cleaning</span>
-              </div>
-              <Badge variant="outline" className="text-xs">weekly</Badge>
-            </div>
-            <button className={`w-full py-2 text-sm ${getButtonStyle(activeStyle, 'secondary')}`}>
-              Start Checklist
-            </button>
+            {/* Checklist Card 3 - Locked */}
+            {(() => {
+              const checklistStyle = getChecklistCardStyle(activeStyle, '#6b7280');
+              return (
+                <div 
+                  className={`${checklistStyle.card} opacity-60`}
+                  style={{ 
+                    background: activeStyle === 'current' ? 'hsl(var(--card))' : checklistStyle.background,
+                  }}
+                >
+                  <div className="relative z-10 h-full flex flex-col p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-md bg-muted">
+                        <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                      <span className="text-[11px] font-semibold truncate text-muted-foreground">
+                        Shift Change
+                      </span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-full mb-2 bg-muted">
+                        <Clock className="h-6 w-6 text-muted-foreground" strokeWidth={2.5} />
+                      </div>
+                      <div className="text-xs text-muted-foreground font-medium text-center">Until 2:00 PM</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
