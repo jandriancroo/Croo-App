@@ -1101,7 +1101,7 @@ export default function Schedule() {
             });
         }
         
-        // Notify only affected users
+        // Notify only affected users via push
         if (affectedUserIds.length > 0) {
           await supabase.functions.invoke('send-push-notification', {
             body: {
@@ -1114,12 +1114,13 @@ export default function Schedule() {
           });
         }
         
-        // Send schedule emails to ALL employees with shifts (fallback notification)
-        if (currentLocation?.id) {
-          supabase.functions.invoke('send-weekly-schedule-email', {
+        // Send update emails ONLY to affected employees with their specific changes
+        if (currentLocation?.id && changes.length > 0) {
+          supabase.functions.invoke('send-schedule-update-email', {
             body: {
               schedule_id: scheduleId,
-              location_id: currentLocation.id
+              location_id: currentLocation.id,
+              changes: changes
             }
           }).then(response => {
             if (response.error) {
