@@ -1019,11 +1019,25 @@ export default function Schedule() {
             data: { type: 'schedule_update', schedule_id: scheduleId }
           }
         });
-        
-        toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified.`);
-      } else {
-        toast.success("Schedule published!");
       }
+
+      // Send schedule emails to ALL employees with shifts (no permission check - fallback notification)
+      if (currentLocation?.id) {
+        supabase.functions.invoke('send-weekly-schedule-email', {
+          body: {
+            schedule_id: scheduleId,
+            location_id: currentLocation.id
+          }
+        }).then(response => {
+          if (response.error) {
+            console.error('Failed to send schedule emails:', response.error);
+          } else {
+            console.log('Schedule emails sent:', response.data);
+          }
+        });
+      }
+        
+      toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified.`);
 
       // Update schedule with new snapshot and audit info
       const { error } = await supabase
@@ -1096,6 +1110,22 @@ export default function Schedule() {
               body: `Your schedule for ${dateRange} has been updated`,
               notification_type: 'schedule_updates',
               data: { type: 'schedule_update', schedule_id: scheduleId }
+            }
+          });
+        }
+        
+        // Send schedule emails to ALL employees with shifts (fallback notification)
+        if (currentLocation?.id) {
+          supabase.functions.invoke('send-weekly-schedule-email', {
+            body: {
+              schedule_id: scheduleId,
+              location_id: currentLocation.id
+            }
+          }).then(response => {
+            if (response.error) {
+              console.error('Failed to send schedule update emails:', response.error);
+            } else {
+              console.log('Schedule update emails sent:', response.data);
             }
           });
         }
