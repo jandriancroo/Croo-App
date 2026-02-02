@@ -26,7 +26,9 @@ import {
   Gauge,
   Scissors,
   Calculator,
-  Circle
+  Circle,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -107,16 +109,22 @@ interface HourlyChartData {
 // Hourly chart using recharts (matching Dashboard SalesSummaryChart style exactly)
 function HourlyChartRecharts({ 
   hours, 
-  formatCurrency 
+  formatCurrency,
+  isDayMode = false
 }: { 
   hours: HourlyChartData[]; 
   formatCurrency: (value: number) => string;
+  isDayMode?: boolean;
 }) {
   const chartData = hours.map(h => ({
     label: h.label,
     sales: h.sales,
     projected: h.projected,
   }));
+
+  const textColor = isDayMode ? 'hsl(var(--muted-foreground))' : 'rgba(255,255,255,0.6)';
+  const projectedStroke = isDayMode ? 'hsl(var(--muted-foreground))' : 'rgba(255,255,255,0.4)';
+  const projectedFill = isDayMode ? 'hsl(var(--muted-foreground) / 0.15)' : 'rgba(255,255,255,0.15)';
 
   return (
     <div className="flex-1 min-h-0 w-full">
@@ -128,12 +136,12 @@ function HourlyChartRecharts({
         >
           <XAxis
             dataKey="label"
-            tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }}
+            tick={{ fill: textColor, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }}
+            tick={{ fill: textColor, fontSize: 10 }}
             tickFormatter={(value) => `$${value}`}
             axisLine={false}
             tickLine={false}
@@ -144,10 +152,10 @@ function HourlyChartRecharts({
               if (!active || !payload?.length) return null;
               const data = payload[0]?.payload as any;
               return (
-                <div className="bg-slate-800 border border-white/20 rounded-md p-2 shadow-lg">
-                  <p className="font-medium text-white text-sm">{label}</p>
-                  <p className="text-white/60 text-xs">
-                    Projected: <span className="text-white">{formatCurrency(data?.projected || 0)}</span>
+                <div className={`rounded-md p-2 shadow-lg border ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800 border-neutral-700'}`}>
+                  <p className={`font-medium text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{label}</p>
+                  <p className={`text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
+                    Projected: <span className={isDayMode ? 'text-foreground' : 'text-white'}>{formatCurrency(data?.projected || 0)}</span>
                   </p>
                   <p className="text-primary text-xs">
                     Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span>
@@ -159,9 +167,9 @@ function HourlyChartRecharts({
           <Area
             type="monotone"
             dataKey="projected"
-            stroke="rgba(255,255,255,0.4)"
+            stroke={projectedStroke}
             strokeWidth={2}
-            fill="rgba(255,255,255,0.15)"
+            fill={projectedFill}
           />
           <Bar 
             dataKey="sales" 
@@ -198,6 +206,7 @@ export function ManagerDashboardOverlay({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
+  const [isDayMode, setIsDayMode] = useState(false);
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
@@ -881,20 +890,34 @@ export function ManagerDashboardOverlay({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden"
+        className={`fixed inset-0 z-[100] overflow-hidden ${
+          isDayMode 
+            ? 'bg-background' 
+            : 'bg-neutral-900'
+        }`}
       >
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000" />
-        </div>
+        {/* Day/Night Toggle - Top Right */}
+        <button
+          onClick={() => setIsDayMode(!isDayMode)}
+          className={`absolute top-4 right-4 z-20 flex items-center justify-center w-10 h-10 rounded-full transition-all ${
+            isDayMode 
+              ? 'bg-secondary text-foreground hover:bg-secondary/80' 
+              : 'bg-neutral-800 text-white hover:bg-neutral-700'
+          }`}
+        >
+          {isDayMode ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+        </button>
 
         {/* Swap Button - Bottom Center */}
         <button
           onClick={onClose}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full bg-accent backdrop-blur-xl border border-accent-foreground/20 hover:bg-accent/80 transition-all group shadow-lg"
+          className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full transition-all group shadow-neumorphic-lg ${
+            isDayMode 
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+              : 'bg-neutral-800 border border-neutral-700 text-white hover:bg-neutral-700'
+          }`}
         >
-          <ArrowLeftRight className="h-6 w-6 text-accent-foreground" />
+          <ArrowLeftRight className="h-6 w-6" />
         </button>
 
         <div className="relative h-full p-4 flex flex-col">
@@ -911,46 +934,46 @@ export function ManagerDashboardOverlay({
               {/* Sales Cards Row */}
               <div className="grid grid-cols-3 gap-1 sm:gap-2 lg:gap-3 xl:gap-4">
                 {/* Total Sales */}
-                <Card className="bg-white/10 backdrop-blur-xl border-white/20">
+                <Card className={isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}>
                   <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
-                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-400" />
-                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">Total Sales</p>
-                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-white">{formatCurrency(totalSales)}</p>
+                    <DollarSign className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-500" />
+                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Sales</p>
+                    <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(totalSales)}</p>
                   </CardContent>
                 </Card>
 
                 {/* EOD Goal */}
-                <Card className="bg-white/10 backdrop-blur-xl border-white/20">
+                <Card className={isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}>
                   <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
-                    <Target className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-blue-400" />
-                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">EOD Goal</p>
-                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-white">{formatCurrency(eodGoal)}</p>
+                    <Target className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-blue-500" />
+                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>EOD Goal</p>
+                    <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
                   </CardContent>
                 </Card>
 
                 {/* Pace */}
-                <Card className={`bg-white/10 backdrop-blur-xl border-white/20 ${
+                <Card className={`${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'} ${
                   paceStatus === 'fire' ? 'ring-2 ring-orange-500/50' : ''
                 }`}>
                   <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
                     {paceStatus === 'fire' ? (
                       <Flame className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-orange-500 animate-pulse" />
                     ) : paceStatus === 'cold' ? (
-                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-red-400" />
+                      <TrendingDown className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-red-500" />
                     ) : (
-                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-400" />
+                      <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-green-500" />
                     )}
-                    <p className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5">Pace</p>
-                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-amber-400">{formatCurrency(paceAdjusted)}</p>
+                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Pace</p>
+                    <p className="text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold text-amber-500">{formatCurrency(paceAdjusted)}</p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Hourly Chart */}
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px]">
+              <Card className={`flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px] ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
                   <div className="flex items-center justify-between mb-1 lg:mb-2">
-                    <h3 className="text-white/80 text-xs sm:text-sm lg:text-base font-semibold flex items-center gap-2">
+                    <h3 className={`text-xs sm:text-sm lg:text-base font-semibold flex items-center gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
                       <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
                       Hourly Sales
                     </h3>
@@ -959,11 +982,11 @@ export function ManagerDashboardOverlay({
                       <div className="flex items-center gap-2 text-[9px] sm:text-[10px]">
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-sm bg-primary" />
-                          <span className="text-white/60">Actual</span>
+                          <span className={isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}>Actual</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-sm bg-muted-foreground/30" />
-                          <span className="text-white/60">Projected</span>
+                          <span className={isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}>Projected</span>
                         </div>
                       </div>
                     )}
@@ -976,27 +999,27 @@ export function ManagerDashboardOverlay({
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="mb-2 p-2 bg-white/10 rounded-lg border border-white/20"
+                        className={`mb-2 p-2 rounded-lg border ${isDayMode ? 'bg-secondary border-border' : 'bg-neutral-700/50 border-neutral-600'}`}
                         onClick={() => setSelectedHour(null)}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-white font-semibold text-sm">{selectedHour.label}</span>
-                          <X className="h-3 w-3 text-white/60 cursor-pointer hover:text-white" onClick={() => setSelectedHour(null)} />
+                          <span className={`font-semibold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{selectedHour.label}</span>
+                          <X className={`h-3 w-3 cursor-pointer ${isDayMode ? 'text-muted-foreground hover:text-foreground' : 'text-neutral-400 hover:text-white'}`} onClick={() => setSelectedHour(null)} />
                         </div>
                         <div className="grid grid-cols-3 gap-2 mt-1">
                           <div className="text-center">
-                            <p className="text-white/60 text-[9px]">Sales</p>
-                            <p className="text-white font-bold text-sm">{formatCurrency(selectedHour.sales)}</p>
+                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Sales</p>
+                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(selectedHour.sales)}</p>
                           </div>
                           <div className="text-center">
-                            <p className="text-white/60 text-[9px]">Projected</p>
-                            <p className="text-white/80 font-bold text-sm">
+                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Projected</p>
+                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
                               {selectedHour.projected > 0 ? formatCurrency(selectedHour.projected) : '—'}
                             </p>
                           </div>
                           <div className="text-center">
-                            <p className="text-white/60 text-[9px]">🍕</p>
-                            <p className="text-white/80 font-bold text-sm">
+                            <p className={`text-[9px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>🍕</p>
+                            <p className={`font-bold text-sm ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
                               {selectedHour.estimatedPizzas > 0 ? selectedHour.estimatedPizzas : '—'}
                             </p>
                           </div>
@@ -1009,30 +1032,32 @@ export function ManagerDashboardOverlay({
                     <HourlyChartRecharts 
                       hours={salesHours} 
                       formatCurrency={formatCurrency}
+                      isDayMode={isDayMode}
                     />
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
-                      <p className="text-white/40 text-xs sm:text-sm lg:text-base">No hourly data yet</p>
+                      <p className={`text-xs sm:text-sm lg:text-base ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No hourly data yet</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Center Column - Time Display with contrasting style */}
+            {/* Center Column - Time Display */}
             <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.05 }}
               className="flex flex-col items-center justify-start px-4 lg:px-6 pt-2"
             >
-              {/* Clock section with accent contrast */}
-              <div className="relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/40 shadow-neumorphic-lg">
-                {/* Inner glow */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/5" />
-                
+              {/* Clock section - clean solid style */}
+              <div className={`relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl shadow-neumorphic-lg ${
+                isDayMode 
+                  ? 'bg-primary/10 border border-primary/20' 
+                  : 'bg-neutral-800 border border-neutral-700'
+              }`}>
                 {/* Content */}
-                <div className="relative flex flex-col items-center gap-2 sm:gap-3">
+                <div className="flex flex-col items-center gap-2 sm:gap-3">
                   {(() => {
                     const timeStr = formatTimeDisplay(currentTime);
                     const match = timeStr.match(/^([\d:]+)\s*(AM|PM)$/i);
@@ -1041,36 +1066,36 @@ export function ManagerDashboardOverlay({
                     return (
                       <div className="flex items-start">
                         <span 
-                          className="text-5xl sm:text-7xl lg:text-8xl font-bold text-white tracking-wide"
+                          className={`text-5xl sm:text-7xl lg:text-8xl font-bold tracking-wide ${isDayMode ? 'text-foreground' : 'text-white'}`}
                           style={{ 
                             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                           }}
                         >
                           {timePart}
                         </span>
-                        <span className="text-base sm:text-lg lg:text-xl font-semibold text-white/50 ml-1 mt-1 sm:mt-2 lg:mt-3">
+                        <span className={`text-base sm:text-lg lg:text-xl font-semibold ml-1 mt-1 sm:mt-2 lg:mt-3 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                           {periodPart}
                         </span>
                       </div>
                     );
                   })()}
-                  <p className="text-white/60 text-sm sm:text-base lg:text-lg font-medium tracking-wide">
+                  <p className={`text-sm sm:text-base lg:text-lg font-medium tracking-wide ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                     {format(currentTime, 'EEEE, MMMM d')}
                   </p>
                 </div>
               </div>
 
               {/* Labor Section - Redesigned for clarity */}
-              <Card className="bg-white/10 border-white/20 mt-4 w-full max-w-sm">
+              <Card className={`mt-4 w-full max-w-sm ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <CardContent className="p-4 lg:p-5">
                   {/* Header with status indicator */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white text-sm lg:text-base font-semibold flex items-center gap-2">
+                    <h3 className={`text-sm lg:text-base font-semibold flex items-center gap-2 ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                       <Gauge className="h-4 w-4 lg:h-5 lg:w-5" />
                       Labor
                     </h3>
                     {cutsSaved && hasAnyCuts && (
-                      <Badge className="bg-green-500/20 text-green-300 text-xs px-2">
+                      <Badge className="bg-green-500/20 text-green-500 text-xs px-2">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Cuts Active
                       </Badge>
@@ -1082,16 +1107,16 @@ export function ManagerDashboardOverlay({
                     <div className="flex items-center justify-center gap-3">
                       {cutsSaved && hasAnyCuts ? (
                         <>
-                          <span className="text-white/40 line-through text-2xl lg:text-3xl">
+                          <span className={`line-through text-2xl lg:text-3xl ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                             {laborPercentage.toFixed(1)}%
                           </span>
-                          <span className="text-green-400 font-bold text-4xl lg:text-5xl">
+                          <span className="text-green-500 font-bold text-4xl lg:text-5xl">
                             {calculateLaborSavings.newLaborPercent.toFixed(1)}%
                           </span>
                         </>
                       ) : (
                         <span className={`font-bold text-4xl lg:text-5xl ${
-                          laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                          laborStatus === 'good' ? 'text-green-500' : laborStatus === 'warning' ? 'text-yellow-500' : 'text-red-500'
                         }`}>
                           {laborPercentage.toFixed(1)}%
                         </span>
@@ -1104,47 +1129,47 @@ export function ManagerDashboardOverlay({
                         const currentPercent = cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage;
                         const diff = currentPercent - laborTarget;
                         if (diff <= -3) {
-                          return <span className="text-green-400 text-sm font-medium">🎯 {Math.abs(diff).toFixed(1)}% under target</span>;
+                          return <span className="text-green-500 text-sm font-medium">🎯 {Math.abs(diff).toFixed(1)}% under target</span>;
                         } else if (diff <= 0) {
-                          return <span className="text-green-400 text-sm font-medium">✓ On target</span>;
+                          return <span className="text-green-500 text-sm font-medium">✓ On target</span>;
                         } else if (diff <= 3) {
-                          return <span className="text-yellow-400 text-sm font-medium">⚠️ {diff.toFixed(1)}% over target</span>;
+                          return <span className="text-yellow-500 text-sm font-medium">⚠️ {diff.toFixed(1)}% over target</span>;
                         } else {
-                          return <span className="text-red-400 text-sm font-medium">🔥 {diff.toFixed(1)}% over – cut labor!</span>;
+                          return <span className="text-red-500 text-sm font-medium">🔥 {diff.toFixed(1)}% over – cut labor!</span>;
                         }
                       })()}
                     </div>
                   </div>
                   
                   {/* Cost and Hours - side by side */}
-                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/10">
+                  <div className={`grid grid-cols-2 gap-4 pt-3 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
                     <div className="text-center">
-                      <p className="text-white/50 text-xs mb-1">Cost</p>
-                      <p className="text-xl lg:text-2xl font-bold text-white">
+                      <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Cost</p>
+                      <p className={`text-xl lg:text-2xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {formatCurrency(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborCost : (laborData?.laborCost || 0))}
                       </p>
                     </div>
                     <div className="text-center">
-                      <p className="text-white/50 text-xs mb-1">Hours</p>
-                      <p className="text-xl lg:text-2xl font-bold text-white">
+                      <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Hours</p>
+                      <p className={`text-xl lg:text-2xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {(laborData?.laborHours || 0).toFixed(1)}
                       </p>
                     </div>
                   </div>
                   
                   {/* Two-bar labor comparison */}
-                  <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                  <div className={`mt-3 pt-3 border-t space-y-2 ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
                     {/* Actual Labor Bar */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-white/60 text-[10px]">Actual</span>
+                        <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Actual</span>
                         <span className={`text-xs font-bold ${
-                          laborStatus === 'good' ? 'text-green-400' : laborStatus === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                          laborStatus === 'good' ? 'text-green-500' : laborStatus === 'warning' ? 'text-yellow-500' : 'text-red-500'
                         }`}>
                           {(cutsSaved && hasAnyCuts ? calculateLaborSavings.newLaborPercent : laborPercentage).toFixed(1)}%
                         </span>
                       </div>
-                      <div className="h-4 rounded bg-white/10 overflow-hidden">
+                      <div className={`h-4 rounded overflow-hidden ${isDayMode ? 'bg-secondary' : 'bg-neutral-700'}`}>
                         <div 
                           className={`h-full rounded transition-all ${
                             laborStatus === 'good' ? 'bg-green-500' : laborStatus === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
@@ -1159,12 +1184,12 @@ export function ManagerDashboardOverlay({
                     {/* Target Bar */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-white/60 text-[10px]">Target</span>
-                        <span className="text-xs font-bold text-white/80">{laborTarget}%</span>
+                        <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Target</span>
+                        <span className={`text-xs font-bold ${isDayMode ? 'text-foreground' : 'text-neutral-300'}`}>{laborTarget}%</span>
                       </div>
-                      <div className="h-4 rounded bg-white/10 overflow-hidden">
+                      <div className={`h-4 rounded overflow-hidden ${isDayMode ? 'bg-secondary' : 'bg-neutral-700'}`}>
                         <div 
-                          className="h-full rounded bg-white/40"
+                          className={`h-full rounded ${isDayMode ? 'bg-muted-foreground/40' : 'bg-neutral-500'}`}
                           style={{ width: `${(laborTarget / 40) * 100}%` }}
                         />
                       </div>
@@ -1182,9 +1207,9 @@ export function ManagerDashboardOverlay({
               className="flex-1 flex flex-col gap-2 lg:gap-3"
             >
               {/* Active Shifts - 50% height, scrollable */}
-              <Card className="bg-white/10 border-white/20 flex-1 min-h-0">
+              <Card className={`flex-1 min-h-0 ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <CardContent className="p-2 sm:p-3 lg:p-4 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
+                  <h3 className={`text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
                     <Users className="h-3 w-3 sm:h-4 sm:w-4" />
                     On The Clock
                     <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary text-[10px] sm:text-xs">
@@ -1193,7 +1218,7 @@ export function ManagerDashboardOverlay({
                   </h3>
                   <div className="space-y-1 sm:space-y-1.5 flex-1 overflow-y-auto">
                     {activeShifts.length === 0 ? (
-                      <p className="text-white/40 text-center py-4 text-xs sm:text-sm">No one clocked in</p>
+                      <p className={`text-center py-4 text-xs sm:text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No one clocked in</p>
                     ) : (
                       activeShifts.slice(0, 6).map((shift) => {
                         const cut = getCutForEmployee(shift.userId);
@@ -1214,12 +1239,12 @@ export function ManagerDashboardOverlay({
                           >
                             <PopoverTrigger asChild>
                               <div
-                                className={`flex items-center gap-2 p-1.5 lg:p-2 rounded-lg cursor-pointer transition-all hover:bg-white/10 ${
+                                className={`flex items-center gap-2 p-1.5 lg:p-2 rounded-lg cursor-pointer transition-all ${
                                   shift.isOnBreak 
                                     ? 'bg-amber-500/20' 
                                     : cut 
                                       ? 'bg-red-500/20 ring-1 ring-red-500/50' 
-                                      : 'bg-white/5'
+                                      : isDayMode ? 'bg-secondary hover:bg-secondary/80' : 'bg-neutral-700/50 hover:bg-neutral-700'
                                 }`}
                               >
                                 <Avatar className="h-6 w-6 lg:h-8 lg:w-8">
@@ -1230,13 +1255,13 @@ export function ManagerDashboardOverlay({
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1">
-                                    <p className="text-white text-xs lg:text-sm font-medium truncate">
+                                    <p className={`text-xs lg:text-sm font-medium truncate ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                                       {shift.fullName.split(' ')[0]}
                                     </p>
                                     {cut && (
                                       <Badge 
                                         variant="secondary" 
-                                        className="bg-red-500/30 text-red-300 text-[9px] lg:text-[10px] px-1 py-0"
+                                        className="bg-red-500/30 text-red-500 text-[9px] lg:text-[10px] px-1 py-0"
                                       >
                                         {cutsSaved 
                                           ? cut.customEndTime 
@@ -1251,7 +1276,7 @@ export function ManagerDashboardOverlay({
                                   </div>
                                   {/* Show scheduled shift times */}
                                   {(shift.scheduledStartTime || shift.scheduledEndTime) && !cut && (
-                                    <p className="text-white/40 text-[9px] lg:text-[10px]">
+                                    <p className={`text-[9px] lg:text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                                       {shift.scheduledStartTime && shift.scheduledEndTime 
                                         ? `${formatShiftTime(shift.scheduledStartTime)} - ${formatShiftTime(shift.scheduledEndTime)}`
                                         : shift.scheduledEndTime 
@@ -1263,32 +1288,32 @@ export function ManagerDashboardOverlay({
                                 </div>
                                 {shift.isOnBreak && shift.breakStartTime ? (
                                   <div className="flex items-center gap-1">
-                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 text-amber-400" />
+                                    <Coffee className="h-3 w-3 lg:h-4 lg:w-4 text-amber-500" />
                                     <span className={`text-[9px] lg:text-[10px] font-bold ${
                                       getBreakReturnTime(shift.breakStartTime).isOverdue 
-                                        ? 'text-red-400' 
-                                        : 'text-amber-300'
+                                        ? 'text-red-500' 
+                                        : 'text-amber-500'
                                     }`}>
                                       {getBreakReturnTime(shift.breakStartTime).text}
                                     </span>
                                   </div>
                                 ) : (
-                                  <Scissors className="h-3 w-3 lg:h-4 lg:w-4 text-white/40" />
+                                  <Scissors className={`h-3 w-3 lg:h-4 lg:w-4 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
                                 )}
                               </div>
                             </PopoverTrigger>
                             <PopoverContent 
-                              className="w-56 p-3 !bg-slate-900/95 !backdrop-blur-xl border-white/20 shadow-neumorphic-lg"
+                              className={`w-56 p-3 shadow-neumorphic-lg ${isDayMode ? 'bg-card border-border' : 'bg-neutral-900 border-neutral-700'}`}
                               side="left"
                             >
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <h4 className="text-white font-semibold text-sm">Send Home Early</h4>
+                                  <h4 className={`font-semibold text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>Send Home Early</h4>
                                   {cut && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/20 px-2"
+                                      className="h-6 text-xs text-red-500 hover:text-red-400 hover:bg-red-500/20 px-2"
                                       onClick={() => handleRemoveCut(shift.userId)}
                                     >
                                       Clear
@@ -1304,7 +1329,9 @@ export function ManagerDashboardOverlay({
                                       className={`text-sm h-9 font-medium ${
                                         cut?.minutesCut === mins 
                                           ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
-                                          : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                                          : isDayMode 
+                                            ? 'bg-secondary border-border text-foreground hover:bg-secondary/80' 
+                                            : 'bg-neutral-800 border-neutral-600 text-white hover:bg-neutral-700'
                                       }`}
                                       onClick={() => handleAddCut(shift, mins)}
                                     >
@@ -1312,19 +1339,19 @@ export function ManagerDashboardOverlay({
                                     </Button>
                                   ))}
                                 </div>
-                                <div className="pt-2 border-t border-white/20">
-                                  <p className="text-white/70 text-xs mb-2">Custom end time:</p>
+                                <div className={`pt-2 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
+                                  <p className={`text-xs mb-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Custom end time:</p>
                                   <div className="flex gap-2">
                                     <Input
                                       type="time"
                                       value={customTime}
                                       onChange={(e) => setCustomTime(e.target.value)}
-                                      className="bg-white/10 border-white/30 text-white text-sm h-9 flex-1"
+                                      className={`text-sm h-9 flex-1 ${isDayMode ? 'bg-secondary border-border' : 'bg-neutral-800 border-neutral-600 text-white'}`}
                                     />
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="bg-white/10 border-white/30 text-white hover:bg-white/20 h-9 px-3 text-sm"
+                                      className={`h-9 px-3 text-sm ${isDayMode ? 'bg-secondary border-border hover:bg-secondary/80' : 'bg-neutral-800 border-neutral-600 text-white hover:bg-neutral-700'}`}
                                       onClick={() => handleCustomCut(shift)}
                                       disabled={!customTime}
                                     >
@@ -1340,7 +1367,7 @@ export function ManagerDashboardOverlay({
                     )}
                     {/* Show scroll indicator if more than 6 */}
                     {activeShifts.length > 6 && (
-                      <p className="text-white/40 text-center text-[9px] pt-1">
+                      <p className={`text-center text-[9px] pt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                         +{activeShifts.length - 6} more (scroll to see)
                       </p>
                     )}
@@ -1351,14 +1378,14 @@ export function ManagerDashboardOverlay({
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-2 pt-2 border-t border-white/10"
+                      className={`mt-2 pt-2 border-t ${isDayMode ? 'border-border' : 'border-neutral-700'}`}
                     >
                       <Button
                         size="sm"
                         className={`w-full h-7 text-[10px] ${
                           cutsSaved 
-                            ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' 
-                            : 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
+                            ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30' 
+                            : 'bg-red-500 text-white hover:bg-red-600'
                         }`}
                         onClick={() => {
                           setShowPreviewModal(true);
@@ -1373,9 +1400,9 @@ export function ManagerDashboardOverlay({
               </Card>
 
               {/* Quick Tasks - 50% height */}
-              <Card className="bg-white/10 border-white/20 flex-1 min-h-0">
+              <Card className={`flex-1 min-h-0 ${isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <CardContent className="p-2 sm:p-3 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2">
+                  <h3 className={`text-xs sm:text-sm font-semibold mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 ${isDayMode ? 'text-foreground' : 'text-neutral-200'}`}>
                     <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
                     Tasks
                     {(() => {
@@ -1383,7 +1410,7 @@ export function ManagerDashboardOverlay({
                       const incompleteChecklists = checklistsData.filter((c: any) => !c.isComplete).length;
                       const totalIncomplete = incompleteEvents + incompleteChecklists;
                       return totalIncomplete > 0 ? (
-                        <Badge variant="secondary" className="ml-auto bg-white/10 text-white/60 text-[10px]">
+                        <Badge variant="secondary" className={`ml-auto text-[10px] ${isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'}`}>
                           {totalIncomplete}
                         </Badge>
                       ) : null;
@@ -1393,20 +1420,22 @@ export function ManagerDashboardOverlay({
                     {/* Events section */}
                     {quickTasks.length > 0 && (
                       <div className="mb-2">
-                        <p className="text-white/40 text-[9px] uppercase tracking-wide mb-1">Events</p>
+                        <p className={`text-[9px] uppercase tracking-wide mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Events</p>
                         {quickTasks.slice(0, 4).map((task: any) => (
                           <div
                             key={task.id}
-                            className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5 mb-1"
+                            className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
                           >
                             {task.isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
                             ) : (
                               <div className="w-0.5 h-4 sm:h-5 rounded-full bg-primary" />
                             )}
                             <div className="flex-1 min-w-0">
                               <p className={`text-[10px] sm:text-xs font-medium truncate ${
-                                task.isComplete ? 'text-white/50 line-through' : 'text-white'
+                                task.isComplete 
+                                  ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
+                                  : isDayMode ? 'text-foreground' : 'text-white'
                               }`}>
                                 {task.event_name}
                               </p>
@@ -1414,12 +1443,12 @@ export function ManagerDashboardOverlay({
                             {task.isComplete ? (
                               <Badge 
                                 variant="secondary" 
-                                className="text-[8px] px-1.5 py-0 bg-green-500/20 text-green-300"
+                                className="text-[8px] px-1.5 py-0 bg-green-500/20 text-green-500"
                               >
                                 ✓
                               </Badge>
                             ) : (
-                              <span className="text-white/50 text-[9px] sm:text-[10px] font-medium">
+                              <span className={`text-[9px] sm:text-[10px] font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                                 {format(new Date(`2000-01-01T${task.event_time}`), 'h:mm a')}
                               </span>
                             )}
@@ -1431,20 +1460,22 @@ export function ManagerDashboardOverlay({
                     {/* Checklists section */}
                     {checklistsData.length > 0 && (
                       <div>
-                        <p className="text-white/40 text-[9px] uppercase tracking-wide mb-1">Checklists</p>
+                        <p className={`text-[9px] uppercase tracking-wide mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Checklists</p>
                         {checklistsData.slice(0, 4).map((checklist: any) => (
                           <div
                             key={checklist.id}
-                            className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-white/5 mb-1"
+                            className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
                           >
                             {checklist.isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
                             ) : (
-                              <Circle className="h-3.5 w-3.5 text-white/30 flex-shrink-0" />
+                              <Circle className={`h-3.5 w-3.5 flex-shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
                             )}
                             <div className="flex-1 min-w-0">
                               <p className={`text-[10px] sm:text-xs font-medium truncate ${
-                                checklist.isComplete ? 'text-white/50 line-through' : 'text-white'
+                                checklist.isComplete 
+                                  ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
+                                  : isDayMode ? 'text-foreground' : 'text-white'
                               }`}>
                                 {checklist.title}
                               </p>
@@ -1453,8 +1484,8 @@ export function ManagerDashboardOverlay({
                               variant="secondary" 
                               className={`text-[8px] px-1.5 py-0 ${
                                 checklist.isComplete 
-                                  ? 'bg-green-500/20 text-green-300' 
-                                  : 'bg-white/10 text-white/50'
+                                  ? 'bg-green-500/20 text-green-500' 
+                                  : isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'
                               }`}
                             >
                               {checklist.isComplete ? '✓' : checklist.frequency}
@@ -1466,7 +1497,7 @@ export function ManagerDashboardOverlay({
                     
                     {/* Empty state */}
                     {quickTasks.length === 0 && checklistsData.length === 0 && (
-                      <p className="text-white/40 text-center py-4 text-[10px] sm:text-xs">No tasks today</p>
+                      <p className={`text-center py-4 text-[10px] sm:text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>No tasks today</p>
                     )}
                   </div>
                 </CardContent>
@@ -1483,11 +1514,11 @@ export function ManagerDashboardOverlay({
           }}
         >
           <DialogContent 
-            className="bg-slate-900 border-white/20 text-white max-w-md"
+            className={`max-w-md ${isDayMode ? 'bg-card border-border text-foreground' : 'bg-neutral-900 border-neutral-700 text-white'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
+              <DialogTitle className={`flex items-center gap-2 ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                 <Calculator className="h-5 w-5 text-primary" />
                 Labor Savings Preview
               </DialogTitle>
@@ -1496,14 +1527,14 @@ export function ManagerDashboardOverlay({
             <div className="space-y-6 py-4">
               {/* Employees being cut */}
               <div className="space-y-2">
-                <h4 className="text-white/60 text-sm font-medium">Employees Being Sent Home Early:</h4>
+                <h4 className={`text-sm font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Employees Being Sent Home Early:</h4>
                 {laborCuts.map(cut => {
                   const employee = activeShifts.find(s => s.userId === cut.userId);
                   if (!employee) return null;
                   const hoursSaved = cut.minutesCut / 60;
                   const costSaved = hoursSaved * (employee.hourlyWage || 16);
                   return (
-                    <div key={cut.userId} className="flex items-center justify-between p-2 rounded bg-white/5">
+                    <div key={cut.userId} className={`flex items-center justify-between p-2 rounded ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={employee.profilePhoto || undefined} />
@@ -1511,11 +1542,11 @@ export function ManagerDashboardOverlay({
                             {employee.fullName.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-white text-sm">{employee.fullName}</span>
+                        <span className={`text-sm ${isDayMode ? 'text-foreground' : 'text-white'}`}>{employee.fullName}</span>
                       </div>
                       <div className="text-right">
-                        <Badge className="bg-red-500/30 text-red-300 text-xs">-{cut.minutesCut}m</Badge>
-                        <p className="text-green-400 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
+                        <Badge className="bg-red-500/30 text-red-500 text-xs">-{cut.minutesCut}m</Badge>
+                        <p className="text-green-500 text-xs mt-0.5">-{formatCurrency(costSaved)}</p>
                       </div>
                     </div>
                   );
@@ -1525,49 +1556,49 @@ export function ManagerDashboardOverlay({
               {/* Comparison */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Current Labor */}
-                <div className="p-4 rounded-lg bg-white/5 text-center">
-                  <p className="text-white/60 text-xs mb-1">Current Projected</p>
+                <div className={`p-4 rounded-lg text-center ${isDayMode ? 'bg-secondary' : 'bg-neutral-800'}`}>
+                  <p className={`text-xs mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Current Projected</p>
                   <p className={`text-2xl font-bold ${
-                    calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-400' : 'text-white'
+                    calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-500' : isDayMode ? 'text-foreground' : 'text-white'
                   }`}>
                     {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
                   </p>
-                  <p className="text-white/40 text-xs mt-1">
+                  <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                     {formatCurrency(calculateLaborSavings.currentLaborCost)}
                   </p>
                 </div>
                 
                 {/* New Labor */}
                 <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
-                  <p className="text-green-400/80 text-xs mb-1">After Cuts</p>
+                  <p className="text-green-500/80 text-xs mb-1">After Cuts</p>
                   <p className={`text-2xl font-bold ${
-                    calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-400' : 'text-yellow-400'
+                    calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-500' : 'text-yellow-500'
                   }`}>
                     {calculateLaborSavings.newLaborPercent.toFixed(1)}%
                   </p>
-                  <p className="text-white/40 text-xs mt-1">
+                  <p className={`text-xs mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                     {formatCurrency(calculateLaborSavings.newLaborCost)}
                   </p>
                 </div>
               </div>
 
               {/* Summary */}
-              <div className="p-4 rounded-lg bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30">
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-white/60 text-sm">Total Savings</p>
-                    <p className="text-green-400 text-xl font-bold">
+                    <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Total Savings</p>
+                    <p className="text-green-500 text-xl font-bold">
                       {formatCurrency(calculateLaborSavings.totalCostSaved)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-white/60 text-sm">Labor % Saved</p>
-                    <p className="text-green-400 text-xl font-bold">
+                    <p className={`text-sm ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Labor % Saved</p>
+                    <p className="text-green-500 text-xl font-bold">
                       -{calculateLaborSavings.percentSaved.toFixed(1)}%
                     </p>
                   </div>
                 </div>
-                <p className="text-white/40 text-xs mt-2">
+                <p className={`text-xs mt-2 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                   {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m total hours cut
                 </p>
               </div>
@@ -1576,7 +1607,7 @@ export function ManagerDashboardOverlay({
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  className="flex-1 bg-white/5 border-white/20 text-white hover:bg-white/10"
+                  className={`flex-1 ${isDayMode ? 'bg-secondary border-border hover:bg-secondary/80' : 'bg-neutral-800 border-neutral-700 text-white hover:bg-neutral-700'}`}
                   onClick={handleClearAllCuts}
                 >
                   Clear All
@@ -1585,7 +1616,7 @@ export function ManagerDashboardOverlay({
                   className={`flex-1 ${
                     cutsSaved 
                       ? 'bg-green-500 hover:bg-green-600' 
-                      : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600'
+                      : 'bg-green-500 hover:bg-green-600'
                   }`}
                   onClick={handleSaveCuts}
                 >
