@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, ClipboardCheck, CalendarIcon } from "lucide-react";
+import { Plus, ClipboardCheck, CalendarIcon, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
@@ -675,9 +675,24 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                   />
                 )}
 
-                <Button type="submit" className="w-full">
-                  {editingEvent ? "Update Event" : "Create Event"}
-                </Button>
+                <div className="flex gap-2">
+                  {editingEvent && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => {
+                        setDialogOpen(false);
+                        confirmDelete(editingEvent.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button type="submit" className="flex-1">
+                    {editingEvent ? "Update Event" : "Create Event"}
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>
