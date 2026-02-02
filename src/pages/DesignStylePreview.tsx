@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Calendar, MessageSquare, CheckSquare, BookOpen, Clock, Flame, Check, ListChecks } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-type StyleOption = 'current' | 'full-3d' | 'flat-minimal' | 'glassmorphism';
+type StyleOption = 'current' | 'full-3d' | 'flat-minimal' | 'glassmorphism' | 'sharp-edge';
 
 const DesignStylePreview = () => {
   const navigate = useNavigate();
@@ -12,6 +12,7 @@ const DesignStylePreview = () => {
   const styleOptions: { id: StyleOption; name: string; description: string }[] = [
     { id: 'current', name: 'Current (Hybrid)', description: '3D dock + cubes, 2D cards' },
     { id: 'full-3d', name: 'Full 3D / Neumorphic', description: 'Everything has depth & shadows' },
+    { id: 'sharp-edge', name: 'Sharp Edge', description: 'Square corners, bold & geometric' },
     { id: 'flat-minimal', name: 'Flat Minimal', description: 'Clean 2D, subtle borders' },
     { id: 'glassmorphism', name: 'Glassmorphism', description: 'Frosted glass + blur effects' },
   ];
@@ -23,6 +24,11 @@ const DesignStylePreview = () => {
         return {
           card: 'bg-card rounded-2xl shadow-[6px_6px_12px_rgba(0,0,0,0.12),-3px_-3px_8px_rgba(255,255,255,0.08)] border-0 overflow-hidden',
           borderStyle: { borderLeft: `4px solid ${accentColor}` },
+        };
+      case 'sharp-edge':
+        return {
+          card: 'bg-card rounded-none shadow-[4px_4px_0px_rgba(0,0,0,0.15)] border-2 border-foreground/10 overflow-hidden',
+          borderStyle: { borderLeft: `5px solid ${accentColor}` },
         };
       case 'flat-minimal':
         return {
@@ -48,6 +54,8 @@ const DesignStylePreview = () => {
       switch (style) {
         case 'full-3d':
           return 'bg-primary text-primary-foreground rounded-xl shadow-[4px_4px_8px_rgba(0,0,0,0.2),-2px_-2px_6px_rgba(255,255,255,0.1)] border-0 hover:shadow-[2px_2px_4px_rgba(0,0,0,0.2)] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)] transition-all';
+        case 'sharp-edge':
+          return 'bg-primary text-primary-foreground rounded-none shadow-[3px_3px_0px_rgba(0,0,0,0.2)] border-0 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_rgba(0,0,0,0.2)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all';
         case 'flat-minimal':
           return 'bg-primary text-primary-foreground rounded-md shadow-none border-0 hover:bg-primary/90';
         case 'glassmorphism':
@@ -60,6 +68,8 @@ const DesignStylePreview = () => {
       switch (style) {
         case 'full-3d':
           return 'bg-muted text-muted-foreground rounded-xl shadow-[4px_4px_8px_rgba(0,0,0,0.1),-2px_-2px_6px_rgba(255,255,255,0.05)] border-0 hover:shadow-[2px_2px_4px_rgba(0,0,0,0.1)] transition-all';
+        case 'sharp-edge':
+          return 'bg-muted text-muted-foreground rounded-none shadow-[2px_2px_0px_rgba(0,0,0,0.1)] border border-foreground/10 hover:translate-x-[1px] hover:translate-y-[1px] transition-all';
         case 'flat-minimal':
           return 'bg-transparent text-muted-foreground rounded-md border border-border hover:bg-muted/50';
         case 'glassmorphism':
@@ -76,6 +86,12 @@ const DesignStylePreview = () => {
         return {
           card: 'aspect-square rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.15),-4px_-4px_12px_rgba(255,255,255,0.1)] border-0 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
           background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}35 100%)`,
+        };
+      case 'sharp-edge':
+        return {
+          card: 'aspect-square rounded-none shadow-[5px_5px_0px_rgba(0,0,0,0.12)] border-2 overflow-hidden cursor-pointer hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0px_rgba(0,0,0,0.12)] transition-all',
+          background: `${accentColor}15`,
+          borderColor: accentColor,
         };
       case 'flat-minimal':
         return {
@@ -101,6 +117,8 @@ const DesignStylePreview = () => {
     switch (style) {
       case 'full-3d':
         return `rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.25),-4px_-4px_12px_rgba(255,255,255,0.1)] p-4 text-white transform`;
+      case 'sharp-edge':
+        return `rounded-none shadow-[6px_6px_0px_rgba(0,0,0,0.2)] border-2 border-white/20 p-4 text-white`;
       case 'flat-minimal':
         return `rounded-lg p-4 text-white shadow-none`;
       case 'glassmorphism':
@@ -115,6 +133,8 @@ const DesignStylePreview = () => {
     switch (style) {
       case 'full-3d':
         return 'bg-gradient-to-t from-accent via-accent/90 to-accent/80 rounded-t-3xl shadow-[0_-8px_24px_rgba(0,0,0,0.3)] border-t-2 border-white/20';
+      case 'sharp-edge':
+        return 'bg-accent rounded-none shadow-[0_-4px_0px_rgba(0,0,0,0.15)] border-t-2 border-white/15';
       case 'flat-minimal':
         return 'bg-accent border-t border-border';
       case 'glassmorphism':
