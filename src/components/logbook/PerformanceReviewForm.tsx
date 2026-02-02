@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,12 +6,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Check, ChevronsUpDown, Loader2, Star, User, X } from "lucide-react";
+import { Camera, Check, ChevronsUpDown, Loader2, Settings, Star, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ManageReviewItemsDialog } from "./ManageReviewItemsDialog";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface PerformanceReviewFormProps {
   onSave: (data: PerformanceReviewData) => Promise<void>;
@@ -77,11 +79,13 @@ function StarRating({
 
 export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFormProps) {
   const { currentLocation } = useAppLocation();
+  const { isAdmin, isManager } = useUserRole();
   
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [employeeOpen, setEmployeeOpen] = useState(false);
   const [ratingItems, setRatingItems] = useState<RatingItem[]>([]);
   const [followUpNotes, setFollowUpNotes] = useState("");
+  const [manageItemsOpen, setManageItemsOpen] = useState(false);
 
   // Fetch employees for the location
   const { data: employees = [] } = useQuery({
@@ -293,9 +297,22 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
         </Popover>
       </div>
 
-      {/* Rating Items */}
+      {/* Rating Items Header with Settings */}
       <div className="space-y-4">
-        <Label className="text-base font-semibold">Performance Ratings</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Performance Ratings</Label>
+          {(isAdmin || isManager) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setManageItemsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Customize</span>
+            </Button>
+          )}
+        </div>
         {ratingItems.map((item) => (
           <Card key={item.id} className="overflow-hidden">
             <CardContent className="p-4 space-y-3">
@@ -404,6 +421,12 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
           "Submit Performance Review"
         )}
       </Button>
+
+      {/* Manage Review Items Dialog */}
+      <ManageReviewItemsDialog
+        open={manageItemsOpen}
+        onOpenChange={setManageItemsOpen}
+      />
     </div>
   );
 }
