@@ -1152,7 +1152,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   if (isLoading && !salesData) {
     return (
       <div>
-        <Card className="shadow-neumorphic">
+        <Card>
           <CardContent className="pt-4">
             {/* Skeleton shimmer for tabs */}
             <div className="flex gap-2 mb-4">
@@ -1269,7 +1269,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         </Card>
       )}
 
-      <Card className="shadow-neumorphic">
+      <Card>
         <CardContent className="pt-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">

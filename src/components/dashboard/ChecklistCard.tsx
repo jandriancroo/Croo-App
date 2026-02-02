@@ -53,7 +53,7 @@ export function ChecklistCard({
   return (
     <Card 
       className={cn(
-        "aspect-square overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-200 relative group shadow-neumorphic border-0",
+        "aspect-square overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-200 relative group border-0",
         isDragging ? 'opacity-50 scale-105' : ''
       )}
       onClick={handleClick}
