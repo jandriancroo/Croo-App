@@ -685,7 +685,7 @@ export default function Dashboard() {
 
   // Quick tasks content - mounted at the top of the dashboard with scrollable area
   const quickTasksContent = (
-    <div className="flex flex-col gap-3 max-h-[320px] overflow-y-auto pb-1 w-full">
+    <div className="flex flex-col gap-2 w-full">
       {/* Unread Announcements - High priority */}
       <UnreadAnnouncementsAlert />
       
