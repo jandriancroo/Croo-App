@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -277,7 +278,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
       event_name: event.event_name,
       event_time: event.event_time,
       event_end_time: (event as any).event_end_time || "",
-      event_date: (event as any).event_date ? new Date((event as any).event_date) : null,
+      event_date: (event as any).event_date ? parseDateStringInTimezone((event as any).event_date) : null,
       selected_days: uiDays,
       notes: event.notes || "",
       tagged_roles: event.tagged_roles || [],
