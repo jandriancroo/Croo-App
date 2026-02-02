@@ -1027,7 +1027,7 @@ export function ManagerDashboardOverlay({
               className="flex flex-col items-center justify-start px-4 lg:px-6 pt-2"
             >
               {/* Clock section with accent contrast */}
-              <div className="relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/40 shadow-xl">
+              <div className="relative px-6 sm:px-10 py-4 sm:py-6 rounded-2xl bg-gradient-to-br from-primary/30 via-primary/20 to-accent/20 border border-primary/40 shadow-neumorphic-lg">
                 {/* Inner glow */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-transparent to-white/5" />
                 
@@ -1278,7 +1278,7 @@ export function ManagerDashboardOverlay({
                               </div>
                             </PopoverTrigger>
                             <PopoverContent 
-                              className="w-56 p-3 !bg-slate-900/95 !backdrop-blur-xl border-white/20 shadow-2xl"
+                              className="w-56 p-3 !bg-slate-900/95 !backdrop-blur-xl border-white/20 shadow-neumorphic-lg"
                               side="left"
                             >
                               <div className="space-y-3">

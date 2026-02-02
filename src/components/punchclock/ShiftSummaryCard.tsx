@@ -229,11 +229,11 @@ export function ShiftSummaryCard({
       </div>
 
       {/* White Card Container - Square, Two Column Layout */}
-      <div className="bg-white dark:bg-card rounded-2xl shadow-lg border border-border p-12 min-h-[480px] min-w-[720px] max-w-4xl">
+      <div className="bg-white dark:bg-card rounded-2xl shadow-neumorphic-lg border border-border/30 p-12 min-h-[480px] min-w-[720px] max-w-4xl">
         <div className="flex gap-12 h-full">
           {/* Left Column - Profile, Name, Status */}
           <div className="flex flex-col items-center justify-center min-w-[260px] space-y-6 border-r border-border pr-12">
-            <Avatar className="h-40 w-40 border-4 border-primary/20 shadow-xl">
+            <Avatar className="h-40 w-40 border-4 border-primary/20 shadow-neumorphic">
               <AvatarImage src={user.profile_photo_url} alt={user.full_name} />
               <AvatarFallback className="text-5xl font-semibold bg-primary/10 text-primary">
                 {initials}
