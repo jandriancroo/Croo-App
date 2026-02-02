@@ -75,7 +75,7 @@ const DesignStylePreview = () => {
       case 'full-3d':
         return {
           card: 'aspect-square rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.15),-4px_-4px_12px_rgba(255,255,255,0.1)] border-0 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
-          background: `linear-gradient(135deg, ${accentColor}15 0%, ${accentColor}25 100%)`,
+          background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}35 100%)`,
         };
       case 'flat-minimal':
         return {
@@ -88,11 +88,11 @@ const DesignStylePreview = () => {
           background: 'rgba(255,255,255,0.08)',
         };
       default:
-        // Current: matches ChecklistCard - gradient background with accent
+        // Current: matches ChecklistCard - more visible gradient like the actual dashboard
         return {
-          card: 'aspect-square rounded-xl border shadow-sm overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
-          background: `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
-          borderColor: `${accentColor}25`,
+          card: 'aspect-square rounded-xl border overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all',
+          background: `linear-gradient(135deg, ${accentColor}15 0%, ${accentColor}25 100%)`,
+          borderColor: `${accentColor}30`,
         };
     }
   };
