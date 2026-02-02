@@ -490,47 +490,95 @@ export function ManagerDashboardOverlay({
     },
   });
 
-  // Fetch today's checklists with completion status
+  // Fetch today's checklists with REAL completion status
+  // Uses same logic as ChecklistCompletionAlerts - counts actual responses vs items
+  const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
+  
   const { data: checklistsData = [] } = useQuery({
-    queryKey: ['manager-dash-checklists', locationId, todayStr],
+    queryKey: ['manager-dash-checklists', locationId, todayStr, todayDayOfWeek],
     queryFn: async () => {
-      // Get active checklists for this location
+      // Get active checklists with their items for this location
       const { data: checklists, error: checklistError } = await supabase
         .from('checklists')
-        .select('id, title, frequency')
+        .select(`
+          id, 
+          title, 
+          frequency,
+          template_type,
+          checklist_items(id, days_of_week)
+        `)
         .eq('location_id', locationId)
         .eq('is_active', true);
 
       if (checklistError) throw checklistError;
       if (!checklists?.length) return [];
 
-      // Filter to daily/weekly checklists (most relevant for shift managers)
+      // Filter to relevant checklists for today
       const relevantChecklists = checklists.filter(c => {
-        if (c.frequency === 'daily') return true;
-        if (c.frequency === 'weekly') return true;
-        return false;
+        if (c.template_type === 'dynamic') {
+          // Only include dynamic checklists if they have items for today
+          const todayItems = c.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
+          );
+          return todayItems && todayItems.length > 0;
+        }
+        // Include daily and weekly standard checklists
+        return c.frequency === 'daily' || c.frequency === 'weekly';
       });
 
-      // Get today's submissions
+      if (relevantChecklists.length === 0) return [];
+
+      // Get today's submissions WITH responses to check actual completion
       const { data: submissions, error: subError } = await supabase
         .from('checklist_submissions')
-        .select('checklist_id, id')
+        .select(`
+          checklist_id, 
+          id,
+          checklist_responses(id, item_id)
+        `)
         .eq('location_id', locationId)
         .gte('submitted_at', `${todayStr}T00:00:00`)
         .lte('submitted_at', `${todayStr}T23:59:59`);
 
       if (subError) throw subError;
 
-      const submittedIds = new Set((submissions || []).map(s => s.checklist_id));
+      // Calculate actual completion status for each checklist
+      return relevantChecklists.map(c => {
+        // Calculate total items for this checklist (accounting for dynamic day filtering)
+        let totalItems = c.checklist_items?.length || 0;
+        if (c.template_type === 'dynamic') {
+          totalItems = c.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
+          ).length || 0;
+        }
 
-      return relevantChecklists.map(c => ({
-        id: c.id,
-        title: c.title,
-        frequency: c.frequency,
-        isComplete: submittedIds.has(c.id),
-      }));
+        // Get all submissions for this checklist today
+        const checklistSubmissions = (submissions || []).filter(s => s.checklist_id === c.id);
+        
+        // Count unique completed items across all submissions (not total responses)
+        const uniqueItemIds = new Set<string>();
+        checklistSubmissions.forEach((sub: any) => {
+          sub.checklist_responses?.forEach((response: any) => {
+            if (response.item_id) {
+              uniqueItemIds.add(response.item_id);
+            }
+          });
+        });
+        
+        const completedItems = uniqueItemIds.size;
+        const isComplete = totalItems > 0 && completedItems >= totalItems;
+
+        return {
+          id: c.id,
+          title: c.title,
+          frequency: c.frequency,
+          isComplete,
+          completedItems,
+          totalItems,
+        };
+      });
     },
-    refetchInterval: 60000,
+    refetchInterval: 30000, // Check more frequently for task updates
   });
 
   // Calculate sales metrics from DB (actual sales from sales_cache table)
