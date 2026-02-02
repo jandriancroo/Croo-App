@@ -896,18 +896,6 @@ export function ManagerDashboardOverlay({
             : 'bg-neutral-900'
         }`}
       >
-        {/* Day/Night Toggle - Top Right */}
-        <button
-          onClick={() => setIsDayMode(!isDayMode)}
-          className={`absolute top-4 right-4 z-20 flex items-center justify-center w-10 h-10 rounded-full transition-all ${
-            isDayMode 
-              ? 'bg-secondary text-foreground hover:bg-secondary/80' 
-              : 'bg-neutral-800 text-white hover:bg-neutral-700'
-          }`}
-        >
-          {isDayMode ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-        </button>
-
         {/* Swap Button - Bottom Center */}
         <button
           onClick={onClose}
@@ -1079,9 +1067,21 @@ export function ManagerDashboardOverlay({
                       </div>
                     );
                   })()}
-                  <p className={`text-sm sm:text-base lg:text-lg font-medium tracking-wide ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                    {format(currentTime, 'EEEE, MMMM d')}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={`text-sm sm:text-base lg:text-lg font-medium tracking-wide ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
+                      {format(currentTime, 'EEEE, MMMM d')}
+                    </p>
+                    <button
+                      onClick={() => setIsDayMode(!isDayMode)}
+                      className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full transition-all ${
+                        isDayMode 
+                          ? 'bg-secondary text-foreground hover:bg-secondary/80' 
+                          : 'bg-neutral-700 text-white hover:bg-neutral-600'
+                      }`}
+                    >
+                      {isDayMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
