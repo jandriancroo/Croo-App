@@ -494,16 +494,16 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Mobile dock - 3D pillowy effect matching data cubes */
+  /* Mobile dock - flat neumorphic style */
   .glass-dock {
     position: relative;
     background: hsl(var(--accent));
     border: none;
+    border-radius: 1rem 1rem 0 0;
     box-shadow: 
-      0 3px 8px hsl(0 0% 0% / 0.04),
-      0 1px 4px hsl(0 0% 0% / 0.03),
-      inset 0 2px 4px hsl(0 0% 100% / 0.4),
-      inset 0 -2px 4px hsl(0 0% 0% / 0.08);
+      8px 8px 20px hsl(0 0% 0% / 0.15),
+      -4px -4px 12px hsl(0 0% 100% / 0.08),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
     overflow: hidden;
     /* Prevent dock from moving during scroll/address bar changes */
     -webkit-transform: translateZ(0);
@@ -512,37 +512,17 @@ All colors MUST be HSL.
     backface-visibility: hidden;
   }
   
-  /* Strong gradient from top-left corner for 3D pillowy look */
+  /* Remove gradient overlays - flat look */
   .glass-dock::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: 
-      radial-gradient(ellipse 120% 100% at 15% -10%, 
-        hsl(0 0% 100% / 0.5) 0%, 
-        hsl(0 0% 100% / 0.25) 25%, 
-        transparent 55%
-      ),
-      linear-gradient(160deg,
-        hsl(0 0% 100% / 0.3) 0%,
-        transparent 40%
-      ),
-      linear-gradient(180deg,
-        transparent 60%,
-        hsl(0 0% 0% / 0.12) 90%,
-        hsl(0 0% 0% / 0.18) 100%
-      );
-    pointer-events: none;
-    border-radius: inherit;
+    display: none;
   }
   
-  /* Soft inner border highlight */
+  /* Subtle top edge highlight only */
   .glass-dock::after {
     content: '';
     position: absolute;
-    inset: 1px;
-    border: 1px solid hsl(0 0% 100% / 0.25);
-    border-bottom-color: hsl(0 0% 100% / 0.08);
+    inset: 0;
+    border-top: 1px solid hsl(0 0% 100% / 0.15);
     border-radius: inherit;
     pointer-events: none;
   }
@@ -550,65 +530,80 @@ All colors MUST be HSL.
   .dark .glass-dock {
     background: hsl(var(--accent));
     box-shadow: 
-      0 3px 8px hsl(0 0% 0% / 0.08),
-      0 1px 4px hsl(0 0% 0% / 0.06),
-      inset 0 2px 4px hsl(0 0% 100% / 0.25),
-      inset 0 -2px 4px hsl(0 0% 0% / 0.15);
-  }
-  
-  .dark .glass-dock::before {
-    background: 
-      radial-gradient(ellipse 120% 100% at 15% -10%, 
-        hsl(0 0% 100% / 0.35) 0%, 
-        hsl(0 0% 100% / 0.15) 25%, 
-        transparent 55%
-      ),
-      linear-gradient(160deg,
-        hsl(0 0% 100% / 0.2) 0%,
-        transparent 40%
-      ),
-      linear-gradient(180deg,
-        transparent 60%,
-        hsl(0 0% 0% / 0.15) 90%,
-        hsl(0 0% 0% / 0.25) 100%
-      );
+      8px 8px 20px hsl(0 0% 0% / 0.25),
+      -4px -4px 12px hsl(0 0% 100% / 0.05),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
   
   .dark .glass-dock::after {
-    border-color: hsl(0 0% 100% / 0.15);
-    border-bottom-color: hsl(0 0% 100% / 0.05);
+    border-top-color: hsl(0 0% 100% / 0.1);
   }
   
   [data-theme="oled"] .glass-dock {
     background: hsl(var(--accent));
     box-shadow: 
-      0 3px 8px hsl(0 0% 0% / 0.15),
-      0 1px 4px hsl(0 0% 0% / 0.1),
-      inset 0 2px 4px hsl(0 0% 100% / 0.2),
-      inset 0 -2px 4px hsl(0 0% 0% / 0.2);
-  }
-  
-  [data-theme="oled"] .glass-dock::before {
-    background: 
-      radial-gradient(ellipse 120% 100% at 15% -10%, 
-        hsl(0 0% 100% / 0.25) 0%, 
-        hsl(0 0% 100% / 0.1) 25%, 
-        transparent 55%
-      ),
-      linear-gradient(160deg,
-        hsl(0 0% 100% / 0.15) 0%,
-        transparent 40%
-      ),
-      linear-gradient(180deg,
-        transparent 60%,
-        hsl(0 0% 0% / 0.2) 90%,
-        hsl(0 0% 0% / 0.3) 100%
-      );
+      8px 8px 20px hsl(0 0% 0% / 0.35),
+      -4px -4px 12px hsl(0 0% 100% / 0.03),
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
   }
   
   [data-theme="oled"] .glass-dock::after {
-    border-color: hsl(0 0% 100% / 0.1);
-    border-bottom-color: hsl(0 0% 100% / 0.03);
+    border-top-color: hsl(0 0% 100% / 0.08);
+  }
+
+  /* Neumorphic shadow utilities */
+  .shadow-neumorphic {
+    box-shadow: 
+      6px 6px 14px hsl(0 0% 0% / 0.12),
+      -3px -3px 10px hsl(0 0% 100% / 0.08);
+  }
+  
+  .shadow-neumorphic-sm {
+    box-shadow: 
+      4px 4px 10px hsl(0 0% 0% / 0.1),
+      -2px -2px 8px hsl(0 0% 100% / 0.06);
+  }
+  
+  .shadow-neumorphic-lg {
+    box-shadow: 
+      8px 8px 20px hsl(0 0% 0% / 0.15),
+      -4px -4px 12px hsl(0 0% 100% / 0.08);
+  }
+  
+  .dark .shadow-neumorphic {
+    box-shadow: 
+      6px 6px 14px hsl(0 0% 0% / 0.25),
+      -3px -3px 10px hsl(0 0% 100% / 0.04);
+  }
+  
+  .dark .shadow-neumorphic-sm {
+    box-shadow: 
+      4px 4px 10px hsl(0 0% 0% / 0.2),
+      -2px -2px 8px hsl(0 0% 100% / 0.03);
+  }
+  
+  .dark .shadow-neumorphic-lg {
+    box-shadow: 
+      8px 8px 20px hsl(0 0% 0% / 0.3),
+      -4px -4px 12px hsl(0 0% 100% / 0.05);
+  }
+  
+  [data-theme="oled"] .shadow-neumorphic {
+    box-shadow: 
+      6px 6px 14px hsl(0 0% 0% / 0.35),
+      -3px -3px 10px hsl(0 0% 100% / 0.02);
+  }
+  
+  [data-theme="oled"] .shadow-neumorphic-sm {
+    box-shadow: 
+      4px 4px 10px hsl(0 0% 0% / 0.3),
+      -2px -2px 8px hsl(0 0% 100% / 0.02);
+  }
+  
+  [data-theme="oled"] .shadow-neumorphic-lg {
+    box-shadow: 
+      8px 8px 20px hsl(0 0% 0% / 0.4),
+      -4px -4px 12px hsl(0 0% 100% / 0.03);
   }
   
   /* Fixed mobile dock container - sits at true bottom */

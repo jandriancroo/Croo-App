@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { ClipboardCheck, Check, GripVertical, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
+import { cn } from "@/lib/utils";
 
 export interface ChecklistCardProps {
   checklistId: string;
@@ -51,13 +52,15 @@ export function ChecklistCard({
 
   return (
     <Card 
-      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
+      className={cn(
+        "aspect-square overflow-hidden cursor-pointer hover:scale-[1.02] transition-all duration-200 relative group shadow-neumorphic border-0",
+        isDragging ? 'opacity-50 scale-105' : ''
+      )}
       onClick={handleClick}
       style={{
         background: isOled 
           ? 'hsl(var(--card))' 
-          : `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
-        borderColor: isOled ? undefined : `${accentColor}25`,
+          : `linear-gradient(135deg, ${accentColor}15 0%, ${accentColor}25 100%)`,
         ...overdueStyles,
       }}
     >

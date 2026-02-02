@@ -584,45 +584,15 @@ function CubeFaceComponent({
       style={{
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
+        // Flat neumorphic shadow - no gradients
         boxShadow: `
-          0 3px 8px rgba(0,0,0,0.04),
-          0 1px 4px rgba(0,0,0,0.03),
-          inset 0 2px 4px rgba(255,255,255,0.4),
-          inset 0 -2px 4px rgba(0,0,0,0.08)
+          6px 6px 14px rgba(0,0,0,0.12),
+          -3px -3px 10px rgba(255,255,255,0.08),
+          inset 0 1px 0 rgba(255,255,255,0.1)
         `,
       }}
     >
-      {/* Subtle gradient from top-left corner for 3D pillowy look */}
-      <div 
-        className="absolute inset-0 pointer-events-none rounded-2xl"
-        style={{
-          background: `
-            radial-gradient(ellipse 120% 100% at 15% -10%, 
-              rgba(255,255,255,0.25) 0%, 
-              rgba(255,255,255,0.12) 25%, 
-              transparent 55%
-            ),
-            linear-gradient(160deg,
-              rgba(255,255,255,0.15) 0%,
-              transparent 40%
-            ),
-            linear-gradient(180deg,
-              transparent 60%,
-              rgba(0,0,0,0.06) 90%,
-              rgba(0,0,0,0.09) 100%
-            )
-          `,
-        }}
-      />
-      
-      {/* Soft inner border highlight */}
-      <div 
-        className="absolute inset-[1px] pointer-events-none rounded-2xl"
-        style={{
-          border: '1px solid rgba(255,255,255,0.25)',
-          borderBottomColor: 'rgba(255,255,255,0.08)',
-        }}
-      />
+      {/* Removed gradient overlay - flat solid color now */}
       
       {/* Title */}
       {title && (

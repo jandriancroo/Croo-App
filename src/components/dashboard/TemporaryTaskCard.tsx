@@ -66,7 +66,7 @@ export function TemporaryTaskCard({
   return (
     <>
       <Card
-        className="overflow-hidden"
+        className="overflow-hidden shadow-neumorphic-sm border-0"
         style={{ borderLeft: `4px solid ${accentColor}` }}
       >
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
