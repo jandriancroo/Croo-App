@@ -1685,14 +1685,14 @@ export default function LogBook() {
                               }}
                               className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
                                 isCashHandling 
-                                  ? "border-teal-500/50 bg-teal-500/10 hover:border-teal-500 hover:bg-teal-500/20" 
+                                  ? "border-teal-500/50 bg-teal-500/10 hover:border-teal-500 hover:bg-teal-500" 
                                   : "border-border bg-card hover:border-primary hover:bg-primary"
                               }`}
                             >
-                              <div className={isCashHandling ? "text-teal-500" : "text-primary group-hover:text-primary-foreground transition-colors"}>
+                              <div className={isCashHandling ? "text-teal-500 group-hover:text-white transition-colors" : "text-primary group-hover:text-primary-foreground transition-colors"}>
                                 {getCategoryIcon(category.name)}
                               </div>
-                              <span className={`font-medium text-sm ${!isCashHandling ? "group-hover:text-primary-foreground transition-colors" : ""}`}>{category.name}</span>
+                              <span className={`font-medium text-sm transition-colors ${isCashHandling ? "group-hover:text-white" : "group-hover:text-primary-foreground"}`}>{category.name}</span>
                             </button>
                           );
                         })}
