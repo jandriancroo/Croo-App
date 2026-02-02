@@ -126,8 +126,9 @@ const DesignStylePreview = () => {
   const getSalesCubeStyle = (style: StyleOption, accentColor: string = 'hsl(var(--primary))') => {
     switch (style) {
       case 'full-3d':
-      case 'sharp-cubes': // Same sales cube style as full-3d
         return `rounded-2xl shadow-[8px_8px_16px_rgba(0,0,0,0.25),-4px_-4px_12px_rgba(255,255,255,0.1)] p-4 text-white transform`;
+      case 'sharp-cubes':
+        return `rounded-none shadow-[5px_5px_0px_rgba(0,0,0,0.2)] p-4 text-white`;
       case 'sharp-edge':
         return `rounded-none shadow-[6px_6px_0px_rgba(0,0,0,0.2)] border-2 border-white/20 p-4 text-white`;
       case 'flat-minimal':
