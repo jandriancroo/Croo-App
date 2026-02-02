@@ -153,30 +153,63 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
 
     try {
       if (editingEvent) {
-        // Update existing event - preserve existing mode
-        const dbDays = formData.selected_days.map(uiIndexToDbIndex);
-        const primaryDay = dbDays[0];
-        const { error } = await supabase
-          .from("schedule_events")
-          .update({
-            event_name: formData.event_name,
-            event_time: formData.event_time,
-            event_end_time: formData.event_end_time || null,
-            day_of_week: primaryDay,
-            days_of_week: dbDays.length > 1 ? dbDays : null,
-            notes: formData.notes || null,
-            tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-            is_recurring: eventMode === "recurring",
-            schedule_id: eventMode === "recurring" ? null : scheduleId,
-            category_id: formData.category_id || null,
-            is_daily_task: formData.is_daily_task,
-            is_meeting: formData.is_meeting,
-            location_id: locationId,
-            event_date: eventMode === "one-time" && formData.event_date ? format(formData.event_date, "yyyy-MM-dd") : null,
-          })
-          .eq("id", editingEvent.id);
+        // Update existing event
+        if (eventMode === "one-time") {
+          // One-time event update
+          if (!formData.event_date) {
+            toast.error("Please select a date");
+            return;
+          }
+          const eventDateStr = format(formData.event_date, "yyyy-MM-dd");
+          const dayOfWeek = (formData.event_date.getDay() + 6) % 7; // Convert to Monday=0 format
+          
+          const { error } = await supabase
+            .from("schedule_events")
+            .update({
+              event_name: formData.event_name,
+              event_time: formData.event_time,
+              event_end_time: formData.event_end_time || null,
+              day_of_week: dayOfWeek,
+              days_of_week: null,
+              notes: formData.notes || null,
+              tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
+              is_recurring: false,
+              schedule_id: scheduleId,
+              category_id: formData.category_id || null,
+              is_daily_task: formData.is_daily_task,
+              is_meeting: formData.is_meeting,
+              location_id: locationId,
+              event_date: eventDateStr,
+            })
+            .eq("id", editingEvent.id);
 
-        if (error) throw error;
+          if (error) throw error;
+        } else {
+          // Recurring event update
+          const dbDays = formData.selected_days.map(uiIndexToDbIndex);
+          const primaryDay = dbDays[0];
+          const { error } = await supabase
+            .from("schedule_events")
+            .update({
+              event_name: formData.event_name,
+              event_time: formData.event_time,
+              event_end_time: formData.event_end_time || null,
+              day_of_week: primaryDay,
+              days_of_week: dbDays.length > 1 ? dbDays : null,
+              notes: formData.notes || null,
+              tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
+              is_recurring: true,
+              schedule_id: null,
+              category_id: formData.category_id || null,
+              is_daily_task: formData.is_daily_task,
+              is_meeting: formData.is_meeting,
+              location_id: locationId,
+              event_date: null,
+            })
+            .eq("id", editingEvent.id);
+
+          if (error) throw error;
+        }
         toast.success("Event updated");
       } else {
         // Create new event
