@@ -1004,7 +1004,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
-      <main className="container max-w-7xl mx-auto flex-1 px-3 md:px-4 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      <main className="container max-w-7xl mx-auto flex-1 px-4 md:px-4 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
         {isMobile ? (
           <PullToRefresh cooldownMs={2 * 60 * 1000}>
             {children}
