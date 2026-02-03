@@ -492,7 +492,7 @@ export function EditPunchDialog({
                 </div>
               </div>
 
-              {/* Breaks Section */}
+              {/* Breaks Section - only show if clock-in time exists */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Breaks</Label>
@@ -501,15 +501,19 @@ export function EditPunchDialog({
                     variant="outline" 
                     size="sm"
                     onClick={addBreak}
+                    disabled={!clockInTime}
+                    title={!clockInTime ? 'Enter clock-in time first' : undefined}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Break
                   </Button>
                 </div>
                 
-                {breaks.length === 0 && (
+                {!clockInTime ? (
+                  <p className="text-xs text-muted-foreground">Enter clock-in time to add breaks</p>
+                ) : breaks.length === 0 ? (
                   <p className="text-xs text-muted-foreground">No breaks recorded</p>
-                )}
+                ) : null}
                 
                 {breaks.map((brk, index) => (
                   <div key={index} className="space-y-2 p-3 border rounded-lg bg-background">
