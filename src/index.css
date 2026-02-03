@@ -440,6 +440,22 @@ All colors MUST be HSL.
     padding-top: env(safe-area-inset-top, 0);
   }
 
+  /* Safe-area aware horizontal gutters (prevents right-edge clipping on iOS notch devices)
+     - Mobile: at least 1rem, or the device safe-area inset if larger
+     - Desktop: match existing md:px-6 gutters (1.5rem)
+  */
+  .px-safe {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  @media (min-width: 768px) {
+    .px-safe {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
   /* Mobile-friendly text sizing utilities */
   .text-mobile-lg {
     @apply text-base sm:text-sm;
