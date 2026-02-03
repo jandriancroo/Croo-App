@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, Clock } from "lucide-react";
+import { Bell, Check, Clock, Delete, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,14 +19,27 @@ interface AlarmTaskOverlayProps {
   onComplete?: () => void;
 }
 
+const MAX_SNOOZES = 2;
+const SNOOZE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const AUTO_DISMISS_SECONDS = 30;
+
 export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayProps) {
   const [activeAlarm, setActiveAlarm] = useState<AlarmTask | null>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const [countdown, setCountdown] = useState(30);
-  const [isSnoozed, setIsSnoozed] = useState(false);
+  const [_audioUnlocked, setAudioUnlocked] = useState(false);
+  const [countdown, setCountdown] = useState(AUTO_DISMISS_SECONDS);
+  const [_isSnoozed, setIsSnoozed] = useState(false);
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
+  
+  // PIN entry state
+  const [showPinEntry, setShowPinEntry] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [validatingPin, setValidatingPin] = useState(false);
+  
+  // Snooze tracking - persisted per alarm interval
+  const [snoozeCount, setSnoozeCount] = useState(0);
+  const snoozeCountRef = useRef(0);
 
   // Avoid stale-closure bugs inside realtime/poll handlers
   const activeAlarmRef = useRef<AlarmTask | null>(null);
@@ -47,6 +60,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   useEffect(() => {
     isVisibleRef.current = isVisible;
   }, [isVisible]);
+  
+  useEffect(() => {
+    snoozeCountRef.current = snoozeCount;
+  }, [snoozeCount]);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -102,6 +119,44 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     fetchTimezone();
   }, [locationId]);
 
+  // Reset state when a new alarm appears
+  const initializeAlarm = (task: any, intervalKey: string, remainingSeconds: number) => {
+    // Check if this is a different alarm interval than what we had
+    if (activeAlarmRef.current?.interval_key !== intervalKey) {
+      // New alarm interval - reset snooze count
+      setSnoozeCount(0);
+      snoozeCountRef.current = 0;
+    }
+    
+    setActiveAlarm({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      accent_color: task.accent_color || '#8B5CF6',
+      interval_key: intervalKey,
+    });
+    setIsVisible(true);
+    setShowPinEntry(false);
+    setPin("");
+    setPinError(false);
+    startAlarmLoop(task.title);
+    setCountdown(Math.ceil(remainingSeconds));
+    startCountdown(remainingSeconds);
+    
+    // Set auto-action timeout based on snooze count
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      // If max snoozes reached, just keep showing (force PIN)
+      if (snoozeCountRef.current >= MAX_SNOOZES) {
+        // Don't auto-dismiss, keep visible - but stop countdown
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        setCountdown(0);
+      } else {
+        handleSnooze();
+      }
+    }, remainingSeconds * 1000);
+  };
+
   // Check for recently triggered alarms on mount and subscribe to updates
   useEffect(() => {
     if (!locationId) return;
@@ -150,25 +205,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         }
 
         if (!completion) {
-          setActiveAlarm({
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            accent_color: task.accent_color || '#8B5CF6',
-            interval_key: intervalKey,
-          });
-          setIsVisible(true);
-          startAlarmLoop(task.title);
-          
           // Calculate remaining time (30s from trigger)
           const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
-          const remaining = Math.max(30 - elapsed, 5);
-          setCountdown(Math.ceil(remaining));
-          startCountdown(remaining);
-          
-          timeoutRef.current = setTimeout(() => {
-            handleSnooze();
-          }, remaining * 1000);
+          const remaining = Math.max(AUTO_DISMISS_SECONDS - elapsed, 5);
+          initializeAlarm(task, intervalKey, remaining);
         }
       }
     };
@@ -201,7 +241,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             const secondsSinceTrigger = (now.getTime() - triggeredAt.getTime()) / 1000;
             
             // Show if triggered within last 30 seconds (realtime events can arrive late)
-            if (secondsSinceTrigger <= 30) {
+            if (secondsSinceTrigger <= AUTO_DISMISS_SECONDS) {
               // Use timezone-aware interval key generation
               const intervalKey = getAlarmIntervalKey(triggeredAt, timezone);
 
@@ -214,29 +254,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 return;
               }
               
-              setActiveAlarm({
-                id: task.id,
-                title: task.title,
-                description: task.description,
-                accent_color: task.accent_color || '#8B5CF6',
-                interval_key: intervalKey,
-              });
-              setIsVisible(true);
-              
-               // Play alarm sound loop
-               startAlarmLoop(task.title);
-              
-              // Auto-dismiss 30s after trigger (with a minimum of 5s)
-              if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-              }
-              const remaining = Math.max(30 - secondsSinceTrigger, 5);
-              setCountdown(Math.ceil(remaining));
-              startCountdown(remaining);
-              
-              timeoutRef.current = setTimeout(() => {
-                handleSnooze();
-              }, remaining * 1000);
+              const remaining = Math.max(AUTO_DISMISS_SECONDS - secondsSinceTrigger, 5);
+              initializeAlarm(task, intervalKey, remaining);
             }
           }
         }
@@ -337,7 +356,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     });
   };
 
-  const speakAlarmName = async (title: string): Promise<void> => {
+  const _speakAlarmName = async (title: string): Promise<void> => {
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-alarm-tts`,
@@ -434,44 +453,130 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }
   };
 
-  const handleComplete = async () => {
-    if (!activeAlarm) return;
+  const handlePinDigit = (digit: string) => {
+    if (pin.length < 6) {
+      setPin(prev => prev + digit);
+      setPinError(false);
+    }
+  };
 
-    setIsCompleting(true);
+  const handlePinBackspace = () => {
+    setPin(prev => prev.slice(0, -1));
+    setPinError(false);
+  };
+
+  const handlePinClear = () => {
+    setPin("");
+    setPinError(false);
+  };
+
+  const validateAndComplete = async () => {
+    if (!activeAlarm || pin.length < 4) return;
+    
+    setValidatingPin(true);
+    setPinError(false);
+    
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!userData.user) {
-        toast.error("Please sign in to complete this task");
+      // Look up user by PIN - check both default_location and all_locations_enabled
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, default_location_id, all_locations_enabled')
+        .eq('employee_pin', pin)
+        .eq('is_active', true);
+      
+      if (profileError) throw profileError;
+      
+      // Filter to users who can access this location
+      const profile = profiles?.find(p => 
+        p.default_location_id === locationId || p.all_locations_enabled
+      );
+      
+      if (!profile) {
+        setPinError(true);
+        setPin("");
         return;
       }
-
+      
+      // Valid PIN - complete the task with this user
       const { error } = await supabase
         .from("alarm_task_completions")
         .insert({
           task_id: activeAlarm.id,
           interval_key: activeAlarm.interval_key,
-          completed_by: userData.user.id,
+          completed_by: profile.id,
         });
 
       if (error) throw error;
 
-      toast.success("Task completed!");
+      const userName = profile.full_name || 'User';
+      toast.success(`Task completed by ${userName}!`);
       handleDismissComplete();
       onComplete?.();
     } catch (error: any) {
       console.error("Error completing alarm task:", error);
       toast.error(error?.message ? `Failed to complete task: ${error.message}` : "Failed to complete task");
     } finally {
-      setIsCompleting(false);
+      setValidatingPin(false);
+    }
+  };
+
+  const handleCompleteClick = () => {
+    // Show PIN entry instead of immediately completing
+    setShowPinEntry(true);
+    setPin("");
+    setPinError(false);
+    
+    // Stop auto-dismiss timer while entering PIN
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+    stopAlarmLoop();
+  };
+
+  const handleBackFromPin = () => {
+    setShowPinEntry(false);
+    setPin("");
+    setPinError(false);
+    
+    // Restart alarm loop and countdown if snoozes available
+    if (activeAlarm) {
+      startAlarmLoop(activeAlarm.title);
+      
+      if (snoozeCount < MAX_SNOOZES) {
+        setCountdown(AUTO_DISMISS_SECONDS);
+        startCountdown(AUTO_DISMISS_SECONDS);
+        timeoutRef.current = setTimeout(() => {
+          handleSnooze();
+        }, AUTO_DISMISS_SECONDS * 1000);
+      } else {
+        // No snoozes left - keep showing
+        setCountdown(0);
+      }
     }
   };
 
   const handleSnooze = () => {
+    // Check if max snoozes reached
+    if (snoozeCountRef.current >= MAX_SNOOZES) {
+      // Can't snooze anymore - keep visible
+      toast.error("No snoozes remaining - please complete the task");
+      return;
+    }
+    
+    // Increment snooze count
+    const newCount = snoozeCountRef.current + 1;
+    setSnoozeCount(newCount);
+    snoozeCountRef.current = newCount;
+    
     // Store the alarm for snooze
     snoozedAlarmRef.current = activeAlarm;
     setIsSnoozed(true);
     setIsVisible(false);
+    setShowPinEntry(false);
+    setPin("");
     stopAlarmLoop();
     
     if (timeoutRef.current) {
@@ -486,36 +591,50 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       clearTimeout(snoozeTimeoutRef.current);
     }
     
-    // Show again in 2 minutes
+    // Show again after snooze duration
     snoozeTimeoutRef.current = setTimeout(() => {
       if (snoozedAlarmRef.current) {
         setActiveAlarm(snoozedAlarmRef.current);
         setIsVisible(true);
         setIsSnoozed(false);
-         startAlarmLoop(snoozedAlarmRef.current.title);
-        setCountdown(30);
-        startCountdown(30);
+        setShowPinEntry(false);
+        startAlarmLoop(snoozedAlarmRef.current.title);
+        setCountdown(AUTO_DISMISS_SECONDS);
+        startCountdown(AUTO_DISMISS_SECONDS);
         
-        // Auto-dismiss after 30 seconds
+        // Set auto-action based on remaining snoozes
         timeoutRef.current = setTimeout(() => {
-          handleSnooze();
-        }, 30000);
+          if (snoozeCountRef.current >= MAX_SNOOZES) {
+            // No more snoozes - keep visible, force PIN
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            setCountdown(0);
+          } else {
+            handleSnooze();
+          }
+        }, AUTO_DISMISS_SECONDS * 1000);
       }
-    }, 120000); // 2 minutes
+    }, SNOOZE_DURATION_MS);
     
     setTimeout(() => {
       setActiveAlarm(null);
     }, 300);
     
-    toast.info("Snoozed for 2 minutes", { duration: 2000 });
+    const snoozesRemaining = MAX_SNOOZES - newCount;
+    toast.info(`Snoozed for 5 minutes (${snoozesRemaining} snooze${snoozesRemaining !== 1 ? 's' : ''} remaining)`, { duration: 3000 });
   };
 
   const handleDismissComplete = () => {
     // Full dismiss after task is completed - no snooze
     setIsVisible(false);
     setIsSnoozed(false);
+    setShowPinEntry(false);
+    setPin("");
     snoozedAlarmRef.current = null;
     stopAlarmLoop();
+    
+    // Reset snooze count for next alarm
+    setSnoozeCount(0);
+    snoozeCountRef.current = 0;
     
     if (snoozeTimeoutRef.current) {
       clearTimeout(snoozeTimeoutRef.current);
@@ -534,20 +653,23 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
   if (!activeAlarm) return null;
 
+  const canSnooze = snoozeCount < MAX_SNOOZES;
+  const snoozesRemaining = MAX_SNOOZES - snoozeCount;
+
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          onClick={handleSnooze}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          style={{ 
+            background: `radial-gradient(ellipse at center, ${activeAlarm.accent_color}30 0%, rgba(0,0,0,0.95) 70%)`,
+            backdropFilter: 'blur(20px)'
+          }}
         >
-          {/* Backdrop with animated gradient */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" />
-          
           {/* Pulsing ring effect */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -589,88 +711,197 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               />
               
               <div className="p-10 space-y-8">
-                {/* Icon - larger circular with animated pulse */}
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <motion.div
-                      animate={{ scale: [1, 1.08, 1] }}
-                      transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                      className="w-32 h-32 rounded-full flex items-center justify-center"
-                      style={{ 
-                        background: `radial-gradient(circle, ${activeAlarm.accent_color}40 0%, ${activeAlarm.accent_color}15 70%, transparent 100%)`,
-                        boxShadow: `0 0 60px ${activeAlarm.accent_color}50, inset 0 0 30px ${activeAlarm.accent_color}20`
-                      }}
-                    >
-                      <div 
-                        className="w-24 h-24 rounded-full flex items-center justify-center"
-                        style={{ 
-                          background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}cc)`,
-                          boxShadow: `0 8px 30px ${activeAlarm.accent_color}60`
-                        }}
+                {showPinEntry ? (
+                  // PIN Entry Screen
+                  <>
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-white/70 hover:text-white hover:bg-white/10"
+                        onClick={handleBackFromPin}
                       >
-                        <Bell className="h-12 w-12 text-white" />
-                      </div>
+                        <ArrowLeft className="h-6 w-6" />
+                      </Button>
+                      <h2 className="text-2xl font-bold text-white">
+                        Enter Your PIN
+                      </h2>
+                    </div>
+                    
+                    <div className="text-center space-y-2">
+                      <p className="text-white/70">
+                        Complete: <span className="text-white font-semibold">{activeAlarm.title}</span>
+                      </p>
+                    </div>
+                    
+                    {/* PIN Display */}
+                    <motion.div 
+                      className="flex justify-center gap-3"
+                      animate={pinError ? { x: [0, -10, 10, -10, 10, 0] } : {}}
+                      transition={{ duration: 0.4 }}
+                    >
+                      {[0, 1, 2, 3, 4, 5].map((i) => (
+                        <div
+                          key={i}
+                          className={`w-4 h-4 rounded-full transition-all ${
+                            pin.length > i 
+                              ? pinError 
+                                ? 'bg-red-500' 
+                                : 'bg-white' 
+                              : 'bg-white/20'
+                          }`}
+                        />
+                      ))}
                     </motion.div>
                     
-                    {/* Countdown badge */}
-                    <motion.div 
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                      className="absolute -top-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg"
-                      style={{ backgroundColor: activeAlarm.accent_color }}
+                    {pinError && (
+                      <p className="text-center text-destructive text-sm">
+                        Invalid PIN. Please try again.
+                      </p>
+                    )}
+                    
+                    {/* Numpad */}
+                    <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((key) => (
+                        <Button
+                          key={key}
+                          variant="outline"
+                          className={`h-16 text-2xl font-bold rounded-2xl transition-all ${
+                            key === 'C' 
+                              ? 'bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30' 
+                              : key === '⌫'
+                              ? 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
+                              : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                          }`}
+                          onClick={() => {
+                            if (key === 'C') handlePinClear();
+                            else if (key === '⌫') handlePinBackspace();
+                            else handlePinDigit(key);
+                          }}
+                          disabled={validatingPin}
+                        >
+                          {key === '⌫' ? <Delete className="h-6 w-6" /> : key}
+                        </Button>
+                      ))}
+                    </div>
+                    
+                    {/* Submit Button */}
+                    <Button
+                      size="lg"
+                      className="w-full gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg disabled:opacity-50"
+                      onClick={validateAndComplete}
+                      disabled={pin.length < 4 || validatingPin}
+                      style={{ 
+                        background: pin.length >= 4 
+                          ? `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`
+                          : 'rgba(255,255,255,0.1)',
+                        boxShadow: pin.length >= 4 
+                          ? `0 10px 30px -5px ${activeAlarm.accent_color}60`
+                          : 'none'
+                      }}
                     >
-                      {countdown}
-                    </motion.div>
-                  </div>
-                </div>
-                
-                {/* Content */}
-                <div className="text-center space-y-4">
-                  <h2 className="text-3xl font-bold text-white tracking-tight">
-                    {activeAlarm.title}
-                  </h2>
-                  {activeAlarm.description && (
-                    <p className="text-white/70 text-base leading-relaxed max-w-sm mx-auto">
-                      {activeAlarm.description}
-                    </p>
-                  )}
-                  <div 
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-                    style={{ 
-                      backgroundColor: `${activeAlarm.accent_color}25`, 
-                      color: activeAlarm.accent_color 
-                    }}
-                  >
-                    <Clock className="h-4 w-4" />
-                    RECURRING TASK
-                  </div>
-                </div>
-                
-                {/* Actions */}
-                <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="flex-1 gap-3 h-16 text-lg rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
-                    onClick={handleSnooze}
-                  >
-                    <Clock className="h-6 w-6" />
-                    Snooze
-                  </Button>
-                  <Button
-                    size="lg"
-                    className="flex-1 gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg"
-                    onClick={handleComplete}
-                    disabled={isCompleting}
-                    style={{ 
-                      background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`,
-                      boxShadow: `0 10px 30px -5px ${activeAlarm.accent_color}60`
-                    }}
-                  >
-                    <Check className="h-6 w-6" />
-                    {isCompleting ? 'Saving...' : 'Complete'}
-                  </Button>
-                </div>
+                      <Check className="h-6 w-6" />
+                      {validatingPin ? 'Verifying...' : 'Complete Task'}
+                    </Button>
+                  </>
+                ) : (
+                  // Main Alarm Screen
+                  <>
+                    {/* Icon - larger circular with animated pulse */}
+                    <div className="flex justify-center">
+                      <div className="relative">
+                        <motion.div
+                          animate={{ scale: [1, 1.08, 1] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                          className="w-32 h-32 rounded-full flex items-center justify-center"
+                          style={{ 
+                            background: `radial-gradient(circle, ${activeAlarm.accent_color}40 0%, ${activeAlarm.accent_color}15 70%, transparent 100%)`,
+                            boxShadow: `0 0 60px ${activeAlarm.accent_color}50, inset 0 0 30px ${activeAlarm.accent_color}20`
+                          }}
+                        >
+                          <div 
+                            className="w-24 h-24 rounded-full flex items-center justify-center"
+                            style={{ 
+                              background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}cc)`,
+                              boxShadow: `0 8px 30px ${activeAlarm.accent_color}60`
+                            }}
+                          >
+                            <Bell className="h-12 w-12 text-white" />
+                          </div>
+                        </motion.div>
+                        
+                        {/* Countdown badge */}
+                        {countdown > 0 && (
+                          <motion.div 
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="absolute -top-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg"
+                            style={{ backgroundColor: activeAlarm.accent_color }}
+                          >
+                            {countdown}
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="text-center space-y-4">
+                      <h2 className="text-3xl font-bold text-white tracking-tight">
+                        {activeAlarm.title}
+                      </h2>
+                      {activeAlarm.description && (
+                        <p className="text-white/70 text-base leading-relaxed max-w-sm mx-auto">
+                          {activeAlarm.description}
+                        </p>
+                      )}
+                      <div 
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+                        style={{ 
+                          backgroundColor: `${activeAlarm.accent_color}25`, 
+                          color: activeAlarm.accent_color 
+                        }}
+                      >
+                        <Clock className="h-4 w-4" />
+                        {!canSnooze ? 'COMPLETE REQUIRED' : 'RECURRING TASK'}
+                      </div>
+                      
+                      {/* Snooze indicator */}
+                      {canSnooze && (
+                        <p className="text-white/50 text-sm">
+                          {snoozesRemaining} snooze{snoozesRemaining !== 1 ? 's' : ''} remaining
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex gap-4">
+                      {canSnooze && (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="flex-1 gap-3 h-16 text-lg rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
+                          onClick={handleSnooze}
+                        >
+                          <Clock className="h-6 w-6" />
+                          Snooze
+                        </Button>
+                      )}
+                      <Button
+                        size="lg"
+                        className={`${canSnooze ? 'flex-1' : 'w-full'} gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg`}
+                        onClick={handleCompleteClick}
+                        disabled={validatingPin}
+                        style={{ 
+                          background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`,
+                          boxShadow: `0 10px 30px -5px ${activeAlarm.accent_color}60`
+                        }}
+                      >
+                        <Check className="h-6 w-6" />
+                        Complete
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
