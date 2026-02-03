@@ -262,12 +262,17 @@ export function EditPunchDialog({
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
 
-      // Helper to determine if a time crosses midnight relative to clock-in
-      const getAdjustedDateForTime = (timeStr: string, referenceTimeStr: string, baseDate: string): string => {
-        const [timeHour] = timeStr.split(':').map(Number);
-        const [refHour] = referenceTimeStr.split(':').map(Number);
+      // Helper to determine if clock-out crosses midnight relative to clock-in
+      // ONLY applies to clock_out - breaks and clock_in always use the base date
+      // This prevents bugs where backdating a break (e.g., 8:30 AM with 1 PM clock-in)
+      // incorrectly rolls to the next day
+      const getAdjustedDateForClockOut = (clockOutTime: string, clockInTime: string, baseDate: string): string => {
+        const [outHour] = clockOutTime.split(':').map(Number);
+        const [inHour] = clockInTime.split(':').map(Number);
         
-        if (timeHour < 12 && refHour >= 12) {
+        // Only advance date if clock-out hour is earlier than clock-in hour
+        // (indicating overnight shift, e.g., in at 10 PM, out at 2 AM)
+        if (outHour < inHour) {
           const nextDay = new Date(baseDate);
           nextDay.setDate(nextDay.getDate() + 1);
           return nextDay.toISOString().slice(0, 10);
@@ -303,10 +308,11 @@ export function EditPunchDialog({
       }
 
       for (const update of updates) {
-        // Use timezone-aware conversion to ISO string with midnight-crossing adjustment
-        const adjustedDate = update.type === 'clock_in' 
-          ? punchDate 
-          : getAdjustedDateForTime(update.time, clockInTime, punchDate);
+        // Use timezone-aware conversion to ISO string
+        // Only clock_out can cross midnight - all other punch types stay on the shift's start date
+        const adjustedDate = update.type === 'clock_out' 
+          ? getAdjustedDateForClockOut(update.time, clockInTime, punchDate)
+          : punchDate;
         const punchTime = toISOStringInTimezone(adjustedDate, update.time, timezone);
 
         if (update.existingId) {
