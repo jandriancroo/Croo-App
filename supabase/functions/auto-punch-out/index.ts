@@ -50,18 +50,29 @@ serve(async (req) => {
     const getPart = (type: string) => pstParts.find(p => p.type === type)?.value || '';
     
     const currentHour = parseInt(getPart('hour'));
-    const _currentMinute = parseInt(getPart('minute'));
+    const currentMinute = parseInt(getPart('minute'));
     
     // Get yesterday's date in PST (for close time lookup)
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const yesterdayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE });
     const yesterdayStr = yesterdayFormatter.format(yesterday);
     
-    // Get day of week for yesterday (0 = Sunday, 6 = Saturday)
-    const yesterdayDayOfWeek = new Date(yesterdayStr).getDay();
+    // Get day of week for yesterday in PST
+    // Parse the PST date string and get the day
+    const [yYear, yMonth, yDay] = yesterdayStr.split('-').map(Number);
+    const yesterdayDayOfWeek = new Date(yYear, yMonth - 1, yDay).getDay();
+    
+    // CRITICAL: Calculate UTC time range for "yesterday" in PST
+    // PST is UTC-8, so yesterday in PST starts at yesterday 00:00 PST = yesterday 08:00 UTC
+    // and ends at yesterday 23:59:59 PST = today 07:59:59 UTC
+    // We use a wider window to catch all shifts that STARTED on that PST business day
+    const yesterdayStartUTC = `${yesterdayStr}T08:00:00Z`; // midnight PST in UTC
+    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(now);
+    const yesterdayEndUTC = `${todayStr}T07:59:59Z`; // 11:59:59 PM PST in UTC
 
-    console.log(`[Auto-Punch] Running at ${getPart('hour')}:${getPart('minute')} PST`);
-    console.log(`[Auto-Punch] Yesterday: ${yesterdayStr} (day ${yesterdayDayOfWeek})`);
+    console.log(`[Auto-Punch] Running at ${getPart('hour')}:${currentMinute.toString().padStart(2, '0')} PST`);
+    console.log(`[Auto-Punch] Yesterday (PST): ${yesterdayStr} (day ${yesterdayDayOfWeek})`);
+    console.log(`[Auto-Punch] Query window: ${yesterdayStartUTC} to ${yesterdayEndUTC}`);
 
     // Fetch all locations with their close times for yesterday
     const { data: locations, error: locError } = await supabase
@@ -110,9 +121,7 @@ serve(async (req) => {
       console.log(`[Auto-Punch] ${location.name}: Close ${closeTime}, cutoff ${Math.floor(cutoffMinutes / 60)}:${String(cutoffMinutes % 60).padStart(2, '0')}`);
 
       // Find open clock-ins from yesterday at this location
-      const yesterdayStart = `${yesterdayStr}T00:00:00`;
-      const yesterdayEnd = `${yesterdayStr}T23:59:59`;
-
+      // Use PST-aware UTC time range calculated above
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
         .select(`
@@ -123,8 +132,8 @@ serve(async (req) => {
         `)
         .eq('location_id', location.id)
         .eq('punch_type', 'clock_in')
-        .gte('punch_time', yesterdayStart)
-        .lte('punch_time', yesterdayEnd);
+        .gte('punch_time', yesterdayStartUTC)
+        .lte('punch_time', yesterdayEndUTC);
 
       if (punchError) {
         console.error(`[Auto-Punch] ${location.name}: Error fetching punches: ${punchError.message}`);
