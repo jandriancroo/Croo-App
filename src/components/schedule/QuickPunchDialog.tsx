@@ -337,13 +337,19 @@ export function QuickPunchDialog({
             )}
           </div>
 
-          {/* Break Toggle */}
+          {/* Break Toggle - only available when clock-in time is set */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <div className="space-y-0.5">
               <Label className="text-sm font-medium">Include Break</Label>
-              <p className="text-xs text-muted-foreground">Add a break to this shift</p>
+              <p className="text-xs text-muted-foreground">
+                {!startTime ? 'Enter clock-in time first' : 'Add a break to this shift'}
+              </p>
             </div>
-            <Switch checked={includeBreak} onCheckedChange={setIncludeBreak} />
+            <Switch 
+              checked={includeBreak} 
+              onCheckedChange={setIncludeBreak}
+              disabled={!startTime}
+            />
           </div>
 
           {/* Break Options - shown when break is enabled */}
