@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TIMEZONE = 'America/Los_Angeles';
+const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 const POST_CLOSE_BUFFER_HOURS = 3; // Hours after close to trigger auto-punch
 const MIN_SHIFT_HOURS = 4; // Minimum hours worked to qualify for auto-punch
 const MAX_SHIFT_HOURS = 16; // Skip if shift would be longer (likely data error)
@@ -23,6 +23,53 @@ interface AutoPunchResult {
   reason?: string;
 }
 
+// Helper to get timezone offset hours (accounts for DST)
+function getTimezoneOffsetHours(timezone: string, date: Date): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    timeZoneName: 'shortOffset',
+  });
+  const parts = formatter.formatToParts(date);
+  const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || '';
+  // Parse "GMT-8" or "GMT-7" format
+  const match = offsetPart.match(/GMT([+-]\d+)/);
+  return match ? parseInt(match[1]) : -8; // Default to -8 (PST)
+}
+
+// Get "yesterday" date string in a specific timezone
+function getYesterdayInTimezone(now: Date, timezone: string): string {
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(yesterday);
+}
+
+// Get "today" date string in a specific timezone
+function getTodayInTimezone(now: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
+}
+
+// Get current hour in a specific timezone
+function getCurrentHourInTimezone(now: Date, timezone: string): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false,
+  });
+  return parseInt(formatter.format(now));
+}
+
+// Calculate UTC time range for a business day in a specific timezone
+function getBusinessDayUTCRange(yesterdayStr: string, todayStr: string, offsetHours: number): { start: string; end: string } {
+  // Convert offset to positive hours to add to local midnight to get UTC
+  // e.g., PST is UTC-8, so midnight PST = 08:00 UTC
+  const utcOffsetHours = Math.abs(offsetHours);
+  const startHour = String(utcOffsetHours).padStart(2, '0');
+  
+  return {
+    start: `${yesterdayStr}T${startHour}:00:00Z`, // midnight local = X:00 UTC
+    end: `${todayStr}T${String(utcOffsetHours - 1).padStart(2, '0')}:59:59Z`, // 11:59:59 PM local
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -35,72 +82,52 @@ serve(async (req) => {
 
     const results: AutoPunchResult[] = [];
     const now = new Date();
-    
-    // Get current time in PST
-    const pstFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: TIMEZONE,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    const pstParts = pstFormatter.formatToParts(now);
-    const getPart = (type: string) => pstParts.find(p => p.type === type)?.value || '';
-    
-    const currentHour = parseInt(getPart('hour'));
-    const currentMinute = parseInt(getPart('minute'));
-    
-    // Get yesterday's date in PST (for close time lookup)
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const yesterdayFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE });
-    const yesterdayStr = yesterdayFormatter.format(yesterday);
-    
-    // Get day of week for yesterday in PST
-    // Parse the PST date string and get the day
-    const [yYear, yMonth, yDay] = yesterdayStr.split('-').map(Number);
-    const yesterdayDayOfWeek = new Date(yYear, yMonth - 1, yDay).getDay();
-    
-    // CRITICAL: Calculate UTC time range for "yesterday" in PST
-    // PST is UTC-8, so yesterday in PST starts at yesterday 00:00 PST = yesterday 08:00 UTC
-    // and ends at yesterday 23:59:59 PST = today 07:59:59 UTC
-    // We use a wider window to catch all shifts that STARTED on that PST business day
-    const yesterdayStartUTC = `${yesterdayStr}T08:00:00Z`; // midnight PST in UTC
-    const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(now);
-    const yesterdayEndUTC = `${todayStr}T07:59:59Z`; // 11:59:59 PM PST in UTC
 
-    console.log(`[Auto-Punch] Running at ${getPart('hour')}:${currentMinute.toString().padStart(2, '0')} PST`);
-    console.log(`[Auto-Punch] Yesterday (PST): ${yesterdayStr} (day ${yesterdayDayOfWeek})`);
-    console.log(`[Auto-Punch] Query window: ${yesterdayStartUTC} to ${yesterdayEndUTC}`);
+    console.log(`[Auto-Punch] Running at ${now.toISOString()}`);
 
-    // Fetch all locations with their close times for yesterday
+    // Fetch all locations with their close times and timezone settings
     const { data: locations, error: locError } = await supabase
       .from('locations')
       .select(`
         id,
         name,
-        location_hours!inner(close_time, is_closed)
-      `)
-      .eq('location_hours.day_of_week', yesterdayDayOfWeek);
+        location_settings(timezone),
+        location_hours(day_of_week, close_time, is_closed)
+      `);
 
     if (locError) {
       throw new Error(`Failed to fetch locations: ${locError.message}`);
     }
 
-    console.log(`[Auto-Punch] Found ${locations?.length || 0} locations with hours for day ${yesterdayDayOfWeek}`);
+    console.log(`[Auto-Punch] Found ${locations?.length || 0} locations to process`);
 
     for (const location of locations || []) {
-      const locationHours = (location.location_hours as any[])?.[0];
+      // Get location's timezone (fall back to default)
+      const locationSettings = (location.location_settings as any[])?.[0];
+      const timezone = locationSettings?.timezone || DEFAULT_TIMEZONE;
+      
+      // Calculate dates in location's timezone
+      const yesterdayStr = getYesterdayInTimezone(now, timezone);
+      const todayStr = getTodayInTimezone(now, timezone);
+      const currentHour = getCurrentHourInTimezone(now, timezone);
+      
+      // Get day of week for yesterday in location's timezone
+      const [yYear, yMonth, yDay] = yesterdayStr.split('-').map(Number);
+      const yesterdayDayOfWeek = new Date(yYear, yMonth - 1, yDay).getDay();
+      
+      // Find hours for yesterday
+      const locationHours = (location.location_hours as any[])?.find(
+        h => h.day_of_week === yesterdayDayOfWeek
+      );
       
       if (!locationHours || locationHours.is_closed) {
-        console.log(`[Auto-Punch] ${location.name}: Closed yesterday, skipping`);
+        console.log(`[Auto-Punch] ${location.name} (${timezone}): Closed yesterday, skipping`);
         continue;
       }
 
       const closeTime = locationHours.close_time;
       if (!closeTime) {
-        console.log(`[Auto-Punch] ${location.name}: No close time configured, skipping`);
+        console.log(`[Auto-Punch] ${location.name} (${timezone}): No close time configured, skipping`);
         continue;
       }
 
@@ -116,12 +143,15 @@ serve(async (req) => {
       // Calculate cutoff: close_time + buffer hours
       const cutoffMinutes = closeTimeMinutes + (POST_CLOSE_BUFFER_HOURS * 60);
       
-      // Only proceed if we're past the cutoff (e.g., 3 AM check for 10 PM + 3 hr = 1 AM cutoff)
-      // Since we run at 3 AM, we should always be past a reasonable cutoff
-      console.log(`[Auto-Punch] ${location.name}: Close ${closeTime}, cutoff ${Math.floor(cutoffMinutes / 60)}:${String(cutoffMinutes % 60).padStart(2, '0')}`);
+      console.log(`[Auto-Punch] ${location.name} (${timezone}): Yesterday=${yesterdayStr}, Close=${closeTime}, Cutoff=${Math.floor(cutoffMinutes / 60)}:${String(cutoffMinutes % 60).padStart(2, '0')}`);
+
+      // Calculate UTC time range for the location's business day
+      const offsetHours = getTimezoneOffsetHours(timezone, now);
+      const { start: yesterdayStartUTC, end: yesterdayEndUTC } = getBusinessDayUTCRange(yesterdayStr, todayStr, offsetHours);
+      
+      console.log(`[Auto-Punch] ${location.name}: Query window ${yesterdayStartUTC} to ${yesterdayEndUTC}`);
 
       // Find open clock-ins from yesterday at this location
-      // Use PST-aware UTC time range calculated above
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
         .select(`
@@ -211,16 +241,17 @@ serve(async (req) => {
         }
 
         // Calculate auto-punch time: close_time + buffer on the close day
-        // For a 10 PM close + 3 hr buffer = 1 AM the next day
+        // We need to create a timestamp in the location's timezone, then convert to UTC
         const autoPunchDate = new Date(yesterdayStr + 'T00:00:00');
         autoPunchDate.setMinutes(cutoffMinutes);
         
-        // Convert to proper ISO string in PST
-        const autoPunchTimeStr = new Date(
+        // Convert to UTC by applying the timezone offset
+        const autoPunchUTC = new Date(
           autoPunchDate.getTime() + 
           (autoPunchDate.getTimezoneOffset() * 60 * 1000) + 
-          (-8 * 60 * 60 * 1000) // PST offset
-        ).toISOString();
+          (offsetHours * 60 * 60 * 1000 * -1) // Negate because offset is already negative for west
+        );
+        const autoPunchTimeStr = autoPunchUTC.toISOString();
 
         // Insert the auto clock-out
         const { error: insertError } = await supabase
@@ -230,7 +261,7 @@ serve(async (req) => {
             location_id: location.id,
             punch_type: 'clock_out',
             punch_time: autoPunchTimeStr,
-            notes: `Auto clocked out by system - ${POST_CLOSE_BUFFER_HOURS} hours post-close (${closeTime})`,
+            notes: `Auto clocked out by system - ${POST_CLOSE_BUFFER_HOURS} hours post-close (${closeTime} ${timezone})`,
             is_auto_punched_out: true,
             has_break_violation: shiftHours > 5, // If worked > 5 hrs without break
           });
@@ -275,7 +306,6 @@ serve(async (req) => {
 
     const summary = {
       run_at: now.toISOString(),
-      timezone: TIMEZONE,
       total_processed: results.length,
       punched: results.filter(r => r.status === 'punched').length,
       skipped: results.filter(r => r.status === 'skipped').length,
