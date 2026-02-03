@@ -306,7 +306,7 @@ export function DesktopTimeTrackingTable({
                             </button>
                           ) : isApproved ? (
                             <button 
-                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}
                               disabled={isApproving}
                             >
@@ -315,7 +315,7 @@ export function DesktopTimeTrackingTable({
                             </button>
                           ) : (
                             <button 
-                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-colors ${isApproving ? 'opacity-50 pointer-events-none' : ''}`}
+                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                             >
