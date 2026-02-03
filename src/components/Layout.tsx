@@ -38,9 +38,10 @@ interface DockContentProps {
   setShowOrgBubble: (value: boolean | ((prev: boolean) => boolean)) => void;
   unreadCount: number;
   onSwipeUp: () => void;
+  canViewSalesAndLabor: boolean;
 }
 
-const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp }: DockContentProps) => {
+const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp, canViewSalesAndLabor }: DockContentProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { message, isVisible, dockContent } = useDockToast();
@@ -75,14 +76,16 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   return (
     <div 
       className="glass-dock overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={canViewSalesAndLabor ? handleTouchStart : undefined}
+      onTouchEnd={canViewSalesAndLabor ? handleTouchEnd : undefined}
     >
-      {/* Swipe handle indicator */}
-      <div className="flex justify-center pt-2 pb-1">
-        <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
-      </div>
-      <div className="relative z-10 flex items-center justify-evenly px-2 pt-1 pb-0">
+      {/* Swipe handle indicator - only show for shift_manager+ */}
+      {canViewSalesAndLabor && (
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
+        </div>
+      )}
+      <div className={`relative z-10 flex items-center justify-evenly px-2 ${canViewSalesAndLabor ? 'pt-1' : 'pt-3'} pb-0`}>
         {/* Toast overlay that slides in */}
         <div 
           className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
@@ -252,6 +255,7 @@ export const Layout = ({
     isShiftManager,
     canApproveRequests,
     canViewTimecards,
+    canViewSalesAndLabor,
     loading: roleLoading
   } = useUserRole();
   const isMobile = useIsMobile();
@@ -1051,12 +1055,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             setShowOrgBubble={setShowOrgBubble}
             unreadCount={unreadCount}
             onSwipeUp={() => setShowCompactDashboard(true)}
+            canViewSalesAndLabor={canViewSalesAndLabor}
           />
         </nav>
       )}
 
-      {/* Compact Dashboard - Swipe Up from Dock */}
-      {isMobile && (
+      {/* Compact Dashboard - Swipe Up from Dock (shift_manager+ only) */}
+      {isMobile && canViewSalesAndLabor && (
         <CompactDashboard
           isExpanded={showCompactDashboard}
           onClose={() => setShowCompactDashboard(false)}
