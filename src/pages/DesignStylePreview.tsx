@@ -136,8 +136,8 @@ const DesignStylePreview = () => {
       case 'glassmorphism':
         return `rounded-2xl backdrop-blur-xl border border-white/20 p-4 text-white shadow-xl`;
       default:
-        // Current: solid color with shadow - using rounded-lg for slightly sharper corners
-        return `rounded-lg p-4 text-white shadow-lg`;
+        // Current: solid color with shadow - using rounded (4px) for sharper corners
+        return `rounded p-4 text-white shadow-lg`;
     }
   };
 
