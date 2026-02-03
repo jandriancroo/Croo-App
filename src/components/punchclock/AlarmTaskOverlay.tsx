@@ -281,6 +281,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       if (snoozeTimeoutRef.current) {
         clearTimeout(snoozeTimeoutRef.current);
       }
+      if (confirmationTimeoutRef.current) {
+        clearTimeout(confirmationTimeoutRef.current);
+      }
     };
   }, [locationId, timezone]);
 
@@ -514,18 +517,37 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
       if (error) throw error;
 
-      // Show confirmation screen
+      // Show confirmation screen - hide alarm first
       const userName = profile.full_name || 'User';
-      setCompletedByUser({ name: userName, photo_url: profile.profile_photo_url });
-      setCompletedAlarmTitle(activeAlarm.title);
+      const alarmTitle = activeAlarm.title;
+      
+      // Clear alarm state to prevent re-triggering
+      setIsVisible(false);
       setShowPinEntry(false);
-      setShowConfirmation(true);
+      setActiveAlarm(null);
+      snoozedAlarmRef.current = null;
       stopAlarmLoop();
+      
+      // Clear all timers
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      if (snoozeTimeoutRef.current) clearTimeout(snoozeTimeoutRef.current);
+      
+      // Reset snooze count
+      setSnoozeCount(0);
+      snoozeCountRef.current = 0;
+      
+      // Now show confirmation
+      setCompletedByUser({ name: userName, photo_url: profile.profile_photo_url });
+      setCompletedAlarmTitle(alarmTitle);
+      setShowConfirmation(true);
       
       // Auto-dismiss after 7 seconds
       if (confirmationTimeoutRef.current) clearTimeout(confirmationTimeoutRef.current);
       confirmationTimeoutRef.current = setTimeout(() => {
-        handleDismissComplete();
+        setShowConfirmation(false);
+        setCompletedByUser(null);
+        setCompletedAlarmTitle("");
         onComplete?.();
       }, 7000);
     } catch (error: any) {
@@ -638,41 +660,6 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     const snoozesRemaining = MAX_SNOOZES - newCount;
     toast.info(`Snoozed for 5 minutes (${snoozesRemaining} snooze${snoozesRemaining !== 1 ? 's' : ''} remaining)`, { duration: 3000 });
   };
-
-  const handleDismissComplete = () => {
-    // Full dismiss after task is completed - no snooze
-    setIsVisible(false);
-    setIsSnoozed(false);
-    setShowPinEntry(false);
-    setShowConfirmation(false);
-    setCompletedByUser(null);
-    setCompletedAlarmTitle("");
-    setPin("");
-    snoozedAlarmRef.current = null;
-    stopAlarmLoop();
-    
-    // Reset snooze count for next alarm
-    setSnoozeCount(0);
-    snoozeCountRef.current = 0;
-    
-    if (snoozeTimeoutRef.current) {
-      clearTimeout(snoozeTimeoutRef.current);
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-    }
-    if (confirmationTimeoutRef.current) {
-      clearTimeout(confirmationTimeoutRef.current);
-    }
-    
-    setTimeout(() => {
-      setActiveAlarm(null);
-    }, 300);
-  };
-
   if (!activeAlarm && !showConfirmation) return null;
 
   const canSnooze = snoozeCount < MAX_SNOOZES;
