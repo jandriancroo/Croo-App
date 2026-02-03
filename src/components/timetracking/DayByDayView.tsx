@@ -47,6 +47,8 @@ export function DayByDayView({
     hasAutoClockOut: boolean;
     hasBreakViolation: boolean;
     hasOpenShift: boolean;
+    hasManualEdit: boolean;
+    editedByName: string | null;
     scheduledShift: any;
   }[]> = new Map();
 
@@ -82,6 +84,12 @@ export function DayByDayView({
       const hasAutoClockOut = flags.hasAutoClockOut;
       const hasBreakViolation = flags.hasBreakViolation;
       const hasOpenShift = flags.hasOpenShift;
+      
+      // Check if any punch was manually edited (use edited_by_name already attached by PayrollReview)
+      const editedPunch = dayPunches.find((p: any) => p.edited_by);
+      const hasManualEdit = !!editedPunch;
+      const editedByName = editedPunch?.edited_by_name?.split(' ')[0] || null;
+      
       const scheduledShift = card.shiftsByDate?.get(day);
 
       if (!shiftsByDay.has(day)) {
@@ -96,6 +104,8 @@ export function DayByDayView({
         hasAutoClockOut,
         hasBreakViolation,
         hasOpenShift,
+        hasManualEdit,
+        editedByName,
         scheduledShift,
       });
     });
@@ -179,7 +189,7 @@ export function DayByDayView({
                 {/* Employee Rows for this day */}
                 {sortedEntries.map((entry, idx) => {
                   const isApproving = entry.dayPunches.some((p: any) => approvingPunchIds.has(p.id));
-                  const hasAnyFlag = entry.hasAutoClockOut || entry.hasBreakViolation || entry.hasOpenShift;
+                  const hasAnyFlag = entry.hasAutoClockOut || entry.hasBreakViolation || entry.hasOpenShift || entry.hasManualEdit;
                   const rowBg = idx % 2 === 0 ? '' : 'bg-muted/10';
                   const breakStarts = entry.dayPunches.filter((p: any) => p.punch_type === 'break_start');
 
@@ -286,6 +296,11 @@ export function DayByDayView({
                           {entry.hasOpenShift && (
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-red-600 border-red-400 bg-red-50 dark:bg-red-950/30 font-medium whitespace-nowrap">
                               Open
+                            </Badge>
+                          )}
+                          {entry.hasManualEdit && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-blue-600 border-blue-400 bg-blue-50 dark:bg-blue-950/30 font-medium whitespace-nowrap">
+                              Edited{entry.editedByName ? ` by ${entry.editedByName}` : ''}
                             </Badge>
                           )}
                         </div>
