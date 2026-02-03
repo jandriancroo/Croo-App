@@ -188,7 +188,7 @@ export function MobileDayByDayCard({
                         <div onClick={(e) => e.stopPropagation()}>
                           {entry.hasOpenShift ? (
                             <button 
-                              className="h-10 w-10 flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
+                              className="h-10 w-10 rounded-lg flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
                               disabled
                               title="Cannot approve open shift"
                             >
@@ -196,7 +196,7 @@ export function MobileDayByDayCard({
                             </button>
                           ) : entry.isApproved ? (
                             <button 
-                              className={`h-10 w-10 flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              className={`h-10 w-10 rounded-lg flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onUnapproveDay(entry.dayPunches)}
                               disabled={isApproving}
                             >
@@ -204,7 +204,7 @@ export function MobileDayByDayCard({
                             </button>
                           ) : (
                             <button 
-                              className={`h-10 w-10 flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              className={`h-10 w-10 rounded-lg flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onApproveDay(entry.dayPunches)}
                               disabled={isApproving}
                             >
