@@ -562,7 +562,7 @@ function CubeFaceComponent({
     return (
       <div
         className={cn(
-          "absolute inset-0 rounded-[6px] shadow-lg flex items-center justify-center backface-hidden",
+          "absolute inset-0 rounded-[8px] shadow-lg flex items-center justify-center backface-hidden",
           bgClass
         )}
         style={{
@@ -578,7 +578,7 @@ function CubeFaceComponent({
   return (
     <div
       className={cn(
-        "absolute inset-0 rounded-[6px] overflow-hidden flex flex-col",
+        "absolute inset-0 rounded-[8px] overflow-hidden flex flex-col",
         bgClass
       )}
       style={{
