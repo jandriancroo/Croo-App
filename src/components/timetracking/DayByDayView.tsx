@@ -312,30 +312,31 @@ export function DayByDayView({
                       </TableCell>
 
                       {/* Approve */}
-                      <TableCell className="py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="py-1.5 pr-3" onClick={(e) => e.stopPropagation()}>
                         {entry.hasOpenShift ? (
                           <button 
-                            className="h-7 w-7 rounded-md flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
+                            className="h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/30 border border-dashed border-muted-foreground/30 text-xs text-muted-foreground cursor-not-allowed"
                             disabled
-                            title="Cannot approve open shift"
+                            title="Cannot approve open shift - add clock-out first"
                           >
-                            <span className="text-muted-foreground text-xs">—</span>
+                            —
                           </button>
                         ) : entry.isApproved ? (
                           <button 
-                            className={`h-7 w-7 rounded-md flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-90 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                            className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                             onClick={() => onUnapproveDay(entry.dayPunches)}
                             disabled={isApproving}
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
+                            Approved
                           </button>
                         ) : (
                           <button 
-                            className={`h-7 w-7 rounded-md flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-all duration-150 active:scale-90 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                            className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                             onClick={() => onApproveDay(entry.dayPunches)}
                             disabled={isApproving}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            Approve
                           </button>
                         )}
                       </TableCell>
