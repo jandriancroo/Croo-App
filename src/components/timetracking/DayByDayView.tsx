@@ -327,8 +327,8 @@ export function DayByDayView({
                             onClick={() => onUnapproveDay(entry.dayPunches)}
                             disabled={isApproving}
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
                             Approved
+                            <CheckCircle2 className="h-3.5 w-3.5" />
                           </button>
                         ) : (
                           <button 

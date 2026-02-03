@@ -183,37 +183,36 @@ export function MobileDayByDayCard({
                         </Avatar>
                         <span className="text-sm font-medium truncate">{entry.profile.full_name}</span>
                       </div>
-                      <span className="font-semibold text-sm">{(entry.dayHours || 0).toFixed(1)}h</span>
-                    </div>
-
-                    {/* Full-width Approve Button */}
-                    <div onClick={(e) => e.stopPropagation()}>
-                      {entry.hasOpenShift ? (
-                        <button 
-                          className="h-9 w-full flex items-center justify-center gap-1.5 bg-muted/30 border border-dashed border-muted-foreground/30 text-xs text-muted-foreground cursor-not-allowed"
-                          disabled
-                          title="Cannot approve open shift"
-                        >
-                          —
-                        </button>
-                      ) : entry.isApproved ? (
-                        <button 
-                          className={`h-9 w-full flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-[0.98] ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
-                          onClick={() => onUnapproveDay(entry.dayPunches)}
-                          disabled={isApproving}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Approved
-                        </button>
-                      ) : (
-                        <button 
-                          className={`h-9 w-full flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all duration-150 active:scale-[0.98] active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
-                          onClick={() => onApproveDay(entry.dayPunches)}
-                          disabled={isApproving}
-                        >
-                          Approve
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{(entry.dayHours || 0).toFixed(1)}h</span>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          {entry.hasOpenShift ? (
+                            <button 
+                              className="h-10 w-10 flex items-center justify-center bg-muted/30 border border-dashed border-muted-foreground/30 cursor-not-allowed"
+                              disabled
+                              title="Cannot approve open shift"
+                            >
+                              <span className="text-muted-foreground text-xs">—</span>
+                            </button>
+                          ) : entry.isApproved ? (
+                            <button 
+                              className={`h-10 w-10 flex items-center justify-center bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              onClick={() => onUnapproveDay(entry.dayPunches)}
+                              disabled={isApproving}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button 
+                              className={`h-10 w-10 flex items-center justify-center bg-muted/50 border border-border hover:bg-primary/10 hover:border-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              onClick={() => onApproveDay(entry.dayPunches)}
+                              disabled={isApproving}
+                            >
+                              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Row 2: Scheduled */}
