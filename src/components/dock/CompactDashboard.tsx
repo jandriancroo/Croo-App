@@ -131,7 +131,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       if (!locationId) return null;
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection')
+        .select('net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, hourly_data')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();
@@ -275,8 +275,51 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const resolvedProjection = resolveProjection(salesData);
   const projectedSales = resolvedProjection.value || 0;
   
-  // Calculate pace percentage
-  const pacePercentage = projectedSales > 0 ? (totalSales / projectedSales) * 100 : 0;
+  // Calculate pace-adjusted (same logic as ManagerDashboardOverlay)
+  // Pace = actual sales so far + projected remaining hours
+  const paceAdjusted = useMemo(() => {
+    // First check localStorage cache (same key pattern as Dashboard)
+    try {
+      const cacheKey = `qu_projections_cache_${locationId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.data?.todayPaceAdjusted && parsed.data.todayPaceAdjusted > 0) {
+          return parsed.data.todayPaceAdjusted;
+        }
+      }
+    } catch {
+      // Ignore cache errors
+    }
+
+    // Calculate pace on-the-fly when cache is stale/missing
+    const now = new Date();
+    const tzHour = new Date(now.toLocaleString('en-US', { timeZone: timezone })).getHours();
+    
+    // Get hourly data from sales_cache
+    const hourlyArray = (salesData?.hourly_data as unknown as { hour?: string; projected?: number }[] | null) || [];
+    
+    // Calculate remaining projection from hourly data
+    let remainingProjected = 0;
+    hourlyArray.forEach(h => {
+      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
+      if (hourNum > tzHour && h.projected) {
+        remainingProjected += h.projected;
+      }
+    });
+    
+    if (totalSales > 0 && remainingProjected > 0) {
+      return totalSales + remainingProjected;
+    }
+    
+    // If no projections, use MAX(actual, goal)
+    if (totalSales > 0 && projectedSales > 0) {
+      return Math.max(totalSales, projectedSales);
+    }
+    
+    return projectedSales;
+  }, [locationId, salesData?.hourly_data, totalSales, projectedSales, timezone]);
+  
   
   // Labor calculations
   const laborCost = laborData?.labor_cost || 0;
@@ -300,12 +343,13 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }).format(value);
   };
 
-  // Get pace status badge
+  // Get pace status badge based on delta
   const getPaceStatus = () => {
     if (totalSales < 100) return null;
-    if (pacePercentage >= 110) return { label: 'On Fire', icon: Flame, color: 'text-orange-500' };
-    if (pacePercentage >= 105) return { label: 'Ahead', icon: TrendingUp, color: 'text-green-500' };
-    if (pacePercentage >= 95) return { label: 'On Track', icon: Target, color: 'text-blue-500' };
+    const pacePercent = projectedSales > 0 ? (paceAdjusted / projectedSales) * 100 : 0;
+    if (pacePercent >= 110) return { label: 'On Fire', icon: Flame, color: 'text-orange-500' };
+    if (pacePercent >= 105) return { label: 'Ahead', icon: TrendingUp, color: 'text-green-500' };
+    if (pacePercent >= 95) return { label: 'On Track', icon: Target, color: 'text-blue-500' };
     return { label: 'Behind', icon: TrendingDown, color: 'text-red-500' };
   };
 
@@ -453,11 +497,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   )}
                   <span className="text-accent-foreground/70 text-xs">Pace</span>
                 </div>
-                <p className={cn(
-                  "text-xl font-bold",
-                  paceStatus?.color || 'text-accent-foreground'
-                )}>
-                  {pacePercentage.toFixed(0)}%
+                <p className="text-xl font-bold text-amber-500">
+                  {formatCurrency(paceAdjusted)}
                 </p>
                 {paceStatus && (
                   <p className={cn("text-[10px] mt-0.5", paceStatus.color)}>
