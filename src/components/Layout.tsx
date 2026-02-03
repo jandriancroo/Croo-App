@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
+import { CompactDashboard } from '@/components/dock/CompactDashboard';
+import type { PanInfo } from 'framer-motion';
 
 interface LayoutProps {
   children: ReactNode;
@@ -35,13 +37,15 @@ interface DockContentProps {
   showOrgBubble: boolean;
   setShowOrgBubble: (value: boolean | ((prev: boolean) => boolean)) => void;
   unreadCount: number;
+  onSwipeUp: () => void;
 }
 
-const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount }: DockContentProps) => {
+const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp }: DockContentProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { message, isVisible, dockContent } = useDockToast();
   const [bouncingItem, setBouncingItem] = useState<string | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   // Format currency for smart dock
   const formatCurrency = (value: number) => {
@@ -53,9 +57,32 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
     }).format(value);
   };
 
+  // Handle swipe up detection
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
+    // If swiped up more than 50px, trigger expansion
+    if (deltaY > 50) {
+      onSwipeUp();
+    }
+    touchStartY.current = null;
+  };
+
   return (
-    <div className="glass-dock overflow-hidden">
-      <div className="relative z-10 flex items-center justify-evenly px-2 pt-3 pb-0">
+    <div 
+      className="glass-dock overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Swipe handle indicator */}
+      <div className="flex justify-center pt-2 pb-1">
+        <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
+      </div>
+      <div className="relative z-10 flex items-center justify-evenly px-2 pt-1 pb-0">
         {/* Toast overlay that slides in */}
         <div 
           className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
@@ -243,6 +270,7 @@ export const Layout = ({
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
+  const [showCompactDashboard, setShowCompactDashboard] = useState(false); // Swipe-up compact dashboard
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
 
   const themes = [
@@ -1022,8 +1050,23 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             showOrgBubble={showOrgBubble}
             setShowOrgBubble={setShowOrgBubble}
             unreadCount={unreadCount}
+            onSwipeUp={() => setShowCompactDashboard(true)}
           />
         </nav>
+      )}
+
+      {/* Compact Dashboard - Swipe Up from Dock */}
+      {isMobile && (
+        <CompactDashboard
+          isExpanded={showCompactDashboard}
+          onClose={() => setShowCompactDashboard(false)}
+          onDragEnd={(info) => {
+            // If dragged down more than 100px or with velocity, close it
+            if (info.offset.y > 100 || info.velocity.y > 500) {
+              setShowCompactDashboard(false);
+            }
+          }}
+        />
       )}
 
       {/* Location Picker Dialog */}
