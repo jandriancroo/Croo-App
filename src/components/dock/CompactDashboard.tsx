@@ -9,17 +9,41 @@ import {
   TrendingDown, 
   Target, 
   Flame,
-  ChevronDown
+  ChevronDown,
+  Scissors,
+  Users,
+  Calculator,
+  X
 } from 'lucide-react';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getTimezoneOffset } from '@/utils/timezoneUtils';
 
 interface CompactDashboardProps {
   isExpanded: boolean;
   onClose: () => void;
   onDragEnd: (info: PanInfo) => void;
+}
+
+interface ActiveShift {
+  userId: string;
+  fullName: string;
+  profilePhoto: string | null;
+  clockInTime: string;
+  isOnBreak: boolean;
+  hourlyWage?: number;
+  scheduledEndTime?: string;
+}
+
+interface LaborCut {
+  userId: string;
+  minutesCut: number;
 }
 
 export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDashboardProps) => {
@@ -28,6 +52,52 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const locationId = currentLocation?.id;
   
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // Build storage key for labor cuts persistence
+  const laborCutsStorageKey = useMemo(() => 
+    `labor-cuts-dock-${locationId}-${getTodayStr()}`, 
+    [locationId, getTodayStr]
+  );
+
+  // Load labor cuts from localStorage
+  const [laborCuts, setLaborCuts] = useState<LaborCut[]>(() => {
+    try {
+      const stored = localStorage.getItem(laborCutsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.cuts || [];
+      }
+    } catch (e) {
+      console.error('Failed to load labor cuts:', e);
+    }
+    return [];
+  });
+
+  const [cutsSaved, setCutsSaved] = useState(() => {
+    try {
+      const stored = localStorage.getItem(laborCutsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.saved || false;
+      }
+    } catch (e) {
+      console.error('Failed to load saved state:', e);
+    }
+    return false;
+  });
+
+  // Persist labor cuts to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(laborCutsStorageKey, JSON.stringify({
+        cuts: laborCuts,
+        saved: cutsSaved,
+      }));
+    } catch (e) {
+      console.error('Failed to save labor cuts:', e);
+    }
+  }, [laborCuts, cutsSaved, laborCutsStorageKey]);
   
   // Update time every second
   useEffect(() => {
@@ -109,6 +179,97 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     enabled: !!locationId && isExpanded,
   });
 
+  // Fetch active shifts (same logic as manager dash)
+  const { data: activeShifts = [] } = useQuery({
+    queryKey: ['compact-dash-shifts', locationId, todayStr],
+    queryFn: async () => {
+      if (!locationId) return [];
+      const offset = getTimezoneOffset(timezone);
+      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`).toISOString();
+      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
+      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
+      const endOfDay = endOfDayPlus.toISOString();
+
+      const { data: punches, error } = await supabase
+        .from('time_punches')
+        .select('id, user_id, punch_time, punch_type, notes')
+        .eq('location_id', locationId)
+        .gte('punch_time', startOfDay)
+        .lte('punch_time', endOfDay)
+        .order('punch_time', { ascending: true });
+
+      if (error) throw error;
+
+      // Group punches by user
+      const userPunches: Record<string, typeof punches> = {};
+      (punches || []).forEach(p => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+
+      // Determine who's currently clocked in
+      const activeUsers: { userId: string; clockInTime: string; isOnBreak: boolean }[] = [];
+
+      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
+        let isClockedIn = false;
+        let isOnBreak = false;
+        let clockInTime: string | null = null;
+
+        userPunchList.forEach(p => {
+          if (p.punch_type === 'clock_in') {
+            isClockedIn = true;
+            clockInTime = p.punch_time;
+            isOnBreak = false;
+          } else if (p.punch_type === 'clock_out') {
+            isClockedIn = false;
+            isOnBreak = false;
+          } else if (p.punch_type === 'break_start') {
+            isOnBreak = true;
+          } else if (p.punch_type === 'break_end') {
+            isOnBreak = false;
+          }
+        });
+
+        if (isClockedIn && clockInTime) {
+          activeUsers.push({ userId, clockInTime, isOnBreak });
+        }
+      });
+
+      if (activeUsers.length === 0) return [];
+
+      const userIds = activeUsers.map(u => u.userId);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url, hourly_wage')
+        .in('id', userIds);
+
+      // Get today's shifts for end times
+      const { data: shifts } = await supabase
+        .from('scheduled_shifts')
+        .select('user_id, template:shift_templates(end_time)')
+        .eq('shift_date', todayStr)
+        .in('user_id', userIds);
+
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      const shiftMap = new Map((shifts || []).map(s => [s.user_id, s.template?.end_time]));
+
+      return activeUsers.map(u => {
+        const profile = profileMap.get(u.userId);
+        return {
+          userId: u.userId,
+          fullName: profile?.full_name || 'Unknown',
+          profilePhoto: profile?.profile_photo_url || null,
+          clockInTime: u.clockInTime,
+          isOnBreak: u.isOnBreak,
+          hourlyWage: profile?.hourly_wage ?? 16,
+          scheduledEndTime: shiftMap.get(u.userId) || undefined,
+        } as ActiveShift;
+      });
+    },
+    enabled: !!locationId && isExpanded,
+    refetchInterval: isExpanded ? 60000 : false,
+  });
+
   // Calculate metrics
   const totalSales = salesData?.net_sales || 0;
   const resolvedProjection = resolveProjection(salesData);
@@ -150,6 +311,82 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
   const paceStatus = getPaceStatus();
 
+  // Labor cut functions
+  const getCutForEmployee = (userId: string): LaborCut | undefined => {
+    return laborCuts.find(c => c.userId === userId);
+  };
+
+  const handleAddCut = (employee: ActiveShift, minutes: number) => {
+    setLaborCuts(prev => {
+      const existing = prev.find(c => c.userId === employee.userId);
+      if (existing) {
+        return prev.map(c => c.userId === employee.userId ? { ...c, minutesCut: minutes } : c);
+      }
+      return [...prev, { userId: employee.userId, minutesCut: minutes }];
+    });
+  };
+
+  const handleRemoveCut = (userId: string) => {
+    setLaborCuts(prev => prev.filter(c => c.userId !== userId));
+  };
+
+  const handleClearAllCuts = () => {
+    setLaborCuts([]);
+    setCutsSaved(false);
+    setShowPreviewModal(false);
+  };
+
+  const handleSaveCuts = () => {
+    setCutsSaved(true);
+    setShowPreviewModal(false);
+  };
+
+  // Calculate labor savings from cuts
+  const calculateLaborSavings = useMemo(() => {
+    let totalMinutesSaved = 0;
+    let totalCostSaved = 0;
+    
+    laborCuts.forEach(cut => {
+      const employee = activeShifts.find(s => s.userId === cut.userId);
+      if (employee) {
+        totalMinutesSaved += cut.minutesCut;
+        const hoursSaved = cut.minutesCut / 60;
+        totalCostSaved += hoursSaved * (employee.hourlyWage || 16);
+      }
+    });
+
+    const currentLaborCost = laborData?.labor_cost || 0;
+    const newLaborCost = Math.max(0, currentLaborCost - totalCostSaved);
+    
+    const currentLaborPercent = totalSales > 0 ? (currentLaborCost / totalSales) * 100 : 0;
+    const newLaborPercent = totalSales > 0 ? (newLaborCost / totalSales) * 100 : 0;
+
+    return {
+      totalMinutesSaved,
+      totalCostSaved,
+      currentLaborCost,
+      newLaborCost,
+      currentLaborPercent,
+      newLaborPercent,
+      percentSaved: currentLaborPercent - newLaborPercent,
+    };
+  }, [laborCuts, activeShifts, laborData?.labor_cost, totalSales]);
+
+  const hasAnyCuts = laborCuts.length > 0;
+
+  // Format shift end time
+  const formatEndTime = (time: string | undefined): string => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  };
+
   return (
     <AnimatePresence>
       {isExpanded && (
@@ -163,7 +400,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           dragElastic={{ top: 0, bottom: 0.3 }}
           onDragEnd={(_, info) => onDragEnd(info)}
           className="fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl"
-          style={{ height: '60vh', touchAction: 'none' }}
+          style={{ height: '75vh', touchAction: 'none' }}
         >
           {/* Drag Handle */}
           <div className="flex justify-center pt-3 pb-2">
@@ -179,13 +416,13 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           </button>
 
           {/* Content */}
-          <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(60vh - 60px)' }}>
+          <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
             {/* Large Time Display */}
-            <div className="text-center mb-6">
-              <h1 className="text-5xl font-bold text-accent-foreground tracking-tight tabular-nums">
+            <div className="text-center mb-4">
+              <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums">
                 {formattedTime}
               </h1>
-              <p className="text-accent-foreground/60 text-sm mt-1">
+              <p className="text-accent-foreground/60 text-xs mt-1">
                 {format(currentTime, 'EEEE, MMMM d')}
               </p>
             </div>
@@ -193,119 +430,304 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             {/* Sales & Pace Cards */}
             <div className="grid grid-cols-2 gap-3 mb-4">
               {/* Total Sales Card */}
-              <div className="bg-accent-foreground/10 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="h-5 w-5 text-green-500" />
-                  <span className="text-accent-foreground/70 text-sm">Sales</span>
+              <div className="bg-accent-foreground/10 rounded-2xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                  <span className="text-accent-foreground/70 text-xs">Sales</span>
                 </div>
-                <p className="text-2xl font-bold text-accent-foreground">
+                <p className="text-xl font-bold text-accent-foreground">
                   {formatCurrency(totalSales)}
                 </p>
-                <p className="text-accent-foreground/50 text-xs mt-1">
+                <p className="text-accent-foreground/50 text-[10px] mt-0.5">
                   of {formatCurrency(projectedSales)} projected
                 </p>
               </div>
 
               {/* Pace Card */}
-              <div className="bg-accent-foreground/10 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="bg-accent-foreground/10 rounded-2xl p-3">
+                <div className="flex items-center gap-2 mb-1">
                   {paceStatus ? (
-                    <paceStatus.icon className={cn("h-5 w-5", paceStatus.color)} />
+                    <paceStatus.icon className={cn("h-4 w-4", paceStatus.color)} />
                   ) : (
-                    <Target className="h-5 w-5 text-accent-foreground/50" />
+                    <Target className="h-4 w-4 text-accent-foreground/50" />
                   )}
-                  <span className="text-accent-foreground/70 text-sm">Pace</span>
+                  <span className="text-accent-foreground/70 text-xs">Pace</span>
                 </div>
                 <p className={cn(
-                  "text-2xl font-bold",
+                  "text-xl font-bold",
                   paceStatus?.color || 'text-accent-foreground'
                 )}>
                   {pacePercentage.toFixed(0)}%
                 </p>
                 {paceStatus && (
-                  <p className={cn("text-xs mt-1", paceStatus.color)}>
+                  <p className={cn("text-[10px] mt-0.5", paceStatus.color)}>
                     {paceStatus.label}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Labor Saver Section */}
-            <div className="bg-accent-foreground/10 rounded-2xl p-4">
+            {/* Labor Status Bar */}
+            <div className="bg-accent-foreground/10 rounded-2xl p-3 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-accent-foreground/70 text-xs font-medium">Labor</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "text-sm font-bold",
+                    laborStatus === 'good' ? 'text-green-500' :
+                    laborStatus === 'warning' ? 'text-yellow-500' :
+                    'text-red-500'
+                  )}>
+                    {laborPercentage.toFixed(1)}%
+                  </span>
+                  <span className="text-accent-foreground/50 text-xs">/ {laborTarget}%</span>
+                </div>
+              </div>
+              <div className="h-2 bg-accent-foreground/20 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    laborStatus === 'good' ? 'bg-green-500' :
+                    laborStatus === 'warning' ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  )}
+                  style={{ width: `${Math.min(laborPercentage / 40 * 100, 100)}%` }}
+                />
+              </div>
+              <p className="text-accent-foreground/50 text-[10px] mt-1 text-center">
+                {laborSavings >= 0 
+                  ? `🎯 Saving ${formatCurrency(laborSavings)}`
+                  : `🔥 ${formatCurrency(Math.abs(laborSavings))} over target`
+                }
+              </p>
+            </div>
+
+            {/* On The Clock - with cut options */}
+            <div className="bg-accent-foreground/10 rounded-2xl p-3">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-accent-foreground/70 text-sm font-medium">Labor Saver</span>
-                <span className={cn(
-                  "text-xs px-2 py-0.5 rounded-full",
-                  laborStatus === 'good' ? 'bg-green-500/20 text-green-500' :
-                  laborStatus === 'warning' ? 'bg-yellow-500/20 text-yellow-500' :
-                  'bg-red-500/20 text-red-500'
-                )}>
-                  {laborTarget}% target
-                </span>
-              </div>
-
-              {/* Labor Bars */}
-              <div className="space-y-3">
-                {/* Actual Labor Bar */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-accent-foreground/50 text-xs">Actual</span>
-                    <span className={cn(
-                      "text-sm font-bold",
-                      laborStatus === 'good' ? 'text-green-500' :
-                      laborStatus === 'warning' ? 'text-yellow-500' :
-                      'text-red-500'
-                    )}>
-                      {laborPercentage.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="h-3 bg-accent-foreground/20 rounded-full overflow-hidden">
-                    <div 
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        laborStatus === 'good' ? 'bg-green-500' :
-                        laborStatus === 'warning' ? 'bg-yellow-500' :
-                        'bg-red-500'
-                      )}
-                      style={{ width: `${Math.min(laborPercentage / 40 * 100, 100)}%` }}
-                    />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-accent-foreground/70" />
+                  <span className="text-accent-foreground/70 text-xs font-medium">On The Clock</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {activeShifts.length}
+                  </Badge>
                 </div>
-
-                {/* Target Labor Bar */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-accent-foreground/50 text-xs">Target</span>
-                    <span className="text-accent-foreground text-sm font-bold">
-                      {laborTarget}%
-                    </span>
-                  </div>
-                  <div className="h-3 bg-accent-foreground/20 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-accent-foreground/40 rounded-full"
-                      style={{ width: `${Math.min(laborTarget / 40 * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Message */}
-              <div className="mt-4 pt-3 border-t border-accent-foreground/10 text-center">
-                {laborSavings >= 0 ? (
-                  <p className="text-green-500 font-medium">
-                    🎯 Saving {formatCurrency(laborSavings)} in labor!
-                  </p>
-                ) : (
-                  <p className="text-red-500 font-medium">
-                    🔥 {formatCurrency(Math.abs(laborSavings))} over target
-                  </p>
+                {hasAnyCuts && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-xs text-primary hover:text-primary/80 px-2"
+                    onClick={() => setShowPreviewModal(true)}
+                  >
+                    <Calculator className="h-3 w-3 mr-1" />
+                    Preview
+                  </Button>
                 )}
-                <p className="text-accent-foreground/50 text-xs mt-1">
-                  Cost: {formatCurrency(laborCost)} • Hours: {(laborData?.labor_hours || 0).toFixed(1)}h
-                </p>
               </div>
+
+              {activeShifts.length === 0 ? (
+                <p className="text-accent-foreground/50 text-xs text-center py-4">No one clocked in</p>
+              ) : (
+                <div className="space-y-2">
+                  {activeShifts.map((shift) => {
+                    const cut = getCutForEmployee(shift.userId);
+                    return (
+                      <div
+                        key={shift.userId}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-xl transition-colors",
+                          cut ? "bg-red-500/10 border border-red-500/30" : "bg-accent-foreground/5"
+                        )}
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={shift.profilePhoto || undefined} />
+                          <AvatarFallback className="bg-primary/20 text-primary text-xs">
+                            {shift.fullName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-accent-foreground truncate">
+                            {shift.fullName}
+                          </p>
+                          {shift.scheduledEndTime && (
+                            <p className="text-[10px] text-accent-foreground/50">
+                              until {formatEndTime(shift.scheduledEndTime)}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {cut ? (
+                          <div className="flex items-center gap-1">
+                            <Badge className="bg-red-500/30 text-red-500 text-[10px] px-1.5">
+                              -{cut.minutesCut}m
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-5 w-5 p-0 text-red-500 hover:text-red-400"
+                              onClick={() => handleRemoveCut(shift.userId)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            {[30, 60].map((mins) => (
+                              <Button
+                                key={mins}
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-[10px] px-2 text-accent-foreground/70 hover:text-red-500 hover:bg-red-500/10"
+                                onClick={() => handleAddCut(shift, mins)}
+                              >
+                                <Scissors className="h-2.5 w-2.5 mr-0.5" />
+                                {mins === 60 ? '1hr' : `${mins}m`}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Summary when cuts exist */}
+              {hasAnyCuts && (
+                <div className="mt-3 pt-3 border-t border-accent-foreground/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-green-500 text-xs font-medium">
+                      -{calculateLaborSavings.percentSaved.toFixed(1)}% labor
+                    </p>
+                    <p className="text-accent-foreground/50 text-[10px]">
+                      Save {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-accent-foreground/70"
+                      onClick={handleClearAllCuts}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={cn(
+                        "h-7 text-xs",
+                        cutsSaved 
+                          ? "bg-green-500 hover:bg-green-600" 
+                          : "bg-primary hover:bg-primary/90"
+                      )}
+                      onClick={handleSaveCuts}
+                    >
+                      {cutsSaved ? 'Saved ✓' : 'Save Plan'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Labor Savings Preview Modal */}
+          <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+            <DialogContent className="max-w-sm bg-accent border-accent-foreground/20 text-accent-foreground">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-primary" />
+                  Labor Savings Preview
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-2">
+                {/* Employees being cut */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-medium text-accent-foreground/70">Sending Home Early:</h4>
+                  {laborCuts.map(cut => {
+                    const employee = activeShifts.find(s => s.userId === cut.userId);
+                    if (!employee) return null;
+                    const hoursSaved = cut.minutesCut / 60;
+                    const costSaved = hoursSaved * (employee.hourlyWage || 16);
+                    return (
+                      <div key={cut.userId} className="flex items-center justify-between p-2 rounded-lg bg-accent-foreground/10">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={employee.profilePhoto || undefined} />
+                            <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                              {employee.fullName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{employee.fullName}</span>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="bg-red-500/30 text-red-500 text-[10px]">-{cut.minutesCut}m</Badge>
+                          <p className="text-green-500 text-[10px] mt-0.5">-{formatCurrency(costSaved)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Comparison */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-accent-foreground/10 text-center">
+                    <p className="text-[10px] mb-1 text-accent-foreground/70">Current</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      calculateLaborSavings.currentLaborPercent > laborTarget ? 'text-red-500' : 'text-accent-foreground'
+                    )}>
+                      {calculateLaborSavings.currentLaborPercent.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-center">
+                    <p className="text-[10px] mb-1 text-green-500/80">After Cuts</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      calculateLaborSavings.newLaborPercent <= laborTarget ? 'text-green-500' : 'text-yellow-500'
+                    )}>
+                      {calculateLaborSavings.newLaborPercent.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/30">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] text-accent-foreground/70">Total Savings</p>
+                      <p className="text-green-500 text-lg font-bold">
+                        {formatCurrency(calculateLaborSavings.totalCostSaved)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-accent-foreground/70">Time Cut</p>
+                      <p className="text-green-500 text-lg font-bold">
+                        {Math.floor(calculateLaborSavings.totalMinutesSaved / 60)}h {calculateLaborSavings.totalMinutesSaved % 60}m
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleClearAllCuts}
+                  >
+                    Clear All
+                  </Button>
+                  <Button
+                    className="flex-1 bg-green-500 hover:bg-green-600"
+                    onClick={handleSaveCuts}
+                  >
+                    {cutsSaved ? 'Saved ✓' : 'Save Cuts'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </motion.div>
       )}
     </AnimatePresence>
