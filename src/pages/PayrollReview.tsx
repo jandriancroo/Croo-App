@@ -169,17 +169,15 @@ function EditShiftForm({
   const [breaks, setBreaks] = useState<BreakEntry[]>(initialBreaks);
   const [saving, setSaving] = useState(false);
 
-  // Helper to determine if a time crosses midnight relative to clock-in
-  // If clock-out time is earlier than clock-in time (e.g., clock-in 18:00, clock-out 01:30)
-  // then clock-out is on the next calendar day
-  const getAdjustedDateForTime = (timeStr: string, referenceTimeStr: string, baseDate: string): string => {
-    const [timeHour] = timeStr.split(':').map(Number);
-    const [refHour] = referenceTimeStr.split(':').map(Number);
-    
-    // If the time is significantly earlier than reference (e.g., 01:30 vs 18:00)
-    // it means the time crosses midnight and should be on the next day
-    // Use threshold: if time is < 12 and reference is >= 12, it's likely next day
-    if (timeHour < 12 && refHour >= 12) {
+  // Midnight-crossing rule (Time Tracking): only CLOCK OUT can roll into the next day.
+  // Breaks and clock-in edits must stay on the shift start date.
+  const getAdjustedDateForClockOut = (clockOutTime: string, clockInTime: string, baseDate: string): string => {
+    const [outHour] = clockOutTime.split(':').map(Number);
+    const [inHour] = clockInTime.split(':').map(Number);
+    if (Number.isNaN(outHour) || Number.isNaN(inHour)) return baseDate;
+
+    // If clock-out hour is earlier than clock-in hour, it indicates an overnight shift.
+    if (outHour < inHour) {
       const nextDay = new Date(baseDate);
       nextDay.setDate(nextDay.getDate() + 1);
       return nextDay.toISOString().slice(0, 10);
@@ -207,9 +205,9 @@ function EditShiftForm({
       }
 
       // Update clock out - clear auto_punched flag when manager edits
-      // Handle midnight-crossing: if clock-out time < clock-in time, use next day
+      // Handle midnight-crossing ONLY for clock_out
       if (clockOut && clockOutTime) {
-        const clockOutDate = getAdjustedDateForTime(clockOutTime, clockInTime, shiftDate);
+        const clockOutDate = getAdjustedDateForClockOut(clockOutTime, clockInTime, shiftDate);
         const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
         await supabase.from('time_punches').update({ 
           punch_time: newClockOutTime,
@@ -219,7 +217,7 @@ function EditShiftForm({
         }).eq('id', clockOut.id);
       } else if (!clockOut && clockOutTime) {
         // Add missing clock out - this IS an insert, so set created_by
-        const clockOutDate = getAdjustedDateForTime(clockOutTime, clockInTime, shiftDate);
+        const clockOutDate = getAdjustedDateForClockOut(clockOutTime, clockInTime, shiftDate);
         const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
         await supabase.from('time_punches').insert({
           user_id: userId,
@@ -236,8 +234,8 @@ function EditShiftForm({
 
         const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
 
-        const breakStartDate = getAdjustedDateForTime(brk.startTime, clockInTime, shiftDate);
-        const breakStartIso = toISOStringInTimezone(breakStartDate, brk.startTime, timezone);
+        // Breaks always stay on the shift start date (no midnight-roll for breaks in Time Tracking editor)
+        const breakStartIso = toISOStringInTimezone(shiftDate, brk.startTime, timezone);
 
         if (brk.id) {
           await supabase.from('time_punches').update({
@@ -258,8 +256,7 @@ function EditShiftForm({
         }
 
         if (brk.endTime) {
-          const breakEndDate = getAdjustedDateForTime(brk.endTime, clockInTime, shiftDate);
-          const breakEndIso = toISOStringInTimezone(breakEndDate, brk.endTime, timezone);
+          const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
 
           if (brk.endId) {
             // endId may be a break_end OR a legacy clock_in (return from break)
@@ -351,11 +348,17 @@ function EditShiftForm({
             type="button"
             variant="outline"
             size="sm"
+            disabled={!clockInTime}
             onClick={() => setBreaks(prev => ([...prev, { startTime: '', endTime: '', type: 'unpaid' }]))}
+            title={!clockInTime ? 'Enter clock-in time first' : undefined}
           >
             Add break
           </Button>
         </div>
+
+        {!clockInTime && (
+          <div className="text-xs text-muted-foreground">Enter clock-in time to add breaks</div>
+        )}
 
         {breaks.length === 0 ? (
           <div className="text-xs text-muted-foreground">No breaks</div>
