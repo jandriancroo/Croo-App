@@ -707,18 +707,18 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent 
-                              className="w-48 p-3 bg-accent border-accent-foreground/20"
+                              className="w-48 p-3 bg-background border border-border shadow-neumorphic-lg"
                               side="left"
                               align="start"
                             >
                               <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                  <p className="text-xs font-medium text-accent-foreground">Cut shift early</p>
+                                  <p className="text-xs font-medium text-foreground">Cut shift early</p>
                                   {getCutForEmployee(shift.userId) && (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-5 text-[10px] text-accent-foreground/50"
+                                      className="h-5 text-[10px] text-muted-foreground"
                                       onClick={() => handleRemoveCut(shift.userId)}
                                     >
                                       Clear
@@ -737,7 +737,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                                           "text-[10px] h-7 font-medium",
                                           existingCut?.minutesCut === mins 
                                             ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
-                                            : 'bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground hover:bg-red-500/20'
+                                            : 'bg-muted border-border text-foreground hover:bg-red-500/20'
                                         )}
                                         onClick={() => handleAddCut(shift, mins)}
                                       >
@@ -747,19 +747,19 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                                   })}
                                 </div>
                                 {shift.scheduledEndTime && (
-                                  <div className="pt-2 border-t border-accent-foreground/10">
-                                    <p className="text-[10px] mb-1.5 text-accent-foreground/60">Custom end time:</p>
+                                  <div className="pt-2 border-t border-border">
+                                    <p className="text-[10px] mb-1.5 text-muted-foreground">Custom end time:</p>
                                     <div className="flex gap-1.5">
                                       <Input
                                         type="time"
                                         value={customTime}
                                         onChange={(e) => setCustomTime(e.target.value)}
-                                        className="text-[10px] h-7 flex-1 bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground"
+                                        className="text-[10px] h-7 flex-1 bg-muted border-border text-foreground"
                                       />
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 px-2 text-[10px] bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground hover:bg-accent-foreground/20"
+                                        className="h-7 px-2 text-[10px]"
                                         onClick={() => handleCustomCut(shift)}
                                         disabled={!customTime}
                                       >
