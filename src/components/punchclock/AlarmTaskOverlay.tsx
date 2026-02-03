@@ -37,6 +37,12 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [pinError, setPinError] = useState(false);
   const [validatingPin, setValidatingPin] = useState(false);
   
+  // Confirmation screen state
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [completedByUser, setCompletedByUser] = useState<{ name: string; photo_url: string | null } | null>(null);
+  const [completedAlarmTitle, setCompletedAlarmTitle] = useState("");
+  const confirmationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Snooze tracking - persisted per alarm interval
   const [snoozeCount, setSnoozeCount] = useState(0);
   const snoozeCountRef = useRef(0);
@@ -480,7 +486,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       // Look up user by PIN - check both default_location and all_locations_enabled
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
-        .select('id, full_name, default_location_id, all_locations_enabled')
+        .select('id, full_name, default_location_id, all_locations_enabled, profile_photo_url')
         .eq('employee_pin', pin)
         .eq('is_active', true);
       
@@ -508,10 +514,20 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
       if (error) throw error;
 
+      // Show confirmation screen
       const userName = profile.full_name || 'User';
-      toast.success(`Task completed by ${userName}!`);
-      handleDismissComplete();
-      onComplete?.();
+      setCompletedByUser({ name: userName, photo_url: profile.profile_photo_url });
+      setCompletedAlarmTitle(activeAlarm.title);
+      setShowPinEntry(false);
+      setShowConfirmation(true);
+      stopAlarmLoop();
+      
+      // Auto-dismiss after 7 seconds
+      if (confirmationTimeoutRef.current) clearTimeout(confirmationTimeoutRef.current);
+      confirmationTimeoutRef.current = setTimeout(() => {
+        handleDismissComplete();
+        onComplete?.();
+      }, 7000);
     } catch (error: any) {
       console.error("Error completing alarm task:", error);
       toast.error(error?.message ? `Failed to complete task: ${error.message}` : "Failed to complete task");
@@ -628,6 +644,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     setIsVisible(false);
     setIsSnoozed(false);
     setShowPinEntry(false);
+    setShowConfirmation(false);
+    setCompletedByUser(null);
+    setCompletedAlarmTitle("");
     setPin("");
     snoozedAlarmRef.current = null;
     stopAlarmLoop();
@@ -645,20 +664,126 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
+    if (confirmationTimeoutRef.current) {
+      clearTimeout(confirmationTimeoutRef.current);
+    }
     
     setTimeout(() => {
       setActiveAlarm(null);
     }, 300);
   };
 
-  if (!activeAlarm) return null;
+  if (!activeAlarm && !showConfirmation) return null;
 
   const canSnooze = snoozeCount < MAX_SNOOZES;
   const snoozesRemaining = MAX_SNOOZES - snoozeCount;
 
   return (
     <AnimatePresence>
-      {isVisible && (
+      {/* Confirmation Screen */}
+      {showConfirmation && completedByUser && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          style={{ 
+            background: 'radial-gradient(ellipse at center, rgba(34, 197, 94, 0.2) 0%, rgba(0,0,0,0.95) 70%)',
+            backdropFilter: 'blur(20px)'
+          }}
+        >
+          {/* Success ring effect */}
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            initial={{ scale: 0.8, opacity: 0.5 }}
+            animate={{ scale: 1.3, opacity: 0 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+          >
+            <div 
+              className="w-64 h-64 rounded-full border-4 border-green-500"
+              style={{ boxShadow: '0 0 60px rgba(34, 197, 94, 0.4)' }}
+            />
+          </motion.div>
+          
+          <motion.div
+            initial={{ scale: 0.8, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.8, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative w-full max-w-md text-center"
+          >
+            {/* Glass card */}
+            <div 
+              className="relative overflow-hidden rounded-3xl backdrop-blur-2xl border border-green-500/40 p-10"
+              style={{ 
+                background: 'linear-gradient(145deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05))',
+                boxShadow: '0 25px 50px -12px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(34, 197, 94, 0.2) inset'
+              }}
+            >
+              {/* Top accent bar */}
+              <div 
+                className="absolute top-0 left-0 right-0 h-1.5"
+                style={{ background: 'linear-gradient(90deg, #22c55e, #16a34a)' }}
+              />
+              
+              {/* Checkmark */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", damping: 15 }}
+                className="mx-auto mb-6 w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center"
+              >
+                <Check className="h-10 w-10 text-green-400" />
+              </motion.div>
+              
+              {/* Profile Photo */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mb-6"
+              >
+                <div className="mx-auto w-24 h-24 rounded-full overflow-hidden border-4 border-green-500/50 shadow-lg">
+                  {completedByUser.photo_url ? (
+                    <img 
+                      src={completedByUser.photo_url} 
+                      alt={completedByUser.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-green-500/30 to-green-600/30 flex items-center justify-center">
+                      <span className="text-3xl font-bold text-white">
+                        {completedByUser.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <h3 className="mt-4 text-2xl font-bold text-white">
+                  {completedByUser.name}
+                </h3>
+              </motion.div>
+              
+              {/* Thank You Message */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <p className="text-xl text-green-300 font-medium">
+                  Thank You for Completing
+                </p>
+                <p className="mt-2 text-2xl font-bold text-white">
+                  "{completedAlarmTitle}"
+                </p>
+              </motion.div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+      
+      {/* Main Alarm Overlay */}
+      {isVisible && activeAlarm && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -728,173 +853,167 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                       </h2>
                     </div>
                     
-                    <div className="text-center space-y-2">
-                      <p className="text-white/70">
-                        Complete: <span className="text-white font-semibold">{activeAlarm.title}</span>
-                      </p>
-                    </div>
+                    <p className="text-white/70 text-center">
+                      Complete: <span className="text-white font-medium">{activeAlarm.title}</span>
+                    </p>
                     
-                    {/* PIN Display */}
-                    <motion.div 
-                      className="flex justify-center gap-3"
-                      animate={pinError ? { x: [0, -10, 10, -10, 10, 0] } : {}}
-                      transition={{ duration: 0.4 }}
-                    >
-                      {[0, 1, 2, 3, 4, 5].map((i) => (
-                        <div
+                    {/* PIN dots */}
+                    <div className="flex justify-center gap-4">
+                      {[0, 1, 2, 3].map((i) => (
+                        <motion.div
                           key={i}
-                          className={`w-4 h-4 rounded-full transition-all ${
+                          className={`w-5 h-5 rounded-full border-2 ${
                             pin.length > i 
-                              ? pinError 
-                                ? 'bg-red-500' 
-                                : 'bg-white' 
-                              : 'bg-white/20'
+                              ? 'bg-white border-white' 
+                              : 'border-white/40'
                           }`}
+                          animate={pinError ? { x: [-5, 5, -5, 5, 0] } : {}}
+                          transition={{ duration: 0.3 }}
                         />
                       ))}
-                    </motion.div>
+                    </div>
                     
                     {pinError && (
-                      <p className="text-center text-destructive text-sm">
+                      <p className="text-red-400 text-center text-sm">
                         Invalid PIN. Please try again.
                       </p>
                     )}
                     
                     {/* Numpad */}
                     <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
-                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map((key) => (
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                         <Button
-                          key={key}
+                          key={num}
                           variant="outline"
-                          className={`h-16 text-2xl font-bold rounded-2xl transition-all ${
-                            key === 'C' 
-                              ? 'bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30' 
-                              : key === '⌫'
-                              ? 'bg-white/5 border-white/20 text-white/70 hover:bg-white/10'
-                              : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                          }`}
-                          onClick={() => {
-                            if (key === 'C') handlePinClear();
-                            else if (key === '⌫') handlePinBackspace();
-                            else handlePinDigit(key);
-                          }}
-                          disabled={validatingPin}
+                          className="h-16 text-2xl font-bold bg-white/5 border-white/20 text-white hover:bg-white/20"
+                          onClick={() => handlePinDigit(num.toString())}
                         >
-                          {key === '⌫' ? <Delete className="h-6 w-6" /> : key}
+                          {num}
                         </Button>
                       ))}
+                      <Button
+                        variant="outline"
+                        className="h-16 bg-white/5 border-white/20 text-white hover:bg-white/20"
+                        onClick={handlePinClear}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-16 text-2xl font-bold bg-white/5 border-white/20 text-white hover:bg-white/20"
+                        onClick={() => handlePinDigit('0')}
+                      >
+                        0
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-16 bg-white/5 border-white/20 text-white hover:bg-white/20"
+                        onClick={handlePinBackspace}
+                      >
+                        <Delete className="h-6 w-6" />
+                      </Button>
                     </div>
                     
-                    {/* Submit Button */}
+                    {/* Submit button */}
                     <Button
-                      size="lg"
-                      className="w-full gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg disabled:opacity-50"
+                      className="w-full h-14 text-lg font-bold"
+                      style={{ 
+                        background: activeAlarm.accent_color,
+                        color: 'white'
+                      }}
                       onClick={validateAndComplete}
                       disabled={pin.length < 4 || validatingPin}
-                      style={{ 
-                        background: pin.length >= 4 
-                          ? `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`
-                          : 'rgba(255,255,255,0.1)',
-                        boxShadow: pin.length >= 4 
-                          ? `0 10px 30px -5px ${activeAlarm.accent_color}60`
-                          : 'none'
-                      }}
                     >
-                      <Check className="h-6 w-6" />
-                      {validatingPin ? 'Verifying...' : 'Complete Task'}
+                      {validatingPin ? (
+                        <span className="flex items-center gap-2">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                          />
+                          Verifying...
+                        </span>
+                      ) : (
+                        'Submit'
+                      )}
                     </Button>
                   </>
                 ) : (
                   // Main Alarm Screen
                   <>
-                    {/* Icon - larger circular with animated pulse */}
-                    <div className="flex justify-center">
-                      <div className="relative">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
                         <motion.div
-                          animate={{ scale: [1, 1.08, 1] }}
-                          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                          className="w-32 h-32 rounded-full flex items-center justify-center"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity }}
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center"
                           style={{ 
-                            background: `radial-gradient(circle, ${activeAlarm.accent_color}40 0%, ${activeAlarm.accent_color}15 70%, transparent 100%)`,
-                            boxShadow: `0 0 60px ${activeAlarm.accent_color}50, inset 0 0 30px ${activeAlarm.accent_color}20`
+                            background: `linear-gradient(135deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}80)`,
+                            boxShadow: `0 8px 32px ${activeAlarm.accent_color}50`
                           }}
                         >
-                          <div 
-                            className="w-24 h-24 rounded-full flex items-center justify-center"
-                            style={{ 
-                              background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}cc)`,
-                              boxShadow: `0 8px 30px ${activeAlarm.accent_color}60`
-                            }}
-                          >
-                            <Bell className="h-12 w-12 text-white" />
-                          </div>
+                          <Bell className="h-7 w-7 text-white" />
                         </motion.div>
-                        
-                        {/* Countdown badge */}
-                        {countdown > 0 && (
-                          <motion.div 
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ duration: 1, repeat: Infinity }}
-                            className="absolute -top-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shadow-lg"
-                            style={{ backgroundColor: activeAlarm.accent_color }}
-                          >
-                            {countdown}
-                          </motion.div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="text-center space-y-4">
-                      <h2 className="text-3xl font-bold text-white tracking-tight">
-                        {activeAlarm.title}
-                      </h2>
-                      {activeAlarm.description && (
-                        <p className="text-white/70 text-base leading-relaxed max-w-sm mx-auto">
-                          {activeAlarm.description}
-                        </p>
-                      )}
-                      <div 
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
-                        style={{ 
-                          backgroundColor: `${activeAlarm.accent_color}25`, 
-                          color: activeAlarm.accent_color 
-                        }}
-                      >
-                        <Clock className="h-4 w-4" />
-                        {!canSnooze ? 'COMPLETE REQUIRED' : 'RECURRING TASK'}
+                        <div>
+                          <h2 className="text-3xl font-black text-white tracking-tight">
+                            {activeAlarm.title}
+                          </h2>
+                          {activeAlarm.description && (
+                            <p className="text-white/60 text-base mt-1">
+                              {activeAlarm.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       
-                      {/* Snooze indicator */}
-                      {canSnooze && (
-                        <p className="text-white/50 text-sm">
-                          {snoozesRemaining} snooze{snoozesRemaining !== 1 ? 's' : ''} remaining
-                        </p>
+                      {/* Countdown badge */}
+                      {countdown > 0 && (
+                        <div 
+                          className="flex items-center gap-2 px-4 py-2 rounded-full"
+                          style={{ background: `${activeAlarm.accent_color}30` }}
+                        >
+                          <Clock className="h-4 w-4 text-white/80" />
+                          <span className="text-white font-bold tabular-nums">{countdown}s</span>
+                        </div>
+                      )}
+                      {countdown === 0 && snoozeCount >= MAX_SNOOZES && (
+                        <div 
+                          className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/30"
+                        >
+                          <span className="text-white font-bold text-sm">PIN Required</span>
+                        </div>
                       )}
                     </div>
                     
-                    {/* Actions */}
+                    {/* Snooze info */}
+                    {!canSnooze && (
+                      <div className="text-center py-2 px-4 rounded-xl bg-red-500/20 border border-red-500/30">
+                        <p className="text-red-300 text-sm font-medium">
+                          No snoozes remaining - Please complete the task
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Action Buttons */}
                     <div className="flex gap-4">
                       {canSnooze && (
                         <Button
                           variant="outline"
-                          size="lg"
-                          className="flex-1 gap-3 h-16 text-lg rounded-2xl bg-white/5 border-white/20 text-white hover:bg-white/10 hover:text-white"
+                          className="flex-1 h-16 text-lg font-bold border-white/20 text-white hover:bg-white/10 gap-3"
                           onClick={handleSnooze}
                         >
                           <Clock className="h-6 w-6" />
-                          Snooze
+                          Snooze ({snoozesRemaining} left)
                         </Button>
                       )}
                       <Button
-                        size="lg"
-                        className={`${canSnooze ? 'flex-1' : 'w-full'} gap-3 h-16 text-lg rounded-2xl text-white border-0 shadow-lg`}
-                        onClick={handleCompleteClick}
-                        disabled={validatingPin}
+                        className={`${canSnooze ? 'flex-1' : 'w-full'} h-16 text-lg font-bold gap-3`}
                         style={{ 
-                          background: `linear-gradient(145deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`,
-                          boxShadow: `0 10px 30px -5px ${activeAlarm.accent_color}60`
+                          background: `linear-gradient(135deg, ${activeAlarm.accent_color}, ${activeAlarm.accent_color}dd)`,
+                          boxShadow: `0 8px 32px ${activeAlarm.accent_color}40`
                         }}
+                        onClick={handleCompleteClick}
                       >
                         <Check className="h-6 w-6" />
                         Complete
