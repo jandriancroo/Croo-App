@@ -295,10 +295,10 @@ export function DesktopTimeTrackingTable({
                         </TableCell>
 
                         {/* Approve - full width button */}
-                        <TableCell className="py-1 pr-3" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="p-0" onClick={(e) => e.stopPropagation()}>
                           {hasOpenShift ? (
                             <button 
-                              className="h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/30 border border-dashed border-muted-foreground/30 text-xs text-muted-foreground cursor-not-allowed"
+                              className="h-full min-h-[40px] w-full px-3 flex items-center justify-center gap-1.5 bg-muted/30 border-l border-dashed border-muted-foreground/30 text-xs text-muted-foreground cursor-not-allowed"
                               disabled
                               title="Cannot approve open shift - add clock-out first"
                             >
@@ -306,7 +306,7 @@ export function DesktopTimeTrackingTable({
                             </button>
                           ) : isApproved ? (
                             <button 
-                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              className={`h-full min-h-[40px] w-full px-3 flex items-center justify-center gap-1.5 bg-green-100 dark:bg-green-900/30 border-l border-green-500 text-green-600 text-xs font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-all duration-150 active:scale-95 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onUnapproveDay(dayPunches)}
                               disabled={isApproving}
                             >
@@ -315,7 +315,7 @@ export function DesktopTimeTrackingTable({
                             </button>
                           ) : (
                             <button 
-                              className={`h-7 w-full px-3 rounded-md flex items-center justify-center gap-1.5 bg-muted/50 border border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
+                              className={`h-full min-h-[40px] w-full px-3 flex items-center justify-center gap-1.5 bg-muted/50 border-l border-border text-xs font-medium text-muted-foreground hover:bg-primary/10 hover:border-primary hover:text-primary transition-all duration-150 active:scale-95 active:bg-green-100 active:border-green-500 ${isApproving ? 'opacity-50 pointer-events-none animate-pulse' : ''}`}
                               onClick={() => onApproveDay(dayPunches)}
                               disabled={isApproving}
                             >
