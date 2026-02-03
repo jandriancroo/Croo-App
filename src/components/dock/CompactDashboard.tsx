@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -23,6 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
 
 interface CompactDashboardProps {
@@ -44,6 +46,7 @@ interface ActiveShift {
 interface LaborCut {
   userId: string;
   minutesCut: number;
+  customEndTime?: string;
 }
 
 export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDashboardProps) => {
@@ -53,6 +56,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showCutOptions, setShowCutOptions] = useState<string | null>(null);
+  const [customTime, setCustomTime] = useState('');
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
@@ -364,10 +369,80 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     setLaborCuts(prev => {
       const existing = prev.find(c => c.userId === employee.userId);
       if (existing) {
-        return prev.map(c => c.userId === employee.userId ? { ...c, minutesCut: minutes } : c);
+        return prev.map(c => c.userId === employee.userId ? { ...c, minutesCut: minutes, customEndTime: undefined } : c);
       }
       return [...prev, { userId: employee.userId, minutesCut: minutes }];
     });
+    setShowCutOptions(null);
+  };
+
+  const handleCustomCut = (employee: ActiveShift) => {
+    if (!customTime || !employee.scheduledEndTime) return;
+    
+    // Parse scheduled end time
+    const [schedHours, schedMinutes] = employee.scheduledEndTime.split(':').map(Number);
+    const schedEnd = new Date();
+    schedEnd.setHours(schedHours, schedMinutes, 0, 0);
+    
+    // Parse custom end time
+    const [custHours, custMinutes] = customTime.split(':').map(Number);
+    const customEnd = new Date();
+    customEnd.setHours(custHours, custMinutes, 0, 0);
+    
+    const minutesCut = differenceInMinutes(schedEnd, customEnd);
+    if (minutesCut > 0) {
+      setLaborCuts(prev => {
+        const existing = prev.find(c => c.userId === employee.userId);
+        if (existing) {
+          return prev.map(c => c.userId === employee.userId 
+            ? { ...c, minutesCut, customEndTime: customTime } 
+            : c
+          );
+        }
+        return [...prev, { userId: employee.userId, minutesCut, customEndTime: customTime }];
+      });
+    } else {
+      // Custom time is after or equal to scheduled end - just set the custom time
+      setLaborCuts(prev => {
+        const existing = prev.find(c => c.userId === employee.userId);
+        if (existing) {
+          return prev.map(c => c.userId === employee.userId 
+            ? { ...c, minutesCut: 0, customEndTime: customTime } 
+            : c
+          );
+        }
+        return [...prev, { userId: employee.userId, minutesCut: 0, customEndTime: customTime }];
+      });
+    }
+    setCustomTime('');
+    setShowCutOptions(null);
+  };
+
+  // Calculate new clock-out time based on scheduled end and cut minutes
+  const getNewClockOutTime = (scheduledEndTime: string | undefined, minutesCut: number): string | null => {
+    if (!scheduledEndTime) return null;
+    
+    const [hours, minutes] = scheduledEndTime.split(':').map(Number);
+    const endDate = new Date();
+    endDate.setHours(hours, minutes, 0, 0);
+    endDate.setMinutes(endDate.getMinutes() - minutesCut);
+    
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(endDate);
+  };
+
+  const formatCustomTime = (time: string): string => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
   };
 
   const handleRemoveCut = (userId: string) => {
@@ -600,7 +675,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         {cut ? (
                           <div className="flex items-center gap-1">
                             <Badge className="bg-red-500/30 text-red-500 text-[10px] px-1.5">
-                              -{cut.minutesCut}m
+                              {cut.customEndTime 
+                                ? `Out @ ${formatCustomTime(cut.customEndTime)}`
+                                : shift.scheduledEndTime
+                                  ? `Out @ ${getNewClockOutTime(shift.scheduledEndTime, cut.minutesCut) || `-${cut.minutesCut}m`}`
+                                  : `-${cut.minutesCut}m`
+                              }
                             </Badge>
                             <Button
                               size="sm"
@@ -612,20 +692,85 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1">
-                            {[30, 60].map((mins) => (
+                          <Popover open={showCutOptions === shift.userId} onOpenChange={(open) => {
+                            setShowCutOptions(open ? shift.userId : null);
+                            if (!open) setCustomTime('');
+                          }}>
+                            <PopoverTrigger asChild>
                               <Button
-                                key={mins}
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 text-[10px] px-2 text-accent-foreground/70 hover:text-red-500 hover:bg-red-500/10"
-                                onClick={() => handleAddCut(shift, mins)}
                               >
-                                <Scissors className="h-2.5 w-2.5 mr-0.5" />
-                                {mins === 60 ? '1hr' : `${mins}m`}
+                                <Scissors className="h-3 w-3 mr-1" />
+                                Cut
                               </Button>
-                            ))}
-                          </div>
+                            </PopoverTrigger>
+                            <PopoverContent 
+                              className="w-48 p-3 bg-accent border-accent-foreground/20"
+                              side="left"
+                              align="start"
+                            >
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium text-accent-foreground">Cut shift early</p>
+                                  {getCutForEmployee(shift.userId) && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 text-[10px] text-accent-foreground/50"
+                                      onClick={() => handleRemoveCut(shift.userId)}
+                                    >
+                                      Clear
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {[15, 30, 45, 60].map((mins) => {
+                                    const existingCut = getCutForEmployee(shift.userId);
+                                    return (
+                                      <Button
+                                        key={mins}
+                                        size="sm"
+                                        variant={existingCut?.minutesCut === mins ? 'default' : 'outline'}
+                                        className={cn(
+                                          "text-[10px] h-7 font-medium",
+                                          existingCut?.minutesCut === mins 
+                                            ? 'bg-red-500 hover:bg-red-600 text-white border-red-500' 
+                                            : 'bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground hover:bg-red-500/20'
+                                        )}
+                                        onClick={() => handleAddCut(shift, mins)}
+                                      >
+                                        -{mins === 60 ? '1hr' : `${mins}m`}
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                                {shift.scheduledEndTime && (
+                                  <div className="pt-2 border-t border-accent-foreground/10">
+                                    <p className="text-[10px] mb-1.5 text-accent-foreground/60">Custom end time:</p>
+                                    <div className="flex gap-1.5">
+                                      <Input
+                                        type="time"
+                                        value={customTime}
+                                        onChange={(e) => setCustomTime(e.target.value)}
+                                        className="text-[10px] h-7 flex-1 bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-[10px] bg-accent-foreground/10 border-accent-foreground/20 text-accent-foreground hover:bg-accent-foreground/20"
+                                        onClick={() => handleCustomCut(shift)}
+                                        disabled={!customTime}
+                                      >
+                                        Set
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         )}
                       </div>
                     );
