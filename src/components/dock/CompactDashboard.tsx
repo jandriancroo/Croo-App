@@ -554,7 +554,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   <DollarSign className="h-4 w-4 text-green-500" />
                   <span className="text-accent-foreground/70 text-xs">Sales</span>
                 </div>
-                <p className="text-xl font-bold text-accent-foreground">
+                <p className="text-2xl font-bold text-accent-foreground">
                   {formatCurrency(totalSales)}
                 </p>
                 <p className="text-accent-foreground/50 text-[10px] mt-0.5">
@@ -572,7 +572,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   )}
                   <span className="text-accent-foreground/70 text-xs">Pace</span>
                 </div>
-                <p className="text-xl font-bold text-amber-500">
+                <p className="text-2xl font-bold text-amber-500">
                   {formatCurrency(paceAdjusted)}
                 </p>
                 {paceStatus && (
