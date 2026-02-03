@@ -454,7 +454,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   };
 
   const handlePinDigit = (digit: string) => {
-    if (pin.length < 6) {
+    if (pin.length < 4) {
       setPin(prev => prev + digit);
       setPinError(false);
     }
