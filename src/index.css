@@ -404,7 +404,8 @@ All colors MUST be HSL.
 
   #root {
     width: 100%;
-    max-width: 100vw;
+    /* Avoid iOS/Safari viewport rounding/clipping issues caused by 100vw */
+    max-width: 100%;
     min-height: 100vh;
     position: relative;
   }
