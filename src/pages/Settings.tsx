@@ -230,7 +230,6 @@ export default function Settings() {
                         )}
                         {org.name}
                       </div>
-                      </div>
                       <ExternalLinkIcon className="h-3 w-3" />
                     </Button>
                     <div className="space-y-1">
