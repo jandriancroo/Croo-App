@@ -867,17 +867,18 @@ export default function Schedule() {
   };
 
   const handleCopySchedule = async () => {
-    if (!scheduleId || weeksToAdd < 1) return;
+    if (!scheduleId || weeksToAdd < 1 || !currentLocation?.id) return;
 
     try {
       const targetWeekStart = addWeeks(currentWeekStart, weeksToAdd);
       const targetWeekEnd = endOfWeek(targetWeekStart, { weekStartsOn: 1 });
 
-      // Check if target schedule already exists
+      // Check if target schedule already exists for this location
       const { data: existingSchedule } = await supabase
         .from("schedules")
         .select("id")
         .eq("week_start_date", format(targetWeekStart, "yyyy-MM-dd"))
+        .eq("location_id", currentLocation.id)
         .single();
 
       let targetScheduleId = existingSchedule?.id;
@@ -889,6 +890,7 @@ export default function Schedule() {
           .insert({
             week_start_date: format(targetWeekStart, "yyyy-MM-dd"),
             week_end_date: format(targetWeekEnd, "yyyy-MM-dd"),
+            location_id: currentLocation.id,
             is_published: false,
           })
           .select()
