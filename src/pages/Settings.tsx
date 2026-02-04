@@ -99,12 +99,17 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('organizations')
-        .select('*')
+        .select('*, brands(name, logo_url)')
         .eq('is_active', true)
         .order('name', { ascending: true });
 
       if (error) throw error;
-      setOrganizations(data || []);
+      // Map to include brand fallback for logo
+      const orgsWithLogos = (data || []).map((org: any) => ({
+        ...org,
+        display_logo: org.logo_url || org.brands?.logo_url || null,
+      }));
+      setOrganizations(orgsWithLogos);
     } catch (error: any) {
       console.error('Error fetching organizations:', error);
     }
