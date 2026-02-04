@@ -89,12 +89,15 @@ export function LocationPickerDialog({
           supabase.from('locations').select('*, organizations(name, brand_name, brands(name))').order('name'),
         ]);
 
-        // Map organizations to include brand name/logo fallback
-        const orgs = (orgsResult.data || []).map((org: any) => ({
-          ...org,
-          brand_name: org.brand_name || org.brands?.name || null,
-          logo_url: org.logo_url || org.brands?.logo_url || null,
-        }));
+        // Map organizations to include brand name/logo fallback from the brands table
+        const orgs = (orgsResult.data || []).map((org: any) => {
+          const brand = org.brands;
+          return {
+            ...org,
+            brand_name: org.brand_name || brand?.name || null,
+            logo_url: org.logo_url || brand?.logo_url || null,
+          };
+        });
         setOrganizations(orgs as Organization[]);
         setLocations(
           (locsResult.data || []).map((loc: any) => ({
