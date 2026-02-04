@@ -13,7 +13,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-f
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { SalesSummaryChart } from '@/components/dashboard/SalesSummaryChart';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCachedLiveSales, setCachedLiveSales, getCachedProjections, setCachedProjections } from '@/utils/salesCache';
 
 interface LocationRow {
