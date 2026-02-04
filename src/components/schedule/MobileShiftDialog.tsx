@@ -224,15 +224,7 @@ export function MobileShiftDialog({
         });
       }
 
-      // Mark schedule as unpublished (draft) - Go Live will publish for other changes
-      if (scheduleId) {
-        await supabase
-          .from('schedules')
-          .update({ is_published: false })
-          .eq('id', scheduleId);
-      }
-
-      toast.success(isApprovingClaim ? 'Shift claim approved!' : (isCreating ? 'Shift created (draft)' : 'Shift updated (draft)'));
+      toast.success(isApprovingClaim ? 'Shift claim approved!' : (isCreating ? 'Shift created' : 'Shift updated'));
       onShiftUpdated?.();
       onOpenChange(false);
     } catch (error) {
