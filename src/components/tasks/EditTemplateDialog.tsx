@@ -423,14 +423,21 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
                     </Button>
                   </div>
                   <div className="flex gap-1 flex-wrap">
-                    {customTimes.map(time => (
+                    {customTimes.map(time => {
+                      // Convert 24h to 12h format for display
+                      const [h, m] = time.split(':').map(Number);
+                      const period = h >= 12 ? 'PM' : 'AM';
+                      const h12 = h % 12 || 12;
+                      const display = `${h12}:${m.toString().padStart(2, '0')} ${period}`;
+                      return (
                       <Badge key={time} variant="secondary" className="gap-1">
-                        {time}
+                        {display}
                         <button onClick={() => handleRemoveCustomTime(time)}>
                           <X className="h-3 w-3" />
                         </button>
                       </Badge>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
               )}
