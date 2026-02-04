@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, Clock, Delete, ArrowLeft } from "lucide-react";
+import { Bell, Check, Clock, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { getAlarmIntervalKey, DEFAULT_TIMEZONE } from "@/utils/timezoneUtils";
+import { getAlarmIntervalKey, DEFAULT_TIMEZONE, getTimezoneOffset, getTodayInTimezone } from "@/utils/timezoneUtils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AlarmTask {
   id: string;
@@ -12,6 +13,12 @@ interface AlarmTask {
   description?: string;
   accent_color: string;
   interval_key: string;
+}
+
+interface ClockedInEmployee {
+  id: string;
+  full_name: string;
+  profile_photo_url: string | null;
 }
 
 interface AlarmTaskOverlayProps {
@@ -31,11 +38,11 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [_isSnoozed, setIsSnoozed] = useState(false);
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
   
-  // PIN entry state
-  const [showPinEntry, setShowPinEntry] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState(false);
-  const [validatingPin, setValidatingPin] = useState(false);
+  // Employee picker state (replaces PIN entry)
+  const [showEmployeePicker, setShowEmployeePicker] = useState(false);
+  const [clockedInEmployees, setClockedInEmployees] = useState<ClockedInEmployee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [completingUserId, setCompletingUserId] = useState<string | null>(null);
   
   // Confirmation screen state
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -125,6 +132,100 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     fetchTimezone();
   }, [locationId]);
 
+  // Fetch clocked-in employees when employee picker opens
+  const fetchClockedInEmployees = async () => {
+    if (!locationId || !timezone) return;
+    
+    setLoadingEmployees(true);
+    try {
+      const todayStr = getTodayInTimezone(timezone);
+      const offset = getTimezoneOffset(timezone);
+      
+      // Query window for today's punches
+      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`);
+      const startMinus = new Date(startOfDay);
+      startMinus.setHours(startMinus.getHours() - 12);
+      const startOfDayTime = startMinus.toISOString();
+      
+      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
+      endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
+      const endOfDayTime = endOfDayPlus.toISOString();
+      
+      // Fetch today's punches
+      const { data: punches, error } = await supabase
+        .from('time_punches')
+        .select('id, user_id, punch_time, punch_type')
+        .eq('location_id', locationId)
+        .gte('punch_time', startOfDayTime)
+        .lte('punch_time', endOfDayTime)
+        .order('punch_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Group by user and find who is currently clocked in
+      const userPunches: Record<string, typeof punches> = {};
+      (punches || []).forEach(p => {
+        if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+        userPunches[p.user_id].push(p);
+      });
+      
+      const clockedInUserIds: string[] = [];
+      
+      Object.entries(userPunches).forEach(([userId, userPunchList]) => {
+        let isClockedIn = false;
+        let hasClockIn = false;
+        
+        userPunchList.forEach(p => {
+          if (p.punch_type === 'clock_in') {
+            if (!hasClockIn) {
+              hasClockIn = true;
+              isClockedIn = true;
+            } else if (!isClockedIn) {
+              isClockedIn = true;
+            }
+          }
+          if (p.punch_type === 'clock_out') {
+            if (hasClockIn) {
+              isClockedIn = false;
+            }
+          }
+        });
+        
+        // Filter to only those who clocked in today (in location timezone)
+        if (isClockedIn && hasClockIn) {
+          const clockInPunch = userPunchList.find(p => p.punch_type === 'clock_in');
+          if (clockInPunch) {
+            const clockInDate = new Date(clockInPunch.punch_time);
+            const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
+            if (clockInLocalDate === todayStr) {
+              clockedInUserIds.push(userId);
+            }
+          }
+        }
+      });
+      
+      if (clockedInUserIds.length === 0) {
+        setClockedInEmployees([]);
+        return;
+      }
+      
+      // Fetch profiles for clocked-in users
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', clockedInUserIds);
+      
+      if (profileError) throw profileError;
+      
+      setClockedInEmployees(profiles || []);
+    } catch (error) {
+      console.error('Error fetching clocked-in employees:', error);
+      setClockedInEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
   // Reset state when a new alarm appears
   const initializeAlarm = (task: any, intervalKey: string, remainingSeconds: number) => {
     // Check if this is a different alarm interval than what we had
@@ -142,9 +243,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       interval_key: intervalKey,
     });
     setIsVisible(true);
-    setShowPinEntry(false);
-    setPin("");
-    setPinError(false);
+    setShowEmployeePicker(false);
+    setClockedInEmployees([]);
     startAlarmLoop(task.title);
     setCountdown(Math.ceil(remainingSeconds));
     startCountdown(remainingSeconds);
@@ -462,68 +562,30 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     }
   };
 
-  const handlePinDigit = (digit: string) => {
-    if (pin.length < 4) {
-      setPin(prev => prev + digit);
-      setPinError(false);
-    }
-  };
-
-  const handlePinBackspace = () => {
-    setPin(prev => prev.slice(0, -1));
-    setPinError(false);
-  };
-
-  const handlePinClear = () => {
-    setPin("");
-    setPinError(false);
-  };
-
-  const validateAndComplete = async () => {
-    if (!activeAlarm || pin.length < 4) return;
+  const handleEmployeeSelect = async (employee: ClockedInEmployee) => {
+    if (!activeAlarm || completingUserId) return;
     
-    setValidatingPin(true);
-    setPinError(false);
+    setCompletingUserId(employee.id);
     
     try {
-      // Look up user by PIN - check both default_location and all_locations_enabled
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, default_location_id, all_locations_enabled, profile_photo_url')
-        .eq('employee_pin', pin)
-        .eq('is_active', true);
-      
-      if (profileError) throw profileError;
-      
-      // Filter to users who can access this location
-      const profile = profiles?.find(p => 
-        p.default_location_id === locationId || p.all_locations_enabled
-      );
-      
-      if (!profile) {
-        setPinError(true);
-        setPin("");
-        return;
-      }
-      
-      // Valid PIN - complete the task with this user
+      // Complete the task with this user
       const { error } = await supabase
         .from("alarm_task_completions")
         .insert({
           task_id: activeAlarm.id,
           interval_key: activeAlarm.interval_key,
-          completed_by: profile.id,
+          completed_by: employee.id,
         });
 
       if (error) throw error;
 
       // Show confirmation screen - hide alarm first
-      const userName = profile.full_name || 'User';
+      const userName = employee.full_name || 'User';
       const alarmTitle = activeAlarm.title;
       
       // Clear alarm state to prevent re-triggering
       setIsVisible(false);
-      setShowPinEntry(false);
+      setShowEmployeePicker(false);
       setActiveAlarm(null);
       snoozedAlarmRef.current = null;
       stopAlarmLoop();
@@ -538,7 +600,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       snoozeCountRef.current = 0;
       
       // Now show confirmation
-      setCompletedByUser({ name: userName, photo_url: profile.profile_photo_url });
+      setCompletedByUser({ name: userName, photo_url: employee.profile_photo_url });
       setCompletedAlarmTitle(alarmTitle);
       setShowConfirmation(true);
       
@@ -554,17 +616,16 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       console.error("Error completing alarm task:", error);
       toast.error(error?.message ? `Failed to complete task: ${error.message}` : "Failed to complete task");
     } finally {
-      setValidatingPin(false);
+      setCompletingUserId(null);
     }
   };
 
   const handleCompleteClick = () => {
-    // Show PIN entry instead of immediately completing
-    setShowPinEntry(true);
-    setPin("");
-    setPinError(false);
+    // Show employee picker instead of immediately completing
+    setShowEmployeePicker(true);
+    fetchClockedInEmployees();
     
-    // Stop auto-dismiss timer while entering PIN
+    // Stop auto-dismiss timer while picking
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -574,10 +635,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     stopAlarmLoop();
   };
 
-  const handleBackFromPin = () => {
-    setShowPinEntry(false);
-    setPin("");
-    setPinError(false);
+  const handleBackFromPicker = () => {
+    setShowEmployeePicker(false);
+    setClockedInEmployees([]);
     
     // Restart alarm loop and countdown if snoozes available
     if (activeAlarm) {
@@ -613,8 +673,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     snoozedAlarmRef.current = activeAlarm;
     setIsSnoozed(true);
     setIsVisible(false);
-    setShowPinEntry(false);
-    setPin("");
+    setShowEmployeePicker(false);
+    setClockedInEmployees([]);
     stopAlarmLoop();
     
     if (timeoutRef.current) {
@@ -635,7 +695,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         setActiveAlarm(snoozedAlarmRef.current);
         setIsVisible(true);
         setIsSnoozed(false);
-        setShowPinEntry(false);
+        setShowEmployeePicker(false);
         startAlarmLoop(snoozedAlarmRef.current.title);
         setCountdown(AUTO_DISMISS_SECONDS);
         startCountdown(AUTO_DISMISS_SECONDS);
@@ -660,6 +720,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     const snoozesRemaining = MAX_SNOOZES - newCount;
     toast.info(`Snoozed for 5 minutes (${snoozesRemaining} snooze${snoozesRemaining !== 1 ? 's' : ''} remaining)`, { duration: 3000 });
   };
+
   if (!activeAlarm && !showConfirmation) return null;
 
   const canSnooze = snoozeCount < MAX_SNOOZES;
@@ -823,107 +884,78 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               />
               
               <div className="p-10 space-y-8">
-                {showPinEntry ? (
-                  // PIN Entry Screen
+                {showEmployeePicker ? (
+                  // Employee Picker Screen
                   <>
                     <div className="flex items-center gap-4">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-white/70 hover:text-white hover:bg-white/10"
-                        onClick={handleBackFromPin}
+                        onClick={handleBackFromPicker}
                       >
                         <ArrowLeft className="h-6 w-6" />
                       </Button>
-                      <h2 className="text-2xl font-bold text-white">
-                        Enter Your PIN
-                      </h2>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">
+                          Who Completed the Task?
+                        </h2>
+                        <p className="text-white/60 mt-1">
+                          {activeAlarm.title}
+                        </p>
+                      </div>
                     </div>
                     
-                    <p className="text-white/70 text-center">
-                      Complete: <span className="text-white font-medium">{activeAlarm.title}</span>
-                    </p>
-                    
-                    {/* PIN dots */}
-                    <div className="flex justify-center gap-4">
-                      {[0, 1, 2, 3].map((i) => (
-                        <motion.div
-                          key={i}
-                          className={`w-5 h-5 rounded-full border-2 ${
-                            pin.length > i 
-                              ? 'bg-white border-white' 
-                              : 'border-white/40'
-                          }`}
-                          animate={pinError ? { x: [-5, 5, -5, 5, 0] } : {}}
-                          transition={{ duration: 0.3 }}
-                        />
-                      ))}
-                    </div>
-                    
-                    {pinError && (
-                      <p className="text-red-400 text-center text-sm">
-                        Invalid PIN. Please try again.
-                      </p>
-                    )}
-                    
-                    {/* Numpad */}
-                    <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                        <Button
-                          key={num}
-                          variant="outline"
-                          className="h-16 text-2xl font-bold bg-white/5 border-white/20 text-white hover:bg-white/20"
-                          onClick={() => handlePinDigit(num.toString())}
-                        >
-                          {num}
-                        </Button>
-                      ))}
-                      <Button
-                        variant="outline"
-                        className="h-16 bg-white/5 border-white/20 text-white hover:bg-white/20"
-                        onClick={handlePinClear}
-                      >
-                        Clear
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-16 text-2xl font-bold bg-white/5 border-white/20 text-white hover:bg-white/20"
-                        onClick={() => handlePinDigit('0')}
-                      >
-                        0
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="h-16 bg-white/5 border-white/20 text-white hover:bg-white/20"
-                        onClick={handlePinBackspace}
-                      >
-                        <Delete className="h-6 w-6" />
-                      </Button>
-                    </div>
-                    
-                    {/* Submit button */}
-                    <Button
-                      className="w-full h-14 text-lg font-bold"
-                      style={{ 
-                        background: activeAlarm.accent_color,
-                        color: 'white'
-                      }}
-                      onClick={validateAndComplete}
-                      disabled={pin.length < 4 || validatingPin}
-                    >
-                      {validatingPin ? (
-                        <span className="flex items-center gap-2">
+                    {/* Clocked-in employees */}
+                    <div className="py-4">
+                      {loadingEmployees ? (
+                        <div className="flex justify-center py-8">
                           <motion.div
                             animate={{ rotate: 360 }}
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                            className="w-8 h-8 border-2 border-white border-t-transparent rounded-full"
                           />
-                          Verifying...
-                        </span>
+                        </div>
+                      ) : clockedInEmployees.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-white/60">No employees currently clocked in</p>
+                        </div>
                       ) : (
-                        'Submit'
+                        <div className="flex flex-wrap justify-center gap-6">
+                          {clockedInEmployees.map((employee) => (
+                            <motion.button
+                              key={employee.id}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleEmployeeSelect(employee)}
+                              disabled={!!completingUserId}
+                              className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-colors hover:bg-white/10 disabled:opacity-50"
+                            >
+                              <div className="relative">
+                                <Avatar className="h-20 w-20 border-3 border-white/30">
+                                  <AvatarImage src={employee.profile_photo_url || undefined} />
+                                  <AvatarFallback className="text-2xl bg-white/20 text-white">
+                                    {employee.full_name.charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {completingUserId === employee.id && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                                    <motion.div
+                                      animate={{ rotate: 360 }}
+                                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                      className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-white font-medium text-sm max-w-[90px] truncate">
+                                {employee.full_name.split(' ')[0]}
+                              </span>
+                            </motion.button>
+                          ))}
+                        </div>
                       )}
-                    </Button>
+                    </div>
                   </>
                 ) : (
                   // Main Alarm Screen
@@ -968,7 +1000,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                         <div 
                           className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/30"
                         >
-                          <span className="text-white font-bold text-sm">PIN Required</span>
+                          <span className="text-white font-bold text-sm">Must Complete</span>
                         </div>
                       )}
                     </div>
