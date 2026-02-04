@@ -171,36 +171,27 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
       
       const clockedInUserIds: string[] = [];
       
+      // For each user, process punches in order to determine current status
       Object.entries(userPunches).forEach(([userId, userPunchList]) => {
-        let isClockedIn = false;
-        let hasClockIn = false;
+        // Sort by time ascending to process in order
+        const sortedPunches = [...userPunchList].sort((a, b) => 
+          new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+        );
         
-        userPunchList.forEach(p => {
+        let isClockedIn = false;
+        
+        sortedPunches.forEach(p => {
           if (p.punch_type === 'clock_in') {
-            if (!hasClockIn) {
-              hasClockIn = true;
-              isClockedIn = true;
-            } else if (!isClockedIn) {
-              isClockedIn = true;
-            }
+            isClockedIn = true;
+          } else if (p.punch_type === 'clock_out') {
+            isClockedIn = false;
           }
-          if (p.punch_type === 'clock_out') {
-            if (hasClockIn) {
-              isClockedIn = false;
-            }
-          }
+          // break_start/break_end don't affect clocked-in status
         });
         
-        // Filter to only those who clocked in today (in location timezone)
-        if (isClockedIn && hasClockIn) {
-          const clockInPunch = userPunchList.find(p => p.punch_type === 'clock_in');
-          if (clockInPunch) {
-            const clockInDate = new Date(clockInPunch.punch_time);
-            const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
-            if (clockInLocalDate === todayStr) {
-              clockedInUserIds.push(userId);
-            }
-          }
+        // If currently clocked in (no clock_out after last clock_in), add them
+        if (isClockedIn) {
+          clockedInUserIds.push(userId);
         }
       });
       
