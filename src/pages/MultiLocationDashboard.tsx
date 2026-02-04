@@ -57,10 +57,15 @@ interface LocationAuditData {
 }
 
 export default function MultiLocationDashboard() {
-  const { organizationId } = useAppLocation();
+  const { organizationId: contextOrgId } = useAppLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [chartPeriod, setChartPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Prefer org from URL param, fallback to context org
+  const urlOrgId = searchParams.get('org');
+  const organizationId = urlOrgId || contextOrgId;
 
   // Fetch all locations in the organization
   const { data: locations = [], isLoading: locationsLoading } = useQuery({
