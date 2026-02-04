@@ -223,8 +223,13 @@ export default function Settings() {
                       onClick={() => navigate(`/organization/${org.id}`)}
                     >
                       <div className="flex items-center gap-2 font-medium">
-                        <Building2 className="h-4 w-4" />
+                        {org.display_logo ? (
+                          <img src={org.display_logo} alt="" className="h-4 w-4 object-contain rounded" />
+                        ) : (
+                          <Building2 className="h-4 w-4" />
+                        )}
                         {org.name}
+                      </div>
                       </div>
                       <ExternalLinkIcon className="h-3 w-3" />
                     </Button>
