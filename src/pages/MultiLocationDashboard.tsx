@@ -13,7 +13,7 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-f
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { SalesSummaryChart } from '@/components/dashboard/SalesSummaryChart';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCachedLiveSales, setCachedLiveSales, getCachedProjections, setCachedProjections } from '@/utils/salesCache';
 
 interface LocationRow {
@@ -57,10 +57,15 @@ interface LocationAuditData {
 }
 
 export default function MultiLocationDashboard() {
-  const { organizationId } = useAppLocation();
+  const { organizationId: contextOrgId } = useAppLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [chartPeriod, setChartPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Prefer org from URL param, fallback to context org
+  const urlOrgId = searchParams.get('org');
+  const organizationId = urlOrgId || contextOrgId;
 
   // Fetch all locations in the organization
   const { data: locations = [], isLoading: locationsLoading } = useQuery({

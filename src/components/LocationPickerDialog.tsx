@@ -270,7 +270,7 @@ export function LocationPickerDialog({
                   onClick={() => {
                     if (hasMultiLocationAccess) {
                       onOpenChange(false);
-                      navigate('/org-dash');
+                      navigate(`/org-dash?org=${org.id}`);
                     }
                   }}
                   disabled={!hasMultiLocationAccess}
