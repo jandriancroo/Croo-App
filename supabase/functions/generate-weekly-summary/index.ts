@@ -70,40 +70,49 @@ serve(async (req) => {
       }
     });
 
-    // 2. Get sales data for the week via fetch-qubeyond-sales edge function
+    // 2. Get sales data for the week by fetching each day from sales_cache
     let totalSales = 0;
     let dailySales: { date: string; sales: number }[] = [];
-    let salesByDayOfWeek: Record<string, number> = {};
 
     try {
-      // Use camelCase parameter names as expected by fetch-qubeyond-sales
-      const salesResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: {
-          locationId: location_id,
-          targetDate: week_end,
-        }
-      });
+      const weekDates = getDateRange(week_start, week_end);
+      console.log('Fetching sales for week dates:', weekDates);
+      
+      // Fetch from sales_cache for each day
+      const { data: salesCacheData, error: salesError } = await supabase
+        .from('sales_cache')
+        .select('sale_date, net_sales')
+        .eq('location_id', location_id)
+        .gte('sale_date', week_start)
+        .lte('sale_date', week_end)
+        .order('sale_date');
 
-      if (salesResponse.data && !salesResponse.error) {
-        const salesData = salesResponse.data;
-        console.log('Sales data from fetch-qubeyond-sales:', JSON.stringify(salesData).substring(0, 500));
+      if (salesError) {
+        console.error('Error fetching sales_cache:', salesError);
+      } else if (salesCacheData && salesCacheData.length > 0) {
+        console.log(`Found ${salesCacheData.length} days of sales data`);
         
-        // The response structure has weekly, monthly, daily, comparison fields
-        totalSales = salesData.weekly || 0;
+        // Build map for quick lookup
+        const salesByDate = new Map(salesCacheData.map((s: any) => [s.sale_date, s.net_sales || 0]));
         
-        // Build daily breakdown from the week's data
-        // Fetch daily sales for each day of the week
-        const weekDates = getDateRange(week_start, week_end);
+        // Build daily sales array for all days in the week
         for (const dateStr of weekDates) {
-          const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-          // We'll estimate daily sales from comparison data if available
-          salesByDayOfWeek[dayName] = 0; // Will be populated if we have daily data
+          const sales = salesByDate.get(dateStr) || 0;
+          dailySales.push({ date: dateStr, sales });
+          totalSales += sales;
         }
+        
+        console.log('Daily sales:', JSON.stringify(dailySales));
+        console.log('Total weekly sales:', totalSales);
       } else {
-        console.log('No sales data returned or error:', salesResponse.error);
+        console.log('No sales_cache data found for this week');
+        // Still populate dailySales with zero values for chart display
+        for (const dateStr of weekDates) {
+          dailySales.push({ date: dateStr, sales: 0 });
+        }
       }
     } catch (e) {
-      console.error('Error fetching sales from edge function:', e);
+      console.error('Error fetching sales data:', e);
     }
 
     // 3. Get task completion stats for the week
