@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
-import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
+import { getCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavigator } from '@/components/ui/date-navigator';
