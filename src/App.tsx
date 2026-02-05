@@ -79,6 +79,7 @@ const ArchitectureMap = lazy(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazy(() => import("./pages/RoleDashboardCustomizer"));
 const DockStylePreview = lazy(() => import("./pages/DockStylePreview"));
 const DesignStylePreview = lazy(() => import("./pages/DesignStylePreview"));
+const AvailabilityRequestPreview = lazy(() => import("./pages/AvailabilityRequestPreview"));
 
 const queryClient = new QueryClient();
 
@@ -192,6 +193,7 @@ const AppContent = () => {
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
         <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
+        <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
