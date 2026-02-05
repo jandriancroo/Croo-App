@@ -413,10 +413,12 @@ serve(async (req) => {
 
       // Fetch today's hourly sales and product mix in parallel using DB location_id
       const todayStr = getDateStringForTimezone(new Date(), timezone);
-      const [hourlyData, pizzaCount] = await Promise.all([
+      const [hourlyData, productMixResult] = await Promise.all([
         fetchHourlySales(auth.tokenGw, todayStr, qbLocationId),
         fetchProductMix(auth.tokenGw, todayStr, qbLocationId)
       ]);
+      
+      const { crustCount, productMix } = productMixResult;
       
       // Calculate totals
       const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
@@ -443,8 +445,9 @@ serve(async (req) => {
             sale_date: todayStr,
             net_sales: netSales,
             guest_count: guestCount,
-            pizza_count: Math.round(pizzaCount),
+            pizza_count: Math.round(crustCount),
             hourly_data: formattedHourly,
+            product_mix: productMix, // Cache the full product mix
             validation_status: 'valid',
             validation_attempts: 1,
             flagged_no_sales: false,
@@ -457,8 +460,8 @@ serve(async (req) => {
           console.error(`${locationName}: Upsert error:`, upsertError);
           results.push({ locationId, name: locationName, status: 'upsert_error' });
         } else {
-          console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas (from crusts)`);
-          results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales, pizzaCount });
+          console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${crustCount} pizzas, ${productMix.length} items`);
+          results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales, pizzaCount: crustCount });
         }
         
         // Note: For labor in sync-live-sales, we would need to also fetch labor data
