@@ -217,32 +217,6 @@ export default function Availability() {
     }
   };
 
-  const handleApprove = async (requestId: string) => {
-    setProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
-        .from("availability_requests")
-        .update({
-          status: "approved",
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", requestId);
-
-      if (error) throw error;
-      toast.success("Request approved");
-      fetchData();
-    } catch (error: any) {
-      console.error("Error approving request:", error);
-      toast.error("Failed to approve request");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   const handleDeny = async () => {
     if (!selectedRequest) return;
 
@@ -273,11 +247,6 @@ export default function Availability() {
     } finally {
       setProcessing(false);
     }
-  };
-
-  const openDenyDialog = (requestId: string) => {
-    setSelectedRequest(requestId);
-    setDenyDialogOpen(true);
   };
 
   const openEditDialog = (request: AvailabilityRequest) => {
@@ -546,12 +515,6 @@ export default function Availability() {
                       : "outline";
 
                   const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
-                  
-                  const StatusBadge = (
-                    <Badge variant={statusVariant as any} className="text-xs">
-                      {statusLabel}
-                    </Badge>
-                  );
 
                   const StatusButton = (
                     <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
