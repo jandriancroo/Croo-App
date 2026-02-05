@@ -112,6 +112,51 @@ async function fetchHourlySales(tokenGw: string, dateStr: string, qbLocationId: 
   return hourlyData;
 }
 
+async function fetchPizzaCount(tokenGw: string, dateStr: string, qbLocationId: string): Promise<number> {
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/table', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "categoryName" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] }
+        },
+        params: { sectionId: "table", pageNumber: 1, pageSize: 500, totalRecords: null, sort: null, showTotals: false }
+      }),
+    });
+
+    if (!response.ok) return 0;
+
+    const data = await response.json();
+    let crustCount = 0;
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        const itemName = (item.itemName || '').toLowerCase();
+        // Count crust items as pizza indicator
+        if (itemName.includes('crust') || itemName.includes('dough')) {
+          const qty = parseInt(String(item.quantity || '0').replace(/,/g, '')) || 0;
+          crustCount += qty;
+        }
+      }
+    }
+    return Math.round(crustCount);
+  } catch {
+    return 0;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
