@@ -662,42 +662,33 @@ const handler = async (req: Request): Promise<Response> => {
     // This ensures managers get daily updates even if staff forgot to complete counts
     console.log(`Proceeding with email - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
 
-    // Fetch all data in parallel
-    const [laborData, productMixData, checklistData, eventsData, salesCache] = await Promise.all([
+    // Fetch all data in parallel - now reading product_mix from sales_cache directly
+    const [laborData, checklistData, eventsData, salesCache] = await Promise.all([
       fetchLaborData(supabase, location_id, entry_date),
-      fetchProductMixAndProjections(supabaseUrl, supabaseAnonKey, location_id, entry_date),
       fetchChecklistData(supabase, location_id, entry_date),
       fetchEventsData(supabase, location_id, entry_date),
-      supabase.from('sales_cache').select('net_sales, projected_sales').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
+      supabase.from('sales_cache').select('net_sales, projected_sales, product_mix').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
     ]);
 
-    const topItems = productMixData.topItems;
+    // Get top items from cached product_mix
+    const cachedProductMix = salesCache.data?.product_mix || [];
+    const topItems = Array.isArray(cachedProductMix) 
+      ? cachedProductMix
+          .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
+          .slice(0, 5)
+          .map((item: any) => ({
+            name: item.name || 'Unknown',
+            quantity: item.quantity || 0,
+            sales: item.sales || 0,
+          }))
+      : [];
+    console.log(`[productMix] Got ${topItems.length} top items from sales_cache`);
+    
     const actualSales = salesCache.data?.net_sales || 0;
     
-    // Determine if this is today or a past date (in location's timezone - America/Los_Angeles for Blaze)
-    // The entry_date is already in local timezone format (YYYY-MM-DD)
-    // We need to check against local "today", not UTC
-    const nowInLA = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    const todayLA = `${nowInLA.getFullYear()}-${String(nowInLA.getMonth() + 1).padStart(2, '0')}-${String(nowInLA.getDate()).padStart(2, '0')}`;
-    const isToday = entry_date === todayLA;
-    console.log(`[sales] Date check: entry_date=${entry_date}, todayLA=${todayLA}, isToday=${isToday}`);
-    
-    // For TODAY: use live projection (what dashboard shows now)
-    // For PAST dates: use cached projection (what dashboard showed that day)
-    let projectedSales: number;
-    if (isToday) {
-      // Today: prefer live calculation, fall back to cache
-      projectedSales = productMixData.projectedSales > 0 
-        ? productMixData.projectedSales 
-        : (salesCache.data?.projected_sales || 0);
-      console.log(`[sales] TODAY - Using live projectedSales: ${projectedSales} (live: ${productMixData.projectedSales}, cached: ${salesCache.data?.projected_sales || 0})`);
-    } else {
-      // Past date: prefer cached value, fall back to live
-      projectedSales = (salesCache.data?.projected_sales || 0) > 0 
-        ? salesCache.data?.projected_sales 
-        : productMixData.projectedSales;
-      console.log(`[sales] PAST DATE - Using cached projectedSales: ${projectedSales} (cached: ${salesCache.data?.projected_sales || 0}, live fallback: ${productMixData.projectedSales})`);
-    }
+    // For past dates, use cached projection; projections are already in sales_cache
+    const projectedSales = salesCache.data?.projected_sales || 0;
+    console.log(`[sales] Using cached projectedSales: ${projectedSales}`);
     
     
     const laborPercent = actualSales > 0 && laborData.laborCost > 0 
