@@ -630,31 +630,6 @@ export default function Availability() {
                             </DropdownMenu>
                           </div>
                         </div>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("pending");
-                                  }}>
-                                    Pending
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("approved");
-                                  }}>
-                                    Approved
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("denied");
-                                  }}>
-                                    Denied
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              StatusBadge
-                            )}
-                          </div>
-                        </div>
 
                         {/* Tablet+ layout */}
                         <div className="hidden md:flex items-center justify-between gap-2">
