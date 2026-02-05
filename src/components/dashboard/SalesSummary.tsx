@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, RefreshCcw } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
-import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
+import { getCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavigator } from '@/components/ui/date-navigator';
@@ -396,227 +396,31 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     };
   };
 
-  // Fetch fresh data from API
+  // Fetch sales data from database cache
+  // sync-live-sales cron keeps today's data fresh during business hours
   const fetchSalesData = async (): Promise<SalesData | null> => {
     const dateStr = getDateString(targetDate);
-    const isTodayCheck = isSameDay(targetDate, new Date());
     
-    // For historical dates, use database cache only
-    // Don't call the edge function for past dates - it won't have data
-    if (!isTodayCheck && currentLocation?.id) {
-      const cachedData = await checkDatabaseCache(dateStr);
-      // Return cached data (or null if no data exists for this period)
-      return cachedData;
-    }
+    // Always use database cache - sync-live-sales keeps it updated
+    const cachedData = await checkDatabaseCache(dateStr);
     
-    // Check cache INSIDE the query function to get fresh values
-    const cachedProjections = isTodayCheck && currentLocation?.id 
-      ? getCachedProjections(currentLocation.id) 
-      : null;
-    
-    const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
-    const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
-    const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
-    
-    // Check if we have cached data - if so, use fast mode for quicker refresh (TODAY only)
-    const cached = isTodayCheck && currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
-    const useFastMode = isTodayCheck && !!cached?.data;
-    
-    const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-      body: { 
-        locationId: currentLocation?.id,
-        targetDate: dateStr,
-        skipProjections,
-        fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
-      }
-    });
-
     // Capture diagnostic info for debugging
     setDiagnosticInfo({
       lastFetchTime: new Date().toISOString(),
       locationId: currentLocation?.id || null,
       locationName: currentLocation?.name || null,
       targetDate: dateStr,
-      rawResponse: data,
-      error: error?.message || null,
-      authenticated: data && typeof data === 'object' && 'authenticated' in data ? (data as any).authenticated : undefined
+      rawResponse: cachedData,
+      error: cachedData ? null : 'No cached data',
+      authenticated: true
     });
-
-    if (error) {
-      console.error("Error fetching sales data:", error);
-
-      // Fallback: if live fetch fails (e.g. integration outage), try DB cache for the selected date
-      const fallback = await checkDatabaseCache(dateStr);
-      if (fallback) {
-        toast.message('Showing cached sales (live sync unavailable)', {
-          description: 'Live sales sync is temporarily unavailable, but historical cache is available.'
-        });
-        return fallback;
-      }
-
-      const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
-      if (lastIntegrationErrorKey.current !== key) {
-        lastIntegrationErrorKey.current = key;
-        toast.error("Sales integration error", {
-          description: error.message || "Unable to fetch sales data."
-        });
-      }
+    
+    if (!cachedData) {
+      // No cache data available for this date
       return null;
     }
-
-    // Surface backend integration errors (returned as 200 with { authenticated:false })
-    if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
-      const msg = (data as any).error || "Sales integration is not configured for this location.";
-
-      // Fallback: if integration says not authenticated/configured, try DB cache
-      const fallback = await checkDatabaseCache(dateStr);
-      if (fallback) {
-        toast.message('Showing cached sales (integration not configured)', {
-          description: 'This location’s live sales integration isn’t configured, but cached history exists.'
-        });
-        return fallback;
-      }
-
-      const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
-      if (lastIntegrationErrorKey.current !== key) {
-        lastIntegrationErrorKey.current = key;
-        toast.error("Sales integration error", { description: msg });
-      }
-      return null;
-    }
-
-    const salesData = data as SalesData;
-
-    // --- Repair weekly breakdown for CURRENT week ---
-    // The live integration can return partial/incorrect historical daily totals for earlier days in the current week.
-    // For Mon..Yesterday, prefer the backend sales_cache + labor_cache so labor% is stable and correct.
-    if (isTodayCheck && currentLocation?.id && salesData?.weeklyBreakdown?.length) {
-      try {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        const weekStartStr = salesData.dateRange?.weekStart
-          ? salesData.dateRange.weekStart
-          : format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-        const weekEndStr = format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-
-        const [weekSalesRes, weekLaborRes] = await Promise.all([
-          supabase
-            .from('sales_cache')
-            .select('sale_date, net_sales, guest_count, projected_sales')
-            .eq('location_id', currentLocation.id)
-            .gte('sale_date', weekStartStr)
-            .lte('sale_date', weekEndStr),
-          supabase
-            .from('labor_cache')
-            .select('labor_date, labor_cost, labor_hours, source')
-            .eq('location_id', currentLocation.id)
-            .gte('labor_date', weekStartStr)
-            .lte('labor_date', weekEndStr),
-        ]);
-
-        if (!weekSalesRes.error && !weekLaborRes.error) {
-          const salesMap = new Map(
-            (weekSalesRes.data || []).map((r) => [
-              r.sale_date,
-              {
-                sales: Number(r.net_sales) || 0,
-                guests: Number(r.guest_count) || 0,
-                projected: Number(r.projected_sales) || 0,
-              },
-            ])
-          );
-
-          // Prefer punch_clock if both sources exist for the same day
-          const laborMap = new Map<string, { cost: number; hours: number }>();
-          for (const row of weekLaborRes.data || []) {
-            const existing = laborMap.get(row.labor_date);
-            if (!existing || row.source === 'punch_clock') {
-              laborMap.set(row.labor_date, {
-                cost: Number(row.labor_cost) || 0,
-                hours: Number(row.labor_hours) || 0,
-              });
-            }
-          }
-
-          const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
-            // Only override past days (not today/future) to avoid breaking live pace.
-            if (d.date >= todayStr) return d;
-
-            const cachedSales = salesMap.get(d.date);
-            const sales = cachedSales?.sales ?? d.sales;
-            const guestCount = cachedSales?.guests ?? (d.guestCount || 0);
-            const storedProjection = cachedSales?.projected ?? (d.projected || 0);
-
-            const labor = laborMap.get(d.date);
-            const laborCost = labor?.cost ?? d.laborCost ?? 0;
-            const laborPercent = laborCost > 0 && sales > 0 ? (laborCost / sales) * 100 : 0;
-
-            return {
-              ...d,
-              sales,
-              guestCount,
-              projected: storedProjection > 0 ? storedProjection : sales,
-              laborCost,
-              laborPercent,
-            };
-          });
-
-          const repairedWeeklySales = repairedWeeklyBreakdown.reduce((sum, r) => sum + (Number(r.sales) || 0), 0);
-          const repairedWeeklyLaborCost = repairedWeeklyBreakdown.reduce((sum, r) => sum + (Number(r.laborCost) || 0), 0);
-          const repairedWeeklyLaborHours = Array.from(laborMap.values()).reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
-
-          salesData.weeklyBreakdown = repairedWeeklyBreakdown;
-          salesData.weekly = repairedWeeklySales;
-          salesData.weeklyLabor = (repairedWeeklyLaborCost > 0 || repairedWeeklyLaborHours > 0)
-            ? {
-                laborPercent: repairedWeeklySales > 0 ? (repairedWeeklyLaborCost / repairedWeeklySales) * 100 : 0,
-                laborCost: repairedWeeklyLaborCost,
-                hoursWorked: repairedWeeklyLaborHours,
-                regularHours: repairedWeeklyLaborHours,
-                overtimeHours: 0,
-              }
-            : null;
-        }
-      } catch (e) {
-        console.warn('[SalesOverview] Weekly repair failed:', e);
-      }
-    }
-
-    // If we skipped projections but have cached ones, merge them in
-    if (skipProjections && cachedProjections && salesData) {
-      salesData.projections = {
-        todayProjected: cachedProjections.todayProjected || 0,
-        todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
-        weekProjected: cachedProjections.weekProjected,
-        monthProjected: cachedProjections.monthProjected
-      };
-    }
     
-    // Cache new projections if we fetched them fresh
-    if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
-      const todayProjected = salesData.projections.todayProjected;
-      const todayPaceAdjusted = salesData.projections.todayPaceAdjusted;
-      const weekProjected = salesData.projections.weekProjected;
-      const monthProjected = salesData.projections.monthProjected;
-      const weeklySales = salesData?.weekly || 0;
-      const monthlySales = salesData?.monthly || 0;
-      
-      // Sanity check: projections must be >= actual sales
-      if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
-        setCachedProjections(currentLocation.id, { 
-          todayProjected: todayProjected > 0 ? todayProjected : undefined,
-          todayPaceAdjusted: todayPaceAdjusted && todayPaceAdjusted > 0 ? todayPaceAdjusted : undefined,
-          weekProjected, 
-          monthProjected 
-        });
-      }
-    }
-    
-    // Cache live sales for stale-while-revalidate
-    if (isTodayCheck && salesData && currentLocation?.id) {
-      setCachedLiveSales(currentLocation.id, salesData);
-    }
-    
-    return salesData;
+    return cachedData;
   };
 
   // Historical dates: always fresh from DB cache (staleTime: 0)
