@@ -29,6 +29,8 @@ const handler = async (req: Request): Promise<Response> => {
       case "send_invite": return await sendInviteEmail(payload);
       case "resend_invite": return await resendInviteEmail(payload);
       case "send_rejection": return await sendRejectionEmail(payload);
+      case "send_interview_invite": return await sendInterviewInvite(payload);
+      case "send_support_resolution": return await sendSupportResolution(payload);
       case "send_test": return await sendTestEmail(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
