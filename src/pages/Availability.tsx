@@ -598,16 +598,18 @@ export default function Availability() {
                             </DropdownMenu>
                           </div>
                           {/* Date info */}
-                          <div className="font-semibold text-primary mt-1">
+                          <div className="flex items-start justify-between mt-1">
+                          <div className="font-semibold text-primary">
                             <div className="text-xs text-muted-foreground font-medium">
                               {formatDayOfWeek(request)}
                             </div>
                             <div>{formatTimeScope(request)}</div>
                           </div>
-                          {/* Bottom row: Hours + Paid/Unpaid + Status */}
+                          <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
+                          </div>
+                          {/* Bottom row: Paid/Unpaid + Status */}
                           <div className="flex items-center justify-between mt-2">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
                               <Badge
                                 variant={request.request_type === "paid" ? "default" : "secondary"}
                                 className="text-xs px-2 py-0.5"
