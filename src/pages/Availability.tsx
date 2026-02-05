@@ -541,8 +541,13 @@ export default function Availability() {
                             <div className="font-semibold text-primary mt-1 md:mt-0 md:w-56 lg:w-72 md:shrink-0">
                               {formatTimeScope(request)}
                             </div>
-                            <div className="flex items-center gap-3 mt-1 md:mt-0 text-sm text-muted-foreground md:flex-1 md:justify-end">
+                            {/* Hours - centered on desktop */}
+                            <div className="hidden md:flex md:flex-1 md:justify-center">
                               <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
+                            </div>
+                            {/* Badge - right aligned on desktop */}
+                            <div className="flex items-center gap-3 mt-1 md:mt-0 text-sm text-muted-foreground md:shrink-0">
+                              <span className="font-semibold text-base text-foreground md:hidden">{request.hours_requested}h</span>
                               <Badge
                                 variant={request.request_type === "paid" ? "default" : "secondary"}
                                 className="text-xs px-2 py-0.5"
