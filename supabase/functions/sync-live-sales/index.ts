@@ -177,12 +177,12 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
-// Fetch product mix to get actual crust count
+// Fetch product mix - returns both crust count and full product mix for caching
 async function fetchProductMix(
   tokenGw: string,
   dateStr: string,
   qbLocationId: string
-): Promise<number> {
+): Promise<{ crustCount: number; productMix: { name: string; category: string; quantity: number; sales: number }[] }> {
   console.log(`[sync-live-sales] Fetching product mix for ${dateStr}`);
 
   try {
@@ -220,11 +220,12 @@ async function fetchProductMix(
 
     if (!response.ok) {
       console.error('[sync-live-sales] Product mix fetch failed:', response.status);
-      return 0;
+      return { crustCount: 0, productMix: [] };
     }
 
     const data = await response.json();
     let crustCount = 0;
+    const productMix: { name: string; category: string; quantity: number; sales: number }[] = [];
 
     const processRow = (row: any, fallbackCategory?: string) => {
       const name = row.itemName || row.productName || row.name || '';
@@ -237,10 +238,16 @@ async function fetchProductMix(
         row.category ||
         fallbackCategory ||
         ''
-      ).toLowerCase();
+      );
 
-      if (category === 'crusts') {
-        const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+      const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+      const sales = parseFloat(String(row.netSales || '0').replace(/[$,]/g, '')) || 0;
+
+      // Add to product mix array
+      productMix.push({ name, category, quantity, sales });
+
+      // Count crusts for pizza count
+      if (category.toLowerCase() === 'crusts') {
         const isHalf = name.includes('1/2') || name.includes('(1/2)');
         crustCount += isHalf ? quantity * 0.5 : quantity;
       }
@@ -259,11 +266,11 @@ async function fetchProductMix(
       }
     }
 
-    console.log(`[sync-live-sales] Actual crust count: ${crustCount}`);
-    return crustCount;
+    console.log(`[sync-live-sales] Got ${productMix.length} items, crust count: ${crustCount}`);
+    return { crustCount, productMix };
   } catch (error) {
     console.error('[sync-live-sales] Product mix error:', error);
-    return 0;
+    return { crustCount: 0, productMix: [] };
   }
 }
 
