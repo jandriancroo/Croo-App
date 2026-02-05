@@ -27,6 +27,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -577,35 +579,50 @@ export default function Availability() {
                               <DropdownMenuContent align="end">
                                 {canApproveRequests && (
                                   <>
-                                    <DropdownMenuItem onClick={() => {
+                                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                                      Set Status
+                                    </DropdownMenuLabel>
+                                    <DropdownMenuItem 
+                                      onClick={() => {
                                       setSelectedRequest(request.id);
                                       setEditStatus("pending");
-                                    }}>
-                                      Pending
+                                      }}
+                                      className="gap-2"
+                                    >
+                                      <Clock className="h-4 w-4 text-muted-foreground" />
+                                      <span>Pending</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
+                                    <DropdownMenuItem 
+                                      onClick={() => {
                                       setSelectedRequest(request.id);
                                       setEditStatus("approved");
-                                    }}>
-                                      Approved
+                                      }}
+                                      className="gap-2"
+                                    >
+                                      <Check className="h-4 w-4 text-green-500" />
+                                      <span>Approved</span>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => {
+                                    <DropdownMenuItem 
+                                      onClick={() => {
                                       setSelectedRequest(request.id);
                                       setEditStatus("denied");
-                                    }}>
-                                      Denied
+                                      }}
+                                      className="gap-2"
+                                    >
+                                      <X className="h-4 w-4 text-destructive" />
+                                      <span>Denied</span>
                                     </DropdownMenuItem>
-                                    <div className="my-1 border-t" />
-                                    <DropdownMenuItem onClick={() => openEditDialog(request)}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => openEditDialog(request)} className="gap-2">
+                                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                                      <span>Edit Request</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => openDeleteDialog(request.id)}
-                                      className="text-destructive"
+                                      className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
                                     </DropdownMenuItem>
                                   </>
                                 )}
@@ -613,16 +630,16 @@ export default function Availability() {
                                   request.user_id === user?.id &&
                                   request.status === "pending" && (
                                   <>
-                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
+                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)} className="gap-2">
+                                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                                      <span>Edit Request</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => openDeleteDialog(request.id)}
-                                      className="text-destructive"
+                                      className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                                     >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
                                     </DropdownMenuItem>
                                   </>
                                 )}
