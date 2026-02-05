@@ -738,68 +738,45 @@ export default function Availability() {
                                     <span>Denied</span>
                                   </DropdownMenuItem>
                                 )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openEditDialog(request)} className="gap-2">
+                                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                                  <span>Edit Request</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(request.id)}
+                                  className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete</span>
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            StatusBadge
-                          )}
-                          {/* Inline action buttons for desktop/tablet */}
-                          {canApproveRequests && request.status === "pending" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleApprove(request.id)}
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10"
-                                disabled={processing}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDenyDialog(request.id)}
-                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                                disabled={processing}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          {canApproveRequests && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditDialog(request)}
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {!canApproveRequests &&
-                            request.user_id === user?.id &&
-                            request.status === "pending" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEmployeeEditDialog(request)}
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                          {(canApproveRequests ||
-                            (!canApproveRequests &&
-                              request.user_id === user?.id &&
-                              request.status === "pending")) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDeleteDialog(request.id)}
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md">
+                                  {StatusButton}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {request.user_id === user?.id && request.status === "pending" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)} className="gap-2">
+                                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                                      <span>Edit Request</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openDeleteDialog(request.id)}
+                                      className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                           </div>
                         </div>
