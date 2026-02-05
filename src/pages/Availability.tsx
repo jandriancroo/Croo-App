@@ -45,6 +45,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfWeek, isBefore } from "date-fns";
 import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
@@ -510,10 +511,25 @@ export default function Availability() {
                       ? "destructive"
                       : "outline";
 
+                  const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
+                  
                   const StatusBadge = (
                     <Badge variant={statusVariant as any} className="text-xs">
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      {statusLabel}
                     </Badge>
+                  );
+
+                  const StatusButton = (
+                    <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
+                      request.status === "approved" 
+                        ? "bg-primary text-primary-foreground" 
+                        : request.status === "denied"
+                        ? "bg-destructive text-destructive-foreground"
+                        : "border border-input bg-background hover:bg-accent"
+                    }`}>
+                      {statusLabel}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </div>
                   );
 
                   return (
@@ -564,9 +580,9 @@ export default function Availability() {
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 px-2">
-                                  {StatusBadge}
-                                </Button>
+                                <button className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md">
+                                  {StatusButton}
+                                </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {canApproveRequests && (
