@@ -43,7 +43,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format, startOfWeek, isBefore } from "date-fns";
+import { format, startOfWeek, endOfWeek, isBefore, isThisWeek, addWeeks, isSameWeek } from "date-fns";
 import { Check, X, Clock, Plus, Pencil, Trash2 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -412,6 +412,46 @@ export default function Availability() {
     if (filterType !== "all" && request.request_type !== filterType) return false;
     return true;
   });
+
+  // Group requests by schedule week (Monday-Sunday)
+  const getWeekKey = (dateStr: string) => {
+    const date = parseDateStringInTimezone(dateStr, "America/Los_Angeles");
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday start
+    return format(weekStart, "yyyy-MM-dd");
+  };
+
+  const getWeekLabel = (weekKeyStr: string) => {
+    const weekStart = parseDateStringInTimezone(weekKeyStr, "America/Los_Angeles");
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    const now = new Date();
+    
+    if (isThisWeek(weekStart, { weekStartsOn: 1 })) {
+      return "This Week";
+    } else if (isSameWeek(weekStart, addWeeks(now, 1), { weekStartsOn: 1 })) {
+      return "Next Week";
+    } else if (isSameWeek(weekStart, addWeeks(now, -1), { weekStartsOn: 1 })) {
+      return "Last Week";
+    }
+    
+    return `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+  };
+
+  // Sort requests by start_date and group by week
+  const sortedRequests = [...filteredRequests].sort((a, b) => 
+    a.start_date.localeCompare(b.start_date)
+  );
+
+  const groupedByWeek = sortedRequests.reduce((acc, request) => {
+    const weekKey = getWeekKey(request.start_date);
+    if (!acc[weekKey]) {
+      acc[weekKey] = [];
+    }
+    acc[weekKey].push(request);
+    return acc;
+  }, {} as Record<string, AvailabilityRequest[]>);
+
+  // Sort week keys chronologically
+  const sortedWeekKeys = Object.keys(groupedByWeek).sort();
 
   if (roleLoading || loading) {
     return (
