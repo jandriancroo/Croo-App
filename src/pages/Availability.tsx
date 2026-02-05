@@ -545,8 +545,27 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <div className="space-y-3">
-                {filteredRequests.map((request) => {
+            <div className="space-y-6">
+              {sortedWeekKeys.map((weekKey, weekIndex) => {
+                const weekRequests = groupedByWeek[weekKey];
+                const weekLabel = getWeekLabel(weekKey);
+                
+                return (
+                  <div key={weekKey}>
+                    {/* Week Header */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="text-sm font-semibold text-foreground">
+                        {weekLabel}
+                      </div>
+                      <div className="flex-1 h-px bg-border" />
+                      <div className="text-xs text-muted-foreground">
+                        {weekRequests.length} request{weekRequests.length !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                    
+                    {/* Requests for this week */}
+                    <div className="space-y-3">
+                {weekRequests.map((request) => {
                   const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
 
                   const StatusButton = (
@@ -814,6 +833,10 @@ export default function Availability() {
                     </div>
                   );
                 })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
