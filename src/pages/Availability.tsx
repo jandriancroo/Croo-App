@@ -126,6 +126,40 @@ export default function Availability() {
     }
   }, [user, canApproveRequests, currentLocation]);
 
+  // Handle quick status changes from dropdown
+  useEffect(() => {
+    if (selectedRequest && editStatus && !editDialogOpen) {
+      const applyQuickStatusChange = async () => {
+        setProcessing(true);
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) throw new Error("Not authenticated");
+
+          const { error } = await supabase
+            .from("availability_requests")
+            .update({
+              status: editStatus,
+              reviewed_by: authUser.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq("id", selectedRequest);
+
+          if (error) throw error;
+          toast.success(`Request ${editStatus}`);
+          fetchData();
+        } catch (error: any) {
+          console.error("Error updating status:", error);
+          toast.error("Failed to update status");
+        } finally {
+          setProcessing(false);
+          setSelectedRequest(null);
+          setEditStatus("");
+        }
+      };
+      applyQuickStatusChange();
+    }
+  }, [selectedRequest, editStatus, editDialogOpen]);
+
   const fetchData = async () => {
     if (!user || !currentLocation) return;
     
@@ -183,32 +217,6 @@ export default function Availability() {
     }
   };
 
-  const handleApprove = async (requestId: string) => {
-    setProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { error } = await supabase
-        .from("availability_requests")
-        .update({
-          status: "approved",
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", requestId);
-
-      if (error) throw error;
-      toast.success("Request approved");
-      fetchData();
-    } catch (error: any) {
-      console.error("Error approving request:", error);
-      toast.error("Failed to approve request");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   const handleDeny = async () => {
     if (!selectedRequest) return;
 
@@ -239,11 +247,6 @@ export default function Availability() {
     } finally {
       setProcessing(false);
     }
-  };
-
-  const openDenyDialog = (requestId: string) => {
-    setSelectedRequest(requestId);
-    setDenyDialogOpen(true);
   };
 
   const openEditDialog = (request: AvailabilityRequest) => {
@@ -504,20 +507,7 @@ export default function Availability() {
           ) : (
             <div className="space-y-3">
                 {filteredRequests.map((request) => {
-                  const statusVariant =
-                    request.status === "approved"
-                      ? "default"
-                      : request.status === "denied"
-                      ? "destructive"
-                      : "outline";
-
                   const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
-                  
-                  const StatusBadge = (
-                    <Badge variant={statusVariant as any} className="text-xs">
-                      {statusLabel}
-                    </Badge>
-                  );
 
                   const StatusButton = (
                     <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
@@ -738,68 +728,45 @@ export default function Availability() {
                                     <span>Denied</span>
                                   </DropdownMenuItem>
                                 )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openEditDialog(request)} className="gap-2">
+                                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                                  <span>Edit Request</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(request.id)}
+                                  className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Delete</span>
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
-                            StatusBadge
-                          )}
-                          {/* Inline action buttons for desktop/tablet */}
-                          {canApproveRequests && request.status === "pending" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleApprove(request.id)}
-                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10"
-                                disabled={processing}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDenyDialog(request.id)}
-                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                                disabled={processing}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          {canApproveRequests && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditDialog(request)}
-                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {!canApproveRequests &&
-                            request.user_id === user?.id &&
-                            request.status === "pending" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEmployeeEditDialog(request)}
-                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                          {(canApproveRequests ||
-                            (!canApproveRequests &&
-                              request.user_id === user?.id &&
-                              request.status === "pending")) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDeleteDialog(request.id)}
-                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md">
+                                  {StatusButton}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {request.user_id === user?.id && request.status === "pending" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)} className="gap-2">
+                                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                                      <span>Edit Request</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openDeleteDialog(request.id)}
+                                      className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Delete</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                           </div>
                         </div>
