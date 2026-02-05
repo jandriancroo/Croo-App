@@ -590,36 +590,42 @@ export default function Availability() {
                                     <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
                                       Set Status
                                     </DropdownMenuLabel>
-                                    <DropdownMenuItem 
-                                      onClick={() => {
-                                      setSelectedRequest(request.id);
-                                      setEditStatus("pending");
-                                      }}
-                                      className="gap-2"
-                                    >
-                                      <Clock className="h-4 w-4 text-muted-foreground" />
-                                      <span>Pending</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem 
-                                      onClick={() => {
-                                      setSelectedRequest(request.id);
-                                      setEditStatus("approved");
-                                      }}
-                                      className="gap-2"
-                                    >
-                                      <Check className="h-4 w-4 text-green-500" />
-                                      <span>Approved</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem 
-                                      onClick={() => {
-                                      setSelectedRequest(request.id);
-                                      setEditStatus("denied");
-                                      }}
-                                      className="gap-2"
-                                    >
-                                      <X className="h-4 w-4 text-destructive" />
-                                      <span>Denied</span>
-                                    </DropdownMenuItem>
+                                    {request.status !== "pending" && (
+                                      <DropdownMenuItem 
+                                        onClick={() => {
+                                        setSelectedRequest(request.id);
+                                        setEditStatus("pending");
+                                        }}
+                                        className="gap-2"
+                                      >
+                                        <Clock className="h-4 w-4 text-muted-foreground" />
+                                        <span>Pending</span>
+                                      </DropdownMenuItem>
+                                    )}
+                                    {request.status !== "approved" && (
+                                      <DropdownMenuItem 
+                                        onClick={() => {
+                                        setSelectedRequest(request.id);
+                                        setEditStatus("approved");
+                                        }}
+                                        className="gap-2"
+                                      >
+                                        <Check className="h-4 w-4 text-green-500" />
+                                        <span>Approved</span>
+                                      </DropdownMenuItem>
+                                    )}
+                                    {request.status !== "denied" && (
+                                      <DropdownMenuItem 
+                                        onClick={() => {
+                                        setSelectedRequest(request.id);
+                                        setEditStatus("denied");
+                                        }}
+                                        className="gap-2"
+                                      >
+                                        <X className="h-4 w-4 text-destructive" />
+                                        <span>Denied</span>
+                                      </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => openEditDialog(request)} className="gap-2">
                                       <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -696,36 +702,42 @@ export default function Availability() {
                                 <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
                                   Set Status
                                 </DropdownMenuLabel>
-                                <DropdownMenuItem 
-                                  onClick={() => {
-                                  setSelectedRequest(request.id);
-                                  setEditStatus("pending");
-                                  }}
-                                  className="gap-2"
-                                >
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
-                                  <span>Pending</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => {
-                                  setSelectedRequest(request.id);
-                                  setEditStatus("approved");
-                                  }}
-                                  className="gap-2"
-                                >
-                                  <Check className="h-4 w-4 text-green-500" />
-                                  <span>Approved</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => {
-                                  setSelectedRequest(request.id);
-                                  setEditStatus("denied");
-                                  }}
-                                  className="gap-2"
-                                >
-                                  <X className="h-4 w-4 text-destructive" />
-                                  <span>Denied</span>
-                                </DropdownMenuItem>
+                                {request.status !== "pending" && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("pending");
+                                    }}
+                                    className="gap-2"
+                                  >
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span>Pending</span>
+                                  </DropdownMenuItem>
+                                )}
+                                {request.status !== "approved" && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("approved");
+                                    }}
+                                    className="gap-2"
+                                  >
+                                    <Check className="h-4 w-4 text-green-500" />
+                                    <span>Approved</span>
+                                  </DropdownMenuItem>
+                                )}
+                                {request.status !== "denied" && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("denied");
+                                    }}
+                                    className="gap-2"
+                                  >
+                                    <X className="h-4 w-4 text-destructive" />
+                                    <span>Denied</span>
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           ) : (
