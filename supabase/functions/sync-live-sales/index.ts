@@ -204,6 +204,9 @@ serve(async (req) => {
       
       const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
       const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+      
+      // Calculate avg ticket
+      const avgTicket = guestCount > 0 ? netSales / guestCount : 0;
 
       if (netSales > 0) {
         const formattedHourly = [];
@@ -212,12 +215,17 @@ serve(async (req) => {
           const hourData = hourlyData.find(hd => hd.hour === hourStr);
           formattedHourly.push({ hour: hourStr, sales: hourData?.sales || 0, checksCount: hourData?.checksCount || 0 });
         }
+        
+        // Fetch pizza count from product mix
+        const pizzaCount = await fetchPizzaCount(tokenGw, todayStr, qbLocationId);
 
         await supabase.from('sales_cache').upsert({
           location_id: locationId,
           sale_date: todayStr,
           net_sales: netSales,
           guest_count: guestCount,
+          avg_ticket: avgTicket,
+          pizza_count: pizzaCount,
           hourly_data: formattedHourly,
           validation_status: 'valid',
           validation_attempts: 1,
