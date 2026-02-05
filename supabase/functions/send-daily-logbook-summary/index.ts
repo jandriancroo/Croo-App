@@ -670,19 +670,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Only send if both PM Safe Count AND Deposit completed (unless test_mode or preview_only)
-    if (!test_mode && !preview_only && (!hasPmSafeCount || !hasDeposit)) {
-      console.log(`Email not sent - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        reason: 'Both PM Safe Count and Drawer Count must be completed',
-        hasPmSafeCount,
-        hasDeposit
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // NOTE: No longer require PM Safe Count and Deposit - send summary regardless
+    // This ensures managers get daily updates even if staff forgot to complete counts
+    console.log(`Proceeding with email - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
 
     // Fetch all data in parallel
     const [laborData, productMixData, checklistData, eventsData, salesCache] = await Promise.all([

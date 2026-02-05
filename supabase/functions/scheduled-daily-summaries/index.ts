@@ -158,33 +158,8 @@ serve(async (req) => {
         continue;
       }
 
-      // Check if PM safe count and drawer count exist
-      const { data: safeCount } = await supabase
-        .from('logbook_entries')
-        .select('id')
-        .eq('location_id', location.id)
-        .eq('entry_type', 'safe_count')
-        .eq('entry_date', todayStr)
-        .eq('shift', 'PM')
-        .maybeSingle();
-
-      const { data: drawerCount } = await supabase
-        .from('logbook_entries')
-        .select('id')
-        .eq('location_id', location.id)
-        .eq('entry_type', 'drawer_count')
-        .eq('entry_date', todayStr)
-        .maybeSingle();
-
-      if (!safeCount || !drawerCount) {
-        console.log(`[${location.name}] Missing requirements - PM Safe: ${!!safeCount}, Drawer: ${!!drawerCount}`);
-        results.push({ 
-          location: location.name, 
-          status: 'skipped', 
-          reason: !safeCount ? 'missing_pm_safe_count' : 'missing_drawer_count' 
-        });
-        continue;
-      }
+      // No longer require PM safe count or drawer count - send summary regardless
+      // This ensures managers get the summary even if staff forgot to complete counts
 
       // Call the existing send-daily-logbook-summary function
       console.log(`[${location.name}] Sending summary for ${todayStr}...`);
