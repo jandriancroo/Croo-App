@@ -546,7 +546,7 @@ export default function Availability() {
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
             <div className="space-y-6">
-              {sortedWeekKeys.map((weekKey, weekIndex) => {
+              {sortedWeekKeys.map((weekKey) => {
                 const weekRequests = groupedByWeek[weekKey];
                 const weekLabel = getWeekLabel(weekKey);
                 
