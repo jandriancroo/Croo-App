@@ -507,13 +507,6 @@ export default function Availability() {
           ) : (
             <div className="space-y-3">
                 {filteredRequests.map((request) => {
-                  const statusVariant =
-                    request.status === "approved"
-                      ? "default"
-                      : request.status === "denied"
-                      ? "destructive"
-                      : "outline";
-
                   const statusLabel = request.status.charAt(0).toUpperCase() + request.status.slice(1);
 
                   const StatusButton = (
