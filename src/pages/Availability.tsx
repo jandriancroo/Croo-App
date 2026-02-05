@@ -390,6 +390,17 @@ export default function Availability() {
     }
   };
 
+  const formatDayOfWeek = (request: AvailabilityRequest) => {
+    if (request.time_scope === "multi_day") {
+      const start = request.start_date;
+      const end = request.end_date;
+      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "EEE");
+      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
+      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "EEE")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "EEE")}`;
+    }
+    return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "EEEE");
+  };
+
   // Filter past requests (before start of current week)
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
   
