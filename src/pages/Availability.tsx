@@ -496,148 +496,7 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <>
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[140px]">Name</TableHead>
-                      <TableHead className="w-[100px]">Requested</TableHead>
-                      <TableHead className="min-w-[180px]">Requested for</TableHead>
-                      <TableHead className="w-[80px]">Type</TableHead>
-                      <TableHead className="w-[100px]">Status</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredRequests.map((request) => {
-                      const statusVariant =
-                        request.status === "approved"
-                          ? "default"
-                          : request.status === "denied"
-                          ? "destructive"
-                          : "outline";
-
-                      const StatusBadge = (
-                        <Badge variant={statusVariant as any} className="text-xs">
-                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                        </Badge>
-                      );
-
-                      return (
-                        <TableRow key={request.id}>
-                          <TableCell className="font-medium text-sm">
-                            {canApproveRequests ? request.profiles.full_name : "You"}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {formatTimeScope(request)} • {request.hours_requested}h
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={request.request_type === "paid" ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {request.request_type === "paid" ? "Paid" : "Unpaid"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {canApproveRequests ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2">
-                                    {StatusBadge}
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("pending");
-                                  }}>
-                                    Pending
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("approved");
-                                  }}>
-                                    Approved
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("denied");
-                                  }}>
-                                    Denied
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              StatusBadge
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {canApproveRequests && request.status === "pending" && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleApprove(request.id)}>
-                                      <Check className="h-4 w-4 mr-2" />
-                                      Approve
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
-                                      <X className="h-4 w-4 mr-2" />
-                                      Deny
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {canApproveRequests && (
-                                  <DropdownMenuItem onClick={() => openEditDialog(request)}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
-                                {!canApproveRequests &&
-                                  request.user_id === user?.id &&
-                                  request.status === "pending" && (
-                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                  )}
-                                {(canApproveRequests ||
-                                  (!canApproveRequests &&
-                                    request.user_id === user?.id &&
-                                    request.status === "pending")) && (
-                                  <DropdownMenuItem
-                                    onClick={() => openDeleteDialog(request.id)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Mobile Card View */}
-              <div className="md:hidden space-y-3">
+            <div className="space-y-3">
                 {filteredRequests.map((request) => {
                   const statusVariant =
                     request.status === "approved"
@@ -655,14 +514,14 @@ export default function Availability() {
                   return (
                     <div
                       key={request.id}
-                      className="flex border rounded-lg overflow-hidden"
+                      className="flex border rounded-lg overflow-hidden hover:border-primary/30 transition-colors"
                     >
                       {/* Left: Requested date (subtle) */}
-                      <div className="w-20 shrink-0 bg-muted/30 p-2 flex flex-col items-center justify-center border-r text-center">
-                        <div className="text-[9px] text-muted-foreground/70 uppercase tracking-wide font-medium">
+                      <div className="w-24 shrink-0 bg-muted/30 p-3 flex flex-col items-center justify-center border-r text-center">
+                        <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide font-medium">
                           Requested
                         </div>
-                        <div className="text-xs font-medium mt-0.5">
+                        <div className="text-sm font-medium mt-0.5">
                           {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
                             month: "short",
                             day: "numeric",
@@ -675,10 +534,10 @@ export default function Availability() {
                         {/* Row 1: Name + Status + Actions */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium text-sm truncate">
+                            <div className="font-medium truncate">
                               {canApproveRequests ? request.profiles.full_name : "You"}
                             </div>
-                            <div className="text-sm font-semibold text-primary mt-1">
+                            <div className="font-semibold text-primary mt-1">
                               {formatTimeScope(request)}
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -777,8 +636,7 @@ export default function Availability() {
                     </div>
                   );
                 })}
-              </div>
-            </>
+            </div>
           )}
         </Card>
 
