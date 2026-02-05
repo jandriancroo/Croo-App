@@ -70,49 +70,40 @@ serve(async (req) => {
       }
     });
 
-    // 2. Get sales data for the week by fetching each day from sales_cache
+    // 2. Get sales data for the week via fetch-qubeyond-sales edge function
     let totalSales = 0;
     let dailySales: { date: string; sales: number }[] = [];
+    let salesByDayOfWeek: Record<string, number> = {};
 
     try {
-      const weekDates = getDateRange(week_start, week_end);
-      console.log('Fetching sales for week dates:', weekDates);
-      
-      // Fetch from sales_cache for each day
-      const { data: salesCacheData, error: salesError } = await supabase
-        .from('sales_cache')
-        .select('sale_date, net_sales')
-        .eq('location_id', location_id)
-        .gte('sale_date', week_start)
-        .lte('sale_date', week_end)
-        .order('sale_date');
+      // Use camelCase parameter names as expected by fetch-qubeyond-sales
+      const salesResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: {
+          locationId: location_id,
+          targetDate: week_end,
+        }
+      });
 
-      if (salesError) {
-        console.error('Error fetching sales_cache:', salesError);
-      } else if (salesCacheData && salesCacheData.length > 0) {
-        console.log(`Found ${salesCacheData.length} days of sales data`);
+      if (salesResponse.data && !salesResponse.error) {
+        const salesData = salesResponse.data;
+        console.log('Sales data from fetch-qubeyond-sales:', JSON.stringify(salesData).substring(0, 500));
         
-        // Build map for quick lookup
-        const salesByDate = new Map(salesCacheData.map((s: any) => [s.sale_date, s.net_sales || 0]));
+        // The response structure has weekly, monthly, daily, comparison fields
+        totalSales = salesData.weekly || 0;
         
-        // Build daily sales array for all days in the week
+        // Build daily breakdown from the week's data
+        // Fetch daily sales for each day of the week
+        const weekDates = getDateRange(week_start, week_end);
         for (const dateStr of weekDates) {
-          const sales = salesByDate.get(dateStr) || 0;
-          dailySales.push({ date: dateStr, sales });
-          totalSales += sales;
+          const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+          // We'll estimate daily sales from comparison data if available
+          salesByDayOfWeek[dayName] = 0; // Will be populated if we have daily data
         }
-        
-        console.log('Daily sales:', JSON.stringify(dailySales));
-        console.log('Total weekly sales:', totalSales);
       } else {
-        console.log('No sales_cache data found for this week');
-        // Still populate dailySales with zero values for chart display
-        for (const dateStr of weekDates) {
-          dailySales.push({ date: dateStr, sales: 0 });
-        }
+        console.log('No sales data returned or error:', salesResponse.error);
       }
     } catch (e) {
-      console.error('Error fetching sales data:', e);
+      console.error('Error fetching sales from edge function:', e);
     }
 
     // 3. Get task completion stats for the week
@@ -210,7 +201,7 @@ serve(async (req) => {
     // 4. Generate AI summary of sales trends
     let aiSummary = "Weekly sales data unavailable.";
     
-    // Get same week last year for YoY comparison (from sales_cache, not edge function calls)
+    // Get same week last year for YoY comparison
     let lastYearWeekSales = 0;
     let yoyChange = 0;
     
@@ -224,18 +215,31 @@ serve(async (req) => {
       const lyStartStr = lastYearStart.toISOString().split('T')[0];
       const lyEndStr = lastYearEnd.toISOString().split('T')[0];
       
-      console.log(`Fetching same week last year from cache: ${lyStartStr} to ${lyEndStr}`);
+      console.log(`Fetching same week last year: ${lyStartStr} to ${lyEndStr}`);
       
-      // Fetch from sales_cache instead of calling edge function in a loop
-      const { data: lyData } = await supabase
-        .from('sales_cache')
-        .select('net_sales')
-        .eq('location_id', location_id)
-        .gte('sale_date', lyStartStr)
-        .lte('sale_date', lyEndStr);
+      // Fetch each day of last year's week and sum
+      const lyDates: string[] = [];
+      const current = new Date(lastYearStart);
+      while (current <= lastYearEnd) {
+        lyDates.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
       
-      if (lyData && lyData.length > 0) {
-        lastYearWeekSales = lyData.reduce((sum: number, row: any) => sum + (row.net_sales || 0), 0);
+      for (const dateStr of lyDates) {
+        try {
+          const dayResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+            body: {
+              locationId: location_id,
+              targetDate: dateStr,
+              skipProjections: true,
+            }
+          });
+          if (dayResponse.data?.daily) {
+            lastYearWeekSales += dayResponse.data.daily;
+          }
+        } catch (e) {
+          console.log(`No data for ${dateStr}`);
+        }
       }
       
       console.log(`Last year same week total: $${lastYearWeekSales}`);

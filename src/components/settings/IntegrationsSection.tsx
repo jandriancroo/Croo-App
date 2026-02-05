@@ -286,10 +286,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     setTestResult(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('test-qubeyond-auth', {
+      const { data, error } = await supabase.functions.invoke('fetch-qubeyond-sales', {
         body: { 
-          username: credentials.username,
-          password: credentials.password
+          locationId: locationId,
+          testCredentials: credentials
         }
       });
       

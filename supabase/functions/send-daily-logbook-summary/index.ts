@@ -98,30 +98,42 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
   }
 }
 
-// Fetch product mix from sales_cache (no more edge function call needed)
-async function fetchProductMixFromCache(supabase: any, locationId: string, dateStr: string): Promise<{ name: string; quantity: number; sales: number }[]> {
+// Fetch product mix AND projections from fetch-qubeyond-sales edge function
+async function fetchProductMixAndProjections(supabaseUrl: string, supabaseAnonKey: string, locationId: string, dateStr: string): Promise<{ topItems: { name: string; quantity: number; sales: number }[]; projectedSales: number }> {
   try {
-    console.log(`[productMix] Fetching from sales_cache for ${dateStr}`);
+    console.log(`[productMix] Fetching from fetch-qubeyond-sales for ${dateStr}`);
     
-    const { data, error } = await supabase
-      .from('sales_cache')
-      .select('product_mix')
-      .eq('location_id', locationId)
-      .eq('sale_date', dateStr)
-      .maybeSingle();
+    const response = await fetch(`${supabaseUrl}/functions/v1/fetch-qubeyond-sales`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify({
+        locationId,
+        targetDate: dateStr,
+        skipProjections: false, // We need projections for the email
+      }),
+    });
 
-    if (error) {
-      console.error('[productMix] sales_cache query error:', error);
-      return [];
+    if (!response.ok) {
+      console.error('[productMix] fetch-qubeyond-sales failed:', response.status);
+      return { topItems: [], projectedSales: 0 };
     }
 
-    if (!data?.product_mix || !Array.isArray(data.product_mix)) {
-      console.log('[productMix] No product_mix in sales_cache');
-      return [];
+    const data = await response.json();
+    
+    // Get the daily projection from the response
+    const projectedSales = data?.projections?.todayProjected || 0;
+    console.log(`[productMix] Got projectedSales from live calculation: ${projectedSales}`);
+    
+    if (!data?.productMix || !Array.isArray(data.productMix)) {
+      console.log('[productMix] No productMix in response');
+      return { topItems: [], projectedSales };
     }
 
     // Return top 5 items sorted by sales
-    const topItems = data.product_mix
+    const topItems = data.productMix
       .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
       .slice(0, 5)
       .map((item: any) => ({
@@ -130,11 +142,11 @@ async function fetchProductMixFromCache(supabase: any, locationId: string, dateS
         sales: item.sales || 0,
       }));
 
-    console.log(`[productMix] Got ${topItems.length} top items from cache`);
-    return topItems;
+    console.log(`[productMix] Got ${topItems.length} top items, projectedSales=${projectedSales}`);
+    return { topItems, projectedSales };
   } catch (error) {
-    console.error('Error fetching product mix from cache:', error);
-    return [];
+    console.error('Error fetching product mix:', error);
+    return { topItems: [], projectedSales: 0 };
   }
 }
 
@@ -658,37 +670,56 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // NOTE: No longer require PM Safe Count and Deposit - send summary regardless
-    // This ensures managers get daily updates even if staff forgot to complete counts
-    console.log(`Proceeding with email - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
+    // Only send if both PM Safe Count AND Deposit completed (unless test_mode or preview_only)
+    if (!test_mode && !preview_only && (!hasPmSafeCount || !hasDeposit)) {
+      console.log(`Email not sent - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        reason: 'Both PM Safe Count and Drawer Count must be completed',
+        hasPmSafeCount,
+        hasDeposit
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Fetch all data in parallel - now reading product_mix from sales_cache directly
-    const [laborData, checklistData, eventsData, salesCache] = await Promise.all([
+    // Fetch all data in parallel
+    const [laborData, productMixData, checklistData, eventsData, salesCache] = await Promise.all([
       fetchLaborData(supabase, location_id, entry_date),
+      fetchProductMixAndProjections(supabaseUrl, supabaseAnonKey, location_id, entry_date),
       fetchChecklistData(supabase, location_id, entry_date),
       fetchEventsData(supabase, location_id, entry_date),
-      supabase.from('sales_cache').select('net_sales, projected_sales, product_mix').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
+      supabase.from('sales_cache').select('net_sales, projected_sales').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
     ]);
 
-    // Get top items from cached product_mix
-    const cachedProductMix = salesCache.data?.product_mix || [];
-    const topItems = Array.isArray(cachedProductMix) 
-      ? cachedProductMix
-          .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
-          .slice(0, 5)
-          .map((item: any) => ({
-            name: item.name || 'Unknown',
-            quantity: item.quantity || 0,
-            sales: item.sales || 0,
-          }))
-      : [];
-    console.log(`[productMix] Got ${topItems.length} top items from sales_cache`);
-    
+    const topItems = productMixData.topItems;
     const actualSales = salesCache.data?.net_sales || 0;
     
-    // For past dates, use cached projection; projections are already in sales_cache
-    const projectedSales = salesCache.data?.projected_sales || 0;
-    console.log(`[sales] Using cached projectedSales: ${projectedSales}`);
+    // Determine if this is today or a past date (in location's timezone - America/Los_Angeles for Blaze)
+    // The entry_date is already in local timezone format (YYYY-MM-DD)
+    // We need to check against local "today", not UTC
+    const nowInLA = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const todayLA = `${nowInLA.getFullYear()}-${String(nowInLA.getMonth() + 1).padStart(2, '0')}-${String(nowInLA.getDate()).padStart(2, '0')}`;
+    const isToday = entry_date === todayLA;
+    console.log(`[sales] Date check: entry_date=${entry_date}, todayLA=${todayLA}, isToday=${isToday}`);
+    
+    // For TODAY: use live projection (what dashboard shows now)
+    // For PAST dates: use cached projection (what dashboard showed that day)
+    let projectedSales: number;
+    if (isToday) {
+      // Today: prefer live calculation, fall back to cache
+      projectedSales = productMixData.projectedSales > 0 
+        ? productMixData.projectedSales 
+        : (salesCache.data?.projected_sales || 0);
+      console.log(`[sales] TODAY - Using live projectedSales: ${projectedSales} (live: ${productMixData.projectedSales}, cached: ${salesCache.data?.projected_sales || 0})`);
+    } else {
+      // Past date: prefer cached value, fall back to live
+      projectedSales = (salesCache.data?.projected_sales || 0) > 0 
+        ? salesCache.data?.projected_sales 
+        : productMixData.projectedSales;
+      console.log(`[sales] PAST DATE - Using cached projectedSales: ${projectedSales} (cached: ${salesCache.data?.projected_sales || 0}, live fallback: ${productMixData.projectedSales})`);
+    }
     
     
     const laborPercent = actualSales > 0 && laborData.laborCost > 0 
@@ -769,7 +800,7 @@ const handler = async (req: Request): Promise<Response> => {
         },
         topItems: {
           items: topItems,
-          source: 'sales_cache.product_mix column'
+          source: 'fetch-qubeyond-sales edge function productMix (same as Dashboard "Top 20 Products by Sales")'
         },
         safeCounts: safeCountData,
         drawerCount: drawerCountData,
