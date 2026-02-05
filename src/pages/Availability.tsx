@@ -424,16 +424,17 @@ export default function Availability() {
     const weekStart = parseDateStringInTimezone(weekKeyStr, "America/Los_Angeles");
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
     const now = new Date();
+   const dateRange = `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
     
     if (isThisWeek(weekStart, { weekStartsOn: 1 })) {
-      return "This Week";
+     return `This Week (${dateRange})`;
     } else if (isSameWeek(weekStart, addWeeks(now, 1), { weekStartsOn: 1 })) {
-      return "Next Week";
+     return `Next Week (${dateRange})`;
     } else if (isSameWeek(weekStart, addWeeks(now, -1), { weekStartsOn: 1 })) {
-      return "Last Week";
+     return `Last Week (${dateRange})`;
     }
     
-    return `${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
+   return dateRange;
   };
 
   // Sort requests by start_date and group by week
