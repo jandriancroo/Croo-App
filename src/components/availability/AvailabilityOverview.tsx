@@ -46,7 +46,7 @@ export function AvailabilityOverview() {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [denialReason, setDenialReason] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [hidePastRequests, setHidePastRequests] = useState(false);
+  const [hidePastRequests, setHidePastRequests] = useState(true);
 
   useEffect(() => {
     fetchRequests();
