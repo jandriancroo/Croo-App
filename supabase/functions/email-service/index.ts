@@ -29,6 +29,8 @@ const handler = async (req: Request): Promise<Response> => {
       case "send_invite": return await sendInviteEmail(payload);
       case "resend_invite": return await resendInviteEmail(payload);
       case "send_rejection": return await sendRejectionEmail(payload);
+      case "send_interview_invite": return await sendInterviewInvite(payload);
+      case "send_support_resolution": return await sendSupportResolution(payload);
       case "send_test": return await sendTestEmail(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -144,6 +146,91 @@ async function sendTestEmail(payload: any): Promise<Response> {
   });
 
   return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+}
+
+// Generate ICS calendar file
+function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  const startDate = new Date(Date.UTC(year, month - 1, day, hours + 8, minutes));
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const formatICSDate = (d: Date): string => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const uid = `interview-${date}-${time}-${Date.now()}@croohq.email`;
+  const location = locationAddress || locationName;
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:Interview at ${orgName}\nLOCATION:${location}\nSTATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
+}
+
+async function sendInterviewInvite(payload: any): Promise<Response> {
+  const { conversationId, interviewDate, interviewTime, locationName, locationAddress, scheduledByName } = payload;
+  if (!conversationId || !interviewDate || !interviewTime) {
+    return new Response(JSON.stringify({ error: "conversationId, interviewDate, interviewTime required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: conversation } = await supabase.from("hiring_conversations").select("id, access_token, application:job_applications(id, full_name, email, organization_id, organization:organizations(name, logo_url, brand_name))").eq("id", conversationId).single();
+  if (!conversation) return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const application = conversation.application as any;
+  const org = application?.organization;
+  const applicantEmail = application?.email;
+  const applicantName = application?.full_name || "Applicant";
+  const firstName = applicantName.split(" ")[0];
+  const orgName = org?.brand_name || org?.name || "Hiring Team";
+  const logoUrl = org?.logo_url || "";
+  if (!applicantEmail) return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
+  const dateObj = new Date(interviewDate + 'T12:00:00');
+  const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const [hours, mins] = interviewTime.split(':').map(Number);
+  const hour12 = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
+  const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress);
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+
+  const emailResponse = await resend.emails.send({
+    from: "CrooHQ Hiring <hiring@croohq.email>",
+    to: [applicantEmail],
+    subject: `Interview Invitation - ${orgName} on ${formattedDate}`,
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">${orgName}</p></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p><p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>${scheduledByName}</strong> would like to invite you for an interview at <strong>${orgName}</strong>.</p><div style="background:#f0f9fa;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center;"><p style="color:${primaryColor};font-size:13px;font-weight:600;margin:0 0 8px;">📅 INTERVIEW DETAILS</p><p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">${formattedDate}</p><p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p><p style="color:#666;font-size:14px;margin:0;">📍 ${locationName}</p>${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}</div><div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;">✓ Accept Interview</a></div></td></tr>`),
+    attachments: [{ filename: "interview.ics", content: btoa(icsContent) }],
+  });
+
+  return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function sendSupportResolution(payload: any): Promise<Response> {
+  const { ticketId } = payload;
+  if (!ticketId) return new Response(JSON.stringify({ error: "ticketId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: ticket } = await supabase.from("support_tickets").select("*, profiles:user_id (full_name, email)").eq("id", ticketId).single();
+  if (!ticket) return new Response(JSON.stringify({ error: "Ticket not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const ticketNumber = `#SUP-${String(ticket.ticket_number).padStart(3, '0')}`;
+  const userEmail = ticket.profiles?.email;
+  const userName = ticket.profiles?.full_name || "Team Member";
+  const firstName = userName.split(' ')[0];
+
+  if (userEmail) {
+    await resend.emails.send({
+      from: "CrooHQ Support <support@croohq.email>",
+      to: [userEmail],
+      subject: `Your support ticket ${ticketNumber} has been resolved`,
+      html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;margin:0;">✅ Ticket Resolved</h1></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}! 🎉</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};"><p style="color:#666;font-size:12px;margin:0 0 8px;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div><div style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Open Croo</a></div></td></tr>`),
+    });
+  }
+
+  // Send push notification
+  const { data: pushTokens } = await supabase.from("push_tokens").select("token").eq("user_id", ticket.user_id);
+  if (pushTokens && pushTokens.length > 0) {
+    await supabase.functions.invoke("send-push-notification", {
+      body: { tokens: pushTokens.map((t: any) => t.token), title: `Ticket ${ticketNumber} Resolved`, body: "Your support ticket has been resolved.", data: { type: "support_resolved", ticketId: ticket.id } },
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 serve(handler);
