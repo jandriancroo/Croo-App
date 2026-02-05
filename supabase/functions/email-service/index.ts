@@ -242,7 +242,7 @@ async function sendWeeklyScheduleEmail(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true, message: "Use send-weekly-schedule-email function" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-// ============= HIRING NOTIFICATIONS =============
+// ============= HIRING & SUPPORT NOTIFICATIONS =============
 async function notifyNewApplication(payload: any): Promise<Response> {
   const { applicationId, applicantName, applicantEmail, applicantPhone, locationId, organizationId, templateName } = payload;
   
@@ -279,7 +279,6 @@ async function notifyNewApplication(payload: any): Promise<Response> {
   }
 
   const reviewUrl = "https://croohq.com/hiring";
-
   const emailHtml = wrapEmail(`
     ${getEmailHeader("📋 New Job Application", logoUrl, orgDisplayName)}
     <tr><td style="padding:30px 40px;">
@@ -581,6 +580,7 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { action, payload } = await req.json();
+    
     if (!action) {
       return new Response(JSON.stringify({ error: "action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -592,10 +592,13 @@ const handler = async (req: Request): Promise<Response> => {
       case "send_interview_invite": return await sendInterviewInvite(payload);
       case "send_support_resolution": return await sendSupportResolution(payload);
       case "send_test": return await sendTestEmail(payload);
-      case "send_notification": return await sendNotificationEmail(payload);
       case "send_schedule_update": return await sendScheduleUpdateEmail(payload);
       case "send_weekly_schedule": return await sendWeeklyScheduleEmail(payload);
       case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
+      case "new_application": return await notifyNewApplication(payload);
+      case "employee_joined": return await notifyEmployeeJoined(payload);
+      case "hiring_message": return await notifyHiringMessage(payload);
+      case "support_ticket": return await notifySupportTicket(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
