@@ -688,9 +688,9 @@ export default function Availability() {
                           {canApproveRequests ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 px-2">
-                                  {StatusBadge}
-                                </Button>
+                                <button className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md">
+                                  {StatusButton}
+                                </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
