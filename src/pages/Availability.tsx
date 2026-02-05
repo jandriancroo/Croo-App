@@ -544,58 +544,9 @@ export default function Availability() {
                       <div className="flex-1 p-3 min-w-0">
                         {/* Mobile layout */}
                         <div className="md:hidden">
-                          {/* Top row: Name + 3-dot menu */}
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="font-medium truncate">
+                          {/* Top row: Name */}
+                          <div className="font-medium truncate">
                               {canApproveRequests ? request.profiles.full_name : "You"}
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 -mt-1 -mr-1">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {canApproveRequests && request.status === "pending" && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleApprove(request.id)}>
-                                      <Check className="h-4 w-4 mr-2" />
-                                      Approve
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
-                                      <X className="h-4 w-4 mr-2" />
-                                      Deny
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {canApproveRequests && (
-                                  <DropdownMenuItem onClick={() => openEditDialog(request)}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                )}
-                                {!canApproveRequests &&
-                                  request.user_id === user?.id &&
-                                  request.status === "pending" && (
-                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                  )}
-                                {(canApproveRequests ||
-                                  (!canApproveRequests &&
-                                    request.user_id === user?.id &&
-                                    request.status === "pending")) && (
-                                  <DropdownMenuItem
-                                    onClick={() => openDeleteDialog(request.id)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
                           </div>
                           {/* Date info */}
                           <div className="flex items-start justify-between mt-1">
@@ -607,7 +558,7 @@ export default function Availability() {
                           </div>
                           <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
                           </div>
-                          {/* Bottom row: Paid/Unpaid + Status */}
+                          {/* Bottom row: Paid/Unpaid + Status dropdown with all actions */}
                           <div className="flex items-center justify-between mt-2">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Badge
@@ -617,37 +568,66 @@ export default function Availability() {
                                 {request.request_type === "paid" ? "Paid" : "Unpaid"}
                               </Badge>
                             </div>
-                            {canApproveRequests ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2">
-                                    {StatusBadge}
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("pending");
-                                  }}>
-                                    Pending
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("approved");
-                                  }}>
-                                    Approved
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    setSelectedRequest(request.id);
-                                    setEditStatus("denied");
-                                  }}>
-                                    Denied
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              StatusBadge
-                            )}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 px-2">
+                                  {StatusBadge}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canApproveRequests && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedRequest(request.id);
+                                      setEditStatus("pending");
+                                    }}>
+                                      Pending
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedRequest(request.id);
+                                      setEditStatus("approved");
+                                    }}>
+                                      Approved
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedRequest(request.id);
+                                      setEditStatus("denied");
+                                    }}>
+                                      Denied
+                                    </DropdownMenuItem>
+                                    <div className="my-1 border-t" />
+                                    <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openDeleteDialog(request.id)}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {!canApproveRequests &&
+                                  request.user_id === user?.id &&
+                                  request.status === "pending" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => openDeleteDialog(request.id)}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
 
