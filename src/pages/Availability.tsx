@@ -542,25 +542,131 @@ export default function Availability() {
 
                       {/* Right: Main content */}
                       <div className="flex-1 p-3 min-w-0">
-                        {/* Mobile: stacked, Tablet+: horizontal row */}
-                        <div className="flex items-center justify-between gap-2">
-                          {/* Mobile: stacked layout */}
-                          <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center md:gap-4">
-                            <div className="font-medium truncate md:w-32 lg:w-48 md:shrink-0">
+                        {/* Mobile layout */}
+                        <div className="md:hidden">
+                          {/* Top row: Name + 3-dot menu */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-medium truncate">
                               {canApproveRequests ? request.profiles.full_name : "You"}
                             </div>
-                            <div className="font-semibold text-primary mt-1 md:mt-0 md:w-44 lg:w-56 md:shrink-0">
-                              <div className="text-xs text-muted-foreground font-medium md:mb-0.5">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 -mt-1 -mr-1">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canApproveRequests && request.status === "pending" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleApprove(request.id)}>
+                                      <Check className="h-4 w-4 mr-2" />
+                                      Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openDenyDialog(request.id)}>
+                                      <X className="h-4 w-4 mr-2" />
+                                      Deny
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {canApproveRequests && (
+                                  <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                )}
+                                {!canApproveRequests &&
+                                  request.user_id === user?.id &&
+                                  request.status === "pending" && (
+                                    <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                  )}
+                                {(canApproveRequests ||
+                                  (!canApproveRequests &&
+                                    request.user_id === user?.id &&
+                                    request.status === "pending")) && (
+                                  <DropdownMenuItem
+                                    onClick={() => openDeleteDialog(request.id)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          {/* Date info */}
+                          <div className="font-semibold text-primary mt-1">
+                            <div className="text-xs text-muted-foreground font-medium">
+                              {formatDayOfWeek(request)}
+                            </div>
+                            <div>{formatTimeScope(request)}</div>
+                          </div>
+                          {/* Bottom row: Hours + Paid/Unpaid + Status */}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
+                              <Badge
+                                variant={request.request_type === "paid" ? "default" : "secondary"}
+                                className="text-xs px-2 py-0.5"
+                              >
+                                {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                              </Badge>
+                            </div>
+                            {canApproveRequests ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2">
+                                    {StatusBadge}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("pending");
+                                  }}>
+                                    Pending
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("approved");
+                                  }}>
+                                    Approved
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    setSelectedRequest(request.id);
+                                    setEditStatus("denied");
+                                  }}>
+                                    Denied
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              StatusBadge
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Tablet+ layout */}
+                        <div className="hidden md:flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0 flex flex-row items-center gap-4">
+                            <div className="font-medium truncate w-32 lg:w-48 shrink-0">
+                              {canApproveRequests ? request.profiles.full_name : "You"}
+                            </div>
+                            <div className="font-semibold text-primary w-44 lg:w-56 shrink-0">
+                              <div className="text-xs text-muted-foreground font-medium mb-0.5">
                                 {formatDayOfWeek(request)}
                               </div>
                               <div>{formatTimeScope(request)}</div>
                             </div>
                             {/* Hours - centered on desktop */}
-                            <div className="hidden lg:flex lg:flex-1 lg:justify-center">
+                            <div className="hidden lg:flex flex-1 justify-center">
                               <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
                             </div>
-                            {/* Badge - right aligned on desktop */}
-                            <div className="flex items-center gap-3 mt-1 md:mt-0 text-sm text-muted-foreground md:shrink-0">
+                            {/* Badge - right aligned */}
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground shrink-0">
                               <span className="font-semibold text-base text-foreground lg:hidden">{request.hours_requested}h</span>
                               <Badge
                                 variant={request.request_type === "paid" ? "default" : "secondary"}
