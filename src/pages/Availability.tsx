@@ -44,7 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfWeek, isBefore } from "date-fns";
-import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Clock, Plus, Pencil, Trash2 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
@@ -743,60 +743,64 @@ export default function Availability() {
                           ) : (
                             StatusBadge
                           )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                <MoreVertical className="h-4 w-4" />
+                          {/* Inline action buttons for desktop/tablet */}
+                          {canApproveRequests && request.status === "pending" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleApprove(request.id)}
+                                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10"
+                                disabled={processing}
+                              >
+                                <Check className="h-4 w-4" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              {canApproveRequests && request.status === "pending" && (
-                                <>
-                                  <DropdownMenuItem 
-                                    onClick={() => handleApprove(request.id)}
-                                    className="gap-2 text-green-600 dark:text-green-400 focus:text-green-600 dark:focus:text-green-400"
-                                  >
-                                    <Check className="h-4 w-4" />
-                                    <span>Approve</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => openDenyDialog(request.id)}
-                                    className="gap-2 text-orange-600 dark:text-orange-400 focus:text-orange-600 dark:focus:text-orange-400"
-                                  >
-                                    <X className="h-4 w-4" />
-                                    <span>Deny</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                </>
-                              )}
-                              {canApproveRequests && (
-                                <DropdownMenuItem onClick={() => openEditDialog(request)} className="gap-2">
-                                  <Pencil className="h-4 w-4 text-muted-foreground" />
-                                  <span>Edit</span>
-                                </DropdownMenuItem>
-                              )}
-                              {!canApproveRequests &&
-                                request.user_id === user?.id &&
-                                request.status === "pending" && (
-                                  <DropdownMenuItem onClick={() => openEmployeeEditDialog(request)} className="gap-2">
-                                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                                    <span>Edit</span>
-                                  </DropdownMenuItem>
-                                )}
-                              {(canApproveRequests ||
-                                (!canApproveRequests &&
-                                  request.user_id === user?.id &&
-                                  request.status === "pending")) && (
-                                <DropdownMenuItem
-                                  onClick={() => openDeleteDialog(request.id)}
-                                  className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span>Delete</span>
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDenyDialog(request.id)}
+                                className="h-8 w-8 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                                disabled={processing}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                          {canApproveRequests && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(request)}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {!canApproveRequests &&
+                            request.user_id === user?.id &&
+                            request.status === "pending" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEmployeeEditDialog(request)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                          {(canApproveRequests ||
+                            (!canApproveRequests &&
+                              request.user_id === user?.id &&
+                              request.status === "pending")) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(request.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                           </div>
                         </div>
                       </div>
