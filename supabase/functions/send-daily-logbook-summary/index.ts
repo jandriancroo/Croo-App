@@ -769,7 +769,7 @@ const handler = async (req: Request): Promise<Response> => {
         },
         topItems: {
           items: topItems,
-          source: 'fetch-qubeyond-sales edge function productMix (same as Dashboard "Top 20 Products by Sales")'
+          source: 'sales_cache.product_mix column'
         },
         safeCounts: safeCountData,
         drawerCount: drawerCountData,
