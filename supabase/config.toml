@@ -63,15 +63,6 @@ verify_jwt = true
 [functions.optimize-labor]
 verify_jwt = true
 
-[functions.notification-service]
-verify_jwt = false
-
-[functions.notify-new-application]
-verify_jwt = false
-
-[functions.notify-employee-joined]
-verify_jwt = false
-
 [functions.generate-product-image]
 verify_jwt = true
 
