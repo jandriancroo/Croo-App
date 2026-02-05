@@ -496,7 +496,7 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="space-y-3">
                 {filteredRequests.map((request) => {
                   const statusVariant =
                     request.status === "approved"
