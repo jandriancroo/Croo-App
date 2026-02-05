@@ -55,14 +55,6 @@ import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
 } from "@/utils/timezoneUtils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 interface AvailabilityRequest {
   id: string;
