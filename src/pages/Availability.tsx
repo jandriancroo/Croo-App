@@ -44,7 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfWeek, isBefore } from "date-fns";
-import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Clock, Plus, Pencil, Trash2 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
