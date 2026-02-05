@@ -528,13 +528,11 @@ export default function Availability() {
                       className="flex border rounded-lg overflow-hidden hover:border-primary/30 transition-colors"
                     >
                       {/* Left: Requested date (subtle) */}
-                      <div className="w-24 shrink-0 bg-muted/30 p-3 flex flex-col items-center justify-center border-r text-center min-h-[72px]">
-                        <div className="text-xs text-muted-foreground font-medium">
-                          {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
-                            weekday: "short",
-                          })}
+                      <div className="w-24 shrink-0 bg-muted/30 p-3 flex flex-col items-center justify-center border-r text-center">
+                        <div className="text-[10px] text-muted-foreground/70 uppercase tracking-wide font-medium">
+                          Requested
                         </div>
-                        <div className="text-base font-semibold mt-0.5">
+                        <div className="text-sm font-medium mt-0.5">
                           {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
                             month: "short",
                             day: "numeric",
