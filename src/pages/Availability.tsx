@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, startOfWeek, isBefore } from "date-fns";
 import { Check, X, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
@@ -120,6 +121,7 @@ export default function Availability() {
   const [employeeEditDialogOpen, setEmployeeEditDialogOpen] = useState(false);
   const [employeeEditingRequest, setEmployeeEditingRequest] = useState<AvailabilityRequest | null>(null);
   const [employeeEditNotes, setEmployeeEditNotes] = useState("");
+  const [hidePastRequests, setHidePastRequests] = useState(true);
   // Default PTO balance (can be configured per company/location later)
   const DEFAULT_PTO_HOURS = 40;
 
@@ -388,7 +390,15 @@ export default function Availability() {
     }
   };
 
+  // Filter past requests (before start of current week)
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
+  
   const filteredRequests = requests.filter((request) => {
+    // Hide past filter
+    if (hidePastRequests) {
+      const requestDate = parseDateStringInTimezone(request.start_date, "America/Los_Angeles");
+      if (isBefore(requestDate, currentWeekStart)) return false;
+    }
     if (filterStatus !== "all" && request.status !== filterStatus) return false;
     if (filterType !== "all" && request.request_type !== filterType) return false;
     return true;
@@ -438,8 +448,18 @@ export default function Availability() {
 
         {/* Filters */}
         <Card className="p-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="hide-past-main"
+                checked={hidePastRequests}
+                onCheckedChange={(checked) => setHidePastRequests(checked === true)}
+              />
+              <label htmlFor="hide-past-main" className="text-sm cursor-pointer text-muted-foreground whitespace-nowrap">
+                Hide past
+              </label>
+            </div>
+            <div className="flex-1 min-w-[120px]">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
@@ -452,7 +472,7 @@ export default function Availability() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-[120px]">
               <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by type" />
@@ -635,14 +655,44 @@ export default function Availability() {
                   return (
                     <div
                       key={request.id}
-                      className="border rounded-lg p-3 space-y-2"
+                      className="flex border rounded-lg overflow-hidden"
                     >
-                      {/* Row 1: Name + Status + Actions */}
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">
-                          {canApproveRequests ? request.profiles.full_name : "You"}
-                        </span>
-                        <div className="flex items-center gap-1">
+                      {/* Left: Requested date (subtle) */}
+                      <div className="w-20 shrink-0 bg-muted/30 p-2 flex flex-col items-center justify-center border-r text-center">
+                        <div className="text-[9px] text-muted-foreground/70 uppercase tracking-wide font-medium">
+                          Requested
+                        </div>
+                        <div className="text-xs font-medium mt-0.5">
+                          {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Right: Main content */}
+                      <div className="flex-1 p-3 min-w-0">
+                        {/* Row 1: Name + Status + Actions */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-sm truncate">
+                              {canApproveRequests ? request.profiles.full_name : "You"}
+                            </div>
+                            <div className="text-sm font-semibold text-primary mt-1">
+                              {formatTimeScope(request)}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <span>{request.hours_requested}h</span>
+                              <Badge
+                                variant={request.request_type === "paid" ? "default" : "secondary"}
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
                           {canApproveRequests ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -721,31 +771,8 @@ export default function Availability() {
                               )}
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Row 2: Date details */}
-                      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                        <span className="text-muted-foreground">Requested:</span>
-                        <span>
-                          {formatDateTimeInTimezone(request.created_at, "America/Los_Angeles", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                        <span className="text-muted-foreground">For:</span>
-                        <span className="font-medium">
-                          {formatTimeScope(request)} • {request.hours_requested}h
-                        </span>
-                        <span className="text-muted-foreground">Type:</span>
-                        <span>
-                          <Badge
-                            variant={request.request_type === "paid" ? "default" : "secondary"}
-                            className="text-[10px] px-1.5 py-0"
-                          >
-                            {request.request_type === "paid" ? "Paid" : "Unpaid"}
-                          </Badge>
-                        </span>
                       </div>
                     </div>
                   );
