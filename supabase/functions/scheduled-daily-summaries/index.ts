@@ -70,15 +70,42 @@ serve(async (req) => {
 
     console.log('[scheduled-daily-summaries] Starting check...');
     
-    // Fetch all active locations
-    const { data: locations, error: locError } = await supabase
+    // Fetch all active locations with their settings and hours
+    const { data: locationsRaw, error: locError } = await supabase
       .from('locations')
-      .select('id, name, close_time, timezone')
-      .eq('is_active', true);
+      .select('id, name');
 
     if (locError) {
       throw new Error(`Failed to fetch locations: ${locError.message}`);
     }
+
+    // Fetch location settings for timezone
+    const { data: settingsData } = await supabase
+      .from('location_settings')
+      .select('location_id, timezone');
+
+    // Fetch location hours for close_time (Sunday = 0 for default)
+    const { data: hoursData } = await supabase
+      .from('location_hours')
+      .select('location_id, day_of_week, close_time');
+
+    // Build lookup maps
+    const settingsMap = new Map((settingsData || []).map(s => [s.location_id, s.timezone]));
+    const hoursMap = new Map<string, string>();
+    for (const h of hoursData || []) {
+      // Use day 1 (Monday) or 0 (Sunday) as default close time
+      if (h.day_of_week === 1 || !hoursMap.has(h.location_id)) {
+        hoursMap.set(h.location_id, h.close_time);
+      }
+    }
+
+    // Combine into locations with close_time and timezone
+    const locations = (locationsRaw || []).map(loc => ({
+      id: loc.id,
+      name: loc.name,
+      close_time: hoursMap.get(loc.id) || '21:00',
+      timezone: settingsMap.get(loc.id) || 'America/Los_Angeles',
+    }));
 
     console.log(`[scheduled-daily-summaries] Found ${locations?.length || 0} active locations`);
 
