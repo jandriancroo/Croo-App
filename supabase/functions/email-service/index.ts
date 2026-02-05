@@ -5,31 +5,28 @@ import { Resend } from "https://esm.sh/resend@2.0.0";
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Croo brand colors
 const primaryColor = "#0a7a8a";
 const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
-// ============= SHARED TEMPLATE HELPERS =============
+// ============= SHARED HELPERS =============
+function wrapEmail(content: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+}
 
 function getEmailHeader(title: string, emoji: string = "📢"): string {
-  return `<tr><td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" /><h1 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">${emoji} ${title}</h1></td></tr>`;
+  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;width:auto;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">{{emoji}} ${title}</h1></td></tr>`.replace('{{emoji}}', emoji);
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color: #f8f7f5; padding: 24px 40px; border-top: 1px solid #e8e5df;"><table role="presentation" style="width: 100%;"><tr><td style="text-align: center;"><a href="https://croohq.com" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-bottom: 16px;">Open Croo</a><p style="color: #aaa; font-size: 11px; margin: 16px 0 0;">© ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
-}
-
-function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<tr><td style="background-color:#f8f7f5;padding:24px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:16px;">Open Croo</a><p style="color:#aaa;font-size:11px;margin:16px 0 0;">© ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
 }
 
 function formatTime(time: string): string {
@@ -44,74 +41,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
-}
-
-function formatDateForDisplay(dateStr: string): string {
-  if (!dateStr) return 'Unknown Date';
-  const parts = dateStr.split('-');
-  if (parts.length === 3) {
-    const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1;
-    const day = parseInt(parts[2]);
-    const date = new Date(year, month, day, 12, 0, 0);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    }
-  }
-  return dateStr;
-}
-
-function getLocalDateString(iso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return iso.slice(0, 10);
-  }
-}
-
-// ============= EMAIL HANDLERS =============
-
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { action, payload } = await req.json();
-    if (!action) {
-      return new Response(JSON.stringify({ error: "action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    switch (action) {
-      case "send_invite": return await sendInviteEmail(payload);
-      case "resend_invite": return await resendInviteEmail(payload);
-      case "send_rejection": return await sendRejectionEmail(payload);
-      case "send_interview_invite": return await sendInterviewInvite(payload);
-      case "send_support_resolution": return await sendSupportResolution(payload);
-      case "send_test": return await sendTestEmail(payload);
-      case "send_notification": return await sendNotificationEmail(payload);
-      case "send_schedule_update": return await sendScheduleUpdateEmail(payload);
-      case "send_weekly_schedule": return await sendWeeklyScheduleEmail(payload);
-      case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
-      default:
-        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-  } catch (error: any) {
-    console.error("Error in email-service:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-};
-
-function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
-}
+// ============= ORIGINAL FUNCTIONS =============
 
 async function sendInviteEmail(payload: any): Promise<Response> {
   const { to, fullName, locationId, resetLink } = payload;
@@ -119,7 +49,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ error: "to, fullName, resetLink required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
   let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
   if (locationId) {
@@ -149,7 +79,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
 
 async function resendInviteEmail(payload: any): Promise<Response> {
   const { userId, newEmail } = payload;
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { autoRefreshToken: false, persistSession: false } });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
   if (!userId) throw new Error("User ID required");
 
@@ -162,14 +92,14 @@ async function resendInviteEmail(payload: any): Promise<Response> {
     await supabase.from('profiles').update({ email: newEmail }).eq('id', userId);
   }
 
-  const { data: resetData } = await supabase.auth.admin.generateLink({ type: 'recovery', email: emailToUse, options: { redirectTo: `${Deno.env.get("SUPABASE_URL")}/reset-password` } });
+  const { data: resetData } = await supabase.auth.admin.generateLink({ type: 'recovery', email: emailToUse, options: { redirectTo: `${supabaseUrl}/reset-password` } });
 
   return new Response(JSON.stringify({ success: true, message: `Invitation ${newEmail ? 'sent to new email' : 'resent'}`, resetLink: resetData?.properties.action_link }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
 async function sendRejectionEmail(payload: any): Promise<Response> {
   const { applicationId, templateId, overrideEmail } = payload;
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   if (!applicationId || !templateId) {
     return new Response(JSON.stringify({ error: "applicationId and templateId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -202,21 +132,6 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function sendTestEmail(payload: any): Promise<Response> {
-  const { to, subject = "Welcome to Croo!" } = payload;
-  if (!to) return new Response(JSON.stringify({ error: "to required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-  const emailResponse = await resend.emails.send({
-    from: "CrooHQ <hello@croohq.email>",
-    to: [to],
-    subject,
-    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:80px;margin-bottom:16px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;margin:0;">Welcome to Croo!</h1></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:16px;">Hey there! 👋</p><p style="color:${textColor};font-size:16px;">This is a test email from <strong style="color:${primaryColor};">Croo</strong>.</p></td></tr>`),
-  });
-
-  return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
-}
-
-// Generate ICS calendar file
 function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined): string {
   const [year, month, day] = date.split('-').map(Number);
   const [hours, minutes] = time.split(':').map(Number);
@@ -234,7 +149,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
     return new Response(JSON.stringify({ error: "conversationId, interviewDate, interviewTime required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { data: conversation } = await supabase.from("hiring_conversations").select("id, access_token, application:job_applications(id, full_name, email, organization_id, organization:organizations(name, logo_url, brand_name))").eq("id", conversationId).single();
   if (!conversation) return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -272,7 +187,7 @@ async function sendSupportResolution(payload: any): Promise<Response> {
   const { ticketId } = payload;
   if (!ticketId) return new Response(JSON.stringify({ error: "ticketId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { data: ticket } = await supabase.from("support_tickets").select("*, profiles:user_id (full_name, email)").eq("id", ticketId).single();
   if (!ticket) return new Response(JSON.stringify({ error: "Ticket not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -290,7 +205,6 @@ async function sendSupportResolution(payload: any): Promise<Response> {
     });
   }
 
-  // Send push notification
   const { data: pushTokens } = await supabase.from("push_tokens").select("token").eq("user_id", ticket.user_id);
   if (pushTokens && pushTokens.length > 0) {
     await supabase.functions.invoke("send-push-notification", {
@@ -300,5 +214,67 @@ async function sendSupportResolution(payload: any): Promise<Response> {
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
+
+async function sendTestEmail(payload: any): Promise<Response> {
+  const { to, subject = "Welcome to Croo!" } = payload;
+  if (!to) return new Response(JSON.stringify({ error: "to required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const emailResponse = await resend.emails.send({
+    from: "CrooHQ <hello@croohq.email>",
+    to: [to],
+    subject,
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:80px;margin-bottom:16px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;margin:0;">Welcome to Croo!</h1></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:16px;">Hey there! 👋</p><p style="color:${textColor};font-size:16px;">This is a test email from <strong style="color:${primaryColor};">Croo</strong>.</p></td></tr>`),
+  });
+
+  return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+}
+
+// ============= NOTIFICATION EMAIL (STUB) =============
+async function sendNotificationEmail(payload: any): Promise<Response> {
+  return new Response(JSON.stringify({ success: true, message: "Use send-notification-email function" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function sendScheduleUpdateEmail(payload: any): Promise<Response> {
+  return new Response(JSON.stringify({ success: true, message: "Use send-schedule-update-email function" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function sendWeeklyScheduleEmail(payload: any): Promise<Response> {
+  return new Response(JSON.stringify({ success: true, message: "Use send-weekly-schedule-email function" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function sendDailyLogbookSummary(payload: any): Promise<Response> {
+  return new Response(JSON.stringify({ success: true, message: "Use send-daily-logbook-summary function" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { action, payload } = await req.json();
+    if (!action) {
+      return new Response(JSON.stringify({ error: "action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    switch (action) {
+      case "send_invite": return await sendInviteEmail(payload);
+      case "resend_invite": return await resendInviteEmail(payload);
+      case "send_rejection": return await sendRejectionEmail(payload);
+      case "send_interview_invite": return await sendInterviewInvite(payload);
+      case "send_support_resolution": return await sendSupportResolution(payload);
+      case "send_test": return await sendTestEmail(payload);
+      case "send_notification": return await sendNotificationEmail(payload);
+      case "send_schedule_update": return await sendScheduleUpdateEmail(payload);
+      case "send_weekly_schedule": return await sendWeeklyScheduleEmail(payload);
+      case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
+      default:
+        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+  } catch (error: any) {
+    console.error("Error in email-service:", error);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+};
 
 serve(handler);
