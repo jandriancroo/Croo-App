@@ -552,7 +552,10 @@ export default function Availability() {
                               {canApproveRequests ? request.profiles.full_name : "You"}
                             </div>
                             <div className="font-semibold text-primary mt-1 md:mt-0 md:w-44 lg:w-56 md:shrink-0">
-                              {formatTimeScope(request)}
+                              <div className="text-xs text-muted-foreground font-medium md:mb-0.5">
+                                {formatDayOfWeek(request)}
+                              </div>
+                              <div>{formatTimeScope(request)}</div>
                             </div>
                             {/* Hours - centered on desktop */}
                             <div className="hidden lg:flex lg:flex-1 lg:justify-center">
