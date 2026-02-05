@@ -3,16 +3,80 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Croo brand colors
 const primaryColor = "#0a7a8a";
 const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
+
+// ============= SHARED TEMPLATE HELPERS =============
+
+function getEmailHeader(title: string, emoji: string = "📢"): string {
+  return `<tr><td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" /><h1 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">${emoji} ${title}</h1></td></tr>`;
+}
+
+function getEmailFooter(): string {
+  return `<tr><td style="background-color: #f8f7f5; padding: 24px 40px; border-top: 1px solid #e8e5df;"><table role="presentation" style="width: 100%;"><tr><td style="text-align: center;"><a href="https://croohq.com" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-bottom: 16px;">Open Croo</a><p style="color: #aaa; font-size: 11px; margin: 16px 0 0;">© ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+}
+
+function wrapEmail(content: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+}
+
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+}
+
+function formatDateForDisplay(dateStr: string): string {
+  if (!dateStr) return 'Unknown Date';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    const date = new Date(year, month, day, 12, 0, 0);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+  }
+  return dateStr;
+}
+
+function getLocalDateString(iso: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
+// ============= EMAIL HANDLERS =============
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -32,6 +96,10 @@ const handler = async (req: Request): Promise<Response> => {
       case "send_interview_invite": return await sendInterviewInvite(payload);
       case "send_support_resolution": return await sendSupportResolution(payload);
       case "send_test": return await sendTestEmail(payload);
+      case "send_notification": return await sendNotificationEmail(payload);
+      case "send_schedule_update": return await sendScheduleUpdateEmail(payload);
+      case "send_weekly_schedule": return await sendWeeklyScheduleEmail(payload);
+      case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
