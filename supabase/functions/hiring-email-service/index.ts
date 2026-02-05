@@ -35,6 +35,154 @@ function getCTAButton(url: string, text: string): string {
   return `<div style="text-align:center;"><a href="${url}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">${text}</a></div>`;
 }
 
+function generateICS(date: string, time: string, orgName: string, locationName: string, locationAddress: string | undefined): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
+  const startDate = new Date(Date.UTC(year, month - 1, day, hours + 8, minutes));
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const formatICSDate = (d: Date): string => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const uid = `interview-${date}-${time}-${Date.now()}@croohq.email`;
+  const location = locationAddress || locationName;
+  return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:Interview at ${orgName}\nLOCATION:${location}\nSTATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
+}
+
+// ============ INVITE ACTIONS ============
+
+async function sendInviteEmail(payload: any): Promise<Response> {
+  const { to, fullName, locationId, resetLink } = payload;
+  if (!to || !fullName || !resetLink) {
+    return new Response(JSON.stringify({ error: "to, fullName, resetLink required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  let orgName = "your new team", locName = "", logoUrl = "", brandName = "";
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('name, organization_id').eq('id', locationId).single();
+    if (loc) {
+      locName = loc.name;
+      if (loc.organization_id) {
+        const { data: org } = await supabase.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+      }
+    }
+  }
+
+  const firstName = fullName.split(' ')[0];
+  const displayName = brandName || orgName;
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${displayName}" style="max-height:100px;max-width:200px;margin-bottom:20px;border-radius:8px;"/>` : `<div style="font-size:48px;margin-bottom:16px;">🎉</div>`;
+
+  const emailResponse = await resend.emails.send({
+    from: "CrooHQ <hello@croohq.email>",
+    to: [to],
+    subject: `🎉 Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">${displayName}${locName ? ` • ${locName}` : ''}</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}! 👋</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>`),
+  });
+
+  return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+}
+
+async function resendInviteEmail(payload: any): Promise<Response> {
+  const { userId, newEmail } = payload;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  if (!userId) throw new Error("User ID required");
+
+  const { data: profile } = await supabase.from('profiles').select('email').eq('id', userId).single();
+  if (!profile) throw new Error("User not found");
+
+  const emailToUse = newEmail || profile.email;
+  if (newEmail && newEmail !== profile.email) {
+    await supabase.auth.admin.updateUserById(userId, { email: newEmail });
+    await supabase.from('profiles').update({ email: newEmail }).eq('id', userId);
+  }
+
+  const { data: resetData } = await supabase.auth.admin.generateLink({ type: 'recovery', email: emailToUse, options: { redirectTo: `${supabaseUrl}/reset-password` } });
+
+  return new Response(JSON.stringify({ success: true, message: `Invitation ${newEmail ? 'sent to new email' : 'resent'}`, resetLink: resetData?.properties.action_link }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+}
+
+// ============ REJECTION ACTIONS ============
+
+async function sendRejectionEmail(payload: any): Promise<Response> {
+  const { applicationId, templateId, overrideEmail } = payload;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  if (!applicationId || !templateId) {
+    return new Response(JSON.stringify({ error: "applicationId and templateId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const { data: app } = await supabase.from("job_applications").select("id, full_name, email, organization_id").eq("id", applicationId).single();
+  if (!app) return new Response(JSON.stringify({ error: "Application not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const { data: template } = await supabase.from("rejection_email_templates").select("*").eq("id", templateId).eq("organization_id", app.organization_id).single();
+  if (!template) return new Response(JSON.stringify({ error: "Template not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const { data: org } = await supabase.from("organizations").select("name, logo_url, brand_name").eq("id", app.organization_id).single();
+  const orgName = org?.brand_name || org?.name || "Our Team";
+  const logoUrl = org?.logo_url || "";
+
+  const subject = template.subject.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName);
+  const body = template.body.replace(/{{name}}/gi, app.full_name).replace(/{{first_name}}/gi, app.full_name.split(" ")[0]).replace(/{{organization}}/gi, orgName).replace(/\n/g, "<br>");
+
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+
+  const emailResponse = await resend.emails.send({
+    from: "CrooHQ Hiring <hiring@croohq.email>",
+    to: [overrideEmail || app.email],
+    subject,
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">${orgName}</p></td></tr><tr><td style="padding:30px 40px;"><div style="color:${textColor};font-size:15px;line-height:1.7;">${body}</div></td></tr>`),
+  });
+
+  await supabase.from("job_applications").update({ rejection_template_id: templateId, rejection_email_sent_at: new Date().toISOString() }).eq("id", applicationId);
+
+  return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// ============ INTERVIEW ACTIONS ============
+
+async function sendInterviewInvite(payload: any): Promise<Response> {
+  const { conversationId, interviewDate, interviewTime, locationName, locationAddress, scheduledByName } = payload;
+  if (!conversationId || !interviewDate || !interviewTime) {
+    return new Response(JSON.stringify({ error: "conversationId, interviewDate, interviewTime required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: conversation } = await supabase.from("hiring_conversations").select("id, access_token, application:job_applications(id, full_name, email, organization_id, organization:organizations(name, logo_url, brand_name))").eq("id", conversationId).single();
+  if (!conversation) return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const application = conversation.application as any;
+  const org = application?.organization;
+  const applicantEmail = application?.email;
+  const applicantName = application?.full_name || "Applicant";
+  const firstName = applicantName.split(" ")[0];
+  const orgName = org?.brand_name || org?.name || "Hiring Team";
+  const logoUrl = org?.logo_url || "";
+  if (!applicantEmail) return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
+  const dateObj = new Date(interviewDate + 'T12:00:00');
+  const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const [hours, mins] = interviewTime.split(':').map(Number);
+  const hour12 = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedTime = `${hour12}:${mins.toString().padStart(2, '0')} ${ampm}`;
+  const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress);
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+
+  const emailResponse = await resend.emails.send({
+    from: "CrooHQ Hiring <hiring@croohq.email>",
+    to: [applicantEmail],
+    subject: `Interview Invitation - ${orgName} on ${formattedDate}`,
+    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">${orgName}</p></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p><p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>${scheduledByName}</strong> would like to invite you for an interview at <strong>${orgName}</strong>.</p><div style="background:#f0f9fa;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center;"><p style="color:${primaryColor};font-size:13px;font-weight:600;margin:0 0 8px;">📅 INTERVIEW DETAILS</p><p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">${formattedDate}</p><p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p><p style="color:#666;font-size:14px;margin:0;">📍 ${locationName}</p>${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}</div><div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;">✓ Accept Interview</a></div></td></tr>`),
+    attachments: [{ filename: "interview.ics", content: btoa(icsContent) }],
+  });
+
+  return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+// ============ NOTIFICATION ACTIONS ============
+
 async function notifyNewApplication(payload: any): Promise<Response> {
   const { applicationId, applicantName, applicantEmail, applicantPhone, locationId, organizationId, templateName } = payload;
   
@@ -256,106 +404,7 @@ async function notifyHiringMessage(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function notifySupportTicket(payload: any): Promise<Response> {
-  const { ticket_id, event_type, message_content, sender_name } = payload;
-  
-  if (!ticket_id || !event_type) {
-    return new Response(JSON.stringify({ error: "ticket_id and event_type required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: ticket, error: ticketError } = await supabase
-    .from("support_tickets")
-    .select("*, profiles:user_id (full_name, email)")
-    .eq("id", ticket_id)
-    .single();
-
-  if (ticketError || !ticket) {
-    return new Response(JSON.stringify({ error: "Ticket not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const ticketNumber = `#SUP-${String(ticket.ticket_number).padStart(3, '0')}`;
-  const userName = ticket.profiles?.full_name || "Unknown User";
-  const categoryLabels: Record<string, string> = {
-    ui_glitch: 'UI Glitch', broken_feature: 'Broken Feature', login_issues: 'Login Issues',
-    data_sync_issues: 'Data/Sync Issues', notification_issues: 'Notification Issues',
-    scheduling_issues: 'Scheduling Issues', other: 'Other',
-  };
-  const categoryLabel = categoryLabels[ticket.category] || ticket.category;
-
-  let emailSubject = "";
-  let emailContent = "";
-  let pushTitle = "";
-  let pushBody = "";
-
-  switch (event_type) {
-    case "new_ticket":
-      emailSubject = `New Support Ticket ${ticketNumber} from ${userName}`;
-      pushTitle = `New Support Ticket ${ticketNumber}`;
-      pushBody = `${userName} reported: ${categoryLabel}`;
-      emailContent = `
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">A new support ticket has been submitted.</p>
-        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
-          <table style="width:100%;">
-            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Ticket</span><br/><strong style="color:${primaryColor};font-size:16px;">${ticketNumber}</strong></td></tr>
-            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Category</span><br/><strong style="color:${textColor};font-size:14px;">${categoryLabel}</strong></td></tr>
-            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">From</span><br/><strong style="color:${textColor};font-size:14px;">${userName}</strong></td></tr>
-          </table>
-        </div>
-        <div style="background:#fafafa;border-radius:10px;padding:16px;border-left:4px solid ${primaryColor};">
-          <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Description</p>
-          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${ticket.description}</p>
-        </div>
-      `;
-      break;
-    case "new_message":
-      emailSubject = `New message on ${ticketNumber} from ${sender_name || userName}`;
-      pushTitle = `Message on ${ticketNumber}`;
-      pushBody = message_content?.substring(0, 100) || "New message received";
-      emailContent = `
-        <p style="color:${textColor};font-size:15px;margin:0 0 8px;">New message on <strong style="color:${primaryColor};">${ticketNumber}</strong></p>
-        <p style="color:#666;font-size:13px;margin:0 0 20px;">From: ${sender_name || userName}</p>
-        <div style="background:${backgroundColor};border-radius:10px;padding:16px;border-left:4px solid ${primaryColor};">
-          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${message_content || "(no content)"}</p>
-        </div>
-      `;
-      break;
-    default:
-      return new Response(JSON.stringify({ success: true, message: "No action taken" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const emailHtml = wrapEmail(`
-    ${getEmailHeader("🎫 Support Notification")}
-    <tr><td style="padding:30px 40px;">${emailContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
-    ${getEmailFooter()}
-  `);
-
-  const SUPPORT_ADMIN_EMAILS = ["jordan@jo-pizza.com"];
-  const { data: adminProfiles } = await supabase.from("profiles").select("id, email").in("email", SUPPORT_ADMIN_EMAILS);
-  const adminIds = adminProfiles?.map(p => p.id) || [];
-  const adminEmails = adminProfiles?.map(p => p.email).filter(Boolean) || [];
-
-  for (const email of adminEmails) {
-    try {
-      await resend.emails.send({ from: "CrooHQ Support <support@croohq.email>", to: [email], subject: emailSubject, html: emailHtml });
-    } catch (e) {
-      console.error("Error sending email to", email, e);
-    }
-  }
-
-  if (adminIds.length > 0) {
-    try {
-      await supabase.functions.invoke("send-push-notification", {
-        body: { user_ids: adminIds, title: pushTitle, body: pushBody, data: { type: "support_ticket", ticketId: ticket.id }, notification_type: "support_tickets" },
-      });
-    } catch (e) {
-      console.error("Error sending push:", e);
-    }
-  }
-
-  return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
+// ============ HANDLER ============
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -370,10 +419,17 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     switch (action) {
+      // Invites
+      case "send_invite": return await sendInviteEmail(payload);
+      case "resend_invite": return await resendInviteEmail(payload);
+      // Rejection
+      case "send_rejection": return await sendRejectionEmail(payload);
+      // Interview
+      case "send_interview_invite": return await sendInterviewInvite(payload);
+      // Notifications
       case "new_application": return await notifyNewApplication(payload);
       case "employee_joined": return await notifyEmployeeJoined(payload);
       case "hiring_message": return await notifyHiringMessage(payload);
-      case "support_ticket": return await notifySupportTicket(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

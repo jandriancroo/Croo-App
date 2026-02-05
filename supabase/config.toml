@@ -1,12 +1,9 @@
 project_id = "lmodeiyrpwvgyqcvjkjr"
 
-[functions.email-service]
-verify_jwt = false
-
 [functions.hiring-email-service]
 verify_jwt = false
 
-[functions.send-test-email]
+[functions.support-email-service]
 verify_jwt = false
 
 [functions.upload-brand-asset]
