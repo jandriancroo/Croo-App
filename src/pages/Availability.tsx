@@ -390,6 +390,17 @@ export default function Availability() {
     }
   };
 
+  const formatDayOfWeek = (request: AvailabilityRequest) => {
+    if (request.time_scope === "multi_day") {
+      const start = request.start_date;
+      const end = request.end_date;
+      if (!end) return format(parseDateStringInTimezone(start, "America/Los_Angeles"), "EEE");
+      const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start];
+      return `${format(parseDateStringInTimezone(rangeStart, "America/Los_Angeles"), "EEE")} - ${format(parseDateStringInTimezone(rangeEnd, "America/Los_Angeles"), "EEE")}`;
+    }
+    return format(parseDateStringInTimezone(request.start_date, "America/Los_Angeles"), "EEEE");
+  };
+
   // Filter past requests (before start of current week)
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
   
@@ -541,7 +552,10 @@ export default function Availability() {
                               {canApproveRequests ? request.profiles.full_name : "You"}
                             </div>
                             <div className="font-semibold text-primary mt-1 md:mt-0 md:w-44 lg:w-56 md:shrink-0">
-                              {formatTimeScope(request)}
+                              <div className="text-xs text-muted-foreground font-medium md:mb-0.5">
+                                {formatDayOfWeek(request)}
+                              </div>
+                              <div>{formatTimeScope(request)}</div>
                             </div>
                             {/* Hours - centered on desktop */}
                             <div className="hidden lg:flex lg:flex-1 lg:justify-center">
