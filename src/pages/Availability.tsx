@@ -126,6 +126,40 @@ export default function Availability() {
     }
   }, [user, canApproveRequests, currentLocation]);
 
+  // Handle quick status changes from dropdown
+  useEffect(() => {
+    if (selectedRequest && editStatus && !editDialogOpen) {
+      const applyQuickStatusChange = async () => {
+        setProcessing(true);
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) throw new Error("Not authenticated");
+
+          const { error } = await supabase
+            .from("availability_requests")
+            .update({
+              status: editStatus,
+              reviewed_by: authUser.id,
+              reviewed_at: new Date().toISOString(),
+            })
+            .eq("id", selectedRequest);
+
+          if (error) throw error;
+          toast.success(`Request ${editStatus}`);
+          fetchData();
+        } catch (error: any) {
+          console.error("Error updating status:", error);
+          toast.error("Failed to update status");
+        } finally {
+          setProcessing(false);
+          setSelectedRequest(null);
+          setEditStatus("");
+        }
+      };
+      applyQuickStatusChange();
+    }
+  }, [selectedRequest, editStatus, editDialogOpen]);
+
   const fetchData = async () => {
     if (!user || !currentLocation) return;
     
