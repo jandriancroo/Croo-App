@@ -396,71 +396,27 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     };
   };
 
-  // Fetch fresh data from API
+  // Fetch sales data from database cache
+  // sync-live-sales cron keeps today's data fresh during business hours
   const fetchSalesData = async (): Promise<SalesData | null> => {
     const dateStr = getDateString(targetDate);
-    const isTodayCheck = isSameDay(targetDate, new Date());
     
-    // For historical dates, use database cache only
-    // Don't call the edge function for past dates - it won't have data
-    if (!isTodayCheck && currentLocation?.id) {
-      const cachedData = await checkDatabaseCache(dateStr);
-      // Return cached data (or null if no data exists for this period)
-      return cachedData;
-    }
+    // Always use database cache - sync-live-sales keeps it updated
+    const cachedData = await checkDatabaseCache(dateStr);
     
-    // Check cache INSIDE the query function to get fresh values
-    const cachedProjections = isTodayCheck && currentLocation?.id 
-      ? getCachedProjections(currentLocation.id) 
-      : null;
-    
-    const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
-    const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
-    const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
-    
-    // Check if we have cached data - if so, use fast mode for quicker refresh (TODAY only)
-    const cached = isTodayCheck && currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
-    const useFastMode = isTodayCheck && !!cached?.data;
-    
-    const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-      body: { 
-        locationId: currentLocation?.id,
-        targetDate: dateStr,
-        skipProjections,
-        fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
-      }
-    });
-
     // Capture diagnostic info for debugging
     setDiagnosticInfo({
       lastFetchTime: new Date().toISOString(),
       locationId: currentLocation?.id || null,
       locationName: currentLocation?.name || null,
       targetDate: dateStr,
-      rawResponse: data,
-      error: error?.message || null,
-      authenticated: data && typeof data === 'object' && 'authenticated' in data ? (data as any).authenticated : undefined
+      rawResponse: cachedData,
+      error: cachedData ? null : 'No cached data',
+      authenticated: true
     });
-
-    if (error) {
-      console.error("Error fetching sales data:", error);
-
-      // Fallback: if live fetch fails (e.g. integration outage), try DB cache for the selected date
-      const fallback = await checkDatabaseCache(dateStr);
-      if (fallback) {
-        toast.message('Showing cached sales (live sync unavailable)', {
-          description: 'Live sales sync is temporarily unavailable, but historical cache is available.'
-        });
-        return fallback;
-      }
-
-      const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
-      if (lastIntegrationErrorKey.current !== key) {
-        lastIntegrationErrorKey.current = key;
-        toast.error("Sales integration error", {
-          description: error.message || "Unable to fetch sales data."
-        });
-      }
+    
+    if (!cachedData) {
+      // No cache data available for this date
       return null;
     }
 
