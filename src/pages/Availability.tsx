@@ -535,19 +535,19 @@ export default function Availability() {
                         <div className="flex items-center justify-between gap-2">
                           {/* Mobile: stacked layout */}
                           <div className="flex-1 min-w-0 flex flex-col md:flex-row md:items-center md:gap-4">
-                            <div className="font-medium truncate md:w-48 lg:w-56 md:shrink-0">
+                            <div className="font-medium truncate md:w-32 lg:w-48 md:shrink-0">
                               {canApproveRequests ? request.profiles.full_name : "You"}
                             </div>
-                            <div className="font-semibold text-primary mt-1 md:mt-0 md:w-56 lg:w-72 md:shrink-0">
+                            <div className="font-semibold text-primary mt-1 md:mt-0 md:w-44 lg:w-56 md:shrink-0">
                               {formatTimeScope(request)}
                             </div>
                             {/* Hours - centered on desktop */}
-                            <div className="hidden md:flex md:flex-1 md:justify-center">
+                            <div className="hidden lg:flex lg:flex-1 lg:justify-center">
                               <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
                             </div>
                             {/* Badge - right aligned on desktop */}
                             <div className="flex items-center gap-3 mt-1 md:mt-0 text-sm text-muted-foreground md:shrink-0">
-                              <span className="font-semibold text-base text-foreground md:hidden">{request.hours_requested}h</span>
+                              <span className="font-semibold text-base text-foreground lg:hidden">{request.hours_requested}h</span>
                               <Badge
                                 variant={request.request_type === "paid" ? "default" : "secondary"}
                                 className="text-xs px-2 py-0.5"
