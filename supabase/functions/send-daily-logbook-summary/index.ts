@@ -98,42 +98,30 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
   }
 }
 
-// Fetch product mix AND projections from fetch-qubeyond-sales edge function
-async function fetchProductMixAndProjections(supabaseUrl: string, supabaseAnonKey: string, locationId: string, dateStr: string): Promise<{ topItems: { name: string; quantity: number; sales: number }[]; projectedSales: number }> {
+// Fetch product mix from sales_cache (no more edge function call needed)
+async function fetchProductMixFromCache(supabase: any, locationId: string, dateStr: string): Promise<{ name: string; quantity: number; sales: number }[]> {
   try {
-    console.log(`[productMix] Fetching from fetch-qubeyond-sales for ${dateStr}`);
+    console.log(`[productMix] Fetching from sales_cache for ${dateStr}`);
     
-    const response = await fetch(`${supabaseUrl}/functions/v1/fetch-qubeyond-sales`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
-      },
-      body: JSON.stringify({
-        locationId,
-        targetDate: dateStr,
-        skipProjections: false, // We need projections for the email
-      }),
-    });
+    const { data, error } = await supabase
+      .from('sales_cache')
+      .select('product_mix')
+      .eq('location_id', locationId)
+      .eq('sale_date', dateStr)
+      .maybeSingle();
 
-    if (!response.ok) {
-      console.error('[productMix] fetch-qubeyond-sales failed:', response.status);
-      return { topItems: [], projectedSales: 0 };
+    if (error) {
+      console.error('[productMix] sales_cache query error:', error);
+      return [];
     }
 
-    const data = await response.json();
-    
-    // Get the daily projection from the response
-    const projectedSales = data?.projections?.todayProjected || 0;
-    console.log(`[productMix] Got projectedSales from live calculation: ${projectedSales}`);
-    
-    if (!data?.productMix || !Array.isArray(data.productMix)) {
-      console.log('[productMix] No productMix in response');
-      return { topItems: [], projectedSales };
+    if (!data?.product_mix || !Array.isArray(data.product_mix)) {
+      console.log('[productMix] No product_mix in sales_cache');
+      return [];
     }
 
     // Return top 5 items sorted by sales
-    const topItems = data.productMix
+    const topItems = data.product_mix
       .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
       .slice(0, 5)
       .map((item: any) => ({
@@ -142,11 +130,11 @@ async function fetchProductMixAndProjections(supabaseUrl: string, supabaseAnonKe
         sales: item.sales || 0,
       }));
 
-    console.log(`[productMix] Got ${topItems.length} top items, projectedSales=${projectedSales}`);
-    return { topItems, projectedSales };
+    console.log(`[productMix] Got ${topItems.length} top items from cache`);
+    return topItems;
   } catch (error) {
-    console.error('Error fetching product mix:', error);
-    return { topItems: [], projectedSales: 0 };
+    console.error('Error fetching product mix from cache:', error);
+    return [];
   }
 }
 
