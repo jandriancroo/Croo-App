@@ -542,7 +542,7 @@ export default function Availability() {
                               {formatTimeScope(request)}
                             </div>
                             <div className="flex items-center gap-3 mt-1 md:mt-0 text-sm text-muted-foreground md:flex-1 md:justify-end">
-                              <span className="font-medium">{request.hours_requested}h</span>
+                              <span className="font-semibold text-base text-foreground">{request.hours_requested}h</span>
                               <Badge
                                 variant={request.request_type === "paid" ? "default" : "secondary"}
                                 className="text-xs px-2 py-0.5"
