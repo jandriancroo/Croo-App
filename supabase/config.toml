@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.batch-analyze-applications]
 verify_jwt = false
+
+[functions.test-qubeyond-auth]
+verify_jwt = false
