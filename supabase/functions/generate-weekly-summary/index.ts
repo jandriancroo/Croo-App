@@ -210,7 +210,7 @@ serve(async (req) => {
     // 4. Generate AI summary of sales trends
     let aiSummary = "Weekly sales data unavailable.";
     
-    // Get same week last year for YoY comparison
+    // Get same week last year for YoY comparison (from sales_cache, not edge function calls)
     let lastYearWeekSales = 0;
     let yoyChange = 0;
     
@@ -224,31 +224,18 @@ serve(async (req) => {
       const lyStartStr = lastYearStart.toISOString().split('T')[0];
       const lyEndStr = lastYearEnd.toISOString().split('T')[0];
       
-      console.log(`Fetching same week last year: ${lyStartStr} to ${lyEndStr}`);
+      console.log(`Fetching same week last year from cache: ${lyStartStr} to ${lyEndStr}`);
       
-      // Fetch each day of last year's week and sum
-      const lyDates: string[] = [];
-      const current = new Date(lastYearStart);
-      while (current <= lastYearEnd) {
-        lyDates.push(current.toISOString().split('T')[0]);
-        current.setDate(current.getDate() + 1);
-      }
+      // Fetch from sales_cache instead of calling edge function in a loop
+      const { data: lyData } = await supabase
+        .from('sales_cache')
+        .select('net_sales')
+        .eq('location_id', location_id)
+        .gte('sale_date', lyStartStr)
+        .lte('sale_date', lyEndStr);
       
-      for (const dateStr of lyDates) {
-        try {
-          const dayResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
-            body: {
-              locationId: location_id,
-              targetDate: dateStr,
-              skipProjections: true,
-            }
-          });
-          if (dayResponse.data?.daily) {
-            lastYearWeekSales += dayResponse.data.daily;
-          }
-        } catch (e) {
-          console.log(`No data for ${dateStr}`);
-        }
+      if (lyData && lyData.length > 0) {
+        lastYearWeekSales = lyData.reduce((sum: number, row: any) => sum + (row.net_sales || 0), 0);
       }
       
       console.log(`Last year same week total: $${lastYearWeekSales}`);
