@@ -51,9 +51,6 @@ verify_jwt = false
 [functions.trigger-alarm-tasks]
 verify_jwt = false
 
-[functions.send-daily-logbook-summary]
-verify_jwt = false
-
 [functions.auto-schedule]
 verify_jwt = true
 
