@@ -444,6 +444,156 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 }
 
 // ============================================================================
+// ACTION: backfill (replaces backfill-sales-cache)
+// ============================================================================
+
+async function handleBackfill(req: Request, supabase: any): Promise<Response> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+  const authHeader = req.headers.get('Authorization') || '';
+  const supabaseAuth = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { locationId, daysBack = 365 } = await req.json();
+
+  if (!locationId) {
+    return new Response(JSON.stringify({ error: 'Missing locationId' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Authorize caller for this location
+  const { data: hasAccess, error: accessError } = await supabase.rpc(
+    'has_location_access',
+    { _user_id: user.id, _location_id: locationId },
+  );
+
+  if (accessError || !hasAccess) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration, error: intError } = await supabase
+    .from('location_integrations')
+    .select('credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (intError || !integration) {
+    return new Response(JSON.stringify({ error: 'Integration not configured' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+  if (!credentials?.username || !credentials?.password) {
+    return new Response(JSON.stringify({ error: 'Missing credentials' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const qbLocationId = credentials?.location_id || '';
+  if (!qbLocationId) {
+    return new Response(JSON.stringify({ error: 'Missing QuBeyond location_id' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
+
+  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Generate backfill dates
+  const dates: string[] = [];
+  const today = new Date();
+  for (let i = 1; i <= daysBack; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+  }
+
+  let successCount = 0;
+  let totalAttempted = 0;
+
+  for (const dateStr of dates) {
+    totalAttempted++;
+    const [hourly, pizzaCount] = await Promise.all([
+      fetchHourlySales(auth.tokenGw, dateStr, qbLocationId),
+      fetchProductMix(auth.tokenGw, dateStr, qbLocationId)
+    ]);
+
+    const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
+    const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
+
+    const formattedHourly: { hour: string; sales: number; checksCount: number }[] = [];
+    for (let h = 0; h < 24; h++) {
+      const hourStr = `${h.toString().padStart(2, '0')}:00`;
+      const hourData = hourly.find(hd => hd.hour === hourStr);
+      formattedHourly.push({
+        hour: hourStr,
+        sales: hourData?.sales || 0,
+        checksCount: hourData?.checksCount || 0,
+      });
+    }
+
+    // Skip if no sales (preserve any existing data)
+    if (netSales <= 0) continue;
+
+    const { error: upsertError } = await supabase
+      .from('sales_cache')
+      .upsert({
+        location_id: locationId,
+        sale_date: dateStr,
+        net_sales: netSales,
+        guest_count: guestCount,
+        pizza_count: Math.round(pizzaCount),
+        hourly_data: formattedHourly,
+        validation_status: 'valid',
+        validation_attempts: 1,
+        flagged_no_sales: false,
+        fetched_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,sale_date' });
+
+    if (!upsertError) successCount++;
+  }
+
+  console.log(`[sales-service] backfill OK: ${locationId} ${successCount}/${totalAttempted} days`);
+
+  return new Response(
+    JSON.stringify({ status: 'completed', locationId, successCount, totalAttempted }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
+
+// ============================================================================
 // ACTION: sync-day (replaces sync-day-sales)
 // ============================================================================
 
@@ -624,7 +774,10 @@ serve(async (req) => {
       case 'sync-day':
         return await handleSyncDay(req, supabase);
       
-      // Future actions: backfill, fetch-full
+      case 'backfill':
+        return await handleBackfill(req, supabase);
+      
+      // Future actions: fetch-full
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
