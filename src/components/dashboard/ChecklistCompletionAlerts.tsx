@@ -6,7 +6,12 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { getTodayInTimezone, getDayOfWeekInTimezone, getStartOfTodayInTimezone } from "@/utils/timezoneUtils";
+import { 
+  getTodayInTimezone, 
+  getDayOfWeekInTimezone, 
+  getStartOfTodayInTimezone,
+  getEndOfDateStringInTimezone 
+} from "@/utils/timezoneUtils";
 
 export function ChecklistCompletionAlerts() {
   const navigate = useNavigate();
@@ -22,6 +27,7 @@ export function ChecklistCompletionAlerts() {
       // Use timezone-aware day of week (Mon=0, Sun=6)
       const currentDay = getDayOfWeekInTimezone(timezone);
       const startOfToday = getStartOfTodayInTimezone(timezone);
+      const endOfToday = getEndOfDateStringInTimezone(today, timezone);
       const now = new Date();
 
       // Get all active checklists for current location
@@ -54,9 +60,6 @@ export function ChecklistCompletionAlerts() {
       });
 
       // Get submissions for today only (between midnight and end of day)
-      const endOfToday = new Date(startOfToday);
-      endOfToday.setHours(23, 59, 59, 999);
-
       const { data: submissions, error: submissionsError } = await supabase
         .from('checklist_submissions')
         .select(`
