@@ -794,7 +794,7 @@ export default function UserManagement() {
     try {
       setSettingTempPassword(true);
       
-      const { data, error } = await supabase.functions.invoke('set-user-password', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=set-password', {
         body: { 
           userId: tempPasswordUser.id, 
           password: tempPassword 
