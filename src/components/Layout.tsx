@@ -661,7 +661,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       label: 'My Team',
       icon: Users
     }]),
-    ...(isAdmin ? [{
+    ...(!roleLoading && isAdmin ? [{
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
