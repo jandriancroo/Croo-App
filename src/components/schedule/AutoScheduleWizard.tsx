@@ -277,7 +277,7 @@ export function AutoScheduleWizard({
   const generateSchedule = async () => {
     setProcessing(true);
     try {
-      const response = await supabase.functions.invoke("auto-schedule", {
+      const response = await supabase.functions.invoke("schedule-service?action=auto-schedule", {
         body: {
           location_id: locationId,
           schedule_id: scheduleId,
@@ -311,7 +311,7 @@ export function AutoScheduleWizard({
 
     setProcessing(true);
     try {
-      const response = await supabase.functions.invoke("optimize-labor", {
+      const response = await supabase.functions.invoke("schedule-service?action=optimize-labor", {
         body: {
           location_id: locationId,
           week_start: format(currentWeekStart, "yyyy-MM-dd"),
