@@ -70,7 +70,7 @@ serve(async (req) => {
     console.log('[NIGHTLY-MAINTENANCE] Task 1: Refreshing stale labor cache...');
     
     try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/refresh-stale-labor`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=refresh-stale`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
