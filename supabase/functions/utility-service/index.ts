@@ -45,16 +45,33 @@ async function handleCreateTestUsers(req: Request, supabaseAdmin: any): Promise<
       throw new Error("Only admins can create test users");
     }
 
+    const defaultTestUsers = [
+      { email: 'test.alpha@example.com', name: 'Test Employee Alpha', role: 'team_member' },
+      { email: 'test.beta@example.com', name: 'Test Employee Beta', role: 'team_member' },
+      { email: 'test.gamma@example.com', name: 'Test Employee Gamma', role: 'team_member' },
+      { email: 'test.delta@example.com', name: 'Test Employee Delta', role: 'team_member' },
+      { email: 'test.echo@example.com', name: 'Test Employee Echo', role: 'team_member' },
+      { email: 'test.foxtrot@example.com', name: 'Test Employee Foxtrot', role: 'team_member' },
+      { email: 'test.golf@example.com', name: 'Test Employee Golf', role: 'team_member' },
+      { email: 'test.hotel@example.com', name: 'Test Employee Hotel', role: 'team_member' },
+      { email: 'test.india@example.com', name: 'Test Employee India', role: 'team_member' },
+      { email: 'test.juliet@example.com', name: 'Test Employee Juliet', role: 'team_member' },
+      { email: 'test.kilo@example.com', name: 'Test Employee Kilo', role: 'team_member' },
+      { email: 'test.lima@example.com', name: 'Test Employee Lima', role: 'team_member' },
+      { email: 'test.mike@example.com', name: 'Test Employee Mike', role: 'team_member' },
+      { email: 'test.november@example.com', name: 'Test Employee November', role: 'team_member' },
+      { email: 'test.oscar@example.com', name: 'Test Employee Oscar', role: 'team_member' },
+      { email: 'test.papa@example.com', name: 'Test Employee Papa', role: 'team_member' },
+      { email: 'test.quebec@example.com', name: 'Test Employee Quebec', role: 'team_member' },
+      { email: 'test.romeo@example.com', name: 'Test Employee Romeo', role: 'team_member' },
+      { email: 'test.sierra@example.com', name: 'Test Employee Sierra', role: 'team_member' },
+      { email: 'test.tango@example.com', name: 'Test Employee Tango', role: 'team_member' },
+    ];
+
+    const count = body.count ?? defaultTestUsers.length;
     const testUsers = singleUser 
       ? [singleUser] 
-      : [
-          { email: 'test.alpha@example.com', name: 'Test Employee Alpha', role: 'team_member' },
-          { email: 'test.beta@example.com', name: 'Test Employee Beta', role: 'team_member' },
-          { email: 'test.gamma@example.com', name: 'Test Employee Gamma', role: 'team_member' },
-          { email: 'test.delta@example.com', name: 'Test Employee Delta', role: 'team_member' },
-          { email: 'test.echo@example.com', name: 'Test Employee Echo', role: 'team_member' },
-          { email: 'test.foxtrot@example.com', name: 'Test Employee Foxtrot', role: 'team_member' },
-        ];
+      : defaultTestUsers.slice(0, Math.min(count, defaultTestUsers.length));
 
     const createdUsers = [];
     const errors = [];
