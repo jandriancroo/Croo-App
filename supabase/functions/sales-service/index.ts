@@ -444,6 +444,161 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 }
 
 // ============================================================================
+// ACTION: sync-day (replaces sync-day-sales)
+// ============================================================================
+
+async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+  const authHeader = req.headers.get('Authorization') || '';
+  const supabaseAuth = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
+
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { locationId, date } = await req.json();
+
+  if (!locationId || !date) {
+    return new Response(JSON.stringify({ error: 'Missing locationId or date' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Authorize caller for this location
+  const { data: hasAccess, error: accessError } = await supabase.rpc(
+    'has_location_access',
+    { _user_id: user.id, _location_id: locationId },
+  );
+
+  if (accessError) {
+    console.error('[sales-service] access check error:', accessError);
+    return new Response(JSON.stringify({ error: 'Access check failed' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!hasAccess) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration, error: intError } = await supabase
+    .from('location_integrations')
+    .select('credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (intError || !integration) {
+    console.error('[sales-service] Integration not found:', intError);
+    return new Response(JSON.stringify({ error: 'Integration not configured' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+  if (!credentials?.username || !credentials?.password) {
+    return new Response(JSON.stringify({ error: 'Missing integration credentials' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const qbLocationId = credentials?.location_id || '';
+  if (!qbLocationId) {
+    return new Response(JSON.stringify({ error: 'Missing QuBeyond location_id in credentials' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
+
+  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const [hourly, pizzaCount] = await Promise.all([
+    fetchHourlySales(auth.tokenGw, date, qbLocationId),
+    fetchProductMix(auth.tokenGw, date, qbLocationId)
+  ]);
+
+  const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
+  const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
+
+  const formattedHourly: { hour: string; sales: number; checksCount: number }[] = [];
+  for (let h = 0; h < 24; h++) {
+    const hourStr = `${h.toString().padStart(2, '0')}:00`;
+    const hourData = hourly.find(hd => hd.hour === hourStr);
+    formattedHourly.push({
+      hour: hourStr,
+      sales: hourData?.sales || 0,
+      checksCount: hourData?.checksCount || 0,
+    });
+  }
+
+  if (netSales <= 0) {
+    console.log(`[sales-service] sync-day: ${locationId} ${date} netSales=0, not overwriting`);
+    return new Response(
+      JSON.stringify({ status: 'no_sales', locationId, date, netSales, guestCount }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  const avgTicket = guestCount > 0 ? netSales / guestCount : null;
+
+  const { error: upsertError } = await supabase
+    .from('sales_cache')
+    .upsert({
+      location_id: locationId,
+      sale_date: date,
+      net_sales: netSales,
+      guest_count: guestCount,
+      pizza_count: Math.round(pizzaCount),
+      avg_ticket: avgTicket,
+      hourly_data: formattedHourly,
+      validation_status: 'valid',
+      validation_attempts: 1,
+      flagged_no_sales: false,
+      fetched_at: new Date().toISOString(),
+    }, { onConflict: 'location_id,sale_date' });
+
+  if (upsertError) {
+    console.error('[sales-service] sync-day upsert failed:', upsertError);
+    return new Response(JSON.stringify({ error: upsertError.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log(`[sales-service] sync-day OK: ${locationId} ${date} $${netSales.toFixed(2)} (${guestCount} guests, ${pizzaCount} pizzas)`);
+
+  return new Response(
+    JSON.stringify({ status: 'updated', locationId, date, netSales, guestCount, pizzaCount }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+}
+
+// ============================================================================
 // MAIN ROUTER
 // ============================================================================
 
@@ -466,7 +621,10 @@ serve(async (req) => {
       case 'sync-live':
         return await handleSyncLive(supabase);
       
-      // Future actions: sync-day, backfill, fetch-full
+      case 'sync-day':
+        return await handleSyncDay(req, supabase);
+      
+      // Future actions: backfill, fetch-full
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
