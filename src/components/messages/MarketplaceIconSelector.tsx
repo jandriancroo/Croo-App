@@ -30,7 +30,7 @@ export function MarketplaceIconSelector({ open, onOpenChange, chatId, onIconSele
       const generatedIcons = [];
       
       for (let i = 1; i <= 3; i++) {
-        const { data, error } = await supabase.functions.invoke('generate-marketplace-icon', {
+        const { data, error } = await supabase.functions.invoke('image-service?action=generate-marketplace-icon', {
           body: { variant: i }
         });
 
