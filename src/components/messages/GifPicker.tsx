@@ -36,7 +36,7 @@ export function GifPicker({ onSelect }: GifPickerProps) {
   const fetchGifs = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-gifs', {
+      const { data, error } = await supabase.functions.invoke('utility-service?action=fetch-gifs', {
         body: { search: query }
       });
       

@@ -365,7 +365,7 @@ export default function UserManagement() {
       const testName = testNames[(testUserCounter - 1) % testNames.length];
       const email = `test.${testName.toLowerCase()}${testUserCounter > 10 ? testUserCounter : ''}@example.com`;
       
-      const { data, error } = await supabase.functions.invoke('create-test-users', {
+      const { data, error } = await supabase.functions.invoke('utility-service?action=create-test-users', {
         body: { 
           location_id: currentLocation.id,
           single_user: {
@@ -1090,7 +1090,7 @@ export default function UserManagement() {
 
   const handleCreateTestUsers = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('create-test-users');
+      const { data, error } = await supabase.functions.invoke('utility-service?action=create-test-users');
 
       if (error) throw error;
 
