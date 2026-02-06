@@ -154,9 +154,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         }
       }, 2000);
       
-      // Fire the backfill
-      supabase.functions.invoke('backfill-sales-cache', {
-        body: { locationId, integrationId }
+      // Fire the backfill via unified sales-service
+      supabase.functions.invoke('sales-service', {
+        body: { locationId, daysBack: 365 },
+        headers: { 'X-Action': 'backfill' }
       }).then(({ error }) => {
         if (error) {
           console.error('[BACKFILL] Background job error:', error);

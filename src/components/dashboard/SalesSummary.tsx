@@ -1237,8 +1237,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
                     const results = await Promise.allSettled(
                       dates.map((date) =>
-                        supabase.functions.invoke('sync-day-sales', {
-                          body: { locationId: currentLocation.id, date },
+                        supabase.functions.invoke('sales-service', {
+                          body: { locationId: currentLocation.id, date, action: 'sync-day' },
                         })
                       )
                     );
