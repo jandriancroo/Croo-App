@@ -774,7 +774,10 @@ serve(async (req) => {
       case 'sync-day':
         return await handleSyncDay(req, supabase);
       
-      // Future actions: backfill, fetch-full
+      case 'backfill':
+        return await handleBackfill(req, supabase);
+      
+      // Future actions: fetch-full
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
