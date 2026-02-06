@@ -69,8 +69,6 @@ verify_jwt = false
 [functions.labor-service]
 verify_jwt = false
 
-[functions.nightly-maintenance]
-verify_jwt = false
 
 [functions.import-bom]
 verify_jwt = true
