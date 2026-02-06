@@ -280,16 +280,19 @@ serve(async (req) => {
           continue;
         }
         
-        // Send the daily logbook summary
-        const response = await fetch(`${supabaseUrl}/functions/v1/send-daily-logbook-summary`, {
+        // Send the daily logbook summary via support-email-service
+        const response = await fetch(`${supabaseUrl}/functions/v1/support-email-service`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseServiceKey}`
           },
           body: JSON.stringify({
-            location_id: location.id,
-            entry_date: yesterday
+            action: 'send_daily_logbook_summary',
+            payload: {
+              location_id: location.id,
+              entry_date: yesterday
+            }
           })
         });
         
