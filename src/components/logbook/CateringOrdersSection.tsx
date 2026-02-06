@@ -129,7 +129,7 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
       toast.info("Parsing order with AI...");
       
       const { data: parseResult, error: parseError } = await supabase.functions.invoke(
-        "parse-catering-order",
+        "ai-extraction-service?action=parse-catering-order",
         { body: { imageUrl: urlData.publicUrl } }
       );
 
