@@ -167,6 +167,155 @@ async function sendSupportResolution(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+// ============ DAILY LOGBOOK SUMMARY ============
+
+async function sendDailyLogbookSummary(payload: any): Promise<Response> {
+  const { location_id, entry_date } = payload;
+  
+  if (!location_id || !entry_date) {
+    return new Response(JSON.stringify({ error: "location_id and entry_date required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Get location details
+  const { data: location, error: locError } = await supabase
+    .from("locations")
+    .select("id, name, organization_id")
+    .eq("id", location_id)
+    .single();
+
+  if (locError || !location) {
+    return new Response(JSON.stringify({ error: "Location not found", success: false }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Get sales data for the day
+  const { data: salesData } = await supabase
+    .from("sales_cache")
+    .select("net_sales, guest_count, pizza_count, avg_ticket, projected_sales")
+    .eq("location_id", location_id)
+    .eq("sale_date", entry_date)
+    .maybeSingle();
+
+  // Get labor data for the day
+  const { data: laborData } = await supabase
+    .from("labor_cache")
+    .select("labor_hours, labor_cost")
+    .eq("location_id", location_id)
+    .eq("labor_date", entry_date);
+
+  const totalLaborHours = laborData?.reduce((sum, l) => sum + (l.labor_hours || 0), 0) || 0;
+  const totalLaborCost = laborData?.reduce((sum, l) => sum + (l.labor_cost || 0), 0) || 0;
+
+  // Get logbook entries for the day
+  const { data: logbookEntries } = await supabase
+    .from("logbook_entries")
+    .select(`
+      id, entry_date, created_at,
+      category:category_id (name),
+      created_by_profile:created_by (full_name)
+    `)
+    .eq("location_id", location_id)
+    .eq("entry_date", entry_date);
+
+  // Get recipients - managers and above at this location
+  const { data: recipients } = await supabase
+    .from("user_locations")
+    .select(`
+      user_id,
+      profile:user_id (id, email, full_name),
+      user_role:user_id (role)
+    `)
+    .eq("location_id", location_id);
+
+  const managerRoles = ["admin", "org_admin", "super_admin", "manager", "general_manager"];
+  const eligibleRecipients = recipients?.filter((r: any) => {
+    const role = r.user_role?.role;
+    return managerRoles.includes(role) && r.profile?.email;
+  }) || [];
+
+  if (eligibleRecipients.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No eligible recipients", recipientCount: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Format the date for display
+  const displayDate = new Date(entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  // Build email content
+  const netSales = salesData?.net_sales || 0;
+  const projection = salesData?.projected_sales || 0;
+  const variance = projection > 0 ? ((netSales - projection) / projection * 100).toFixed(1) : "0";
+  const varianceColor = parseFloat(variance) >= 0 ? "#22c55e" : "#ef4444";
+  const laborPercent = netSales > 0 ? ((totalLaborCost / netSales) * 100).toFixed(1) : "0";
+
+  const logbookSummary = (logbookEntries || []).map((entry: any) => 
+    `<li style="padding:4px 0;color:${textColor};font-size:14px;">${entry.category?.name || "Entry"} - by ${entry.created_by_profile?.full_name || "Unknown"}</li>`
+  ).join("");
+
+  const emailHtml = wrapEmail(`
+    ${getEmailHeader(`📊 Daily Summary: ${location.name}`)}
+    <tr><td style="padding:30px 40px;">
+      <p style="color:#666;font-size:14px;margin:0 0 20px;">${displayDate}</p>
+      
+      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:20px;">
+        <h3 style="color:${primaryColor};font-size:16px;margin:0 0 16px;">💰 Sales Performance</h3>
+        <table style="width:100%;">
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;">Net Sales</span><br/><strong style="color:${textColor};font-size:18px;">$${netSales.toLocaleString()}</strong></td><td style="padding:6px 0;text-align:right;"><span style="color:#666;font-size:12px;">vs Projection</span><br/><strong style="color:${varianceColor};font-size:18px;">${parseFloat(variance) >= 0 ? "+" : ""}${variance}%</strong></td></tr>
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;">Guests</span><br/><strong style="color:${textColor};font-size:16px;">${salesData?.guest_count || 0}</strong></td><td style="padding:6px 0;text-align:right;"><span style="color:#666;font-size:12px;">Pizzas</span><br/><strong style="color:${textColor};font-size:16px;">${salesData?.pizza_count || 0}</strong></td></tr>
+        </table>
+      </div>
+
+      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:20px;">
+        <h3 style="color:${primaryColor};font-size:16px;margin:0 0 16px;">👥 Labor</h3>
+        <table style="width:100%;">
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;">Hours</span><br/><strong style="color:${textColor};font-size:16px;">${totalLaborHours.toFixed(1)}h</strong></td><td style="padding:6px 0;text-align:right;"><span style="color:#666;font-size:12px;">Cost</span><br/><strong style="color:${textColor};font-size:16px;">$${totalLaborCost.toLocaleString()}</strong></td></tr>
+          <tr><td colspan="2" style="padding:6px 0;"><span style="color:#666;font-size:12px;">Labor %</span><br/><strong style="color:${textColor};font-size:16px;">${laborPercent}%</strong></td></tr>
+        </table>
+      </div>
+
+      ${logbookEntries && logbookEntries.length > 0 ? `
+      <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid ${primaryColor};">
+        <h3 style="color:${primaryColor};font-size:14px;margin:0 0 12px;">📝 Logbook Entries (${logbookEntries.length})</h3>
+        <ul style="margin:0;padding-left:20px;">${logbookSummary}</ul>
+      </div>
+      ` : ""}
+
+      ${getCTAButton("https://croohq.com", "View Full Report")}
+    </td></tr>
+    ${getEmailFooter()}
+  `);
+
+  // Send to all eligible recipients
+  let sentCount = 0;
+  for (const recipient of eligibleRecipients) {
+    const email = (recipient as any).profile?.email;
+    if (email) {
+      try {
+        await resend.emails.send({
+          from: "CrooHQ <reports@croohq.email>",
+          to: [email],
+          subject: `Daily Summary: ${location.name} - ${displayDate}`,
+          html: emailHtml,
+        });
+        sentCount++;
+      } catch (e) {
+        console.error("Error sending daily summary to", email, e);
+      }
+    }
+  }
+
+  // Log the send
+  await supabase
+    .from("daily_summary_logs")
+    .upsert({
+      location_id,
+      summary_date: entry_date,
+      recipient_count: sentCount,
+    }, { onConflict: "location_id,summary_date" });
+
+  return new Response(JSON.stringify({ success: true, recipientCount: sentCount }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 // ============ TEST EMAIL ============
 
 async function sendTestEmail(payload: any): Promise<Response> {
