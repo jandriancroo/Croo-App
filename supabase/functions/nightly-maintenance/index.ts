@@ -224,7 +224,7 @@ serve(async (req) => {
 
         if (!existing || existing.is_stale) {
           // Backfill this location for yesterday
-          const response = await fetch(`${supabaseUrl}/functions/v1/backfill-punch-labor`, {
+          const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=backfill`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
