@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
         }
         return await handleBackfillCrooCash(supabase);
       
+      case "generate-weekly-summary":
+        return await handleGenerateWeeklySummary(supabase, supabaseUrl, supabaseKey, payload);
+      
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
@@ -615,6 +618,291 @@ async function handleBackfillCrooCash(supabase: ReturnType<typeof createClient>)
       transactionsCreated: transactionsToCreate.length,
     }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ============================================================================
+// GENERATE WEEKLY SUMMARY
+// ============================================================================
+async function handleGenerateWeeklySummary(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseKey: string,
+  payload: Record<string, any>
+) {
+  const { location_id, week_start, week_end, user_id } = payload;
+  
+  if (!location_id || !week_start || !week_end) {
+    return new Response(
+      JSON.stringify({ error: "location_id, week_start, and week_end are required" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  
+  console.log('Generating weekly summary for location:', location_id, 'week:', week_start, 'to', week_end);
+
+  // Helper to get array of date strings between two dates
+  const getDateRange = (startDate: string, endDate: string): string[] => {
+    const dates: string[] = [];
+    const start = new Date(startDate + 'T12:00:00');
+    const end = new Date(endDate + 'T12:00:00');
+    const current = new Date(start);
+    
+    while (current <= end) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      dates.push(`${year}-${month}-${day}`);
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  // 1. Get all drawer counts for the week to calculate over/short
+  const { data: drawerEntries } = await supabase
+    .from('logbook_entries')
+    .select(`*, logbook_entry_values(*), logbook_categories(name)`)
+    .eq('location_id', location_id)
+    .gte('entry_date', week_start)
+    .lte('entry_date', week_end);
+
+  let totalOverShort = 0;
+  let drawerCountDays = 0;
+  const dailyOverShort: { date: string; amount: number }[] = [];
+
+  drawerEntries?.forEach((entry: any) => {
+    if (entry.logbook_categories?.name?.toLowerCase() === 'drawer count') {
+      entry.logbook_entry_values?.forEach((val: any) => {
+        try {
+          const data = JSON.parse(val.value_text || '{}');
+          const varianceAmount = data.variance ?? data.overUnder ?? null;
+          if (varianceAmount !== null && varianceAmount !== undefined) {
+            totalOverShort += varianceAmount;
+            drawerCountDays++;
+            dailyOverShort.push({ date: entry.entry_date, amount: varianceAmount });
+          }
+        } catch {}
+      });
+    }
+  });
+
+  // 2. Get sales data
+  let totalSales = 0;
+  const dailySales: { date: string; sales: number }[] = [];
+  const salesByDayOfWeek: Record<string, number> = {};
+
+  try {
+    const salesResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+      body: { locationId: location_id, targetDate: week_end }
+    });
+
+    if (salesResponse.data && !salesResponse.error) {
+      totalSales = salesResponse.data.weekly || 0;
+      const weekDates = getDateRange(week_start, week_end);
+      for (const dateStr of weekDates) {
+        const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+        salesByDayOfWeek[dayName] = 0;
+      }
+    }
+  } catch (e) {
+    console.error('Error fetching sales:', e);
+  }
+
+  // 3. Get task completion stats
+  const { data: checklists } = await supabase
+    .from('checklists')
+    .select(`id, title, frequency, assigned_day_of_week, checklist_items(id, days_of_week)`)
+    .eq('location_id', location_id)
+    .eq('is_active', true)
+    .neq('frequency', 'monthly');
+
+  const { data: submissions } = await supabase
+    .from('checklist_submissions')
+    .select(`*, checklist_responses(*), checklists(id, title, frequency)`)
+    .eq('location_id', location_id)
+    .gte('submitted_at', week_start)
+    .lte('submitted_at', week_end + 'T23:59:59');
+
+  let totalTasksExpected = 0;
+  let totalTasksCompleted = 0;
+  const weekDates = getDateRange(week_start, week_end);
+  
+  for (const dateStr of weekDates) {
+    const date = new Date(dateStr + 'T12:00:00');
+    const dayOfWeek = date.getDay();
+    
+    for (const checklist of (checklists || [])) {
+      let isExpected = false;
+      if (checklist.frequency === 'daily') {
+        isExpected = true;
+      } else if (checklist.frequency === 'weekly') {
+        if (checklist.assigned_day_of_week === null || checklist.assigned_day_of_week === dayOfWeek) {
+          isExpected = true;
+        }
+      }
+      
+      if (!isExpected) continue;
+      
+      const applicableItems = checklist.checklist_items?.filter((item: any) => {
+        if (!item.days_of_week || item.days_of_week.length === 0) {
+          return checklist.frequency === 'daily';
+        }
+        return item.days_of_week.includes(dayOfWeek);
+      }) || [];
+      
+      const expectedItems = applicableItems.length;
+      if (expectedItems === 0) continue;
+      
+      totalTasksExpected += expectedItems;
+      
+      const daySubmissions = submissions?.filter((sub: any) => {
+        const subDate = new Date(sub.submitted_at).toISOString().split('T')[0];
+        return sub.checklists?.id === checklist.id && subDate === dateStr;
+      }) || [];
+      
+      if (daySubmissions.length > 0) {
+        const bestSubmission = daySubmissions.reduce((best: any, current: any) => {
+          const bestCount = best?.checklist_responses?.length || 0;
+          const currentCount = current?.checklist_responses?.length || 0;
+          return currentCount > bestCount ? current : best;
+        }, daySubmissions[0]);
+        
+        totalTasksCompleted += bestSubmission.checklist_responses?.length || 0;
+      }
+    }
+  }
+
+  const taskCompletionRate = totalTasksExpected > 0 
+    ? Math.round((totalTasksCompleted / totalTasksExpected) * 100) 
+    : 0;
+
+  // 4. Generate summary
+  let aiSummary = "Weekly sales data unavailable.";
+  if (totalSales > 0) {
+    aiSummary = `Total weekly sales: $${totalSales.toLocaleString()}.`;
+  }
+
+  // 5. Create/update weekly summary category and entry
+  let { data: summaryCategory } = await supabase
+    .from('logbook_categories')
+    .select('id')
+    .eq('location_id', location_id)
+    .eq('name', 'Weekly Summary')
+    .maybeSingle();
+
+  if (!summaryCategory) {
+    const { data: newCategory } = await supabase
+      .from('logbook_categories')
+      .insert({
+        name: 'Weekly Summary',
+        location_id: location_id,
+        is_active: true,
+        alert_enabled: false,
+        display_order: 999,
+      })
+      .select()
+      .single();
+    summaryCategory = newCategory;
+  }
+
+  if (!summaryCategory) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to create Weekly Summary category' }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  let { data: summaryField } = await supabase
+    .from('logbook_fields')
+    .select('id')
+    .eq('category_id', summaryCategory.id)
+    .eq('field_name', 'summary_data')
+    .maybeSingle();
+
+  if (!summaryField) {
+    const { data: newField } = await supabase
+      .from('logbook_fields')
+      .insert({
+        category_id: summaryCategory.id,
+        field_name: 'summary_data',
+        field_type: 'text',
+        is_required: false,
+        display_order: 0,
+      })
+      .select()
+      .single();
+    summaryField = newField;
+  }
+
+  if (!summaryField) {
+    return new Response(
+      JSON.stringify({ error: 'Failed to create summary field' }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Delete existing summary for this week
+  const { data: existingSummaries } = await supabase
+    .from('logbook_entries')
+    .select('id')
+    .eq('category_id', summaryCategory.id)
+    .eq('entry_date', week_end)
+    .eq('location_id', location_id);
+
+  if (existingSummaries && existingSummaries.length > 0) {
+    for (const existing of existingSummaries) {
+      await supabase.from('logbook_entry_values').delete().eq('entry_id', existing.id);
+      await supabase.from('logbook_entries').delete().eq('id', existing.id);
+    }
+  }
+
+  // Create entry
+  const { data: entryData, error: entryError } = await supabase
+    .from('logbook_entries')
+    .insert({
+      category_id: summaryCategory.id,
+      entry_date: week_end,
+      created_by: user_id,
+      location_id: location_id,
+    })
+    .select()
+    .single();
+
+  if (entryError) {
+    return new Response(
+      JSON.stringify({ error: entryError.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const summaryData = {
+    type: 'weekly_summary',
+    week_start,
+    week_end,
+    total_sales: totalSales,
+    daily_sales: dailySales,
+    total_over_short: totalOverShort,
+    daily_over_short: dailyOverShort,
+    task_completion_rate: taskCompletionRate,
+    tasks_completed: totalTasksCompleted,
+    tasks_expected: totalTasksExpected,
+    ai_summary: aiSummary,
+    generated_at: new Date().toISOString(),
+  };
+
+  await supabase
+    .from('logbook_entry_values')
+    .insert({
+      entry_id: entryData.id,
+      field_id: summaryField.id,
+      value_text: JSON.stringify(summaryData),
+    });
+
+  console.log('Weekly summary generated successfully');
+
+  return new Response(
+    JSON.stringify({ success: true, data: summaryData }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
 

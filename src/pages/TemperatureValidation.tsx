@@ -204,7 +204,7 @@ export default function TemperatureValidation() {
   const handleRescanAll = async () => {
     setRescanning(true);
     try {
-      const { data, error } = await supabase.functions.invoke('rescan-temperatures', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=rescan-temperatures', {
         body: { targetDate: getTodayInPST() }
       });
 

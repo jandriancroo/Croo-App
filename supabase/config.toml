@@ -9,37 +9,13 @@ verify_jwt = false
 [functions.support-email-service]
 verify_jwt = false
 
-[functions.upload-brand-asset]
-verify_jwt = false
-
-[functions.analyze-application]
-verify_jwt = true
-
-[functions.extract-temperature]
-verify_jwt = true
-
-[functions.rescan-temperatures]
-verify_jwt = true
-
 [functions.maintenance-service]
-verify_jwt = false
-
-[functions.check-alerts]
 verify_jwt = false
 
 [functions.send-daily-changelog]
 verify_jwt = false
 
-[functions.extract-certification-date]
-verify_jwt = true
-
-[functions.parse-catering-order]
-verify_jwt = true
-
 [functions.send-push-notification]
-verify_jwt = true
-
-[functions.generate-weekly-summary]
 verify_jwt = true
 
 [functions.data-sync-service]
@@ -60,13 +36,7 @@ verify_jwt = true
 [functions.auto-punch-out]
 verify_jwt = false
 
-[functions.sync-pfg-orders]
-verify_jwt = false
-
 [functions.labor-service]
-verify_jwt = false
-
-[functions.batch-analyze-applications]
 verify_jwt = false
 
 [functions.ai-extraction-service]
@@ -76,4 +46,10 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.utility-service]
+verify_jwt = false
+
+[functions.elevenlabs-service]
+verify_jwt = true
+
+[functions.fetch-qubeyond-sales]
 verify_jwt = false
