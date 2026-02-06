@@ -70,7 +70,7 @@ serve(async (req) => {
     console.log('[NIGHTLY-MAINTENANCE] Task 1: Refreshing stale labor cache...');
     
     try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/refresh-stale-labor`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=refresh-stale`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,7 +138,7 @@ serve(async (req) => {
 
       // Trigger refresh for affected locations
       if (locationsToRefresh.size > 0) {
-        await fetch(`${supabaseUrl}/functions/v1/refresh-stale-labor`, {
+        await fetch(`${supabaseUrl}/functions/v1/labor-service?action=refresh-stale`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -224,7 +224,7 @@ serve(async (req) => {
 
         if (!existing || existing.is_stale) {
           // Backfill this location for yesterday
-          const response = await fetch(`${supabaseUrl}/functions/v1/backfill-punch-labor`, {
+          const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=backfill`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
