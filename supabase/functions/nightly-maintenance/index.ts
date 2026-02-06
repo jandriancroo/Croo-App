@@ -138,7 +138,7 @@ serve(async (req) => {
 
       // Trigger refresh for affected locations
       if (locationsToRefresh.size > 0) {
-        await fetch(`${supabaseUrl}/functions/v1/refresh-stale-labor`, {
+        await fetch(`${supabaseUrl}/functions/v1/labor-service?action=refresh-stale`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
