@@ -72,5 +72,8 @@ verify_jwt = false
 [functions.nightly-maintenance]
 verify_jwt = false
 
+[functions.import-bom]
+verify_jwt = true
+
 [functions.batch-analyze-applications]
 verify_jwt = false
