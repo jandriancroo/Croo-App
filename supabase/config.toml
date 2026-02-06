@@ -48,7 +48,7 @@ verify_jwt = true
 [functions.sales-service]
 verify_jwt = false
 
-[functions.trigger-alarm-tasks]
+[functions.alert-service]
 verify_jwt = false
 
 [functions.schedule-service]
