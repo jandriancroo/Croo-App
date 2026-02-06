@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { getTodayInTimezone, getDayOfWeekInTimezone, getStartOfTodayInTimezone } from "@/utils/dateUtils";
+import { getTodayInTimezone, getDayOfWeekInTimezone, getStartOfTodayInTimezone } from "@/utils/timezoneUtils";
 
 export function ChecklistCompletionAlerts() {
   const navigate = useNavigate();
