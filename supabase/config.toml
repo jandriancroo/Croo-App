@@ -51,10 +51,7 @@ verify_jwt = false
 [functions.trigger-alarm-tasks]
 verify_jwt = false
 
-[functions.auto-schedule]
-verify_jwt = true
-
-[functions.optimize-labor]
+[functions.schedule-service]
 verify_jwt = true
 
 [functions.generate-product-image]
