@@ -24,7 +24,7 @@ export function useGameMusic(theme: MusicTheme) {
       console.log(`Loading ${theme} music...`);
       
       const response = await fetch(
-        `https://lmodeiyrpwvgyqcvjkjr.supabase.co/functions/v1/elevenlabs-music`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-service?action=music`,
         {
           method: 'POST',
           headers: {

@@ -198,7 +198,7 @@ const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
     console.log('[Voice ElevenLabs] Getting scribe token...');
 
     try {
-      const { data, error } = await supabase.functions.invoke("elevenlabs-scribe-token");
+      const { data, error } = await supabase.functions.invoke("elevenlabs-service?action=scribe-token");
 
       if (error) throw error;
       if (!data?.token) throw new Error("No token received");

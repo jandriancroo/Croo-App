@@ -459,7 +459,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const _speakAlarmName = async (title: string): Promise<void> => {
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-alarm-tts`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-service?action=alarm-tts`,
         {
           method: "POST",
           headers: {
