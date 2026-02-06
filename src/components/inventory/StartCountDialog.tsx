@@ -306,7 +306,7 @@ const StartCountDialog = ({
       
       setSyncProgress({ phase: "Fetching products from PFG...", current: 15, total: 100 });
       
-      const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
+      const { data, error } = await supabase.functions.invoke("pfg-service", {
         body: { locationId, action: "categories", productListHeaderId, customerId }
       });
 
@@ -422,7 +422,7 @@ const StartCountDialog = ({
       }
 
       // Also sync PFG orders in background
-      supabase.functions.invoke("sync-pfg-orders", {
+      supabase.functions.invoke("pfg-service?action=sync_orders", {
         body: { locationId }
       }).catch(console.warn);
 

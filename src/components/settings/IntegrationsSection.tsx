@@ -322,7 +322,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     setPfgTestResult(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-pfg-orders', {
+      const { data, error } = await supabase.functions.invoke('pfg-service', {
         body: { 
           locationId: locationId,
           testCredentials: pfgCredentials,

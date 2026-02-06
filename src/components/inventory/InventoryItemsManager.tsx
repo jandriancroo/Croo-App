@@ -218,7 +218,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       
       setProgress({ phase: "Fetching product list from PFG...", current: 10, total: 100 });
       
-      const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
+      const { data, error } = await supabase.functions.invoke("pfg-service", {
         body: { locationId, action: "categories", productListHeaderId, customerId }
       });
 
