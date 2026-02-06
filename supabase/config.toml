@@ -42,7 +42,7 @@ verify_jwt = true
 [functions.generate-weekly-summary]
 verify_jwt = true
 
-[functions.fetch-ovation-scores]
+[functions.data-sync-service]
 verify_jwt = true
 
 [functions.sales-service]
@@ -65,10 +65,6 @@ verify_jwt = false
 
 [functions.labor-service]
 verify_jwt = false
-
-
-[functions.import-bom]
-verify_jwt = true
 
 [functions.batch-analyze-applications]
 verify_jwt = false

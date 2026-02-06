@@ -488,7 +488,7 @@ export default function Schedule() {
       const now = Date.now();
       if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) {
         sessionStorage.setItem('lastBirthdaySyncTime', now.toString());
-        supabase.functions.invoke('sync-birthday-events').catch(err => 
+        supabase.functions.invoke('data-sync-service?action=sync-birthday-events').catch(err =>
           console.error('Failed to sync birthday holidays:', err)
         );
       }

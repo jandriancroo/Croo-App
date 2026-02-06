@@ -229,7 +229,7 @@ export default function FBCDashboard() {
     queryFn: async () => {
       if (!brandMembership?.brandId && !brandMembership?.isSuperAdmin) return { scores: [], error: null };
       
-      const { data, error } = await supabase.functions.invoke('fetch-ovation-scores', {
+      const { data, error } = await supabase.functions.invoke('data-sync-service?action=fetch-ovation-scores', {
         body: {
           brandId: brandMembership.brandId,
           locationIds: locations?.map(l => l.id) || [],

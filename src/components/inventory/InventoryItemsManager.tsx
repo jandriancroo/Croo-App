@@ -180,7 +180,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     try {
       const content = await file.text();
       
-      const { data, error } = await supabase.functions.invoke("import-bom", {
+      const { data, error } = await supabase.functions.invoke("data-sync-service?action=import-bom", {
         body: { csvContent: content, locationId }
       });
 
