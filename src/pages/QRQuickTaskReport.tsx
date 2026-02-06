@@ -112,7 +112,7 @@ export default function QRQuickTaskReport() {
     try {
       // Call edge function to handle submission + notifications
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-qr-task-report`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/utility-service?action=submit-qr-task-report`,
         {
           method: 'POST',
           headers: {

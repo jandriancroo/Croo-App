@@ -260,8 +260,8 @@ export function SupportChatPanel() {
       if (error) throw error;
 
       // Send resolution email
-      await supabase.functions.invoke('send-support-resolution', {
-        body: { ticketId: selectedTicket.id }
+      await supabase.functions.invoke('support-email-service', {
+        body: { action: 'send_support_resolution', payload: { ticketId: selectedTicket.id } }
       });
 
       toast.success('Ticket resolved! User notified via email and push.');
@@ -309,8 +309,8 @@ export function SupportChatPanel() {
 
         // Send resolution email if resolved
         if (quickReply.status === 'resolved') {
-          await supabase.functions.invoke('send-support-resolution', {
-            body: { ticketId: selectedTicket.id }
+          await supabase.functions.invoke('support-email-service', {
+            body: { action: 'send_support_resolution', payload: { ticketId: selectedTicket.id } }
           });
           toast.success('Ticket resolved! User notified.');
         } else {

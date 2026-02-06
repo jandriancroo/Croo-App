@@ -283,7 +283,7 @@ export default function Settings() {
               onClick={async () => {
                 try {
                   toast.info('Rescanning temperatures...');
-                  const { data, error } = await supabase.functions.invoke('rescan-temperatures');
+                  const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=rescan-temperatures');
                   
                   if (error) throw error;
                   

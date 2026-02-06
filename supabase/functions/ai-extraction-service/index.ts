@@ -628,6 +628,192 @@ Respond ONLY with valid JSON:
 }
 
 // ============================================================================
+// RESCAN TEMPERATURES
+// ============================================================================
+
+async function handleRescanTemperatures(payload: any) {
+  const supabase = getSupabaseClient();
+  const scanDate = payload.targetDate || new Date().toISOString().split('T')[0];
+
+  console.log(`Rescanning temperatures for date: ${scanDate}`);
+
+  const { data: responses, error: fetchError } = await supabase
+    .from('checklist_responses')
+    .select(`
+      id,
+      response_image_url,
+      extracted_temperature,
+      item_id,
+      checklist_items(question)
+    `)
+    .not('response_image_url', 'is', null)
+    .gte('created_at', `${scanDate}T00:00:00`)
+    .lte('created_at', `${scanDate}T23:59:59`);
+
+  if (fetchError) {
+    console.error("Error fetching responses:", fetchError);
+    return errorResponse("Failed to fetch temperature readings", 500);
+  }
+
+  if (!responses || responses.length === 0) {
+    return jsonResponse({ message: "No temperature readings found for this date", results: [], summary: { total: 0 } });
+  }
+
+  console.log(`Found ${responses.length} temperature readings to rescan`);
+
+  const results: any[] = [];
+
+  for (const response of responses) {
+    try {
+      const item = (response.checklist_items as any)?.[0] || (response.checklist_items as any);
+      const question = item?.question || 'Unknown';
+
+      const extractResult = await handleExtractTemperature({ imageUrl: response.response_image_url });
+      const extractData = await extractResult.json();
+
+      if (extractResult.status !== 200) {
+        results.push({
+          id: response.id,
+          question,
+          success: false,
+          error: extractData.error || 'Extraction failed',
+          previousTemp: response.extracted_temperature
+        });
+        continue;
+      }
+
+      const { temperature, isValid } = extractData;
+
+      const { error: updateError } = await supabase
+        .from('checklist_responses')
+        .update({
+          extracted_temperature: temperature,
+          temperature_valid: isValid,
+          temperature_validated_at: new Date().toISOString()
+        })
+        .eq('id', response.id);
+
+      if (updateError) {
+        results.push({
+          id: response.id,
+          question,
+          success: false,
+          error: updateError.message,
+          previousTemp: response.extracted_temperature,
+          newTemp: temperature
+        });
+        continue;
+      }
+
+      results.push({
+        id: response.id,
+        question,
+        success: true,
+        previousTemp: response.extracted_temperature,
+        newTemp: temperature,
+        isValid: isValid,
+        changed: response.extracted_temperature !== temperature
+      });
+    } catch (error) {
+      const item = (response.checklist_items as any)?.[0] || (response.checklist_items as any);
+      results.push({
+        id: response.id,
+        question: item?.question || "Unknown",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        previousTemp: response.extracted_temperature
+      });
+    }
+  }
+
+  const summary = {
+    total: results.length,
+    successful: results.filter(r => r.success).length,
+    failed: results.filter(r => !r.success).length,
+    changed: results.filter(r => r.changed).length
+  };
+
+  return jsonResponse({ summary, results });
+}
+
+// ============================================================================
+// BATCH ANALYZE APPLICATIONS
+// ============================================================================
+
+async function handleBatchAnalyzeApplications(payload: any) {
+  const supabase = getSupabaseClient();
+  const { locationId, limit = 50 } = payload;
+
+  let query = supabase
+    .from('job_applications')
+    .select('id, full_name, resume_url')
+    .is('ai_analyzed_at', null)
+    .order('submitted_at', { ascending: false })
+    .limit(limit);
+
+  if (locationId) {
+    query = query.eq('location_id', locationId);
+  }
+
+  const { data: applications, error: fetchError } = await query;
+
+  if (fetchError) {
+    console.error('Error fetching applications:', fetchError);
+    return errorResponse('Failed to fetch applications', 500);
+  }
+
+  console.log(`Found ${applications?.length || 0} unanalyzed applications`);
+
+  const results: Array<{ id: string; name: string; success: boolean; isMatch?: boolean; error?: string }> = [];
+
+  for (const app of applications || []) {
+    console.log(`Analyzing: ${app.full_name} (${app.id})`);
+    
+    try {
+      const analysisResult = await handleAnalyzeApplication({ applicationId: app.id });
+      const data = await analysisResult.json();
+
+      if (analysisResult.status === 200 && data.success) {
+        results.push({
+          id: app.id,
+          name: app.full_name,
+          success: true,
+          isMatch: data.isMatch,
+        });
+      } else {
+        results.push({
+          id: app.id,
+          name: app.full_name,
+          success: false,
+          error: data.error || 'Unknown error',
+        });
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      results.push({
+        id: app.id,
+        name: app.full_name,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const matchCount = results.filter(r => r.isMatch).length;
+
+  return jsonResponse({
+    success: true,
+    processed: results.length,
+    successful: successCount,
+    matches: matchCount,
+    results,
+  });
+}
+
+// ============================================================================
 // MAIN ROUTER
 // ============================================================================
 
@@ -660,6 +846,10 @@ serve(async (req) => {
         return await handleParseCateringOrder(payload);
       case 'parse-inventory-voice':
         return await handleParseInventoryVoice(payload);
+      case 'rescan-temperatures':
+        return await handleRescanTemperatures(payload);
+      case 'batch-analyze-applications':
+        return await handleBatchAnalyzeApplications(payload);
       default:
         return errorResponse(`Unknown action: ${action}`, 400);
     }

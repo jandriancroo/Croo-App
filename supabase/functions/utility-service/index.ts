@@ -396,6 +396,122 @@ async function handleUploadBrandAsset(req: Request, supabaseAdmin: any): Promise
   }
 }
 
+// ============= SUBMIT QR TASK REPORT =============
+async function handleSubmitQRTaskReport(req: Request, supabaseAdmin: any): Promise<Response> {
+  try {
+    const body = await req.json();
+    const { task_id, location_id, selected_issues, guest_note } = body;
+
+    if (!task_id || !location_id || !selected_issues?.length) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     req.headers.get('x-real-ip') || 
+                     'unknown';
+
+    // Rate limit check
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: recentReports } = await supabaseAdmin
+      .from('qr_task_reports')
+      .select('id')
+      .eq('task_id', task_id)
+      .eq('reporter_ip', clientIP)
+      .gte('created_at', fiveMinutesAgo)
+      .limit(1);
+
+    if (recentReports && recentReports.length > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Please wait before submitting another report' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Insert report
+    const { data: report, error: insertError } = await supabaseAdmin
+      .from('qr_task_reports')
+      .insert({
+        task_id,
+        location_id,
+        selected_issues,
+        guest_note,
+        reporter_ip: clientIP,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting report:', insertError);
+      throw insertError;
+    }
+
+    // Fetch task details for notification
+    const { data: task } = await supabaseAdmin
+      .from('temporary_tasks')
+      .select('title, qr_notify_punch_clock, accent_color')
+      .eq('id', task_id)
+      .single();
+
+    const { data: location } = await supabaseAdmin
+      .from('locations')
+      .select('name')
+      .eq('id', location_id)
+      .single();
+
+    // Send push notification to managers
+    const issuesText = selected_issues.join(', ');
+    const notificationTitle = `🚨 ${task?.title || 'QR Alert'}`;
+    const notificationBody = `Issues reported: ${issuesText}${guest_note ? ` - "${guest_note}"` : ''}`;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          roles: ['manager', 'general_manager', 'admin', 'org_admin', 'super_admin'],
+          location_id,
+          title: notificationTitle,
+          body: notificationBody,
+          type: 'qr_task_report',
+          data: {
+            task_id,
+            report_id: report.id,
+            selected_issues,
+          },
+        }),
+      });
+    } catch (pushError) {
+      console.error('Error sending push notification:', pushError);
+    }
+
+    console.log(`[QR Task Report] Created report ${report.id} for task ${task_id} at ${location?.name || location_id}`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        report_id: report.id,
+        message: 'Report submitted successfully' 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in submit-qr-task-report:', error);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
 // ============= MAIN ROUTER =============
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -422,6 +538,8 @@ serve(async (req: Request): Promise<Response> => {
         return await handleFetchGifs(req);
       case "upload-brand-asset":
         return await handleUploadBrandAsset(req, supabaseAdmin);
+      case "submit-qr-task-report":
+        return await handleSubmitQRTaskReport(req, supabaseAdmin);
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),

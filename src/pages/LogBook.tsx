@@ -1014,7 +1014,7 @@ export default function LogBook() {
                 
                 toast({ title: "Generating weekly summary...", description: "Please wait" });
                 
-                const { error } = await supabase.functions.invoke('generate-weekly-summary', {
+                const { error } = await supabase.functions.invoke('maintenance-service?action=generate-weekly-summary', {
                   body: {
                     location_id: currentLocation?.id,
                     week_start: weekStartStr,
@@ -1270,7 +1270,7 @@ export default function LogBook() {
                     
                     toast({ title: "Generating weekly summary...", description: "Please wait" });
                     
-                    await supabase.functions.invoke('generate-weekly-summary', {
+                    await supabase.functions.invoke('maintenance-service?action=generate-weekly-summary', {
                       body: {
                         location_id: currentLocation.id,
                         week_start: weekStart,
