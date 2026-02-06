@@ -1,3 +1,4 @@
+// Checklist completion alerts component
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
