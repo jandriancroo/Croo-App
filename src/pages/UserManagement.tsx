@@ -749,7 +749,7 @@ export default function UserManagement() {
 
   const handleResetPassword = async (userId: string, userName: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('resend-invite', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', {
         body: { userId },
       });
 
