@@ -579,7 +579,7 @@ export default function UserManagement() {
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase.functions.invoke('toggle-user-status', {
+      const { error } = await supabase.functions.invoke('user-service?action=toggle-status', {
         body: {
           userId,
           isActive: !currentStatus,
