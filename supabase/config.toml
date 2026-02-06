@@ -66,16 +66,7 @@ verify_jwt = false
 [functions.sync-pfg-orders]
 verify_jwt = false
 
-[functions.backfill-punch-labor]
-verify_jwt = false
-
-[functions.scheduled-daily-summaries]
-verify_jwt = false
-
-[functions.import-bom]
-verify_jwt = true
-
-[functions.refresh-stale-labor]
+[functions.labor-service]
 verify_jwt = false
 
 [functions.nightly-maintenance]
