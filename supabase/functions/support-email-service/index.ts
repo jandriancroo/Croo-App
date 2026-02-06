@@ -349,6 +349,7 @@ const handler = async (req: Request): Promise<Response> => {
     switch (action) {
       case "support_ticket": return await notifySupportTicket(payload);
       case "send_support_resolution": return await sendSupportResolution(payload);
+      case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
       case "send_test": return await sendTestEmail(payload);
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
