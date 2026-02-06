@@ -21,7 +21,7 @@ verify_jwt = true
 [functions.rescan-temperatures]
 verify_jwt = true
 
-[functions.backfill-croo-cash-transactions]
+[functions.maintenance-service]
 verify_jwt = false
 
 [functions.check-alerts]
@@ -69,8 +69,6 @@ verify_jwt = false
 [functions.labor-service]
 verify_jwt = false
 
-[functions.nightly-maintenance]
-verify_jwt = false
 
 [functions.import-bom]
 verify_jwt = true
