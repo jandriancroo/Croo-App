@@ -704,7 +704,7 @@ export default function UserManagement() {
         return;
       }
  
-      const { data, error } = await supabase.functions.invoke('resend-invite', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', {
         body: {
           userId: resendUser.id,
           newEmail: emailChanged ? newEmail.trim() : undefined,
