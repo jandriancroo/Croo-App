@@ -1045,7 +1045,7 @@ export default function UserManagement() {
     try {
       setInviting(true);
  
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=invite', {
         body: {
           email: inviteEmail.trim(),
           fullName: inviteFullName.trim(),
