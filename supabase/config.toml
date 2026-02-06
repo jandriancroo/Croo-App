@@ -9,9 +9,6 @@ verify_jwt = false
 [functions.upload-brand-asset]
 verify_jwt = false
 
-[functions.send-invite-email]
-verify_jwt = false
-
 [functions.analyze-application]
 verify_jwt = true
 
