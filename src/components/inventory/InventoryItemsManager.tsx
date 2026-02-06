@@ -388,11 +388,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           const batch = itemsNeedingImages.slice(i, i + BATCH_SIZE);
           
           const results = await Promise.allSettled(
-            batch.map(async (item) => {
-              try {
-                const { data, error } = await supabase.functions.invoke("generate-product-image", {
-                  body: { productName: item.productName, brand: item.brand }
-                });
+             batch.map(async (item) => {
+               try {
+                 const { data, error } = await supabase.functions.invoke("image-service?action=generate-product-image", {
+                   body: { productName: item.productName, brand: item.brand }
+                 });
                 
                 if (error || !data?.imageUrl) {
                   console.log(`Failed to generate image for ${item.productName}:`, error);

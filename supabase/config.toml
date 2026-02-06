@@ -54,7 +54,7 @@ verify_jwt = false
 [functions.schedule-service]
 verify_jwt = true
 
-[functions.generate-product-image]
+[functions.image-service]
 verify_jwt = true
 
 [functions.auto-punch-out]
