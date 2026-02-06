@@ -181,7 +181,7 @@ export default function PublicApplication() {
         requestBody = { resumeText };
       }
 
-      const { data, error } = await supabase.functions.invoke('parse-resume', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=parse-resume', {
         body: requestBody
       });
 

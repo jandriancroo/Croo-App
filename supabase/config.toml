@@ -77,3 +77,6 @@ verify_jwt = true
 
 [functions.batch-analyze-applications]
 verify_jwt = false
+
+[functions.ai-extraction-service]
+verify_jwt = true

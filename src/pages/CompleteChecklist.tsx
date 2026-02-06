@@ -743,7 +743,7 @@ export default function CompleteChecklist() {
 
       if (shouldValidateTemp) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
-          'extract-temperature',
+          'ai-extraction-service?action=extract-temperature',
           { body: { imageUrl: data.publicUrl } }
         );
 

@@ -216,7 +216,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     try {
       const base64 = await fileToBase64(file);
       
-      const { data, error } = await supabase.functions.invoke('extract-audit-date', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=extract-audit-date', {
         body: { imageBase64: base64 }
       });
 
@@ -262,7 +262,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
         reader.onerror = () => reject(new Error('Failed to read file'));
       });
 
-      const { data, error } = await supabase.functions.invoke('extract-audit-summary', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=extract-audit-summary', {
         body: { imageBase64: base64 }
       });
 
