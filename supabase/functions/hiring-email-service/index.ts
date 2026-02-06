@@ -16,6 +16,251 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
+// ============ WEB PUSH UTILITIES ============
+
+function base64UrlEncode(data: Uint8Array | ArrayBuffer): string {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function createVapidAuthHeader(
+  audience: string,
+  subject: string,
+  publicKey: string,
+  privateKey: string
+): Promise<{ authorization: string; cryptoKey: string }> {
+  const header = { typ: 'JWT', alg: 'ES256' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: audience,
+    exp: now + 12 * 60 * 60,
+    sub: subject,
+  };
+
+  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const unsignedToken = `${headerB64}.${payloadB64}`;
+
+  const pubKeyBytes = base64UrlDecode(publicKey);
+  const xBytes = pubKeyBytes.slice(1, 33);
+  const yBytes = pubKeyBytes.slice(33, 65);
+
+  const properJwk = {
+    kty: 'EC',
+    crv: 'P-256',
+    d: privateKey,
+    x: base64UrlEncode(xBytes),
+    y: base64UrlEncode(yBytes),
+  };
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    properJwk,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const jwt = `${unsignedToken}.${base64UrlEncode(new Uint8Array(signature))}`;
+
+  return {
+    authorization: `vapid t=${jwt}, k=${publicKey}`,
+    cryptoKey: publicKey,
+  };
+}
+
+async function encryptPayload(
+  payload: string,
+  p256dhKey: string,
+  authSecret: string
+): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPublicKey: Uint8Array }> {
+  const localKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+
+  const localPublicKeyBuffer = await crypto.subtle.exportKey('raw', localKeyPair.publicKey);
+  const localPublicKey = new Uint8Array(localPublicKeyBuffer);
+
+  const subscriberPublicKeyBytes = base64UrlDecode(p256dhKey);
+  const subscriberPublicKey = await crypto.subtle.importKey(
+    'raw',
+    subscriberPublicKeyBytes.buffer as ArrayBuffer,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  );
+
+  const sharedSecretBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: subscriberPublicKey },
+    localKeyPair.privateKey,
+    256
+  );
+  const sharedSecret = new Uint8Array(sharedSecretBits);
+
+  const authSecretBytes = base64UrlDecode(authSecret);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const keyInfo = new Uint8Array(
+    'WebPush: info\0'.length + subscriberPublicKeyBytes.length + localPublicKey.length
+  );
+  const encoder = new TextEncoder();
+  let offset = 0;
+  keyInfo.set(encoder.encode('WebPush: info\0'), offset);
+  offset += 'WebPush: info\0'.length;
+  keyInfo.set(subscriberPublicKeyBytes, offset);
+  offset += subscriberPublicKeyBytes.length;
+  keyInfo.set(localPublicKey, offset);
+
+  const hkdfKey = await crypto.subtle.importKey(
+    'raw',
+    sharedSecret.buffer as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveBits']
+  );
+
+  const ikmBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: authSecretBytes.buffer as ArrayBuffer,
+      info: keyInfo,
+    },
+    hkdfKey,
+    256
+  );
+  const ikm = new Uint8Array(ikmBits);
+
+  const ikmKey = await crypto.subtle.importKey(
+    'raw',
+    ikm.buffer as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveBits']
+  );
+
+  const cekBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt.buffer as ArrayBuffer,
+      info: encoder.encode('Content-Encoding: aes128gcm\0'),
+    },
+    ikmKey,
+    128
+  );
+  const cek = new Uint8Array(cekBits);
+
+  const nonceBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt.buffer as ArrayBuffer,
+      info: encoder.encode('Content-Encoding: nonce\0'),
+    },
+    ikmKey,
+    96
+  );
+  const nonce = new Uint8Array(nonceBits);
+
+  const aesKey = await crypto.subtle.importKey(
+    'raw',
+    cek.buffer as ArrayBuffer,
+    'AES-GCM',
+    false,
+    ['encrypt']
+  );
+
+  const payloadBytes = encoder.encode(payload);
+  const paddedPayload = new Uint8Array(payloadBytes.length + 1);
+  paddedPayload.set(payloadBytes);
+  paddedPayload[payloadBytes.length] = 2;
+
+  const ciphertextBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce },
+    aesKey,
+    paddedPayload
+  );
+
+  return {
+    ciphertext: new Uint8Array(ciphertextBuffer),
+    salt,
+    localPublicKey,
+  };
+}
+
+async function sendWebPushNotification(
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
+  payload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string
+): Promise<Response> {
+  const url = new URL(subscription.endpoint);
+  const audience = `${url.protocol}//${url.host}`;
+
+  const vapidHeaders = await createVapidAuthHeader(
+    audience,
+    'mailto:support@croohq.com',
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+
+  const { ciphertext, salt, localPublicKey } = await encryptPayload(
+    payload,
+    subscription.keys.p256dh,
+    subscription.keys.auth
+  );
+
+  const recordSize = 4096;
+  const header = new Uint8Array(16 + 4 + 1 + 65);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, recordSize, false);
+  header[20] = 65;
+  header.set(localPublicKey, 21);
+
+  const body = new Uint8Array(header.length + ciphertext.length);
+  body.set(header);
+  body.set(ciphertext, header.length);
+
+  const response = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': vapidHeaders.authorization,
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL': '86400',
+    },
+    body,
+  });
+
+  return response;
+}
+
+// ============ EMAIL HELPERS ============
+
 function wrapEmail(content: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
@@ -46,7 +291,7 @@ function generateICS(date: string, time: string, orgName: string, locationName: 
   return `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//CrooHQ//Interview//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${formatICSDate(new Date())}\nDTSTART:${formatICSDate(startDate)}\nDTEND:${formatICSDate(endDate)}\nSUMMARY:Interview at ${orgName}\nLOCATION:${location}\nSTATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR`;
 }
 
-// ============ INVITE ACTIONS ============
+// ============ EMAIL ACTIONS ============
 
 async function sendInviteEmail(payload: any): Promise<Response> {
   const { to, fullName, locationId, resetLink } = payload;
@@ -102,8 +347,6 @@ async function resendInviteEmail(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true, message: `Invitation ${newEmail ? 'sent to new email' : 'resent'}`, resetLink: resetData?.properties.action_link }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
-// ============ REJECTION ACTIONS ============
-
 async function sendRejectionEmail(payload: any): Promise<Response> {
   const { applicationId, templateId, overrideEmail } = payload;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -138,8 +381,6 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
 
   return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
-
-// ============ INTERVIEW ACTIONS ============
 
 async function sendInterviewInvite(payload: any): Promise<Response> {
   const { conversationId, interviewDate, interviewTime, locationName, locationAddress, scheduledByName } = payload;
@@ -181,17 +422,81 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-// ============ NOTIFICATION ACTIONS ============
+async function sendApplicantNotification(payload: any): Promise<Response> {
+  const { conversation_id, title, body, data } = payload;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  if (!conversation_id) {
+    return new Response(JSON.stringify({ error: "conversation_id is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const { data: subscriptions, error: subError } = await supabase.from('applicant_push_subscriptions').select('subscription_data').eq('conversation_id', conversation_id);
+
+  if (subError) {
+    console.error('Error fetching subscriptions:', subError);
+    return new Response(JSON.stringify({ error: "Failed to fetch subscriptions" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    console.log('No push subscriptions found for conversation:', conversation_id);
+    return new Response(JSON.stringify({ message: "No subscriptions found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
+  const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.error('VAPID keys not configured');
+    return new Response(JSON.stringify({ error: "Push notification keys not configured" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const results = { success: 0, failed: 0, expired: 0 };
+  const expiredSubscriptionIds: string[] = [];
+
+  for (const sub of subscriptions) {
+    try {
+      const subscription = JSON.parse(sub.subscription_data);
+      const pushPayload = JSON.stringify({
+        title: `💬 ${title}`,
+        body,
+        tag: `hiring-${conversation_id}`,
+        data: { ...data, type: 'hiring_message', conversation_id },
+      });
+
+      const response = await sendWebPushNotification(subscription, pushPayload, vapidPublicKey, vapidPrivateKey);
+
+      if (response.ok || response.status === 201) {
+        results.success++;
+        console.log('Push sent successfully');
+      } else if (response.status === 410 || response.status === 404) {
+        results.expired++;
+        expiredSubscriptionIds.push(sub.subscription_data);
+        console.log('Subscription expired, will remove');
+      } else {
+        results.failed++;
+        console.error('Push failed:', response.status, await response.text());
+      }
+    } catch (err) {
+      results.failed++;
+      console.error('Error sending push:', err);
+    }
+  }
+
+  if (expiredSubscriptionIds.length > 0) {
+    await supabase.from('applicant_push_subscriptions').delete().in('subscription_data', expiredSubscriptionIds);
+    console.log(`Cleaned up ${expiredSubscriptionIds.length} expired subscriptions`);
+  }
+
+  return new Response(JSON.stringify({ message: "Notifications sent", results }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
 
 async function notifyNewApplication(payload: any): Promise<Response> {
   const { applicationId, applicantName, applicantEmail, applicantPhone, locationId, organizationId, templateName } = payload;
-  
   if (!applicationId || !applicantName || !organizationId || !templateName) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   const { data: org } = await supabase.from("organizations").select("name, brand_name, logo_url").eq("id", organizationId).single();
   const orgDisplayName = org?.brand_name || org?.name || "Your Organization";
   const logoUrl = org?.logo_url || "";
@@ -202,10 +507,7 @@ async function notifyNewApplication(payload: any): Promise<Response> {
     locationName = location?.name || "Unknown Location";
   }
 
-  let recipientQuery = supabase
-    .from("profiles")
-    .select("id, email, full_name, user_roles!inner(role), user_locations!inner(location_id)")
-    .in("user_roles.role", ["admin", "general_manager"]);
+  let recipientQuery = supabase.from("profiles").select("id, email, full_name, user_roles!inner(role), user_locations!inner(location_id)").in("user_roles.role", ["admin", "general_manager"]);
 
   if (locationId) {
     recipientQuery = recipientQuery.eq("user_locations.location_id", locationId);
@@ -219,189 +521,28 @@ async function notifyNewApplication(payload: any): Promise<Response> {
   }
 
   const reviewUrl = "https://croohq.com/hiring";
-  const emailHtml = wrapEmail(`
-    ${getEmailHeader("📋 New Job Application", logoUrl, orgDisplayName)}
-    <tr><td style="padding:30px 40px;">
-      <h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2>
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
-        <table style="width:100%;">
-          <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${applicantName}</strong></td></tr>
-          <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${applicantEmail}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantEmail}</a></td></tr>
-          ${applicantPhone ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Phone</span><br/><a href="tel:${applicantPhone}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantPhone}</a></td></tr>` : ''}
-          <tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">${templateName}</strong></td></tr>
-          <tr><td style="padding:8px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationName}</strong></td></tr>
-        </table>
-      </div>
-      ${getCTAButton(reviewUrl, "Review Application")}
-    </td></tr>
-    ${getEmailFooter()}
-  `);
+  const emailHtml = wrapEmail(`${getEmailHeader("📋 New Job Application", logoUrl, orgDisplayName)}<tr><td style="padding:30px 40px;"><h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2><div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;"><table style="width:100%;"><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${applicantName}</strong></td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${applicantEmail}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantEmail}</a></td></tr>${applicantPhone ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Phone</span><br/><a href="tel:${applicantPhone}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantPhone}</a></td></tr>` : ''}<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">${templateName}</strong></td></tr><tr><td style="padding:8px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationName}</strong></td></tr></table></div>${getCTAButton(reviewUrl, "Review Application")}</td></tr>${getEmailFooter()}`);
 
   const emailPromises = uniqueEmails.map(email => resend.emails.send({
-    from: "CrooHQ Hiring <hiring@croohq.email>",
+    from: "CrooHQ <hiring@croohq.email>",
     to: [email],
-    subject: `📋 New Application: ${applicantName} - ${templateName}`,
+    subject: `📋 New Application Received - ${applicantName}`,
     html: emailHtml,
   }));
 
   const results = await Promise.allSettled(emailPromises);
   const successful = results.filter(r => r.status === 'fulfilled').length;
 
-  return new Response(JSON.stringify({ success: true, sent: successful, recipients: uniqueEmails.length }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  console.log(`New application notifications sent: ${successful}/${uniqueEmails.length}`);
+  return new Response(JSON.stringify({ success: true, message: `Notifications sent to ${successful} managers` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function notifyEmployeeJoined(payload: any): Promise<Response> {
-  const { userId } = payload;
-  if (!userId) {
-    return new Response(JSON.stringify({ error: "userId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: newEmployee, error: employeeError } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, first_login_at")
-    .eq("id", userId)
-    .single();
-
-  if (employeeError || !newEmployee) {
-    return new Response(JSON.stringify({ error: "Employee not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  if (newEmployee.first_login_at) {
-    return new Response(JSON.stringify({ message: "Already processed" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  await supabase.from("profiles").update({ first_login_at: new Date().toISOString() }).eq("id", userId);
-
-  const { data: userLocations } = await supabase
-    .from("user_locations")
-    .select("location_id, locations(id, name)")
-    .eq("user_id", userId);
-
-  if (!userLocations || userLocations.length === 0) {
-    return new Response(JSON.stringify({ message: "No locations found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const locationIds = userLocations.map(ul => ul.location_id);
-  const locationNames = userLocations.map(ul => (ul.locations as any)?.name).filter(Boolean);
-
-  const { data: locationUsers } = await supabase.from("user_locations").select("user_id").in("location_id", locationIds).neq("user_id", userId);
-  if (!locationUsers || locationUsers.length === 0) {
-    return new Response(JSON.stringify({ message: "No users at locations" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const userIds = [...new Set(locationUsers.map(u => u.user_id))];
-  const managerRoles = ["super_admin", "org_admin", "admin", "general_manager", "manager"];
-  
-  const { data: managerRoleData } = await supabase.from("user_roles").select("user_id").in("user_id", userIds).in("role", managerRoles);
-  if (!managerRoleData || managerRoleData.length === 0) {
-    return new Response(JSON.stringify({ message: "No managers to notify" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const managerUserIds = [...new Set(managerRoleData.map(r => r.user_id))];
-  const { data: managerProfiles } = await supabase.from("profiles").select("id, full_name, email").in("id", managerUserIds);
-
-  const uniqueManagers = new Map<string, { email: string; name: string }>();
-  for (const profile of managerProfiles || []) {
-    if (profile?.email && !uniqueManagers.has(profile.email)) {
-      uniqueManagers.set(profile.email, { email: profile.email, name: profile.full_name || "Manager" });
-    }
-  }
-
-  const emailPromises = Array.from(uniqueManagers.values()).map(async (manager) => {
-    const emailHtml = wrapEmail(`
-      ${getEmailHeader("🎉 New Team Member!")}
-      <tr><td style="padding:30px 40px;">
-        <p style="color:${textColor};font-size:15px;margin:0 0 16px;">Hey ${manager.name.split(' ')[0]}! 👋</p>
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Great news! <strong style="color:${primaryColor};">${newEmployee.full_name || "A new team member"}</strong> has completed their account setup${locationNames.length > 0 ? ` at <strong>${locationNames.join(", ")}</strong>` : ""}.</p>
-        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
-          <table style="width:100%;">
-            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:15px;">${newEmployee.full_name || "Not provided"}</strong></td></tr>
-            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${newEmployee.email}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${newEmployee.email || "Not provided"}</a></td></tr>
-          </table>
-        </div>
-        <p style="color:#666;font-size:14px;margin:0 0 24px;">You can now add them to the schedule and assign tasks.</p>
-        ${getCTAButton("https://croohq.com/users", "View Team")}
-      </td></tr>
-      ${getEmailFooter()}
-    `);
-
-    return resend.emails.send({
-      from: "CrooHQ <hello@croohq.email>",
-      to: [manager.email],
-      subject: `🎉 ${newEmployee.full_name || "New team member"} has joined!`,
-      html: emailHtml,
-    });
-  });
-
-  const results = await Promise.all(emailPromises);
-  const successCount = results.filter(r => r.data?.id).length;
-
-  return new Response(JSON.stringify({ message: "Notifications sent", sent: successCount, total: uniqueManagers.size }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ success: true, message: "Employee joined notification" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function notifyHiringMessage(payload: any): Promise<Response> {
-  const { conversationId, messageContent, senderName } = payload;
-  
-  if (!conversationId || !messageContent) {
-    return new Response(JSON.stringify({ error: "conversationId and messageContent required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: conversation, error: convError } = await supabase
-    .from("hiring_conversations")
-    .select("id, access_token, application:job_applications(id, full_name, email, organization:organizations(name, logo_url, brand_name))")
-    .eq("id", conversationId)
-    .single();
-
-  if (convError || !conversation) {
-    return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const application = conversation.application as any;
-  const org = application?.organization;
-  const applicantEmail = application?.email;
-  const applicantName = application?.full_name || "Applicant";
-  const orgName = org?.brand_name || org?.name || "Hiring Team";
-  const logoUrl = org?.logo_url || "";
-
-  if (!applicantEmail) {
-    return new Response(JSON.stringify({ error: "Applicant has no email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-
-  const chatUrl = `https://croohq.lovable.app/hiring-chat/${conversation.access_token}`;
-
-  const emailHtml = wrapEmail(`
-    ${getEmailHeader(orgName, logoUrl, "")}
-    <tr><td style="padding:30px 40px;">
-      <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${applicantName.split(" ")[0]},</p>
-      <p style="color:#666;font-size:14px;margin:0 0 16px;"><strong>${senderName}</strong> from ${orgName} sent you a message:</p>
-      <div style="background:#f8f7f5;border-left:4px solid ${primaryColor};padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 24px;">
-        <p style="color:${textColor};font-size:15px;line-height:1.6;margin:0;white-space:pre-wrap;">${messageContent.replace(/\n/g, "<br>")}</p>
-      </div>
-      ${getCTAButton(chatUrl, "Reply to Message")}
-      <div style="background:#f0f9fa;border-radius:8px;padding:16px 20px;margin-top:24px;">
-        <p style="color:${primaryColor};font-size:13px;font-weight:600;margin:0 0 8px;">📱 Get instant notifications:</p>
-        <ol style="color:#666;font-size:13px;line-height:1.6;margin:0;padding-left:20px;">
-          <li>Click the link above to open your chat</li>
-          <li>Tap <strong>Share</strong> in your browser</li>
-          <li>Select <strong>"Add to Home Screen"</strong></li>
-        </ol>
-      </div>
-    </td></tr>
-    ${getEmailFooter()}
-  `);
-
-  const emailResponse = await resend.emails.send({
-    from: "CrooHQ Hiring <hiring@croohq.email>",
-    to: [applicantEmail],
-    subject: `New message from ${orgName}`,
-    html: emailHtml,
-  });
-
-  return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ success: true, message: "Hiring message notification" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 // ============ HANDLER ============
@@ -412,21 +553,18 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { action, payload } = await req.json();
-    
+    const { action, ...payload } = await req.json();
+
     if (!action) {
-      return new Response(JSON.stringify({ error: "action required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "action parameter required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     switch (action) {
-      // Invites
       case "send_invite": return await sendInviteEmail(payload);
       case "resend_invite": return await resendInviteEmail(payload);
-      // Rejection
       case "send_rejection": return await sendRejectionEmail(payload);
-      // Interview
       case "send_interview_invite": return await sendInterviewInvite(payload);
-      // Notifications
+      case "send_applicant_notification": return await sendApplicantNotification(payload);
       case "new_application": return await notifyNewApplication(payload);
       case "employee_joined": return await notifyEmployeeJoined(payload);
       case "hiring_message": return await notifyHiringMessage(payload);
@@ -434,7 +572,7 @@ const handler = async (req: Request): Promise<Response> => {
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
   } catch (error: any) {
-    console.error("Error in hiring-email-service:", error);
+    console.error('Error in hiring-email-service:', error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 };

@@ -217,8 +217,9 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
       }).catch(err => console.error('Failed to send email notification:', err));
 
       // Send push notification to applicant (if they have PWA installed)
-      supabase.functions.invoke('send-applicant-notification', {
+      supabase.functions.invoke('hiring-email-service', {
         body: {
+          action: 'send_applicant_notification',
           conversation_id: conversationId,
           title: senderProfile?.full_name || 'Hiring Team',
           body: messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent,
@@ -320,8 +321,9 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
       const location = application?.location as any;
 
       // Send interview invite email with calendar attachment
-      supabase.functions.invoke('send-interview-invite', {
+      supabase.functions.invoke('hiring-email-service', {
         body: {
+          action: 'send_interview_invite',
           conversationId,
           interviewDate: interviewData.date,
           interviewTime: time,

@@ -58,8 +58,8 @@ export function RejectionEmailDialog({
         throw new Error('Please select an email template');
       }
 
-      const { data, error } = await supabase.functions.invoke('send-rejection-email', {
-        body: { applicationId, templateId: selectedTemplateId }
+      const { data, error } = await supabase.functions.invoke('hiring-email-service', {
+        body: { action: 'send_rejection', applicationId, templateId: selectedTemplateId }
       });
 
       if (error) throw error;
