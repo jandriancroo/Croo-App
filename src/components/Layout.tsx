@@ -781,7 +781,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <User className="h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {!roleLoading && isAdmin && (
                     <>
                       {!isChecklistOnlyLocation && (
                         <DropdownMenuItem onClick={() => navigate('/alerts')} className="gap-2 cursor-pointer">
