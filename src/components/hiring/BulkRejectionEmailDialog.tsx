@@ -71,8 +71,8 @@ export function BulkRejectionEmailDialog({
         const batch = applicants.slice(i, i + batchSize);
         const results = await Promise.allSettled(
           batch.map((a) =>
-            supabase.functions.invoke('send-rejection-email', {
-              body: { applicationId: a.id, templateId: selectedTemplateId },
+            supabase.functions.invoke('hiring-email-service', {
+              body: { action: 'send_rejection', applicationId: a.id, templateId: selectedTemplateId },
             })
           )
         );
