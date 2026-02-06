@@ -579,7 +579,7 @@ export default function UserManagement() {
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase.functions.invoke('toggle-user-status', {
+      const { error } = await supabase.functions.invoke('user-service?action=toggle-status', {
         body: {
           userId,
           isActive: !currentStatus,
@@ -704,7 +704,7 @@ export default function UserManagement() {
         return;
       }
  
-      const { data, error } = await supabase.functions.invoke('resend-invite', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', {
         body: {
           userId: resendUser.id,
           newEmail: emailChanged ? newEmail.trim() : undefined,
@@ -749,7 +749,7 @@ export default function UserManagement() {
 
   const handleResetPassword = async (userId: string, userName: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('resend-invite', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=resend-invite', {
         body: { userId },
       });
 
@@ -794,7 +794,7 @@ export default function UserManagement() {
     try {
       setSettingTempPassword(true);
       
-      const { data, error } = await supabase.functions.invoke('set-user-password', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=set-password', {
         body: { 
           userId: tempPasswordUser.id, 
           password: tempPassword 
@@ -862,7 +862,7 @@ export default function UserManagement() {
       setBulkUpdating(true);
       
       for (const userId of selectedUsers) {
-        await supabase.functions.invoke('toggle-user-status', {
+        await supabase.functions.invoke('user-service?action=toggle-status', {
           body: { userId, isActive: false },
         });
       }
@@ -1045,7 +1045,7 @@ export default function UserManagement() {
     try {
       setInviting(true);
  
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=invite', {
         body: {
           email: inviteEmail.trim(),
           fullName: inviteFullName.trim(),

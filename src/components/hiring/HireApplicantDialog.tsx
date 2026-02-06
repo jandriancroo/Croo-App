@@ -76,7 +76,7 @@ export function HireApplicantDialog({ open, onOpenChange, applicant, onSuccess }
     setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      const { data, error } = await supabase.functions.invoke('user-service?action=invite', {
         body: {
           email,
           fullName,

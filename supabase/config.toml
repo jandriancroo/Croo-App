@@ -1,5 +1,8 @@
 project_id = "lmodeiyrpwvgyqcvjkjr"
 
+[functions.user-service]
+verify_jwt = false
+
 [functions.hiring-email-service]
 verify_jwt = false
 
