@@ -862,7 +862,7 @@ export default function UserManagement() {
       setBulkUpdating(true);
       
       for (const userId of selectedUsers) {
-        await supabase.functions.invoke('toggle-user-status', {
+        await supabase.functions.invoke('user-service?action=toggle-status', {
           body: { userId, isActive: false },
         });
       }
