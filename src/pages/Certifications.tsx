@@ -83,7 +83,7 @@ export default function Certifications() {
     try {
       const base64 = await fileToBase64(file);
       
-      const { data, error } = await supabase.functions.invoke('extract-certification-date', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=extract-certification-date', {
         body: { imageBase64: base64 }
       });
 

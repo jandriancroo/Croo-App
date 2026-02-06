@@ -440,7 +440,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     toast.info(`Processing: "${transcript}"`);
 
     try {
-      const { data, error } = await supabase.functions.invoke('parse-inventory-voice', {
+      const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=parse-inventory-voice', {
         body: {
           transcript,
           items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name }))

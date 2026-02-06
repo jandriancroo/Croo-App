@@ -180,7 +180,7 @@ export default function Hiring() {
 
       for (const app of needsAnalysis.slice(0, 5)) { // Limit to 5 at a time to avoid rate limits
         try {
-          await supabase.functions.invoke('analyze-application', {
+          await supabase.functions.invoke('ai-extraction-service?action=analyze-application', {
             body: { applicationId: app.id }
           });
         } catch (error) {
