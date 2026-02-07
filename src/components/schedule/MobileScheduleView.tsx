@@ -634,8 +634,8 @@ export function MobileScheduleView({
         </Badge>
       </div>
 
-      {/* Week Calendar */}
-      <div className="flex items-center justify-around">
+      {/* Week Calendar - Compact pill-style selector */}
+      <div className="bg-muted/50 rounded-xl p-1.5 flex items-center justify-between">
         {weekDays.map((day, index) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
@@ -644,18 +644,18 @@ export function MobileScheduleView({
             <button
               key={index}
               onClick={() => setSelectedDate(day)}
-              className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center px-2 py-1.5 rounded-lg transition-all min-w-[40px] ${
                 isSelected
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : isToday
-                    ? 'bg-primary/20 text-primary'
-                    : 'hover:bg-muted'
+                    ? 'bg-primary/15 text-primary'
+                    : 'hover:bg-background/60'
               }`}
             >
-              <span className="text-xs font-medium uppercase">
-                {format(day, 'EEE')}
+              <span className="text-[10px] font-medium uppercase tracking-wide">
+                {format(day, 'EEE').slice(0, 3)}
               </span>
-              <span className={`text-lg font-semibold ${isToday && !isSelected ? 'text-primary' : ''}`}>
+              <span className={`text-sm font-bold ${isToday && !isSelected ? 'text-primary' : ''}`}>
                 {format(day, 'd')}
               </span>
             </button>
