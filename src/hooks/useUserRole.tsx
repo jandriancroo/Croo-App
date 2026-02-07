@@ -35,12 +35,11 @@ export const useUserRole = () => {
         return 'team_member' as AppRole;
       }
       
-      console.log('[useUserRole] Fetched role for user:', user.id, 'role:', data);
       return data as AppRole;
     },
     enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    staleTime: Infinity, // Cache for entire session, clear on logout
+    gcTime: 1 * 60 * 60 * 1000, // Keep in memory for 1 hour
   });
 
   // Helper checks - use cached role

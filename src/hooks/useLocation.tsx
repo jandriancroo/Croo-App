@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { useQueryClient } from '@tanstack/react-query';
 
 interface Location {
   id: string;
@@ -31,9 +31,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
 
-  const fetchLocations = async () => {
-    const perfStart = performance.now();
-    
+  const fetchLocations = useCallback(async () => {
     if (!user) {
       setLocations([]);
       setCurrentLocationState(null);
@@ -48,7 +46,6 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         .select('all_locations_enabled, default_location_id')
         .eq('id', user.id)
         .single();
-      console.log(`[useLocation] Profile query: ${(performance.now() - perfStart).toFixed(0)}ms`);
 
       let locs: Location[] = [];
 
@@ -120,13 +117,12 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem('currentLocationId', locs[0].id);
         }
       }
-      console.log(`[useLocation] fetchLocations completed: ${(performance.now() - perfStart).toFixed(0)}ms, ${locs.length} locations`);
     } catch (error) {
       console.error('[useLocation] Error fetching locations:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchLocations();
