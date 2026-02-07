@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, Zap, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
-import { useUserRole } from "@/hooks/useUserRole";
-import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -15,26 +11,21 @@ import { CopyChecklistDialog } from './CopyChecklistDialog';
 import { TemporaryTasksSection } from './TemporaryTasksSection';
 import { supabase } from "@/integrations/supabase/client";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
-import { useQuery } from "@tanstack/react-query";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { FolderTabs, FolderTabContent } from "@/components/ui/folder-tabs";
 
 interface EditTabContentProps {
   checklists: any[];
   isAdmin: boolean;
   isManager: boolean;
-  isDynamic?: boolean;
 }
 
 export default function EditTabContent({
   checklists,
   isAdmin,
-  isManager,
-  isDynamic,
 }: EditTabContentProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -42,6 +33,7 @@ export default function EditTabContent({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("quick-tasks");
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -119,77 +111,91 @@ export default function EditTabContent({
   const currentDayIndex = getDayOfWeekInTimezone(timezone);
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  return (
-    <div className="space-y-6">
-      {/* Quick Tasks Section */}
-      <TemporaryTasksSection />
+  const folderTabs = [
+    { id: "quick-tasks", label: "Quick Tasks", icon: <Zap className="h-4 w-4" /> },
+    { id: "templates", label: "Templates", icon: <ClipboardList className="h-4 w-4" /> },
+  ];
 
-      {/* Checklist Templates */}
-      <Card>
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold">Checklist Templates</CardTitle>
-            <div className="flex gap-2">
-              {isAdmin && checklists.length > 1 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsReordering(!isReordering)}
-                >
-                  {isReordering ? "Done" : "Reorder"}
-                </Button>
-              )}
-              {isAdmin && (
-                <Button
-                  size="icon"
-                  onClick={() => setShowTemplateDialog(true)}
-                  title="New Checklist"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              )}
+  return (
+    <div className="space-y-4">
+      <FolderTabs
+        tabs={folderTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      >
+        {/* Quick Tasks Tab */}
+        <FolderTabContent value="quick-tasks" activeValue={activeTab}>
+          <TemporaryTasksSection />
+        </FolderTabContent>
+
+        {/* Templates Tab */}
+        <FolderTabContent value="templates" activeValue={activeTab}>
+          <div className="space-y-4">
+            {/* Header with actions */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">Checklist Templates</h3>
+              <div className="flex gap-2">
+                {isAdmin && checklists.length > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsReordering(!isReordering)}
+                  >
+                    {isReordering ? "Done" : "Reorder"}
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    size="icon"
+                    onClick={() => setShowTemplateDialog(true)}
+                    title="New Checklist"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {checklists.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No checklist templates available</p>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={checklists.map((c: any) => c.id)}
-                strategy={verticalListSortingStrategy}
+
+            {/* Checklist list */}
+            {checklists.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No checklist templates available</p>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
               >
-                <div className="space-y-2">
-                  {checklists.map((checklist: any) => {
-                    const isDynamicChecklist = checklist.template_type === 'dynamic';
-                    return (
-                      <SortableChecklistItem
-                        key={checklist.id}
-                        checklist={checklist}
-                        isDynamic={isDynamicChecklist}
-                        isReordering={isReordering}
-                        isAdmin={isAdmin}
-                        currentDay={currentDayIndex}
-                        dayNames={dayNames}
-                        onNavigate={navigate}
-                        onDeactivate={handleDeactivate}
-                        onDelete={handleDelete}
-                        onCopyTo={handleCopyTo}
-                        editMode={true}
-                      />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
-        </CardContent>
-      </Card>
+                <SortableContext
+                  items={checklists.map((c: any) => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {checklists.map((checklist: any) => {
+                      const isDynamicChecklist = checklist.template_type === 'dynamic';
+                      return (
+                        <SortableChecklistItem
+                          key={checklist.id}
+                          checklist={checklist}
+                          isDynamic={isDynamicChecklist}
+                          isReordering={isReordering}
+                          isAdmin={isAdmin}
+                          currentDay={currentDayIndex}
+                          dayNames={dayNames}
+                          onNavigate={navigate}
+                          onDeactivate={handleDeactivate}
+                          onDelete={handleDelete}
+                          onCopyTo={handleCopyTo}
+                          editMode={true}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        </FolderTabContent>
+      </FolderTabs>
 
       <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
       <CopyChecklistDialog
