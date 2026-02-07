@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FolderTabs, FolderTabContent } from "@/components/ui/folder-tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ArrowLeftRight, UtensilsCrossed, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
@@ -1600,139 +1600,146 @@ export default function LogBook() {
     );
   }
 
+  const folderTabs = [
+    { id: "search", label: "Recent Logs", icon: <ClipboardList className="h-4 w-4" /> },
+    { id: "catering", label: "Catering Orders", icon: <Truck className="h-4 w-4" /> },
+  ];
+
   return (
     <Layout>
       <div className="space-y-4">
         <div className="mb-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold">Logs</h1>
-            {isAdmin && (
-              <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-                <Settings className="h-4 w-4 mr-2" />
-                Categories
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {activeTab === 'search' && (
+                <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
+                  setShowNewEntrySheet(open);
+                  if (!open) setWizardStep('category');
+                }}>
+                  <SheetTrigger asChild>
+                    <Button size="icon" variant="default">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+                    {wizardStep === 'category' ? (
+                      <>
+                        <SheetHeader>
+                          <SheetTitle>Select Entry Type</SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-6 grid grid-cols-2 gap-3">
+                          {[...categories]
+                            .sort((a: any, b: any) => {
+                              const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
+                              const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
+                              const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
+                              if (aIsCash && !bIsCash) return 1;
+                              if (!aIsCash && bIsCash) return -1;
+                              return (a.display_order || 0) - (b.display_order || 0);
+                            })
+                            .map((category: any) => {
+                          const getCategoryIcon = (name: string) => {
+                              const lower = name.toLowerCase();
+                              if (lower.includes('write') && lower.includes('up')) return <UserX className="h-6 w-6" />;
+                              if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
+                              if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
+                              if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
+                              if (lower.includes('refund')) return <ArrowLeftRight className="h-6 w-6" />;
+                              if (lower.includes('remake')) return <UtensilsCrossed className="h-6 w-6" />;
+                              if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
+                              if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
+                              if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
+                              if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
+                              if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
+                              if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
+                              if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
+                              if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
+                              if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
+                              return <ClipboardList className="h-6 w-6" />;
+                            };
+                            
+                            const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => 
+                              category.name.toLowerCase().includes(term)
+                            );
+                            
+                            return (
+                              <button
+                                key={category.id}
+                                onClick={() => {
+                                  setSelectedCategory(category.id);
+                                  setWizardStep('form');
+                                }}
+                                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
+                                  isCashHandling 
+                                    ? "border-teal-500/50 bg-teal-500/10 hover:border-primary hover:bg-primary" 
+                                    : "border-border bg-card hover:border-primary hover:bg-primary"
+                                }`}
+                              >
+                                <div className={`${isCashHandling ? "text-teal-500" : "text-primary"} group-hover:text-primary-foreground transition-colors`}>
+                                  {getCategoryIcon(category.name)}
+                                </div>
+                                <span className="font-medium text-sm group-hover:text-primary-foreground transition-colors">{category.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <SheetHeader className="flex flex-row items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => setWizardStep('category')}
+                            className="h-8 w-8 -ml-2"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <SheetTitle className="!mt-0">
+                            {selectedCategory === 'bank-deposit' 
+                              ? 'Bank Deposit' 
+                              : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                          </SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4 space-y-4">
+                          {renderNewEntryContent()}
+                        </div>
+                      </>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              )}
+              
+              {activeTab === 'catering' && (
+                <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                  <Upload className="h-4 w-4" />
+                </Button>
+              )}
+              
+              {isAdmin && (
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  onClick={() => setManageCategoriesOpen(true)}
+                  title="Manage Categories"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
           <PageHeaderDivider />
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center gap-2">
-            <TabsList>
-              <TabsTrigger value="search">Recent Logs</TabsTrigger>
-              <TabsTrigger value="catering">Catering Orders</TabsTrigger>
-            </TabsList>
-            
-            {activeTab === 'search' && (
-              <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
-                setShowNewEntrySheet(open);
-                if (!open) setWizardStep('category'); // Reset to category step when closing
-              }}>
-                <SheetTrigger asChild>
-                  <Button size="icon" variant="default">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-                  {wizardStep === 'category' ? (
-                    <>
-                      <SheetHeader>
-                        <SheetTitle>Select Entry Type</SheetTitle>
-                      </SheetHeader>
-                      <div className="mt-6 grid grid-cols-2 gap-3">
-                        {/* Sort categories: cash handling items at bottom */}
-                        {[...categories]
-                          .sort((a: any, b: any) => {
-                            const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
-                            const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
-                            const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
-                            if (aIsCash && !bIsCash) return 1;
-                            if (!aIsCash && bIsCash) return -1;
-                            return (a.display_order || 0) - (b.display_order || 0);
-                          })
-                          .map((category: any) => {
-                        const getCategoryIcon = (name: string) => {
-                            const lower = name.toLowerCase();
-                            if (lower.includes('write') && lower.includes('up')) return <UserX className="h-6 w-6" />;
-                            if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
-                            if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
-                            if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
-                            if (lower.includes('refund')) return <ArrowLeftRight className="h-6 w-6" />;
-                            if (lower.includes('remake')) return <UtensilsCrossed className="h-6 w-6" />;
-                            if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
-                            if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
-                            if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
-                            if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
-                            if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
-                            if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
-                            if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
-                            if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
-                            if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
-                            return <ClipboardList className="h-6 w-6" />;
-                          };
-                          
-                          // Check if this is a cash handling category for special styling
-                          const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => 
-                            category.name.toLowerCase().includes(term)
-                          );
-                          
-                          return (
-                            <button
-                              key={category.id}
-                              onClick={() => {
-                                setSelectedCategory(category.id);
-                                setWizardStep('form');
-                              }}
-                              className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
-                                isCashHandling 
-                                  ? "border-teal-500/50 bg-teal-500/10 hover:border-primary hover:bg-primary" 
-                                  : "border-border bg-card hover:border-primary hover:bg-primary"
-                              }`}
-                            >
-                              <div className={`${isCashHandling ? "text-teal-500" : "text-primary"} group-hover:text-primary-foreground transition-colors`}>
-                                {getCategoryIcon(category.name)}
-                              </div>
-                              <span className="font-medium text-sm group-hover:text-primary-foreground transition-colors">{category.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <SheetHeader className="flex flex-row items-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={() => setWizardStep('category')}
-                          className="h-8 w-8 -ml-2"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <SheetTitle className="!mt-0">
-                          {selectedCategory === 'bank-deposit' 
-                            ? 'Bank Deposit' 
-                            : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
-                        </SheetTitle>
-                      </SheetHeader>
-                      <div className="mt-4 space-y-4">
-                        {renderNewEntryContent()}
-                      </div>
-                    </>
-                  )}
-                </SheetContent>
-              </Sheet>
-            )}
-            
-            {activeTab === 'catering' && (
-              <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                <Upload className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
-
-          <TabsContent value="search" className="space-y-4">
+        <FolderTabs
+          tabs={folderTabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        >
+          {/* Recent Logs Tab */}
+          <FolderTabContent value="search" activeValue={activeTab}>
+            <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -2099,16 +2106,18 @@ export default function LogBook() {
                 <p className="text-center text-muted-foreground py-8">No entries found</p>
               )}
             </div>
-          </TabsContent>
+            </div>
+          </FolderTabContent>
 
-          <TabsContent value="catering">
+          {/* Catering Orders Tab */}
+          <FolderTabContent value="catering" activeValue={activeTab}>
             <CateringOrdersSection 
               showHeader={false} 
               externalUploadOpen={showCateringUpload}
               onExternalUploadChange={setShowCateringUpload}
             />
-          </TabsContent>
-        </Tabs>
+          </FolderTabContent>
+        </FolderTabs>
 
         {isAdmin && (
           <ManageCategoriesDialog
