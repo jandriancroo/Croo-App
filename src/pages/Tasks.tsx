@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,14 +19,12 @@ import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { format, addDays, subDays, eachDayOfInterval } from "date-fns";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
-import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
-import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { getTodayInTimezone, getDateInTimezone, getDayOfWeekInTimezone, getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
+
+// Lazy-load Edit tab components to defer DnD bundle
+const EditTabContent = lazy(() => import('@/components/tasks/EditTabContent'));
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -38,89 +35,10 @@ export default function Tasks() {
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
-  const [isReordering, setIsReordering] = useState(false);
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
-  const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor)
-  );
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = checklists.findIndex((c: any) => c.id === active.id);
-    const newIndex = checklists.findIndex((c: any) => c.id === over.id);
-    
-    const reorderedChecklists = arrayMove(checklists, oldIndex, newIndex);
-    
-    // Update display_order for all affected checklists
-    const updates = reorderedChecklists.map((checklist: any, index: number) => ({
-      id: checklist.id,
-      display_order: index,
-    }));
-
-    try {
-      // Batch update - all updates in parallel instead of sequential
-      await Promise.all(
-        updates.map(update => 
-          supabase
-            .from('checklists')
-            .update({ display_order: update.display_order })
-            .eq('id', update.id)
-        )
-      );
-      
-      toast.success("Checklist order updated");
-      queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
-      queryClient.invalidateQueries({ queryKey: ['checklists'] });
-    } catch (error) {
-      toast.error("Failed to update order");
-    }
-  };
-
-  const handleDeactivate = async (checklistId: string) => {
-    const { error } = await supabase
-      .from('checklists')
-      .update({ is_active: false })
-      .eq('id', checklistId);
-
-    if (error) {
-      toast.error("Failed to deactivate checklist");
-      return;
-    }
-
-    toast.success("Checklist deactivated");
-    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
-  };
-
-  const handleDelete = async (checklistId: string) => {
-    const { error } = await supabase
-      .from('checklists')
-      .delete()
-      .eq('id', checklistId);
-
-    if (error) {
-      toast.error("Failed to delete checklist");
-      return;
-    }
-
-    toast.success("Checklist deleted");
-    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
-  };
-
-  const handleCopyTo = (checklistId: string, checklistTitle: string) => {
-    setCopyChecklistIds([checklistId]);
-    setCopyChecklistTitles([checklistTitle]);
-    setCopyDialogOpen(true);
-  };
-
   // Fetch checklists for user's role (location-filtered)
-  const { data: checklists = [], isLoading: checklistsLoading, isFetching: checklistsFetching } = useQuery({
+  const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
     queryKey: ['user-checklists', user?.id, isAdmin, currentLocation?.id],
     staleTime: 2 * 60 * 1000, // 2 min - show cached instantly, refresh in background
     placeholderData: (prev) => prev, // Keep previous data during refetch
@@ -183,7 +101,7 @@ export default function Tasks() {
   });
 
   // Fetch submission stats (location-filtered)
-  const { data: submissionStats, isLoading: statsLoading, isFetching: statsFetching } = useQuery({
+  const { data: submissionStats, isLoading: statsLoading } = useQuery({
     queryKey: ['submission-stats', user?.id, currentLocation?.id],
     staleTime: 2 * 60 * 1000, // 2 min cache
     placeholderData: (prev) => prev, // Keep previous data during refetch
@@ -728,85 +646,18 @@ export default function Tasks() {
           </TabsContent>
 
           <TabsContent value="edit" className="space-y-6">
-            {/* Quick Tasks Section */}
-            <TemporaryTasksSection />
-
-            {/* Checklist Templates */}
-            <Card>
-              <CardHeader className="py-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold">Checklist Templates</CardTitle>
-                  <div className="flex gap-2">
-                    {isAdmin && checklists.length > 1 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsReordering(!isReordering)}
-                      >
-                        {isReordering ? "Done" : "Reorder"}
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        size="icon"
-                        onClick={() => setShowTemplateDialog(true)}
-                        title="New Checklist"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {checklists.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No checklist templates available</p>
-                ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={checklists.map((c: any) => c.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-2">
-                        {checklists.map((checklist: any) => {
-                          const isDynamic = checklist.template_type === 'dynamic';
-                          return (
-                            <SortableChecklistItem
-                              key={checklist.id}
-                              checklist={checklist}
-                              isDynamic={isDynamic}
-                              isReordering={isReordering}
-                              isAdmin={isAdmin}
-                              currentDay={currentDayIndex}
-                              dayNames={dayNames}
-                              onNavigate={navigate}
-                              onDeactivate={handleDeactivate}
-                              onDelete={handleDelete}
-                              onCopyTo={handleCopyTo}
-                              editMode={true}
-                            />
-                          );
-                        })}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                )}
-              </CardContent>
-            </Card>
+            {/* Lazy-load Edit tab content with Suspense fallback */}
+            <Suspense fallback={<PageSkeleton variant="grid" />}>
+              <EditTabContent
+                checklists={checklists}
+                isAdmin={isAdmin}
+                isManager={isManager}
+              />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>
-      <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
-      <CopyChecklistDialog
-        open={copyDialogOpen}
-        onOpenChange={setCopyDialogOpen}
-        checklistIds={copyChecklistIds}
-        checklistTitles={copyChecklistTitles}
-      />
+
       <CompletedTaskDetailsDialog
         open={!!selectedCompletedTask}
         onOpenChange={(open) => !open && setSelectedCompletedTask(null)}
