@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,9 +35,10 @@ interface CateringOrdersSectionProps {
   showHeader?: boolean;
   externalUploadOpen?: boolean;
   onExternalUploadChange?: (open: boolean) => void;
+  searchQuery?: string;
 }
 
-export function CateringOrdersSection({ showHeader: _showHeader = true, externalUploadOpen, onExternalUploadChange }: CateringOrdersSectionProps) {
+export function CateringOrdersSection({ showHeader: _showHeader = true, externalUploadOpen, onExternalUploadChange, searchQuery = "" }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
   const { getTodayInTimezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
@@ -254,8 +255,36 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
     return acc;
   }, {} as Record<string, CateringOrder[]>);
 
+  // Filter orders by search query
+  const filteredOrdersByDate = useMemo(() => {
+    if (!searchQuery.trim()) return ordersByDate;
+    
+    const lowerQuery = searchQuery.toLowerCase();
+    const filtered: Record<string, CateringOrder[]> = {};
+    
+    Object.entries(ordersByDate).forEach(([dateKey, orders]) => {
+      const matchingOrders = orders.filter(order => {
+        const searchableText = [
+          order.customer_name,
+          order.order_number || '',
+          order.vendor || '',
+          order.contact_phone || '',
+          ...order.items.map(item => item.item)
+        ].join(' ').toLowerCase();
+        
+        return searchableText.includes(lowerQuery);
+      });
+      
+      if (matchingOrders.length > 0) {
+        filtered[dateKey] = matchingOrders;
+      }
+    });
+    
+    return filtered;
+  }, [ordersByDate, searchQuery]);
+
   // Sort dates - most recent first (descending)
-  const sortedDates = Object.keys(ordersByDate).sort((a, b) => b.localeCompare(a));
+  const sortedDates = Object.keys(filteredOrdersByDate).sort((a, b) => b.localeCompare(a));
 
   if (loading) {
     return (
@@ -280,7 +309,7 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
                   {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                 </h3>
                 <div className="space-y-2">
-                  {ordersByDate[dateKey]
+                  {filteredOrdersByDate[dateKey]
                     .sort((a, b) => a.pickup_time.localeCompare(b.pickup_time))
                     .map((order) => (
                       <CateringOrderCard
