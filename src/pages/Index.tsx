@@ -60,7 +60,7 @@ const Index = () => {
         
         {/* Header */}
         <header className="container mx-auto px-6 py-6 flex justify-between items-center relative z-10">
-          <img src={crooLogo} alt="Croo" className="h-12" />
+          <img src={crooLogo} alt="Croo" width={100} height={48} className="h-12" />
           <div className="flex gap-3">
             <Button variant="ghost" onClick={() => navigate('/auth')} className="font-medium">
               Log In
@@ -123,6 +123,9 @@ const Index = () => {
               <img 
                 src={featureSchedule} 
                 alt="Schedule Feature" 
+                width={600}
+                height={400}
+                loading="lazy"
                 className="rounded-lg shadow-2xl border border-border w-full"
               />
             </div>
@@ -136,6 +139,9 @@ const Index = () => {
               <img 
                 src={featureTasks} 
                 alt="Task Management" 
+                width={600}
+                height={400}
+                loading="lazy"
                 className="rounded-lg shadow-2xl border border-border w-full"
               />
             </div>
@@ -191,6 +197,9 @@ const Index = () => {
               <img 
                 src={featureTimeclock} 
                 alt="Time Clock" 
+                width={600}
+                height={400}
+                loading="lazy"
                 className="rounded-lg shadow-2xl border border-border w-full"
               />
             </div>

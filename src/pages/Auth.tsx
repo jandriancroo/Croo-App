@@ -174,6 +174,8 @@ export default function Auth() {
             <img 
               src={crooLogo} 
               alt="Croo" 
+              width={200}
+              height={96}
               className="h-24 w-auto"
             />
           </div>
