@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText } from "lucide-react";
@@ -206,32 +205,32 @@ export function TemporaryTasksSection() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="py-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold">Quick Tasks</CardTitle>
-            {canCreateTasks && (
-              <div className="flex items-center gap-1">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setShowTemplateLibrary(true)}
-                  title="Template Library"
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  onClick={() => setShowCreateDialog(true)}
-                  title="New Quick Task"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
+      <div className="space-y-4">
+        {/* Header with actions */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">Quick Tasks</h3>
+          {canCreateTasks && (
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setShowTemplateLibrary(true)}
+                title="Template Library"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                onClick={() => setShowCreateDialog(true)}
+                title="New Quick Task"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+        
+        {/* Content */}
           {isLoading ? (
             <p className="text-center text-muted-foreground py-4">Loading...</p>
           ) : tasks.length === 0 ? (
@@ -379,8 +378,7 @@ export function TemporaryTasksSection() {
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <CreateTemporaryTaskDialog
         open={showCreateDialog}
