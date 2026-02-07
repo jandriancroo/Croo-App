@@ -165,18 +165,6 @@ export function CateringOrderCard({
                 </Badge>
               )}
 
-              {/* Items count */}
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                {order.items.length} items
-              </Badge>
-
-              {/* Headcount */}
-              {order.headcount && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  {order.headcount} guests
-                </Badge>
-              )}
-
               {/* Total price */}
               {order.total_price && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-600 border-green-500/30">
