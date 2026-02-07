@@ -104,8 +104,8 @@ export function CateringOrderCard({
                 <div className="font-medium truncate">{order.customer_name}</div>
                 <div className="text-sm text-muted-foreground">
                   {isCompleted ? (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <Check className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-1 text-green-600 whitespace-nowrap">
+                      <Check className="h-3.5 w-3.5 shrink-0" />
                       Picked up @ {formatTime(order.pickup_time)}
                     </span>
                   ) : (
