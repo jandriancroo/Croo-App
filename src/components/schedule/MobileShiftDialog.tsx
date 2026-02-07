@@ -9,9 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
-import { Trash2, ArrowUp } from 'lucide-react';
+import { Trash2, ArrowUp, Hand } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
+import { ShiftOfferDialog } from './ShiftOfferDialog';
 
 interface Profile {
   id: string;
@@ -49,6 +50,7 @@ interface MobileShiftDialogProps {
     end_time: string;
     color: string | null;
   }>;
+  locationId?: string | null;
 }
 
 export function MobileShiftDialog({ 
@@ -60,7 +62,8 @@ export function MobileShiftDialog({
   onShiftUpdated,
   isCreating = false,
   scheduleId,
-  templates = []
+  templates = [],
+  locationId
 }: MobileShiftDialogProps) {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -71,6 +74,7 @@ export function MobileShiftDialog({
   const [deleting, setDeleting] = useState(false);
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [showOfferDialog, setShowOfferDialog] = useState(false);
 
   useEffect(() => {
     if (shift) {
@@ -452,12 +456,34 @@ export function MobileShiftDialog({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          {isAdmin && !isCreating && (
+          {/* Offer Up button - show for assigned shifts that aren't being created */}
+          {!isCreating && shift?.user_id && (
+            <Button 
+              variant="outline"
+              onClick={() => setShowOfferDialog(true)}
+              className="w-full sm:w-auto sm:mr-auto border-primary/50 text-primary hover:bg-primary/10"
+            >
+              <Hand className="h-4 w-4 mr-2" />
+              Offer Up
+            </Button>
+          )}
+          {isAdmin && !isCreating && !shift?.user_id && (
             <Button 
               variant="destructive" 
               onClick={handleDelete} 
               disabled={deleting}
               className="w-full sm:w-auto sm:mr-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          )}
+          {isAdmin && !isCreating && shift?.user_id && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete} 
+              disabled={deleting}
+              className="w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {deleting ? 'Deleting...' : 'Delete'}
@@ -475,6 +501,22 @@ export function MobileShiftDialog({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      {/* Offer Up Dialog */}
+      {shift && (
+        <ShiftOfferDialog
+          open={showOfferDialog}
+          onOpenChange={setShowOfferDialog}
+          shift={{
+            ...shift,
+            location_id: locationId,
+          }}
+          onOfferCreated={() => {
+            onShiftUpdated?.();
+            onOpenChange(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
