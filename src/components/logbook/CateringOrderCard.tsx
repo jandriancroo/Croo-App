@@ -110,17 +110,26 @@ export function CateringOrderCard({
                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                   {format(new Date(order.created_at), 'h:mm a')}
                 </div>
+                {/* View Details button - matches log entry style */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 px-2 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onView();
+                  }}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  View
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-6 w-6">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onView}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="bg-popover">
                     {canComplete && order.status === "pending" && (
                       <DropdownMenuItem onClick={onComplete}>
                         <Check className="h-4 w-4 mr-2" />
