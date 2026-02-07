@@ -254,21 +254,8 @@ export function CateringOrdersSection({ showHeader: _showHeader = true, external
     return acc;
   }, {} as Record<string, CateringOrder[]>);
 
-  // Sort dates (most recent first for better UX - urgent orders first)
-  const sortedDates = Object.keys(ordersByDate).sort((a, b) => {
-    // Past due first, then today, tomorrow, upcoming, then completed (oldest first)
-    const aIsPastDue = a < todayStr && ordersByDate[a].some(o => o.status === "pending");
-    const bIsPastDue = b < todayStr && ordersByDate[b].some(o => o.status === "pending");
-    if (aIsPastDue && !bIsPastDue) return -1;
-    if (!aIsPastDue && bIsPastDue) return 1;
-    
-    const aIsCompleted = ordersByDate[a].every(o => o.status === "completed");
-    const bIsCompleted = ordersByDate[b].every(o => o.status === "completed");
-    if (aIsCompleted && !bIsCompleted) return 1;
-    if (!aIsCompleted && bIsCompleted) return -1;
-    
-    return a.localeCompare(b);
-  });
+  // Sort dates - most recent first (descending)
+  const sortedDates = Object.keys(ordersByDate).sort((a, b) => b.localeCompare(a));
 
   if (loading) {
     return (
