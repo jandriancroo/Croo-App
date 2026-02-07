@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2, AlertTriangle, Lock } from 'lucide-react';
+import { ChefHat, ClipboardCheck, ArrowUpDown, Check, Settings2, AlertTriangle, Lock } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
@@ -30,14 +30,11 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
-import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { useCallback } from 'react';
-import { DataCube3D, PacingDisplayMode } from '@/components/dashboard/DataCube3D';
-
 
 interface CateringOrder {
   id: string;

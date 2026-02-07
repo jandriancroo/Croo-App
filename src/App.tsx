@@ -17,7 +17,9 @@ import { ScrollToTop } from "./components/ScrollToTop";
 
 // Critical routes - loaded eagerly (auth flow)
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+
+// Lazy-loaded dashboard (optimized for faster initial page load)
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 // Lazy-loaded routes - only load when navigated to
 const CreateChecklist = lazy(() => import("./pages/CreateChecklist"));
