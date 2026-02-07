@@ -101,7 +101,7 @@ export function CateringOrderCard({
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-start">
               <div className="min-w-0 flex-1">
-                <div className="font-medium truncate">{order.customer_name}</div>
+                <div className="font-medium line-clamp-2">{order.customer_name}</div>
                 <div className="text-sm text-muted-foreground">
                   {isCompleted ? (
                     <span className="flex items-center gap-1 text-green-600 whitespace-nowrap">
