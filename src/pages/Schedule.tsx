@@ -1771,6 +1771,7 @@ export default function Schedule() {
             isCreating={true}
             scheduleId={scheduleId}
             templates={templates}
+            locationId={currentLocation?.id}
           />
         )}
 
