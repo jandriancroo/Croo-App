@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 
 interface CrowSplashAnimationProps {
   onComplete: () => void;

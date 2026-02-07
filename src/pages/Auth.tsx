@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 import { LoginSplashScreen } from '@/components/LoginSplashScreen';
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { SeasonalCardDecor, SeasonalButtonDecor, WinterSnowfall, getSeason } from '@/components/auth/SeasonalDecorations';

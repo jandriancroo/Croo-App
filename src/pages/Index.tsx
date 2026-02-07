@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CheckCircle2, Calendar, Users, Clock, MessageSquare, BarChart3 } from 'lucide-react';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 import featureSchedule from '@/assets/feature-schedule.jpg';
 import featureTasks from '@/assets/feature-tasks.jpg';
 import featureTimeclock from '@/assets/feature-timeclock.jpg';

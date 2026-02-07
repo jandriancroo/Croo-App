@@ -1,7 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Smartphone, Share, MoreVertical, Download, Plus } from "lucide-react";
-import crooLogo from "@/assets/croo-logo.png";
+import crooLogo from "@/assets/croo-logo.webp";
 
 export default function InstallGuide() {
   return (
