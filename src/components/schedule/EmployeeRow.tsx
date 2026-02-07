@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -48,7 +49,8 @@ interface EmployeeRowProps {
   publishedSnapshot?: any[];
   canViewAllWages?: boolean;
 }
-export function EmployeeRow({
+
+function EmployeeRowComponent({
   profile,
   shifts,
   templates,
@@ -298,3 +300,5 @@ function DayCell({
       </div>
     </div>;
 }
+
+export const EmployeeRow = memo(EmployeeRowComponent);

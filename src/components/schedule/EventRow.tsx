@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -78,7 +78,7 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
-export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId }: EventRowProps) {
+function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId }: EventRowProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -814,3 +814,5 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     </>
   );
 }
+
+export const EventRow = memo(EventRowComponent);

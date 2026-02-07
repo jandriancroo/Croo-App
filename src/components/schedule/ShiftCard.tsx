@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ interface ShiftCardProps {
   isPublished?: boolean;
 }
 
-export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -164,3 +165,5 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     </Card>
   );
 }
+
+export const ShiftCard = memo(ShiftCardComponent);
