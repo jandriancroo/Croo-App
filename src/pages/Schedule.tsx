@@ -770,21 +770,30 @@ export default function Schedule() {
   };
 
   const executeShiftOperation = async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
-    try {
-      // NOTE: We no longer unpublish the schedule when making changes
-      // The schedule stays "published" but changes are tracked as pending
-      // until the admin clicks "Update" to notify affected employees
+    // Prevent creating unassigned shifts
+    if (userId === "unassigned") {
+      toast.error("Shifts must be assigned to an employee");
+      return;
+    }
 
-      // Prevent creating unassigned shifts
-      if (userId === "unassigned") {
-        toast.error("Shifts must be assigned to an employee");
-        return;
-      }
+    // Snapshot current data for potential rollback
+    const previousData = queryClient.getQueryData(scheduleQueryKey);
 
-      if (active.data?.current?.isTemplate || active.isTemplate) {
-        // Dragging from template
-        const template = active.data?.current?.template || active.template;
-        const { error } = await supabase.from("scheduled_shifts").insert({
+    const isFromTemplate = active.data?.current?.isTemplate || active.isTemplate;
+    const template = active.data?.current?.template || active.template;
+    const existingShift = active.data?.current || active;
+
+    // Generate temporary ID for new shifts
+    const tempId = `temp-${Date.now()}`;
+
+    // Optimistically update the cache immediately
+    queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+      if (!old) return old;
+
+      if (isFromTemplate) {
+        // Adding new shift from template - create optimistic shift object
+        const optimisticShift = {
+          id: tempId,
           schedule_id: scheduleId,
           template_id: template.id,
           user_id: userId,
@@ -793,18 +802,59 @@ export default function Schedule() {
           start_time: template.start_time,
           end_time: template.end_time,
           is_time_off: false,
+          template: template,
+          _optimistic: true, // Mark as optimistic for visual feedback
+        };
+        return {
+          ...old,
+          shifts: [...old.shifts, optimisticShift],
+        };
+      } else {
+        // Moving existing shift - update in place
+        return {
+          ...old,
+          shifts: old.shifts.map((s: any) =>
+            s.id === existingShift.id
+              ? { ...s, user_id: userId, day_of_week: dayIndex, shift_date: shiftDate, _optimistic: true }
+              : s
+          ),
+        };
+      }
+    });
+
+    // Perform database operation in background
+    try {
+      if (isFromTemplate) {
+        const { data: insertedShift, error } = await supabase
+          .from("scheduled_shifts")
+          .insert({
+            schedule_id: scheduleId,
+            template_id: template.id,
+            user_id: userId,
+            day_of_week: dayIndex,
+            shift_date: shiftDate,
+            start_time: template.start_time,
+            end_time: template.end_time,
+            is_time_off: false,
+          })
+          .select(`*, template:shift_templates(*)`)
+          .single();
+
+        if (error) throw error;
+
+        // Replace temp shift with real one from DB
+        queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            shifts: old.shifts.map((s: any) =>
+              s.id === tempId ? { ...insertedShift, _optimistic: false } : s
+            ),
+          };
         });
 
-        if (error) throw error;
         toast.success("Shift added");
-        fetchScheduleData(false);
-
-        if (error) throw error;
-        toast.success("Shift added");
-        fetchScheduleData(false);
       } else {
-        // Moving existing shift
-        const shift = active.data?.current || active;
         const { error } = await supabase
           .from("scheduled_shifts")
           .update({
@@ -812,14 +862,27 @@ export default function Schedule() {
             day_of_week: dayIndex,
             shift_date: shiftDate,
           })
-          .eq("id", shift.id);
+          .eq("id", existingShift.id);
 
         if (error) throw error;
+
+        // Clear optimistic flag
+        queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            shifts: old.shifts.map((s: any) =>
+              s.id === existingShift.id ? { ...s, _optimistic: false } : s
+            ),
+          };
+        });
+
         toast.success("Shift moved");
-        fetchScheduleData(false);
       }
     } catch (error: any) {
       console.error("Error handling drop:", error);
+      // Rollback to previous state
+      queryClient.setQueryData(scheduleQueryKey, previousData);
       toast.error("Failed to update shift");
     }
   };
