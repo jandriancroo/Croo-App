@@ -471,10 +471,22 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     enabled: !!currentLocation?.id,
   });
 
-  // Only show croo logo as fallback after org logo query completes (prevents flash)
-  const headerLogo = orgLogoLoading ? null : (orgLogo?.logo_url || crooLogo);
+  // Cache the brand logo URL for instant load on next visit
+  useEffect(() => {
+    if (orgLogo?.logo_url && currentLocation?.id) {
+      localStorage.setItem(`brand-logo-${currentLocation.id}`, orgLogo.logo_url);
+    }
+  }, [orgLogo?.logo_url, currentLocation?.id]);
+
+  // Get cached logo for instant display (before query completes)
+  const cachedLogoUrl = currentLocation?.id 
+    ? localStorage.getItem(`brand-logo-${currentLocation.id}`) 
+    : null;
+
+  // Use cached logo immediately, then update when query completes
+  const headerLogo = orgLogo?.logo_url || cachedLogoUrl || (orgLogoLoading ? null : crooLogo);
   const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
-  const headerLogoAlt = orgLogo?.logo_url ? (orgDisplayName || 'Organization') : 'Croo';
+  const headerLogoAlt = (orgLogo?.logo_url || cachedLogoUrl) ? (orgDisplayName || 'Organization') : 'Croo';
 
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
