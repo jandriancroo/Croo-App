@@ -185,6 +185,17 @@ export function CateringOrderCard({
                 </Badge>
               )}
             </div>
+
+            {/* Details button - matches log entry style */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full mt-3"
+              onClick={onView}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
           </div>
         </div>
       </CardContent>
