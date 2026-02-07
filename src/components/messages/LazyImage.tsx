@@ -69,6 +69,8 @@ export const LazyImage = memo(function LazyImage({ src, alt, className, onClick 
         <img
           src={src}
           alt={alt}
+          width={240}
+          height={180}
           className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'} transition-opacity duration-200`}
           onLoad={handleLoad}
           onError={handleError}

@@ -9,7 +9,7 @@ export default function InstallGuide() {
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
-          <img src={crooLogo} alt="Croo" className="h-16 mx-auto" />
+          <img src={crooLogo} alt="Croo" width={133} height={64} className="h-16 mx-auto" />
           <h1 className="text-3xl font-bold text-foreground">Add Croo to Your Home Screen</h1>
           <p className="text-muted-foreground">Get quick access to Croo just like a native app!</p>
         </div>
