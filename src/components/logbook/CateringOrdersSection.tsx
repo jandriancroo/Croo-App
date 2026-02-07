@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye, Phone, DollarSign } from "lucide-react";
-import { format, parseISO, isBefore } from "date-fns";
+import { Upload, ChefHat, Check, Loader2, Trash2, Eye } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { compressImage } from "@/utils/imageCompression";
 import { useUserRole } from "@/hooks/useUserRole";
+import { CateringOrderCard } from "./CateringOrderCard";
 interface CateringOrder {
   id: string;
   order_number: string | null;
@@ -30,13 +31,6 @@ interface CateringOrder {
   total_price: number | null;
   vendor: string | null;
 }
-
-const VENDOR_LABELS: Record<string, string> = {
-  ez_cater: "EZ Cater",
-  direct: "Direct",
-  phone: "Phone",
-  other: "Other",
-};
 
 interface CateringOrdersSectionProps {
   showHeader?: boolean;
@@ -284,48 +278,16 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-destructive">Past Due</h4>
                 {pastDueOrders.map((order) => (
-                  <div
+                  <CateringOrderCard
                     key={order.id}
-                    className="p-3 border border-destructive/50 rounded-lg cursor-pointer hover:bg-destructive/10 transition-colors bg-destructive/5"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{order.customer_name}</p>
-                        {order.vendor && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {VENDOR_LABELS[order.vendor] || order.vendor}
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge variant="destructive">{order.items.length} items</Badge>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                      <span className="text-destructive">{format(parseISO(order.pickup_date), "MMM d")}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(order.pickup_time)}
-                      </span>
-                      {order.headcount && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {order.headcount}
-                        </span>
-                      )}
-                      {order.total_price && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <DollarSign className="h-3 w-3" />
-                          {order.total_price.toFixed(2)}
-                        </span>
-                      )}
-                      {order.contact_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {order.contact_phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    order={order}
+                    variant="past_due"
+                    onView={() => setSelectedOrder(order)}
+                    onComplete={() => handleComplete(order)}
+                    onDelete={() => handleDelete(order.id)}
+                    canComplete={canComplete}
+                    canDelete={isAdmin}
+                  />
                 ))}
               </div>
             )}
@@ -334,48 +296,16 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-primary">Due Today</h4>
                 {todaysOrders.map((order) => (
-                  <div
+                  <CateringOrderCard
                     key={order.id}
-                    className="p-3 border border-primary/50 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors bg-primary/5"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{order.customer_name}</p>
-                        {order.vendor && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {VENDOR_LABELS[order.vendor] || order.vendor}
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge>{order.items.length} items</Badge>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                      <span className="text-primary font-medium">Today</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(order.pickup_time)}
-                      </span>
-                      {order.headcount && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {order.headcount}
-                        </span>
-                      )}
-                      {order.total_price && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <DollarSign className="h-3 w-3" />
-                          {order.total_price.toFixed(2)}
-                        </span>
-                      )}
-                      {order.contact_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {order.contact_phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    order={order}
+                    variant="today"
+                    onView={() => setSelectedOrder(order)}
+                    onComplete={() => handleComplete(order)}
+                    onDelete={() => handleDelete(order.id)}
+                    canComplete={canComplete}
+                    canDelete={isAdmin}
+                  />
                 ))}
               </div>
             )}
@@ -384,48 +314,16 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-amber-600">Due Tomorrow</h4>
                 {tomorrowsOrders.map((order) => (
-                  <div
+                  <CateringOrderCard
                     key={order.id}
-                    className="p-3 border border-amber-500/50 rounded-lg cursor-pointer hover:bg-amber-500/10 transition-colors bg-amber-500/5"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{order.customer_name}</p>
-                        {order.vendor && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {VENDOR_LABELS[order.vendor] || order.vendor}
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge variant="outline" className="border-amber-500 text-amber-600">{order.items.length} items</Badge>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                      <span className="text-amber-600 font-medium">Tomorrow</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(order.pickup_time)}
-                      </span>
-                      {order.headcount && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {order.headcount}
-                        </span>
-                      )}
-                      {order.total_price && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <DollarSign className="h-3 w-3" />
-                          {order.total_price.toFixed(2)}
-                        </span>
-                      )}
-                      {order.contact_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {order.contact_phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    order={order}
+                    variant="tomorrow"
+                    onView={() => setSelectedOrder(order)}
+                    onComplete={() => handleComplete(order)}
+                    onDelete={() => handleDelete(order.id)}
+                    canComplete={canComplete}
+                    canDelete={isAdmin}
+                  />
                 ))}
               </div>
             )}
@@ -434,48 +332,16 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">Upcoming</h4>
                 {upcomingOrders.map((order) => (
-                  <div
+                  <CateringOrderCard
                     key={order.id}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{order.customer_name}</p>
-                        {order.vendor && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {VENDOR_LABELS[order.vendor] || order.vendor}
-                          </Badge>
-                        )}
-                      </div>
-                      <Badge variant="outline">{order.items.length} items</Badge>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                      <span>{format(parseISO(order.pickup_date), "MMM d")}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatTime(order.pickup_time)}
-                      </span>
-                      {order.headcount && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {order.headcount}
-                        </span>
-                      )}
-                      {order.total_price && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <DollarSign className="h-3 w-3" />
-                          {order.total_price.toFixed(2)}
-                        </span>
-                      )}
-                      {order.contact_phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {order.contact_phone}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    order={order}
+                    variant="upcoming"
+                    onView={() => setSelectedOrder(order)}
+                    onComplete={() => handleComplete(order)}
+                    onDelete={() => handleDelete(order.id)}
+                    canComplete={canComplete}
+                    canDelete={isAdmin}
+                  />
                 ))}
               </div>
             )}
@@ -483,27 +349,15 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
             {completedOrders.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">Completed</h4>
-                {completedOrders.slice(0, 3).map((order) => (
-                  <div
+                {completedOrders.slice(0, 5).map((order) => (
+                  <CateringOrderCard
                     key={order.id}
-                    className="p-3 border rounded-lg opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setSelectedOrder(order)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-500" />
-                        <p className="font-medium">{order.customer_name}</p>
-                        {order.vendor && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {VENDOR_LABELS[order.vendor] || order.vendor}
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {format(parseISO(order.pickup_date), "MMM d")}
-                      </span>
-                    </div>
-                  </div>
+                    order={order}
+                    variant="completed"
+                    onView={() => setSelectedOrder(order)}
+                    onDelete={() => handleDelete(order.id)}
+                    canDelete={isAdmin}
+                  />
                 ))}
               </div>
             )}
