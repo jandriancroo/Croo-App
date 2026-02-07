@@ -518,7 +518,7 @@ export function MobileScheduleView({
               </Button>
             </div>
             
-            {/* Assigned Tasks - includes temp tasks, catering orders, event tasks */}
+            {/* Assigned Tasks */}
             <div className="mb-4 space-y-2">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
               <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} />
@@ -553,7 +553,6 @@ export function MobileScheduleView({
                     }}
                   >
                     <div className="px-3 py-2.5">
-                      {/* Top row: Avatar, Name, Hours worked */}
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <Avatar className="h-10 w-10">
@@ -582,7 +581,6 @@ export function MobileScheduleView({
                             </span>
                           </div>
                           
-                          {/* Scheduled shift row */}
                           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                             <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                             {punch.scheduledShift ? (
@@ -592,7 +590,6 @@ export function MobileScheduleView({
                             )}
                           </div>
                           
-                          {/* Actual In/Out row */}
                           <div className="flex items-center gap-3 text-sm">
                             <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
                             {punch.clockOutTime && (
@@ -600,7 +597,6 @@ export function MobileScheduleView({
                             )}
                           </div>
                           
-                          {/* Break row */}
                           {punch.breakStartTime && (
                             <div className="flex items-center gap-3 text-sm">
                               <span className="text-muted-foreground">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
@@ -608,7 +604,6 @@ export function MobileScheduleView({
                             </div>
                           )}
                           
-                          {/* Manager edit indicator */}
                           {punch.createdByName && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                               <Pencil className="h-3 w-3" />
