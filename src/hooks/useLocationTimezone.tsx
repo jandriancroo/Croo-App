@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { 
+import {
   getTodayInTimezone as getTodayInTz,
   getDateInTimezone as getDateInTz,
   getStartOfTodayInTimezone as getStartOfTodayInTz,
@@ -12,10 +12,9 @@ import {
   getTimezoneOffset,
   getBusinessDateInTimezone as getBusinessDateInTz,
   getBusinessDayRangeInTimezone as getBusinessDayRangeInTz,
-  calculateCutoffHour
+  calculateCutoffHour,
+  getDayOfWeekInTimezone,
 } from '@/utils/timezoneUtils';
-import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
-
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
 export const useLocationTimezone = () => {
