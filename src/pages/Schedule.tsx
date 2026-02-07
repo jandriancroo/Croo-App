@@ -218,10 +218,80 @@ export default function Schedule() {
   // Query key for the schedule data - includes location and week
   const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
 
+  // Separate query for stable data (profiles, templates) - shared across all weeks
+  const stableDataQueryKey = ['schedule-stable', currentLocation?.id];
+  
+  const { data: stableData } = useQuery({
+    queryKey: stableDataQueryKey,
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      
+      const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
+        supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", currentLocation.id),
+        supabase
+          .from("profiles")
+          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
+          .eq("is_active", true)
+          .eq("appears_on_schedule", true),
+        supabase.from("user_roles").select("user_id, role"),
+        supabase
+          .from("shift_templates")
+          .select("*")
+          .eq("location_id", currentLocation.id)
+          .order("start_time", { ascending: true }),
+      ]);
+
+      if (userLocationsResult.error) throw userLocationsResult.error;
+      if (allProfilesResult.error) throw allProfilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+      if (templatesResult.error) throw templatesResult.error;
+
+      const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
+      
+      const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
+      
+      const profilesWithRoles = locationProfiles.map(profile => {
+        const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
+        return {
+          ...profile,
+          weekly_availability: profile.weekly_availability as WeeklyAvailability | null,
+          role: userRole?.role || 'team_member',
+          display_order: profile.display_order ?? 0
+        };
+      });
+      
+      const roleOrder: Record<string, number> = { 
+        super_admin: 0, brand_admin: 1, org_admin: 2, admin: 3, 
+        manager: 4, shift_manager: 5, team_member: 6 
+      };
+      profilesWithRoles.sort((a, b) => {
+        const aRoleOrder = roleOrder[a.role as string] ?? 5;
+        const bRoleOrder = roleOrder[b.role as string] ?? 5;
+        if (aRoleOrder === bRoleOrder) {
+          return (a.display_order ?? 0) - (b.display_order ?? 0);
+        }
+        return aRoleOrder - bRoleOrder;
+      });
+
+      return {
+        profiles: profilesWithRoles,
+        templates: templatesResult.data || [],
+        locationUserIds: Array.from(locationUserIds),
+      };
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes - profiles/templates rarely change
+    gcTime: 30 * 60 * 1000,
+  });
+
   // Main schedule data query with React Query caching
   const { 
     data: scheduleData, 
     isLoading: loading, 
+    isFetching,
     refetch: refetchSchedule 
   } = useQuery({
     queryKey: scheduleQueryKey,
@@ -266,24 +336,20 @@ export default function Schedule() {
           publishedSnapshot: [],
           shifts: [],
           events: [],
-          profiles: [],
-          templates: [],
+          profiles: stableData?.profiles ?? [],
+          templates: stableData?.templates ?? [],
           availabilityRequests: [],
         };
       }
 
       console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
-      // Parallelize all independent data fetches
+      // Only fetch week-specific data - profiles/templates come from stableData
       const parallelStart = performance.now();
       const [
         shiftsResult,
         eventsResult,
         recurringEventsResult,
-        userLocationsResult,
-        allProfilesResult,
-        rolesResult,
-        templatesResult,
         availabilityResult,
         salesResult,
         holidaysResult,
@@ -303,21 +369,6 @@ export default function Schedule() {
           .eq("is_recurring", true)
           .is("schedule_id", null)
           .eq("location_id", currentLocation.id),
-        supabase
-          .from("user_locations")
-          .select("user_id")
-          .eq("location_id", currentLocation.id),
-        supabase
-          .from("profiles")
-          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
-          .eq("is_active", true)
-          .eq("appears_on_schedule", true),
-        supabase.from("user_roles").select("user_id, role"),
-        supabase
-          .from("shift_templates")
-          .select("*")
-          .eq("location_id", currentLocation.id)
-          .order("start_time", { ascending: true }),
         supabase
           .from("availability_requests")
           .select("*")
@@ -382,76 +433,36 @@ export default function Schedule() {
       // Filter events by user role visibility
       const roleFilteredEvents = filterEventsByRole(allEvents, role);
 
-      // Process profiles
-      if (userLocationsResult.error) throw userLocationsResult.error;
-      if (allProfilesResult.error) throw allProfilesResult.error;
-      if (rolesResult.error) throw rolesResult.error;
-
-      // user_locations is the roster source of truth, but team members often only have RLS access
-      // to their own row. When a team member is allowed to view the full schedule, we instead
-      // derive the roster from the scheduled shifts so they can resolve other employees' profiles.
-      const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
-
+      // Use cached profiles from stableData, with fallback for team members
+      let profilesWithRoles = stableData?.profiles ?? [];
+      
+      // For team members who can see full schedule, augment with shift user IDs
       const isTeamMemberContext = !isAdmin && !isManager;
-      const shouldDeriveRosterFromShifts = isTeamMemberContext && canSeeFullSchedule && !scheduleVisibilityLoading;
-
-      if (shouldDeriveRosterFromShifts) {
-        shifts.forEach((s) => {
-          if (s.user_id) locationUserIds.add(s.user_id);
-        });
-      }
-
-      // Back-compat fallback: if roster resolution yields zero profiles but we *do* have shifts,
-      // add scheduled users so the UI never looks blank.
-      if (locationUserIds.size === 0 && shifts.length > 0) {
-        shifts.forEach((s) => {
-          if (s.user_id) locationUserIds.add(s.user_id);
-        });
-      }
-
-      let locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
-
-      // Last-resort: if roster resolution still yields zero profiles but we *do* have shifts,
-      // fetch just the profiles that are on the schedule for this week.
-      if (locationProfiles.length === 0 && shifts.length > 0) {
-        const shiftUserIds = Array.from(
-          new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[])
-        );
+      if (isTeamMemberContext && canSeeFullSchedule && !scheduleVisibilityLoading && profilesWithRoles.length === 0) {
+        // Fallback: fetch profiles from shifts
+        const shiftUserIds = Array.from(new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[]));
         if (shiftUserIds.length > 0) {
-          const { data: shiftProfiles, error: shiftProfilesError } = await supabase
+          const { data: shiftProfiles } = await supabase
             .from('profiles')
-            .select('id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule')
+            .select('id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability')
             .in('id', shiftUserIds);
-          if (shiftProfilesError) throw shiftProfilesError;
-          locationProfiles = (shiftProfiles || []) as any;
+          
+          const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+          
+          profilesWithRoles = (shiftProfiles || []).map(profile => {
+            const userRole = roles?.find(r => r.user_id === profile.id);
+            return {
+              ...profile,
+              weekly_availability: profile.weekly_availability as WeeklyAvailability | null,
+              role: userRole?.role || 'team_member',
+              display_order: profile.display_order ?? 0
+            };
+          });
         }
       }
-      
-      const profilesWithRoles = locationProfiles.map(profile => {
-        const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
-        return {
-          ...profile,
-          role: userRole?.role || 'team_member',
-          display_order: profile.display_order ?? 0
-        };
-      });
-      
-      const roleOrder: Record<string, number> = { 
-        super_admin: 0, brand_admin: 1, org_admin: 2, admin: 3, 
-        manager: 4, shift_manager: 5, team_member: 6 
-      };
-      profilesWithRoles.sort((a, b) => {
-        const aRoleOrder = roleOrder[a.role as string] ?? 5;
-        const bRoleOrder = roleOrder[b.role as string] ?? 5;
-        if (aRoleOrder === bRoleOrder) {
-          return (a.display_order ?? 0) - (b.display_order ?? 0);
-        }
-        return aRoleOrder - bRoleOrder;
-      });
 
-      // Process templates
-      if (templatesResult.error) throw templatesResult.error;
-      const templates = templatesResult.data || [];
+      // Process templates from stableData
+      const templates = stableData?.templates ?? [];
 
       // Process availability
       if (availabilityResult.error) throw availabilityResult.error;
@@ -521,40 +532,86 @@ export default function Schedule() {
     // Past weeks use infinite staleTime (they never change)
     staleTime: isPastWeek ? SCHEDULE_STALE_TIME_PAST : SCHEDULE_STALE_TIME,
     gcTime: SCHEDULE_GC_TIME,
+    // Show stale data immediately while refetching in background
+    placeholderData: (previousData) => previousData,
   });
 
   // Prefetch adjacent weeks for instant navigation
   useEffect(() => {
-    if (!role || !currentLocation?.id) return;
+    if (!role || !currentLocation?.id || !stableData) return;
 
     const prefetchWeek = (weekStart: Date) => {
       const weekKey = ['schedule', currentLocation.id, format(weekStart, 'yyyy-MM-dd')];
-      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      const weekEndDate = endOfWeek(weekStart, { weekStartsOn: 1 });
+      
+      // Check if data is already cached and fresh
+      const existingData = queryClient.getQueryData(weekKey);
+      if (existingData) return; // Already have data, skip prefetch
       
       queryClient.prefetchQuery({
         queryKey: weekKey,
         queryFn: async () => {
-          // Simplified prefetch - just get schedule existence, not full data
           const { data: schedule } = await supabase
             .from("schedules")
-            .select("id, is_published, published_shifts_snapshot")
+            .select("id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action")
             .eq("week_start_date", format(weekStart, "yyyy-MM-dd"))
             .eq("location_id", currentLocation.id)
             .single();
 
           if (!schedule) return null;
 
-          // Fetch shifts and basic data for prefetch
-          const [shiftsResult, templatesResult] = await Promise.all([
+          // Fetch week-specific data in parallel
+          const [shiftsResult, eventsResult, recurringEventsResult, availabilityResult] = await Promise.all([
             supabase
               .from("scheduled_shifts")
               .select(`*, template:shift_templates(*)`)
               .eq("schedule_id", schedule.id),
             supabase
-              .from("shift_templates")
+              .from("schedule_events")
+              .select("*, event_categories(name, color)")
+              .eq("schedule_id", schedule.id),
+            supabase
+              .from("schedule_events")
+              .select("*, event_categories(name, color)")
+              .eq("is_recurring", true)
+              .is("schedule_id", null)
+              .eq("location_id", currentLocation.id),
+            supabase
+              .from("availability_requests")
               .select("*")
               .eq("location_id", currentLocation.id)
+              .eq("request_type", "unpaid")
+              .in("status", ["pending", "approved"])
+              .gte("start_date", format(weekStart, "yyyy-MM-dd"))
+              .lte("start_date", format(weekEndDate, "yyyy-MM-dd")),
           ]);
+
+          // Process events
+          const scheduleEvents = (eventsResult.data || []).map(event => ({
+            ...event,
+            tagged_roles: event.tagged_roles as string[] | null,
+            is_recurring: event.is_recurring ?? true,
+            category: event.event_categories || null
+          }));
+          
+          const recurringEvents = (recurringEventsResult.data || []).map(event => ({
+            ...event,
+            tagged_roles: event.tagged_roles as string[] | null,
+            is_recurring: true,
+            category: event.event_categories || null
+          }));
+          
+          const allEvents: ScheduleEvent[] = [...scheduleEvents];
+          recurringEvents.forEach(recurEvent => {
+            const exists = scheduleEvents.some(e => 
+              e.event_name === recurEvent.event_name && 
+              e.day_of_week === recurEvent.day_of_week &&
+              e.event_time === recurEvent.event_time
+            );
+            if (!exists) {
+              allEvents.push(recurEvent);
+            }
+          });
 
           return {
             scheduleId: schedule.id,
@@ -563,23 +620,24 @@ export default function Schedule() {
               ? schedule.published_shifts_snapshot 
               : []) as unknown as ScheduledShift[],
             shifts: shiftsResult.data || [],
-            events: [],
-            profiles: [],
-            templates: templatesResult.data || [],
-            availabilityRequests: [],
+            events: filterEventsByRole(allEvents, role),
+            profiles: stableData.profiles, // Use cached stable data
+            templates: stableData.templates, // Use cached stable data
+            availabilityRequests: availabilityResult.data || [],
+            lastStatusChangedAt: schedule.last_status_changed_at,
+            lastStatusChangedBy: schedule.last_status_changed_by,
+            lastStatusAction: schedule.last_status_action,
           };
         },
-        // IMPORTANT: this prefetch is intentionally lightweight. Mark it stale immediately
-        // so that when the user navigates to that week, the full queryFn runs and
-        // fills in profiles/events/etc.
-        staleTime: 0,
+        // Full prefetch with proper staleTime for instant navigation
+        staleTime: SCHEDULE_STALE_TIME,
       });
     };
 
     // Prefetch previous and next week
     prefetchWeek(subWeeks(currentWeekStart, 1));
     prefetchWeek(addWeeks(currentWeekStart, 1));
-  }, [currentWeekStart, currentLocation?.id, role, queryClient, todayStart]);
+  }, [currentWeekStart, currentLocation?.id, role, queryClient, stableData]);
 
   // Extract data from query result with defaults
   const scheduleId = scheduleData?.scheduleId ?? null;
