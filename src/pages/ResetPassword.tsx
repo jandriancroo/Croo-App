@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 import { KeyRound } from 'lucide-react';
 
 export default function ResetPassword() {

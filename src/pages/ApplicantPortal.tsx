@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MessageCircle, Building2, MapPin, Clock } from 'lucide-react';
 import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
 import { format } from 'date-fns';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 
 interface Application {
   id: string;

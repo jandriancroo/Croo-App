@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, TrendingUp, TrendingDown, CheckCircle2, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import crooLogo from "@/assets/croo-logo.png";
+import crooLogo from "@/assets/croo-logo.webp";
 
 interface WeeklySummaryData {
   type: 'weekly_summary';

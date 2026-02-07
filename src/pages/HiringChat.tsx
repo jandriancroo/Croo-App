@@ -8,7 +8,7 @@ import { Send, MessageCircle, Loader2, Bell, BellOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
 import { toast } from 'sonner';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 import { InterviewInviteMessage } from '@/components/hiring/InterviewInviteMessage';
 
 interface Message {

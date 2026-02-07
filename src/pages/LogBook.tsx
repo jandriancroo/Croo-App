@@ -42,7 +42,7 @@ import { PerformanceReviewForm, PerformanceReviewData } from "@/components/logbo
 import { PerformanceReviewEntry } from "@/components/logbook/PerformanceReviewEntry";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
-import crooLogo from "@/assets/croo-logo.png";
+import crooLogo from "@/assets/croo-logo.webp";
 import { Building2, UserX } from "lucide-react";
 
 // Cache time constants for LogBook

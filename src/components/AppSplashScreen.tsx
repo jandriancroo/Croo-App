@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import crooLogo from '@/assets/croo-logo.png';
+import crooLogo from '@/assets/croo-logo.webp';
 
 interface AppSplashScreenProps {
   onComplete?: () => void;
