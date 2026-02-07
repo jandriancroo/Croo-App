@@ -33,7 +33,6 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchLocations = async () => {
     const perfStart = performance.now();
-    console.log('[useLocation] fetchLocations started');
     
     if (!user) {
       setLocations([]);

@@ -478,21 +478,11 @@ export default function Dashboard() {
     // Wait for timezone to load before calculating completion data.
     // NOTE: closeTime can legitimately be null (no hours row for that day);
     // in that case the business-day helpers fall back to the default cutoff.
-    const timezoneReady = !timezoneLoading;
-
-    console.log('[Dashboard] Completion useEffect:', {
-      checklistsLength: checklists.length,
-      timezoneLoading,
-      closeTime,
-      timezoneReady,
-      locationId: currentLocation?.id,
-      willRun: checklists.length > 0 && timezoneReady && !!currentLocation?.id,
-    });
-
-    if (checklists.length > 0 && timezoneReady && currentLocation?.id) {
+    // Only run when timezone is ready and we have checklists + location
+    if (!timezoneLoading && checklists.length > 0 && currentLocation?.id) {
       loadCompletionData();
     }
-  }, [checklists, closeTime, timezoneLoading, currentLocation?.id]);
+  }, [checklists.length, timezoneLoading, currentLocation?.id]);
 
   // Prefetch UserManagement data for admins/managers (instant load on navigation)
   useEffect(() => {
