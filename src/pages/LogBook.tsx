@@ -1738,7 +1738,7 @@ export default function LogBook() {
           onTabChange={setActiveTab}
         >
           {/* Recent Logs Tab */}
-          <FolderTabContent value="search" activeValue={activeTab}>
+          <FolderTabContent value="search" activeValue={activeTab} keepMounted>
             <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -2110,7 +2110,7 @@ export default function LogBook() {
           </FolderTabContent>
 
           {/* Catering Orders Tab */}
-          <FolderTabContent value="catering" activeValue={activeTab}>
+          <FolderTabContent value="catering" activeValue={activeTab} keepMounted>
             <CateringOrdersSection 
               showHeader={false} 
               externalUploadOpen={showCateringUpload}
