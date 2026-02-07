@@ -81,7 +81,7 @@ export function CateringOrderCard({
       case "past_due":
         return `Pickup ${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
       case "completed":
-        return `Pickup was @ ${formatTime(order.pickup_time)}`;
+        return null; // Handled separately with checkmark
       default:
         return `Pickup ${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
     }
@@ -103,7 +103,14 @@ export function CateringOrderCard({
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate">{order.customer_name}</div>
                 <div className="text-sm text-muted-foreground">
-                  {getPickupLabel()}
+                  {isCompleted ? (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <Check className="h-3.5 w-3.5" />
+                      Picked up @ {formatTime(order.pickup_time)}
+                    </span>
+                  ) : (
+                    getPickupLabel()
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -143,14 +150,6 @@ export function CateringOrderCard({
 
             {/* Tags row - matches log entry style */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {/* Completed badge */}
-              {isCompleted && (
-                <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-[10px] px-1.5 py-0">
-                  <Check className="h-3 w-3 mr-0.5" />
-                  Completed
-                </Badge>
-              )}
-
               {/* Status badges for pending orders */}
               {variant === "past_due" && (
                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
