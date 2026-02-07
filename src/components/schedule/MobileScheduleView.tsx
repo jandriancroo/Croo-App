@@ -546,6 +546,7 @@ export function MobileScheduleView({
                 createdByName={punch.createdByName}
                 timezone={timezone}
                 formatTimeDisplay={formatTimeDisplay}
+                showBreakIndicator={false}
                 onClick={() => {
                   const today = getTodayInTimezone(timezone);
                   setSelectedPunch({
