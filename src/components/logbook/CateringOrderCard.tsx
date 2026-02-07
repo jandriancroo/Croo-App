@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChefHat, Users, Check, MoreVertical, Trash2, Eye, DollarSign } from "lucide-react";
+import { ChefHat, Check, MoreVertical, Trash2, Eye, DollarSign } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 interface CateringOrderCardProps {
@@ -55,6 +55,8 @@ export function CateringOrderCard({
   canComplete,
   canDelete,
 }: CateringOrderCardProps) {
+  const isCompleted = variant === "completed";
+  
   const getVariantStyles = () => {
     switch (variant) {
       case "today":
@@ -64,37 +66,35 @@ export function CateringOrderCard({
       case "past_due":
         return "border-destructive/50 bg-gradient-to-br from-destructive/10 to-transparent";
       case "completed":
-        return "opacity-60";
+        return "";
       default:
         return "";
     }
   };
 
-  const getDateLabel = () => {
+  const getPickupLabel = () => {
     switch (variant) {
       case "today":
-        return <span className="text-primary font-medium">Today</span>;
+        return `Today @ ${formatTime(order.pickup_time)}`;
       case "tomorrow":
-        return <span className="text-amber-600 font-medium">Tomorrow</span>;
+        return `Tomorrow @ ${formatTime(order.pickup_time)}`;
       case "past_due":
-        return <span className="text-destructive font-medium">{format(parseISO(order.pickup_date), "MMM d")}</span>;
+        return `${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
+      case "completed":
+        return `Completed ${order.completed_at ? format(new Date(order.completed_at), "MMM d") : ""}`;
       default:
-        return <span>{format(parseISO(order.pickup_date), "MMM d")}</span>;
+        return `${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
     }
   };
 
   return (
-    <Card className={getVariantStyles()} onClick={onView}>
-      <CardContent className="p-4 cursor-pointer">
+    <Card className={getVariantStyles()}>
+      <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          {/* Icon avatar */}
-          <Avatar className={variant === "completed" ? "bg-green-500/10" : variant === "past_due" ? "bg-destructive/10" : "bg-primary/10"}>
-            <AvatarFallback className="bg-transparent">
-              {variant === "completed" ? (
-                <Check className="h-4 w-4 text-green-500" />
-              ) : (
-                <ChefHat className={`h-4 w-4 ${variant === "past_due" ? "text-destructive" : "text-primary"}`} />
-              )}
+          {/* Avatar with chef hat icon - matches log entry style */}
+          <Avatar>
+            <AvatarFallback className="bg-primary/10">
+              <ChefHat className="h-4 w-4 text-primary" />
             </AvatarFallback>
           </Avatar>
 
@@ -102,70 +102,61 @@ export function CateringOrderCard({
             <div className="flex justify-between items-start">
               <div>
                 <div className="font-medium">{order.customer_name}</div>
-                <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
-                  <span className="flex items-center gap-1">
-                    {getDateLabel()} at {formatTime(order.pickup_time)}
-                  </span>
+                <div className="text-sm text-muted-foreground">
+                  Catering Order • {getPickupLabel()}
                 </div>
               </div>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2">
                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                   {format(new Date(order.created_at), 'h:mm a')}
                 </div>
-                {(canComplete || canDelete) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={onView}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onView}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </DropdownMenuItem>
+                    {canComplete && order.status === "pending" && (
+                      <DropdownMenuItem onClick={onComplete}>
+                        <Check className="h-4 w-4 mr-2" />
+                        Mark Completed
                       </DropdownMenuItem>
-                      {canComplete && order.status === "pending" && (
-                        <DropdownMenuItem onClick={onComplete}>
-                          <Check className="h-4 w-4 mr-2" />
-                          Mark Completed
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && (
-                        <DropdownMenuItem 
-                          onClick={onDelete}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem 
+                        onClick={onDelete}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
-            {/* Tags row */}
+            {/* Tags row - matches log entry style */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {/* Status tag */}
-              {variant === "completed" ? (
+              {/* Completed badge */}
+              {isCompleted && (
                 <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-[10px] px-1.5 py-0">
                   <Check className="h-3 w-3 mr-0.5" />
                   Completed
                 </Badge>
-              ) : variant === "past_due" ? (
+              )}
+
+              {/* Status badges for pending orders */}
+              {variant === "past_due" && (
                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                   Past Due
                 </Badge>
-              ) : variant === "today" ? (
-                <Badge className="text-[10px] px-1.5 py-0">
-                  Due Today
-                </Badge>
-              ) : variant === "tomorrow" ? (
-                <Badge variant="outline" className="border-amber-500 text-amber-600 text-[10px] px-1.5 py-0">
-                  Due Tomorrow
-                </Badge>
-              ) : null}
+              )}
 
               {/* Vendor tag */}
               {order.vendor && (
@@ -182,8 +173,7 @@ export function CateringOrderCard({
               {/* Headcount */}
               {order.headcount && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                  <Users className="h-3 w-3 mr-0.5" />
-                  {order.headcount}
+                  {order.headcount} guests
                 </Badge>
               )}
 
