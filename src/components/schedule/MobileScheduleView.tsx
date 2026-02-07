@@ -22,7 +22,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FolderTabs, FolderTabContent } from '@/components/ui/folder-tabs';
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
@@ -472,169 +472,170 @@ export function MobileScheduleView({
     return profiles.find(p => p.id === shift.user_id);
   };
 
+  const getShiftLabel = (shift: Shift) => {
+    return shift.template?.position || null;
+  };
+
+  const isShiftModified = (_shift: Shift) => {
+    // For mobile view, we don't track modifications the same way desktop does
+    return false;
+  };
+
 
   // Count unique employees scheduled (only those with valid profiles)
   const shiftsWithProfiles = dayShifts.filter(s => profiles.some(p => p.id === s.user_id));
   const uniqueEmployeesScheduled = new Set(shiftsWithProfiles.map(s => s.user_id)).size;
 
-  return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Tabs */}
-      {(isAdmin || isManager) && (
-        <div className="px-4 pt-3 pb-2 border-b">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')}>
-            <TabsList className="w-full">
-              <TabsTrigger value="today" className="flex-1 gap-2">
-                <Circle className="h-3 w-3 fill-green-500 text-green-500" />
-                Today
-                {dayPunches.filter(p => p.isActive).length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {dayPunches.filter(p => p.isActive).length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="schedule" className="flex-1">Schedule</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      )}
+  const activePunchCount = dayPunches.filter(p => p.isActive).length;
+  
+  const folderTabs = [
+    { 
+      id: 'today', 
+      label: activePunchCount > 0 ? `Today (${activePunchCount})` : 'Today',
+      icon: <Circle className="h-3 w-3 fill-green-500 text-green-500" />
+    },
+    { id: 'schedule', label: 'Schedule' }
+  ];
 
-      {/* Today View - All Punches */}
-      {activeTab === 'today' && (isAdmin || isManager) ? (
-        <div className="flex-1 overflow-auto">
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-muted-foreground">
-                {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
-              </h3>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => setQuickPunchOpen(true)}
-                className="gap-1"
+  // Content for Today tab
+  const renderTodayContent = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">
+          {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
+        </h3>
+        <Button 
+          size="sm" 
+          variant="outline"
+          onClick={() => setQuickPunchOpen(true)}
+          className="gap-1"
+        >
+          <UserPlus className="h-4 w-4" />
+          Quick Punch
+        </Button>
+      </div>
+      
+      {/* Assigned Tasks */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
+        <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} />
+      </div>
+      
+      <div>
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          Today's Punches ({dayPunches.length})
+        </h4>
+        
+        {loadingActive ? (
+          <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        ) : dayPunches.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No punches recorded today</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {dayPunches.map((punch) => (
+              <Card 
+                key={punch.id} 
+                className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-3 border-l-green-500" : ""}`}
+                onClick={() => {
+                  const today = getTodayInTimezone(timezone);
+                  setSelectedPunch({
+                    userId: punch.user_id,
+                    userName: punch.profile.full_name,
+                    userPhoto: punch.profile.profile_photo_url,
+                    punchDate: today
+                  });
+                  setEditPunchOpen(true);
+                }}
               >
-                <UserPlus className="h-4 w-4" />
-                Quick Punch
-              </Button>
-            </div>
-            
-            {/* Assigned Tasks */}
-            <div className="mb-4 space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
-              <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} />
-            </div>
-            
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-              Today's Punches ({dayPunches.length})
-            </h4>
-            
-            {loadingActive ? (
-              <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : dayPunches.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No punches recorded today</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {dayPunches.map((punch) => (
-                  <Card 
-                    key={punch.id} 
-                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-3 border-l-green-500" : ""}`}
-                    onClick={() => {
-                      const today = getTodayInTimezone(timezone);
-                      setSelectedPunch({
-                        userId: punch.user_id,
-                        userName: punch.profile.full_name,
-                        userPhoto: punch.profile.profile_photo_url,
-                        punchDate: today
-                      });
-                      setEditPunchOpen(true);
-                    }}
-                  >
-                    <div className="px-3 py-2.5">
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                            <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {punch.isOnBreak ? (
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" title="On Break" />
-                          ) : punch.isActive ? (
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
-                          ) : null}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-semibold truncate">{punch.profile.full_name}</span>
-                              {punch.isOnBreak && (
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs shrink-0">
-                                  On Break
-                                </Badge>
-                              )}
-                            </div>
-                            <span className={`text-base font-bold shrink-0 ${punch.isOnBreak ? "text-amber-600" : punch.isActive ? "text-green-600" : "text-foreground"}`}>
-                              {punch.hoursWorked.toFixed(1)}h
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-                            {punch.scheduledShift ? (
-                              <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
-                            ) : (
-                              <span>Not Scheduled</span>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center gap-3 text-sm">
-                            <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
-                            {punch.clockOutTime && (
-                              <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
-                            )}
-                          </div>
-                          
-                          {punch.breakStartTime && (
-                            <div className="flex items-center gap-3 text-sm">
-                              <span className="text-muted-foreground">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
-                              <span className="text-muted-foreground">- <span className="text-foreground font-medium">{punch.breakEndTime ? formatTimeDisplay(punch.breakEndTime, timezone) : 'Active'}</span></span>
-                            </div>
-                          )}
-                          
-                          {punch.createdByName && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                              <Pencil className="h-3 w-3" />
-                              <span>Entered by {punch.createdByName}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={punch.profile.profile_photo_url || undefined} />
+                        <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      {punch.isOnBreak ? (
+                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" title="On Break" />
+                      ) : punch.isActive ? (
+                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+                      ) : null}
                     </div>
-                  </Card>
-                ))}
-              </div>
-            )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold truncate">{punch.profile.full_name}</span>
+                          {punch.isOnBreak && (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs shrink-0">
+                              On Break
+                            </Badge>
+                          )}
+                        </div>
+                        <span className={`text-base font-bold shrink-0 ${punch.isOnBreak ? "text-amber-600" : punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                          {punch.hoursWorked.toFixed(1)}h
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                        {punch.scheduledShift ? (
+                          <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
+                        ) : (
+                          <span>Not Scheduled</span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
+                        {punch.clockOutTime && (
+                          <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
+                        )}
+                      </div>
+                      
+                      {punch.breakStartTime && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="text-muted-foreground">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
+                          <span className="text-muted-foreground">- <span className="text-foreground font-medium">{punch.breakEndTime ? formatTimeDisplay(punch.breakEndTime, timezone) : 'Active'}</span></span>
+                        </div>
+                      )}
+                      
+                      {punch.createdByName && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                          <Pencil className="h-3 w-3" />
+                          <span>Entered by {punch.createdByName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
-        </div>
-      ) : (
-        <>
-          {/* Week Header - Centered with week label */}
-          <div className="px-4 py-2 border-b flex flex-col items-center gap-1">
-            <DateNavigator
-              onPrev={handlePreviousWeek}
-              onNext={handleNextWeek}
-              label={`${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
-            />
-            <Badge variant={getWeekLabel().variant} className="text-xs">
-              {getWeekLabel().label}
-            </Badge>
-          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Content for Schedule tab
+  const renderScheduleContent = () => (
+    <div className="space-y-4">
+      {/* Week Header - Centered with week label */}
+      <div className="flex flex-col items-center gap-1">
+        <DateNavigator
+          onPrev={handlePreviousWeek}
+          onNext={handleNextWeek}
+          label={`${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
+        />
+        <Badge variant={getWeekLabel().variant} className="text-xs">
+          {getWeekLabel().label}
+        </Badge>
+      </div>
 
       {/* Week Calendar */}
-      <div className="flex items-center justify-around p-3 border-b">
+      <div className="flex items-center justify-around">
         {weekDays.map((day, index) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
@@ -647,30 +648,63 @@ export function MobileScheduleView({
                 isSelected
                   ? 'bg-primary text-primary-foreground'
                   : isToday
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
+                    ? 'bg-primary/20 text-primary'
+                    : 'hover:bg-muted'
               }`}
             >
-              <span className="text-xs font-medium">{format(day, 'EEE')}</span>
-              <span className="text-lg font-semibold">{format(day, 'd')}</span>
+              <span className="text-xs font-medium uppercase">
+                {format(day, 'EEE')}
+              </span>
+              <span className={`text-lg font-semibold ${isToday && !isSelected ? 'text-primary' : ''}`}>
+                {format(day, 'd')}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Selected Date Header */}
-      <div className="flex items-center justify-between p-3 bg-muted/30">
-        <h3 className="text-base font-semibold">{format(selectedDate, 'EEEE, MMM d')}</h3>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <Users className="h-4 w-4" />
-            <span className="text-sm font-medium">{uniqueEmployeesScheduled}</span>
-          </div>
-          {(isAdmin || isManager) && (
-            <>
+      {/* Events for selected day */}
+      {dayEvents.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
+          {dayEvents.map(event => (
+            <Card key={event.id} className="p-3">
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: event.category?.color || '#8B5CF6' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{event.event_name}</div>
+                  <div className="text-xs text-muted-foreground">{formatTime12Hour(event.event_time)}</div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Shifts for selected day */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <Users className="h-3.5 w-3.5" />
+            {uniqueEmployeesScheduled} Scheduled
+          </h4>
+          {(isAdmin || isManager) && scheduleId && (
+            <div className="flex gap-1">
               <Button 
-                size="sm" 
-                variant="ghost"
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => setEventDialogOpen(true)}
+              >
+                <CalendarPlus className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
                 onClick={() => {
                   setSelectedShift({
                     id: '',
@@ -684,167 +718,75 @@ export function MobileScheduleView({
                   setShiftDialogOpen(true);
                 }}
               >
-                <CalendarPlus className="h-4 w-4" />
+                <UserPlus className="h-4 w-4" />
               </Button>
-              {/* Add Event Button */}
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                onClick={() => setEventDialogOpen(true)}
-                title="Add Event"
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['schedule'] })}
               >
-                <ClipboardCheck className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               </Button>
-              {/* Three states: Go Live (unpublished), Update (published with changes), LIVE (published, no changes) */}
-              {!isPublished ? (
-                <Button
-                  size="sm"
-                  onClick={onGoLive}
-                  disabled={isPublishing}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {isPublishing ? "Publishing..." : "GO LIVE"}
-                </Button>
-              ) : hasPendingChanges ? (
-                <Button
-                  size="sm"
-                  onClick={onSendUpdate}
-                  disabled={isPublishing}
-                  variant="outline"
-                  className="border-amber-500 text-amber-500 hover:bg-amber-500/10"
-                >
-                  {isPublishing ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Update
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border-2 border-red-500 rounded-lg">
-                  <span className="relative flex items-end gap-[2px] h-3">
-                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-                  </span>
-                  <span className="text-xs font-semibold text-red-500 uppercase tracking-wide">Live</span>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* Events for selected day - simple text style for mobile */}
-      {dayEvents.length > 0 && (
-        <div className="px-4 pt-3 space-y-1">
-          {dayEvents.map(event => (
-            <div
-              key={event.id}
-              className="flex items-center gap-2 text-sm py-1 px-2 bg-muted/50 rounded"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-              <span className="text-muted-foreground text-xs">
-                {formatTime12Hour(event.event_time)}
-              </span>
-              <span className="truncate font-medium text-sm">{event.event_name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Shifts List - sorted with user's shifts first, then by start time */}
-      <div className="flex-1 overflow-auto p-4 space-y-3">
         {dayShifts.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No shifts scheduled for this day</p>
-          </div>
+          <Card className="p-6 text-center text-muted-foreground">
+            <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No shifts scheduled</p>
+          </Card>
         ) : (
-          [...dayShifts]
-            .sort((a, b) => {
-              // User's shifts first
-              const aIsMyShift = a.user_id === user?.id;
-              const bIsMyShift = b.user_id === user?.id;
-              if (aIsMyShift && !bIsMyShift) return -1;
-              if (!aIsMyShift && bIsMyShift) return 1;
-              // Then sort by start time
-              return a.start_time.localeCompare(b.start_time);
-            })
-            .map((shift) => {
+          dayShifts
+            .sort((a, b) => a.start_time.localeCompare(b.start_time))
+            .map(shift => {
               const profile = getProfileForShift(shift);
               if (!profile) return null;
-
-              const isMyShift = shift.user_id === user?.id;
-
-              // A shift shows as "pending" if:
-              // - Schedule is unpublished (never went live), OR
-              // - Schedule is published WITH a snapshot but this specific shift differs from or is not in the snapshot
-              const hasSnapshot = publishedSnapshot && publishedSnapshot.length > 0;
-              const snapshotShift = hasSnapshot ? publishedSnapshot.find((s: any) => s.id === shift.id) : null;
-              const isShiftModified = snapshotShift && (
-                snapshotShift.user_id !== shift.user_id ||
-                snapshotShift.start_time !== shift.start_time ||
-                snapshotShift.end_time !== shift.end_time ||
-                snapshotShift.shift_date !== shift.shift_date
-              );
-              // Show as pending only if:
-              // 1. Schedule is not published, OR
-              // 2. Schedule is published WITH a snapshot AND (shift is new or modified)
-              const isShiftPending = !isPublished || (hasSnapshot && (!snapshotShift || isShiftModified));
-
+              
+              const shiftLabel = getShiftLabel(shift);
+              const isModified = isShiftModified(shift);
+              
               return (
-              <Card 
+                <Card 
                   key={shift.id} 
-                  className={`hover:shadow-md transition-shadow cursor-pointer ${
-                    isMyShift 
-                      ? 'border-2 border-accent ring-1 ring-accent/30' 
-                      : ''
-                  } ${
-                    isShiftPending && (isAdmin || isManager) ? 'opacity-60 border-2 border-dashed border-amber-500/50' : ''
-                  }`}
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors ${isModified ? 'border-l-3 border-l-amber-500' : ''}`}
                   onClick={() => {
-                    setSelectedShift(shift);
-                    setShiftDialogOpen(true);
+                    if (isAdmin || isManager) {
+                      setSelectedShift(shift);
+                      setShiftDialogOpen(true);
+                    }
                   }}
                 >
-                  <div className="flex items-center gap-3 p-3">
-                    <div className="flex flex-col items-center gap-1">
-                      {isMyShift && (
-                        <div className="bg-accent text-accent-foreground text-[10px] font-semibold px-2 py-0.5 rounded mb-1">
-                          My Shift
-                        </div>
-                      )}
-                      <Avatar className="h-11 w-11">
+                  <div className="p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 shrink-0">
                         <AvatarImage src={profile.profile_photo_url || undefined} />
                         <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
                       </Avatar>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0 text-left">
-                      <h4 className="font-semibold truncate">{profile.full_name}</h4>
-                      <p className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
-                      </p>
-                      {shift.template?.position && (
-                        <Badge variant="outline" className="text-xs mt-1">
-                          {shift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-col items-center gap-1 shrink-0">
-                      {!isShiftPending && (isAdmin || shift.user_id === user?.id) && (
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm truncate">{profile.full_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
+                        </div>
+                        {shiftLabel && (
+                          <Badge 
+                            variant="secondary" 
+                            className="mt-1 text-xs"
+                            style={{ 
+                              backgroundColor: shift.template?.color ? `${shift.template.color}20` : undefined,
+                              borderColor: shift.template?.color || undefined,
+                              color: shift.template?.color || undefined
+                            }}
+                          >
+                            {shiftLabel}
+                          </Badge>
+                        )}
+                      </div>
+                      {!isAdmin && !isManager && (
                         <Button
-                          size="sm"
                           variant="outline"
+                          size="sm"
                           className="text-xs px-2 h-7"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -865,7 +807,32 @@ export function MobileScheduleView({
             })
         )}
       </div>
-        </>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Folder Tabs for Admin/Manager */}
+      {(isAdmin || isManager) ? (
+        <div className="px-4 pt-3 flex-1 overflow-auto">
+          <FolderTabs
+            tabs={folderTabs}
+            activeTab={activeTab}
+            onTabChange={(v) => setActiveTab(v as 'today' | 'schedule')}
+          >
+            <FolderTabContent value="today" activeValue={activeTab}>
+              {renderTodayContent()}
+            </FolderTabContent>
+            <FolderTabContent value="schedule" activeValue={activeTab}>
+              {renderScheduleContent()}
+            </FolderTabContent>
+          </FolderTabs>
+        </div>
+      ) : (
+        /* Non-admin view - schedule only */
+        <div className="flex-1 overflow-auto p-4">
+          {renderScheduleContent()}
+        </div>
       )}
 
       <ShiftOfferDialog
