@@ -71,6 +71,7 @@ export default function LogBook() {
   const [showCateringUpload, setShowCateringUpload] = useState(false);
   const [preselectedShift, setPreselectedShift] = useState<'AM' | 'PM' | null>(null);
   const [isSavingSpecialForm, setIsSavingSpecialForm] = useState(false);
+  const [cateringSearchQuery, setCateringSearchQuery] = useState("");
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -2104,21 +2105,29 @@ export default function LogBook() {
             </div>
           </FolderTabContent>
 
-          {/* Catering Orders Tab */}
-          <FolderTabContent value="catering" activeValue={activeTab} keepMounted>
-            <div className="space-y-4">
-              <div className="flex items-center justify-end">
-                <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <CateringOrdersSection 
-                showHeader={false} 
-                externalUploadOpen={showCateringUpload}
-                onExternalUploadChange={setShowCateringUpload}
-              />
-            </div>
-          </FolderTabContent>
+           {/* Catering Orders Tab */}
+           <FolderTabContent value="catering" activeValue={activeTab} keepMounted>
+             <div className="space-y-4">
+               <div className="flex items-center gap-2">
+                 <Search className="h-4 w-4 text-muted-foreground" />
+                 <Input
+                   placeholder="Search orders..."
+                   value={cateringSearchQuery}
+                   onChange={(e) => setCateringSearchQuery(e.target.value)}
+                   className="flex-1"
+                 />
+                 <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                   <Plus className="h-4 w-4" />
+                 </Button>
+               </div>
+               <CateringOrdersSection 
+                 showHeader={false} 
+                 externalUploadOpen={showCateringUpload}
+                 onExternalUploadChange={setShowCateringUpload}
+                 searchQuery={cateringSearchQuery}
+               />
+             </div>
+           </FolderTabContent>
         </FolderTabs>
 
         {isAdmin && (
