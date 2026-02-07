@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { FolderTabs, FolderTabContent } from "@/components/ui/folder-tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ArrowLeftRight, UtensilsCrossed, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -43,7 +43,7 @@ import { PerformanceReviewEntry } from "@/components/logbook/PerformanceReviewEn
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.webp";
-import { Building2, UserX } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 // Cache time constants for LogBook
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000; // 5 minutes for recent data
@@ -1612,111 +1612,6 @@ export default function LogBook() {
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold">Logs</h1>
             <div className="flex items-center gap-2">
-              {activeTab === 'search' && (
-                <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
-                  setShowNewEntrySheet(open);
-                  if (!open) setWizardStep('category');
-                }}>
-                  <SheetTrigger asChild>
-                    <Button size="icon" variant="default">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-                    {wizardStep === 'category' ? (
-                      <>
-                        <SheetHeader>
-                          <SheetTitle>Select Entry Type</SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-6 grid grid-cols-2 gap-3">
-                          {[...categories]
-                            .sort((a: any, b: any) => {
-                              const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
-                              const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
-                              const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
-                              if (aIsCash && !bIsCash) return 1;
-                              if (!aIsCash && bIsCash) return -1;
-                              return (a.display_order || 0) - (b.display_order || 0);
-                            })
-                            .map((category: any) => {
-                          const getCategoryIcon = (name: string) => {
-                              const lower = name.toLowerCase();
-                              if (lower.includes('write') && lower.includes('up')) return <UserX className="h-6 w-6" />;
-                              if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
-                              if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
-                              if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
-                              if (lower.includes('refund')) return <ArrowLeftRight className="h-6 w-6" />;
-                              if (lower.includes('remake')) return <UtensilsCrossed className="h-6 w-6" />;
-                              if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
-                              if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
-                              if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
-                              if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
-                              if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
-                              if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
-                              if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
-                              if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
-                              if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
-                              return <ClipboardList className="h-6 w-6" />;
-                            };
-                            
-                            const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => 
-                              category.name.toLowerCase().includes(term)
-                            );
-                            
-                            return (
-                              <button
-                                key={category.id}
-                                onClick={() => {
-                                  setSelectedCategory(category.id);
-                                  setWizardStep('form');
-                                }}
-                                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
-                                  isCashHandling 
-                                    ? "border-teal-500/50 bg-teal-500/10 hover:border-primary hover:bg-primary" 
-                                    : "border-border bg-card hover:border-primary hover:bg-primary"
-                                }`}
-                              >
-                                <div className={`${isCashHandling ? "text-teal-500" : "text-primary"} group-hover:text-primary-foreground transition-colors`}>
-                                  {getCategoryIcon(category.name)}
-                                </div>
-                                <span className="font-medium text-sm group-hover:text-primary-foreground transition-colors">{category.name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <SheetHeader className="flex flex-row items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={() => setWizardStep('category')}
-                            className="h-8 w-8 -ml-2"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </Button>
-                          <SheetTitle className="!mt-0">
-                            {selectedCategory === 'bank-deposit' 
-                              ? 'Bank Deposit' 
-                              : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
-                          </SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-4 space-y-4">
-                          {renderNewEntryContent()}
-                        </div>
-                      </>
-                    )}
-                  </SheetContent>
-                </Sheet>
-              )}
-              
-              {activeTab === 'catering' && (
-                <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                  <Upload className="h-4 w-4" />
-                </Button>
-              )}
-              
               {isAdmin && (
                 <Button 
                   size="icon" 
@@ -1748,6 +1643,106 @@ export default function LogBook() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1"
               />
+              {(isShiftManager || isManager || isAdmin) && (
+                <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
+                  setShowNewEntrySheet(open);
+                  if (!open) {
+                    setWizardStep('category');
+                    setSelectedCategory('');
+                    setPreselectedShift(null);
+                  }
+                }}>
+                  <SheetTrigger asChild>
+                    <Button size="icon" variant="default">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                    {wizardStep === 'category' ? (
+                      <>
+                        <SheetHeader>
+                          <SheetTitle>New Log Entry</SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          {[...categories]
+                            .sort((a: any, b: any) => {
+                              const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
+                              const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
+                              const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
+                              if (aIsCash && !bIsCash) return 1;
+                              if (!aIsCash && bIsCash) return -1;
+                              return (a.display_order || 0) - (b.display_order || 0);
+                            })
+                            .map((category: any) => {
+                              const getCategoryIcon = (name: string) => {
+                                const lower = name.toLowerCase();
+                                if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
+                                if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
+                                if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
+                                if (lower.includes('write') || lower.includes('up')) return <AlertTriangle className="h-6 w-6" />;
+                                if (lower.includes('86') || lower.includes('68')) return <ToggleLeft className="h-6 w-6" />;
+                                if (lower.includes('maintenance')) return <Wrench className="h-6 w-6" />;
+                                if (lower.includes('weekly') && lower.includes('summary')) return <CalendarRange className="h-6 w-6" />;
+                                if (lower.includes('read') && lower.includes('sign')) return <PenLine className="h-6 w-6" />;
+                                if (lower.includes('performance') && lower.includes('review')) return <ClipboardCheck className="h-6 w-6" />;
+                                if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
+                                if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
+                                if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
+                                if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
+                                return <ClipboardList className="h-6 w-6" />;
+                              };
+                              
+                              const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => 
+                                category.name.toLowerCase().includes(term)
+                              );
+                              
+                              return (
+                                <button
+                                  key={category.id}
+                                  onClick={() => {
+                                    setSelectedCategory(category.id);
+                                    setWizardStep('form');
+                                  }}
+                                  className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] group ${
+                                    isCashHandling 
+                                      ? "border-teal-500/50 bg-teal-500/10 hover:border-primary hover:bg-primary" 
+                                      : "border-border bg-card hover:border-primary hover:bg-primary"
+                                  }`}
+                                >
+                                  <div className={`${isCashHandling ? "text-teal-500" : "text-primary"} group-hover:text-primary-foreground transition-colors`}>
+                                    {getCategoryIcon(category.name)}
+                                  </div>
+                                  <span className="font-medium text-sm group-hover:text-primary-foreground transition-colors">{category.name}</span>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <SheetHeader className="flex flex-row items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => setWizardStep('category')}
+                            className="h-8 w-8 -ml-2"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <SheetTitle className="!mt-0">
+                            {selectedCategory === 'bank-deposit' 
+                              ? 'Bank Deposit' 
+                              : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                          </SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-4 space-y-4">
+                          {renderNewEntryContent()}
+                        </div>
+                      </>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -2111,11 +2106,18 @@ export default function LogBook() {
 
           {/* Catering Orders Tab */}
           <FolderTabContent value="catering" activeValue={activeTab} keepMounted>
-            <CateringOrdersSection 
-              showHeader={false} 
-              externalUploadOpen={showCateringUpload}
-              onExternalUploadChange={setShowCateringUpload}
-            />
+            <div className="space-y-4">
+              <div className="flex items-center justify-end">
+                <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <CateringOrdersSection 
+                showHeader={false} 
+                externalUploadOpen={showCateringUpload}
+                onExternalUploadChange={setShowCateringUpload}
+              />
+            </div>
           </FolderTabContent>
         </FolderTabs>
 
