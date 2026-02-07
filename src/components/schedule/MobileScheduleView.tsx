@@ -2,15 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, UserPlus } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
-import { BreakIndicator } from './BreakIndicator';
-import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
+import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -531,9 +529,23 @@ export function MobileScheduleView({
         ) : (
           <div className="space-y-2">
             {dayPunches.map((punch) => (
-              <Card 
-                key={punch.id} 
-                className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-3 border-l-green-500" : ""}`}
+              <MobileShiftCard
+                key={punch.id}
+                name={punch.profile.full_name}
+                avatarUrl={punch.profile.profile_photo_url}
+                startTime={punch.scheduledShift?.start_time || '00:00'}
+                endTime={punch.scheduledShift?.end_time || '00:00'}
+                statusIndicator={punch.isOnBreak ? 'break' : punch.isActive ? 'active' : 'none'}
+                scheduledStart={punch.scheduledShift?.start_time}
+                scheduledEnd={punch.scheduledShift?.end_time}
+                clockInTime={punch.clockInTime}
+                clockOutTime={punch.clockOutTime}
+                breakStartTime={punch.breakStartTime}
+                breakEndTime={punch.breakEndTime}
+                hoursWorked={punch.hoursWorked}
+                createdByName={punch.createdByName}
+                timezone={timezone}
+                formatTimeDisplay={formatTimeDisplay}
                 onClick={() => {
                   const today = getTodayInTimezone(timezone);
                   setSelectedPunch({
@@ -544,69 +556,7 @@ export function MobileScheduleView({
                   });
                   setEditPunchOpen(true);
                 }}
-              >
-                <div className="px-3 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                        <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {punch.isOnBreak ? (
-                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" title="On Break" />
-                      ) : punch.isActive ? (
-                        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
-                      ) : null}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-semibold truncate">{punch.profile.full_name}</span>
-                          {punch.isOnBreak && (
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs shrink-0">
-                              On Break
-                            </Badge>
-                          )}
-                        </div>
-                        <span className={`text-base font-bold shrink-0 ${punch.isOnBreak ? "text-amber-600" : punch.isActive ? "text-green-600" : "text-foreground"}`}>
-                          {punch.hoursWorked.toFixed(1)}h
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-                        {punch.scheduledShift ? (
-                          <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
-                        ) : (
-                          <span>Not Scheduled</span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
-                        {punch.clockOutTime && (
-                          <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
-                        )}
-                      </div>
-                      
-                      {punch.breakStartTime && (
-                        <div className="flex items-center gap-2 text-sm flex-wrap">
-                          <span className="text-muted-foreground whitespace-nowrap">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
-                          <span className="text-muted-foreground whitespace-nowrap">- <span className="text-foreground font-medium">{punch.breakEndTime ? formatTimeDisplay(punch.breakEndTime, timezone) : 'Active'}</span></span>
-                        </div>
-                      )}
-                      
-                      {punch.createdByName && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                          <Pencil className="h-3 w-3" />
-                          <span>Entered by {punch.createdByName}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              />
             ))}
           </div>
         )}
@@ -733,73 +683,51 @@ export function MobileScheduleView({
             <p className="text-sm">No shifts scheduled</p>
           </Card>
         ) : (
-          dayShifts
-            .sort((a, b) => a.start_time.localeCompare(b.start_time))
-            .map(shift => {
-              const profile = getProfileForShift(shift);
-              if (!profile) return null;
-              
-              const shiftLabel = getShiftLabel(shift);
-              const isModified = isShiftModified(shift);
-              
-              return (
-                <Card 
-                  key={shift.id} 
-                  className={`cursor-pointer hover:bg-muted/50 transition-colors ${isModified ? 'border-l-3 border-l-amber-500' : ''}`}
-                  onClick={() => {
-                    if (isAdmin || isManager) {
-                      setSelectedShift(shift);
-                      setShiftDialogOpen(true);
-                    }
-                  }}
-                >
-                  <div className="p-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 shrink-0">
-                        <AvatarImage src={profile.profile_photo_url || undefined} />
-                        <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm truncate">{profile.full_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
-                        </div>
-                        {shiftLabel && (
-                          <Badge 
-                            variant="secondary" 
-                            className="mt-1 text-xs"
-                            style={{ 
-                              backgroundColor: shift.template?.color ? `${shift.template.color}20` : undefined,
-                              borderColor: shift.template?.color || undefined,
-                              color: shift.template?.color || undefined
-                            }}
-                          >
-                            {shiftLabel}
-                          </Badge>
-                        )}
-                      </div>
-                      {!isAdmin && !isManager && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-2 h-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedShiftForOffer(shift);
-                            setOfferDialogOpen(true);
-                          }}
-                        >
-                          Offer Up
-                        </Button>
-                      )}
-                      {shiftHasBreak(shift.start_time, shift.end_time) && (
-                        <BreakIndicator hasBreak={true} size="sm" />
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })
+          <div className="space-y-2">
+            {dayShifts
+              .sort((a, b) => a.start_time.localeCompare(b.start_time))
+              .map(shift => {
+                const profile = getProfileForShift(shift);
+                if (!profile) return null;
+                
+                const shiftLabel = getShiftLabel(shift);
+                const isModified = isShiftModified(shift);
+                
+                return (
+                  <MobileShiftCard
+                    key={shift.id}
+                    name={profile.full_name}
+                    avatarUrl={profile.profile_photo_url}
+                    startTime={shift.start_time}
+                    endTime={shift.end_time}
+                    accentColor={shift.template?.color}
+                    statusIndicator={isModified ? 'modified' : 'none'}
+                    positionLabel={shiftLabel}
+                    positionColor={shift.template?.color}
+                    onClick={() => {
+                      if (isAdmin || isManager) {
+                        setSelectedShift(shift);
+                        setShiftDialogOpen(true);
+                      }
+                    }}
+                    actionButton={!isAdmin && !isManager ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs px-2 h-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedShiftForOffer(shift);
+                          setOfferDialogOpen(true);
+                        }}
+                      >
+                        Offer Up
+                      </Button>
+                    ) : undefined}
+                  />
+                );
+              })}
+          </div>
         )}
       </div>
     </div>
