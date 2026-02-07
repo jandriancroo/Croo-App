@@ -427,7 +427,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   });
 
   // Fetch organization logo based on current location (with brand fallback)
-  const { data: orgLogo } = useQuery({
+  const { data: orgLogo, isLoading: orgLogoLoading } = useQuery({
     queryKey: ['org-logo', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation?.id) return null;
@@ -471,7 +471,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     enabled: !!currentLocation?.id,
   });
 
-  const headerLogo = orgLogo?.logo_url || crooLogo;
+  // Only show croo logo as fallback after org logo query completes (prevents flash)
+  const headerLogo = orgLogoLoading ? null : (orgLogo?.logo_url || crooLogo);
   const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
   const headerLogoAlt = orgLogo?.logo_url ? (orgDisplayName || 'Organization') : 'Croo';
 
@@ -683,10 +684,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
             <button onClick={() => navigate('/dashboard')} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
-              <img 
-                src={headerLogo} 
-                alt={headerLogoAlt} 
-              />
+              {headerLogo ? (
+                <img 
+                  src={headerLogo} 
+                  alt={headerLogoAlt} 
+                />
+              ) : (
+                <div className="h-8 w-20 bg-white/20 rounded animate-pulse" />
+              )}
             </button>
             
             {/* Nav items */}
@@ -835,12 +840,16 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img 
-                src={headerLogo} 
-                alt={headerLogoAlt} 
-                className="h-10 w-auto max-w-[120px] object-contain rounded-lg"
-                style={{ background: 'transparent' }}
-              />
+              {headerLogo ? (
+                <img 
+                  src={headerLogo} 
+                  alt={headerLogoAlt} 
+                  className="h-10 w-auto max-w-[120px] object-contain rounded-lg"
+                  style={{ background: 'transparent' }}
+                />
+              ) : (
+                <div className="h-10 w-24 bg-muted rounded-lg animate-pulse" />
+              )}
             </button>
           </div>
           
