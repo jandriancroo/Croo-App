@@ -120,9 +120,10 @@ export default function Tasks() {
   };
 
   // Fetch checklists for user's role (location-filtered)
-  const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
+  const { data: checklists = [], isLoading: checklistsLoading, isFetching: checklistsFetching } = useQuery({
     queryKey: ['user-checklists', user?.id, isAdmin, currentLocation?.id],
     staleTime: 2 * 60 * 1000, // 2 min - show cached instantly, refresh in background
+    placeholderData: (prev) => prev, // Keep previous data during refetch
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -182,9 +183,10 @@ export default function Tasks() {
   });
 
   // Fetch submission stats (location-filtered)
-  const { data: submissionStats, isLoading: statsLoading } = useQuery({
+  const { data: submissionStats, isLoading: statsLoading, isFetching: statsFetching } = useQuery({
     queryKey: ['submission-stats', user?.id, currentLocation?.id],
     staleTime: 2 * 60 * 1000, // 2 min cache
+    placeholderData: (prev) => prev, // Keep previous data during refetch
     queryFn: async () => {
       if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
       
@@ -674,7 +676,9 @@ export default function Tasks() {
   const currentDayIndex = getDayOfWeekInTimezone(timezone);
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  if (checklistsLoading || statsLoading) {
+  // Only show skeleton on true initial load (no cached data yet)
+  const hasNoData = checklists.length === 0 && !submissionStats;
+  if ((checklistsLoading || statsLoading) && hasNoData) {
     return (
       <Layout>
         <div className="container max-w-6xl mx-auto p-6">

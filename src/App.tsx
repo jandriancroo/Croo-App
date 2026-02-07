@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
-import { LocationProvider } from "@/hooks/useLocation";
+import { LocationProvider, useLocation as useAppLocation } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
@@ -14,6 +14,7 @@ import BreakOverlay from "@/components/BreakOverlay";
 import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { usePrefetchDashboard } from "@/hooks/usePrefetchDashboard";
 
 // Critical routes - loaded eagerly (auth flow)
 import Auth from "./pages/Auth";
@@ -100,9 +101,15 @@ const ForceReloadHandler = () => {
 
 // Wrapper to show splash screen during initial auth loading
 const AppWithSplash = () => {
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
+  const { currentLocation } = useAppLocation();
   const [showSplash, setShowSplash] = useState(true);
   const [splashComplete, setSplashComplete] = useState(false);
+
+  // Prefetch dashboard data while splash is visible (runs in background)
+  // Uses America/Los_Angeles as default timezone - will be refined when location loads
+  const timezone = 'America/Los_Angeles';
+  usePrefetchDashboard(user?.id, currentLocation?.id, timezone);
 
   // Only show splash on initial cold start (not on every route change)
   useEffect(() => {
