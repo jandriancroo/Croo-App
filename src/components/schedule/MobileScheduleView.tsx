@@ -4,7 +4,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck, UserPlus } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, CalendarPlus, RefreshCw, Circle, Pencil, UserPlus } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
@@ -22,7 +22,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { FolderTabs, FolderTabContent } from '@/components/ui/folder-tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
@@ -490,15 +490,7 @@ export function MobileScheduleView({
   const uniqueEmployeesScheduled = new Set(shiftsWithProfiles.map(s => s.user_id)).size;
 
   const activePunchCount = dayPunches.filter(p => p.isActive).length;
-  
-  const folderTabs = [
-    { 
-      id: 'today', 
-      label: activePunchCount > 0 ? `Today (${activePunchCount})` : 'Today',
-      icon: <Circle className="h-3 w-3 fill-green-500 text-green-500" />
-    },
-    { id: 'schedule', label: 'Schedule' }
-  ];
+  const todayTabLabel = activePunchCount > 0 ? `Today (${activePunchCount})` : 'Today';
 
   // Content for Today tab
   const renderTodayContent = () => (
@@ -815,22 +807,29 @@ export function MobileScheduleView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Folder Tabs for Admin/Manager */}
+      {/* Standard Tabs for Admin/Manager */}
       {(isAdmin || isManager) ? (
-        <div className="px-4 pt-3 flex-1 overflow-auto">
-          <FolderTabs
-            tabs={folderTabs}
-            activeTab={activeTab}
-            onTabChange={(v) => setActiveTab(v as 'today' | 'schedule')}
-          >
-            <FolderTabContent value="today" activeValue={activeTab}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')} className="flex flex-col h-full">
+          <div className="px-4 pt-3 pb-2 border-b border-border">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="today" className="gap-1.5">
+                {activePunchCount > 0 && (
+                  <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                )}
+                {todayTabLabel}
+              </TabsTrigger>
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            </TabsList>
+          </div>
+          <div className="flex-1 overflow-auto px-4 py-3">
+            <TabsContent value="today" className="mt-0 h-full">
               {renderTodayContent()}
-            </FolderTabContent>
-            <FolderTabContent value="schedule" activeValue={activeTab}>
+            </TabsContent>
+            <TabsContent value="schedule" className="mt-0 h-full">
               {renderScheduleContent()}
-            </FolderTabContent>
-          </FolderTabs>
-        </div>
+            </TabsContent>
+          </div>
+        </Tabs>
       ) : (
         /* Non-admin view - schedule only */
         <div className="flex-1 overflow-auto p-4">
