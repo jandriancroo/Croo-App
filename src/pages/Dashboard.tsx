@@ -717,26 +717,58 @@ export default function Dashboard() {
         const hasStarted = completed > 0;
         
         // Check if checklist is overdue (has due_by_time, not complete, and current time is past due)
+        // IMPORTANT: Compare using the location's timezone (not device timezone)
         const isOverdue = (() => {
           if (isComplete || !checklist.due_by_time) return false;
+
           const now = new Date();
-          const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
-          const dueTime = new Date();
-          dueTime.setHours(hours, minutes, 0, 0);
-          return now > dueTime;
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            hourCycle: 'h23',
+          }).formatToParts(now);
+
+          const nowHour = Number(parts.find(p => p.type === 'hour')?.value ?? '0');
+          const nowMinute = Number(parts.find(p => p.type === 'minute')?.value ?? '0');
+          const nowTotal = nowHour * 60 + nowMinute;
+
+          const [dueHRaw, dueMRaw] = checklist.due_by_time.split(':');
+          const dueHour = Number(dueHRaw ?? 0);
+          const dueMinute = Number(dueMRaw ?? 0);
+          const dueTotal = dueHour * 60 + dueMinute;
+
+          return nowTotal > dueTotal;
         })();
-        
+
         // Check if checklist is locked (has lock_until_time and current time is before unlock)
+        // IMPORTANT: Compare using the location's timezone (not device timezone)
         const isLocked = (() => {
           if (!checklist.lock_until_time) return false;
+
           const now = new Date();
-          const nowFormatted = now.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
+          const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            hour: '2-digit',
             minute: '2-digit',
-            timeZone: 'America/Los_Angeles'
-          });
-          return nowFormatted < checklist.lock_until_time;
+            second: '2-digit',
+            hour12: false,
+            hourCycle: 'h23',
+          }).formatToParts(now);
+
+          const h = Number(parts.find(p => p.type === 'hour')?.value ?? '0');
+          const m = Number(parts.find(p => p.type === 'minute')?.value ?? '0');
+          const s = Number(parts.find(p => p.type === 'second')?.value ?? '0');
+          const nowTotal = h * 3600 + m * 60 + s;
+
+          const [lockHRaw, lockMRaw, lockSRaw] = checklist.lock_until_time.split(':');
+          const lockHour = Number(lockHRaw ?? 0);
+          const lockMinute = Number(lockMRaw ?? 0);
+          const lockSecond = Number(lockSRaw ?? 0);
+          const lockTotal = lockHour * 3600 + lockMinute * 60 + lockSecond;
+
+          return nowTotal < lockTotal;
         })();
         
         // Format lock time for display
