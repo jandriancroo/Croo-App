@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Upload, ChefHat, Check, Loader2, Trash2, Eye } from "lucide-react";
+import { ChefHat, Check, Loader2, Trash2, Eye } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { compressImage } from "@/utils/imageCompression";
@@ -38,7 +37,7 @@ interface CateringOrdersSectionProps {
   onExternalUploadChange?: (open: boolean) => void;
 }
 
-export function CateringOrdersSection({ showHeader = true, externalUploadOpen, onExternalUploadChange }: CateringOrdersSectionProps) {
+export function CateringOrdersSection({ showHeader: _showHeader = true, externalUploadOpen, onExternalUploadChange }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
   const { getTodayInTimezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
@@ -235,135 +234,85 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
   const { getDateInTimezoneOffset } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   const tomorrowStr = getDateInTimezoneOffset(1);
-  
-  const todaysOrders = orders.filter(o => o.status === "pending" && o.pickup_date === todayStr);
-  const tomorrowsOrders = orders.filter(o => o.status === "pending" && o.pickup_date === tomorrowStr);
-  const upcomingOrders = orders.filter(o => o.status === "pending" && o.pickup_date > tomorrowStr);
-  const pastDueOrders = orders.filter(o => o.status === "pending" && o.pickup_date < todayStr);
-  const completedOrders = orders.filter(o => o.status === "completed");
+
+  // Determine variant for each order
+  const getOrderVariant = (order: CateringOrder): "today" | "tomorrow" | "upcoming" | "past_due" | "completed" => {
+    if (order.status === "completed") return "completed";
+    if (order.pickup_date < todayStr) return "past_due";
+    if (order.pickup_date === todayStr) return "today";
+    if (order.pickup_date === tomorrowStr) return "tomorrow";
+    return "upcoming";
+  };
+
+  // Group orders by pickup date for pending, by completed_at date for completed
+  const ordersByDate = orders.reduce((acc, order) => {
+    const dateKey = order.status === "completed" && order.completed_at 
+      ? format(new Date(order.completed_at), 'yyyy-MM-dd')
+      : order.pickup_date;
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(order);
+    return acc;
+  }, {} as Record<string, CateringOrder[]>);
+
+  // Sort dates (most recent first for better UX - urgent orders first)
+  const sortedDates = Object.keys(ordersByDate).sort((a, b) => {
+    // Past due first, then today, tomorrow, upcoming, then completed (oldest first)
+    const aIsPastDue = a < todayStr && ordersByDate[a].some(o => o.status === "pending");
+    const bIsPastDue = b < todayStr && ordersByDate[b].some(o => o.status === "pending");
+    if (aIsPastDue && !bIsPastDue) return -1;
+    if (!aIsPastDue && bIsPastDue) return 1;
+    
+    const aIsCompleted = ordersByDate[a].every(o => o.status === "completed");
+    const bIsCompleted = ordersByDate[b].every(o => o.status === "completed");
+    if (aIsCompleted && !bIsCompleted) return 1;
+    if (!aIsCompleted && bIsCompleted) return -1;
+    
+    return a.localeCompare(b);
+  });
 
   if (loading) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </Card>
+      <div className="flex items-center justify-center h-32">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   return (
     <>
-      <Card className="p-4">
-        {showHeader && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <ChefHat className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Catering Orders</h3>
-            </div>
-            <Button size="sm" onClick={() => setShowUploadDialog(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Order
-            </Button>
-          </div>
-        )}
-
-        {todaysOrders.length === 0 && tomorrowsOrders.length === 0 && upcomingOrders.length === 0 && pastDueOrders.length === 0 && completedOrders.length === 0 ? (
+      <div className="space-y-6">
+        {orders.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No catering orders. Upload a PDF or screenshot to get started.
           </p>
         ) : (
-          <div className="space-y-4">
-            {pastDueOrders.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-destructive">Past Due</h4>
-                {pastDueOrders.map((order) => (
-                  <CateringOrderCard
-                    key={order.id}
-                    order={order}
-                    variant="past_due"
-                    onView={() => setSelectedOrder(order)}
-                    onComplete={() => handleComplete(order)}
-                    onDelete={() => handleDelete(order.id)}
-                    canComplete={canComplete}
-                    canDelete={isAdmin}
-                  />
-                ))}
+          <>
+            {sortedDates.map((dateKey) => (
+              <div key={dateKey} className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-card py-2 -mx-5 px-5 z-10">
+                  {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
+                </h3>
+                <div className="space-y-2">
+                  {ordersByDate[dateKey]
+                    .sort((a, b) => a.pickup_time.localeCompare(b.pickup_time))
+                    .map((order) => (
+                      <CateringOrderCard
+                        key={order.id}
+                        order={order}
+                        variant={getOrderVariant(order)}
+                        onView={() => setSelectedOrder(order)}
+                        onComplete={() => handleComplete(order)}
+                        onDelete={() => handleDelete(order.id)}
+                        canComplete={canComplete}
+                        canDelete={isAdmin}
+                      />
+                    ))}
+                </div>
               </div>
-            )}
-
-            {todaysOrders.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-primary">Due Today</h4>
-                {todaysOrders.map((order) => (
-                  <CateringOrderCard
-                    key={order.id}
-                    order={order}
-                    variant="today"
-                    onView={() => setSelectedOrder(order)}
-                    onComplete={() => handleComplete(order)}
-                    onDelete={() => handleDelete(order.id)}
-                    canComplete={canComplete}
-                    canDelete={isAdmin}
-                  />
-                ))}
-              </div>
-            )}
-
-            {tomorrowsOrders.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-amber-600">Due Tomorrow</h4>
-                {tomorrowsOrders.map((order) => (
-                  <CateringOrderCard
-                    key={order.id}
-                    order={order}
-                    variant="tomorrow"
-                    onView={() => setSelectedOrder(order)}
-                    onComplete={() => handleComplete(order)}
-                    onDelete={() => handleDelete(order.id)}
-                    canComplete={canComplete}
-                    canDelete={isAdmin}
-                  />
-                ))}
-              </div>
-            )}
-
-            {upcomingOrders.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Upcoming</h4>
-                {upcomingOrders.map((order) => (
-                  <CateringOrderCard
-                    key={order.id}
-                    order={order}
-                    variant="upcoming"
-                    onView={() => setSelectedOrder(order)}
-                    onComplete={() => handleComplete(order)}
-                    onDelete={() => handleDelete(order.id)}
-                    canComplete={canComplete}
-                    canDelete={isAdmin}
-                  />
-                ))}
-              </div>
-            )}
-
-            {completedOrders.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-muted-foreground">Completed</h4>
-                {completedOrders.slice(0, 5).map((order) => (
-                  <CateringOrderCard
-                    key={order.id}
-                    order={order}
-                    variant="completed"
-                    onView={() => setSelectedOrder(order)}
-                    onDelete={() => handleDelete(order.id)}
-                    canDelete={isAdmin}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+            ))}
+          </>
         )}
-      </Card>
+      </div>
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
