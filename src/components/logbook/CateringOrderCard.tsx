@@ -75,15 +75,15 @@ export function CateringOrderCard({
   const getPickupLabel = () => {
     switch (variant) {
       case "today":
-        return `Today @ ${formatTime(order.pickup_time)}`;
+        return `Pickup @ ${formatTime(order.pickup_time)}`;
       case "tomorrow":
-        return `Tomorrow @ ${formatTime(order.pickup_time)}`;
+        return `Pickup Tomorrow @ ${formatTime(order.pickup_time)}`;
       case "past_due":
-        return `${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
+        return `Pickup ${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
       case "completed":
-        return `Completed ${order.completed_at ? format(new Date(order.completed_at), "MMM d") : ""}`;
+        return `Pickup was @ ${formatTime(order.pickup_time)}`;
       default:
-        return `${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
+        return `Pickup ${format(parseISO(order.pickup_date), "MMM d")} @ ${formatTime(order.pickup_time)}`;
     }
   };
 
@@ -103,7 +103,7 @@ export function CateringOrderCard({
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate">{order.customer_name}</div>
                 <div className="text-sm text-muted-foreground">
-                  Catering Order • {getPickupLabel()}
+                  {getPickupLabel()}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-2">
