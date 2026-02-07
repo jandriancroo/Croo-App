@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
-import { Trash2, ArrowUp, Share2 } from 'lucide-react';
+import { Trash2, ArrowUp, ArrowRightLeft } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -463,7 +463,7 @@ export function MobileShiftDialog({
               onClick={() => setShowOfferDialog(true)}
               className="w-full sm:w-auto sm:mr-auto border-primary/50 text-primary hover:bg-primary/10"
             >
-              <Share2 className="h-4 w-4 mr-2" />
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
               Offer Up
             </Button>
           )}
