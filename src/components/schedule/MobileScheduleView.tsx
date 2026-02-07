@@ -473,7 +473,10 @@ export function MobileScheduleView({
   };
 
   const getShiftLabel = (shift: Shift) => {
-    return shift.template?.position || null;
+    const position = shift.template?.position || null;
+    if (!position) return null;
+    // Remove time information if present (e.g., "Opening Manager 9:00 AM" → "Opening Manager")
+    return position.replace(/\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/i, '').trim();
   };
 
   const isShiftModified = (_shift: Shift) => {
