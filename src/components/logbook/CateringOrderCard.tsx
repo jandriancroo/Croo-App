@@ -149,26 +149,26 @@ export function CateringOrderCard({
             </div>
 
             {/* Tags row - matches log entry style */}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               {/* Status badges for pending orders */}
               {variant === "past_due" && (
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                <Badge variant="destructive" className="text-xs">
                   Past Due
                 </Badge>
               )}
 
               {/* Vendor tag */}
               {order.vendor && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                <Badge variant="secondary" className="text-xs">
                   {VENDOR_LABELS[order.vendor] || order.vendor}
                 </Badge>
               )}
 
               {/* Total price */}
               {order.total_price && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-600 border-green-500/30">
-                  <DollarSign className="h-3 w-3" />
-                  {order.total_price.toFixed(2)}
+                <Badge variant="outline" className="text-xs text-green-600 border-green-500/30">
+                  <DollarSign className="h-3 w-3 mr-0.5" />
+                  ${order.total_price.toFixed(2)}
                 </Badge>
               )}
             </div>
