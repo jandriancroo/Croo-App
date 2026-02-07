@@ -92,6 +92,8 @@ export default defineConfig(({ mode }) => {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Prevent duplicate React instances causing module import failures
+    dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   };
 });
