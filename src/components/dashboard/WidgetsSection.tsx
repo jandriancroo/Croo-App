@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode, useMemo } from 'react';
+import { useState, useEffect, ReactNode, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -273,7 +273,7 @@ interface WidgetsSectionProps {
   useRoleCubes?: boolean;
 }
 
-export function WidgetsSection({ 
+export const WidgetsSection = memo(function WidgetsSection({
   salesData, 
   isLoadingSales = false, 
   hasQuBeyondIntegration = true,
@@ -731,4 +731,4 @@ export function WidgetsSection({
       )}
     </div>
   );
-}
+});

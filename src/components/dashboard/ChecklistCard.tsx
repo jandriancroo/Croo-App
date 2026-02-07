@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { ClipboardCheck, Check, GripVertical, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { memo } from "react";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +19,7 @@ export interface ChecklistCardProps {
   lockUntilTime?: string;
 }
 
-export function ChecklistCard({ 
+export const ChecklistCard = memo(function ChecklistCard({ 
   checklistId,
   title, 
   completed, 
@@ -173,4 +174,4 @@ export function ChecklistCard({
       />
     </Card>
   );
-}
+});
