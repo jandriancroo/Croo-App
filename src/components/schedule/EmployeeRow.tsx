@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Clock, CalendarOff } from "lucide-react";
+import { GripVertical, Clock } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
 
 interface DayAvailability {
@@ -305,24 +305,18 @@ function DayCell({
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} />;
         })}
         {availabilityRequests.map(request => (
-          <div key={request.id} className={`bg-muted/30 border-dashed border rounded relative ${isCompactMode ? 'p-0.5 flex items-center justify-center' : 'p-1'}`} style={{
+          <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
             background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
           }}>
-            {isCompactMode ? (
-              <CalendarOff className="h-3.5 w-3.5 text-muted-foreground" />
-            ) : (
-              <>
-                <div className="text-[10px] text-muted-foreground font-medium">
-                  {request.time_scope === "partial_day" && request.start_time && request.end_time 
-                    ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
-                    : "Time Off"}
-                </div>
-                {request.status === "pending" && (
-                  <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
-                    PENDING
-                  </div>
-                )}
-              </>
+            <div className="text-[10px] text-muted-foreground font-medium">
+              {request.time_scope === "partial_day" && request.start_time && request.end_time 
+                ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
+                : "Time Off"}
+            </div>
+            {request.status === "pending" && (
+              <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
+                PENDING
+              </div>
             )}
           </div>
         ))}
