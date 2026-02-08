@@ -319,7 +319,7 @@ function DayCell({
             return true;
           });
           
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict} />;
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict} />;
         })}
         {availabilityRequests.map(request => (
           <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{

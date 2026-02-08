@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Trash2 } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
@@ -48,6 +48,7 @@ export function EditShiftDialog({
   const [position, setPosition] = useState(shift.template_id || "");
   const [selectedDays, setSelectedDays] = useState<number[]>([shift.day_of_week]);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showConflictWarning, setShowConflictWarning] = useState(false);
   const [conflictDetails, setConflictDetails] = useState<any[]>([]);
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
@@ -261,6 +262,30 @@ export function EditShiftDialog({
     }
   };
 
+  const handleDelete = async () => {
+    if (!shift.id) return;
+    
+    if (!confirm("Delete this shift?")) return;
+    
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("scheduled_shifts")
+        .delete()
+        .eq("id", shift.id);
+
+      if (error) throw error;
+      toast.success("Shift deleted");
+      onUpdate();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error deleting shift:", error);
+      toast.error("Failed to delete shift");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -421,6 +446,16 @@ export function EditShiftDialog({
         <DialogFooter>
           <div className="flex justify-between w-full">
             <div className="flex gap-2">
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete} 
+                disabled={deleting || saving}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+            <div className="flex gap-2">
               {currentUserId && shift.user_id !== currentUserId && (
                 <Button variant="secondary" onClick={handleTakeShift} disabled={saving}>
                   Take This Shift
@@ -432,8 +467,6 @@ export function EditShiftDialog({
                   Offer Up
                 </Button>
               )}
-            </div>
-            <div className="flex gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
