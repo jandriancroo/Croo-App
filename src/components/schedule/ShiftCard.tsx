@@ -98,7 +98,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         />
       )}
       <div className="relative z-10 text-center">
-        <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs justify-center">
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 justify-center ${isCompactMode ? 'text-xs' : 'text-[10px] lg:text-xs'}`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
@@ -116,15 +116,15 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position)}</div>
         )}
-        {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium text-center">TIME OFF</div>}
+        {!isCompactMode && shift.is_time_off && <div className="text-white text-xs lg:text-sm font-medium text-center">TIME OFF</div>}
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
-        <div className="absolute bottom-1 right-1">
+        <div className="absolute bottom-1 right-1 hidden xl:block">
           <BreakIndicator hasBreak={true} size="sm" />
         </div>
       )}
