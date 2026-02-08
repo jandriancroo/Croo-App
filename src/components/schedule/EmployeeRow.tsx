@@ -321,7 +321,23 @@ function DayCell({
           
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict} />;
         })}
-        {availabilityRequests.map(request => (
+        {/* Only show time-off requests that don't have a conflicting shift covering them */}
+        {availabilityRequests.filter(request => {
+          // Check if any shift covers this time-off request
+          const isCoveredByShift = shifts.some(shift => {
+            if (request.time_scope !== "partial_day") return true; // Full day requests are always covered if there's any shift
+            if (request.start_time && request.end_time) {
+              const shiftStart = shift.start_time;
+              const shiftEnd = shift.end_time;
+              const reqStart = request.start_time;
+              const reqEnd = request.end_time;
+              return shiftStart < reqEnd && shiftEnd > reqStart;
+            }
+            return true;
+          });
+          // Only show if NOT covered by any shift
+          return !isCoveredByShift;
+        }).map(request => (
           <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
             background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
           }}>
