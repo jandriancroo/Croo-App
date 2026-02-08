@@ -85,7 +85,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none flex-1 border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} flex flex-col ${isCompactMode ? 'justify-center items-center' : shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none flex-1 border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} flex flex-col ${isCompactMode ? 'justify-center items-center' : shift.isTemplate ? 'justify-center' : 'justify-center'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -97,8 +97,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           style={stripeOverlayStyle}
         />
       )}
-      <div className={`relative z-10 ${isCompactMode ? 'text-center' : ''}`}>
-        <div className={`text-white font-semibold leading-tight flex items-center gap-1 text-xs ${isCompactMode ? 'justify-center' : ''}`}>
+      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-center'}`}>
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 text-xs justify-center`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
@@ -116,12 +116,12 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(templatePosition)}</div>
+          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(position)}</div>
+          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position)}</div>
         )}
-        {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
+        {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium text-center">TIME OFF</div>}
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="hidden xl:flex justify-end">
