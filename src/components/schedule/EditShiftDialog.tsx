@@ -9,9 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
-import { ArrowUp, Trash2 } from "lucide-react";
+import { ArrowUp, Trash2, AlertTriangle } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -265,6 +266,39 @@ export function EditShiftDialog({
     }
   };
 
+  // Find overlapping time-off requests for the current shift
+  const overlappingTimeOffRequests = availabilityRequests.filter(request => {
+    if (request.user_id !== shift.user_id) return false;
+    
+    const shiftDate = shift.shift_date;
+    const reqDate = request.start_date;
+    
+    // Check date overlap
+    if (request.time_scope === "multi_day" && request.end_date) {
+      if (shiftDate < reqDate || shiftDate > request.end_date) return false;
+    } else {
+      if (shiftDate !== reqDate) return false;
+    }
+    
+    // For partial day, check time overlap
+    if (request.time_scope === "partial_day" && request.start_time && request.end_time) {
+      const shiftStart = shift.start_time;
+      const shiftEnd = shift.end_time;
+      return shiftStart < request.end_time && shiftEnd > request.start_time;
+    }
+    
+    return true; // Full day request on same date
+  });
+
+  const formatTime12h = (time: string) => {
+    const parts = time.split(":");
+    const hour = parseInt(parts[0]);
+    const minutes = parts[1];
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -274,6 +308,25 @@ export function EditShiftDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4 overflow-y-auto flex-1">
+          {/* Time-off conflict alert */}
+          {overlappingTimeOffRequests.length > 0 && (
+            <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium">Time-Off Conflict</div>
+                {overlappingTimeOffRequests.map(req => (
+                  <div key={req.id} className="text-sm mt-1">
+                    {req.time_scope === "partial_day" && req.start_time && req.end_time
+                      ? `${formatTime12h(req.start_time)} - ${formatTime12h(req.end_time)}`
+                      : "Full Day"
+                    }
+                    {" "}• {req.status === "pending" ? "Pending" : "Approved"}
+                    {req.notes && <span className="opacity-75"> — {req.notes}</span>}
+                  </div>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start-time">Start Time</Label>
