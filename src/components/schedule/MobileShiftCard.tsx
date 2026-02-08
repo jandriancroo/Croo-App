@@ -95,7 +95,7 @@ export function MobileShiftCard({
       className={`flex rounded-lg bg-card shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden ${
         isPublished 
           ? 'border border-border/30' 
-          : 'opacity-70 border-2 border-dashed border-border/30 grayscale-[30%]'
+          : 'opacity-70 border-2 border-dashed border-border/70 grayscale-[30%]'
       }`}
       onClick={onClick}
     >
