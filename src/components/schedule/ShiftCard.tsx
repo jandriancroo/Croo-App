@@ -19,9 +19,10 @@ interface ShiftCardProps {
   onTakeShift?: () => void;
   onEdit?: () => void;
   isPublished?: boolean;
+  isCompactMode?: boolean;
 }
 
-function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true, isCompactMode = false }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -137,13 +138,13 @@ function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, current
             </TooltipProvider>
           )}
         </div>
-        {shift.isTemplate && templatePosition && (
+        {!isCompactMode && shift.isTemplate && templatePosition && (
           <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(templatePosition)}</div>
         )}
-        {!shift.isTemplate && position && (
+        {!isCompactMode && !shift.isTemplate && position && (
           <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(position)}</div>
         )}
-        {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
+        {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
       </div>
       {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="hidden xl:flex justify-end">

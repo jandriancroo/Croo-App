@@ -48,6 +48,7 @@ interface EmployeeRowProps {
   isPublished?: boolean;
   publishedSnapshot?: any[];
   canViewAllWages?: boolean;
+  isCompactMode?: boolean;
 }
 
 function EmployeeRowComponent({
@@ -64,7 +65,8 @@ function EmployeeRowComponent({
   isDraggable = false,
   isPublished = true,
   publishedSnapshot,
-  canViewAllWages = false
+  canViewAllWages = false,
+  isCompactMode = false
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -115,8 +117,12 @@ function EmployeeRowComponent({
     const wage = profile.hourly_wage ?? 15.00;
     return (hours * wage).toFixed(2);
   };
-  return <div ref={setNodeRef} style={style} className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px]">
-      <div className="flex items-center gap-1 p-2 border-r border-border bg-muted/30 min-h-[80px] overflow-hidden">
+    return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] ${
+      isCompactMode 
+        ? 'grid-cols-[80px_repeat(7,1fr)] md:grid-cols-[100px_repeat(7,1fr)] lg:grid-cols-[120px_repeat(7,1fr)] xl:grid-cols-[140px_repeat(7,1fr)]' 
+        : 'grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]'
+    }`}>
+      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[60px]' : 'min-h-[80px]'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
@@ -127,13 +133,33 @@ function EmployeeRowComponent({
         state: {
           viewUserId: profile.id
         }
-      })} className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0">
-            <Avatar className="h-10 w-10 flex-shrink-0 hidden lg:flex">
+      })} className={`flex items-center cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0 ${isCompactMode ? 'gap-1' : 'gap-2'}`}>
+            <Avatar className={`flex-shrink-0 hidden lg:flex ${isCompactMode ? 'h-8 w-8' : 'h-10 w-10'}`}>
               <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className={isCompactMode ? 'text-xs' : 'text-sm'}>{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
+            {!isCompactMode && (
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
+                  {(() => {
+                    const parts = profile.full_name.split(' ');
+                    const firstName = parts[0];
+                    const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
+                    return `${firstName}${lastInitial}`;
+                  })()}
+                </p>
+                <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                  {calculateTotalHours()} hrs
+                </p>
+                {canViewAllWages && (
+                  <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                    ${calculateTotalWages()}
+                  </p>
+                )}
+              </div>
+            )}
+            {isCompactMode && (
+              <p className="text-xs font-semibold leading-tight truncate" title={profile.full_name}>
                 {(() => {
                   const parts = profile.full_name.split(' ');
                   const firstName = parts[0];
@@ -141,15 +167,7 @@ function EmployeeRowComponent({
                   return `${firstName}${lastInitial}`;
                 })()}
               </p>
-              <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                {calculateTotalHours()} hrs
-              </p>
-              {canViewAllWages && (
-                <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                  ${calculateTotalWages()}
-                </p>
-              )}
-            </div>
+            )}
           </div> : <span className="text-sm font-medium text-muted-foreground">Unassigned</span>}
       </div>
 
@@ -171,21 +189,22 @@ function EmployeeRowComponent({
       const dayName = dayNames[dayIndex];
       const weeklyAvailabilityForDay = profile.weekly_availability?.[dayName];
       
-      return <DayCell 
-        key={dayIndex} 
-        userId={profile.id} 
-        dayIndex={dayIndex} 
-        shifts={dayShifts} 
-        availabilityRequests={dayAvailability} 
-        weeklyAvailability={weeklyAvailabilityForDay}
-        onUpdate={onUpdate} 
-        canTakeShifts={canTakeShifts} 
-        currentUserId={currentUserId} 
-        onEditShift={onEditShift} 
-        isPublished={isPublished} 
-        publishedSnapshot={publishedSnapshot}
-        isToday={isToday}
-      />;
+       return <DayCell 
+         key={dayIndex} 
+         userId={profile.id} 
+         dayIndex={dayIndex} 
+         shifts={dayShifts} 
+         availabilityRequests={dayAvailability} 
+         weeklyAvailability={weeklyAvailabilityForDay}
+         onUpdate={onUpdate} 
+         canTakeShifts={canTakeShifts} 
+         currentUserId={currentUserId} 
+         onEditShift={onEditShift} 
+         isPublished={isPublished} 
+         publishedSnapshot={publishedSnapshot}
+         isToday={isToday}
+         isCompactMode={isCompactMode}
+       />;
     })}
     </div>;
 }
@@ -201,7 +220,8 @@ function DayCell({
   onEditShift,
   isPublished,
   publishedSnapshot,
-  isToday = false
+  isToday = false,
+  isCompactMode = false
 }: {
   userId: string;
   dayIndex: number;
@@ -215,6 +235,7 @@ function DayCell({
   isPublished?: boolean;
   publishedSnapshot?: any[];
   isToday?: boolean;
+  isCompactMode?: boolean;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -279,7 +300,7 @@ function DayCell({
           );
           // Shift is a draft if schedule never published, or if it's new/modified after publish
           const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} />;
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} />;
         })}
         {availabilityRequests.map(request => (
           <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{

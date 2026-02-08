@@ -12,7 +12,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History } from "lucide-react";
+import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -162,8 +162,9 @@ export default function Schedule() {
     userName: string;
     newRole: string;
   } | null>(null);
-  const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
-  const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
+   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
+   const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
+   const [isCompactMode, setIsCompactMode] = useState(false);
 
   // Get current user ID from auth context (no duplicate fetch needed)
   const { user } = useAuth();
@@ -1534,6 +1535,25 @@ export default function Schedule() {
               {(isAdmin || isManager) && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button 
+                    variant={isCompactMode ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setIsCompactMode(!isCompactMode)}
+                    className="gap-2"
+                    title={isCompactMode ? "Expand view" : "Compact view"}
+                  >
+                    {isCompactMode ? (
+                      <>
+                        <Maximize2 className="h-4 w-4" />
+                        Expand
+                      </>
+                    ) : (
+                      <>
+                        <Minimize2 className="h-4 w-4" />
+                        Compact
+                      </>
+                    )}
+                  </Button>
+                  <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => setAutoScheduleOpen(true)}
@@ -1665,22 +1685,23 @@ export default function Schedule() {
                 filteredProfiles.length > 0 ? (
                   filteredProfiles.map((profile) => (
                     <EmployeeRow
-                      key={profile.id}
-                      profile={profile}
-                      shifts={filteredShifts.filter((s) => s.user_id === profile.id)}
-                      templates={templates}
-                      availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                      currentWeekStart={currentWeekStart}
-                      isEditable={false}
-                      onUpdate={fetchScheduleData}
-                      canTakeShifts={false}
-                      currentUserId={currentUserId || undefined}
-                      onEditShift={() => {}} // No editing for team members
-                      isDraggable={false}
-                      isPublished={isPublished}
-                      publishedSnapshot={publishedSnapshot}
-                      canViewAllWages={canViewAllWages}
-                    />
+                       key={profile.id}
+                       profile={profile}
+                       shifts={filteredShifts.filter((s) => s.user_id === profile.id)}
+                       templates={templates}
+                       availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                       currentWeekStart={currentWeekStart}
+                       isEditable={false}
+                       onUpdate={fetchScheduleData}
+                       canTakeShifts={false}
+                       currentUserId={currentUserId || undefined}
+                       onEditShift={() => {}} // No editing for team members
+                       isDraggable={false}
+                       isPublished={isPublished}
+                       publishedSnapshot={publishedSnapshot}
+                       canViewAllWages={canViewAllWages}
+                       isCompactMode={isCompactMode}
+                     />
                   ))
                 ) : (
                   <div className="p-8 text-center text-muted-foreground">
@@ -1746,23 +1767,24 @@ export default function Schedule() {
                               strategy={verticalListSortingStrategy}
                             >
                               {roleProfiles.map((profile) => (
-                                <EmployeeRow
-                                  key={profile.id}
-                                  profile={profile}
-                                  shifts={shifts.filter((s) => s.user_id === profile.id)}
-                                  templates={templates}
-                                  availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                                  currentWeekStart={currentWeekStart}
-                                  isEditable={isAdmin || isManager}
-                                  onUpdate={fetchScheduleData}
-                                  canTakeShifts={isAdmin || isManager}
-                                  currentUserId={currentUserId || undefined}
-                                  onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
-                                  isDraggable={isAdmin || isManager}
-                                  isPublished={isPublished}
-                                  publishedSnapshot={publishedSnapshot}
-                                  canViewAllWages={canViewAllWages}
-                                />
+                                 <EmployeeRow
+                                   key={profile.id}
+                                   profile={profile}
+                                   shifts={shifts.filter((s) => s.user_id === profile.id)}
+                                   templates={templates}
+                                   availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                                   currentWeekStart={currentWeekStart}
+                                   isEditable={isAdmin || isManager}
+                                   onUpdate={fetchScheduleData}
+                                   canTakeShifts={isAdmin || isManager}
+                                   currentUserId={currentUserId || undefined}
+                                   onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
+                                   isDraggable={isAdmin || isManager}
+                                   isPublished={isPublished}
+                                   publishedSnapshot={publishedSnapshot}
+                                   canViewAllWages={canViewAllWages}
+                                   isCompactMode={isCompactMode}
+                                 />
                               ))}
                             </SortableContext>
                           </CollapsibleContent>
