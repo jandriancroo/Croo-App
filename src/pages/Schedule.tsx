@@ -1826,7 +1826,7 @@ export default function Schedule() {
                 <div 
                   className="absolute inset-0" 
                   style={{
-                    backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)`
+                    backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.2) 4px, rgba(0,0,0,0.2) 8px)`
                   }}
                 />
               </div>

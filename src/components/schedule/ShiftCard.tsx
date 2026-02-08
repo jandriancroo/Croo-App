@@ -73,11 +73,11 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-amber-500 ring-offset-1 ring-offset-transparent" : "";
   const stripeOverlayStyle = hasTimeOffConflict ? {
     backgroundImage: `repeating-linear-gradient(
-      -45deg,
+      45deg,
       transparent,
-      transparent 4px,
-      rgba(0, 0, 0, 0.2) 4px,
-      rgba(0, 0, 0, 0.2) 8px
+      transparent 10px,
+      rgba(0, 0, 0, 0.2) 10px,
+      rgba(0, 0, 0, 0.2) 20px
     )`
   } : {};
 
