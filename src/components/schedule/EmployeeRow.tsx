@@ -299,8 +299,8 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} ${isCompactMode ? 'flex items-stretch' : ''}`}>
-      <div className={`${isCompactMode ? 'flex flex-col w-full' : 'space-y-1'}`}>
+  }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch`}>
+      <div className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}>
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
           <Popover>
