@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, Radio } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -604,50 +604,6 @@ export function MobileScheduleView({
         </Badge>
       </div>
 
-      {/* Publish/Update Button - Prominent like desktop */}
-      {(isAdmin || isManager) && scheduleId && (
-        <div className="flex justify-center">
-          {!isPublished ? (
-            <Button 
-              onClick={onGoLive} 
-              disabled={isPublishing}
-              className="w-full max-w-xs"
-            >
-              {isPublishing ? 'Publishing...' : 'Go Live'}
-            </Button>
-          ) : hasPendingChanges ? (
-            <Button 
-              onClick={onSendUpdate} 
-              disabled={isPublishing}
-              variant="outline"
-              className="w-full max-w-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-            >
-              {isPublishing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Update Schedule
-                </>
-              )}
-            </Button>
-          ) : (
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
-              <span className="relative flex items-end gap-[2px] h-4">
-                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-              </span>
-              <span className="font-semibold text-red-500 uppercase tracking-wide">Live</span>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Week Calendar - Compact pill-style selector */}
       <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
         {weekDays.map((day, index) => {
@@ -706,7 +662,7 @@ export function MobileScheduleView({
             {uniqueEmployeesScheduled} Scheduled
           </h4>
           {(isAdmin || isManager) && scheduleId && (
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -734,14 +690,47 @@ export function MobileScheduleView({
               >
                 <UserPlus className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7"
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['schedule'] })}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              {/* Publish/Update Icon Button */}
+              {!isPublished ? (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 text-primary"
+                  onClick={onGoLive}
+                  disabled={isPublishing}
+                  title="Go Live"
+                >
+                  {isPublishing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Radio className="h-4 w-4" />
+                  )}
+                </Button>
+              ) : hasPendingChanges ? (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 text-amber-500"
+                  onClick={onSendUpdate}
+                  disabled={isPublishing}
+                  title="Update Schedule"
+                >
+                  {isPublishing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              ) : (
+                <div className="h-7 w-7 flex items-center justify-center" title="Schedule is Live">
+                  <span className="relative flex items-end gap-[1px] h-3">
+                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
