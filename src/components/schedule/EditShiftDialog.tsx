@@ -290,6 +290,19 @@ export function EditShiftDialog({
     return true; // Full day request on same date
   });
 
+  // Check weekly availability conflict for the employee
+  const employee = profiles.find(p => p.id === shift.user_id);
+  const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+  const shiftDayOfWeek = shift.day_of_week;
+  const dayName = dayNames[shiftDayOfWeek];
+  const weeklyAvailability = employee?.weekly_availability?.[dayName];
+  
+  const hasAvailabilityConflict = weeklyAvailability && (
+    weeklyAvailability.available === false ||
+    (weeklyAvailability.start && startTime < weeklyAvailability.start) ||
+    (weeklyAvailability.end && endTime > weeklyAvailability.end)
+  );
+
   const formatTime12h = (time: string) => {
     const parts = time.split(":");
     const hour = parseInt(parts[0]);
@@ -297,6 +310,21 @@ export function EditShiftDialog({
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const getAvailabilityDescription = () => {
+    if (!weeklyAvailability) return "";
+    if (weeklyAvailability.available === false) return "Unavailable this day";
+    if (weeklyAvailability.start && weeklyAvailability.end) {
+      return `Available ${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`;
+    }
+    if (weeklyAvailability.start) {
+      return `Available after ${formatTime12h(weeklyAvailability.start)}`;
+    }
+    if (weeklyAvailability.end) {
+      return `Available until ${formatTime12h(weeklyAvailability.end)}`;
+    }
+    return "Limited availability";
   };
 
   return (
@@ -313,7 +341,7 @@ export function EditShiftDialog({
             <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                <div className="font-medium">Time-Off Conflict</div>
+                <div className="font-medium">Time-Off Request Conflict</div>
                 {overlappingTimeOffRequests.map(req => (
                   <div key={req.id} className="text-sm mt-1">
                     {req.time_scope === "partial_day" && req.start_time && req.end_time
@@ -324,6 +352,17 @@ export function EditShiftDialog({
                     {req.notes && <span className="opacity-75"> — {req.notes}</span>}
                   </div>
                 ))}
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Weekly availability conflict alert */}
+          {hasAvailabilityConflict && (
+            <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/50 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium">Availability Conflict</div>
+                <div className="text-sm mt-1">{getAvailabilityDescription()}</div>
               </AlertDescription>
             </Alert>
           )}
