@@ -1537,7 +1537,7 @@ export default function Schedule() {
                 <DateNavigator
                   onPrev={handlePreviousWeek}
                   onNext={handleNextWeek}
-                  label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
+                  label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d")}`}
                   leftAlignOnDesktop
                 />
                 <Badge variant={getWeekLabel().variant} className="whitespace-nowrap hidden lg:flex">
