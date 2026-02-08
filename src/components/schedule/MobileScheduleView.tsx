@@ -82,6 +82,7 @@ interface MobileScheduleViewProps {
   onSendUpdate?: () => void;
   isPublishing?: boolean;
   hasPendingChanges?: boolean;
+  isLoading?: boolean; // Show skeleton cards while loading
 }
 
 interface DayPunch {
@@ -121,7 +122,8 @@ export function MobileScheduleView({
   onGoLive,
   onSendUpdate,
   isPublishing = false,
-  hasPendingChanges = false
+  hasPendingChanges = false,
+  isLoading = false
 }: MobileScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
     const saved = sessionStorage.getItem('mobileScheduleTab');
@@ -700,7 +702,25 @@ export function MobileScheduleView({
           )}
         </div>
 
-        {dayShifts.length === 0 ? (
+        {isLoading && shifts.length === 0 ? (
+          // Skeleton loading state - show 4 placeholder cards
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden animate-pulse">
+                <div className="w-1 bg-muted" />
+                <div className="flex-1 p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-muted" />
+                    <div className="flex-1 space-y-1">
+                      <div className="h-4 bg-muted rounded w-24" />
+                      <div className="h-3 bg-muted rounded w-16" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : dayShifts.length === 0 ? (
           <Card className="p-6 text-center text-muted-foreground">
             <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">No shifts scheduled</p>

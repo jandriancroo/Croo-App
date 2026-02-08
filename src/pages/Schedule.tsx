@@ -285,6 +285,7 @@ export default function Schedule() {
     enabled: !!currentLocation?.id,
     staleTime: 5 * 60 * 1000, // 5 minutes - profiles/templates rarely change
     gcTime: 30 * 60 * 1000,
+    placeholderData: (previousData) => previousData, // Show previous data instantly while refetching
   });
 
   // Main schedule data query with React Query caching
@@ -1461,15 +1462,8 @@ export default function Schedule() {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <p>Loading schedule...</p>
-        </div>
-      </Layout>
-    );
-  }
+  // Note: We no longer block on loading state - the UI renders immediately with skeleton/empty state
+  // and data fills in as it arrives. This prevents the "blank page" issue.
 
   // For team members on tablet/desktop: filter to show only their shifts
   const isTeamMemberDesktopView = !isMobile && !isAdmin && !isManager;
@@ -1513,6 +1507,7 @@ export default function Schedule() {
           onSendUpdate={handleUpdate}
           isPublishing={isPublishing}
           hasPendingChanges={hasPendingChanges}
+          isLoading={loading}
         />
       ) : (
         <div className="pb-20">
