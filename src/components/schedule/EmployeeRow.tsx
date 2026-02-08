@@ -302,11 +302,16 @@ function DayCell({
       <div className={`${isCompactMode ? 'flex flex-col w-full' : 'space-y-1'}`}>
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
-          <div className="p-1 bg-muted/30 border border-dashed border-muted-foreground/30 rounded text-[10px]" style={{
-            background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-          }}>
-            <div className="flex items-center gap-1 text-muted-foreground font-medium">
-              <Clock className="h-2.5 w-2.5" />
+          <div 
+            className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px]`}
+            style={{
+              background: isCompactMode 
+                ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
+                : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+            }}
+          >
+            <div className="flex items-center gap-1 text-muted-foreground font-medium text-center">
+              {!isCompactMode && <Clock className="h-2.5 w-2.5" />}
               {weeklyAvailability?.available === false 
                 ? "Unavailable" 
                 : weeklyAvailability?.start && weeklyAvailability?.end
