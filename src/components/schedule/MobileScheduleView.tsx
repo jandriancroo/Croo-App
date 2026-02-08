@@ -604,6 +604,50 @@ export function MobileScheduleView({
         </Badge>
       </div>
 
+      {/* Publish/Update Button - Prominent like desktop */}
+      {(isAdmin || isManager) && scheduleId && (
+        <div className="flex justify-center">
+          {!isPublished ? (
+            <Button 
+              onClick={onGoLive} 
+              disabled={isPublishing}
+              className="w-full max-w-xs"
+            >
+              {isPublishing ? 'Publishing...' : 'Go Live'}
+            </Button>
+          ) : hasPendingChanges ? (
+            <Button 
+              onClick={onSendUpdate} 
+              disabled={isPublishing}
+              variant="outline"
+              className="w-full max-w-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+            >
+              {isPublishing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Update Schedule
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
+              <span className="relative flex items-end gap-[2px] h-4">
+                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+              </span>
+              <span className="font-semibold text-red-500 uppercase tracking-wide">Live</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Week Calendar - Compact pill-style selector */}
       <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
         {weekDays.map((day, index) => {
