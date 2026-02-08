@@ -302,7 +302,24 @@ function DayCell({
           );
           // Shift is a draft if schedule never published, or if it's new/modified after publish
           const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} />;
+          
+          // Check if shift overlaps with any time-off request
+          const hasTimeOffConflict = availabilityRequests.some(request => {
+            // Full day time-off always conflicts
+            if (request.time_scope !== "partial_day") return true;
+            // Partial day: check time overlap
+            if (request.start_time && request.end_time) {
+              const shiftStart = shift.start_time;
+              const shiftEnd = shift.end_time;
+              const reqStart = request.start_time;
+              const reqEnd = request.end_time;
+              // Check if ranges overlap
+              return shiftStart < reqEnd && shiftEnd > reqStart;
+            }
+            return true;
+          });
+          
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict} />;
         })}
         {availabilityRequests.map(request => (
           <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{

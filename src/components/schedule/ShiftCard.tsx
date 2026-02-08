@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Scissors } from "lucide-react";
+import { Trash2, Scissors, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BreakIndicator } from "./BreakIndicator";
@@ -20,9 +20,10 @@ interface ShiftCardProps {
   onEdit?: () => void;
   isPublished?: boolean;
   isCompactMode?: boolean;
+  hasTimeOffConflict?: boolean;
 }
 
-function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true, isCompactMode = false }: ShiftCardProps) {
+function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true, isCompactMode = false, hasTimeOffConflict = false }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -111,18 +112,50 @@ function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, current
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
+  // Striped overlay style for time-off conflicts
+  const stripeOverlayStyle = hasTimeOffConflict ? {
+    backgroundImage: `repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(0, 0, 0, 0.25) 4px,
+      rgba(0, 0, 0, 0.25) 8px
+    )`
+  } : {};
+
   return (
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-1 min-h-[32px]' : 'p-1.5 min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
+      className={`${isCompactMode ? 'p-1 min-h-[32px]' : 'p-1.5 min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
-      <div>
+      {/* Time-off conflict stripe overlay */}
+      {hasTimeOffConflict && (
+        <div 
+          className="absolute inset-0 pointer-events-none" 
+          style={stripeOverlayStyle}
+        />
+      )}
+      <div className="relative z-10">
         <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
+          {hasTimeOffConflict && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-500 text-white">
+                    <AlertTriangle className="h-2 w-2" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <p>Overlaps with time-off request</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
               <Tooltip>
