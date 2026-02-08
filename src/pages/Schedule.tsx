@@ -1251,22 +1251,8 @@ export default function Schedule() {
           });
         }
         
-        // Send update emails ONLY to affected employees with their specific changes
-        if (currentLocation?.id && changes.length > 0) {
-          supabase.functions.invoke('send-schedule-update-email', {
-            body: {
-              schedule_id: scheduleId,
-              location_id: currentLocation.id,
-              changes: changes
-            }
-          }).then(response => {
-            if (response.error) {
-              console.error('Failed to send schedule update emails:', response.error);
-            } else {
-              console.log('Schedule update emails sent:', response.data);
-            }
-          });
-        }
+        // Note: Push notifications are already sent above for affected employees
+        // Email notifications can be added here if needed in the future
         
         toast.success(`Schedule updated! ${affectedUserIds.length} affected team member(s) notified.`);
       } else {
