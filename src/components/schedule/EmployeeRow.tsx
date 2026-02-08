@@ -6,8 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Clock } from "lucide-react";
+import { GripVertical, Clock, CalendarOff, AlertCircle } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface DayAvailability {
   available: boolean;
@@ -302,28 +303,52 @@ function DayCell({
       <div className={`${isCompactMode ? 'flex flex-col w-full' : 'space-y-1'}`}>
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
-          <div 
-            className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px]`}
-            style={{
-              background: isCompactMode 
-                ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
-                : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-            }}
-          >
-            <div className="flex items-center gap-1 text-muted-foreground font-medium text-center">
-              {!isCompactMode && <Clock className="h-2.5 w-2.5" />}
-              {weeklyAvailability?.available === false 
-                ? "Unavailable" 
-                : weeklyAvailability?.start && weeklyAvailability?.end
-                  ? `${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
-                  : weeklyAvailability?.start
-                    ? `After ${formatTime12h(weeklyAvailability.start)}`
-                    : weeklyAvailability?.end
-                      ? `Until ${formatTime12h(weeklyAvailability.end)}`
-                      : "Limited"
-              }
-            </div>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <div 
+                className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
+                style={{
+                  background: isCompactMode 
+                    ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
+                    : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+                }}
+              >
+                <div className="flex items-center gap-1 text-muted-foreground font-medium text-center">
+                  {!isCompactMode && <Clock className="h-2.5 w-2.5" />}
+                  {weeklyAvailability?.available === false 
+                    ? "Unavailable" 
+                    : weeklyAvailability?.start && weeklyAvailability?.end
+                      ? `${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
+                      : weeklyAvailability?.start
+                        ? `After ${formatTime12h(weeklyAvailability.start)}`
+                        : weeklyAvailability?.end
+                          ? `Until ${formatTime12h(weeklyAvailability.end)}`
+                          : "Limited"
+                  }
+                </div>
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" side="top">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  Weekly Availability
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {weeklyAvailability?.available === false 
+                    ? "Unavailable all day"
+                    : weeklyAvailability?.start && weeklyAvailability?.end
+                      ? `Can only work ${formatTime12h(weeklyAvailability.start)} - ${formatTime12h(weeklyAvailability.end)}`
+                      : weeklyAvailability?.start
+                        ? `Available after ${formatTime12h(weeklyAvailability.start)}`
+                        : weeklyAvailability?.end
+                          ? `Available until ${formatTime12h(weeklyAvailability.end)}`
+                          : "Limited availability"
+                  }
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         )}
         
         {shifts.map(shift => {
@@ -382,26 +407,70 @@ function DayCell({
           // Only show if NOT covered by any shift
           return !isCoveredByShift;
         }).map(request => (
-          <div 
-            key={request.id} 
-            className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded'} bg-muted/50 relative text-[10px]`} 
-            style={{
-              background: isCompactMode 
-                ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
-                : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-            }}
-          >
-            <div className={`text-[10px] text-muted-foreground font-medium ${isCompactMode ? 'text-center' : ''}`}>
-              {request.time_scope === "partial_day" && request.start_time && request.end_time 
-                ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
-                : "Time Off"}
-            </div>
-            {!isCompactMode && request.status === "pending" && (
-              <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
-                PENDING
+          <Popover key={request.id}>
+            <PopoverTrigger asChild>
+              <div 
+                className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`} 
+                style={{
+                  background: isCompactMode 
+                    ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
+                    : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+                }}
+              >
+                <div className={`text-[10px] text-muted-foreground font-medium ${isCompactMode ? 'text-center' : ''}`}>
+                  {request.time_scope === "partial_day" && request.start_time && request.end_time 
+                    ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
+                    : "Time Off"}
+                </div>
+                {!isCompactMode && request.status === "pending" && (
+                  <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
+                    PENDING
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" side="top">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CalendarOff className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {request.request_type === "time_off" ? "Time Off Request" : "Availability Request"}
+                  </span>
+                  {request.status === "pending" && (
+                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      Pending
+                    </span>
+                  )}
+                  {request.status === "approved" && (
+                    <span className="ml-auto text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Approved
+                    </span>
+                  )}
+                </div>
+                
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    {request.time_scope === "partial_day" && request.start_time && request.end_time 
+                      ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}`
+                      : request.time_scope === "multi_day" && request.end_date
+                        ? `${format(new Date(request.start_date + 'T12:00:00'), 'MMM d')} - ${format(new Date(request.end_date + 'T12:00:00'), 'MMM d')}`
+                        : "Full day"
+                    }
+                  </div>
+                </div>
+
+                {request.notes && (
+                  <div className="pt-2 border-t border-border">
+                    <div className="flex items-start gap-2 text-sm">
+                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{request.notes}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         ))}
       </div>
     </div>;
