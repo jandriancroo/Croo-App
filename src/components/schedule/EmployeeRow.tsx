@@ -274,11 +274,13 @@ function DayCell({
     const shiftEnd = shift.end_time;
     
     // If availability has start time (e.g., "available after 4pm")
+    // Conflict only if shift starts BEFORE the availability window opens
     if (weeklyAvailability.start && shiftStart < weeklyAvailability.start) {
       return true;
     }
     
     // If availability has end time (e.g., "available until 8pm")
+    // Conflict only if shift ends AFTER the availability window closes
     if (weeklyAvailability.end && shiftEnd > weeklyAvailability.end) {
       return true;
     }
