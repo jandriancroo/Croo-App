@@ -69,8 +69,17 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
-  // Warning border style for time-off conflicts
+  // Warning border + stripe overlay for time-off conflicts
   const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-amber-500 ring-offset-1 ring-offset-transparent" : "";
+  const stripeOverlayStyle = hasTimeOffConflict ? {
+    backgroundImage: `repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(0, 0, 0, 0.2) 4px,
+      rgba(0, 0, 0, 0.2) 8px
+    )`
+  } : {};
 
   return (
     <Card
@@ -81,6 +90,13 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       {...listeners}
       {...attributes}
     >
+      {/* Time-off conflict stripe overlay */}
+      {hasTimeOffConflict && (
+        <div 
+          className="absolute inset-0 pointer-events-none rounded-lg" 
+          style={stripeOverlayStyle}
+        />
+      )}
       <div className="relative z-10">
         <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
