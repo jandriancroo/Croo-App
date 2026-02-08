@@ -1812,6 +1812,33 @@ export default function Schedule() {
             </div>
           </Card>
 
+          {/* Visual Key Legend - Below schedule card */}
+          <div className="flex items-center gap-4 px-2 py-1.5 text-[10px] text-muted-foreground">
+            <span className="font-medium">Key:</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-8 h-4 rounded border-2 border-dashed border-muted-foreground/60 opacity-70 bg-muted/50" />
+              <span>Draft</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div 
+                className="w-8 h-4 rounded bg-primary" 
+                style={{
+                  backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.25) 2px, rgba(0,0,0,0.25) 4px)`
+                }}
+              />
+              <span>Time-Off Conflict</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div 
+                className="w-8 h-4 rounded bg-muted/30 border border-dashed border-muted-foreground/30"
+                style={{
+                  background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 4px, transparent 4px, transparent 8px)"
+                }}
+              />
+              <span>Time Off</span>
+            </div>
+          </div>
+
           {/* Floating Templates Bar - Bottom (Admin/Manager only) */}
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
@@ -1824,33 +1851,6 @@ export default function Schedule() {
                   scheduleId={scheduleId}
                   isEditable={isAdmin || isManager}
                 />
-                
-                {/* Visual Key Legend */}
-                <div className="flex items-center gap-4 border-t border-border pt-1 pb-1 text-[10px] text-muted-foreground">
-                  <span className="font-medium">Key:</span>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-8 h-4 rounded border-2 border-dashed border-muted-foreground/60 opacity-70 bg-muted/50" />
-                    <span>Draft</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-8 h-4 rounded bg-primary" 
-                      style={{
-                        backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.25) 2px, rgba(0,0,0,0.25) 4px)`
-                      }}
-                    />
-                    <span>Time-Off Conflict</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div 
-                      className="w-8 h-4 rounded bg-muted/30 border border-dashed border-muted-foreground/30"
-                      style={{
-                        background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 4px, transparent 4px, transparent 8px)"
-                      }}
-                    />
-                    <span>Time Off</span>
-                  </div>
-                </div>
 
                 {/* Shift Templates - Always visible */}
                 <div className="flex items-start gap-3 border-t border-border pt-1">
