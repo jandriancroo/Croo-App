@@ -261,15 +261,44 @@ function DayCell({
     weeklyAvailability.available === false || 
     (weeklyAvailability.available && (weeklyAvailability.start || weeklyAvailability.end))
   );
+
+  // Helper to check if a shift conflicts with weekly availability
+  const shiftConflictsWithAvailability = (shift: any) => {
+    if (!hasLimitedAvailability || !weeklyAvailability) return false;
+    
+    // If completely unavailable, any shift conflicts
+    if (weeklyAvailability.available === false) return true;
+    
+    // Check time window conflicts
+    const shiftStart = shift.start_time;
+    const shiftEnd = shift.end_time;
+    
+    // If availability has start time (e.g., "available after 4pm")
+    if (weeklyAvailability.start && shiftStart < weeklyAvailability.start) {
+      return true;
+    }
+    
+    // If availability has end time (e.g., "available until 8pm")
+    if (weeklyAvailability.end && shiftEnd > weeklyAvailability.end) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Check if any shift covers the availability restriction
+  const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflictsWithAvailability(shift));
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
   }} className={`${isCompactMode ? 'min-h-[44px] p-1' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
-        {/* Weekly Availability Indicator */}
-        {hasLimitedAvailability && userId !== "unassigned" && (
-          <div className="p-1 bg-blue-500/10 dark:bg-blue-400/10 border border-blue-500/30 dark:border-blue-400/30 border-dashed rounded text-[10px]">
-            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+        {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
+        {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
+          <div className="p-1 bg-muted/30 border border-dashed border-muted-foreground/30 rounded text-[10px]" style={{
+            background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+          }}>
+            <div className="flex items-center gap-1 text-muted-foreground font-medium">
               <Clock className="h-2.5 w-2.5" />
               {weeklyAvailability?.available === false 
                 ? "Unavailable" 
@@ -319,7 +348,10 @@ function DayCell({
             return true;
           });
           
-          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict} />;
+          // Also check weekly availability conflict
+          const hasAvailabilityConflict = shiftConflictsWithAvailability(shift);
+          
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} isCompactMode={isCompactMode} hasTimeOffConflict={hasTimeOffConflict || hasAvailabilityConflict} />;
         })}
         {/* Only show time-off requests that don't have a conflicting shift covering them */}
         {availabilityRequests.filter(request => {
