@@ -17,6 +17,9 @@ interface MobileShiftCardProps {
   accentColor?: string | null; // Template/shift color for left edge
   statusIndicator?: 'active' | 'break' | 'modified' | 'none';
   
+  // Published status
+  isPublished?: boolean;
+  
   // Optional schedule info
   scheduledStart?: string;
   scheduledEnd?: string;
@@ -52,6 +55,7 @@ export function MobileShiftCard({
   onClick,
   accentColor,
   statusIndicator = 'none',
+  isPublished = true,
   scheduledStart,
   scheduledEnd,
   clockInTime,
@@ -88,7 +92,11 @@ export function MobileShiftCard({
 
   return (
     <div
-      className="flex rounded-lg bg-card border border-border/30 shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden"
+      className={`flex rounded-lg bg-card shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden ${
+        isPublished 
+          ? 'border border-border/30' 
+          : 'border-2 border-dashed border-amber-500/50'
+      }`}
       onClick={onClick}
     >
       {/* Left color edge - rendered outside overflow context */}

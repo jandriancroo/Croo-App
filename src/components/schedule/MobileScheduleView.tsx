@@ -477,9 +477,31 @@ export function MobileScheduleView({
     return position.replace(/\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?$/i, '').trim();
   };
 
-  const isShiftModified = (_shift: Shift) => {
-    // For mobile view, we don't track modifications the same way desktop does
-    return false;
+  // Determine if a shift is published (same logic as desktop EmployeeRow)
+  const isShiftPublished = (shift: Shift): boolean => {
+    // If schedule was never published, all shifts are drafts
+    if (!isPublished) return false;
+    
+    // If no snapshot exists, consider all shifts published
+    if (!publishedSnapshot || publishedSnapshot.length === 0) return true;
+    
+    // Check if shift exists in snapshot
+    const snapshotShift = publishedSnapshot.find((s: any) => s.id === shift.id);
+    
+    // New shift after publish = draft
+    if (!snapshotShift) return false;
+    
+    // Check if shift was modified since last publish
+    const isModified = (
+      snapshotShift.user_id !== shift.user_id ||
+      snapshotShift.start_time !== shift.start_time ||
+      snapshotShift.end_time !== shift.end_time ||
+      snapshotShift.template_id !== shift.template_id ||
+      snapshotShift.shift_date !== shift.shift_date ||
+      snapshotShift.day_of_week !== shift.day_of_week
+    );
+    
+    return !isModified;
   };
 
 
@@ -692,7 +714,7 @@ export function MobileScheduleView({
                 if (!profile) return null;
                 
                 const shiftLabel = getShiftLabel(shift);
-                const isModified = isShiftModified(shift);
+                const shiftPublished = isShiftPublished(shift);
                 
                 return (
                   <MobileShiftCard
@@ -702,7 +724,7 @@ export function MobileScheduleView({
                     startTime={shift.start_time}
                     endTime={shift.end_time}
                     accentColor={shift.template?.color}
-                    statusIndicator={isModified ? 'modified' : 'none'}
+                    isPublished={shiftPublished}
                     positionLabel={shiftLabel}
                     positionColor={shift.template?.color}
                     onClick={() => {
