@@ -184,7 +184,10 @@ export default function Schedule() {
     didInitWeek.current = true;
   }, [timezone, getTodayInTimezone]);
 
-  const sensors = useSensors(
+  // Empty sensors array must be stable (same reference) to avoid DndContext re-render issues
+  const emptySensors = useMemo(() => [], []);
+  
+  const activeSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
@@ -1522,7 +1525,7 @@ export default function Schedule() {
       ) : (
         <div className="pb-20">
         <DndContext 
-          sensors={isTeamMemberDesktopView ? [] : sensors} 
+          sensors={isTeamMemberDesktopView ? emptySensors : activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart} 
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
