@@ -262,6 +262,9 @@ function DayCell({
     (weeklyAvailability.available && (weeklyAvailability.start || weeklyAvailability.end))
   );
 
+  // Helper to normalize time to HH:MM format for comparison
+  const normalizeTime = (time: string) => time?.substring(0, 5) || "";
+
   // Helper to check if a shift conflicts with weekly availability
   const shiftConflictsWithAvailability = (shift: any) => {
     if (!hasLimitedAvailability || !weeklyAvailability) return false;
@@ -269,19 +272,21 @@ function DayCell({
     // If completely unavailable, any shift conflicts
     if (weeklyAvailability.available === false) return true;
     
-    // Check time window conflicts
-    const shiftStart = shift.start_time;
-    const shiftEnd = shift.end_time;
+    // Normalize times to HH:MM for consistent comparison
+    const shiftStart = normalizeTime(shift.start_time);
+    const shiftEnd = normalizeTime(shift.end_time);
+    const availStart = normalizeTime(weeklyAvailability.start || "");
+    const availEnd = normalizeTime(weeklyAvailability.end || "");
     
-    // If availability has start time (e.g., "available after 4pm")
+    // If availability has start time (e.g., "available after 5pm")
     // Conflict only if shift starts BEFORE the availability window opens
-    if (weeklyAvailability.start && shiftStart < weeklyAvailability.start) {
+    if (availStart && shiftStart < availStart) {
       return true;
     }
     
-    // If availability has end time (e.g., "available until 8pm")
+    // If availability has end time (e.g., "available until 9pm")
     // Conflict only if shift ends AFTER the availability window closes
-    if (weeklyAvailability.end && shiftEnd > weeklyAvailability.end) {
+    if (availEnd && shiftEnd > availEnd) {
       return true;
     }
     
