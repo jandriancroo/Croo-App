@@ -748,6 +748,36 @@ export default function Schedule() {
       const reorderedRoleProfiles = arrayMove(roleProfiles, oldIndex, newIndex);
       
       // Update display_order for all profiles in this role
+      // Optimistic UI update - update query cache immediately
+      const newProfiles = profiles.map(p => {
+        const reorderedIndex = reorderedRoleProfiles.findIndex(rp => rp.id === p.id);
+        if (reorderedIndex !== -1) {
+          return { ...p, display_order: reorderedIndex };
+        }
+        return p;
+      });
+      
+      // Re-sort profiles by role first, then by display_order within each role
+      const roleOrder = { admin: 0, manager: 1, team_member: 2 };
+      newProfiles.sort((a, b) => {
+        const aRoleOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+        const bRoleOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+        if (aRoleOrder === bRoleOrder) {
+          return (a.display_order ?? 0) - (b.display_order ?? 0);
+        }
+        return aRoleOrder - bRoleOrder;
+      });
+      
+      // Apply optimistic update to React Query cache
+      queryClient.setQueryData(scheduleQueryKey, (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          profiles: newProfiles
+        };
+      });
+      
+      // Persist to database in background
       try {
         await Promise.all(
           reorderedRoleProfiles.map((profile, index) =>
@@ -757,33 +787,12 @@ export default function Schedule() {
               .eq('id', profile.id)
           )
         );
-        
-        // Update local state with new display_order values
-        const newProfiles = profiles.map(p => {
-          const reordered = reorderedRoleProfiles.find(rp => rp.id === p.id);
-          if (reordered) {
-            const newOrder = reorderedRoleProfiles.findIndex(rp => rp.id === p.id);
-            return { ...p, display_order: newOrder };
-          }
-          return p;
-        });
-        
-        // Re-sort profiles by role first, then by display_order within each role
-        const roleOrder = { admin: 0, manager: 1, team_member: 2 };
-        newProfiles.sort((a, b) => {
-          const aRoleOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
-          const bRoleOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
-          if (aRoleOrder === bRoleOrder) {
-            return (a.display_order ?? 0) - (b.display_order ?? 0);
-          }
-          return aRoleOrder - bRoleOrder;
-        });
-        
-        fetchScheduleData(false);
         toast.success("Employee order updated");
       } catch (error) {
         console.error("Error updating employee order:", error);
         toast.error("Failed to update employee order");
+        // Rollback on failure - refetch from server
+        fetchScheduleData(false);
       }
       return;
     }
