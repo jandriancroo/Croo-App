@@ -85,7 +85,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none flex-1 border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} flex flex-col ${isCompactMode ? 'justify-center items-center' : shift.isTemplate ? 'justify-center' : 'justify-center'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} flex-1 flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -97,8 +97,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           style={stripeOverlayStyle}
         />
       )}
-      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-center'}`}>
-        <div className={`text-white font-semibold leading-tight flex items-center gap-1 text-xs justify-center`}>
+      <div className={`relative z-10 ${isCompactMode ? 'text-center' : ''}`}>
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 text-xs ${isCompactMode ? 'justify-center' : 'justify-center'}`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
