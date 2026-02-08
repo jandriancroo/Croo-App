@@ -115,15 +115,15 @@ function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, current
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-1.5 min-h-[55px] flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
+      className={`${isCompactMode ? 'p-1 min-h-[32px]' : 'p-1.5 min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
       <div>
-        <div className="text-white text-xs font-semibold leading-tight flex items-center gap-1">
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 ${isCompactMode ? 'text-[10px]' : 'text-xs'}`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
-          {wasTrimmed && (
+          {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -146,7 +146,7 @@ function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, current
         )}
         {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
       </div>
-      {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
+      {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="hidden xl:flex justify-end">
           <BreakIndicator hasBreak={true} size="sm" />
         </div>

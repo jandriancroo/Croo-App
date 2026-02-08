@@ -122,7 +122,7 @@ function EmployeeRowComponent({
         ? 'grid-cols-[80px_repeat(7,1fr)] md:grid-cols-[100px_repeat(7,1fr)] lg:grid-cols-[120px_repeat(7,1fr)] xl:grid-cols-[140px_repeat(7,1fr)]' 
         : 'grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]'
     }`}>
-      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[60px]' : 'min-h-[80px]'}`}>
+      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px]'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
@@ -134,10 +134,12 @@ function EmployeeRowComponent({
           viewUserId: profile.id
         }
       })} className={`flex items-center cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0 ${isCompactMode ? 'gap-1' : 'gap-2'}`}>
-            <Avatar className={`flex-shrink-0 hidden lg:flex ${isCompactMode ? 'h-8 w-8' : 'h-10 w-10'}`}>
-              <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className={isCompactMode ? 'text-xs' : 'text-sm'}>{profile.full_name.charAt(0)}</AvatarFallback>
-            </Avatar>
+            {!isCompactMode && (
+              <Avatar className="flex-shrink-0 hidden lg:flex h-10 w-10">
+                <AvatarImage src={profile.profile_photo_url || undefined} />
+                <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
+              </Avatar>
+            )}
             {!isCompactMode && (
               <div className="flex-1 min-w-0">
                 <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
@@ -159,7 +161,7 @@ function EmployeeRowComponent({
               </div>
             )}
             {isCompactMode && (
-              <p className="text-xs font-semibold leading-tight truncate" title={profile.full_name}>
+              <p className="text-xs font-medium leading-tight truncate" title={profile.full_name}>
                 {(() => {
                   const parts = profile.full_name.split(' ');
                   const firstName = parts[0];
@@ -262,7 +264,7 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
+  }} className={`${isCompactMode ? 'min-h-[44px] p-1' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
         {/* Weekly Availability Indicator */}
         {hasLimitedAvailability && userId !== "unassigned" && (
