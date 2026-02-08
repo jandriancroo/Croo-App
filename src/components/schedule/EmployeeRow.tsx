@@ -377,15 +377,21 @@ function DayCell({
           // Only show if NOT covered by any shift
           return !isCoveredByShift;
         }).map(request => (
-          <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
-            background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-          }}>
-            <div className="text-[10px] text-muted-foreground font-medium">
+          <div 
+            key={request.id} 
+            className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded'} bg-muted/50 relative text-[10px]`} 
+            style={{
+              background: isCompactMode 
+                ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
+                : "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+            }}
+          >
+            <div className={`text-[10px] text-muted-foreground font-medium ${isCompactMode ? 'text-center' : ''}`}>
               {request.time_scope === "partial_day" && request.start_time && request.end_time 
                 ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
                 : "Time Off"}
             </div>
-            {request.status === "pending" && (
+            {!isCompactMode && request.status === "pending" && (
               <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
                 PENDING
               </div>
