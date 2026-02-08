@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
-import { Scissors, AlertTriangle } from "lucide-react";
+import { Scissors } from "lucide-react";
 import { BreakIndicator } from "./BreakIndicator";
 import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
@@ -99,20 +99,6 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       <div className="relative z-10">
         <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
-          {hasTimeOffConflict && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-500 text-white">
-                    <AlertTriangle className="h-2 w-2" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  <p>Overlaps with time-off request</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
               <Tooltip>
