@@ -1,3 +1,5 @@
+import { Coffee } from "lucide-react";
+
 interface BreakIndicatorProps {
   hasBreak: boolean;
   size?: 'sm' | 'md';
@@ -8,13 +10,12 @@ export function BreakIndicator({ hasBreak, size = 'md' }: BreakIndicatorProps) {
 
   return (
     <span 
-      className={`inline-flex items-center gap-1 bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded px-1.5 ${
-        size === 'sm' ? 'text-[10px] py-0.5' : 'text-xs py-1'
+      className={`inline-flex items-center justify-center ${
+        size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
       }`}
       title="30-minute unpaid break"
     >
-      <span>☕</span>
-      {size === 'md' && <span>30min break</span>}
+      <Coffee className={`text-white/80 ${size === 'sm' ? 'h-3 w-3' : 'h-4 w-4'}`} />
     </span>
   );
 }
