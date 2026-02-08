@@ -147,27 +147,6 @@ export function EditShiftDialog({
     );
   };
 
-  const handleTakeShift = async () => {
-    if (!shift.id || !currentUserId) return;
-    
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("scheduled_shifts")
-        .update({ user_id: currentUserId })
-        .eq("id", shift.id);
-
-      if (error) throw error;
-      toast.success("Shift assigned to you");
-      onUpdate();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error taking shift:", error);
-      toast.error("Failed to take shift");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleSave = async (skipConflictCheck = false) => {
     // Check for conflicts if not already confirmed
@@ -444,23 +423,16 @@ export function EditShiftDialog({
         </div>
 
         <DialogFooter>
-          <div className="flex justify-between w-full">
+          <div className="flex justify-between w-full gap-2">
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete} 
+              disabled={deleting || saving}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
             <div className="flex gap-2">
-              <Button 
-                variant="destructive" 
-                onClick={handleDelete} 
-                disabled={deleting || saving}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {deleting ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              {currentUserId && shift.user_id !== currentUserId && (
-                <Button variant="secondary" onClick={handleTakeShift} disabled={saving}>
-                  Take This Shift
-                </Button>
-              )}
               {isShiftPublished && currentUserId && (isAdmin || shift.user_id === currentUserId) && (
                 <Button variant="outline" onClick={() => setShowOfferDialog(true)}>
                   <ArrowUp className="h-4 w-4 mr-2" />
@@ -471,7 +443,7 @@ export function EditShiftDialog({
                 Cancel
               </Button>
               <Button onClick={() => handleSave()} disabled={saving}>
-                {saving ? "Saving..." : "Save Changes"}
+                {saving ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>
