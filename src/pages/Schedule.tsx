@@ -1532,20 +1532,20 @@ export default function Schedule() {
         >
           <Card className="overflow-hidden border-2 border-border shadow-md">
             {/* Header inside card */}
-            <div className="flex flex-wrap items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border bg-muted/30">
-              <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+            <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border bg-muted/30">
+              <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
                   onNext={handleNextWeek}
                   label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
                   leftAlignOnDesktop
                 />
-                <Badge variant={getWeekLabel().variant} className="whitespace-nowrap hidden sm:flex">
+                <Badge variant={getWeekLabel().variant} className="whitespace-nowrap hidden lg:flex">
                   {getWeekLabel().label}
                 </Badge>
               </div>
               {(isAdmin || isManager) && (
-                <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                   <Button 
                     variant={isCompactMode ? "default" : "outline"}
                     size="sm"
