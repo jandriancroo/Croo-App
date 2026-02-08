@@ -69,33 +69,18 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
-  // Striped overlay style for time-off conflicts
-  const stripeOverlayStyle = hasTimeOffConflict ? {
-    backgroundImage: `repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 4px,
-      rgba(0, 0, 0, 0.25) 4px,
-      rgba(0, 0, 0, 0.25) 8px
-    )`
-  } : {};
+  // Warning border style for time-off conflicts
+  const conflictBorderClass = hasTimeOffConflict ? "ring-2 ring-amber-500 ring-offset-1 ring-offset-transparent" : "";
 
   return (
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-1 min-h-[32px]' : 'p-1.5 min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} overflow-hidden`}
+      className={`${isCompactMode ? 'p-1 min-h-[32px]' : 'p-1.5 min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
-      {/* Time-off conflict stripe overlay */}
-      {hasTimeOffConflict && (
-        <div 
-          className="absolute inset-0 pointer-events-none" 
-          style={stripeOverlayStyle}
-        />
-      )}
       <div className="relative z-10">
         <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
