@@ -121,7 +121,7 @@ function ShiftCardComponent({ shift, isDragging, onDelete, canTakeShift, current
       {...attributes}
     >
       <div>
-        <div className={`text-white font-semibold leading-tight flex items-center gap-1 ${isCompactMode ? 'text-[11px]' : 'text-xs'}`}>
+        <div className="text-white font-semibold leading-tight flex items-center gap-1 text-xs">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
