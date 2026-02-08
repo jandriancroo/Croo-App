@@ -298,8 +298,8 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[44px] px-0.5 py-0.5' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} ${isCompactMode ? 'flex items-center' : ''}`}>
-      <div className={`${isCompactMode ? 'flex flex-col gap-0.5 w-full' : 'space-y-1'}`}>
+  }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} ${isCompactMode ? 'flex items-stretch' : ''}`}>
+      <div className={`${isCompactMode ? 'flex flex-col w-full' : 'space-y-1'}`}>
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
           <div className="p-1 bg-muted/30 border border-dashed border-muted-foreground/30 rounded text-[10px]" style={{
