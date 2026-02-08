@@ -124,7 +124,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         {!isCompactMode && shift.is_time_off && <div className="text-white text-sm font-medium text-center">TIME OFF</div>}
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
-        <div className="hidden xl:flex justify-end">
+        <div className="absolute bottom-1 right-1">
           <BreakIndicator hasBreak={true} size="sm" />
         </div>
       )}
