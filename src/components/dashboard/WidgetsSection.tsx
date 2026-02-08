@@ -357,6 +357,7 @@ export const WidgetsSection = memo(function WidgetsSection({
     },
     enabled: !!user?.id && !!currentLocation?.id && !useRoleCubes,
     staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
+    placeholderData: (previousData) => previousData, // Show previous data instantly while refetching
   });
 
   // Determine which cubes to use: role-based (locked) or personal

@@ -160,6 +160,7 @@ export default function Dashboard() {
     },
     enabled: !!user?.id && !!currentLocation?.id,
     staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
+    placeholderData: (previousData) => previousData, // Show previous data instantly while refetching
   });
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
