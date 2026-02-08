@@ -1820,7 +1820,16 @@ export default function Schedule() {
               <span>Draft</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-8 h-4 rounded ring-2 ring-amber-500 ring-offset-1 bg-primary" />
+              <div 
+                className="w-8 h-4 rounded ring-2 ring-amber-500 ring-offset-1 bg-primary relative overflow-hidden"
+              >
+                <div 
+                  className="absolute inset-0" 
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)`
+                  }}
+                />
+              </div>
               <span>Time-Off Conflict</span>
             </div>
             <div className="flex items-center gap-1.5">
