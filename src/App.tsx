@@ -83,6 +83,7 @@ const RoleDashboardCustomizer = lazy(() => import("./pages/RoleDashboardCustomiz
 const DockStylePreview = lazy(() => import("./pages/DockStylePreview"));
 const DesignStylePreview = lazy(() => import("./pages/DesignStylePreview"));
 const AvailabilityRequestPreview = lazy(() => import("./pages/AvailabilityRequestPreview"));
+const VisionOSPreview = lazy(() => import("./pages/VisionOSPreview"));
 
 const queryClient = new QueryClient();
 
@@ -203,6 +204,7 @@ const AppContent = () => {
         <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
         <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
         <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
+        <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
