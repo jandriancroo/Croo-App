@@ -195,15 +195,18 @@ export function IMessageInput({
   return (
     <div 
       ref={containerRef}
-      className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 flex-shrink-0 bg-background"
-      style={isIOS && keyboardOffset > 0 ? { 
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        transform: `translateY(-${keyboardOffset}px)`,
-        zIndex: 50
-      } : undefined}
+      className="px-3 pb-2 pt-2 flex-shrink-0 bg-background"
+      style={{
+        paddingBottom: isIOS ? 'max(0.5rem, env(safe-area-inset-bottom))' : '0.5rem',
+        ...(isIOS && keyboardOffset > 0 ? { 
+          position: 'fixed' as const,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          transform: `translateY(-${keyboardOffset}px)`,
+          zIndex: 50
+        } : {})
+      }}
     >
       {/* Reply preview */}
       {replyTo && (
