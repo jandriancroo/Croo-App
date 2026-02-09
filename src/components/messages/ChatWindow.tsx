@@ -106,6 +106,34 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isNearBottomRef = useRef(true);
 
+  // iOS: prevent the "gap between keyboard and input" by disabling safe-area padding
+  // while the software keyboard is open (safe-area + viewport resizing can double-apply spacing).
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      const raw = window.innerHeight - vv.height - vv.offsetTop;
+      const isKeyboardOpen = raw > 120;
+
+      if (isKeyboardOpen) {
+        document.documentElement.dataset.kb = 'open';
+      } else {
+        delete (document.documentElement.dataset as any).kb;
+      }
+    };
+
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      delete (document.documentElement.dataset as any).kb;
+    };
+  }, []);
+
   // Check if user is near bottom of scroll
   const checkIfNearBottom = useCallback(() => {
     const container = messagesContainerRef.current;

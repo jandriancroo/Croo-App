@@ -98,10 +98,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
   const touchMoved = useRef(false);
+  const lastTouchAt = useRef(0);
 
   const handleTouchStart = useCallback((chat: Chat) => {
     isLongPress.current = false;
     touchMoved.current = false;
+    lastTouchAt.current = Date.now();
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setLongPressChat(chat);
@@ -109,6 +111,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   }, []);
 
   const handleTouchEnd = useCallback((chat: Chat) => {
+    lastTouchAt.current = Date.now();
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -166,7 +169,9 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       tabIndex={0}
       // Desktop: click to navigate
       onClick={() => {
-        // On mobile, touch events handle navigation, so ignore click after touch
+        // iOS/Android: a "click" event often fires after a scroll gesture; ignore it
+        // if there was a touch interaction very recently.
+        if (Date.now() - lastTouchAt.current < 750) return;
         if (!touchMoved.current) {
           onSelectChat(chat.id);
         }
