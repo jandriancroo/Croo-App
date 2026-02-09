@@ -384,33 +384,38 @@ export default function VisionOSPreview() {
         </section>
       </div>
 
-      {/* Fixed visionOS Dock at bottom - using accent (orange) color scheme */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 flex justify-center">
-        <div className="vision-glass-dock-accent px-3 py-3 rounded-[28px] inline-flex items-center gap-1">
-          {mockNavItems.map((item, idx) => {
-            const Icon = item.icon;
-            const isActive = idx === activeTab;
-            
-            return (
-              <button
-                key={item.label}
-                onClick={() => setActiveTab(idx)}
-                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all ${
-                  isActive 
-                    ? 'bg-accent/25' 
-                    : 'hover:bg-accent/10'
-                }`}
-              >
-                <Icon 
-                  className={`h-6 w-6 ${isActive ? 'text-accent' : 'text-accent-foreground/70'}`}
-                  strokeWidth={isActive ? 2 : 1.5} 
-                />
-                <span className={`text-[10px] ${isActive ? 'font-semibold text-accent' : 'font-medium text-accent-foreground/70'}`}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+      {/* Fixed visionOS Dock at bottom - matching current dock but frosted */}
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center pointer-events-none">
+        <div className="vision-glass-dock-current overflow-hidden pointer-events-auto">
+          {/* Swipe handle */}
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
+          </div>
+          <div className="flex items-center justify-evenly px-2 pt-1 pb-0">
+            {mockNavItems.map((item, idx) => {
+              const Icon = item.icon;
+              const isActive = idx === activeTab;
+              
+              return (
+                <button
+                  key={item.label}
+                  onClick={() => setActiveTab(idx)}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors ${
+                    isActive 
+                      ? 'bg-white/20 text-accent-foreground' 
+                      : 'text-accent-foreground/70 hover:text-accent-foreground'
+                  }`}
+                >
+                  <Icon className="h-8 w-8" strokeWidth={1.75} />
+                  <span className={`text-[10px] ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Safe area spacer */}
+          <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
         </div>
       </div>
     </div>
