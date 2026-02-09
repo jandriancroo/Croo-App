@@ -571,26 +571,30 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
           {/* Content */}
           <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
-            {/* Profile Greeting & Time */}
-            <div className="flex flex-col items-center mb-4">
-              <Avatar className="h-14 w-14 mb-2 ring-2 ring-accent-foreground/20">
+            {/* Row 1: Profile pic left, "Hey Name" right filling space */}
+            <div className="flex items-center gap-3 mb-2">
+              <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-accent-foreground/20">
                 <AvatarImage src={userProfile?.profile_photo_url || undefined} />
-                <AvatarFallback className="bg-primary/20 text-primary text-xl">
+                <AvatarFallback className="bg-primary/20 text-primary text-lg">
                   {firstName.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <h2 className="text-xl font-semibold text-accent-foreground">
+              <h2 className="text-2xl font-bold text-accent-foreground flex-1">
                 Hey {firstName}
               </h2>
-              <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums mt-1">
-                {formattedTime}
-              </h1>
-              {paceStatus && (
-                <p className={cn("text-sm mt-2 text-center", paceStatus.color)}>
-                  {paceStatus.greeting}
-                </p>
-              )}
             </div>
+            
+            {/* Row 2: Pace status message (high contrast on orange bg) */}
+            {paceStatus && (
+              <p className="text-base font-medium text-accent-foreground/90 mb-2">
+                {paceStatus.greeting}
+              </p>
+            )}
+            
+            {/* Row 3: Clock */}
+            <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums mb-4">
+              {formattedTime}
+            </h1>
 
             {/* Sales & Pace Cards */}
             <div className="grid grid-cols-2 gap-3 mb-4">
