@@ -1224,7 +1224,7 @@ All colors MUST be HSL.
       inset 0 -1px 0 hsl(0 0% 0% / 0.2);
   }
 
-  /* visionOS Accent (Orange) Dock */
+  /* visionOS Accent (Orange) Dock - subtle tint version */
   .vision-glass-dock-accent {
     background: hsl(var(--accent) / 0.12);
     backdrop-filter: blur(60px) saturate(200%);
@@ -1245,5 +1245,30 @@ All colors MUST be HSL.
       0 4px 16px hsl(var(--accent) / 0.15),
       inset 0 1px 0 hsl(var(--accent) / 0.15),
       inset 0 -1px 0 hsl(0 0% 0% / 0.2);
+  }
+
+  /* visionOS Dock matching current app dock - frosted orange */
+  .vision-glass-dock-current {
+    width: 100%;
+    background: hsl(var(--accent) / 0.85);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    box-shadow: 
+      0 -4px 20px hsl(var(--accent) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.15);
+  }
+
+  .dark .vision-glass-dock-current {
+    background: hsl(var(--accent) / 0.8);
+    box-shadow: 
+      0 -4px 20px hsl(0 0% 0% / 0.4),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+  }
+
+  [data-theme="oled"] .vision-glass-dock-current {
+    background: hsl(var(--accent) / 0.75);
+    box-shadow: 
+      0 -4px 20px hsl(0 0% 0% / 0.5),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
 }
