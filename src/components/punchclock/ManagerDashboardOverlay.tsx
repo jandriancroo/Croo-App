@@ -50,7 +50,8 @@ import { Input } from '@/components/ui/input';
 import { getTodayInTimezone, getDayOfWeekInTimezone, getTimezoneOffset } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 import { getCachedProjections, getCachedLiveSales } from '@/utils/salesCache';
-import { resolveProjection } from '@/hooks/useResolvedProjection';
+import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
+import { ProjectionIcon } from '@/components/ui/projection-tag';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
 
@@ -289,6 +290,7 @@ export function ManagerDashboardOverlay({
     projections?: {
       todayProjected: number;
       todayPaceAdjusted?: number;
+      todaySource?: ProjectionSource;
     };
   }>({
     queryKey: ['qubeyond-sales', locationId, todayStr],
@@ -620,20 +622,28 @@ export function ManagerDashboardOverlay({
   
   // EOD Goal: use localStorage cache (SAME source as Dashboard SalesSummary)
   // Falls back to resolveProjection which uses: override > living > initial > legacy
-  const eodGoal = useMemo(() => {
+  const { eodGoal, projectionSource: eodGoalSource } = useMemo(() => {
     // First try localStorage cache - this is what Dashboard shows
     if (localStorageProjections?.todayProjected && localStorageProjections.todayProjected > 0) {
-      return localStorageProjections.todayProjected;
+      // If localStorage has it, also check cached todaySource
+      const cachedSource = cachedSalesOverviewData?.projections?.todaySource;
+      return { 
+        eodGoal: localStorageProjections.todayProjected, 
+        projectionSource: cachedSource || null 
+      };
     }
     
     // Fall back to React Query cache
     const liveProjected = cachedSalesOverviewData?.projections?.todayProjected;
-    if (liveProjected && liveProjected > 0) return liveProjected;
+    const liveSource = cachedSalesOverviewData?.projections?.todaySource;
+    if (liveProjected && liveProjected > 0) {
+      return { eodGoal: liveProjected, projectionSource: liveSource || null };
+    }
     
     // Fall back to sales_cache using proper resolution (override > living > initial > legacy)
     // This matches how Dashboard resolves projections
     const resolved = resolveProjection(salesData);
-    return resolved.value || 0;
+    return { eodGoal: resolved.value || 0, projectionSource: resolved.source };
   }, [localStorageProjections, cachedSalesOverviewData, salesData]);
   
   // Pace Adjusted: use localStorage cache (SAME source as Dashboard SalesSummary)
@@ -980,9 +990,12 @@ export function ManagerDashboardOverlay({
 
                 {/* EOD Goal */}
                 <Card className={isDayMode ? 'bg-card border-border' : 'bg-neutral-800/80 border-neutral-700'}>
-                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center">
+                  <CardContent className="p-2 sm:p-3 lg:p-4 xl:p-5 text-center relative">
                     <Target className="h-4 w-4 sm:h-6 sm:w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mx-auto mb-0.5 sm:mb-1 lg:mb-2 text-blue-500" />
-                    <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mb-0.5 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>EOD Goal</p>
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <p className={`text-[10px] sm:text-xs lg:text-sm xl:text-base ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>EOD Goal</p>
+                      <ProjectionIcon source={eodGoalSource} />
+                    </div>
                     <p className={`text-base sm:text-xl lg:text-2xl xl:text-3xl 2xl:text-4xl font-bold ${isDayMode ? 'text-foreground' : 'text-white'}`}>{formatCurrency(eodGoal)}</p>
                   </CardContent>
                 </Card>
