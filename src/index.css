@@ -436,8 +436,14 @@ All colors MUST be HSL.
     padding-bottom: env(safe-area-inset-bottom, 1rem);
   }
 
-  /* When the iOS software keyboard is open, safe-area padding can create an extra "gap"
-     between the keyboard and bottom-anchored UI (like chat inputs). */
+  /* Keyboard-aware bottom padding (iOS PWA/Safari).
+     JS updates --kb-offset when the software keyboard opens. */
+  .pb-kb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--kb-offset, 0px));
+  }
+
+  /* While keyboard is open, don't double-apply safe-area spacing on elements
+     that already use .pb-kb-safe. */
   html[data-kb="open"] .pb-safe {
     padding-bottom: 0px;
   }

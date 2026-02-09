@@ -106,8 +106,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isNearBottomRef = useRef(true);
 
-  // iOS: prevent the "gap between keyboard and input" by disabling safe-area padding
-  // while the software keyboard is open (safe-area + viewport resizing can double-apply spacing).
+  // iOS PWA/Safari: keep the input visible above the software keyboard.
+  // We expose the keyboard height as a CSS variable so layout can respond via padding.
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -115,6 +115,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     const update = () => {
       const raw = window.innerHeight - vv.height - vv.offsetTop;
       const isKeyboardOpen = raw > 120;
+      const nextOffset = isKeyboardOpen ? `${Math.round(raw)}px` : '0px';
+
+      document.documentElement.style.setProperty('--kb-offset', nextOffset);
 
       if (isKeyboardOpen) {
         document.documentElement.dataset.kb = 'open';
@@ -130,6 +133,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     return () => {
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
+      document.documentElement.style.removeProperty('--kb-offset');
       delete (document.documentElement.dataset as any).kb;
     };
   }, []);

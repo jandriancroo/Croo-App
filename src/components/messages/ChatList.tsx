@@ -99,11 +99,14 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   const isLongPress = useRef(false);
   const touchMoved = useRef(false);
   const lastTouchAt = useRef(0);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  const handleTouchStart = useCallback((chat: Chat) => {
+  const handleTouchStart = useCallback((chat: Chat, e: React.TouchEvent) => {
     isLongPress.current = false;
     touchMoved.current = false;
     lastTouchAt.current = Date.now();
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setLongPressChat(chat);
@@ -112,26 +115,37 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
 
   const handleTouchEnd = useCallback((chat: Chat) => {
     lastTouchAt.current = Date.now();
+    touchStart.current = null;
+
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+
     // Only navigate if it wasn't a long press AND user didn't scroll
     if (!isLongPress.current && !touchMoved.current) {
       onSelectChat(chat.id);
     }
+
     isLongPress.current = false;
     touchMoved.current = false;
   }, [onSelectChat]);
 
-  const handleTouchMove = useCallback(() => {
-    // Mark that user is scrolling, so we don't trigger navigation on touch end
-    touchMoved.current = true;
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Only treat as scroll if user moved more than a small threshold
+    const start = touchStart.current;
+    if (!start) return;
+
+    const dx = Math.abs(e.touches[0].clientX - start.x);
+    const dy = Math.abs(e.touches[0].clientY - start.y);
+    if (dx > 8 || dy > 8) {
+      touchMoved.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
     }
-  }, []);
+  }, [onSelectChat]);
 
   if (loading) {
     return (
@@ -177,7 +191,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         }
       }}
       // Mobile: use touch events for long-press detection
-      onTouchStart={() => handleTouchStart(chat)}
+      onTouchStart={(e) => handleTouchStart(chat, e)}
       onTouchEnd={() => handleTouchEnd(chat)}
       onTouchMove={handleTouchMove}
       onKeyDown={(e) => {

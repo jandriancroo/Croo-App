@@ -696,7 +696,7 @@ export default function Messages() {
           }
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
+        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
           <div className="flex flex-col h-full">
             <div className="flex items-center gap-2 p-4 border-b border-border">
               <Button
@@ -745,7 +745,7 @@ export default function Messages() {
           }
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
+        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
           <div className="flex flex-col h-full">
             <div className="flex items-center gap-2 p-4 border-b border-border">
               <Button

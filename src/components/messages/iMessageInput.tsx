@@ -164,7 +164,7 @@ export function IMessageInput({
 
   return (
     <div 
-      className="px-3 pb-safe pt-2 flex-shrink-0 bg-background"
+      className="px-3 pb-kb-safe pt-2 flex-shrink-0 bg-background"
     >
       {/* Reply preview */}
       {replyTo && (
