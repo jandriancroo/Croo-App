@@ -284,7 +284,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const themes = [
     { value: 'default', label: 'Default' },
     { value: 'oled', label: 'Dark Knight' },
-    { value: 'vision', label: 'visionOS' },
     { value: 'earth', label: 'Warm Earth' },
     { value: 'ocean', label: 'Ocean Breeze' },
     { value: 'sage', label: 'Sage' },

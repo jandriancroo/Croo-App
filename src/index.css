@@ -371,67 +371,10 @@ All colors MUST be HSL.
   --chart-6: 20 25% 35%;
 }
 
-/* visionOS Theme - Frosted glass with transparency */
-[data-theme="vision"] {
-  --background: 220 20% 96%;
-  --foreground: 220 25% 10%;
-  --card: 0 0% 100% / 0.65;
-  --card-foreground: 220 25% 10%;
-  --popover: 0 0% 100% / 0.75;
-  --popover-foreground: 220 25% 10%;
-  --primary: 186 85% 35%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 20% 92% / 0.6;
-  --secondary-foreground: 220 25% 20%;
-  --muted: 220 15% 90% / 0.5;
-  --muted-foreground: 220 15% 40%;
-  --accent: 28 95% 52%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 75% 55%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 20% 85% / 0.4;
-  --input: 220 20% 92% / 0.5;
-  --ring: 186 85% 35%;
-  --glass-background: 0 0% 100% / 0.6;
-  --glass-border: 220 20% 80% / 0.3;
-  --glass-shadow: 220 25% 10% / 0.08;
-  --glass-blur: 40px;
-  
-  /* visionOS-specific variables */
-  --vision-blur: 40px;
-  --vision-saturation: 180%;
-}
-
-/* visionOS Dark Mode */
-[data-theme="vision"].dark,
-.dark[data-theme="vision"],
-[data-theme="vision-dark"] {
-  --background: 220 25% 8%;
-  --foreground: 220 15% 92%;
-  --card: 220 25% 12% / 0.55;
-  --card-foreground: 220 15% 92%;
-  --popover: 220 25% 12% / 0.7;
-  --popover-foreground: 220 15% 92%;
-  --primary: 186 85% 50%;
-  --primary-foreground: 220 25% 5%;
-  --secondary: 220 20% 18% / 0.5;
-  --secondary-foreground: 220 15% 85%;
-  --muted: 220 20% 15% / 0.4;
-  --muted-foreground: 220 12% 55%;
-  --accent: 28 98% 58%;
-  --accent-foreground: 220 25% 5%;
-  --destructive: 0 70% 50%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 20% 25% / 0.4;
-  --input: 220 20% 18% / 0.5;
-  --ring: 186 85% 50%;
-  --glass-background: 220 25% 12% / 0.5;
-  --glass-border: 0 0% 100% / 0.1;
-  --glass-shadow: 0 0% 0% / 0.25;
-  --glass-blur: 40px;
-  --vision-blur: 50px;
-  --vision-saturation: 150%;
-}
+/* ============================================
+   Global Frosted Glass UI (Buttons, Selectors, Dock)
+   Applied to ALL themes
+   ============================================ */
 
 @layer base {
   * {
@@ -587,17 +530,17 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Mobile dock - flat neumorphic style */
+  /* Mobile dock - frosted glass style (all themes) */
   .glass-dock {
     position: relative;
-    background: hsl(var(--accent));
+    background: hsl(var(--accent) / 0.88);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
     border: none;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 
-      0 -3px 8px hsl(0 0% 0% / 0.2),
-      8px 8px 20px hsl(0 0% 0% / 0.15),
-      -4px -4px 12px hsl(0 0% 100% / 0.08),
-      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+      0 -4px 20px hsl(var(--accent) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
     overflow: hidden;
     /* Prevent dock from moving during scroll/address bar changes */
     -webkit-transform: translateZ(0);
@@ -606,7 +549,7 @@ All colors MUST be HSL.
     backface-visibility: hidden;
   }
   
-  /* Remove gradient overlays - flat look */
+  /* Remove gradient overlays - frosted look */
   .glass-dock::before {
     display: none;
   }
@@ -616,35 +559,35 @@ All colors MUST be HSL.
     content: '';
     position: absolute;
     inset: 0;
-    border-top: 1px solid hsl(0 0% 100% / 0.15);
+    border-top: 1px solid hsl(0 0% 100% / 0.2);
     border-radius: inherit;
     pointer-events: none;
   }
   
   .dark .glass-dock {
-    background: hsl(var(--accent));
+    background: hsl(var(--accent) / 0.82);
+    backdrop-filter: blur(45px) saturate(160%);
+    -webkit-backdrop-filter: blur(45px) saturate(160%);
     box-shadow: 
-      0 -3px 10px hsl(0 0% 0% / 0.35),
-      8px 8px 20px hsl(0 0% 0% / 0.25),
-      -4px -4px 12px hsl(0 0% 100% / 0.05),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+      0 -4px 24px hsl(0 0% 0% / 0.35),
+      inset 0 1px 0 hsl(0 0% 100% / 0.12);
   }
   
   .dark .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.1);
+    border-top-color: hsl(0 0% 100% / 0.15);
   }
   
   [data-theme="oled"] .glass-dock {
-    background: hsl(var(--accent));
+    background: hsl(var(--accent) / 0.78);
+    backdrop-filter: blur(50px) saturate(150%);
+    -webkit-backdrop-filter: blur(50px) saturate(150%);
     box-shadow: 
-      0 -4px 12px hsl(0 0% 0% / 0.5),
-      8px 8px 20px hsl(0 0% 0% / 0.35),
-      -4px -4px 12px hsl(0 0% 100% / 0.03),
-      inset 0 1px 0 hsl(0 0% 100% / 0.06);
+      0 -4px 28px hsl(0 0% 0% / 0.5),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
   
   [data-theme="oled"] .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.08);
+    border-top-color: hsl(0 0% 100% / 0.1);
   }
 
   /* Neumorphic shadow utilities */
@@ -702,78 +645,74 @@ All colors MUST be HSL.
       -4px -4px 12px hsl(0 0% 100% / 0.03);
   }
 
-  /* visionOS Theme - Frosted glass dock */
-  [data-theme="vision"] .glass-dock {
-    background: hsl(var(--accent) / 0.85);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+  /* ============================================
+     Global Frosted Glass Buttons (All Themes)
+     ============================================ */
+  
+  /* Primary button - frosted glass */
+  .bg-primary {
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
     box-shadow: 
-      0 -4px 20px hsl(var(--accent) / 0.25),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
+      0 2px 12px hsl(var(--primary) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
   }
-
-  [data-theme="vision"] .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.25);
-  }
-
-  .dark[data-theme="vision"] .glass-dock,
-  [data-theme="vision"].dark .glass-dock {
-    background: hsl(var(--accent) / 0.75);
-    backdrop-filter: blur(50px) saturate(150%);
-    -webkit-backdrop-filter: blur(50px) saturate(150%);
+  
+  .dark .bg-primary {
     box-shadow: 
-      0 -4px 24px hsl(0 0% 0% / 0.35),
+      0 2px 12px hsl(var(--primary) / 0.35),
       inset 0 1px 0 hsl(0 0% 100% / 0.12);
   }
-
-  .dark[data-theme="vision"] .glass-dock::after,
-  [data-theme="vision"].dark .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.15);
-  }
-
-  /* visionOS Cards - Frosted glass effect */
-  [data-theme="vision"] .bg-card,
-  [data-theme="vision"] [class*="shadow-neumorphic"] {
-    background: hsl(var(--card));
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid hsl(var(--border));
-    box-shadow: 
-      0 8px 32px hsl(220 25% 10% / 0.08),
-      0 2px 8px hsl(220 25% 10% / 0.04),
-      inset 0 1px 0 hsl(0 0% 100% / 0.15);
-  }
-
-  .dark[data-theme="vision"] .bg-card,
-  [data-theme="vision"].dark .bg-card,
-  .dark[data-theme="vision"] [class*="shadow-neumorphic"],
-  [data-theme="vision"].dark [class*="shadow-neumorphic"] {
-    box-shadow: 
-      0 8px 32px hsl(0 0% 0% / 0.3),
-      0 2px 8px hsl(0 0% 0% / 0.2),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
-  }
-
-  /* visionOS Buttons - Frosted glass effect */
-  [data-theme="vision"] .bg-primary {
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: 
-      0 2px 12px hsl(var(--primary) / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-  }
-
-  [data-theme="vision"] .bg-secondary {
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: 
-      0 2px 8px hsl(220 25% 10% / 0.06),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-  }
-
-  [data-theme="vision"] .bg-muted {
+  
+  /* Secondary button - frosted glass */
+  .bg-secondary {
     backdrop-filter: blur(16px) saturate(150%);
     -webkit-backdrop-filter: blur(16px) saturate(150%);
+    box-shadow: 
+      0 2px 8px hsl(220 25% 10% / 0.05),
+      inset 0 1px 0 hsl(0 0% 100% / 0.15);
+  }
+  
+  .dark .bg-secondary {
+    box-shadow: 
+      0 2px 8px hsl(0 0% 0% / 0.15),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+  }
+  
+  /* Accent button - frosted glass */
+  .bg-accent {
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 
+      0 2px 12px hsl(var(--accent) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
+  }
+  
+  .dark .bg-accent {
+    box-shadow: 
+      0 2px 12px hsl(var(--accent) / 0.35),
+      inset 0 1px 0 hsl(0 0% 100% / 0.12);
+  }
+  
+  /* Destructive button - frosted glass */
+  .bg-destructive {
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 
+      0 2px 12px hsl(var(--destructive) / 0.25),
+      inset 0 1px 0 hsl(0 0% 100% / 0.18);
+  }
+  
+  .dark .bg-destructive {
+    box-shadow: 
+      0 2px 12px hsl(var(--destructive) / 0.35),
+      inset 0 1px 0 hsl(0 0% 100% / 0.12);
+  }
+  
+  /* Muted/ghost backgrounds - subtle frosted effect */
+  .bg-muted {
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
   }
   
   /* Fixed mobile dock container - sits at true bottom */
