@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, CheckCheck } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface ReadReceiptsProps {
   messageId: string;
@@ -19,6 +20,7 @@ interface Receipt {
 }
 
 export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: ReadReceiptsProps) {
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [totalMembers, setTotalMembers] = useState(0);
 
@@ -86,8 +88,9 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
     }
   };
 
-  // Only show receipts for sent messages
+  // Only show receipts for sent messages from admins and higher
   if (senderId !== currentUserId) return null;
+  if (roleLoading || !isAdmin) return null;
 
   const readCount = receipts.length;
   const isReadByOthers = receipts.some(r => r.user_id !== senderId);
