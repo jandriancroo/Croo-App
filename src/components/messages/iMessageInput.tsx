@@ -4,7 +4,6 @@ import { Paperclip, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { GifPicker } from './GifPicker';
 import { cn } from '@/lib/utils';
-import { useIsIOS } from '@/hooks/useIsIOS';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
@@ -44,58 +43,12 @@ export function IMessageInput({
 }: IMessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isIOS = useIsIOS();
 
   const [chatMembers, setChatMembers] = useState<Profile[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const [isFocused, setIsFocused] = useState(false);
-  const baselineViewportHeightRef = useRef<number | null>(null);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
-
-  // Handle iOS keyboard offset using VisualViewport API
-  // Key detail: in some iOS/PWA contexts, `window.innerHeight` shrinks *together* with
-  // `visualViewport.height`, making their delta ~0 even while the keyboard is open.
-  // So we measure against a baseline viewport height captured *before* focus.
-  useEffect(() => {
-    if (!isIOS || typeof window === 'undefined') return;
-
-    const viewport = window.visualViewport;
-    if (!viewport) return;
-
-    // Capture a baseline anytime we're NOT focused.
-    const captureBaseline = () => {
-      baselineViewportHeightRef.current = viewport.height;
-    };
-
-    const handleResize = () => {
-      // Keep baseline fresh when not focused
-      if (!isFocused) {
-        captureBaseline();
-        setKeyboardOffset(0);
-        return;
-      }
-
-      const baseline = baselineViewportHeightRef.current ?? viewport.height;
-      const raw = baseline - viewport.height;
-      // Ignore tiny fluctuations (toolbar show/hide) to avoid jitter
-      const next = raw > 80 ? Math.round(raw) : 0;
-      setKeyboardOffset(next);
-    };
-
-    captureBaseline();
-    viewport.addEventListener('resize', handleResize);
-    viewport.addEventListener('scroll', handleResize);
-
-    return () => {
-      viewport.removeEventListener('resize', handleResize);
-      viewport.removeEventListener('scroll', handleResize);
-    };
-  }, [isIOS, isFocused]);
 
   useEffect(() => {
     const fetchChatMembers = async () => {
@@ -211,18 +164,7 @@ export function IMessageInput({
 
   return (
     <div 
-      ref={containerRef}
-      className="px-3 pb-2 pt-2 flex-shrink-0 bg-background"
-      style={{
-        paddingBottom: isIOS ? 'max(0.5rem, env(safe-area-inset-bottom))' : '0.5rem',
-        ...(isIOS && keyboardOffset > 0 ? {
-          position: 'fixed' as const,
-          left: 0,
-          right: 0,
-          bottom: `${keyboardOffset}px`,
-          zIndex: 50,
-        } : {})
-      }}
+      className="px-3 pb-safe pt-2 flex-shrink-0 bg-background"
     >
       {/* Reply preview */}
       {replyTo && (
@@ -314,11 +256,7 @@ export function IMessageInput({
               disabled={disabled}
               rows={1}
               className="bg-transparent border-0 shadow-none ring-0 focus-visible:ring-0 min-h-[36px] py-2 resize-none text-base"
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => {
-                setIsFocused(false);
-                setTimeout(() => setShowSuggestions(false), 150);
-              }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             />
           </div>
 
