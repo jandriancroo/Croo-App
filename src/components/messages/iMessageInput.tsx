@@ -62,10 +62,22 @@ export function IMessageInput({
     if (!viewport) return;
     
     const handleResize = () => {
-      // Calculate the difference between window height and visual viewport height
-      // This gives us the keyboard height
-      const offset = window.innerHeight - viewport.height - viewport.offsetTop;
-      setKeyboardOffset(Math.max(0, offset));
+      // On iOS, `window.innerHeight` can stay closer to the *layout* viewport, while
+      // `visualViewport.height` reflects the *visible* area above the keyboard.
+      // Using only the delta between these two is more stable than involving offsetTop,
+      // which can overestimate in PWAs / embedded previews.
+      const raw = window.innerHeight - viewport.height;
+      const offset = Math.max(0, Math.round(raw));
+      setKeyboardOffset(offset);
+
+      // TEMP: helps verify what we're computing on real devices
+      // eslint-disable-next-line no-console
+      console.log('[keyboard]', {
+        innerHeight: window.innerHeight,
+        vvHeight: viewport.height,
+        vvOffsetTop: viewport.offsetTop,
+        computedOffset: offset,
+      });
     };
     
     viewport.addEventListener('resize', handleResize);
