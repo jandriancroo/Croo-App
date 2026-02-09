@@ -4,6 +4,7 @@ import { Paperclip, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { GifPicker } from './GifPicker';
 import { cn } from '@/lib/utils';
+import { useIsIOS } from '@/hooks/useIsIOS';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
@@ -43,12 +44,41 @@ export function IMessageInput({
 }: IMessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isIOS = useIsIOS();
   
   const [chatMembers, setChatMembers] = useState<Profile[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  // Handle iOS keyboard offset using VisualViewport API
+  useEffect(() => {
+    if (!isIOS || typeof window === 'undefined') return;
+    
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    
+    const handleResize = () => {
+      // Calculate the difference between window height and visual viewport height
+      // This gives us the keyboard height
+      const offset = window.innerHeight - viewport.height - viewport.offsetTop;
+      setKeyboardOffset(Math.max(0, offset));
+    };
+    
+    viewport.addEventListener('resize', handleResize);
+    viewport.addEventListener('scroll', handleResize);
+    
+    // Initial check
+    handleResize();
+    
+    return () => {
+      viewport.removeEventListener('resize', handleResize);
+      viewport.removeEventListener('scroll', handleResize);
+    };
+  }, [isIOS]);
 
   useEffect(() => {
     const fetchChatMembers = async () => {
@@ -163,7 +193,18 @@ export function IMessageInput({
   };
 
   return (
-    <div className="px-3 pb-4 pt-2 flex-shrink-0">
+    <div 
+      ref={containerRef}
+      className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 flex-shrink-0 bg-background"
+      style={isIOS && keyboardOffset > 0 ? { 
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        transform: `translateY(-${keyboardOffset}px)`,
+        zIndex: 50
+      } : undefined}
+    >
       {/* Reply preview */}
       {replyTo && (
         <div className="mb-2 mx-1 px-3 py-2 bg-muted/50 rounded-xl flex items-center justify-between backdrop-blur-sm">
