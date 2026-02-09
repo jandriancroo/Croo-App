@@ -2838,6 +2838,61 @@ serve(async (req) => {
         fourWeekAverage,
         holidayContext
       );
+      
+      // === OVERRIDE CHECK ===
+      // Check if there's a manager override for today's projection
+      // Priority: override_projection > living_projection > initial_projection > calculated
+      if (locationId) {
+        const { data: todayCache } = await cacheSupabase
+          .from('sales_cache')
+          .select('override_projection, living_projection, initial_projection')
+          .eq('location_id', locationId)
+          .eq('sale_date', todayStr)
+          .maybeSingle();
+        
+        if (todayCache) {
+          // Use Source of Truth priority: override > living > initial > calculated
+          let resolvedProjection = projections.todayProjected;
+          let projectionSource = 'calculated';
+          
+          if (todayCache.override_projection && todayCache.override_projection > 0) {
+            resolvedProjection = todayCache.override_projection;
+            projectionSource = 'override';
+          } else if (todayCache.living_projection && todayCache.living_projection > 0) {
+            resolvedProjection = todayCache.living_projection;
+            projectionSource = 'living';
+          } else if (todayCache.initial_projection && todayCache.initial_projection > 0) {
+            resolvedProjection = todayCache.initial_projection;
+            projectionSource = 'initial';
+          }
+          
+          if (resolvedProjection !== projections.todayProjected) {
+            console.log(`[PROJECTION] Using ${projectionSource} projection: $${resolvedProjection} (was $${projections.todayProjected.toFixed(0)} calculated)`);
+            projections.todayProjected = resolvedProjection;
+            
+            // Recalculate pace with the resolved projection
+            // Pace = actual sales so far + remaining hourly projections
+            const tzHour = currentHour;
+            let remainingProjected = 0;
+            for (const h of hourlyWithProjections) {
+              const hourNum = parseInt(h.hour.split(':')[0], 10);
+              if (hourNum > tzHour && h.projected) {
+                remainingProjected += h.projected;
+              }
+            }
+            
+            // Scale remaining projections to match the new daily target ratio
+            const originalTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
+            if (originalTotal > 0) {
+              const scaleFactor = resolvedProjection / originalTotal;
+              remainingProjected = remainingProjected * scaleFactor;
+            }
+            
+            projections.todayPaceAdjusted = dailySales + remainingProjected;
+            console.log(`[PROJECTION] Recalculated pace: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)} + remaining $${remainingProjected.toFixed(0)})`);
+          }
+        }
+      }
     } else {
       console.log('Skipping projection totals - client has cached values');
       // projections will remain 0, client will use cached values
