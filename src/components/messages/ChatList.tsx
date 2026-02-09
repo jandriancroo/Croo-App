@@ -145,7 +145,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         longPressTimer.current = null;
       }
     }
-  }, [onSelectChat]);
+  }, []);
 
   if (loading) {
     return (
