@@ -46,51 +46,56 @@ export function IMessageInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isIOS = useIsIOS();
-  
+
   const [chatMembers, setChatMembers] = useState<Profile[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const [isFocused, setIsFocused] = useState(false);
+  const baselineViewportHeightRef = useRef<number | null>(null);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   // Handle iOS keyboard offset using VisualViewport API
+  // Key detail: in some iOS/PWA contexts, `window.innerHeight` shrinks *together* with
+  // `visualViewport.height`, making their delta ~0 even while the keyboard is open.
+  // So we measure against a baseline viewport height captured *before* focus.
   useEffect(() => {
     if (!isIOS || typeof window === 'undefined') return;
-    
+
     const viewport = window.visualViewport;
     if (!viewport) return;
-    
-    const handleResize = () => {
-      // On iOS, `window.innerHeight` can stay closer to the *layout* viewport, while
-      // `visualViewport.height` reflects the *visible* area above the keyboard.
-      // Using only the delta between these two is more stable than involving offsetTop,
-      // which can overestimate in PWAs / embedded previews.
-      const raw = window.innerHeight - viewport.height;
-      const offset = Math.max(0, Math.round(raw));
-      setKeyboardOffset(offset);
 
-      // TEMP: helps verify what we're computing on real devices
-      // eslint-disable-next-line no-console
-      console.log('[keyboard]', {
-        innerHeight: window.innerHeight,
-        vvHeight: viewport.height,
-        vvOffsetTop: viewport.offsetTop,
-        computedOffset: offset,
-      });
+    // Capture a baseline anytime we're NOT focused.
+    const captureBaseline = () => {
+      baselineViewportHeightRef.current = viewport.height;
     };
-    
+
+    const handleResize = () => {
+      // Keep baseline fresh when not focused
+      if (!isFocused) {
+        captureBaseline();
+        setKeyboardOffset(0);
+        return;
+      }
+
+      const baseline = baselineViewportHeightRef.current ?? viewport.height;
+      const raw = baseline - viewport.height;
+      // Ignore tiny fluctuations (toolbar show/hide) to avoid jitter
+      const next = raw > 80 ? Math.round(raw) : 0;
+      setKeyboardOffset(next);
+    };
+
+    captureBaseline();
     viewport.addEventListener('resize', handleResize);
     viewport.addEventListener('scroll', handleResize);
-    
-    // Initial check
-    handleResize();
-    
+
     return () => {
       viewport.removeEventListener('resize', handleResize);
       viewport.removeEventListener('scroll', handleResize);
     };
-  }, [isIOS]);
+  }, [isIOS, isFocused]);
 
   useEffect(() => {
     const fetchChatMembers = async () => {
@@ -309,7 +314,11 @@ export function IMessageInput({
               disabled={disabled}
               rows={1}
               className="bg-transparent border-0 shadow-none ring-0 focus-visible:ring-0 min-h-[36px] py-2 resize-none text-base"
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setIsFocused(false);
+                setTimeout(() => setShowSuggestions(false), 150);
+              }}
             />
           </div>
 
