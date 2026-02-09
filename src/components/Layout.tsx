@@ -80,8 +80,12 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
       onTouchEnd={canViewSalesAndLabor ? handleTouchEnd : undefined}
     >
       {/* Swipe handle indicator - only show for shift_manager+ */}
+      {/* Tap on handle or swipe up to expand (tap works in preview mode) */}
       {canViewSalesAndLabor && (
-        <div className="flex justify-center pt-2 pb-1">
+        <div 
+          className="flex justify-center pt-2 pb-1 cursor-pointer"
+          onClick={onSwipeUp}
+        >
           <div className="w-10 h-1 bg-accent-foreground/20 rounded-full" />
         </div>
       )}
