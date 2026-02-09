@@ -253,7 +253,7 @@ export function IMessageInput({
               placeholder="Message"
               disabled={disabled}
               rows={1}
-              className="bg-transparent border-0 shadow-none ring-0 focus-visible:ring-0 min-h-[36px] py-2 resize-none"
+              className="bg-transparent border-0 shadow-none ring-0 focus-visible:ring-0 min-h-[36px] py-2 resize-none text-base"
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             />
           </div>
