@@ -97,9 +97,11 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   const [longPressChat, setLongPressChat] = useState<Chat | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
+  const touchMoved = useRef(false);
 
   const handleTouchStart = useCallback((chat: Chat) => {
     isLongPress.current = false;
+    touchMoved.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setLongPressChat(chat);
@@ -111,15 +113,17 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
-    // Only navigate if it wasn't a long press
-    if (!isLongPress.current) {
+    // Only navigate if it wasn't a long press AND user didn't scroll
+    if (!isLongPress.current && !touchMoved.current) {
       onSelectChat(chat.id);
     }
     isLongPress.current = false;
+    touchMoved.current = false;
   }, [onSelectChat]);
 
   const handleTouchMove = useCallback(() => {
-    // Cancel long press if user moves finger
+    // Mark that user is scrolling, so we don't trigger navigation on touch end
+    touchMoved.current = true;
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -161,13 +165,15 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       role="button"
       tabIndex={0}
       // Desktop: click to navigate
-      onClick={() => onSelectChat(chat.id)}
+      onClick={() => {
+        // On mobile, touch events handle navigation, so ignore click after touch
+        if (!touchMoved.current) {
+          onSelectChat(chat.id);
+        }
+      }}
       // Mobile: use touch events for long-press detection
       onTouchStart={() => handleTouchStart(chat)}
-      onTouchEnd={(e) => {
-        e.preventDefault(); // Prevent onClick from firing
-        handleTouchEnd(chat);
-      }}
+      onTouchEnd={() => handleTouchEnd(chat)}
       onTouchMove={handleTouchMove}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
