@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
+import { useAuth } from '@/lib/auth';
 
 interface CompactDashboardProps {
   isExpanded: boolean;
@@ -53,6 +54,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const { currentLocation } = useAppLocation();
   const { timezone, getTodayInTimezone: getTodayStr } = useLocationTimezone();
   const locationId = currentLocation?.id;
+  const { user } = useAuth();
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -104,28 +106,61 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
   }, [laborCuts, cutsSaved, laborCutsStorageKey]);
   
-  // Update time every second
+  // Update time every minute (no seconds needed)
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000);
+    }, 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // Lock body scroll when expanded to prevent background scrolling
+  useEffect(() => {
+    if (isExpanded) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isExpanded]);
+
   const todayStr = useMemo(() => getTodayStr(), [getTodayStr]);
   
-  // Format time in location timezone
+  // Fetch user profile for greeting
+  const { data: userProfile } = useQuery({
+    queryKey: ['compact-dash-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, profile_photo_url')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && isExpanded,
+  });
+
+  // Get first name for greeting
+  const firstName = useMemo(() => {
+    if (!userProfile?.full_name) return 'there';
+    return userProfile.full_name.split(' ')[0];
+  }, [userProfile?.full_name]);
+  
+  // Format time in location timezone (no seconds)
   const formattedTime = useMemo(() => {
     try {
       return new Intl.DateTimeFormat('en-US', {
         hour: 'numeric',
         minute: '2-digit',
-        second: '2-digit',
         hour12: true,
         timeZone: timezone,
       }).format(currentTime);
     } catch {
-      return format(currentTime, 'h:mm:ss a');
+      return format(currentTime, 'h:mm a');
     }
   }, [currentTime, timezone]);
 
@@ -352,10 +387,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const getPaceStatus = () => {
     if (totalSales < 100) return null;
     const pacePercent = projectedSales > 0 ? (paceAdjusted / projectedSales) * 100 : 0;
-    if (pacePercent >= 110) return { label: 'On Fire', icon: Flame, color: 'text-orange-500' };
-    if (pacePercent >= 105) return { label: 'Ahead', icon: TrendingUp, color: 'text-green-500' };
-    if (pacePercent >= 95) return { label: 'On Track', icon: Target, color: 'text-blue-500' };
-    return { label: 'Behind', icon: TrendingDown, color: 'text-red-500' };
+    if (pacePercent >= 110) return { label: 'On Fire', icon: Flame, color: 'text-orange-500', greeting: "It's pretty busy tonight" };
+    if (pacePercent >= 105) return { label: 'Ahead', icon: TrendingUp, color: 'text-green-500', greeting: "It's pretty busy tonight" };
+    if (pacePercent >= 95) return { label: 'On Track', icon: Target, color: 'text-blue-500', greeting: 'Things are looking steady today' };
+    return { label: 'Behind', icon: TrendingDown, color: 'text-red-500', greeting: "Today is pretty slow, might wanna save labor" };
   };
 
   const paceStatus = getPaceStatus();
@@ -536,14 +571,25 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
           {/* Content */}
           <div className="px-4 pb-safe overflow-y-auto" style={{ maxHeight: 'calc(75vh - 60px)' }}>
-            {/* Large Time Display */}
-            <div className="text-center mb-4">
-              <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums">
+            {/* Profile Greeting & Time */}
+            <div className="flex flex-col items-center mb-4">
+              <Avatar className="h-14 w-14 mb-2 ring-2 ring-accent-foreground/20">
+                <AvatarImage src={userProfile?.profile_photo_url || undefined} />
+                <AvatarFallback className="bg-primary/20 text-primary text-xl">
+                  {firstName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <h2 className="text-xl font-semibold text-accent-foreground">
+                Hey {firstName}
+              </h2>
+              <h1 className="text-4xl font-bold text-accent-foreground tracking-tight tabular-nums mt-1">
                 {formattedTime}
               </h1>
-              <p className="text-accent-foreground/60 text-xs mt-1">
-                {format(currentTime, 'EEEE, MMMM d')}
-              </p>
+              {paceStatus && (
+                <p className={cn("text-sm mt-2 text-center", paceStatus.color)}>
+                  {paceStatus.greeting}
+                </p>
+              )}
             </div>
 
             {/* Sales & Pace Cards */}
