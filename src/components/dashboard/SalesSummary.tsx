@@ -1316,7 +1316,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         current={salesData.daily} 
                         previous={salesData.comparison.prevDay} 
                         previousFullDay={salesData.comparison.prevDayFullDay}
-                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
+                        label={`by ${format(new Date(), 'ha').toLowerCase()} last ${format(targetDate, 'EEEE').slice(0, 3)}`}
                       />
                     </div>
                   )}
