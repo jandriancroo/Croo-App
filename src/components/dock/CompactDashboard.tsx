@@ -18,6 +18,7 @@ import {
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
+import { ProjectionIcon } from '@/components/ui/projection-tag';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -607,9 +608,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 <p className="text-2xl font-bold text-accent-foreground">
                   {formatCurrency(totalSales)}
                 </p>
-                <p className="text-accent-foreground/50 text-[10px] mt-0.5">
-                  of {formatCurrency(projectedSales)} projected
-                </p>
+                <div className="flex items-center gap-1 text-accent-foreground/50 text-[10px] mt-0.5">
+                  <span>of {formatCurrency(projectedSales)} projected</span>
+                  <ProjectionIcon source={resolvedProjection.source} className="text-accent-foreground" />
+                </div>
               </div>
 
               {/* Pace Card */}
