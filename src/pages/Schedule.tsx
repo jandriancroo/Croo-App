@@ -1673,7 +1673,7 @@ export default function Schedule() {
 
             {/* Events Section - show for all users */}
             <div className="border-b border-border">
-              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
+              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} isCompactMode={isCompactMode} />
             </div>
 
             {/* Shifts by User - Grouped by Role (filtered for team members) */}
