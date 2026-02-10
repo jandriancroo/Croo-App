@@ -567,8 +567,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-  if (!auth) {
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -593,8 +593,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
   for (const dateStr of dates) {
     totalAttempted++;
     const [hourly, pizzaCount] = await Promise.all([
-      fetchHourlySales(auth.tokenGw, dateStr, qbLocationId),
-      fetchProductMix(auth.tokenGw, dateStr, qbLocationId)
+      fetchHourlySales(tokenGw, dateStr, qbLocationId),
+      fetchProductMix(tokenGw, dateStr, qbLocationId)
     ]);
 
     const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
