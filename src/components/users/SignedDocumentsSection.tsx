@@ -209,7 +209,7 @@ export function SignedDocumentsSection({ userId }: SignedDocumentsSectionProps) 
                 )}
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </>
