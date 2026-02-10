@@ -58,7 +58,7 @@ interface UserProfile {
   is_active: boolean;
   appears_on_schedule: boolean;
   first_login_at: string | null;
-  last_login_at: string | null;
+  last_login_at?: string | null;
   app_version?: string | null;
   role?: AppRole;
   paid_hours?: number;
