@@ -52,8 +52,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Check if shift was trimmed by auto-scheduler
   const wasTrimmed = shift.was_trimmed && shift.original_end_time;
 
-  // Split position into two lines if it has exactly 2 words
-  const formatPosition = (pos: string) => {
+  // For non-template shifts with exactly 2 words, split into two lines
+  // For templates, always keep on one line to stay compact
+  const formatPosition = (pos: string, isTemplateCard: boolean) => {
+    if (isTemplateCard) return pos;
     const words = pos.split(' ');
     if (words.length === 2) {
       return (
