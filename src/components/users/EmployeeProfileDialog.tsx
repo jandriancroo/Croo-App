@@ -13,8 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
-import { SignedDocumentsSection } from '@/components/users/SignedDocumentsSection';
-import { WriteUpsSection } from '@/components/users/WriteUpsSection';
+import { EmployeeRecordsSection } from '@/components/users/EmployeeRecordsSection';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -781,11 +780,8 @@ export function EmployeeProfileDialog({
                 </div>
               </div>
 
-              {/* Write-Ups Section */}
-              {user && <WriteUpsSection userId={user.id} />}
-
-              {/* Signed Documents Section */}
-              {user && <SignedDocumentsSection userId={user.id} />}
+              {/* Employee Records (Write-Ups + Signed Documents) */}
+              {user && <EmployeeRecordsSection userId={user.id} />}
             </div>
           </div>
 
