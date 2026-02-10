@@ -67,7 +67,8 @@ export function LaborTotals({
   profiles,
   currentWeekStart,
   scheduleId,
-  isEditable = false
+  isEditable = false,
+  isCompactMode = false
 }: LaborTotalsProps) {
   const { canViewAllWages } = useUserRole();
   const { canSeeSales } = useTeamSalesVisibility();
