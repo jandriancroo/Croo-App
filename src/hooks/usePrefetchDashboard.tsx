@@ -189,7 +189,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
           return null;
         }
 
-        const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
+        const locationUserIds = new Set((userLocationsResult.data || []).filter(ul => ul.show_on_schedule !== false).map((ul) => ul.user_id));
         const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
         
         const profilesWithRoles = locationProfiles.map(profile => {
