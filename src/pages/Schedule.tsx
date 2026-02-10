@@ -1509,7 +1509,7 @@ export default function Schedule() {
           isLoading={loading}
         />
       ) : (
-        <div className="pb-20">
+        <div className="pb-56">
         <DndContext 
           sensors={isTeamMemberDesktopView ? emptySensors : activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart} 
