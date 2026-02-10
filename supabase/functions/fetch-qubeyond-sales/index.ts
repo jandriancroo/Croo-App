@@ -2182,7 +2182,7 @@ serve(async (req) => {
       
       const { data: integration, error } = await supabase
         .from('location_integrations')
-        .select('credentials, is_active')
+        .select('id, credentials, is_active, cached_token_gw, token_expires_at')
         .eq('location_id', locationId)
         .eq('integration_type', 'qubeyond')
         .single();
