@@ -138,7 +138,7 @@ export function SignedDocumentsSection({ userId }: SignedDocumentsSectionProps) 
 
       {/* Document Detail Dialog */}
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
@@ -146,7 +146,7 @@ export function SignedDocumentsSection({ userId }: SignedDocumentsSectionProps) 
             </DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 -mx-6 px-6 overflow-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
             <div className="space-y-4 pb-4">
               {/* Document Info */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
