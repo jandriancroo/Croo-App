@@ -170,7 +170,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
         const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
           supabase
             .from("user_locations")
-            .select("user_id")
+            .select("user_id, show_on_schedule")
             .eq("location_id", locationId),
           supabase
             .from("profiles")
