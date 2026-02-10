@@ -43,7 +43,7 @@ interface SignedDocument {
   };
 }
 
-export function EmployeeRecordsSection({ userId }: EmployeeRecordsSectionProps) {
+export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: EmployeeRecordsSectionProps) {
   const [selectedWriteUp, setSelectedWriteUp] = useState<WriteUp | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<SignedDocument | null>(null);
 
