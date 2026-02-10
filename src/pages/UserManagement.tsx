@@ -1413,6 +1413,17 @@ export default function UserManagement() {
                         </TableCell>
                       )}
                       <TableCell className="hidden md:table-cell">
+                        {user.last_login_at ? (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <br />
+                            {new Date(user.last_login_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Never</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center justify-center">
                           {user.has_certification ? (
                             <Check className="h-5 w-5 text-green-500" />
