@@ -421,8 +421,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
     console.log(`${locationName}: Syncing live sales with QuBeyond location_id=${qbLocationId}...`);
 
-    const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-    if (!auth) {
+    const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+    if (!tokenGw) {
       console.error(`${locationName}: Authentication failed`);
       results.push({ locationId, name: locationName, status: 'auth_failed' });
       continue;
@@ -430,8 +430,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
     const [hourlyData, pizzaCount] = await Promise.all([
-      fetchHourlySales(auth.tokenGw, todayStr, qbLocationId),
-      fetchProductMix(auth.tokenGw, todayStr, qbLocationId)
+      fetchHourlySales(tokenGw, todayStr, qbLocationId),
+      fetchProductMix(tokenGw, todayStr, qbLocationId)
     ]);
     
     const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
