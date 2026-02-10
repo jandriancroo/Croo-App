@@ -862,7 +862,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }
     
     // If locationSettings is still loading (undefined) or business hours aren't configured,
-    // keep the raw hourly data visible rather than hiding it
+    // keep the raw hourly data visible but convert to 12-hour format
+    if (rawSalesData.hourly) {
+      const converted = rawSalesData.hourly.map(h => ({
+        ...h,
+        hour: h.hour.includes('AM') || h.hour.includes('PM') || h.hour.includes('am') || h.hour.includes('pm')
+          ? h.hour
+          : formatTime12Hour(h.hour),
+      }));
+      return { ...rawSalesData, hourly: converted };
+    }
     return rawSalesData;
   }, [rawSalesData, locationSettings]);
 
