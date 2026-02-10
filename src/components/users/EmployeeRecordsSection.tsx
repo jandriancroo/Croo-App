@@ -285,7 +285,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
 
       {/* Document Detail Dialog */}
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
