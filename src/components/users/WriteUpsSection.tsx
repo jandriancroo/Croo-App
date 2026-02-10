@@ -69,34 +69,31 @@ export function WriteUpsSection({ userId }: WriteUpsSectionProps) {
           </Badge>
         </div>
 
-        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {writeUps.map((wu) => (
             <button
               key={wu.id}
               onClick={() => setSelectedWriteUp(wu)}
-              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+              className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-center"
             >
-              <div className="flex-shrink-0">
-                {wu.signed_at ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Clock className="h-4 w-4 text-amber-500" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium truncate">{wu.reason}</span>
-                  {wu.is_final_warning && (
-                    <Badge variant="destructive" className="text-[10px] px-1 py-0">Final</Badge>
+              <div className="relative">
+                <div className="w-12 h-14 bg-background rounded border border-border flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-destructive" />
+                </div>
+                <div className={`absolute -bottom-1 -right-1 rounded-full p-0.5 ${wu.signed_at ? 'bg-green-500' : 'bg-amber-500'}`}>
+                  {wu.signed_at ? (
+                    <CheckCircle2 className="h-3 w-3 text-white" />
+                  ) : (
+                    <Clock className="h-3 w-3 text-white" />
                   )}
                 </div>
+              </div>
+              <div className="w-full">
+                <p className="text-xs font-medium truncate">{wu.reason}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {format(new Date(wu.created_at), "MMM d, yyyy")} • {wu.created_by_profile?.full_name || "Manager"}
+                  {format(new Date(wu.created_at), "MMM d, yyyy")}
                 </p>
               </div>
-              <Badge variant={wu.signed_at ? "secondary" : "outline"} className="text-[10px] flex-shrink-0">
-                {wu.signed_at ? "Signed" : "Pending"}
-              </Badge>
             </button>
           ))}
         </div>
