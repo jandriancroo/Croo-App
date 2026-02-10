@@ -57,7 +57,7 @@ function isWithinBusinessHours(
 async function authenticateQuBeyond(
   username: string,
   password: string,
-): Promise<{ tokenGw: string } | null> {
+): Promise<{ tokenGw: string; expiresAt: string } | null> {
   console.log(`[sales-service] Authenticating with QuBeyond for ${username}...`);
 
   try {
@@ -96,12 +96,59 @@ async function authenticateQuBeyond(
       return null;
     }
 
-    console.log(`[sales-service] Auth OK`);
-    return { tokenGw };
+    // Extract expiry from JWT (default to 4 hours if not present)
+    const exp = jwtPayload?.exp as number | undefined;
+    const expiresAt = exp 
+      ? new Date(exp * 1000).toISOString() 
+      : new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+
+    console.log(`[sales-service] Auth OK, expires at ${expiresAt}`);
+    return { tokenGw, expiresAt };
   } catch (error) {
     console.error('[sales-service] Authentication error:', error);
     return null;
   }
+}
+
+// Get cached token or refresh if expired (5-min buffer)
+async function getOrRefreshToken(
+  supabase: any,
+  integrationId: string,
+  username: string,
+  password: string
+): Promise<string | null> {
+  // Check for cached token
+  const { data: row } = await supabase
+    .from('location_integrations')
+    .select('cached_token_gw, token_expires_at')
+    .eq('id', integrationId)
+    .single();
+
+  if (row?.cached_token_gw && row?.token_expires_at) {
+    const expiresAt = new Date(row.token_expires_at).getTime();
+    const bufferMs = 5 * 60 * 1000; // 5 minutes
+    if (Date.now() < expiresAt - bufferMs) {
+      console.log(`[sales-service] Using cached token (expires ${row.token_expires_at})`);
+      return row.cached_token_gw;
+    }
+    console.log(`[sales-service] Cached token expired or expiring soon, re-authenticating`);
+  }
+
+  // Authenticate fresh
+  const auth = await authenticateQuBeyond(username, password);
+  if (!auth) return null;
+
+  // Save to DB (fire-and-forget)
+  supabase
+    .from('location_integrations')
+    .update({ cached_token_gw: auth.tokenGw, token_expires_at: auth.expiresAt })
+    .eq('id', integrationId)
+    .then(({ error }: any) => {
+      if (error) console.error('[sales-service] Failed to cache token:', error.message);
+      else console.log('[sales-service] Token cached successfully');
+    });
+
+  return auth.tokenGw;
 }
 
 function convertTo24Hour(time12h: string): string {
@@ -374,8 +421,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
     console.log(`${locationName}: Syncing live sales with QuBeyond location_id=${qbLocationId}...`);
 
-    const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-    if (!auth) {
+    const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+    if (!tokenGw) {
       console.error(`${locationName}: Authentication failed`);
       results.push({ locationId, name: locationName, status: 'auth_failed' });
       continue;
@@ -383,8 +430,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
     const [hourlyData, pizzaCount] = await Promise.all([
-      fetchHourlySales(auth.tokenGw, todayStr, qbLocationId),
-      fetchProductMix(auth.tokenGw, todayStr, qbLocationId)
+      fetchHourlySales(tokenGw, todayStr, qbLocationId),
+      fetchProductMix(tokenGw, todayStr, qbLocationId)
     ]);
     
     const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
@@ -489,7 +536,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   const { data: integration, error: intError } = await supabase
     .from('location_integrations')
-    .select('credentials')
+    .select('id, credentials')
     .eq('location_id', locationId)
     .eq('integration_type', 'qubeyond')
     .eq('is_active', true)
@@ -520,8 +567,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] backfill: ${locationId}, daysBack=${daysBack}`);
 
-  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-  if (!auth) {
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -546,8 +593,8 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
   for (const dateStr of dates) {
     totalAttempted++;
     const [hourly, pizzaCount] = await Promise.all([
-      fetchHourlySales(auth.tokenGw, dateStr, qbLocationId),
-      fetchProductMix(auth.tokenGw, dateStr, qbLocationId)
+      fetchHourlySales(tokenGw, dateStr, qbLocationId),
+      fetchProductMix(tokenGw, dateStr, qbLocationId)
     ]);
 
     const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
@@ -647,7 +694,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   const { data: integration, error: intError } = await supabase
     .from('location_integrations')
-    .select('credentials')
+    .select('id, credentials')
     .eq('location_id', locationId)
     .eq('integration_type', 'qubeyond')
     .eq('is_active', true)
@@ -679,8 +726,8 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
 
-  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-  if (!auth) {
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -688,8 +735,8 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
   }
 
   const [hourly, pizzaCount] = await Promise.all([
-    fetchHourlySales(auth.tokenGw, date, qbLocationId),
-    fetchProductMix(auth.tokenGw, date, qbLocationId)
+    fetchHourlySales(tokenGw, date, qbLocationId),
+    fetchProductMix(tokenGw, date, qbLocationId)
   ]);
 
   const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);

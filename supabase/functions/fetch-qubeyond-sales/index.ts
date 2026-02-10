@@ -2172,6 +2172,7 @@ serve(async (req) => {
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
     let hoursClose = 22;
+    let integration: any = null;
     
     if (testCredentials) {
       credentials = testCredentials;
@@ -2180,12 +2181,13 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
       
-      const { data: integration, error } = await supabase
+      const { data: integrationData, error } = await supabase
         .from('location_integrations')
-        .select('credentials, is_active')
+        .select('id, credentials, is_active, cached_token_gw, token_expires_at')
         .eq('location_id', locationId)
         .eq('integration_type', 'qubeyond')
         .single();
+      integration = integrationData;
       
       if (error || !integration) {
         console.log('No integration found for location:', locationId);
@@ -2247,56 +2249,98 @@ serve(async (req) => {
       throw new Error('QuBeyond credentials not configured');
     }
 
-    console.log('Starting QuBeyond authentication with user:', credentials.username);
-
-    const loginPayload = {
-      payload: {
-        username: credentials.username,
-        password: credentials.password,
-        captchaToken: ''
-      }
-    };
+    // --- Token caching: reuse cached tokenGw if still valid ---
+    const supabaseForCache = locationId 
+      ? createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+      : null;
+    const integrationId = (integration as any)?.id;
     
-    const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/plain, */*',
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/login',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      body: JSON.stringify(loginPayload),
-    });
+    let tokenGw: string | undefined;
+    let jwtPayload: any = {};
+    let bearerToken: string | undefined;
 
-    if (!loginResponse.ok) {
-      const errorBody = await loginResponse.text();
-      console.error('Login failed with status:', loginResponse.status);
-      console.error('Login error body:', errorBody);
-      
-      if (loginResponse.status === 429 || errorBody.toLowerCase().includes('rate') || errorBody.toLowerCase().includes('limit')) {
-        throw new Error('Rate limited by QuBeyond API. Please try again in a few minutes.');
+    // Check for cached token first (only for location-based calls, not testCredentials)
+    if (!testCredentials && integrationId && integration?.cached_token_gw && integration?.token_expires_at) {
+      const expiresAt = new Date(integration.token_expires_at).getTime();
+      const bufferMs = 5 * 60 * 1000; // 5 min buffer
+      if (Date.now() < expiresAt - bufferMs) {
+        tokenGw = integration.cached_token_gw;
+        console.log(`Using cached tokenGw (expires ${integration.token_expires_at})`);
+      } else {
+        console.log('Cached token expired or expiring soon, re-authenticating');
       }
-      
-      throw new Error(`QuBeyond login failed (${loginResponse.status}): ${errorBody.substring(0, 200)}`);
     }
 
-    const loginData = await loginResponse.json();
-    if (!loginData.token) throw new Error('No token in login response');
+    // If no cached token, do fresh login
+    if (!tokenGw) {
+      console.log('Starting QuBeyond authentication with user:', credentials.username);
 
-    const jwtPayload = decodeJwtPayload(loginData.token);
-    const tokenGw = jwtPayload.tokenGw;
-    if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
+      const loginPayload = {
+        payload: {
+          username: credentials.username,
+          password: credentials.password,
+          captchaToken: ''
+        }
+      };
+      
+      const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+          'Origin': 'https://admin.qubeyond.com',
+          'Referer': 'https://admin.qubeyond.com/login',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        body: JSON.stringify(loginPayload),
+      });
 
-    console.log('JWT payload keys:', Object.keys(jwtPayload));
-    console.log('JWT payload:', JSON.stringify(jwtPayload, null, 2));
+      if (!loginResponse.ok) {
+        const errorBody = await loginResponse.text();
+        console.error('Login failed with status:', loginResponse.status);
+        console.error('Login error body:', errorBody);
+        
+        if (loginResponse.status === 429 || errorBody.toLowerCase().includes('rate') || errorBody.toLowerCase().includes('limit')) {
+          throw new Error('Rate limited by QuBeyond API. Please try again in a few minutes.');
+        }
+        
+        throw new Error(`QuBeyond login failed (${loginResponse.status}): ${errorBody.substring(0, 200)}`);
+      }
+
+      const loginData = await loginResponse.json();
+      if (!loginData.token) throw new Error('No token in login response');
+
+      jwtPayload = decodeJwtPayload(loginData.token);
+      tokenGw = jwtPayload.tokenGw;
+      bearerToken = loginData.token;
+      if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
+
+      console.log('JWT payload keys:', Object.keys(jwtPayload));
+
+      // Cache the token for future calls
+      if (supabaseForCache && integrationId) {
+        const exp = jwtPayload?.exp as number | undefined;
+        const expiresAt = exp 
+          ? new Date(exp * 1000).toISOString() 
+          : new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+        
+        supabaseForCache
+          .from('location_integrations')
+          .update({ cached_token_gw: tokenGw, token_expires_at: expiresAt })
+          .eq('id', integrationId)
+          .then(({ error: cacheErr }: any) => {
+            if (cacheErr) console.error('Failed to cache token:', cacheErr.message);
+            else console.log(`Token cached, expires ${expiresAt}`);
+          });
+      }
+    }
 
     // Handle location_id being a number or string in credentials
     let qbLocationId = credentials.location_id?.toString() || (credentials as any)['location_id']?.toString();
     
     console.log('Raw credentials.location_id:', credentials.location_id, 'Type:', typeof credentials.location_id);
     
-    if (!qbLocationId) {
+    if (!qbLocationId && jwtPayload) {
       qbLocationId = jwtPayload.locationId || jwtPayload.location_id || 
                      jwtPayload.storeId || jwtPayload.store_id ||
                      jwtPayload.singleLocation || jwtPayload.defaultLocation;
@@ -2310,8 +2354,7 @@ serve(async (req) => {
     }
     
     // Extract company ID for admin API calls (payment types)
-    const companyId = jwtPayload.CompanyId || jwtPayload.companyId || '';
-    const bearerToken = loginData.token; // Used for admin.qubeyond.com endpoints
+    const companyId = jwtPayload?.CompanyId || jwtPayload?.companyId || '';
     
     console.log('Using QuBeyond location ID:', qbLocationId);
     console.log('Using Company ID:', companyId);
