@@ -417,7 +417,11 @@ export function EmployeeProfileDialog({
       if (userLocations.length > 0) {
         const { error: insertError } = await supabase
           .from('user_locations')
-          .insert(userLocations.map(locationId => ({ user_id: user.id, location_id: locationId })));
+          .insert(userLocations.map(locationId => ({ 
+            user_id: user.id, 
+            location_id: locationId,
+            show_on_schedule: locationScheduleVisibility[locationId] !== false
+          })));
 
         if (insertError) throw insertError;
       }
