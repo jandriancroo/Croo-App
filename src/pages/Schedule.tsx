@@ -1574,7 +1574,7 @@ export default function Schedule() {
                         <Wrench className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-background">
+                    <DropdownMenuContent align="end" className="bg-background z-[60]">
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />
                         View Availability
