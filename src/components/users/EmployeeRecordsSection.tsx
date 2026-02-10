@@ -2,14 +2,17 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, CheckCircle2, Clock, FileText, FolderOpen } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Download, FileText, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
+import { exportRecordToPdf } from "@/utils/exportRecordPdf";
 
 interface EmployeeRecordsSectionProps {
   userId: string;
+  employeeName?: string;
 }
 
 interface WriteUp {
