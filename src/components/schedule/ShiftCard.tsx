@@ -52,14 +52,15 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Check if shift was trimmed by auto-scheduler
   const wasTrimmed = shift.was_trimmed && shift.original_end_time;
 
-  // Split position into two lines if it has exactly 2 words
+  // Split position into two lines at the midpoint for multi-word names
   const formatPosition = (pos: string) => {
     const words = pos.split(' ');
-    if (words.length === 2) {
+    if (words.length >= 2) {
+      const mid = Math.ceil(words.length / 2);
       return (
         <>
-          <div>{words[0]}</div>
-          <div>{words[1]}</div>
+          <div>{words.slice(0, mid).join(' ')}</div>
+          <div>{words.slice(mid).join(' ')}</div>
         </>
       );
     }
