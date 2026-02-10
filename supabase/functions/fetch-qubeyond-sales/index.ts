@@ -2181,12 +2181,13 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
       
-      const { data: integration, error } = await supabase
+      const { data: integrationData, error } = await supabase
         .from('location_integrations')
         .select('id, credentials, is_active, cached_token_gw, token_expires_at')
         .eq('location_id', locationId)
         .eq('integration_type', 'qubeyond')
         .single();
+      integration = integrationData;
       
       if (error || !integration) {
         console.log('No integration found for location:', locationId);
