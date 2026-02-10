@@ -99,7 +99,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         />
       )}
       <div className="relative z-10 text-center">
-        <div className={`text-white font-semibold leading-tight flex items-center gap-1 justify-center ${isCompactMode ? 'text-xs' : 'text-[10px] lg:text-xs'}`}>
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 justify-center whitespace-nowrap ${isCompactMode ? 'text-xs' : 'text-[10px] lg:text-xs'}`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
