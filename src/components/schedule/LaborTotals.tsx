@@ -635,7 +635,7 @@ export function LaborTotals({
           </div>
 
       {/* Labor Percentage Row */}
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
+      <div className={`grid ${isCompactMode ? 'grid-cols-[80px_repeat(7,1fr)] md:grid-cols-[100px_repeat(7,1fr)] lg:grid-cols-[120px_repeat(7,1fr)] xl:grid-cols-[140px_repeat(7,1fr)]' : 'grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]'} gap-0 border-b border-border`}>
         <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
           <span className="text-xs font-semibold">Labor %</span>
           {weeklyTotals.sales > 0 ? <span className={`text-xs font-bold ${weeklyTotals.laborPercent <= 30 ? 'text-green-600' : weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
