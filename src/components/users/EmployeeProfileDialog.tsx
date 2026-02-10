@@ -194,7 +194,7 @@ export function EmployeeProfileDialog({
       const [locResult, profileResult] = await Promise.all([
         supabase
           .from('user_locations')
-          .select('location_id')
+          .select('location_id, show_on_schedule')
           .eq('user_id', userId),
         supabase
           .from('profiles')
@@ -205,6 +205,11 @@ export function EmployeeProfileDialog({
 
       if (locResult.error) throw locResult.error;
       setUserLocations(locResult.data?.map(ul => ul.location_id) || []);
+      const visibilityMap: Record<string, boolean> = {};
+      locResult.data?.forEach(ul => {
+        visibilityMap[ul.location_id] = ul.show_on_schedule !== false;
+      });
+      setLocationScheduleVisibility(visibilityMap);
       setAllLocationsEnabled(profileResult.data?.all_locations_enabled || false);
     } catch (error) {
       console.error('Error fetching user locations:', error);
