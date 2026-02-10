@@ -287,37 +287,37 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                {selectedDoc?.document?.title || "Document"}
-              </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={() => {
-                  if (!selectedDoc) return;
-                  exportRecordToPdf({
-                    type: "document",
-                    employeeName,
-                    title: selectedDoc.document?.title || "Document",
-                    items: documentItems.map((item) => ({
-                      content: item.content,
-                      children: item.children?.map((c: any) => ({ content: c.content })),
-                    })),
-                    signatureUrl: selectedDoc.signature_url,
-                    signedAt: selectedDoc.signed_at,
-                    createdAt: selectedDoc.document?.created_at || "",
-                    createdByName: selectedDoc.document?.created_by_profile?.full_name,
-                  });
-                }}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export PDF
-              </Button>
-            </div>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {selectedDoc?.document?.title || "Document"}
+            </DialogTitle>
           </DialogHeader>
+          <div className="flex justify-end -mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={() => {
+                if (!selectedDoc) return;
+                exportRecordToPdf({
+                  type: "document",
+                  employeeName,
+                  title: selectedDoc.document?.title || "Document",
+                  items: documentItems.map((item) => ({
+                    content: item.content,
+                    children: item.children?.map((c: any) => ({ content: c.content })),
+                  })),
+                  signatureUrl: selectedDoc.signature_url,
+                  signedAt: selectedDoc.signed_at,
+                  createdAt: selectedDoc.document?.created_at || "",
+                  createdByName: selectedDoc.document?.created_by_profile?.full_name,
+                });
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export PDF
+            </Button>
+          </div>
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <div className="space-y-4 pb-4">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
