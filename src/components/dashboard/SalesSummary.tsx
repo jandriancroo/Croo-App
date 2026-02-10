@@ -861,11 +861,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return { ...rawSalesData, hourly: completeHourly };
     }
     
-    // If locationSettings is still loading (undefined), keep raw hourly data visible
-    // Only hide hourly when locationSettings is explicitly null (no hours configured)
-    if (locationSettings === undefined) return rawSalesData;
-    if (!rawSalesData.hourly) return rawSalesData;
-    return { ...rawSalesData, hourly: undefined };
+    // If locationSettings is still loading (undefined) or business hours aren't configured,
+    // keep the raw hourly data visible rather than hiding it
+    return rawSalesData;
   }, [rawSalesData, locationSettings]);
 
   // NOTE: Pace-adjusted values for data cubes are calculated below after useMemo hooks
