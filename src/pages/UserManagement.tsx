@@ -1315,7 +1315,7 @@ export default function UserManagement() {
                     {isSuperAdmin && (
                       <TableHead className="hidden md:table-cell">Version</TableHead>
                     )}
-                    
+                    <TableHead className="hidden md:table-cell">Last Login</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
                   </TableRow>
                 </TableHeader>
