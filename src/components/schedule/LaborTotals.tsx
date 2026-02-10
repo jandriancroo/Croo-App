@@ -43,6 +43,7 @@ interface LaborTotalsProps {
   currentWeekStart: Date;
   scheduleId?: string | null;
   isEditable?: boolean;
+  isCompactMode?: boolean;
 }
 
 // Fetch wages for a specific user+date combo
