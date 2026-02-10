@@ -155,6 +155,7 @@ export function EmployeeProfileDialog({
   const [appearsOnSchedule, setAppearsOnSchedule] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [userLocations, setUserLocations] = useState<string[]>([]);
+  const [locationScheduleVisibility, setLocationScheduleVisibility] = useState<Record<string, boolean>>({});
   const [allLocationsEnabled, setAllLocationsEnabled] = useState(false);
 
   // Notes state
