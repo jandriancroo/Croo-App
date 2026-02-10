@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { AlertTriangle, CheckCircle2, Clock, Download, FileText, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
 import { exportRecordToPdf } from "@/utils/exportRecordPdf";
@@ -186,7 +186,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
 
       {/* Write-Up Detail Dialog */}
       <Dialog open={!!selectedWriteUp} onOpenChange={(open) => !open && setSelectedWriteUp(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
               )}
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             {selectedWriteUp && (
               <div className="space-y-4 pb-4">
                 <div className="flex items-center justify-between text-sm text-muted-foreground flex-wrap gap-2">
@@ -279,13 +279,13 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
                 </div>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Document Detail Dialog */}
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="flex items-center gap-2">
@@ -318,7 +318,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
               </Button>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <div className="space-y-4 pb-4">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
@@ -366,7 +366,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
                 )}
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
     </>
