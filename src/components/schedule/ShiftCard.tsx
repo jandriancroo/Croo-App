@@ -52,10 +52,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Check if shift was trimmed by auto-scheduler
   const wasTrimmed = shift.was_trimmed && shift.original_end_time;
 
-  // For non-template shifts with exactly 2 words, split into two lines
-  // For templates, always keep on one line to stay compact
-  const formatPosition = (pos: string, isTemplateCard: boolean) => {
-    if (isTemplateCard) return pos;
+  // Split position into two lines if it has exactly 2 words
+  const formatPosition = (pos: string) => {
     const words = pos.split(' ');
     if (words.length === 2) {
       return (
@@ -87,7 +85,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} ${shift.isTemplate ? '' : 'flex-1'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} flex-1 flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -118,10 +116,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition, true)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position, false)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position)}</div>
         )}
         {!isCompactMode && shift.is_time_off && <div className="text-white text-xs lg:text-sm font-medium text-center">TIME OFF</div>}
       </div>

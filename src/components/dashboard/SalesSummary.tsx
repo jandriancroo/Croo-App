@@ -1126,7 +1126,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         <span className={isPositive ? "text-green-500" : "text-red-500"}>
           {isPositive ? "+" : ""}{change.toFixed(1)}%
         </span>
-        <span className="text-muted-foreground">vs {label}</span>
+        <span className="text-muted-foreground hidden sm:inline">vs {label}</span>
       </div>
     );
   };

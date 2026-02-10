@@ -340,20 +340,6 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     // Get hourly data from sales_cache
     const hourlyArray = (salesData?.hourly_data as unknown as { hour?: string; projected?: number }[] | null) || [];
     
-    // Find the last hour with data (indicates store close time)
-    let lastDataHour = 0;
-    hourlyArray.forEach(h => {
-      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      if (hourNum > lastDataHour) {
-        lastDataHour = hourNum;
-      }
-    });
-    
-    // If current hour is past the last data hour, store is closed - pace = actuals
-    if (tzHour > lastDataHour && totalSales > 0) {
-      return totalSales;
-    }
-    
     // Calculate remaining projection from hourly data
     let remainingProjected = 0;
     hourlyArray.forEach(h => {
@@ -367,9 +353,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       return totalSales + remainingProjected;
     }
     
-    // If no remaining projections but still during business hours, use actual sales
-    if (totalSales > 0) {
-      return totalSales;
+    // If no projections, use MAX(actual, goal)
+    if (totalSales > 0 && projectedSales > 0) {
+      return Math.max(totalSales, projectedSales);
     }
     
     return projectedSales;

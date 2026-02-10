@@ -371,11 +371,6 @@ All colors MUST be HSL.
   --chart-6: 20 25% 35%;
 }
 
-/* ============================================
-   Global Frosted Glass UI (Buttons, Selectors, Dock)
-   Applied to ALL themes
-   ============================================ */
-
 @layer base {
   * {
     @apply border-border;
@@ -530,17 +525,17 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Mobile dock - frosted glass style (all themes) */
+  /* Mobile dock - flat neumorphic style */
   .glass-dock {
     position: relative;
-    background: hsl(var(--accent) / 0.88);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    background: hsl(var(--accent));
     border: none;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 
-      0 -4px 20px hsl(var(--accent) / 0.25),
-      inset 0 1px 0 hsl(0 0% 100% / 0.18);
+      0 -3px 8px hsl(0 0% 0% / 0.2),
+      8px 8px 20px hsl(0 0% 0% / 0.15),
+      -4px -4px 12px hsl(0 0% 100% / 0.08),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
     overflow: hidden;
     /* Prevent dock from moving during scroll/address bar changes */
     -webkit-transform: translateZ(0);
@@ -549,7 +544,7 @@ All colors MUST be HSL.
     backface-visibility: hidden;
   }
   
-  /* Remove gradient overlays - frosted look */
+  /* Remove gradient overlays - flat look */
   .glass-dock::before {
     display: none;
   }
@@ -559,35 +554,35 @@ All colors MUST be HSL.
     content: '';
     position: absolute;
     inset: 0;
-    border-top: 1px solid hsl(0 0% 100% / 0.2);
+    border-top: 1px solid hsl(0 0% 100% / 0.15);
     border-radius: inherit;
     pointer-events: none;
   }
   
   .dark .glass-dock {
-    background: hsl(var(--accent) / 0.82);
-    backdrop-filter: blur(45px) saturate(160%);
-    -webkit-backdrop-filter: blur(45px) saturate(160%);
+    background: hsl(var(--accent));
     box-shadow: 
-      0 -4px 24px hsl(0 0% 0% / 0.35),
-      inset 0 1px 0 hsl(0 0% 100% / 0.12);
-  }
-  
-  .dark .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.15);
-  }
-  
-  [data-theme="oled"] .glass-dock {
-    background: hsl(var(--accent) / 0.78);
-    backdrop-filter: blur(50px) saturate(150%);
-    -webkit-backdrop-filter: blur(50px) saturate(150%);
-    box-shadow: 
-      0 -4px 28px hsl(0 0% 0% / 0.5),
+      0 -3px 10px hsl(0 0% 0% / 0.35),
+      8px 8px 20px hsl(0 0% 0% / 0.25),
+      -4px -4px 12px hsl(0 0% 100% / 0.05),
       inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
   
-  [data-theme="oled"] .glass-dock::after {
+  .dark .glass-dock::after {
     border-top-color: hsl(0 0% 100% / 0.1);
+  }
+  
+  [data-theme="oled"] .glass-dock {
+    background: hsl(var(--accent));
+    box-shadow: 
+      0 -4px 12px hsl(0 0% 0% / 0.5),
+      8px 8px 20px hsl(0 0% 0% / 0.35),
+      -4px -4px 12px hsl(0 0% 100% / 0.03),
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
+  }
+  
+  [data-theme="oled"] .glass-dock::after {
+    border-top-color: hsl(0 0% 100% / 0.08);
   }
 
   /* Neumorphic shadow utilities */
@@ -644,33 +639,7 @@ All colors MUST be HSL.
       8px 8px 20px hsl(0 0% 0% / 0.4),
       -4px -4px 12px hsl(0 0% 100% / 0.03);
   }
-
-  /* ============================================
-     Global Frosted Glass Buttons (All Themes)
-     ============================================ */
   
-  /* Button frosted glass effect - applies to actual button elements only */
-  button.bg-primary,
-  [role="button"].bg-primary {
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.15);
-  }
-  
-  button.bg-secondary,
-  [role="button"].bg-secondary {
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.12);
-  }
-  
-  button.bg-accent,
-  [role="button"].bg-accent {
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.15);
-  }
-
   /* Fixed mobile dock container - sits at true bottom */
   .mobile-dock-container {
     position: fixed;
@@ -995,311 +964,5 @@ All colors MUST be HSL.
     perspective: 1000px;
     filter: blur(1px);
     will-change: transform;
-  }
-
-  /* ============================================
-     visionOS / Apple Vision Pro Glass Styles
-     ============================================ */
-  
-  /* Base glass card - frosted glass effect */
-  .vision-glass-card {
-    background: hsl(var(--card) / 0.65);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: 
-      0 8px 32px hsl(220 25% 10% / 0.08),
-      0 2px 8px hsl(220 25% 10% / 0.04),
-      inset 0 1px 0 hsl(0 0% 100% / 0.15);
-  }
-
-  .dark .vision-glass-card {
-    background: hsl(var(--card) / 0.55);
-    border: 1px solid hsl(var(--border) / 0.4);
-    box-shadow: 
-      0 8px 32px hsl(0 0% 0% / 0.3),
-      0 2px 8px hsl(0 0% 0% / 0.2),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
-  }
-
-  /* Glass button */
-  .vision-glass-button {
-    background: hsl(var(--muted) / 0.5);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: 
-      0 2px 8px hsl(220 25% 10% / 0.06),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-    transition: all 0.2s ease;
-  }
-
-  .vision-glass-button:hover {
-    background: hsl(var(--muted) / 0.7);
-    box-shadow: 
-      0 4px 12px hsl(220 25% 10% / 0.1),
-      inset 0 1px 0 hsl(0 0% 100% / 0.25);
-  }
-
-  .vision-glass-button:active {
-    transform: scale(0.97);
-  }
-
-  .dark .vision-glass-button {
-    background: hsl(var(--muted) / 0.4);
-    border: 1px solid hsl(var(--border) / 0.5);
-    box-shadow: 
-      0 2px 8px hsl(0 0% 0% / 0.2),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
-  }
-
-  .dark .vision-glass-button:hover {
-    background: hsl(var(--muted) / 0.6);
-  }
-
-  /* Accent (orange) glass button */
-  .vision-glass-button-accent {
-    background: hsl(var(--accent) / 0.85);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid hsl(var(--accent) / 0.5);
-    box-shadow: 
-      0 2px 12px hsl(var(--accent) / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-    color: hsl(var(--accent-foreground));
-    transition: all 0.2s ease;
-  }
-
-  .vision-glass-button-accent:hover {
-    background: hsl(var(--accent) / 0.95);
-    box-shadow: 
-      0 4px 16px hsl(var(--accent) / 0.4),
-      inset 0 1px 0 hsl(0 0% 100% / 0.25);
-  }
-
-  /* Destructive glass button */
-  .vision-glass-button-destructive {
-    background: hsl(var(--destructive) / 0.85);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid hsl(var(--destructive) / 0.5);
-    box-shadow: 
-      0 2px 12px hsl(var(--destructive) / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-    color: hsl(var(--destructive-foreground));
-    transition: all 0.2s ease;
-  }
-
-  .vision-glass-button-destructive:hover {
-    background: hsl(var(--destructive) / 0.95);
-    box-shadow: 
-      0 4px 16px hsl(var(--destructive) / 0.4),
-      inset 0 1px 0 hsl(0 0% 100% / 0.25);
-  }
-
-  /* Primary glass button */
-  .vision-glass-button-primary {
-    background: hsl(var(--primary) / 0.85);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid hsl(var(--primary) / 0.5);
-    box-shadow: 
-      0 2px 12px hsl(var(--primary) / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-    color: hsl(var(--primary-foreground));
-    transition: all 0.2s ease;
-  }
-
-  .vision-glass-button-primary:hover {
-    background: hsl(var(--primary) / 0.95);
-    box-shadow: 
-      0 4px 16px hsl(var(--primary) / 0.4),
-      inset 0 1px 0 hsl(0 0% 100% / 0.25);
-  }
-
-  /* Segmented control container */
-  .vision-glass-segmented {
-    background: hsl(var(--muted) / 0.4);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: inset 0 1px 2px hsl(220 25% 10% / 0.05);
-  }
-
-  .dark .vision-glass-segmented {
-    background: hsl(var(--muted) / 0.3);
-    border: 1px solid hsl(var(--border) / 0.4);
-  }
-
-  /* Glass chip / filter button */
-  .vision-glass-chip {
-    background: hsl(var(--muted) / 0.3);
-    backdrop-filter: blur(16px) saturate(150%);
-    -webkit-backdrop-filter: blur(16px) saturate(150%);
-    border: 1px solid hsl(var(--border) / 0.25);
-    transition: all 0.2s ease;
-  }
-
-  .vision-glass-chip:hover {
-    background: hsl(var(--muted) / 0.5);
-  }
-
-  .dark .vision-glass-chip {
-    background: hsl(var(--muted) / 0.25);
-    border: 1px solid hsl(var(--border) / 0.35);
-  }
-
-  /* Date navigator */
-  .vision-glass-date-nav {
-    background: hsl(var(--muted) / 0.4);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
-    border: 1px solid hsl(var(--border) / 0.3);
-    box-shadow: 0 2px 8px hsl(220 25% 10% / 0.05);
-  }
-
-  .dark .vision-glass-date-nav {
-    background: hsl(var(--muted) / 0.3);
-  }
-
-  /* Glass item row */
-  .vision-glass-item {
-    background: hsl(var(--muted) / 0.25);
-    border: 1px solid hsl(var(--border) / 0.15);
-    transition: all 0.15s ease;
-  }
-
-  .vision-glass-item:hover {
-    background: hsl(var(--muted) / 0.4);
-  }
-
-  .dark .vision-glass-item {
-    background: hsl(var(--muted) / 0.2);
-    border: 1px solid hsl(var(--border) / 0.25);
-  }
-
-  /* Badge */
-  .vision-glass-badge {
-    background: hsl(var(--primary) / 0.15);
-    color: hsl(var(--primary));
-    border: 1px solid hsl(var(--primary) / 0.25);
-  }
-
-  .dark .vision-glass-badge {
-    background: hsl(var(--primary) / 0.2);
-  }
-
-  /* Badge variants */
-  .vision-glass-badge-accent {
-    background: hsl(var(--accent) / 0.15);
-    color: hsl(var(--accent));
-    border: 1px solid hsl(var(--accent) / 0.25);
-  }
-
-  .dark .vision-glass-badge-accent {
-    background: hsl(var(--accent) / 0.2);
-  }
-
-  .vision-glass-badge-success {
-    background: hsl(150 60% 40% / 0.15);
-    color: hsl(150 60% 40%);
-    border: 1px solid hsl(150 60% 40% / 0.25);
-  }
-
-  .dark .vision-glass-badge-success {
-    background: hsl(150 65% 50% / 0.2);
-    color: hsl(150 65% 50%);
-  }
-
-  /* Floating toolbar (like visionOS control strip) */
-  .vision-glass-toolbar {
-    background: hsl(var(--card) / 0.75);
-    backdrop-filter: blur(50px) saturate(180%);
-    -webkit-backdrop-filter: blur(50px) saturate(180%);
-    border: 1px solid hsl(var(--border) / 0.25);
-    box-shadow: 
-      0 12px 40px hsl(220 25% 10% / 0.15),
-      0 4px 12px hsl(220 25% 10% / 0.08),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2);
-  }
-
-  .dark .vision-glass-toolbar {
-    background: hsl(var(--card) / 0.6);
-    border: 1px solid hsl(var(--border) / 0.4);
-    box-shadow: 
-      0 12px 40px hsl(0 0% 0% / 0.4),
-      0 4px 12px hsl(0 0% 0% / 0.25),
-      inset 0 1px 0 hsl(0 0% 100% / 0.1);
-  }
-
-  /* visionOS Navigation Dock */
-  .vision-glass-dock {
-    background: hsl(var(--card) / 0.7);
-    backdrop-filter: blur(60px) saturate(200%);
-    -webkit-backdrop-filter: blur(60px) saturate(200%);
-    border: 1px solid hsl(var(--border) / 0.2);
-    box-shadow: 
-      0 16px 48px hsl(220 25% 10% / 0.18),
-      0 4px 16px hsl(220 25% 10% / 0.1),
-      inset 0 1px 0 hsl(0 0% 100% / 0.25),
-      inset 0 -1px 0 hsl(220 25% 10% / 0.05);
-  }
-
-  .dark .vision-glass-dock {
-    background: hsl(var(--card) / 0.55);
-    border: 1px solid hsl(var(--border) / 0.35);
-    box-shadow: 
-      0 16px 48px hsl(0 0% 0% / 0.5),
-      0 4px 16px hsl(0 0% 0% / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.1),
-      inset 0 -1px 0 hsl(0 0% 0% / 0.2);
-  }
-
-  /* visionOS Accent (Orange) Dock - subtle tint version */
-  .vision-glass-dock-accent {
-    background: hsl(var(--accent) / 0.12);
-    backdrop-filter: blur(60px) saturate(200%);
-    -webkit-backdrop-filter: blur(60px) saturate(200%);
-    border: 1px solid hsl(var(--accent) / 0.2);
-    box-shadow: 
-      0 16px 48px hsl(var(--accent) / 0.15),
-      0 4px 16px hsl(var(--accent) / 0.08),
-      inset 0 1px 0 hsl(0 0% 100% / 0.2),
-      inset 0 -1px 0 hsl(var(--accent) / 0.1);
-  }
-
-  .dark .vision-glass-dock-accent {
-    background: hsl(var(--accent) / 0.08);
-    border: 1px solid hsl(var(--accent) / 0.25);
-    box-shadow: 
-      0 16px 48px hsl(0 0% 0% / 0.4),
-      0 4px 16px hsl(var(--accent) / 0.15),
-      inset 0 1px 0 hsl(var(--accent) / 0.15),
-      inset 0 -1px 0 hsl(0 0% 0% / 0.2);
-  }
-
-  /* visionOS Dock matching current app dock - frosted orange */
-  .vision-glass-dock-current {
-    width: 100%;
-    background: hsl(var(--accent) / 0.85);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    box-shadow: 
-      0 -4px 20px hsl(var(--accent) / 0.25),
-      inset 0 1px 0 hsl(0 0% 100% / 0.15);
-  }
-
-  .dark .vision-glass-dock-current {
-    background: hsl(var(--accent) / 0.8);
-    box-shadow: 
-      0 -4px 20px hsl(0 0% 0% / 0.4),
-      inset 0 1px 0 hsl(0 0% 100% / 0.1);
-  }
-
-  [data-theme="oled"] .vision-glass-dock-current {
-    background: hsl(var(--accent) / 0.75);
-    box-shadow: 
-      0 -4px 20px hsl(0 0% 0% / 0.5),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
 }

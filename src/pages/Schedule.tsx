@@ -1831,7 +1831,7 @@ export default function Schedule() {
 
           {/* Floating Templates Bar - Bottom (Admin/Manager only) */}
           {(isAdmin || isManager) && (
-            <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50 max-h-[40vh] overflow-y-auto">
+            <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="container max-w-7xl mx-auto px-4 py-2">
                 {/* Labor Totals Summary */}
                 <LaborTotals
