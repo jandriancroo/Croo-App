@@ -2172,6 +2172,7 @@ serve(async (req) => {
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
     let hoursClose = 22;
+    let integration: any = null;
     
     if (testCredentials) {
       credentials = testCredentials;
