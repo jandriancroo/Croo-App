@@ -279,7 +279,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
                 </div>
               </div>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
