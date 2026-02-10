@@ -66,9 +66,13 @@ export function TemporaryTaskCard({
   return (
     <>
       <Card
-        className="overflow-hidden border-0"
-        style={{ borderLeft: `4px solid ${accentColor}` }}
+        className="overflow-hidden border-0 relative"
       >
+        {/* Accent left border */}
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+          style={{ backgroundColor: accentColor }}
+        />
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {iconStyle === "minimal" ? (
