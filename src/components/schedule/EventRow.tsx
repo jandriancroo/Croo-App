@@ -63,6 +63,7 @@ interface EventRowProps {
   isEditable: boolean;
   onUpdate: () => void;
   locationId?: string;
+  isCompactMode?: boolean;
 }
 
 const PRESET_COLORS = [
