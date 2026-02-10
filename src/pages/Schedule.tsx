@@ -533,7 +533,7 @@ export default function Schedule() {
         lastStatusAction: schedule.last_status_action,
       };
     },
-    enabled: !!role && !!currentLocation?.id,
+    enabled: !!role && !!currentLocation?.id && !!stableData,
     // Past weeks use infinite staleTime (they never change)
     staleTime: isPastWeek ? SCHEDULE_STALE_TIME_PAST : SCHEDULE_STALE_TIME,
     gcTime: SCHEDULE_GC_TIME,
