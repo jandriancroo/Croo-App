@@ -428,6 +428,7 @@ export function EmployeeProfileDialog({
 
       toast({ title: 'Profile saved' });
       setHasChanges(false);
+      queryClient.invalidateQueries({ queryKey: ['schedule-stable'] });
       onUserUpdated();
       onOpenChange(false);
     } catch (error: any) {
