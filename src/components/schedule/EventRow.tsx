@@ -79,7 +79,7 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
-function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId }: EventRowProps) {
+function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId, isCompactMode = false }: EventRowProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
