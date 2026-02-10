@@ -642,6 +642,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     if (!cached) return 0;
     return cached.isStale ? 0 : Date.now();
   }, [isTodayQuery, currentLocation?.id]);
+
+  // Build placeholder from prefetched sales_cache data so dashboard renders instantly
+  const placeholderFromCache = useMemo(() => {
+    if (!isTodayQuery || !currentLocation?.id) return undefined;
+    const dateStr = getDateString(targetDate);
+    const cachedRow = queryClient.getQueryData(['sales-cache-today', currentLocation.id, dateStr]) as any;
+    if (!cachedRow) return undefined;
+    const resolved = resolveProjection(cachedRow);
+    return {
+      daily: Number(cachedRow.net_sales) || 0,
+      guestCount: { daily: cachedRow.guest_count || 0, weekly: 0, monthly: 0 },
+      avgTicket: cachedRow.avg_ticket ? Number(cachedRow.avg_ticket) : undefined,
+      pizzaCount: cachedRow.pizza_count || 0,
+      hourly: cachedRow.hourly_data || [],
+      projections: {
+        todayProjected: resolved.value || 0,
+        todaySource: resolved.source,
+        weekProjected: 0,
+        monthProjected: 0,
+      },
+      dateRange: { today: dateStr, weekStart: '', monthStart: '' },
+    } as SalesData;
+  }, [isTodayQuery, currentLocation?.id, targetDate, queryClient]);
   
   const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
@@ -671,8 +694,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     staleTime: isTodayQuery ? 3 * 60 * 1000 : 0, // 3 min stale time matches cache TTL
     gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
     refetchOnWindowFocus: true, // Refresh when user tabs back (but will use cache if fresh)
-    initialData,
-    initialDataUpdatedAt
+    initialData: initialData,
+    initialDataUpdatedAt,
+    placeholderData: (previousData) => previousData ?? placeholderFromCache,
   });
 
   // If the user switches to Weekly view while looking at "today", force a refetch and drop
