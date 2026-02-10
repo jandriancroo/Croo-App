@@ -3544,6 +3544,7 @@ export type Database = {
           id: string
           invited_by: string | null
           is_active: boolean | null
+          last_login_at: string | null
           max_weekly_hours: number | null
           min_weekly_hours: number | null
           phone_number: string | null
@@ -3569,6 +3570,7 @@ export type Database = {
           id: string
           invited_by?: string | null
           is_active?: boolean | null
+          last_login_at?: string | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
           phone_number?: string | null
@@ -3594,6 +3596,7 @@ export type Database = {
           id?: string
           invited_by?: string | null
           is_active?: boolean | null
+          last_login_at?: string | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
           phone_number?: string | null
