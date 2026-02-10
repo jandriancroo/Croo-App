@@ -282,13 +282,20 @@ export async function exportRecordToPdf(data: RecordExport) {
   const html =
     data.type === "writeup" ? buildWriteUpHtml(data) : buildDocumentHtml(data);
 
+  // Dynamic imports to avoid build issues
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
+
   // Render HTML into a hidden container
   const container = document.createElement("div");
   container.style.position = "fixed";
   container.style.left = "-9999px";
   container.style.top = "0";
-  container.style.width = "800px";
+  container.style.width = "760px";
   container.style.background = "white";
+  container.style.padding = "40px";
   container.innerHTML = html.replace(/.*<body[^>]*>/s, "").replace(/<\/body>.*/s, "");
   
   // Apply base styles inline
@@ -318,23 +325,25 @@ export async function exportRecordToPdf(data: RecordExport) {
       backgroundColor: "#ffffff",
     });
 
-    const imgWidth = 210; // A4 mm
-    const pageHeight = 297;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const margin = 10; // mm margins
+    const pdfWidth = 210;
+    const pdfHeight = 297;
+    const contentWidth = pdfWidth - margin * 2;
+    const imgHeight = (canvas.height * contentWidth) / canvas.width;
     const imgData = canvas.toDataURL("image/png");
 
     const pdf = new jsPDF("p", "mm", "a4");
     let heightLeft = imgHeight;
-    let position = 0;
+    let position = margin;
 
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    pdf.addImage(imgData, "PNG", margin, position, contentWidth, imgHeight);
+    heightLeft -= (pdfHeight - margin * 2);
 
     while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
+      position = margin - (imgHeight - heightLeft);
       pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, "PNG", margin, position, contentWidth, imgHeight);
+      heightLeft -= (pdfHeight - margin * 2);
     }
 
     // Direct download via blob (avoids Safari print dialog)
@@ -342,9 +351,8 @@ export async function exportRecordToPdf(data: RecordExport) {
     const blobUrl = URL.createObjectURL(pdfBlob);
     const link = document.createElement("a");
     link.href = blobUrl;
-    const name = data.type === "writeup" ? data.employeeName : data.employeeName;
     const docType = data.type === "writeup" ? "WriteUp" : "Document";
-    link.download = `${name}_${docType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    link.download = `${data.employeeName}_${docType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
