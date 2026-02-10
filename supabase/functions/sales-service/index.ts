@@ -694,7 +694,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   const { data: integration, error: intError } = await supabase
     .from('location_integrations')
-    .select('credentials')
+    .select('id, credentials')
     .eq('location_id', locationId)
     .eq('integration_type', 'qubeyond')
     .eq('is_active', true)
