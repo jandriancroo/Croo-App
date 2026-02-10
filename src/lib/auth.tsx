@@ -15,7 +15,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Check if this is the user's first login and notify managers
+// Check if this is the user's first login and update last_login_at
 const checkFirstLogin = async (userId: string) => {
   try {
     // Check if first_login_at is already set
@@ -25,14 +25,23 @@ const checkFirstLogin = async (userId: string) => {
       .eq('id', userId)
       .single();
 
-    if (profile && !profile.first_login_at) {
-      // This is the first login - set first_login_at immediately
-      console.log('First login detected, setting first_login_at...');
-      await supabase
-        .from('profiles')
-        .update({ first_login_at: new Date().toISOString() })
-        .eq('id', userId);
+    const isFirstLogin = profile && !profile.first_login_at;
 
+    // Always update last_login_at; also set first_login_at if first time
+    const updatePayload: Record<string, string> = {
+      last_login_at: new Date().toISOString(),
+    };
+    if (isFirstLogin) {
+      updatePayload.first_login_at = new Date().toISOString();
+      console.log('First login detected, setting first_login_at...');
+    }
+
+    await supabase
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', userId);
+
+    if (isFirstLogin) {
       // Also try to notify managers (non-blocking)
       supabase.functions.invoke('notify-employee-joined', {
         body: { userId }
@@ -59,8 +68,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Check for first login on sign in events (deferred to avoid deadlock)
-        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        // Update last_login_at on sign in (not token refresh)
+        if (session?.user && event === 'SIGNED_IN') {
           const userId = session.user.id;
           if (!checkedFirstLoginRef.current.has(userId)) {
             checkedFirstLoginRef.current.add(userId);

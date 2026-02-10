@@ -58,6 +58,7 @@ interface UserProfile {
   is_active: boolean;
   appears_on_schedule: boolean;
   first_login_at: string | null;
+  last_login_at?: string | null;
   app_version?: string | null;
   role?: AppRole;
   paid_hours?: number;
@@ -1314,7 +1315,7 @@ export default function UserManagement() {
                     {isSuperAdmin && (
                       <TableHead className="hidden md:table-cell">Version</TableHead>
                     )}
-                    
+                    <TableHead className="hidden md:table-cell">Last Login</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1411,6 +1412,17 @@ export default function UserManagement() {
                           })()}
                         </TableCell>
                       )}
+                      <TableCell className="hidden md:table-cell">
+                        {user.last_login_at ? (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <br />
+                            {new Date(user.last_login_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Never</span>
+                        )}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center justify-center">
                           {user.has_certification ? (
