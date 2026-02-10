@@ -146,7 +146,7 @@ export function SignedDocumentsSection({ userId }: SignedDocumentsSectionProps) 
             </DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 -mx-6 px-6 overflow-auto" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <div className="space-y-4 pb-4">
               {/* Document Info */}
               <div className="flex items-center justify-between text-sm text-muted-foreground">
