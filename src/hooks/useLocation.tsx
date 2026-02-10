@@ -129,20 +129,33 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const setCurrentLocation = useCallback((location: Location) => {
+    const previousId = currentLocation?.id;
+    if (previousId === location.id) return; // No-op if same location
+    
     // Update location immediately for instant UI feedback
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Only invalidate location-specific queries, NOT the entire app
-    // This prevents cascade of refetches across all components
-    queryClient.invalidateQueries({ queryKey: ['schedule'] });
-    queryClient.invalidateQueries({ queryKey: ['users'] });
-    queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    queryClient.invalidateQueries({ queryKey: ['sales'] });
-    queryClient.invalidateQueries({ queryKey: ['labor'] });
-    queryClient.invalidateQueries({ queryKey: ['checklists'] });
-    queryClient.invalidateQueries({ queryKey: ['inventory'] });
-  }, [queryClient]);
+    // Invalidate ALL location-scoped queries so every page gets fresh data
+    // Using predicate to catch any query key containing the old location ID
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey;
+        // Invalidate any query whose key array contains the previous location ID
+        if (previousId && key.some(k => k === previousId)) return true;
+        // Also invalidate known location-scoped prefixes
+        const locationScopedKeys = [
+          'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
+          'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
+          'sales-cache-wtd', 'location-hours-today', 'org-logo', 'time-tracking',
+          'time-punches', 'payroll', 'temporary-tasks', 'logbook', 'catering',
+          'certifications', 'holidays', 'events', 'availability', 'user-checklists',
+          'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
+        ];
+        return locationScopedKeys.some(prefix => key[0] === prefix);
+      },
+    });
+  }, [queryClient, currentLocation?.id]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 

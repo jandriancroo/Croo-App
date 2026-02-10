@@ -1109,7 +1109,28 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             id: loc.id,
             name: loc.name,
             location_type: loc.location_type,
+            store_number: loc.store_number,
           });
+          
+          // Page-aware navigation on location switch
+          const currentPath = window.location.pathname;
+          const fallbackPages: Record<string, string> = {
+            '/time-tracking': '/time-tracking', // stays but payroll selector resets
+            '/week-template': '/schedule-templates?tab=weeks',
+          };
+          
+          // Check for prefix-based fallbacks
+          const fallbackPath = Object.entries(fallbackPages).find(([prefix]) => 
+            currentPath.startsWith(prefix)
+          )?.[1];
+          
+          if (fallbackPath && fallbackPath !== currentPath) {
+            navigate(fallbackPath);
+          }
+          
+          // Visual confirmation of switch
+          const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
+          toast.success(`Switched to ${displayName}`);
         }}
       />
     </div>;
