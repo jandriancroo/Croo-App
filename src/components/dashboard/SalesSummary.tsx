@@ -861,8 +861,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return { ...rawSalesData, hourly: completeHourly };
     }
     
-    // If no business hours configured, hide hourly breakdown.
-    // IMPORTANT: keep reference stable to avoid render loops.
+    // If locationSettings is still loading (undefined), keep raw hourly data visible
+    // Only hide hourly when locationSettings is explicitly null (no hours configured)
+    if (locationSettings === undefined) return rawSalesData;
     if (!rawSalesData.hourly) return rawSalesData;
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
