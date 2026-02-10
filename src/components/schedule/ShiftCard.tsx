@@ -52,8 +52,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   // Check if shift was trimmed by auto-scheduler
   const wasTrimmed = shift.was_trimmed && shift.original_end_time;
 
-  // Split position into two lines if it has exactly 2 words
-  const formatPosition = (pos: string) => {
+  // For non-template shifts with exactly 2 words, split into two lines
+  // For templates, always keep on one line to stay compact
+  const formatPosition = (pos: string, isTemplateCard: boolean) => {
+    if (isTemplateCard) return pos;
     const words = pos.split(' ');
     if (words.length === 2) {
       return (
@@ -116,10 +118,10 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(templatePosition, true)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position)}</div>
+          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-center">{formatPosition(position, false)}</div>
         )}
         {!isCompactMode && shift.is_time_off && <div className="text-white text-xs lg:text-sm font-medium text-center">TIME OFF</div>}
       </div>
