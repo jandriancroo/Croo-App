@@ -1840,6 +1840,7 @@ export default function Schedule() {
                   currentWeekStart={currentWeekStart}
                   scheduleId={scheduleId}
                   isEditable={isAdmin || isManager}
+                  isCompactMode={isCompactMode}
                 />
 
                 {/* Shift Templates - Always visible */}
