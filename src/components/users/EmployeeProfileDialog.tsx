@@ -687,22 +687,38 @@ export function EmployeeProfileDialog({
                   {!allLocationsEnabled && (
                     <div className="border border-border rounded-lg p-3 space-y-2 bg-background">
                       {availableLocations.map((location) => (
-                        <div key={location.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`loc-${location.id}`}
-                            checked={userLocations.includes(location.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setUserLocations([...userLocations, location.id]);
-                              } else {
-                                setUserLocations(userLocations.filter(id => id !== location.id));
-                              }
-                              setHasChanges(true);
-                            }}
-                          />
-                          <label htmlFor={`loc-${location.id}`} className="text-sm text-foreground cursor-pointer">
-                            {location.name}
-                          </label>
+                        <div key={location.id} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`loc-${location.id}`}
+                              checked={userLocations.includes(location.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setUserLocations([...userLocations, location.id]);
+                                  setLocationScheduleVisibility(prev => ({ ...prev, [location.id]: true }));
+                                } else {
+                                  setUserLocations(userLocations.filter(id => id !== location.id));
+                                }
+                                setHasChanges(true);
+                              }}
+                            />
+                            <label htmlFor={`loc-${location.id}`} className="text-sm text-foreground cursor-pointer">
+                              {location.name}
+                            </label>
+                          </div>
+                          {userLocations.includes(location.id) && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground">On Schedule</span>
+                              <Switch
+                                className="scale-75"
+                                checked={locationScheduleVisibility[location.id] !== false}
+                                onCheckedChange={(checked) => {
+                                  setLocationScheduleVisibility(prev => ({ ...prev, [location.id]: checked }));
+                                  setHasChanges(true);
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
