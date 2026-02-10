@@ -5492,18 +5492,21 @@ export type Database = {
           created_at: string
           id: string
           location_id: string
+          show_on_schedule: boolean
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           location_id: string
+          show_on_schedule?: boolean
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           location_id?: string
+          show_on_schedule?: boolean
           user_id?: string
         }
         Relationships: [
