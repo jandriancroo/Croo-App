@@ -233,7 +233,7 @@ export default function Schedule() {
       const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
         supabase
           .from("user_locations")
-          .select("user_id")
+          .select("user_id, show_on_schedule")
           .eq("location_id", currentLocation.id),
         supabase
           .from("profiles")
@@ -253,7 +253,7 @@ export default function Schedule() {
       if (rolesResult.error) throw rolesResult.error;
       if (templatesResult.error) throw templatesResult.error;
 
-      const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
+      const locationUserIds = new Set((userLocationsResult.data || []).filter(ul => ul.show_on_schedule !== false).map((ul) => ul.user_id));
       
       const locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
       
