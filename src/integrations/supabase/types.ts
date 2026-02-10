@@ -2530,12 +2530,14 @@ export type Database = {
           backfill_error: string | null
           backfill_started_at: string | null
           backfill_status: string | null
+          cached_token_gw: string | null
           created_at: string
           credentials: Json
           id: string
           integration_type: string
           is_active: boolean
           location_id: string
+          token_expires_at: string | null
           updated_at: string
         }
         Insert: {
@@ -2544,12 +2546,14 @@ export type Database = {
           backfill_error?: string | null
           backfill_started_at?: string | null
           backfill_status?: string | null
+          cached_token_gw?: string | null
           created_at?: string
           credentials?: Json
           id?: string
           integration_type: string
           is_active?: boolean
           location_id: string
+          token_expires_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -2558,12 +2562,14 @@ export type Database = {
           backfill_error?: string | null
           backfill_started_at?: string | null
           backfill_status?: string | null
+          cached_token_gw?: string | null
           created_at?: string
           credentials?: Json
           id?: string
           integration_type?: string
           is_active?: boolean
           location_id?: string
+          token_expires_at?: string | null
           updated_at?: string
         }
         Relationships: [
