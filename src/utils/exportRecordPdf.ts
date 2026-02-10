@@ -280,23 +280,78 @@ function buildDocumentHtml(data: DocumentExport): string {
 </body></html>`;
 }
 
-export function exportRecordToPdf(data: RecordExport) {
+export async function exportRecordToPdf(data: RecordExport) {
   const html =
     data.type === "writeup" ? buildWriteUpHtml(data) : buildDocumentHtml(data);
 
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    alert("Please allow pop-ups to export PDF");
-    return;
+  // Render HTML into a hidden container
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "800px";
+  container.style.background = "white";
+  container.innerHTML = html.replace(/.*<body[^>]*>/s, "").replace(/<\/body>.*/s, "");
+  
+  // Apply base styles inline
+  const styleEl = document.createElement("style");
+  styleEl.textContent = getBaseStyles();
+  container.prepend(styleEl);
+  document.body.appendChild(container);
+
+  try {
+    // Wait for images to load
+    const images = container.querySelectorAll("img");
+    await Promise.all(
+      Array.from(images).map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) return resolve();
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          })
+      )
+    );
+
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+    });
+
+    const imgWidth = 210; // A4 mm
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgData = canvas.toDataURL("image/png");
+
+    const pdf = new jsPDF("p", "mm", "a4");
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    // Direct download via blob (avoids Safari print dialog)
+    const pdfBlob = pdf.output("blob");
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    const name = data.type === "writeup" ? data.employeeName : data.employeeName;
+    const docType = data.type === "writeup" ? "WriteUp" : "Document";
+    link.download = `${name}_${docType}_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } finally {
+    document.body.removeChild(container);
   }
-
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  // Give images time to load before triggering print
-  printWindow.onload = () => {
-    setTimeout(() => {
-      printWindow.print();
-    }, 300);
-  };
 }
