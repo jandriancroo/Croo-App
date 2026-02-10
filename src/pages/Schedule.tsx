@@ -233,7 +233,7 @@ export default function Schedule() {
       const [userLocationsResult, allProfilesResult, rolesResult, templatesResult] = await Promise.all([
         supabase
           .from("user_locations")
-          .select("user_id")
+          .select("user_id, show_on_schedule")
           .eq("location_id", currentLocation.id),
         supabase
           .from("profiles")
