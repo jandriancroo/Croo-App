@@ -21,7 +21,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     const day = parts.find(p => p.type === 'day')?.value || '01';
     const todayStr = `${year}-${month}-${day}`;
 
-    // Prefetch dashboard cubes
+    // Prefetch dashboard cubes - MUST map data to same format as WidgetsSection's queryFn
     queryClient.prefetchQuery({
       queryKey: ['user-data-cubes', userId, locationId],
       queryFn: async () => {
@@ -32,7 +32,20 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
           .eq('location_id', locationId)
           .in('cube_type', ['data', 'data-3d', 'sales-chart'])
           .order('display_order');
-        return data || [];
+        
+        // Map to same format as WidgetsSection/Dashboard queryFn
+        return (data || []).map(cube => ({
+          id: cube.id,
+          title: cube.title || '',
+          size: cube.widget_size || 'small',
+          metrics: cube.metrics || [],
+          accentColor: cube.accent_color || '#8B5CF6',
+          displayOrder: cube.display_order,
+          cubeType: cube.cube_type || 'data',
+          faceMetrics: cube.face_metrics || [],
+          faceTitles: cube.face_titles || [],
+          numFaces: cube.num_faces || 1,
+        }));
       },
       staleTime: 30 * 1000,
     });
