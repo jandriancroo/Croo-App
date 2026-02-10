@@ -318,7 +318,7 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
               </Button>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
             <div className="space-y-4 pb-4">
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
