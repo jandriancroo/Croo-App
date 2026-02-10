@@ -63,7 +63,6 @@ interface EventRowProps {
   isEditable: boolean;
   onUpdate: () => void;
   locationId?: string;
-  isCompactMode?: boolean;
 }
 
 const PRESET_COLORS = [
@@ -79,7 +78,7 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
-function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId, isCompactMode = false }: EventRowProps) {
+function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId }: EventRowProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -387,7 +386,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
 
   return (
     <>
-      <div className={`grid ${isCompactMode ? 'grid-cols-[80px_repeat(7,1fr)] md:grid-cols-[100px_repeat(7,1fr)] lg:grid-cols-[120px_repeat(7,1fr)] xl:grid-cols-[140px_repeat(7,1fr)]' : 'grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]'} gap-0 bg-[hsl(30,25%,45%)] min-w-[700px]`}>
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 bg-[hsl(30,25%,45%)] min-w-[700px]">
         <div className="flex items-center gap-2 px-4 py-2 border-r border-border/20">
           <h3 className="font-semibold text-white text-sm">Events</h3>
           {isEditable && (
