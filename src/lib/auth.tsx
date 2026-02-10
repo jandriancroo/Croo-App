@@ -68,8 +68,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Check for first login on sign in events (deferred to avoid deadlock)
-        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        // Update last_login_at on sign in (not token refresh)
+        if (session?.user && event === 'SIGNED_IN') {
           const userId = session.user.id;
           if (!checkedFirstLoginRef.current.has(userId)) {
             checkedFirstLoginRef.current.add(userId);
