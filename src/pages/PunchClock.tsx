@@ -660,12 +660,14 @@ export default function PunchClock() {
     const today = format(new Date(), 'yyyy-MM-dd');
     const { data } = await supabase
       .from('scheduled_shifts')
-      .select('*')
+      .select('*, schedules!inner(location_id)')
       .eq('user_id', currentUser.id)
       .eq('shift_date', today)
-      .maybeSingle();
+      .eq('schedules.location_id', currentLocation?.id)
+      .order('start_time', { ascending: true })
+      .limit(1);
 
-    setTodayShift(data);
+    setTodayShift(data?.[0] ?? null);
   };
 
   const checkLastPunch = async () => {
