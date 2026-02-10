@@ -26,11 +26,17 @@ const checkFirstLogin = async (userId: string) => {
       .single();
 
     if (profile && !profile.first_login_at) {
-      // This is the first login - trigger notification
-      console.log('First login detected, sending notification...');
-      await supabase.functions.invoke('notify-employee-joined', {
+      // This is the first login - set first_login_at immediately
+      console.log('First login detected, setting first_login_at...');
+      await supabase
+        .from('profiles')
+        .update({ first_login_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      // Also try to notify managers (non-blocking)
+      supabase.functions.invoke('notify-employee-joined', {
         body: { userId }
-      });
+      }).catch(err => console.warn('notify-employee-joined failed:', err));
     }
   } catch (error) {
     console.error('Error checking first login:', error);
