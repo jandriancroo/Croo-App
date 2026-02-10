@@ -726,8 +726,8 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 
   console.log(`[sales-service] sync-day: ${locationId} ${date}, QB location=${qbLocationId}`);
 
-  const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-  if (!auth) {
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  if (!tokenGw) {
     return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
       status: 502,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -735,8 +735,8 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
   }
 
   const [hourly, pizzaCount] = await Promise.all([
-    fetchHourlySales(auth.tokenGw, date, qbLocationId),
-    fetchProductMix(auth.tokenGw, date, qbLocationId)
+    fetchHourlySales(tokenGw, date, qbLocationId),
+    fetchProductMix(tokenGw, date, qbLocationId)
   ]);
 
   const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
