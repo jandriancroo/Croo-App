@@ -2,14 +2,17 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, CheckCircle2, Clock, FileText, FolderOpen } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Download, FileText, FolderOpen } from "lucide-react";
 import { format } from "date-fns";
+import { exportRecordToPdf } from "@/utils/exportRecordPdf";
 
 interface EmployeeRecordsSectionProps {
   userId: string;
+  employeeName?: string;
 }
 
 interface WriteUp {
@@ -40,7 +43,7 @@ interface SignedDocument {
   };
 }
 
-export function EmployeeRecordsSection({ userId }: EmployeeRecordsSectionProps) {
+export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: EmployeeRecordsSectionProps) {
   const [selectedWriteUp, setSelectedWriteUp] = useState<WriteUp | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<SignedDocument | null>(null);
 
@@ -185,10 +188,38 @@ export function EmployeeRecordsSection({ userId }: EmployeeRecordsSectionProps) 
       <Dialog open={!!selectedWriteUp} onOpenChange={(open) => !open && setSelectedWriteUp(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Write-Up Details
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Write-Up Details
+              </DialogTitle>
+              {selectedWriteUp && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs"
+                  onClick={() =>
+                    exportRecordToPdf({
+                      type: "writeup",
+                      employeeName,
+                      reason: selectedWriteUp.reason,
+                      isFinalWarning: selectedWriteUp.is_final_warning,
+                      issueDescription: selectedWriteUp.issue_description,
+                      nextSteps: selectedWriteUp.next_steps,
+                      photoUrl: selectedWriteUp.photo_url,
+                      signatureUrl: selectedWriteUp.signature_url,
+                      signedAt: selectedWriteUp.signed_at,
+                      createdAt: selectedWriteUp.created_at,
+                      createdByName: selectedWriteUp.created_by_profile?.full_name,
+                      locationName: selectedWriteUp.location?.name,
+                    })
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export PDF
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           <ScrollArea className="flex-1 -mx-6 px-6">
             {selectedWriteUp && (
@@ -256,10 +287,36 @@ export function EmployeeRecordsSection({ userId }: EmployeeRecordsSectionProps) 
       <Dialog open={!!selectedDoc} onOpenChange={(open) => !open && setSelectedDoc(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              {selectedDoc?.document?.title || "Document"}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                {selectedDoc?.document?.title || "Document"}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => {
+                  if (!selectedDoc) return;
+                  exportRecordToPdf({
+                    type: "document",
+                    employeeName,
+                    title: selectedDoc.document?.title || "Document",
+                    items: documentItems.map((item) => ({
+                      content: item.content,
+                      children: item.children?.map((c: any) => ({ content: c.content })),
+                    })),
+                    signatureUrl: selectedDoc.signature_url,
+                    signedAt: selectedDoc.signed_at,
+                    createdAt: selectedDoc.document?.created_at || "",
+                    createdByName: selectedDoc.document?.created_by_profile?.full_name,
+                  });
+                }}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export PDF
+              </Button>
+            </div>
           </DialogHeader>
           <ScrollArea className="flex-1 -mx-6 px-6">
             <div className="space-y-4 pb-4">
