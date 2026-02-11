@@ -1,7 +1,7 @@
 import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768;
-const LARGE_PHONE_MIN_SCREEN = 430; // iPhone Plus/Max screen min dimension
+const LARGE_PHONE_MIN_SCREEN = 390; // iPhone Air/Plus/Max screen min dimension
 
 /**
  * Detects if the device is a phone (not tablet/desktop).
