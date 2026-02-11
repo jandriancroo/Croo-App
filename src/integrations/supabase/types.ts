@@ -3017,6 +3017,33 @@ export type Database = {
           },
         ]
       }
+      maintenance_task_logs: {
+        Row: {
+          completed_at: string
+          details: Json | null
+          id: string
+          run_date: string
+          status: string
+          task_name: string
+        }
+        Insert: {
+          completed_at?: string
+          details?: Json | null
+          id?: string
+          run_date: string
+          status?: string
+          task_name: string
+        }
+        Update: {
+          completed_at?: string
+          details?: Json | null
+          id?: string
+          run_date?: string
+          status?: string
+          task_name?: string
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
