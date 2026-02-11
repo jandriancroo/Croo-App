@@ -346,10 +346,26 @@ function DayCell({
   // Check if any shift covers the availability restriction
   const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflictsWithAvailability(shift));
   
+  const handleSmartTapSelect = (template: any) => {
+    setSmartTapOpen(false);
+    onSmartTap?.(userId, dayIndex, cellDateStr, template);
+  };
+
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden`}>
-      <div className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}>
+  }} className={`${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
+    <SmartTapPopover
+      open={smartTapOpen}
+      onOpenChange={setSmartTapOpen}
+      templates={templates}
+      recentTemplateIds={recentTemplateIds}
+      onSelectTemplate={handleSmartTapSelect}
+      isCompactMode={isCompactMode}
+    >
+      <div 
+        className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}
+        onClick={canSmartTap ? () => setSmartTapOpen(true) : undefined}
+      >
         {/* Birthday Indicator */}
         {hasBirthday && (
           <div className={`${isCompactMode ? 'flex-1 min-h-[36px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
