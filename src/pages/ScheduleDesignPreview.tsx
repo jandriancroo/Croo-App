@@ -84,7 +84,7 @@ function ConceptA() {
                       borderLeft: `2.5px solid ${ev.color}`,
                     }}
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 -space-y-px">
                       <div className="flex items-center gap-1">
                         {ev.isDailyTask && <ClipboardCheck className="h-3 w-3 text-white/50 flex-shrink-0" />}
                         <span className="text-[10.5px] font-medium text-white truncate leading-tight">{ev.label}</span>
