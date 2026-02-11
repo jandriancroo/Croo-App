@@ -260,7 +260,11 @@ function DayCell({
   isToday = false,
   isCompactMode = false,
   hasBirthday = false,
-  profileName = ""
+  profileName = "",
+  templates = [],
+  recentTemplateIds = [],
+  onSmartTap,
+  cellDateStr = ""
 }: {
   userId: string;
   dayIndex: number;
@@ -277,6 +281,10 @@ function DayCell({
   isCompactMode?: boolean;
   hasBirthday?: boolean;
   profileName?: string;
+  templates?: any[];
+  recentTemplateIds?: string[];
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  cellDateStr?: string;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
