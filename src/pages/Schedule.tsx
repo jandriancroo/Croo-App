@@ -1713,7 +1713,7 @@ export default function Schedule() {
                 return (
                   <div 
                     key={index} 
-                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`text-center ${isCompactMode ? 'py-1 px-0.5' : 'p-2'} border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
@@ -1721,9 +1721,9 @@ export default function Schedule() {
                       }
                     }}
                   >
-                    <div className={`font-semibold text-sm`}>{format(day, "EEE")}</div>
-                    <div className={`text-xs ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
-                    {dayHolidays.length > 0 && (
+                    <div className={`font-semibold ${isCompactMode ? 'text-xs' : 'text-sm'}`}>{format(day, "EEE")}</div>
+                    <div className={`${isCompactMode ? 'text-[10px]' : 'text-xs'} ${isToday ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, "M/d")}</div>
+                    {!isCompactMode && dayHolidays.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
                           <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight">
@@ -1734,7 +1734,7 @@ export default function Schedule() {
                         ))}
                       </div>
                     )}
-                    {isBlackout && (
+                    {!isCompactMode && isBlackout && (
                       <div className="mt-1 text-[10px] text-destructive font-medium leading-tight">
                         🚫 Blackout
                       </div>
@@ -1744,10 +1744,12 @@ export default function Schedule() {
               })}
             </div>
 
-            {/* Events Section - show for all users */}
+            {/* Events Section - hidden in compact mode */}
+            {!isCompactMode && (
             <div className="border-b border-border">
               <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
             </div>
+            )}
             </div>
             </div>
             {/* Schedule grid content */}
