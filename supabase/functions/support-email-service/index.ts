@@ -255,20 +255,30 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     .eq("entry_date", entry_date);
 
   // Get recipients - managers and above at this location
-  const { data: recipients } = await supabase
+  const { data: locationUsers } = await supabase
     .from("user_locations")
-    .select(`
-      user_id,
-      profile:user_id (id, email, full_name),
-      user_role:user_id (role)
-    `)
+    .select("user_id")
     .eq("location_id", location_id);
 
+  const userIds = (locationUsers || []).map((u: any) => u.user_id);
+  
   const managerRoles = ["admin", "org_admin", "super_admin", "manager", "general_manager"];
-  const eligibleRecipients = recipients?.filter((r: any) => {
-    const role = r.user_role?.role;
-    return managerRoles.includes(role) && r.profile?.email;
-  }) || [];
+  let eligibleRecipients: { id: string; email: string; full_name: string }[] = [];
+
+  if (userIds.length > 0) {
+    const [{ data: profiles }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("id, email, full_name").in("id", userIds),
+      supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
+    ]);
+
+    const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
+    eligibleRecipients = (profiles || []).filter((p: any) => {
+      const role = roleMap.get(p.id);
+      return managerRoles.includes(role) && p.email;
+    });
+  }
+  
+  console.log(`[DAILY-SUMMARY] Location ${location?.name}: ${eligibleRecipients.length} eligible recipients from ${userIds.length} users`);
 
   if (eligibleRecipients.length === 0) {
     return new Response(JSON.stringify({ success: true, message: "No eligible recipients", recipientCount: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -324,21 +334,18 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   // Send to all eligible recipients
   let sentCount = 0;
   for (const recipient of eligibleRecipients) {
-    const email = (recipient as any).profile?.email;
-    if (email) {
-      try {
-        await queueEmail({
-          from: "CrooHQ <reports@croohq.email>",
-          to: [email],
-          subject: `Daily Summary: ${location.name} - ${displayDate}`,
-          html: emailHtml,
-          source: 'daily_summary',
-          dedupKey: `daily_summary_${location_id}_${entry_date}_${email}`,
-        });
-        sentCount++;
-      } catch (e) {
-        console.error("Error queuing daily summary for", email, e);
-      }
+    try {
+      await queueEmail({
+        from: "CrooHQ <reports@croohq.email>",
+        to: [recipient.email],
+        subject: `Daily Summary: ${location.name} - ${displayDate}`,
+        html: emailHtml,
+        source: 'daily_summary',
+        dedupKey: `daily_summary_${location_id}_${entry_date}_${recipient.email}`,
+      });
+      sentCount++;
+    } catch (e) {
+      console.error("Error queuing daily summary for", recipient.email, e);
     }
   }
 
