@@ -26,26 +26,49 @@ function isPhoneDevice(): boolean {
   return hasTouch && isSmallScreen && hasCoarsePointer;
 }
 
+/**
+ * Detects if the device is a tablet (touch + medium screen, not phone).
+ * Tablets should always get the desktop/tablet view, never mobile.
+ */
+function isTabletDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  
+  const hasTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+  const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  const screenMin = Math.min(window.screen.width, window.screen.height);
+  
+  // Tablet: touch device with screen larger than a phone
+  return hasTouch && hasCoarsePointer && screenMin > 450;
+}
+
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     
-    // First check if it's a phone device (locked to mobile view)
+    // Phones are always mobile
     if (isPhoneDevice()) return true;
     
-    // Otherwise fall back to viewport width for tablets/desktop
+    // Tablets are never mobile (prevents flickering at breakpoint boundary)
+    if (isTabletDevice()) return false;
+    
+    // Desktop: fall back to viewport width
     return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
   });
 
   React.useEffect(() => {
-    // If it's a phone, always stay in mobile mode
-    const isPhone = isPhoneDevice();
-    if (isPhone) {
+    // Phones: always mobile, no listener needed
+    if (isPhoneDevice()) {
       setIsMobile(true);
-      return; // No need to listen for viewport changes on phones
+      return;
     }
     
-    // For tablets/desktop, use viewport width
+    // Tablets: always desktop, no listener needed (prevents flicker)
+    if (isTabletDevice()) {
+      setIsMobile(false);
+      return;
+    }
+    
+    // Desktop browsers: use viewport width
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
 
