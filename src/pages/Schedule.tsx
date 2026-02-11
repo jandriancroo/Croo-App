@@ -1520,11 +1520,11 @@ export default function Schedule() {
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
         >
-          <Card className="overflow-visible border-2 border-border shadow-md">
+          <div className="relative">
             {/* Sticky floating header: date selector + tools + day headers + events */}
             <div 
               ref={stickyHeaderRef}
-              className="sticky top-[56px] md:top-[60px] z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] mx-1 mt-1 border border-border/50 overflow-hidden"
+              className="sticky top-[56px] md:top-[60px] z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-border overflow-hidden"
             >
             {/* Header toolbar */}
             <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border">
@@ -1734,7 +1734,7 @@ export default function Schedule() {
             {/* Schedule grid content */}
             <div 
               ref={scheduleBodyRef}
-              className="overflow-x-auto"
+              className="overflow-x-auto bg-card rounded-xl border border-border shadow-md mt-1"
               onScroll={(e) => {
                 if (stickyHeaderScrollRef.current && stickyHeaderScrollRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
                   stickyHeaderScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
@@ -1863,7 +1863,7 @@ export default function Schedule() {
               )}
             </div>
             </div>
-          </Card>
+          </div>
 
           {/* Visual Key Legend - Below schedule card */}
           <div className="flex items-center gap-4 px-2 py-1.5 text-[10px] text-muted-foreground">
