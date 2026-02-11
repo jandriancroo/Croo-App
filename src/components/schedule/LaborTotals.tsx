@@ -610,7 +610,7 @@ export function LaborTotals({
 
       {/* Content Panel - connects flush to the tab */}
       {isToolsOpen && (
-        <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-md overflow-hidden animate-accordion-down mb-2">
+        <div className="-mt-[1px] border border-border rounded-b-lg rounded-tr-lg bg-card shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] overflow-hidden animate-accordion-down mb-2">
           {/* Daily Labor Totals */}
           <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-border">
             <div className="px-2 py-1 border-r border-border bg-muted/50 flex items-center gap-1.5">
