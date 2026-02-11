@@ -294,6 +294,9 @@ function DayCell({
     id: dropId
   });
   
+  const [smartTapOpen, setSmartTapOpen] = useState(false);
+  const canSmartTap = onSmartTap && templates.length > 0 && shifts.length === 0 && userId !== "unassigned";
+  
   const formatTime12h = (time: string) => {
     const parts = time.split(":");
     const hour = parseInt(parts[0]);
