@@ -54,3 +54,6 @@ verify_jwt = false
 
 [functions.alert-push-sender]
 verify_jwt = false
+
+[functions.email-queue-sender]
+verify_jwt = false
