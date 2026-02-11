@@ -1692,7 +1692,7 @@ export default function Schedule() {
                         {dayHolidays.map(holiday => (
                           <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight">
                             {holiday.holiday_type === 'birthday' 
-                              ? `🎂 B-Day ${holiday.holiday_name.replace(/🎂\s*/, '').split(' ')[0]}`
+                              ? `🎂 ${holiday.holiday_name.replace(/🎂\s*/, '').split(' ')[0]}'s B-Day`
                               : holiday.holiday_name}
                           </div>
                         ))}
