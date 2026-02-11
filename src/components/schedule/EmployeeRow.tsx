@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Clock, CalendarOff, AlertCircle } from "lucide-react";
+import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
 import { getTodayInPST } from "@/utils/dateUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -34,6 +34,15 @@ interface Profile {
   display_order?: number;
   weekly_availability?: WeeklyAvailability | null;
 }
+interface Holiday {
+  id: string;
+  holiday_name: string;
+  holiday_date: string;
+  holiday_type: string;
+  user_id?: string | null;
+  location_id?: string | null;
+}
+
 interface EmployeeRowProps {
   profile: Profile;
   shifts: any[];
@@ -50,6 +59,7 @@ interface EmployeeRowProps {
   publishedSnapshot?: any[];
   canViewAllWages?: boolean;
   isCompactMode?: boolean;
+  holidays?: Holiday[];
 }
 
 function EmployeeRowComponent({
@@ -67,7 +77,8 @@ function EmployeeRowComponent({
   isPublished = true,
   publishedSnapshot,
   canViewAllWages = false,
-  isCompactMode = false
+  isCompactMode = false,
+  holidays = []
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -183,6 +194,9 @@ function EmployeeRowComponent({
       const dayName = dayNames[dayIndex];
       const weeklyAvailabilityForDay = profile.weekly_availability?.[dayName];
       
+      // Check if this employee has a birthday on this day
+      const hasBirthday = holidays.some(h => h.holiday_type === 'birthday' && h.user_id === profile.id && h.holiday_date === cellDateStr);
+      
        return <DayCell 
          key={dayIndex} 
          userId={profile.id} 
@@ -198,6 +212,8 @@ function EmployeeRowComponent({
          publishedSnapshot={publishedSnapshot}
          isToday={isToday}
          isCompactMode={isCompactMode}
+         hasBirthday={hasBirthday}
+         profileName={profile.full_name}
        />;
     })}
     </div>;
@@ -215,7 +231,9 @@ function DayCell({
   isPublished,
   publishedSnapshot,
   isToday = false,
-  isCompactMode = false
+  isCompactMode = false,
+  hasBirthday = false,
+  profileName = ""
 }: {
   userId: string;
   dayIndex: number;
@@ -230,6 +248,8 @@ function DayCell({
   publishedSnapshot?: any[];
   isToday?: boolean;
   isCompactMode?: boolean;
+  hasBirthday?: boolean;
+  profileName?: string;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -292,6 +312,15 @@ function DayCell({
     touchAction: 'none'
   }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch`}>
       <div className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}>
+        {/* Birthday Indicator */}
+        {hasBirthday && (
+          <div className={`${isCompactMode ? 'flex-1 min-h-[44px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
+            <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
+              <CakeSlice className="h-3 w-3" />
+              <span>B-Day {profileName.split(' ')[0]}</span>
+            </div>
+          </div>
+        )}
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
           <Popover>
