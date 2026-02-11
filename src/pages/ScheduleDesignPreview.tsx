@@ -54,7 +54,7 @@ function ConceptA() {
       </p>
       <div className={`grid ${GRID_COLS} min-w-[700px] rounded-lg overflow-hidden border border-border/40`}>
         {/* Header label */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(215,20%,27%)] border-r border-white/10">
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-[hsl(215,20%,27%)] border-r border-white/10">
           <CalendarCheck className="h-3.5 w-3.5 text-white/70" />
           <span className="font-semibold text-white text-[10px] tracking-wide uppercase">Events</span>
           <button className="ml-auto h-4 w-4 rounded flex items-center justify-center hover:bg-white/15 text-white/60 transition-colors">
@@ -70,18 +70,18 @@ function ConceptA() {
           return (
             <div
               key={i}
-              className={`min-h-[28px] p-1 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] ${
+              className={`min-h-[22px] px-1 py-0.5 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] ${
                 day.isToday ? "bg-[hsl(215,25%,32%)]" : ""
               }`}
             >
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {visible.map((ev, j) => (
                   <div
                     key={j}
-                    className="rounded px-1.5 py-0.5 cursor-pointer hover:brightness-125 transition-all"
+                    className="rounded px-1 py-px cursor-pointer hover:brightness-125 transition-all"
                     style={{
                       backgroundColor: `${ev.color}18`,
-                      borderLeft: `3px solid ${ev.color}`,
+                      borderLeft: `2px solid ${ev.color}`,
                     }}
                   >
                     <div className="flex items-center gap-1">
@@ -90,7 +90,7 @@ function ConceptA() {
                         style={{ backgroundColor: ev.color }}
                       />
                       {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
-                      <span className="text-[10px] font-medium text-white truncate">{ev.label}</span>
+                      <span className="text-[9px] font-medium text-white truncate leading-tight">{ev.label}</span>
                       {!expanded && hidden > 0 && j === 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
@@ -100,7 +100,7 @@ function ConceptA() {
                         </button>
                       )}
                     </div>
-                    <span className="text-[9px] text-white/50 leading-none">{ev.time}</span>
+                    <span className="text-[8px] text-white/50 leading-none">{ev.time}</span>
                   </div>
                 ))}
               </div>
