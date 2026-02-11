@@ -695,7 +695,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   return <div className="flex min-h-screen flex-col bg-background">
       {/* Desktop/Tablet Header with unified teal nav bar */}
-      <header className="sticky top-0 z-50 hidden md:block bg-background pt-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
+      <header className={`sticky top-0 z-50 bg-background pt-2 ${isMobile ? 'hidden' : 'block'}`} style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
@@ -852,7 +852,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
 
       {/* Mobile Header */}
-      <header className="sticky top-0 z-50 md:hidden bg-background border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className={`sticky top-0 z-50 bg-background border-b border-border/20 ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -1029,7 +1029,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </Sheet>
         </div>
       </header>
-      <main className="container max-w-7xl mx-auto flex-1 px-safe py-3 md:py-8 pb-24 md:pb-8 relative">
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe py-3 relative ${isMobile ? 'pb-24' : 'py-8 pb-8'}`}>
         {isMobile ? (
           <PullToRefresh cooldownMs={2 * 60 * 1000}>
             {children}
@@ -1040,12 +1040,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </main>
       
       {/* Footer - desktop only */}
-      <footer className="hidden md:flex items-center justify-center py-6 border-t border-border/20 text-muted-foreground gap-3">
+      <footer className={`items-center justify-center py-6 border-t border-border/20 text-muted-foreground gap-3 ${isMobile ? 'hidden' : 'flex'}`}>
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       {!roleLoading && (
-        <nav className="mobile-dock-container md:hidden">
+        <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
             <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
