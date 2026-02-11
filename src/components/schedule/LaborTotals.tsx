@@ -589,8 +589,8 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px] relative">
-      {/* Schedule Tools - Floating above the card */}
-      <div className="absolute -top-7 left-0 z-10">
+      {/* Schedule Tools - Floating above the border-top divider */}
+      <div className="absolute -top-[calc(1.75rem+1px)] left-0 z-10" style={{ top: '-1.85rem' }}>
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`
