@@ -137,6 +137,7 @@ export default function Schedule() {
   const queryClient = useQueryClient();
   const didInitWeek = useRef(false);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const stickyHeaderScrollRef = useRef<HTMLDivElement>(null);
   const scheduleBodyRef = useRef<HTMLDivElement>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
@@ -1520,8 +1521,13 @@ export default function Schedule() {
           collisionDetection={closestCenter}
         >
           <Card className="overflow-visible border-2 border-border shadow-md">
-            {/* Header inside card */}
-            <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border bg-muted/30">
+            {/* Sticky floating header: date selector + tools + day headers + events */}
+            <div 
+              ref={stickyHeaderRef}
+              className="sticky top-[56px] md:top-[60px] z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] mx-1 mt-1 border border-border/50 overflow-hidden"
+            >
+            {/* Header toolbar */}
+            <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
@@ -1665,10 +1671,10 @@ export default function Schedule() {
               </div>
             )}
 
-            {/* Sticky Day Headers + Events */}
+            {/* Day headers + Events - horizontally scrollable */}
             <div 
-              ref={stickyHeaderRef}
-              className="overflow-x-auto sticky top-[60px] md:top-[64px] z-30 scrollbar-none bg-card rounded-xl shadow-lg mx-1 border border-border/50"
+              ref={stickyHeaderScrollRef}
+              className="overflow-x-auto scrollbar-none"
               onScroll={(e) => {
                 if (scheduleBodyRef.current && scheduleBodyRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
                   scheduleBodyRef.current.scrollLeft = e.currentTarget.scrollLeft;
@@ -1724,14 +1730,14 @@ export default function Schedule() {
               <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
             </div>
             </div>
-
+            </div>
             {/* Schedule grid content */}
             <div 
               ref={scheduleBodyRef}
               className="overflow-x-auto"
               onScroll={(e) => {
-                if (stickyHeaderRef.current && stickyHeaderRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
-                  stickyHeaderRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                if (stickyHeaderScrollRef.current && stickyHeaderScrollRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+                  stickyHeaderScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
                 }
               }}
             >
