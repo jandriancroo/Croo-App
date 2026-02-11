@@ -113,7 +113,7 @@ export const usePushNotifications = () => {
         } else {
           // Only create new subscription if none exists
           console.log('[Push Web] Creating new push subscription...');
-          subscription = await registration.pushManager.subscribe({
+          subscription = await (registration as any).pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
           });
