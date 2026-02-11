@@ -1668,7 +1668,7 @@ export default function Schedule() {
             {/* Sticky Day Headers + Events */}
             <div 
               ref={stickyHeaderRef}
-              className="overflow-x-auto sticky top-[56px] md:top-[60px] z-30 scrollbar-none bg-background shadow-sm"
+              className="overflow-x-auto sticky top-[60px] md:top-[64px] z-30 scrollbar-none bg-card rounded-xl shadow-lg mx-1 border border-border/50"
               onScroll={(e) => {
                 if (scheduleBodyRef.current && scheduleBodyRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
                   scheduleBodyRef.current.scrollLeft = e.currentTarget.scrollLeft;
