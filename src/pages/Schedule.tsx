@@ -981,6 +981,41 @@ export default function Schedule() {
     }
   };
 
+  // Smart Tap: clicking an empty cell creates a shift from the selected template
+  const handleSmartTap = async (userId: string, dayIndex: number, shiftDate: string, template: any) => {
+    if (!scheduleId) return;
+    
+    // Build a fake "active" object that mimics a drag from template
+    const fakeActive = {
+      data: { current: { isTemplate: true, template } },
+      isTemplate: true,
+      template,
+    };
+
+    // Check for conflicts first
+    const detectedConflicts = checkForConflicts(userId, dayIndex, shiftDate);
+    if (detectedConflicts.length > 0) {
+      setPendingShiftData({
+        type: "template",
+        active: fakeActive,
+        userId,
+        dayIndex,
+        shiftDate,
+      });
+      setConflicts(detectedConflicts);
+      setConflictDialogOpen(true);
+      return;
+    }
+
+    // Current week warning
+    if (isCurrentWeek() && isPublished) {
+      setPendingEditAction(() => () => executeShiftOperation(fakeActive, userId, dayIndex, shiftDate));
+      setCurrentWeekWarningOpen(true);
+    } else {
+      await executeShiftOperation(fakeActive, userId, dayIndex, shiftDate);
+    }
+  };
+
   const handleConflictConfirm = async () => {
     if (!pendingShiftData) return;
 
