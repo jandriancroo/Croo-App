@@ -1931,8 +1931,8 @@ export default function Schedule() {
                 />
               </div>
               {/* Templates content below the border line */}
-              <div className="bg-card border-t border-border">
-                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-hidden">
+              <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
+                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-hidden" style={{ touchAction: 'none' }}>
                   <div className="flex items-start gap-3 pt-1">
                     <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
                     {templates.length > 0 ? (
