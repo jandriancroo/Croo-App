@@ -588,9 +588,9 @@ export function LaborTotals({
     return null;
   }
 
-  return <div className="text-xs min-w-[700px] relative">
-      {/* Schedule Tools - Floating above the border-top divider */}
-      <div className="absolute -top-[calc(1.75rem+1px)] left-0 z-10" style={{ top: '-1.85rem' }}>
+  return <div className="text-xs min-w-[700px]">
+      {/* Schedule Tools tab - rendered inline, pulled up over the border with negative margin */}
+      <div className="-mt-[1.85rem] mb-0 relative z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
           className={`

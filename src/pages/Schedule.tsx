@@ -1916,10 +1916,10 @@ export default function Schedule() {
           </div>
 
           {/* Floating Templates Bar - Bottom (Admin/Manager only) */}
-          {(isAdmin || isManager) && (
-            <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border z-50 overflow-visible">
-              <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[40vh] overflow-y-auto overflow-x-hidden">
-                {/* Labor Totals Summary */}
+           {(isAdmin || isManager) && (
+            <div className="fixed bottom-0 left-0 right-0 z-50 overflow-visible">
+              <div className="container max-w-7xl mx-auto px-4 overflow-visible">
+                {/* Schedule Tools tab - floats above border via negative margin in LaborTotals */}
                 <LaborTotals
                   shifts={shifts}
                   profiles={profiles}
@@ -1927,25 +1927,28 @@ export default function Schedule() {
                   scheduleId={scheduleId}
                   isEditable={isAdmin || isManager}
                 />
-
-                {/* Shift Templates - Always visible */}
-                <div className="flex items-start gap-3 border-t border-border pt-1">
-                  <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
-                  {templates.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 flex-1">
-                      {templates.map((template) => (
-                        <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-muted-foreground text-xs">No templates</p>
-                      <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
-                        <Plus className="h-3 w-3 mr-1" />
-                        Create
-                      </Button>
-                    </div>
-                  )}
+              </div>
+              {/* Templates content below the border line */}
+              <div className="bg-card border-t border-border">
+                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-hidden">
+                  <div className="flex items-start gap-3 pt-1">
+                    <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
+                    {templates.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 flex-1">
+                        {templates.map((template) => (
+                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-muted-foreground text-xs">No templates</p>
+                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Create
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
