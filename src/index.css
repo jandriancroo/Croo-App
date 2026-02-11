@@ -91,9 +91,9 @@ All colors MUST be HSL.
 
     --sidebar-ring: 186 80% 32%;
     
-    --role-admin: 280 70% 45%;
-    --role-manager: 150 60% 40%;
-    --role-team-member: 210 70% 50%;
+    --role-admin: 215 40% 30%;
+    --role-manager: 215 35% 42%;
+    --role-team-member: 215 30% 55%;
     
     --croo-orange: 28 95% 48%;
     --croo-beige: 40 33% 94%;
@@ -142,9 +142,9 @@ All colors MUST be HSL.
     --sidebar-border: 220 20% 16%;
     --sidebar-ring: 186 80% 50%;
     
-    --role-admin: 280 75% 55%;
-    --role-manager: 150 65% 50%;
-    --role-team-member: 210 75% 60%;
+    --role-admin: 215 45% 35%;
+    --role-manager: 215 38% 48%;
+    --role-team-member: 215 32% 62%;
     
     --croo-orange: 28 98% 55%;
     --croo-beige: 40 25% 85%;
