@@ -119,7 +119,7 @@ function EmployeeRowComponent({
     return (hours * wage).toFixed(2);
   };
     return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]`}>
-      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px]'}`}>
+      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[44px]' : 'min-h-[60px]'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
@@ -148,13 +148,8 @@ function EmployeeRowComponent({
                   })()}
                 </p>
                 <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                  {calculateTotalHours()} hrs
+                  {calculateTotalHours()} hrs{canViewAllWages && <> · ${calculateTotalWages()}</>}
                 </p>
-                {canViewAllWages && (
-                  <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                    ${calculateTotalWages()}
-                  </p>
-                )}
               </div>
             )}
             {isCompactMode && (
@@ -295,7 +290,7 @@ function DayCell({
   
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[80px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch`}>
+  }} className={`${isCompactMode ? 'min-h-[44px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch`}>
       <div className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}>
         {/* Weekly Availability Indicator - only show if NOT covered by a conflicting shift */}
         {hasLimitedAvailability && userId !== "unassigned" && !availabilityCoveredByShift && (
