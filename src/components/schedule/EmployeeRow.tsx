@@ -237,6 +237,10 @@ function EmployeeRowComponent({
          isCompactMode={isCompactMode}
          hasBirthday={hasBirthday}
          profileName={profile.full_name}
+         templates={templates}
+         recentTemplateIds={recentTemplateIds}
+         onSmartTap={onSmartTap}
+         cellDateStr={cellDateStr}
        />;
     })}
     </div>;
