@@ -53,3 +53,6 @@ verify_jwt = true
 
 [functions.fetch-qubeyond-sales]
 verify_jwt = false
+
+[functions.alarm-push-sender]
+verify_jwt = false
