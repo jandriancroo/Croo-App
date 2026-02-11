@@ -1677,7 +1677,7 @@ export default function Schedule() {
                 return (
                   <div 
                     key={index} 
-                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground rounded-md' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`text-center p-2 border-r last:border-r-0 border-border ${isToday ? 'bg-primary text-primary-foreground' : 'bg-muted/50'} ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     onClick={() => {
                       if (isAdmin || isManager) {
                         setSelectedDayForBreakdown(day);
