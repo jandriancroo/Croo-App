@@ -104,7 +104,7 @@ export function TasksHistoryTimeline({
   const timelineItems = useMemo(() => {
     const items: Array<{
       id: string;
-      type: 'checklist' | 'task' | 'alarm' | 'event' | 'logbook';
+      type: 'checklist' | 'task' | 'alarm' | 'alarm-missed' | 'event' | 'logbook';
       title: string;
       completionLevel: number;
       contributors: Contributor[];
@@ -147,13 +147,14 @@ export function TasksHistoryTimeline({
     // Add completed tasks with their completion times
     completedTempTasks.forEach(task => {
       const isAlarm = task.task_style === 'alarm';
+      const isMissedAlarm = task.task_style === 'alarm-missed';
       const displayTime = task.completed_at 
         ? formatInTimeZone(new Date(task.completed_at), timezone, 'h:mm a')
         : undefined;
       
       items.push({
         id: `task-${task.id}`,
-        type: isAlarm ? 'alarm' : 'task',
+        type: isMissedAlarm ? 'alarm-missed' : isAlarm ? 'alarm' : 'task',
         title: task.title,
         completionLevel: 100,
         contributors: task.completerName ? [{ name: task.completerName, photo: task.completerPhoto }] : [],
@@ -206,7 +207,8 @@ export function TasksHistoryTimeline({
   }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
 
   const alarmCount = timelineItems.filter(i => i.type === 'alarm').length;
-  const regularCount = timelineItems.filter(i => i.type !== 'alarm').length;
+  const missedAlarmCount = timelineItems.filter(i => i.type === 'alarm-missed').length;
+  const regularCount = timelineItems.filter(i => i.type !== 'alarm' && i.type !== 'alarm-missed').length;
 
   if (timelineItems.length === 0) {
     return (
@@ -233,10 +235,10 @@ export function TasksHistoryTimeline({
           <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
             {regularCount}
           </Badge>
-          {alarmCount > 0 && (
+          {(alarmCount > 0 || missedAlarmCount > 0) && (
             <Badge variant="outline" className="text-[10px] sm:text-xs gap-0.5 px-1.5">
               <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-              {alarmCount}
+              {alarmCount}/{alarmCount + missedAlarmCount}
             </Badge>
           )}
         </div>
@@ -268,6 +270,31 @@ export function TasksHistoryTimeline({
                   )}
                   <span className="text-foreground font-medium">{item.title}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                </div>
+              </div>
+            );
+          }
+
+          // Missed alarm - red indicator
+          if (item.type === 'alarm-missed') {
+            return (
+              <div 
+                key={item.id} 
+                className="relative flex items-center mb-1 pl-4 sm:pl-8"
+              >
+                {/* Timeline dot - red for missed */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-destructive ring-2 ring-background" />
+                </div>
+                
+                {/* Compact inline content - red accent for missed */}
+                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-destructive/10 border border-destructive/30 rounded-full text-[10px] sm:text-xs">
+                  <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-destructive shrink-0" />
+                  {item.displayTime && (
+                    <span className="text-destructive font-medium shrink-0">{item.displayTime}</span>
+                  )}
+                  <span className="text-muted-foreground font-medium">{item.title}</span>
+                  <span className="text-destructive font-semibold text-[9px] sm:text-[10px] uppercase tracking-wider">Missed</span>
                 </div>
               </div>
             );
