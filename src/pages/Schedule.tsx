@@ -1691,7 +1691,9 @@ export default function Schedule() {
                       <div className="mt-1 space-y-0.5">
                         {dayHolidays.map(holiday => (
                           <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight">
-                            {holiday.holiday_name}
+                            {holiday.holiday_type === 'birthday' 
+                              ? `🎂 B-Day ${holiday.holiday_name.replace(/🎂\s*/, '').split(' ')[0]}`
+                              : holiday.holiday_name}
                           </div>
                         ))}
                       </div>
@@ -1728,12 +1730,13 @@ export default function Schedule() {
                        onUpdate={fetchScheduleData}
                        canTakeShifts={false}
                        currentUserId={currentUserId || undefined}
-                       onEditShift={() => {}} // No editing for team members
+                       onEditShift={() => {}}
                        isDraggable={false}
                        isPublished={isPublished}
                        publishedSnapshot={publishedSnapshot}
                        canViewAllWages={canViewAllWages}
                        isCompactMode={isCompactMode}
+                       holidays={holidays}
                      />
                   ))
                 ) : (
@@ -1817,6 +1820,7 @@ export default function Schedule() {
                                    publishedSnapshot={publishedSnapshot}
                                    canViewAllWages={canViewAllWages}
                                    isCompactMode={isCompactMode}
+                                   holidays={holidays}
                                  />
                               ))}
                             </SortableContext>
