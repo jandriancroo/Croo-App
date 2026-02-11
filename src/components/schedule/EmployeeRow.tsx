@@ -1,9 +1,10 @@
-import { memo } from "react";
+import { memo, useState, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
+import { SmartTapPopover } from "./SmartTapPopover";
 import { addDays, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical, Clock, CalendarOff, AlertCircle, CakeSlice } from "lucide-react";
@@ -60,6 +61,8 @@ interface EmployeeRowProps {
   canViewAllWages?: boolean;
   isCompactMode?: boolean;
   holidays?: Holiday[];
+  allShifts?: any[];
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
 }
 
 function EmployeeRowComponent({
@@ -78,7 +81,9 @@ function EmployeeRowComponent({
   publishedSnapshot,
   canViewAllWages = false,
   isCompactMode = false,
-  holidays = []
+  holidays = [],
+  allShifts = [],
+  onSmartTap
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -129,6 +134,24 @@ function EmployeeRowComponent({
     const wage = profile.hourly_wage ?? 15.00;
     return (hours * wage).toFixed(2);
   };
+
+  // Compute the last 3 unique template IDs this employee worked (most recent first)
+  const recentTemplateIds = useMemo(() => {
+    const employeeShifts = allShifts
+      .filter(s => s.user_id === profile.id && s.template_id)
+      .sort((a: any, b: any) => (b.shift_date || '').localeCompare(a.shift_date || ''));
+    
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const s of employeeShifts) {
+      if (!seen.has(s.template_id)) {
+        seen.add(s.template_id);
+        result.push(s.template_id);
+        if (result.length >= 3) break;
+      }
+    }
+    return result;
+  }, [allShifts, profile.id]);
     return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]`}>
       <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px]'}`}>
         {/* Drag Handle inside employee card */}
@@ -214,6 +237,10 @@ function EmployeeRowComponent({
          isCompactMode={isCompactMode}
          hasBirthday={hasBirthday}
          profileName={profile.full_name}
+         templates={templates}
+         recentTemplateIds={recentTemplateIds}
+         onSmartTap={onSmartTap}
+         cellDateStr={cellDateStr}
        />;
     })}
     </div>;
@@ -233,7 +260,11 @@ function DayCell({
   isToday = false,
   isCompactMode = false,
   hasBirthday = false,
-  profileName = ""
+  profileName = "",
+  templates = [],
+  recentTemplateIds = [],
+  onSmartTap,
+  cellDateStr = ""
 }: {
   userId: string;
   dayIndex: number;
@@ -250,6 +281,10 @@ function DayCell({
   isCompactMode?: boolean;
   hasBirthday?: boolean;
   profileName?: string;
+  templates?: any[];
+  recentTemplateIds?: string[];
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
+  cellDateStr?: string;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -258,6 +293,9 @@ function DayCell({
   } = useDroppable({
     id: dropId
   });
+  
+  const [smartTapOpen, setSmartTapOpen] = useState(false);
+  const canSmartTap = onSmartTap && templates.length > 0 && shifts.length === 0 && userId !== "unassigned";
   
   const formatTime12h = (time: string) => {
     const parts = time.split(":");
@@ -308,10 +346,26 @@ function DayCell({
   // Check if any shift covers the availability restriction
   const availabilityCoveredByShift = shifts.length > 0 && shifts.some(shift => shiftConflictsWithAvailability(shift));
   
+  const handleSmartTapSelect = (template: any) => {
+    setSmartTapOpen(false);
+    onSmartTap?.(userId, dayIndex, cellDateStr, template);
+  };
+
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden`}>
-      <div className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}>
+  }} className={`${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
+    <SmartTapPopover
+      open={smartTapOpen}
+      onOpenChange={setSmartTapOpen}
+      templates={templates}
+      recentTemplateIds={recentTemplateIds}
+      onSelectTemplate={handleSmartTapSelect}
+      isCompactMode={isCompactMode}
+    >
+      <div 
+        className={`${isCompactMode ? 'flex flex-col w-full' : 'flex flex-col w-full gap-1 justify-center'}`}
+        onClick={canSmartTap ? () => setSmartTapOpen(true) : undefined}
+      >
         {/* Birthday Indicator */}
         {hasBirthday && (
           <div className={`${isCompactMode ? 'flex-1 min-h-[36px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
@@ -493,6 +547,7 @@ function DayCell({
           </Popover>
         ))}
       </div>
+    </SmartTapPopover>
     </div>;
 }
 
