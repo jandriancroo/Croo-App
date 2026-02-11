@@ -85,8 +85,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   return (
     <Card
       ref={setNodeRef}
-      style={{ ...style, backgroundColor: bgColor }}
-      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg'} ${shift.isTemplate ? 'min-w-[110px] max-w-[140px]' : 'flex-1'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      style={{ ...style, backgroundColor: bgColor, borderColor: `color-mix(in srgb, ${bgColor} 70%, black)` }}
+      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-0 shadow-none' : 'p-1.5 min-h-[55px] rounded-lg border-2'} ${shift.isTemplate ? 'min-w-[110px] max-w-[140px]' : 'flex-1'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
