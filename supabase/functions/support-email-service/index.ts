@@ -6,6 +6,25 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Queue an email for reliable delivery via email_queue table
+async function queueEmail(opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string; metadata?: Record<string, any> }) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { error } = await supabase.from('email_queue').insert({
+    from_address: opts.from,
+    to_addresses: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    source: opts.source,
+    dedup_key: opts.dedupKey || null,
+    metadata: opts.metadata || {},
+  });
+  if (error) {
+    console.error(`[support-email] Queue insert failed for "${opts.subject}":`, error);
+    throw error;
+  }
+  console.log(`[support-email] Queued: "${opts.subject}" → ${opts.to.join(', ')}`);
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -116,9 +135,16 @@ async function notifySupportTicket(payload: any): Promise<Response> {
 
   for (const email of adminEmails) {
     try {
-      await resend.emails.send({ from: "CrooHQ Support <support@croohq.email>", to: [email], subject: emailSubject, html: emailHtml });
+      await queueEmail({
+        from: "CrooHQ Support <support@croohq.email>",
+        to: [email],
+        subject: emailSubject,
+        html: emailHtml,
+        source: 'support_ticket',
+        dedupKey: `support_${event_type}_${ticket_id}_${email}`,
+      });
     } catch (e) {
-      console.error("Error sending email to", email, e);
+      console.error("Error queuing email to", email, e);
     }
   }
 
@@ -149,11 +175,13 @@ async function sendSupportResolution(payload: any): Promise<Response> {
   const firstName = userName.split(' ')[0];
 
   if (userEmail) {
-    await resend.emails.send({
+    await queueEmail({
       from: "CrooHQ Support <support@croohq.email>",
       to: [userEmail],
       subject: `Your support ticket ${ticketNumber} has been resolved`,
       html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;margin:0;">✅ Ticket Resolved</h1></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 16px;">Good news, ${firstName}! 🎉</p><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Your support ticket <strong style="color:${primaryColor};">${ticketNumber}</strong> has been resolved.</p><div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};"><p style="color:#666;font-size:12px;margin:0 0 8px;">Original Issue</p><p style="color:${textColor};font-size:14px;margin:0;">${ticket.description}</p></div><div style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Open Croo</a></div></td></tr>`),
+      source: 'support_resolution',
+      dedupKey: `support_resolution_${ticketId}`,
     });
   }
 
@@ -299,15 +327,17 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     const email = (recipient as any).profile?.email;
     if (email) {
       try {
-        await resend.emails.send({
+        await queueEmail({
           from: "CrooHQ <reports@croohq.email>",
           to: [email],
           subject: `Daily Summary: ${location.name} - ${displayDate}`,
           html: emailHtml,
+          source: 'daily_summary',
+          dedupKey: `daily_summary_${location_id}_${entry_date}_${email}`,
         });
         sentCount++;
       } catch (e) {
-        console.error("Error sending daily summary to", email, e);
+        console.error("Error queuing daily summary for", email, e);
       }
     }
   }

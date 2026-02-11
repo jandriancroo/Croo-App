@@ -6,6 +6,25 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Queue an email for reliable delivery via email_queue table
+async function queueEmail(opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string; metadata?: Record<string, any> }) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { error } = await supabase.from('email_queue').insert({
+    from_address: opts.from,
+    to_addresses: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    source: opts.source,
+    dedup_key: opts.dedupKey || null,
+    metadata: opts.metadata || {},
+  });
+  if (error) {
+    console.error(`[hiring-email] Queue insert failed for "${opts.subject}":`, error);
+    throw error;
+  }
+  console.log(`[hiring-email] Queued: "${opts.subject}" → ${opts.to.join(', ')}`);
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -317,14 +336,16 @@ async function sendInviteEmail(payload: any): Promise<Response> {
   const displayName = brandName || orgName;
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${displayName}" style="max-height:100px;max-width:200px;margin-bottom:20px;border-radius:8px;"/>` : `<div style="font-size:48px;margin-bottom:16px;">🎉</div>`;
 
-  const emailResponse = await resend.emails.send({
+  await queueEmail({
     from: "CrooHQ <hello@croohq.email>",
     to: [to],
     subject: `🎉 Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
     html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">${displayName}${locName ? ` • ${locName}` : ''}</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}! 👋</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>`),
+    source: 'invite',
+    dedupKey: `invite_${to}_${Date.now()}`,
   });
 
-  return new Response(JSON.stringify({ success: true, data: emailResponse }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
 async function resendInviteEmail(payload: any): Promise<Response> {
@@ -370,16 +391,18 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
 
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
 
-  const emailResponse = await resend.emails.send({
+  await queueEmail({
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [overrideEmail || app.email],
     subject,
     html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">${orgName}</p></td></tr><tr><td style="padding:30px 40px;"><div style="color:${textColor};font-size:15px;line-height:1.7;">${body}</div></td></tr>`),
+    source: 'rejection',
+    dedupKey: `rejection_${applicationId}_${templateId}`,
   });
 
   await supabase.from("job_applications").update({ rejection_template_id: templateId, rejection_email_sent_at: new Date().toISOString() }).eq("id", applicationId);
 
-  return new Response(JSON.stringify({ success: true, emailId: emailResponse.data?.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function sendInterviewInvite(payload: any): Promise<Response> {
@@ -411,6 +434,7 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
   const icsContent = generateICS(interviewDate, interviewTime, orgName, locationName, locationAddress);
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>` : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
 
+  // Interview invites need to be sent immediately (has ICS attachment) — keep direct send
   const emailResponse = await resend.emails.send({
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [applicantEmail],
@@ -523,18 +547,20 @@ async function notifyNewApplication(payload: any): Promise<Response> {
   const reviewUrl = "https://croohq.com/hiring";
   const emailHtml = wrapEmail(`${getEmailHeader("📋 New Job Application", logoUrl, orgDisplayName)}<tr><td style="padding:30px 40px;"><h2 style="color:${textColor};font-size:18px;font-weight:600;margin:0 0 20px;">Applicant Details</h2><div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;"><table style="width:100%;"><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${applicantName}</strong></td></tr><tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><a href="mailto:${applicantEmail}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantEmail}</a></td></tr>${applicantPhone ? `<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Phone</span><br/><a href="tel:${applicantPhone}" style="color:${primaryColor};font-size:14px;text-decoration:none;">${applicantPhone}</a></td></tr>` : ''}<tr><td style="padding:8px 0;border-bottom:1px solid #e8e5df;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Position</span><br/><strong style="color:${textColor};font-size:14px;">${templateName}</strong></td></tr><tr><td style="padding:8px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationName}</strong></td></tr></table></div>${getCTAButton(reviewUrl, "Review Application")}</td></tr>${getEmailFooter()}`);
 
-  const emailPromises = uniqueEmails.map(email => resend.emails.send({
+  const emailPromises = uniqueEmails.map(email => queueEmail({
     from: "CrooHQ <hiring@croohq.email>",
     to: [email],
     subject: `📋 New Application Received - ${applicantName}`,
     html: emailHtml,
+    source: 'new_application',
+    dedupKey: `new_app_${applicationId}_${email}`,
   }));
 
   const results = await Promise.allSettled(emailPromises);
   const successful = results.filter(r => r.status === 'fulfilled').length;
 
-  console.log(`New application notifications sent: ${successful}/${uniqueEmails.length}`);
-  return new Response(JSON.stringify({ success: true, message: `Notifications sent to ${successful} managers` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  console.log(`New application notifications queued: ${successful}/${uniqueEmails.length}`);
+  return new Response(JSON.stringify({ success: true, message: `Notifications queued for ${successful} managers` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function notifyEmployeeJoined(payload: any): Promise<Response> {
