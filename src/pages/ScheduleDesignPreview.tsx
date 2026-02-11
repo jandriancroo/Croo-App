@@ -78,27 +78,29 @@ function ConceptA() {
                 {visible.map((ev, j) => (
                   <div
                     key={j}
-                    className="rounded px-1.5 py-0.5 cursor-pointer hover:brightness-125 transition-all flex items-center gap-1"
+                    className="rounded-md p-1 cursor-pointer hover:brightness-125 transition-all"
                     style={{
-                      backgroundColor: `${ev.color}18`,
-                      borderLeft: `2.5px solid ${ev.color}`,
+                      backgroundColor: `${ev.color}30`,
+                      borderLeft: `3px solid ${ev.color}`,
                     }}
                   >
-                    <div className="flex-1 min-w-0 -space-y-px">
-                      <div className="flex items-center gap-1">
-                        {ev.isDailyTask && <ClipboardCheck className="h-3 w-3 text-white/50 flex-shrink-0" />}
-                        <span className="text-[10.5px] font-medium text-white truncate leading-tight">{ev.label}</span>
+                    <div className="flex items-center gap-1">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-white font-medium">
+                          {ev.isDailyTask && <ClipboardCheck className="h-3 w-3 flex-shrink-0" />}
+                          <span className="text-[10px] truncate">{ev.label}</span>
+                        </div>
+                        <div className="text-white/70 text-[10px]">{ev.time}</div>
                       </div>
-                      <span className="text-[9.5px] text-white/50 leading-none">{ev.time}</span>
+                      {!expanded && hidden > 0 && j === 0 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+                          className="px-1.5 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold text-white flex-shrink-0 transition-colors"
+                        >
+                          +{hidden}
+                        </button>
+                      )}
                     </div>
-                    {!expanded && hidden > 0 && j === 0 && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-                        className="text-[9px] bg-white/15 hover:bg-white/25 text-white/80 px-1.5 py-0.5 rounded-full flex-shrink-0 transition-colors"
-                      >
-                        +{hidden}
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
