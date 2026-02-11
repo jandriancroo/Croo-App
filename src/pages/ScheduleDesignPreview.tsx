@@ -91,16 +91,16 @@ function ConceptA() {
                       />
                       {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
                       <span className="text-[9px] font-medium text-white truncate leading-tight">{ev.label}</span>
+                      <span className="text-[8px] text-white/40 flex-shrink-0 ml-auto">{ev.time}</span>
                       {!expanded && hidden > 0 && j === 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-                          className="ml-auto text-[9px] bg-white/15 hover:bg-white/25 text-white/80 px-1 rounded flex-shrink-0 transition-colors"
+                          className="text-[9px] bg-white/15 hover:bg-white/25 text-white/80 px-1 rounded flex-shrink-0 transition-colors"
                         >
                           +{hidden}
                         </button>
                       )}
                     </div>
-                    <span className="text-[8px] text-white/50 leading-none">{ev.time}</span>
                   </div>
                 ))}
               </div>
