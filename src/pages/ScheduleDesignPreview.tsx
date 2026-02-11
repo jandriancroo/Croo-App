@@ -86,10 +86,10 @@ function ConceptA() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
-                        <span className="text-[10.5px] font-medium text-white truncate leading-tight mt-[3px]">{ev.label}</span>
+                        {ev.isDailyTask && <ClipboardCheck className="h-3 w-3 text-white/50 flex-shrink-0" />}
+                        <span className="text-[10.5px] font-medium text-white truncate leading-tight">{ev.label}</span>
                       </div>
-                      <span className="text-[9px] text-white/50 leading-none">{ev.time}</span>
+                      <span className="text-[9.5px] text-white/50 leading-none">{ev.time}</span>
                     </div>
                     {!expanded && hidden > 0 && j === 0 && (
                       <button
