@@ -86,7 +86,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor, borderColor: `color-mix(in srgb, ${bgColor} 75%, gray)` }}
-      className={`${isCompactMode ? 'p-0 min-h-[44px] rounded-none border-2 border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-lg border-2'} ${shift.isTemplate ? 'min-w-[110px] max-w-[140px]' : 'flex-1'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[36px] rounded-none border-2 border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-lg border-2'} ${shift.isTemplate ? 'min-w-[110px] max-w-[140px]' : 'flex-1'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -98,8 +98,8 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           style={stripeOverlayStyle}
         />
       )}
-      <div className="relative z-10 text-left pl-1">
-        <div className={`text-white font-semibold leading-tight flex items-center gap-1 whitespace-nowrap ${isCompactMode ? 'text-xs' : 'text-[10px] lg:text-xs'}`}>
+      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left pl-1'}`}>
+        <div className={`text-white font-semibold leading-tight flex items-center gap-1 whitespace-nowrap ${isCompactMode ? 'text-xs justify-center' : 'text-[10px] lg:text-xs'}`}>
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
