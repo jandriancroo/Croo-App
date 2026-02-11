@@ -136,6 +136,8 @@ export default function Schedule() {
   const { timezone, getTodayInTimezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const didInitWeek = useRef(false);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const scheduleBodyRef = useRef<HTMLDivElement>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [activeShift, setActiveShift] = useState<any>(null);
@@ -1663,8 +1665,17 @@ export default function Schedule() {
               </div>
             )}
 
-            {/* Schedule grid content */}
-            <div className="overflow-x-auto">
+            {/* Sticky Day Headers + Events */}
+            <div 
+              ref={stickyHeaderRef}
+              className="overflow-x-auto sticky top-0 z-20 scrollbar-none"
+              onScroll={(e) => {
+                if (scheduleBodyRef.current && scheduleBodyRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+                  scheduleBodyRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
             {/* Week Day Headers */}
             <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b-2 border-border min-w-[700px]">
               <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
@@ -1712,7 +1723,18 @@ export default function Schedule() {
             <div className="border-b border-border">
               <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
             </div>
+            </div>
 
+            {/* Schedule grid content */}
+            <div 
+              ref={scheduleBodyRef}
+              className="overflow-x-auto"
+              onScroll={(e) => {
+                if (stickyHeaderRef.current && stickyHeaderRef.current.scrollLeft !== e.currentTarget.scrollLeft) {
+                  stickyHeaderRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+            >
             {/* Shifts by User - Grouped by Role (filtered for team members) */}
             <div className="divide-y divide-border">
               {isTeamMemberDesktopView ? (
