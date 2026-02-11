@@ -1546,7 +1546,7 @@ export default function Schedule() {
               style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
-            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-2 border-b border-border">
+            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:py-2 border-b border-white/10 bg-[hsl(215,20%,27%)]">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
@@ -1564,7 +1564,7 @@ export default function Schedule() {
                     variant={isCompactMode ? "default" : "outline"}
                     size="sm"
                     onClick={() => setIsCompactMode(!isCompactMode)}
-                    className="gap-1.5 md:gap-2"
+                    className={`gap-1.5 md:gap-2 ${!isCompactMode ? 'border-white/30 text-white hover:bg-white/10 hover:text-white' : ''}`}
                     title={isCompactMode ? "Expand view" : "Compact view"}
                   >
                     {isCompactMode ? (
@@ -1583,7 +1583,7 @@ export default function Schedule() {
                     variant="outline" 
                     size="sm"
                     onClick={() => setAutoScheduleOpen(true)}
-                    className="gap-1.5 md:gap-2"
+                    className="gap-1.5 md:gap-2 border-white/30 text-white hover:bg-white/10 hover:text-white"
                   >
                     <Sparkles className="h-4 w-4" />
                     <span className="hidden lg:inline">Croo AI</span>
@@ -1592,13 +1592,13 @@ export default function Schedule() {
                     variant="outline" 
                     size="icon"
                     onClick={() => wrapEditAction(() => setIsCreatingShift(true))}
-                    className="opacity-60 hover:opacity-100 transition-opacity"
+                    className="opacity-60 hover:opacity-100 transition-opacity border-white/30 text-white hover:bg-white/10 hover:text-white"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon">
+                      <Button variant="outline" size="icon" className="border-white/30 text-white hover:bg-white/10 hover:text-white">
                         <Wrench className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
