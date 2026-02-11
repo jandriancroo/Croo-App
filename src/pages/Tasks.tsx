@@ -351,7 +351,7 @@ export default function Tasks() {
           .order('completed_at', { ascending: false }),
         supabase
           .from('temporary_tasks')
-          .select('id, title, description, accent_color, task_style')
+          .select('id, title, description, accent_color, task_style, alarm_start_time, alarm_end_time, frequency_minutes, custom_times')
           .eq('location_id', currentLocation.id)
           .eq('task_style', 'alarm')
           .eq('is_active', true),
@@ -365,7 +365,7 @@ export default function Tasks() {
       if (alarmTaskIds.length > 0) {
         const { data: completions } = await supabase
           .from('alarm_task_completions')
-          .select('id, task_id, completed_at, completed_by')
+          .select('id, task_id, completed_at, completed_by, interval_key')
           .in('task_id', alarmTaskIds)
           .gte('completed_at', periodStart.toISOString())
           .lte('completed_at', periodEnd.toISOString())
@@ -379,22 +379,95 @@ export default function Tasks() {
         return acc;
       }, {});
 
-      // Convert alarm completions to task-like objects
-      const alarmTaskItems = alarmCompletions.map(completion => {
-        const task = alarmTaskMap[completion.task_id];
-        return {
-          id: completion.id, // Use completion ID to make each unique
-          title: task?.title || 'Unknown Alarm',
-          description: task?.description || null,
-          completed_at: completion.completed_at,
-          completed_by: completion.completed_by,
-          accent_color: task?.accent_color || null,
-          task_style: 'alarm' as const,
-          subtaskTotal: 0,
-          subtaskCompleted: 0,
-          completerName: null as string | null,
-          completerPhoto: null as string | null,
-        };
+      // Generate expected firing times for each alarm task
+      // and mark which were completed vs missed
+      const alarmTaskItems: any[] = [];
+      
+      (alarmTasks || []).forEach(task => {
+        const startTime = task.alarm_start_time?.slice(0, 5) || '09:00';
+        const endTime = task.alarm_end_time?.slice(0, 5) || '21:00';
+        const freqMin = task.frequency_minutes || 60;
+        const customTimes: string[] = task.custom_times || [];
+        
+        // Generate expected firing times
+        const expectedTimes: string[] = [];
+        if (customTimes.length > 0) {
+          expectedTimes.push(...customTimes);
+        } else {
+          const [startH, startM] = startTime.split(':').map(Number);
+          const [endH, endM] = endTime.split(':').map(Number);
+          const startMinutes = startH * 60 + startM;
+          const endMinutes = endH * 60 + endM;
+          for (let m = startMinutes; m <= endMinutes; m += freqMin) {
+            const hh = String(Math.floor(m / 60)).padStart(2, '0');
+            const mm = String(m % 60).padStart(2, '0');
+            expectedTimes.push(`${hh}:${mm}`);
+          }
+        }
+        
+        // Find completions for this task
+        const taskCompletions = alarmCompletions.filter(c => c.task_id === task.id);
+        
+        // Map completions by interval_key hour to match expected times
+        const completedIntervalHours = new Set<string>();
+        taskCompletions.forEach(c => {
+          // interval_key format: YYYY-MM-DD_HHMM
+          const keyParts = c.interval_key?.split('_');
+          if (keyParts && keyParts[1]) {
+            const hhmm = keyParts[1];
+            const h = hhmm.slice(0, 2);
+            const m = hhmm.slice(2, 4);
+            completedIntervalHours.add(`${h}:${m}`);
+          }
+        });
+        
+        // For today, only show slots up to the current hour
+        const now = new Date();
+        const pstStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+        const pstNow = new Date(pstStr);
+        const currentDate = `${pstNow.getFullYear()}-${String(pstNow.getMonth() + 1).padStart(2, '0')}-${String(pstNow.getDate()).padStart(2, '0')}`;
+        const isViewingToday = historyDateStr === currentDate;
+        const currentMinutes = pstNow.getHours() * 60 + pstNow.getMinutes();
+        
+        expectedTimes.forEach(timeSlot => {
+          const [h, m] = timeSlot.split(':').map(Number);
+          const slotMinutes = h * 60 + m;
+          
+          // Don't show future slots for today
+          if (isViewingToday && slotMinutes > currentMinutes) return;
+          
+          // Build a fake UTC timestamp for sorting (using the date being viewed)
+          const slotUtcIso = `${historyDateStr}T${timeSlot}:00-08:00`;
+          
+          // Check if this slot was completed
+          const wasCompleted = completedIntervalHours.has(timeSlot);
+          
+          // Find the matching completion for completed slots
+          const matchingCompletion = wasCompleted 
+            ? taskCompletions.find(c => {
+                const keyParts = c.interval_key?.split('_');
+                if (keyParts && keyParts[1]) {
+                  const hhmm = keyParts[1];
+                  return `${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}` === timeSlot;
+                }
+                return false;
+              })
+            : null;
+          
+          alarmTaskItems.push({
+            id: matchingCompletion?.id || `missed-${task.id}-${timeSlot}`,
+            title: task.title || 'Unknown Alarm',
+            description: task.description || null,
+            completed_at: matchingCompletion?.completed_at || slotUtcIso,
+            completed_by: matchingCompletion?.completed_by || null,
+            accent_color: task.accent_color || null,
+            task_style: wasCompleted ? 'alarm' as const : 'alarm-missed' as const,
+            subtaskTotal: 0,
+            subtaskCompleted: 0,
+            completerName: null as string | null,
+            completerPhoto: null as string | null,
+          });
+        });
       });
 
       // Combine one-time tasks (with task_style) 
