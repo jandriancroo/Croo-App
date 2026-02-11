@@ -81,7 +81,9 @@ function EmployeeRowComponent({
   publishedSnapshot,
   canViewAllWages = false,
   isCompactMode = false,
-  holidays = []
+  holidays = [],
+  allShifts = [],
+  onSmartTap
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
