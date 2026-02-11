@@ -1524,7 +1524,7 @@ export default function Schedule() {
             {/* Sticky floating header: date selector + tools + day headers + events */}
             <div 
               ref={stickyHeaderRef}
-              className="sticky top-[56px] md:top-[60px] z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-border overflow-hidden"
+              className="sticky top-[56px] md:top-[60px] z-30 bg-card rounded-b-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-t-0 border-border overflow-hidden"
             >
             {/* Header toolbar */}
             <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border">
