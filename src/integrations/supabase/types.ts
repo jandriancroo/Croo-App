@@ -1271,6 +1271,54 @@ export type Database = {
           },
         ]
       }
+      email_queue: {
+        Row: {
+          created_at: string
+          dedup_key: string | null
+          from_address: string
+          html: string
+          id: string
+          last_error: string | null
+          metadata: Json | null
+          retry_count: number
+          sent_at: string | null
+          source: string | null
+          status: string
+          subject: string
+          to_addresses: string[]
+        }
+        Insert: {
+          created_at?: string
+          dedup_key?: string | null
+          from_address?: string
+          html: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json | null
+          retry_count?: number
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          subject: string
+          to_addresses: string[]
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string | null
+          from_address?: string
+          html?: string
+          id?: string
+          last_error?: string | null
+          metadata?: Json | null
+          retry_count?: number
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          subject?: string
+          to_addresses?: string[]
+        }
+        Relationships: []
+      }
       employee_notes: {
         Row: {
           created_at: string
