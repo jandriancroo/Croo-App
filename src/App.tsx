@@ -84,7 +84,7 @@ const DockStylePreview = lazy(() => import("./pages/DockStylePreview"));
 const DesignStylePreview = lazy(() => import("./pages/DesignStylePreview"));
 const AvailabilityRequestPreview = lazy(() => import("./pages/AvailabilityRequestPreview"));
 const VisionOSPreview = lazy(() => import("./pages/VisionOSPreview"));
-const ScheduleDesignPreview = lazy(() => import("./pages/ScheduleDesignPreview"));
+
 
 const queryClient = new QueryClient();
 
@@ -206,7 +206,7 @@ const AppContent = () => {
         <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
         <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
         <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
-        <Route path="/schedule-design-preview" element={<ProtectedRoute><ScheduleDesignPreview /></ProtectedRoute>} />
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
