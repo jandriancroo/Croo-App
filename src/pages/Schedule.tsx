@@ -1519,7 +1519,7 @@ export default function Schedule() {
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
         >
-          <Card className="overflow-hidden border-2 border-border shadow-md">
+          <Card className="overflow-visible border-2 border-border shadow-md">
             {/* Header inside card */}
             <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border bg-muted/30">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
