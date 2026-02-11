@@ -39,6 +39,17 @@ interface CompletedTask {
   completer_photo: string | null;
 }
 
+interface AlarmCompletion {
+  id: string;
+  task_title: string;
+  accent_color: string | null;
+  completed_at: string;
+  completed_by: string;
+  completer_name: string | null;
+  completer_email: string | null;
+  completer_photo: string | null;
+}
+
 export default function History() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const navigate = useNavigate();
@@ -131,7 +142,64 @@ export default function History() {
     gcTime: 10 * 60 * 1000,
   });
 
-  const loading = loadingSubmissions || loadingTasks;
+  // Fetch alarm task completions for the selected date
+  const { data: alarmCompletions = [], isLoading: loadingAlarms } = useQuery({
+    queryKey: ['history-alarms', currentLocation?.id, format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      // Get alarm tasks for this location
+      const { data: alarmTasks, error: tasksError } = await supabase
+        .from('temporary_tasks')
+        .select('id, title, accent_color')
+        .eq('location_id', currentLocation?.id)
+        .eq('task_style', 'alarm')
+        .eq('is_recurring', true);
+
+      if (tasksError) throw tasksError;
+      if (!alarmTasks || alarmTasks.length === 0) return [];
+
+      const taskIds = alarmTasks.map(t => t.id);
+      const taskMap = alarmTasks.reduce((acc, t) => { acc[t.id] = t; return acc; }, {} as Record<string, any>);
+
+      // Fetch completions for these alarm tasks on the selected date
+      const { data: completions, error: compError } = await supabase
+        .from('alarm_task_completions')
+        .select('id, task_id, completed_at, completed_by')
+        .in('task_id', taskIds)
+        .gte('completed_at', dateStart)
+        .lte('completed_at', dateEnd)
+        .order('completed_at', { ascending: false });
+
+      if (compError) throw compError;
+      if (!completions || completions.length === 0) return [];
+
+      // Fetch completer profiles
+      const completedByIds = [...new Set(completions.map(c => c.completed_by).filter(Boolean))];
+      let profilesMap: Record<string, any> = {};
+      if (completedByIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, profile_photo_url')
+          .in('id', completedByIds);
+        profilesMap = (profiles || []).reduce((acc, p) => { acc[p.id] = p; return acc; }, {} as Record<string, any>);
+      }
+
+      return completions.map(c => ({
+        id: c.id,
+        task_title: taskMap[c.task_id]?.title || 'Alarm Task',
+        accent_color: taskMap[c.task_id]?.accent_color || null,
+        completed_at: c.completed_at,
+        completed_by: c.completed_by!,
+        completer_name: profilesMap[c.completed_by!]?.full_name || null,
+        completer_email: profilesMap[c.completed_by!]?.email || null,
+        completer_photo: profilesMap[c.completed_by!]?.profile_photo_url || null,
+      })) as AlarmCompletion[];
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  const loading = loadingSubmissions || loadingTasks || loadingAlarms;
 
   // Transform data into timeline items
   const timelineItems: HistoryTimelineItem[] = useMemo(() => {
@@ -179,8 +247,27 @@ export default function History() {
       });
     });
 
+    // Add alarm task completions
+    alarmCompletions.forEach(a => {
+      const completedAt = new Date(a.completed_at);
+      items.push({
+        id: `alarm-${a.id}`,
+        type: 'alarm',
+        title: a.task_title,
+        accentColor: a.accent_color || undefined,
+        contributors: [{
+          name: a.completer_name || a.completer_email?.split('@')[0] || 'Unknown',
+          photoUrl: a.completer_photo,
+          completedAt: format(completedAt, 'h:mm a'),
+          itemsCompleted: 1,
+        }],
+        finalCompletedAt: format(completedAt, 'h:mm a'),
+        completionLevel: 100,
+      });
+    });
+
     return items;
-  }, [submissions, completedTasks, navigate]);
+  }, [submissions, completedTasks, alarmCompletions, navigate]);
 
   return (
     <Layout>
