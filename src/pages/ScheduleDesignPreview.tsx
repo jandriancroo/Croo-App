@@ -87,7 +87,7 @@ function ConceptA() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
-                        <span className="text-[10.5px] font-medium text-white truncate leading-tight mt-px">{ev.label}</span>
+                        <span className="text-[10.5px] font-medium text-white truncate leading-tight mt-0.5">{ev.label}</span>
                       </div>
                       <span className="text-[9px] text-white/50 leading-none">{ev.time}</span>
                     </div>
