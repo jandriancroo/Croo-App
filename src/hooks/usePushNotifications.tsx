@@ -106,14 +106,14 @@ export const usePushNotifications = () => {
         console.log('[Push Web] ✅ Service worker ready');
 
         // Check for existing subscription first - reuse if valid
-        let subscription = await registration.pushManager.getSubscription();
+        let subscription = await (registration as any).pushManager.getSubscription();
         
         if (subscription) {
           console.log('[Push Web] ✅ Reusing existing subscription:', subscription.endpoint);
         } else {
           // Only create new subscription if none exists
           console.log('[Push Web] Creating new push subscription...');
-          subscription = await registration.pushManager.subscribe({
+          subscription = await (registration as any).pushManager.subscribe({
             userVisibleOnly: true,
             applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
           });
