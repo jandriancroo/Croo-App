@@ -1934,9 +1934,9 @@ export default function Schedule() {
                   <div className="flex items-start gap-3 pt-1">
                     <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
                     {templates.length > 0 ? (
-                      <div className="flex flex-wrap gap-2 flex-1">
+                      <div className={`flex flex-wrap ${isCompactMode ? 'gap-1' : 'gap-2'} flex-1`}>
                         {templates.map((template) => (
-                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
                         ))}
                       </div>
                     ) : (
