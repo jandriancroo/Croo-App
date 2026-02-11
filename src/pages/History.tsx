@@ -102,6 +102,7 @@ export default function History() {
         `)
         .eq('location_id', currentLocation?.id)
         .not('completed_at', 'is', null)
+        .neq('task_style', 'alarm')
         .gte('completed_at', dateStart)
         .lte('completed_at', dateEnd)
         .order('completed_at', { ascending: false });
