@@ -54,11 +54,11 @@ function ConceptA() {
       </p>
       <div className={`grid ${GRID_COLS} min-w-[700px] rounded-lg overflow-hidden border border-border/40`}>
         {/* Header label */}
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-[hsl(215,20%,27%)] border-r border-white/10">
-          <CalendarCheck className="h-4 w-4 text-white/70" />
-          <span className="font-semibold text-white text-xs tracking-wide uppercase">Events</span>
-          <button className="ml-auto h-5 w-5 rounded flex items-center justify-center hover:bg-white/15 text-white/60 transition-colors">
-            <Plus className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(215,20%,27%)] border-r border-white/10">
+          <CalendarCheck className="h-3.5 w-3.5 text-white/70" />
+          <span className="font-semibold text-white text-[10px] tracking-wide uppercase">Events</span>
+          <button className="ml-auto h-4 w-4 rounded flex items-center justify-center hover:bg-white/15 text-white/60 transition-colors">
+            <Plus className="h-3 w-3" />
           </button>
         </div>
         {/* Day columns */}
@@ -70,7 +70,7 @@ function ConceptA() {
           return (
             <div
               key={i}
-              className={`min-h-[44px] p-1.5 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] ${
+              className={`min-h-[28px] p-1 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] ${
                 day.isToday ? "bg-[hsl(215,25%,32%)]" : ""
               }`}
             >
@@ -78,7 +78,7 @@ function ConceptA() {
                 {visible.map((ev, j) => (
                   <div
                     key={j}
-                    className="rounded-md px-1.5 py-1 cursor-pointer hover:brightness-125 transition-all"
+                    className="rounded px-1.5 py-0.5 cursor-pointer hover:brightness-125 transition-all"
                     style={{
                       backgroundColor: `${ev.color}18`,
                       borderLeft: `3px solid ${ev.color}`,
