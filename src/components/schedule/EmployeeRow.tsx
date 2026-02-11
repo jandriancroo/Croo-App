@@ -547,6 +547,7 @@ function DayCell({
           </Popover>
         ))}
       </div>
+    </SmartTapPopover>
     </div>;
 }
 
