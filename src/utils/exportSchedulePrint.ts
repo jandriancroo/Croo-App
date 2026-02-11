@@ -35,9 +35,9 @@ function escapeHtml(text: string): string {
 function formatTime12(time24: string): string {
   if (!time24) return "";
   const [h, m] = time24.split(":").map(Number);
-  const ampm = h >= 12 ? "p" : "a";
+  const ampm = h >= 12 ? " PM" : " AM";
   const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m === 0 ? `${h12}${ampm}` : `${h12}:${m.toString().padStart(2, "0")}${ampm}`;
+  return `${h12}:${m.toString().padStart(2, "0")}${ampm}`;
 }
 
 function calcHours(start: string, end: string): number {
@@ -65,14 +65,12 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
       if (dayShifts.length === 0) return { html: "", hours: 0 };
 
       const parts = dayShifts.map((s) => {
-        if (s.isTimeOff) return `<span class="off">OFF</span>`;
+        if (s.isTimeOff) return `<div class="shift-card off-card">OFF</div>`;
         const hrs = calcHours(s.startTime, s.endTime);
         totalHrs += hrs;
-        const timeStr = `${formatTime12(s.startTime)}-${formatTime12(s.endTime)}`;
-        const colorDot = s.templateColor
-          ? `<span class="dot" style="background:${s.templateColor}"></span>`
-          : "";
-        return `<div class="shift">${colorDot}${timeStr}</div>`;
+        const colorBar = s.templateColor || '#3b82f6';
+        const templateLabel = s.templateName ? `<span class="pos-badge" style="border-color:${colorBar};color:${colorBar}">${escapeHtml(s.templateName)}</span>` : "";
+        return `<div class="shift-card"><div class="card-edge" style="background:${colorBar}"></div><div class="card-body"><div class="card-time">${formatTime12(s.startTime)} - ${formatTime12(s.endTime)}</div>${templateLabel}</div></div>`;
       });
 
       return { html: parts.join(""), hours: 0 };
@@ -107,7 +105,7 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     color: #1a1a1a;
-    background: white;
+    background: #f5f5f5;
     padding: 24px;
     font-size: 11px;
     line-height: 1.4;
@@ -125,30 +123,29 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
   .header .location { font-size: 12px; color: #888; }
   table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     table-layout: fixed;
   }
   th {
-    background: #f3f4f6;
+    background: #e8e8e8;
     border: 1px solid #d1d5db;
-    padding: 6px 4px;
+    padding: 8px 4px;
     text-align: center;
     font-weight: 700;
     font-size: 11px;
   }
   th .day-name { font-size: 12px; }
   th .day-date { font-size: 10px; color: #666; font-weight: 400; }
-  th.name-th { text-align: left; padding-left: 8px; width: 140px; }
+  th.name-th { text-align: left; padding-left: 8px; width: 130px; }
   th.total-th { width: 50px; }
   .name-cell {
     border: 1px solid #d1d5db;
-    padding: 5px 8px;
-    font-weight: 600;
+    padding: 6px 8px;
+    font-weight: 700;
     font-size: 11px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     background: #fafafa;
+    vertical-align: middle;
   }
   .name-cell .role-tag {
     font-size: 9px;
@@ -159,10 +156,10 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
   }
   .cell {
     border: 1px solid #d1d5db;
-    padding: 3px 4px;
+    padding: 3px;
     text-align: center;
     vertical-align: middle;
-    font-size: 10px;
+    background: white;
   }
   .total-cell {
     border: 1px solid #d1d5db;
@@ -171,26 +168,52 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
     font-weight: 700;
     font-size: 11px;
     background: #f9fafb;
+    vertical-align: middle;
   }
-  .shift {
+  /* Card-style shifts */
+  .shift-card {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    white-space: nowrap;
-    padding: 1px 0;
+    align-items: stretch;
+    background: #fafafa;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 2px 0;
+    border: 1px solid #e5e7eb;
   }
-  .dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+  .card-edge {
+    width: 3px;
     flex-shrink: 0;
   }
-  .off {
+  .card-body {
+    padding: 3px 5px;
+    text-align: left;
+    min-width: 0;
+  }
+  .card-time {
+    font-size: 9px;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+  .pos-badge {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 8px;
+    border: 1px solid;
+    margin-top: 2px;
+    text-transform: capitalize;
+  }
+  .off-card {
+    justify-content: center;
+    align-items: center;
     color: #9ca3af;
     font-style: italic;
     font-size: 10px;
+    padding: 4px;
+    background: #f9fafb;
   }
   .event-label {
     font-style: italic;
@@ -205,16 +228,23 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
   }
   .event { white-space: nowrap; padding: 1px 0; }
   .footer {
-    margin-top: 16px;
-    padding-top: 8px;
+    margin-top: 20px;
+    padding-top: 10px;
     border-top: 1px solid #e5e7eb;
     font-size: 9px;
     color: #aaa;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+  }
+  .powered-by {
+    font-size: 10px;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: 0.5px;
   }
   @media print {
-    body { padding: 0; }
+    body { padding: 0; background: white; }
     @page { 
       size: landscape;
       margin: 0.5in; 
@@ -253,8 +283,8 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
 </table>
 
 <div class="footer">
-  <span>Printed ${format(new Date(), "MMM d, yyyy 'at' h:mm a")}</span>
-  <span>Total staff: ${data.profiles.length}</span>
+  <span>Printed ${format(new Date(), "MMM d, yyyy 'at' h:mm a")} · Total staff: ${data.profiles.length}</span>
+  <span class="powered-by">Powered by Croo</span>
 </div>
 </body></html>`;
 
