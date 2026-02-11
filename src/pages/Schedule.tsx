@@ -139,6 +139,24 @@ export default function Schedule() {
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const stickyHeaderScrollRef = useRef<HTMLDivElement>(null);
   const scheduleBodyRef = useRef<HTMLDivElement>(null);
+  const [navbarHeight, setNavbarHeight] = useState(52);
+
+  // Measure actual navbar height for sticky offset
+  useEffect(() => {
+    const measureHeader = () => {
+      // Find the visible sticky header (desktop or mobile)
+      const headers = document.querySelectorAll('header');
+      for (const header of headers) {
+        if (header.offsetHeight > 0 && getComputedStyle(header).position === 'sticky') {
+          setNavbarHeight(header.getBoundingClientRect().height);
+          break;
+        }
+      }
+    };
+    measureHeader();
+    window.addEventListener('resize', measureHeader);
+    return () => window.removeEventListener('resize', measureHeader);
+  }, []);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [activeShift, setActiveShift] = useState<any>(null);
@@ -1524,7 +1542,8 @@ export default function Schedule() {
             {/* Sticky floating header: date selector + tools + day headers + events */}
             <div 
               ref={stickyHeaderRef}
-              className="sticky top-[55px] md:top-[52px] z-30 bg-card rounded-b-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-t-0 border-border overflow-hidden"
+              className="sticky z-30 bg-card rounded-b-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-t-0 border-border overflow-hidden"
+              style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
             <div className="flex items-center gap-2 md:gap-4 p-3 md:p-4 border-b border-border">
