@@ -157,11 +157,19 @@ async function sendSupportResolution(payload: any): Promise<Response> {
     });
   }
 
-  const { data: pushTokens } = await supabase.from("push_tokens").select("token").eq("user_id", ticket.user_id);
-  if (pushTokens && pushTokens.length > 0) {
+  // Send push notification to the ticket owner
+  try {
     await supabase.functions.invoke("send-push-notification", {
-      body: { tokens: pushTokens.map((t: any) => t.token), title: `Ticket ${ticketNumber} Resolved`, body: "Your support ticket has been resolved.", data: { type: "support_resolved", ticketId: ticket.id } },
+      body: {
+        user_ids: [ticket.user_id],
+        title: `Ticket ${ticketNumber} Resolved`,
+        body: "Your support ticket has been resolved.",
+        notification_type: "support_tickets",
+        data: { type: "support_resolved", ticketId: ticket.id },
+      },
     });
+  } catch (pushErr) {
+    console.error("Error sending resolution push notification:", pushErr);
   }
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

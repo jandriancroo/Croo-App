@@ -256,13 +256,22 @@ async function handleNightlyMaintenance(
 
       if (!schedule) continue;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/send-weekly-schedule-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ schedule_id: schedule.id, location_id: location.id }),
-      });
+      // Generate weekly summary logbook entry for this location
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/maintenance-service`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+          body: JSON.stringify({
+            action: "generate-weekly-summary",
+            payload: { schedule_id: schedule.id, location_id: location.id },
+          }),
+        });
 
-      if (response.ok) sentLocations++;
+        if (response.ok) sentLocations++;
+        else console.error(`[NIGHTLY] Weekly summary failed for ${location.name}: HTTP ${response.status}`);
+      } catch (e) {
+        console.error(`[NIGHTLY] Weekly summary error for ${location.name}:`, e);
+      }
     }
 
     return { locations: sentLocations, day: "Monday" };
