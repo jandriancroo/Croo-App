@@ -1542,7 +1542,7 @@ export default function Schedule() {
             {/* Sticky floating header: date selector + tools + day headers + events */}
             <div 
               ref={stickyHeaderRef}
-              className="sticky z-30 bg-card rounded-b-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-t-0 border-border overflow-hidden"
+              className="sticky z-30 bg-card rounded-xl shadow-[0_8px_30px_-4px_hsl(var(--foreground)/0.15)] border border-border overflow-hidden"
               style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
