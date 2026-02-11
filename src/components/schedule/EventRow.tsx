@@ -386,8 +386,8 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
 
   return (
     <>
-      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 bg-[hsl(30,25%,45%)] min-w-[700px]">
-        <div className="flex items-center gap-2 px-4 py-2 border-r border-border/20">
+      <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 bg-[hsl(215,20%,27%)] min-w-[700px]">
+        <div className="flex items-center gap-2 px-4 py-2 border-r border-white/10">
           <h3 className="font-semibold text-white text-sm">Events</h3>
           {isEditable && (
             <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -738,7 +738,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
           const hiddenCount = dayEvents.length - 1;
           
           return (
-            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)] overflow-hidden">
+            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-white/10 bg-[hsl(215,20%,27%)] overflow-hidden">
               <div className="space-y-1">
                 {visibleEvents.map((event) => {
                   const categoryColor = getCategoryColor(event) || '#6366f1';
