@@ -56,56 +56,49 @@ export type Database = {
           },
         ]
       }
-      alarm_trigger_queue: {
+      alert_queue: {
         Row: {
+          alert_type: string
           created_at: string
+          dedup_key: string
           id: string
-          interval_key: string
-          location_id: string
+          location_id: string | null
+          payload: Json
           push_error: string | null
           push_sent: boolean
           push_sent_at: string | null
           retry_count: number
-          task_id: string
-          triggered_at: string
         }
         Insert: {
+          alert_type: string
           created_at?: string
+          dedup_key: string
           id?: string
-          interval_key: string
-          location_id: string
+          location_id?: string | null
+          payload?: Json
           push_error?: string | null
           push_sent?: boolean
           push_sent_at?: string | null
           retry_count?: number
-          task_id: string
-          triggered_at?: string
         }
         Update: {
+          alert_type?: string
           created_at?: string
+          dedup_key?: string
           id?: string
-          interval_key?: string
-          location_id?: string
+          location_id?: string | null
+          payload?: Json
           push_error?: string | null
           push_sent?: boolean
           push_sent_at?: string | null
           retry_count?: number
-          task_id?: string
-          triggered_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "alarm_trigger_queue_location_id_fkey"
+            foreignKeyName: "alert_queue_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "alarm_trigger_queue_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "temporary_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -5930,6 +5923,7 @@ export type Database = {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
       }
+      check_alerts_sql: { Args: never; Returns: undefined }
       generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_chat_unread_counts: {
