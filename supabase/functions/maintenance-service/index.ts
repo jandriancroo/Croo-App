@@ -93,7 +93,18 @@ async function handleNightlyMaintenance(
 
   const yesterday = getYesterdayInLA();
   const currentDayOfWeek = getCurrentDayOfWeekInLA();
-  console.log(`[NIGHTLY] Yesterday (LA): ${yesterday}, Current day: ${currentDayOfWeek}`);
+  const runDate = getTodayInLA();
+  console.log(`[NIGHTLY] Yesterday (LA): ${yesterday}, Current day: ${currentDayOfWeek}, Run date: ${runDate}`);
+
+  // Load already-completed tasks for this run date (resumability)
+  const { data: completedTasks } = await supabase
+    .from("maintenance_task_logs")
+    .select("task_name")
+    .eq("run_date", runDate)
+    .eq("status", "success");
+
+  const completedSet = new Set((completedTasks || []).map((t: any) => t.task_name));
+  console.log(`[NIGHTLY] Already completed: ${completedSet.size} tasks (${[...completedSet].join(", ") || "none"})`);
 
   // Get all active locations
   const { data: allLocations } = await supabase
@@ -104,7 +115,7 @@ async function handleNightlyMaintenance(
   console.log(`[NIGHTLY] Found ${allLocations?.length || 0} active locations`);
 
   // Task 1: Refresh stale labor cache
-  results.push(await runTask("refresh-stale-labor", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "refresh-stale-labor", async () => {
     const response = await fetch(`${supabaseUrl}/functions/v1/labor-service?action=refresh-stale`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
@@ -116,7 +127,7 @@ async function handleNightlyMaintenance(
   }));
 
   // Task 2: Validate recent labor cache
-  results.push(await runTask("validate-labor-cache", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "validate-labor-cache", async () => {
     const { data: discrepancies } = await supabase
       .from("labor_cache")
       .select("id, location_id, labor_date, labor_hours, employee_breakdown")
@@ -150,7 +161,7 @@ async function handleNightlyMaintenance(
   }));
 
   // Task 3: Auto-punch forgotten clock-outs
-  results.push(await runTask("auto-punch-out", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "auto-punch-out", async () => {
     const response = await fetch(`${supabaseUrl}/functions/v1/auto-punch-out`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
@@ -162,7 +173,7 @@ async function handleNightlyMaintenance(
   }));
 
   // Task 4: Backfill yesterday's labor
-  results.push(await runTask("backfill-yesterday", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "backfill-yesterday", async () => {
     const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     let backfilledCount = 0;
 
@@ -194,7 +205,7 @@ async function handleNightlyMaintenance(
   }));
 
   // Task 5: Send daily logbook summaries
-  results.push(await runTask("daily-logbook-summaries", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "daily-logbook-summaries", async () => {
     let sentCount = 0, skippedCount = 0;
 
     for (const location of allLocations || []) {
@@ -232,7 +243,7 @@ async function handleNightlyMaintenance(
   }));
 
   // Task 6: Weekly schedule emails (Monday only)
-  results.push(await runTask("weekly-schedule-emails", async () => {
+  results.push(await runResumableTask(supabase, runDate, completedSet, "weekly-schedule-emails", async () => {
     if (currentDayOfWeek !== 1) {
       return { status: "skipped", reason: "not Monday", currentDayOfWeek };
     }
@@ -256,7 +267,6 @@ async function handleNightlyMaintenance(
 
       if (!schedule) continue;
 
-      // Generate weekly summary logbook entry for this location
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/maintenance-service`, {
           method: "POST",
@@ -277,10 +287,13 @@ async function handleNightlyMaintenance(
     return { locations: sentLocations, day: "Monday" };
   }));
 
-  console.log("[NIGHTLY] Complete!");
+  const completedCount = results.filter(r => r.status === "success").length;
+  const skippedCount = results.filter(r => r.status === "skipped_already_done").length;
+  const errorCount = results.filter(r => r.status === "error").length;
+  console.log(`[NIGHTLY] Complete! ${completedCount} ran, ${skippedCount} already done, ${errorCount} errors`);
 
   return new Response(
-    JSON.stringify({ success: true, results, timestamp: new Date().toISOString() }),
+    JSON.stringify({ success: true, results, resumable: true, timestamp: new Date().toISOString() }),
     { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 }
@@ -932,6 +945,15 @@ function getYesterdayInLA(): string {
   return laDate.toISOString().slice(0, 10);
 }
 
+function getTodayInLA(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 function getCurrentDayOfWeekInLA(): number {
   const now = new Date();
   const laWeekday = new Intl.DateTimeFormat("en-US", {
@@ -942,13 +964,39 @@ function getCurrentDayOfWeekInLA(): number {
   return dayMap[laWeekday] ?? 0;
 }
 
-async function runTask(name: string, fn: () => Promise<any>): Promise<{ task: string; status: string; details?: any }> {
+async function runResumableTask(
+  supabase: ReturnType<typeof createClient>,
+  runDate: string,
+  completedSet: Set<string>,
+  name: string,
+  fn: () => Promise<any>
+): Promise<{ task: string; status: string; details?: any }> {
+  // Skip if already completed for this run date
+  if (completedSet.has(name)) {
+    console.log(`[NIGHTLY] ⏭ ${name}: already completed for ${runDate}`);
+    return { task: name, status: "skipped_already_done", details: { run_date: runDate } };
+  }
+
   try {
     const details = await fn();
     console.log(`[NIGHTLY] ✓ ${name}:`, details);
+
+    // Record successful completion (upsert to handle race conditions)
+    await supabase.from("maintenance_task_logs").upsert(
+      { run_date: runDate, task_name: name, status: "success", details },
+      { onConflict: "run_date,task_name" }
+    );
+
     return { task: name, status: "success", details };
   } catch (err) {
     console.error(`[NIGHTLY] ✗ ${name}:`, err);
+
+    // Record failure (so we know it was attempted but don't skip on retry)
+    await supabase.from("maintenance_task_logs").upsert(
+      { run_date: runDate, task_name: name, status: "error", details: { error: String(err) } },
+      { onConflict: "run_date,task_name" }
+    ).catch(() => {}); // Don't let logging failure mask the real error
+
     return { task: name, status: "error", details: { error: String(err) } };
   }
 }
