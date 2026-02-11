@@ -61,6 +61,8 @@ interface EmployeeRowProps {
   canViewAllWages?: boolean;
   isCompactMode?: boolean;
   holidays?: Holiday[];
+  allShifts?: any[];
+  onSmartTap?: (userId: string, dayIndex: number, shiftDate: string, template: any) => void;
 }
 
 function EmployeeRowComponent({
