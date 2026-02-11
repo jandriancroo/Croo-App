@@ -69,7 +69,8 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
         const hrs = calcHours(s.startTime, s.endTime);
         totalHrs += hrs;
         const colorBar = s.templateColor || '#3b82f6';
-        const templateLabel = s.templateName ? `<span class="pos-badge" style="border-color:${colorBar};color:${colorBar}">${escapeHtml(s.templateName)}</span>` : "";
+        const cleanName = s.templateName ? s.templateName.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)\s*-\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)\s*$/i, '').trim() : '';
+        const templateLabel = cleanName ? `<span class="pos-badge" style="border-color:${colorBar};color:${colorBar}">${escapeHtml(cleanName)}</span>` : "";
         return `<div class="shift-card"><div class="card-edge" style="background:${colorBar}"></div><div class="card-body"><div class="card-time">${formatTime12(s.startTime)} - ${formatTime12(s.endTime)}</div>${templateLabel}</div></div>`;
       });
 
