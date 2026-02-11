@@ -27,7 +27,7 @@ const CreateChecklist = lazy(() => import("./pages/CreateChecklist"));
 const EditChecklist = lazy(() => import("./pages/EditChecklist"));
 const CompleteChecklist = lazy(() => import("./pages/CompleteChecklist"));
 const DynamicChecklistCalendar = lazy(() => import("./pages/DynamicChecklistCalendar"));
-const History = lazy(() => import("./pages/History"));
+
 const SubmissionDetails = lazy(() => import("./pages/SubmissionDetails"));
 const UserManagement = lazy(() => import("./pages/UserManagement"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -161,7 +161,7 @@ const AppContent = () => {
         <Route path="/dynamic-checklist/:id" element={<ProtectedRoute><DynamicChecklistCalendar /></ProtectedRoute>} />
         <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
         <Route path="/complete-checklist/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
-        <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+        
         <Route path="/submission/:id" element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         <Route path="/my-team" element={<ProtectedRoute><MyTeam /></ProtectedRoute>} />
