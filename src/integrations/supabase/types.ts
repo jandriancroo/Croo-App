@@ -56,6 +56,60 @@ export type Database = {
           },
         ]
       }
+      alarm_trigger_queue: {
+        Row: {
+          created_at: string
+          id: string
+          interval_key: string
+          location_id: string
+          push_error: string | null
+          push_sent: boolean
+          push_sent_at: string | null
+          retry_count: number
+          task_id: string
+          triggered_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interval_key: string
+          location_id: string
+          push_error?: string | null
+          push_sent?: boolean
+          push_sent_at?: string | null
+          retry_count?: number
+          task_id: string
+          triggered_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interval_key?: string
+          location_id?: string
+          push_error?: string | null
+          push_sent?: boolean
+          push_sent_at?: string | null
+          retry_count?: number
+          task_id?: string
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alarm_trigger_queue_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alarm_trigger_queue_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcement_reads: {
         Row: {
           chat_id: string
@@ -5944,6 +5998,7 @@ export type Database = {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
       }
+      trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
       validate_location_code: {
         Args: { p_code: string }
         Returns: {
