@@ -1902,10 +1902,12 @@ export default function Schedule() {
                                    isDraggable={isAdmin || isManager}
                                    isPublished={isPublished}
                                    publishedSnapshot={publishedSnapshot}
-                                   canViewAllWages={canViewAllWages}
-                                   isCompactMode={isCompactMode}
-                                   holidays={holidays}
-                                 />
+                                    canViewAllWages={canViewAllWages}
+                                    isCompactMode={isCompactMode}
+                                    holidays={holidays}
+                                    allShifts={shifts}
+                                    onSmartTap={handleSmartTap}
+                                  />
                               ))}
                             </SortableContext>
                           </CollapsibleContent>
