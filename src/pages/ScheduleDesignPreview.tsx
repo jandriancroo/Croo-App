@@ -78,29 +78,27 @@ function ConceptA() {
                 {visible.map((ev, j) => (
                   <div
                     key={j}
-                    className="rounded px-1 py-px cursor-pointer hover:brightness-125 transition-all"
+                    className="rounded px-1.5 py-0.5 cursor-pointer hover:brightness-125 transition-all flex items-center gap-1"
                     style={{
                       backgroundColor: `${ev.color}18`,
-                      borderLeft: `2px solid ${ev.color}`,
+                      borderLeft: `2.5px solid ${ev.color}`,
                     }}
                   >
-                    <div className="flex items-center gap-1">
-                      <span
-                        className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: ev.color }}
-                      />
-                      {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
-                      <span className="text-[9px] font-medium text-white truncate leading-tight">{ev.label}</span>
-                      {!expanded && hidden > 0 && j === 0 && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-                          className="ml-auto text-[9px] bg-white/15 hover:bg-white/25 text-white/80 px-1 rounded flex-shrink-0 transition-colors"
-                        >
-                          +{hidden}
-                        </button>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        {ev.isDailyTask && <ClipboardCheck className="h-2.5 w-2.5 text-white/50 flex-shrink-0" />}
+                        <span className="text-[10.5px] font-medium text-white truncate leading-tight">{ev.label}</span>
+                      </div>
+                      <span className="text-[9px] text-white/50 leading-none">{ev.time}</span>
                     </div>
-                    <span className="text-[8px] text-white/50 leading-none">{ev.time}</span>
+                    {!expanded && hidden > 0 && j === 0 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+                        className="text-[9px] bg-white/15 hover:bg-white/25 text-white/80 px-1.5 py-0.5 rounded-full flex-shrink-0 transition-colors"
+                      >
+                        +{hidden}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
