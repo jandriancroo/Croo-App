@@ -183,7 +183,7 @@ async function handleTriggerAlarmTasks(supabase: any): Promise<Response> {
       const lastBoundaryMinuteOfDay = Math.floor(currentMinuteOfDay / intervalMinutes) * intervalMinutes
       const nextBoundaryMinuteOfDay = lastBoundaryMinuteOfDay + intervalMinutes
       
-      const TOLERANCE_MINUTES = 1
+      const TOLERANCE_MINUTES = 2
       const distanceToLast = currentMinuteOfDay - lastBoundaryMinuteOfDay
       const distanceToNext = nextBoundaryMinuteOfDay - currentMinuteOfDay
       
