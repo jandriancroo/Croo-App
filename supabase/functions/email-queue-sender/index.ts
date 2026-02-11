@@ -55,12 +55,19 @@ Deno.serve(async (req) => {
 
     for (const item of queue) {
       try {
-        const result = await resend.emails.send({
+        const sendOpts: any = {
           from: item.from_address,
           to: item.to_addresses,
           subject: item.subject,
           html: item.html,
-        })
+        }
+
+        // Support attachments stored in metadata
+        if (item.metadata?.attachments && Array.isArray(item.metadata.attachments)) {
+          sendOpts.attachments = item.metadata.attachments
+        }
+
+        const result = await resend.emails.send(sendOpts)
 
         if (result.error) {
           throw new Error(result.error.message || 'Resend API error')
