@@ -1928,7 +1928,7 @@ export default function Schedule() {
                                     canViewAllWages={canViewAllWages}
                                     isCompactMode={isCompactMode}
                                     holidays={holidays}
-                                    allShifts={shifts}
+                                    allShifts={lastWeekShifts}
                                     onSmartTap={handleSmartTap}
                                   />
                               ))}
