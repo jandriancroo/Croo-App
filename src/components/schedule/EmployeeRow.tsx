@@ -135,10 +135,13 @@ function EmployeeRowComponent({
     return (hours * wage).toFixed(2);
   };
 
-  // Compute the last 3 unique template IDs this employee worked (most recent first)
+  // Compute the last 3 unique template IDs this employee worked LAST WEEK
   const recentTemplateIds = useMemo(() => {
+    const lastWeekStart = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
+    const lastWeekEnd = format(addDays(currentWeekStart, -1), 'yyyy-MM-dd');
+    
     const employeeShifts = allShifts
-      .filter(s => s.user_id === profile.id && s.template_id)
+      .filter(s => s.user_id === profile.id && s.template_id && s.shift_date >= lastWeekStart && s.shift_date <= lastWeekEnd)
       .sort((a: any, b: any) => (b.shift_date || '').localeCompare(a.shift_date || ''));
     
     const seen = new Set<string>();
@@ -151,7 +154,7 @@ function EmployeeRowComponent({
       }
     }
     return result;
-  }, [allShifts, profile.id]);
+  }, [allShifts, profile.id, currentWeekStart]);
     return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]`}>
       <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px]'}`}>
         {/* Drag Handle inside employee card */}

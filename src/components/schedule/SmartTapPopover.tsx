@@ -32,12 +32,10 @@ function SmartTapPopoverComponent({
   children,
   isCompactMode = false,
 }: SmartTapPopoverProps) {
-  // Split templates into "recent" (smart) and "all others"
   const { recentTemplates, otherTemplates } = useMemo(() => {
     const recent: ShiftTemplate[] = [];
     const others: ShiftTemplate[] = [];
 
-    // Preserve order of recentTemplateIds (most recent first)
     for (const id of recentTemplateIds) {
       const t = templates.find((tpl) => tpl.id === id);
       if (t) recent.push(t);
@@ -54,59 +52,83 @@ function SmartTapPopoverComponent({
 
   if (templates.length === 0) return <>{children}</>;
 
+  const hasRecent = recentTemplates.length > 0;
+  const hasOthers = otherTemplates.length > 0;
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="w-56 p-2 z-[200]"
+        className="w-auto min-w-[200px] max-w-[min(380px,90vw)] p-2 z-[200]"
         side="bottom"
         align="center"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="space-y-1.5">
-          {/* Smart suggestions header */}
-          {recentTemplates.length > 0 && (
-            <>
-              <div className="flex items-center gap-1.5 px-1 pb-0.5">
+        {hasRecent && hasOthers ? (
+          /* Two-column layout: Recent left, All right */
+          <div className="flex gap-2">
+            {/* Recent column */}
+            <div className="min-w-[140px] flex-shrink-0">
+              <div className="flex items-center gap-1.5 px-1 pb-1">
                 <Sparkles className="h-3 w-3 text-amber-500" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Recent
+                  Last Week
                 </span>
               </div>
-              {recentTemplates.map((template) => (
-                <TemplateOption
-                  key={template.id}
-                  template={template}
-                  onSelect={onSelectTemplate}
-                  isHighlighted
-                />
-              ))}
-              {otherTemplates.length > 0 && (
-                <div className="border-t border-border my-1.5" />
-              )}
-            </>
-          )}
+              <div className="space-y-0.5">
+                {recentTemplates.map((template) => (
+                  <TemplateOption
+                    key={template.id}
+                    template={template}
+                    onSelect={onSelectTemplate}
+                    isHighlighted
+                  />
+                ))}
+              </div>
+            </div>
 
-          {/* All other templates */}
-          {otherTemplates.length > 0 && (
-            <>
-              {recentTemplates.length > 0 && (
-                <div className="px-1 pb-0.5">
-                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    All Templates
-                  </span>
-                </div>
-              )}
-              {otherTemplates.map((template) => (
-                <TemplateOption
-                  key={template.id}
-                  template={template}
-                  onSelect={onSelectTemplate}
-                />
-              ))}
-            </>
-          )}
-        </div>
+            {/* Divider */}
+            <div className="w-px bg-border flex-shrink-0" />
+
+            {/* All others column */}
+            <div className="min-w-[130px] max-h-[220px] overflow-y-auto">
+              <div className="px-1 pb-1">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  All Templates
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {otherTemplates.map((template) => (
+                  <TemplateOption
+                    key={template.id}
+                    template={template}
+                    onSelect={onSelectTemplate}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Single list fallback when no recent or no others */
+          <div className="space-y-0.5 max-h-[260px] overflow-y-auto">
+            {hasRecent && (
+              <div className="flex items-center gap-1.5 px-1 pb-1">
+                <Sparkles className="h-3 w-3 text-amber-500" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Last Week
+                </span>
+              </div>
+            )}
+            {(hasRecent ? recentTemplates : otherTemplates).map((template) => (
+              <TemplateOption
+                key={template.id}
+                template={template}
+                onSelect={onSelectTemplate}
+                isHighlighted={hasRecent}
+              />
+            ))}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
