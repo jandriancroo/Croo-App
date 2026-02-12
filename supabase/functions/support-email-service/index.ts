@@ -278,10 +278,15 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         if (fieldName.includes("_data") && v.value_text) {
           try {
             const parsed = JSON.parse(v.value_text);
+            // Safe count fields
             if (parsed.totalSafe !== undefined) fields.push({ name: "Total Safe", value: `$${Number(parsed.totalSafe).toLocaleString()}` });
-            if (parsed.totalDrawer !== undefined) fields.push({ name: "Total Drawer", value: `$${Number(parsed.totalDrawer).toLocaleString()}` });
             if (parsed.difference !== undefined) fields.push({ name: "Difference", value: `$${Number(parsed.difference).toLocaleString()}` });
             if (parsed.shift) fields.push({ name: "Shift", value: parsed.shift });
+            // Drawer count fields
+            if (parsed.totalDrawer !== undefined) fields.push({ name: "Total Drawer", value: `$${Number(parsed.totalDrawer).toLocaleString()}` });
+            if (parsed.actualDeposit !== undefined) fields.push({ name: "Actual Deposit", value: `$${Number(parsed.actualDeposit).toLocaleString()}` });
+            if (parsed.expectedDeposit !== undefined) fields.push({ name: "Expected Deposit", value: `$${Number(parsed.expectedDeposit).toLocaleString()}` });
+            if (parsed.variance !== undefined) fields.push({ name: "Variance", value: `$${Number(parsed.variance).toLocaleString()}` });
           } catch {}
         } else if (v.value_number !== null && v.value_number !== undefined) {
           fields.push({ name: fieldName, value: `$${Number(v.value_number).toLocaleString()}` });
@@ -349,19 +354,26 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       .map((i: any) => ({ name: i.name || i.itemName || "Item", qty: i.quantity || i.qty || 0, sales: i.sales || 0 }));
   }
 
-  // Checklists: match submissions to active daily/weekly checklists
-  const dailyChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily");
+  // Checklists: match submissions to active daily + dynamic checklists
+  const dailyChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
-  const checklistRows = dailyChecklists.map((c: any) => {
+  // De-duplicate: dynamic checklists may have multiple submissions
+  const seenChecklistIds = new Set<string>();
+  const checklistRows: { title: string; completed: boolean; completedBy: string | null }[] = [];
+  
+  for (const c of dailyChecklists) {
+    if (seenChecklistIds.has(c.id)) continue;
+    seenChecklistIds.add(c.id);
     const completed = completedIds.has(c.id);
     const sub = (checklistSubs || []).find((s: any) => s.checklist_id === c.id);
-    return { title: c.title, completed, completedBy: sub?.submitted_by_profile?.full_name || null };
-  });
-  // Add any non-daily checklists that were completed today
+    checklistRows.push({ title: c.title, completed, completedBy: sub?.submitted_by_profile?.full_name || null });
+  }
+  // Add any other checklists that were completed today but not in daily/dynamic list
   for (const sub of (checklistSubs || [])) {
-    if (!dailyChecklists.find((c: any) => c.id === sub.checklist_id)) {
+    if (!seenChecklistIds.has(sub.checklist_id)) {
+      seenChecklistIds.add(sub.checklist_id);
       checklistRows.push({
         title: checklistMap.get(sub.checklist_id) || "Checklist",
         completed: true,
@@ -432,6 +444,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       <tr>
         <td style="vertical-align:top;width:50%;padding-right:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists ${completedCount}/${totalChecklists}</p>
+          <!-- PROGRESS BAR -->
+          ${totalChecklists > 0 ? `
+          <div style="background:#e8e5df;border-radius:6px;height:10px;width:100%;margin-bottom:12px;overflow:hidden;">
+            <div style="background:${completedCount === totalChecklists ? '#22c55e' : primaryColor};height:100%;width:${Math.round((completedCount / totalChecklists) * 100)}%;border-radius:6px;transition:width 0.3s;"></div>
+          </div>
+          ` : ''}
           ${checklistRows.length > 0 ? checklistRows.map(c => 
             `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${c.completed ? "&#9679;" : "&#9675;"} ${c.title}${c.completedBy ? ` <span style="color:#888;font-size:11px;">- ${c.completedBy}</span>` : ""}</p>`
           ).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
@@ -439,12 +457,32 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
           ${cashDetails.length > 0 ? cashDetails.map(c => {
-            const shiftField = c.fields.find(f => f.name === "Shift");
-            const totalField = c.fields.find(f => f.name === "Total Safe" || f.name === "Total Drawer");
-            const diffField = c.fields.find(f => f.name === "Difference");
-            const diffColor = diffField && diffField.value !== "$0" ? "#ef4444" : "#22c55e";
-            return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
-              <p style="margin:0 0 6px;font-size:13px;color:#888;">${shiftField ? shiftField.value + ": " : ""}${totalField ? totalField.value : ""} ${diffField ? `(<span style="color:${diffColor};">${diffField.value}</span>)` : ""} - ${c.author}</p>`;
+            if (c.category === "Safe Count") {
+              const shiftField = c.fields.find(f => f.name === "Shift");
+              const diffField = c.fields.find(f => f.name === "Difference");
+              const diffVal = diffField ? parseFloat(diffField.value.replace(/[^0-9.-]/g, '')) : 0;
+              const balanced = diffVal === 0;
+              const statusColor = balanced ? "#22c55e" : "#ef4444";
+              const statusText = balanced ? "Balanced" : diffField?.value || "";
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}${shiftField ? ` (${shiftField.value})` : ""}</strong></p>
+                <p style="margin:0 0 6px;font-size:13px;"><span style="color:${statusColor};font-weight:600;">${statusText}</span> - ${c.author}</p>`;
+            } else if (c.category === "Drawer Count") {
+              const totalField = c.fields.find(f => f.name === "Total Drawer");
+              const depositField = c.fields.find(f => f.name === "Actual Deposit") || c.fields.find(f => f.name.includes("Deposit"));
+              const expectedField = c.fields.find(f => f.name === "Expected Deposit") || c.fields.find(f => f.name.includes("Expected"));
+              const diffField = c.fields.find(f => f.name === "Difference") || c.fields.find(f => f.name === "Variance");
+              // Try to extract deposit/expected from the JSON fields
+              const depositVal = depositField?.value || totalField?.value || "";
+              const expectedVal = expectedField?.value || "";
+              const diffColor = diffField && diffField.value !== "$0" ? "#ef4444" : "#22c55e";
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
+                <p style="margin:0 0 6px;font-size:13px;color:#888;">${depositVal}/${expectedVal} ${diffField ? `(<span style="color:${diffColor};">${diffField.value}</span>)` : ""} - ${c.author}</p>`;
+            } else {
+              // Bank Deposit or other
+              const amountField = c.fields.find(f => f.name !== "Shift");
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
+                <p style="margin:0 0 6px;font-size:13px;color:#888;">${amountField?.value || ""} - ${c.author}</p>`;
+            }
           }).join("") : `<p style="color:#888;font-size:13px;margin:0;">No records</p>`}
           ${logEntries.length > 0 ? `
             <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">Log Entries</p>
@@ -498,7 +536,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         subject: `Daily Summary: ${location.name} - ${shortDate}`,
         html: emailHtml,
         source: 'daily_summary',
-        dedupKey: `daily_summary_v3_${location_id}_${entry_date}_${recipient.email}`,
+        dedupKey: `daily_summary_v4_${location_id}_${entry_date}_${recipient.email}`,
       });
       sentCount++;
     } catch (e) {
