@@ -274,15 +274,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       
       for (const v of vals) {
         const fieldName = v.field?.field_name || "";
-        // Parse safe_data / drawer_data JSON for totals
         if (fieldName.includes("_data") && v.value_text) {
           try {
             const parsed = JSON.parse(v.value_text);
-            // Safe count fields
             if (parsed.totalSafe !== undefined) fields.push({ name: "Total Safe", value: `$${Number(parsed.totalSafe).toLocaleString()}` });
             if (parsed.difference !== undefined) fields.push({ name: "Difference", value: `$${Number(parsed.difference).toLocaleString()}` });
             if (parsed.shift) fields.push({ name: "Shift", value: parsed.shift });
-            // Drawer count fields
             if (parsed.totalDrawer !== undefined) fields.push({ name: "Total Drawer", value: `$${Number(parsed.totalDrawer).toLocaleString()}` });
             if (parsed.actualDeposit !== undefined) fields.push({ name: "Actual Deposit", value: `$${Number(parsed.actualDeposit).toLocaleString()}` });
             if (parsed.expectedDeposit !== undefined) fields.push({ name: "Expected Deposit", value: `$${Number(parsed.expectedDeposit).toLocaleString()}` });
@@ -294,7 +291,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
           fields.push({ name: fieldName, value: v.value_text });
         }
       }
-      return { category: entry.category?.name || "Cash", author: entry.created_by_profile?.full_name || "Unknown", fields };
+      return { category: entry.category?.name || "Cash", author: entry.created_by_profile?.full_name || "Unknown", completedAt: entry.created_at, fields };
     });
   }
 
@@ -439,60 +436,74 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 
     <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
 
-    <!-- CHECKLISTS + CASH HANDLING ROW -->
+    <!-- CHECKLISTS -->
+    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklists ${completedCount}/${totalChecklists}</p>
+    ${checklistRows.length > 0 ? checklistRows.map(c => {
+      const barColor = c.completed ? '#22c55e' : '#e8e5df';
+      return `<div style="margin-bottom:10px;">
+        <p style="margin:0 0 4px;font-size:13px;color:${textColor};font-weight:600;">${c.title}</p>
+        <div style="background:#e8e5df;border-radius:4px;height:8px;width:100%;overflow:hidden;margin-bottom:2px;">
+          <div style="background:${barColor};height:100%;width:${c.completed ? '100' : '0'}%;border-radius:4px;"></div>
+        </div>
+        <p style="margin:0;font-size:11px;color:#888;">${c.completed ? `Completed by ${c.completedBy || 'Unknown'}` : '<span style="color:#ef4444;">Not Completed</span>'}</p>
+      </div>`;
+    }).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
+
+    <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+
+    <!-- CASH HANDLING -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
       <tr>
         <td style="vertical-align:top;width:50%;padding-right:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists ${completedCount}/${totalChecklists}</p>
-          <!-- PROGRESS BAR -->
-          ${totalChecklists > 0 ? `
-          <div style="background:#e8e5df;border-radius:6px;height:10px;width:100%;margin-bottom:12px;overflow:hidden;">
-            <div style="background:${completedCount === totalChecklists ? '#22c55e' : primaryColor};height:100%;width:${Math.round((completedCount / totalChecklists) * 100)}%;border-radius:6px;transition:width 0.3s;"></div>
-          </div>
-          ` : ''}
-          ${checklistRows.length > 0 ? checklistRows.map(c => 
-            `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${c.completed ? "&#9679;" : "&#9675;"} ${c.title}${c.completedBy ? ` <span style="color:#888;font-size:11px;">- ${c.completedBy}</span>` : ""}</p>`
-          ).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Safe Count</p>
+          ${(() => {
+            const safeCounts = cashDetails.filter(c => c.category === "Safe Count");
+            if (safeCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
+            return safeCounts.map(c => {
+              const shiftField = c.fields.find(f => f.name === "Shift");
+              const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${shiftField ? shiftField.value : ""}</strong></p>
+                <p style="margin:0 0 6px;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>`;
+            }).join("");
+          })()}
         </td>
         <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
-          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
-          ${cashDetails.length > 0 ? cashDetails.map(c => {
-            if (c.category === "Safe Count") {
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Drawer Count</p>
+          ${(() => {
+            const drawerCounts = cashDetails.filter(c => c.category === "Drawer Count");
+            if (drawerCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
+            return drawerCounts.map(c => {
               const shiftField = c.fields.find(f => f.name === "Shift");
-              const diffField = c.fields.find(f => f.name === "Difference");
-              const diffVal = diffField ? parseFloat(diffField.value.replace(/[^0-9.-]/g, '')) : 0;
-              const balanced = diffVal === 0;
-              const statusColor = balanced ? "#22c55e" : "#ef4444";
-              const statusText = balanced ? "Balanced" : diffField?.value || "";
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}${shiftField ? ` (${shiftField.value})` : ""}</strong></p>
-                <p style="margin:0 0 6px;font-size:13px;"><span style="color:${statusColor};font-weight:600;">${statusText}</span> - ${c.author}</p>`;
-            } else if (c.category === "Drawer Count") {
-              const totalField = c.fields.find(f => f.name === "Total Drawer");
               const depositField = c.fields.find(f => f.name === "Actual Deposit") || c.fields.find(f => f.name.includes("Deposit"));
               const expectedField = c.fields.find(f => f.name === "Expected Deposit") || c.fields.find(f => f.name.includes("Expected"));
-              const diffField = c.fields.find(f => f.name === "Difference") || c.fields.find(f => f.name === "Variance");
-              // Try to extract deposit/expected from the JSON fields
-              const depositVal = depositField?.value || totalField?.value || "";
-              const expectedVal = expectedField?.value || "";
-              const diffColor = diffField && diffField.value !== "$0" ? "#ef4444" : "#22c55e";
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
-                <p style="margin:0 0 6px;font-size:13px;color:#888;">${depositVal}/${expectedVal} ${diffField ? `(<span style="color:${diffColor};">${diffField.value}</span>)` : ""} - ${c.author}</p>`;
-            } else {
-              // Bank Deposit or other
-              const amountField = c.fields.find(f => f.name !== "Shift");
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
-                <p style="margin:0 0 6px;font-size:13px;color:#888;">${amountField?.value || ""} - ${c.author}</p>`;
-            }
-          }).join("") : `<p style="color:#888;font-size:13px;margin:0;">No records</p>`}
-          ${logEntries.length > 0 ? `
-            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">Log Entries</p>
-            ${logEntries.map((e: any) => 
-              `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${e.category?.name || "Entry"} - <span style="color:#888;">${e.created_by_profile?.full_name || ""}</span></p>`
-            ).join("")}
-          ` : ""}
+              const varianceField = c.fields.find(f => f.name === "Variance") || c.fields.find(f => f.name === "Difference");
+              const depositVal = depositField?.value || "$0";
+              const expectedVal = expectedField?.value || "$0";
+              const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
+              const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;">Even</span>`;
+              const shiftLabel = shiftField?.value || "";
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${shiftLabel}</strong></p>
+                <p style="margin:0 0 6px;font-size:13px;color:#888;">${depositVal} / ${expectedVal} (${overUnder}) - ${c.author}</p>`;
+            }).join("");
+          })()}
         </td>
       </tr>
     </table>
+    ${(() => {
+      const bankDeposits = cashDetails.filter(c => c.category === "Bank Deposit");
+      if (bankDeposits.length === 0) return '';
+      return `<p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Bank Deposit</p>` +
+        bankDeposits.map(c => {
+          const amountField = c.fields.find(f => f.name !== "Shift");
+          return `<p style="margin:0 0 6px;font-size:13px;color:#888;">${amountField?.value || ""} - ${c.author}</p>`;
+        }).join("");
+    })()}
+    ${logEntries.length > 0 ? `
+      <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">Log Entries</p>
+      ${logEntries.map((e: any) => 
+        `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${e.category?.name || "Entry"} - <span style="color:#888;">${e.created_by_profile?.full_name || ""}</span></p>`
+      ).join("")}
+    ` : ""}
 
     ${topItems.length > 0 ? `
     <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
@@ -517,14 +528,20 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="padding:20px 32px;text-align:center;border-top:1px solid #e8e5df;">
-    <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:24px;opacity:0.4;margin-bottom:8px;"/>
-    <p style="color:#bbb;font-size:11px;margin:0;">Team management made simple</p>
+  <tr><td style="padding:24px 32px;text-align:center;border-top:1px solid #e8e5df;">
+    <p style="color:${primaryColor};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 8px;">POWERED BY CROO</p>
+    <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:20px;opacity:0.3;margin-bottom:6px;"/>
+    <p style="color:#bbb;font-size:10px;margin:0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p>
   </td></tr>
 
 </table>
 </td></tr></table>
 </body></html>`;
+
+  // If preview mode, return HTML without sending
+  if (payload.preview) {
+    return new Response(JSON.stringify({ success: true, html: emailHtml }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   // Send to all eligible recipients
   let sentCount = 0;
@@ -536,7 +553,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         subject: `Daily Summary: ${location.name} - ${shortDate}`,
         html: emailHtml,
         source: 'daily_summary',
-        dedupKey: `daily_summary_v4_${location_id}_${entry_date}_${recipient.email}`,
+        dedupKey: `daily_summary_v5_${location_id}_${entry_date}_${recipient.email}`,
       });
       sentCount++;
     } catch (e) {
