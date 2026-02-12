@@ -337,7 +337,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${displayName}" style="max-height:100px;max-width:200px;margin-bottom:20px;border-radius:8px;"/>` : `<div style="font-size:48px;margin-bottom:16px;">🎉</div>`;
 
   await queueEmail({
-    from: "CrooHQ <hello@croohq.email>",
+    from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [to],
     subject: `🎉 Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
     html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">${displayName}${locName ? ` • ${locName}` : ''}</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}! 👋</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>`),
