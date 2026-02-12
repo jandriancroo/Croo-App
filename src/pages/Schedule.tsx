@@ -693,6 +693,7 @@ export default function Schedule() {
   const isPublished = scheduleData?.isPublished ?? false;
   const publishedSnapshot = scheduleData?.publishedSnapshot ?? [];
   const shifts = scheduleData?.shifts ?? [];
+  const lastWeekShifts = scheduleData?.lastWeekShifts ?? [];
   const events = scheduleData?.events ?? [];
   const profiles = scheduleData?.profiles ?? [];
   const templates = scheduleData?.templates ?? [];
