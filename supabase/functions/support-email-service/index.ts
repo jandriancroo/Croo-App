@@ -415,7 +415,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   for (const c of (activeChecklists || [])) {
     const items = c.checklist_items || [];
     if (c.template_type === "dynamic") {
-      checklistItemCounts[c.id] = items.filter((i: any) => !i.days_of_week || i.days_of_week.includes(dayOfWeek)).length;
+      checklistItemCounts[c.id] = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek)).length;
     } else {
       checklistItemCounts[c.id] = items.length;
     }
