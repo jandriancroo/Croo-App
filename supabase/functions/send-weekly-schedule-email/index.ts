@@ -55,7 +55,18 @@ serve(async (req) => {
   }
 
   try {
-    const { schedule_id, location_id } = await req.json();
+    const { schedule_id, location_id, preview } = await req.json();
+
+    // Preview mode – return sample HTML without needing real IDs
+    if (preview) {
+      const sampleHtml = wrapEmail(
+        `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;">Your Schedule</h1><p style="color:rgba(255,255,255,0.8);font-size:14px;margin:8px 0 0;">Sample Location • Mon Feb 10 – Sun Feb 16</p></td></tr>` +
+        `<tr><td style="padding:24px 40px;"><p style="color:${textColor};font-size:15px;">Hi Team Member,</p><p style="color:${textColor};font-size:15px;line-height:1.7;">Here's your schedule for the upcoming week:</p>` +
+        DAY_NAMES.map((d, i) => `<div style="border-bottom:1px solid #eee;padding:12px 0;"><strong style="color:${primaryColor};">${d}</strong><br/><span style="color:${textColor};">${i < 5 ? '9:00 AM – 5:00 PM' : 'OFF'}</span></div>`).join('') +
+        `</td></tr>` + getEmailFooter()
+      );
+      return new Response(JSON.stringify({ html: sampleHtml }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!schedule_id || !location_id) {
       return new Response(JSON.stringify({ error: "schedule_id and location_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
