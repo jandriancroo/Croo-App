@@ -3017,6 +3017,53 @@ export type Database = {
           },
         ]
       }
+      maintenance_queue: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          location_id: string
+          retry_count: number
+          started_at: string | null
+          status: string
+          target_date: string
+          task_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id: string
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          target_date: string
+          task_type: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id?: string
+          retry_count?: number
+          started_at?: string | null
+          status?: string
+          target_date?: string
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_queue_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       maintenance_task_logs: {
         Row: {
           completed_at: string
@@ -6063,6 +6110,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      queue_nightly_maintenance: { Args: never; Returns: undefined }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
