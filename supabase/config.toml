@@ -66,3 +66,6 @@ verify_jwt = false
 
 [functions.send-weekly-schedule-email]
 verify_jwt = false
+
+[functions.maintenance-queue-processor]
+verify_jwt = false
