@@ -56,8 +56,32 @@ function getCTAButton(url: string, text: string): string {
 // ============ SUPPORT TICKET ACTIONS ============
 
 async function notifySupportTicket(payload: any): Promise<Response> {
-  const { ticket_id, event_type, message_content, sender_name } = payload;
+  const { ticket_id, event_type, message_content, sender_name, preview } = payload;
   
+  // Preview mode - return sample HTML without needing a real ticket
+  if (preview) {
+    const sampleContent = `
+      <p style="color:${textColor};font-size:15px;margin:0 0 20px;">A new support ticket has been submitted.</p>
+      <div style="background:${backgroundColor};border-radius:16px;padding:20px;margin-bottom:24px;">
+        <table style="width:100%;">
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Ticket</span><br/><strong style="color:${primaryColor};font-size:16px;">#SUP-042</strong></td></tr>
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Category</span><br/><strong style="color:${textColor};font-size:14px;">UI Glitch</strong></td></tr>
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">From</span><br/><strong style="color:${textColor};font-size:14px;">John Doe</strong></td></tr>
+        </table>
+      </div>
+      <div style="background:#fafafa;border-radius:16px;padding:16px;border-left:4px solid ${primaryColor};">
+        <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Description</p>
+        <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
+      </div>
+    `;
+    const html = wrapEmail(`
+      ${getEmailHeader("Support Notification")}
+      <tr><td style="padding:30px 40px;">${sampleContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
+      ${getEmailFooter()}
+    `);
+    return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   if (!ticket_id || !event_type) {
     return new Response(JSON.stringify({ error: "ticket_id and event_type required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
