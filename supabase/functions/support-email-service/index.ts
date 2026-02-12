@@ -249,8 +249,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
-    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", entry_date + "T00:00:00").lt("submitted_at", entry_date + "T23:59:59"),
-    supabase.from("checklists").select("id, title, frequency").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name, avatar_url)").eq("location_id", location_id).gte("submitted_at", entry_date + "T00:00:00").lt("submitted_at", entry_date + "T23:59:59"),
+    supabase.from("checklists").select("id, title, frequency, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
 
@@ -358,25 +358,59 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
-  // De-duplicate: dynamic checklists may have multiple submissions
+  // Fetch response counts for completed submissions
+  const subIds = (checklistSubs || []).map((s: any) => s.id);
+  let responseCounts: Record<string, number> = {};
+  if (subIds.length > 0) {
+    const { data: responses } = await supabase
+      .from("checklist_responses")
+      .select("submission_id")
+      .in("submission_id", subIds);
+    if (responses) {
+      for (const r of responses) {
+        responseCounts[r.submission_id] = (responseCounts[r.submission_id] || 0) + 1;
+      }
+    }
+  }
+
+  // Build item counts per checklist (filter by day of week for dynamic)
+  const checklistItemCounts: Record<string, number> = {};
+  for (const c of (activeChecklists || [])) {
+    const items = c.checklist_items || [];
+    if (c.template_type === "dynamic") {
+      checklistItemCounts[c.id] = items.filter((i: any) => !i.days_of_week || i.days_of_week.includes(dayOfWeek)).length;
+    } else {
+      checklistItemCounts[c.id] = items.length;
+    }
+  }
+
   const seenChecklistIds = new Set<string>();
-  const checklistRows: { title: string; completed: boolean; completedBy: string | null }[] = [];
+  const checklistRows: { title: string; completed: boolean; completedBy: string | null; submittedAt: string | null; itemsCompleted: number; itemsTotal: number; pct: number }[] = [];
   
   for (const c of dailyChecklists) {
     if (seenChecklistIds.has(c.id)) continue;
     seenChecklistIds.add(c.id);
     const completed = completedIds.has(c.id);
     const sub = (checklistSubs || []).find((s: any) => s.checklist_id === c.id);
-    checklistRows.push({ title: c.title, completed, completedBy: sub?.submitted_by_profile?.full_name || null });
+    const totalItems = checklistItemCounts[c.id] || 0;
+    const completedItems = sub ? (responseCounts[sub.id] || 0) : 0;
+    const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : (completed ? 100 : 0);
+    checklistRows.push({ title: c.title, completed, completedBy: sub?.submitted_by_profile?.full_name || null, submittedAt: sub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
   }
-  // Add any other checklists that were completed today but not in daily/dynamic list
   for (const sub of (checklistSubs || [])) {
     if (!seenChecklistIds.has(sub.checklist_id)) {
       seenChecklistIds.add(sub.checklist_id);
+      const totalItems = checklistItemCounts[sub.checklist_id] || 0;
+      const completedItems = responseCounts[sub.id] || 0;
+      const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100;
       checklistRows.push({
         title: checklistMap.get(sub.checklist_id) || "Checklist",
         completed: true,
         completedBy: sub?.submitted_by_profile?.full_name || null,
+        submittedAt: sub?.submitted_at || null,
+        itemsCompleted: completedItems,
+        itemsTotal: totalItems,
+        pct,
       });
     }
   }
@@ -447,13 +481,32 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     <!-- CHECKLISTS -->
     <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Checklists ${completedCount}/${totalChecklists}</p>
     ${checklistRows.length > 0 ? checklistRows.map(c => {
-      const barColor = c.completed ? '#22c55e' : '#e8e5df';
-      return `<div style="margin-bottom:10px;">
-        <p style="margin:0 0 4px;font-size:13px;color:${textColor};font-weight:600;">${c.title}</p>
-        <div style="background:#e8e5df;border-radius:4px;height:8px;width:100%;overflow:hidden;margin-bottom:2px;">
-          <div style="background:${barColor};height:100%;width:${c.completed ? '100' : '0'}%;border-radius:4px;"></div>
+      const barColor = c.pct >= 100 ? primaryColor : primaryColor;
+      const pctColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
+      const timeStr = c.submittedAt ? new Date(c.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+      return `<div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:top;">
+              <p style="margin:0;font-size:13px;color:${textColor};font-weight:700;">${c.title}</p>
+            </td>
+            <td style="text-align:right;white-space:nowrap;vertical-align:top;">
+              ${timeStr ? `<span style="color:#888;font-size:12px;">${timeStr}</span> ` : ''}
+              <span style="color:${pctColor};font-size:12px;font-weight:700;">${c.pct}%</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <p style="margin:2px 0 0;font-size:11px;color:#888;">${c.completed ? (c.completedBy || '') : '<span style="color:#ef4444;">Not Completed</span>'}</p>
+            </td>
+            <td style="text-align:right;">
+              <span style="font-size:11px;color:#888;">${c.itemsCompleted}/${c.itemsTotal} items</span>
+            </td>
+          </tr>
+        </table>
+        <div style="background:#e0f2f1;border-radius:6px;height:6px;width:100%;overflow:hidden;margin-top:8px;">
+          <div style="background:${primaryColor};height:100%;width:${c.pct}%;border-radius:6px;"></div>
         </div>
-        <p style="margin:0;font-size:11px;color:#888;">${c.completed ? `Completed by ${c.completedBy || 'Unknown'}` : '<span style="color:#ef4444;">Not Completed</span>'}</p>
       </div>`;
     }).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
 
