@@ -44,12 +44,13 @@ function resizeImageIfNeeded(
 export const removeBackground = async (imageElement: HTMLImageElement): Promise<Blob> => {
   console.log('Starting background removal process...');
   
+  const { pipeline } = await getTransformers();
+  
   const segmenter = await pipeline(
     'image-segmentation', 
     'Xenova/segformer-b0-finetuned-ade-512-512',
     { device: 'webgpu' }
   );
-  
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
