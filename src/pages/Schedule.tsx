@@ -444,6 +444,9 @@ export default function Schedule() {
       // Process shifts
       if (shiftsResult.error) throw shiftsResult.error;
       const shifts = shiftsResult.data || [];
+      
+      // Process last week's shifts for Smart Tap
+      const lastWeekShifts = (lastWeekShiftsResult as any)?.data || [];
 
       // Process events - combine schedule-specific and recurring
       if (eventsResult.error) throw eventsResult.error;
