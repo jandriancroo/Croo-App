@@ -248,6 +248,9 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const lastWeekDate = new Date(yr, mo - 1, dy - 7);
   const lwStr = `${lastWeekDate.getFullYear()}-${String(lastWeekDate.getMonth() + 1).padStart(2, "0")}-${String(lastWeekDate.getDate()).padStart(2, "0")}`;
 
+  const nextDate = new Date(yr, mo - 1, dy + 1);
+  const nextDateStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}-${String(nextDate.getDate()).padStart(2, "0")}`;
+
   const lastYearDate = new Date(yr - 1, mo - 1, dy);
   // Find same day-of-week in the previous year (closest match)
   const lyDow = lastYearDate.getDay();
@@ -273,7 +276,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
-    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name, avatar_url)").eq("location_id", location_id).gte("submitted_at", entry_date + "T00:00:00").lt("submitted_at", entry_date + "T23:59:59"),
+    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", `${entry_date}T00:00:00.000Z`).lt("submitted_at", `${nextDateStr}T00:00:00.000Z`),
     supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
