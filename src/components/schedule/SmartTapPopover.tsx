@@ -23,6 +23,8 @@ interface SmartTapPopoverProps {
   isCompactMode?: boolean;
 }
 
+const MAX_PER_COLUMN = 5;
+
 function SmartTapPopoverComponent({
   open,
   onOpenChange,
@@ -32,7 +34,7 @@ function SmartTapPopoverComponent({
   children,
   isCompactMode = false,
 }: SmartTapPopoverProps) {
-  const { recentTemplates, otherTemplates } = useMemo(() => {
+  const { recentTemplates, otherColumns } = useMemo(() => {
     const recent: ShiftTemplate[] = [];
     const others: ShiftTemplate[] = [];
 
@@ -47,28 +49,33 @@ function SmartTapPopoverComponent({
       }
     }
 
-    return { recentTemplates: recent.slice(0, 3), otherTemplates: others };
+    // Chunk others into columns of MAX_PER_COLUMN
+    const columns: ShiftTemplate[][] = [];
+    for (let i = 0; i < others.length; i += MAX_PER_COLUMN) {
+      columns.push(others.slice(i, i + MAX_PER_COLUMN));
+    }
+
+    return { recentTemplates: recent.slice(0, 3), otherColumns: columns };
   }, [templates, recentTemplateIds]);
 
   if (templates.length === 0) return <>{children}</>;
 
   const hasRecent = recentTemplates.length > 0;
-  const hasOthers = otherTemplates.length > 0;
+  const hasOthers = otherColumns.length > 0;
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="w-auto min-w-[200px] max-w-[min(380px,90vw)] p-2 z-[200]"
+        className="w-auto min-w-[200px] max-w-[min(500px,92vw)] p-2 z-[200]"
         side="bottom"
         align="center"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {hasRecent && hasOthers ? (
-          /* Two-column layout: Recent left, All right */
-          <div className="flex gap-2">
-            {/* Recent column */}
-            <div className="min-w-[140px] flex-shrink-0">
+        <div className="flex gap-2 overflow-x-auto">
+          {/* Recent column */}
+          {hasRecent && (
+            <div className="min-w-[130px] flex-shrink-0">
               <div className="flex items-center gap-1.5 px-1 pb-1">
                 <Sparkles className="h-3 w-3 text-amber-500" />
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -86,49 +93,36 @@ function SmartTapPopoverComponent({
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Divider */}
-            <div className="w-px bg-border flex-shrink-0" />
-
-            {/* All others column */}
-            <div className="min-w-[130px] max-h-[220px] overflow-y-auto">
-              <div className="px-1 pb-1">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  All Templates
-                </span>
-              </div>
-              <div className="space-y-0.5">
-                {otherTemplates.map((template) => (
-                  <TemplateOption
-                    key={template.id}
-                    template={template}
-                    onSelect={onSelectTemplate}
-                  />
-                ))}
+          {/* Other template columns */}
+          {otherColumns.map((column, colIdx) => (
+            <div key={colIdx} className="flex gap-2">
+              {(hasRecent || colIdx > 0) && (
+                <div className="w-px bg-border flex-shrink-0" />
+              )}
+              <div className="min-w-[130px] flex-shrink-0">
+                {colIdx === 0 && (
+                  <div className="px-1 pb-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      All Templates
+                    </span>
+                  </div>
+                )}
+                {colIdx > 0 && <div className="h-[18px]" />}
+                <div className="space-y-0.5">
+                  {column.map((template) => (
+                    <TemplateOption
+                      key={template.id}
+                      template={template}
+                      onSelect={onSelectTemplate}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* Single list fallback when no recent or no others */
-          <div className="space-y-0.5 max-h-[260px] overflow-y-auto">
-            {hasRecent && (
-              <div className="flex items-center gap-1.5 px-1 pb-1">
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Last Week
-                </span>
-              </div>
-            )}
-            {(hasRecent ? recentTemplates : otherTemplates).map((template) => (
-              <TemplateOption
-                key={template.id}
-                template={template}
-                onSelect={onSelectTemplate}
-                isHighlighted={hasRecent}
-              />
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
