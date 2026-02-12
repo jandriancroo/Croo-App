@@ -372,6 +372,15 @@ export default function Schedule() {
       console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
       // Only fetch week-specific data - profiles/templates come from stableData
+      // Fetch last week's schedule ID for Smart Tap recent templates
+      const lastWeekDate = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
+      const { data: lastWeekSchedule } = await supabase
+        .from("schedules")
+        .select("id")
+        .eq("week_start_date", lastWeekDate)
+        .eq("location_id", currentLocation.id)
+        .single();
+
       const parallelStart = performance.now();
       const [
         shiftsResult,
@@ -380,7 +389,8 @@ export default function Schedule() {
         availabilityResult,
         salesResult,
         holidaysResult,
-        locationSettingsResult
+        locationSettingsResult,
+        lastWeekShiftsResult
       ] = await Promise.all([
         supabase
           .from("scheduled_shifts")
@@ -418,7 +428,15 @@ export default function Schedule() {
           .from("location_settings")
           .select("blackout_dates, hours_open, hours_close")
           .eq("location_id", currentLocation.id)
-          .single()
+          .single(),
+        // Smart Tap: fetch last week's shifts for "recent" templates
+        lastWeekSchedule?.id
+          ? supabase
+              .from("scheduled_shifts")
+              .select("user_id, template_id, shift_date")
+              .eq("schedule_id", lastWeekSchedule.id)
+              .not("template_id", "is", null)
+          : Promise.resolve({ data: [], error: null })
       ]);
 
       console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
@@ -426,6 +444,9 @@ export default function Schedule() {
       // Process shifts
       if (shiftsResult.error) throw shiftsResult.error;
       const shifts = shiftsResult.data || [];
+      
+      // Process last week's shifts for Smart Tap
+      const lastWeekShifts = (lastWeekShiftsResult as any)?.data || [];
 
       // Process events - combine schedule-specific and recurring
       if (eventsResult.error) throw eventsResult.error;
@@ -553,6 +574,7 @@ export default function Schedule() {
         lastStatusChangedAt: schedule.last_status_changed_at,
         lastStatusChangedBy: schedule.last_status_changed_by,
         lastStatusAction: schedule.last_status_action,
+        lastWeekShifts,
       };
     },
     enabled: !!role && !!currentLocation?.id && !!stableData,
@@ -671,6 +693,7 @@ export default function Schedule() {
   const isPublished = scheduleData?.isPublished ?? false;
   const publishedSnapshot = scheduleData?.publishedSnapshot ?? [];
   const shifts = scheduleData?.shifts ?? [];
+  const lastWeekShifts = scheduleData?.lastWeekShifts ?? [];
   const events = scheduleData?.events ?? [];
   const profiles = scheduleData?.profiles ?? [];
   const templates = scheduleData?.templates ?? [];
@@ -1905,7 +1928,7 @@ export default function Schedule() {
                                     canViewAllWages={canViewAllWages}
                                     isCompactMode={isCompactMode}
                                     holidays={holidays}
-                                    allShifts={shifts}
+                                    allShifts={lastWeekShifts}
                                     onSmartTap={handleSmartTap}
                                   />
                               ))}
