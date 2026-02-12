@@ -574,6 +574,7 @@ export default function Schedule() {
         lastStatusChangedAt: schedule.last_status_changed_at,
         lastStatusChangedBy: schedule.last_status_changed_by,
         lastStatusAction: schedule.last_status_action,
+        lastWeekShifts,
       };
     },
     enabled: !!role && !!currentLocation?.id && !!stableData,
