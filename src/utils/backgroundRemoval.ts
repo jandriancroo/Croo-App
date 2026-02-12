@@ -1,8 +1,14 @@
-import { pipeline, env } from '@huggingface/transformers';
+// Lazy-load @huggingface/transformers to avoid blocking the main bundle
+let _transformers: typeof import('@huggingface/transformers') | null = null;
 
-// Configure transformers.js to always download models
-env.allowLocalModels = false;
-env.useBrowserCache = true;
+async function getTransformers() {
+  if (!_transformers) {
+    _transformers = await import('@huggingface/transformers');
+    _transformers.env.allowLocalModels = false;
+    _transformers.env.useBrowserCache = true;
+  }
+  return _transformers;
+}
 
 const MAX_IMAGE_DIMENSION = 1024;
 
