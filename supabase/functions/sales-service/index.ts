@@ -96,7 +96,6 @@ async function authenticateQuBeyond(
       return null;
     }
 
-    // Extract expiry from JWT (default to 4 hours if not present)
     const exp = jwtPayload?.exp as number | undefined;
     const expiresAt = exp 
       ? new Date(exp * 1000).toISOString() 
@@ -110,14 +109,12 @@ async function authenticateQuBeyond(
   }
 }
 
-// Get cached token or refresh if expired (5-min buffer)
 async function getOrRefreshToken(
   supabase: any,
   integrationId: string,
   username: string,
   password: string
 ): Promise<string | null> {
-  // Check for cached token
   const { data: row } = await supabase
     .from('location_integrations')
     .select('cached_token_gw, token_expires_at')
@@ -126,7 +123,7 @@ async function getOrRefreshToken(
 
   if (row?.cached_token_gw && row?.token_expires_at) {
     const expiresAt = new Date(row.token_expires_at).getTime();
-    const bufferMs = 5 * 60 * 1000; // 5 minutes
+    const bufferMs = 5 * 60 * 1000;
     if (Date.now() < expiresAt - bufferMs) {
       console.log(`[sales-service] Using cached token (expires ${row.token_expires_at})`);
       return row.cached_token_gw;
@@ -134,11 +131,9 @@ async function getOrRefreshToken(
     console.log(`[sales-service] Cached token expired or expiring soon, re-authenticating`);
   }
 
-  // Authenticate fresh
   const auth = await authenticateQuBeyond(username, password);
   if (!auth) return null;
 
-  // Save to DB (fire-and-forget)
   supabase
     .from('location_integrations')
     .update({ cached_token_gw: auth.tokenGw, token_expires_at: auth.expiresAt })
@@ -161,6 +156,10 @@ function convertTo24Hour(time12h: string): string {
   else { if (hours !== 12) hours += 12; }
   return `${hours.toString().padStart(2, '0')}:${minutes}`;
 }
+
+// ============================================================================
+// DATA FETCHERS
+// ============================================================================
 
 async function fetchHourlySales(
   tokenGw: string, 
@@ -214,11 +213,16 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
+interface ProductMixResult {
+  pizzaCount: number;
+  productMix: { itemName: string; category: string; quantity: number; netSales: number }[];
+}
+
 async function fetchProductMix(
   tokenGw: string,
   dateStr: string,
   qbLocationId: string
-): Promise<number> {
+): Promise<ProductMixResult> {
   console.log(`[sales-service] Fetching product mix for ${dateStr}`);
 
   try {
@@ -256,11 +260,12 @@ async function fetchProductMix(
 
     if (!response.ok) {
       console.error('[sales-service] Product mix fetch failed:', response.status);
-      return 0;
+      return { pizzaCount: 0, productMix: [] };
     }
 
     const data = await response.json();
     let crustCount = 0;
+    const productMix: { itemName: string; category: string; quantity: number; netSales: number }[] = [];
 
     const processRow = (row: any, fallbackCategory?: string) => {
       const name = row.itemName || row.productName || row.name || '';
@@ -273,10 +278,16 @@ async function fetchProductMix(
         row.category ||
         fallbackCategory ||
         ''
-      ).toLowerCase();
+      );
 
-      if (category === 'crusts') {
-        const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+      const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+      const netSales = parseFloat(String(row.netSales || '0').replace(/[$,]/g, '')) || 0;
+
+      // Collect full product mix
+      productMix.push({ itemName: name, category, quantity, netSales });
+
+      // Also count pizza crusts
+      if (category.toLowerCase() === 'crusts') {
         const isHalf = name.includes('1/2') || name.includes('(1/2)');
         crustCount += isHalf ? quantity * 0.5 : quantity;
       }
@@ -295,16 +306,181 @@ async function fetchProductMix(
       }
     }
 
-    console.log(`[sales-service] Actual crust count: ${crustCount}`);
-    return crustCount;
+    console.log(`[sales-service] Product mix: ${productMix.length} items, crust count: ${crustCount}`);
+    return { pizzaCount: crustCount, productMix };
   } catch (error) {
     console.error('[sales-service] Product mix error:', error);
-    return 0;
+    return { pizzaCount: 0, productMix: [] };
   }
 }
 
+// Fetch payment method breakdown (cash, credit, etc.)
+async function fetchPaymentsData(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<{ tenderType: string; amount: number; count: number }[]> {
+  console.log(`[sales-service] Fetching payments data for ${dateStr}`);
+
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "tenderType" },
+          { fieldName: "amount" },
+          { fieldName: "count" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] }
+        },
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 50,
+          totalRecords: null,
+          sort: null,
+          showTotals: true
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[sales-service] Payments fetch failed:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    const payments: { tenderType: string; amount: number; count: number }[] = [];
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        const tenderType = item.tenderType || item.paymentType || item.name || '';
+        if (!tenderType || tenderType === 'Totals') continue;
+        const amount = parseFloat(String(item.amount || item.netAmount || '0').replace(/[$,]/g, '')) || 0;
+        const count = parseInt(String(item.count || item.quantity || '0').replace(/,/g, '')) || 0;
+        payments.push({ tenderType, amount, count });
+      }
+    }
+
+    console.log(`[sales-service] Payments: ${payments.length} tender types`);
+    return payments;
+  } catch (error) {
+    console.error('[sales-service] Payments error:', error);
+    return [];
+  }
+}
+
+// Get the same date from last year (for YOY comparison)
+function getYOYDate(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return `${year - 1}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 // ============================================================================
-// ACTION: sync-live (replaces sync-live-sales)
+// HELPER: Build formatted 24-hour array from hourly data
+// ============================================================================
+
+function formatHourlyTo24(hourlyData: { hour: string; sales: number; checksCount: number }[]): { hour: string; sales: number; checksCount: number }[] {
+  const formatted = [];
+  for (let h = 0; h < 24; h++) {
+    const hourStr = `${h.toString().padStart(2, '0')}:00`;
+    const hourData = hourlyData.find(hd => hd.hour === hourStr);
+    formatted.push({
+      hour: hourStr,
+      sales: hourData?.sales || 0,
+      checksCount: hourData?.checksCount || 0
+    });
+  }
+  return formatted;
+}
+
+// ============================================================================
+// HELPER: Fetch all data for a date and build upsert payload
+// ============================================================================
+
+async function fetchAllSalesData(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string,
+  locationId: string
+): Promise<{
+  netSales: number;
+  guestCount: number;
+  avgTicket: number | null;
+  pizzaCount: number;
+  formattedHourly: any[];
+  productMix: any[];
+  paymentsData: any[];
+  yoyNetSales: number | null;
+  yoyHourlyData: any[] | null;
+  yoySaleDate: string | null;
+}> {
+  const yoyDateStr = getYOYDate(dateStr);
+  
+  // Fetch all data in parallel
+  const [hourlyData, pmResult, paymentsData, yoyHourly] = await Promise.all([
+    fetchHourlySales(tokenGw, dateStr, qbLocationId),
+    fetchProductMix(tokenGw, dateStr, qbLocationId),
+    fetchPaymentsData(tokenGw, dateStr, qbLocationId),
+    fetchHourlySales(tokenGw, yoyDateStr, qbLocationId),
+  ]);
+
+  const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
+  const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+  const avgTicket = guestCount > 0 ? netSales / guestCount : null;
+  const formattedHourly = formatHourlyTo24(hourlyData);
+
+  // YOY data
+  const yoyNetSales = yoyHourly.reduce((sum, h) => sum + h.sales, 0);
+  const yoyHourlyData = yoyNetSales > 0 ? formatHourlyTo24(yoyHourly) : null;
+
+  return {
+    netSales,
+    guestCount,
+    avgTicket,
+    pizzaCount: pmResult.pizzaCount,
+    formattedHourly,
+    productMix: pmResult.productMix,
+    paymentsData,
+    yoyNetSales: yoyNetSales > 0 ? yoyNetSales : null,
+    yoyHourlyData,
+    yoySaleDate: yoyNetSales > 0 ? yoyDateStr : null,
+  };
+}
+
+function buildUpsertPayload(locationId: string, dateStr: string, data: Awaited<ReturnType<typeof fetchAllSalesData>>) {
+  return {
+    location_id: locationId,
+    sale_date: dateStr,
+    net_sales: data.netSales,
+    guest_count: data.guestCount,
+    avg_ticket: data.avgTicket,
+    pizza_count: Math.round(data.pizzaCount),
+    hourly_data: data.formattedHourly,
+    product_mix: data.productMix,
+    payments_data: data.paymentsData,
+    yoy_net_sales: data.yoyNetSales,
+    yoy_hourly_data: data.yoyHourlyData,
+    yoy_sale_date: data.yoySaleDate,
+    validation_status: 'valid',
+    validation_attempts: 1,
+    flagged_no_sales: false,
+    fetched_at: new Date().toISOString(),
+  };
+}
+
+// ============================================================================
+// ACTION: sync-live
 // ============================================================================
 
 async function handleSyncLive(supabase: any): Promise<Response> {
@@ -429,52 +605,24 @@ async function handleSyncLive(supabase: any): Promise<Response> {
     }
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
-    const [hourlyData, pizzaCount] = await Promise.all([
-      fetchHourlySales(tokenGw, todayStr, qbLocationId),
-      fetchProductMix(tokenGw, todayStr, qbLocationId)
-    ]);
-    
-    const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
-    const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+    const salesData = await fetchAllSalesData(tokenGw, todayStr, qbLocationId, locationId);
 
-    const formattedHourly = [];
-    for (let h = 0; h < 24; h++) {
-      const hourStr = `${h.toString().padStart(2, '0')}:00`;
-      const hourData = hourlyData.find(hd => hd.hour === hourStr);
-      formattedHourly.push({
-        hour: hourStr,
-        sales: hourData?.sales || 0,
-        checksCount: hourData?.checksCount || 0
-      });
-    }
+    if (salesData.netSales > 0) {
+      const payload = buildUpsertPayload(locationId, todayStr, salesData);
 
-    if (netSales > 0) {
       const { error: upsertError } = await supabase
         .from('sales_cache')
-        .upsert({
-          location_id: locationId,
-          sale_date: todayStr,
-          net_sales: netSales,
-          guest_count: guestCount,
-          pizza_count: Math.round(pizzaCount),
-          hourly_data: formattedHourly,
-          validation_status: 'valid',
-          validation_attempts: 1,
-          flagged_no_sales: false,
-          fetched_at: new Date().toISOString()
-        }, {
-          onConflict: 'location_id,sale_date'
-        });
+        .upsert(payload, { onConflict: 'location_id,sale_date' });
 
       if (upsertError) {
         console.error(`${locationName}: Upsert error:`, upsertError);
         results.push({ locationId, name: locationName, status: 'upsert_error' });
       } else {
-        console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas (from crusts)`);
-        results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales, pizzaCount });
+        console.log(`${locationName}: Updated - $${salesData.netSales.toFixed(2)}, ${salesData.guestCount} guests, ${salesData.pizzaCount} pizzas, ${salesData.productMix.length} items, ${salesData.paymentsData.length} payments, YOY: ${salesData.yoyNetSales ? '$' + salesData.yoyNetSales.toFixed(2) : 'n/a'}`);
+        results.push({ locationId, name: locationName, status: 'success', salesUpdated: salesData.netSales, pizzaCount: salesData.pizzaCount });
       }
     } else {
-      console.log(`${locationName}: No sales data yet (${netSales}), skipping update to preserve existing data`);
+      console.log(`${locationName}: No sales data yet (${salesData.netSales}), skipping update to preserve existing data`);
       results.push({ locationId, name: locationName, status: 'no_sales_yet' });
     }
   }
@@ -491,7 +639,7 @@ async function handleSyncLive(supabase: any): Promise<Response> {
 }
 
 // ============================================================================
-// ACTION: backfill (replaces backfill-sales-cache)
+// ACTION: backfill
 // ============================================================================
 
 async function handleBackfill(req: Request, supabase: any): Promise<Response> {
@@ -521,7 +669,6 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  // Authorize caller for this location
   const { data: hasAccess, error: accessError } = await supabase.rpc(
     'has_location_access',
     { _user_id: user.id, _location_id: locationId },
@@ -575,7 +722,6 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  // Generate backfill dates
   const dates: string[] = [];
   const today = new Date();
   for (let i = 1; i <= daysBack; i++) {
@@ -592,42 +738,15 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   for (const dateStr of dates) {
     totalAttempted++;
-    const [hourly, pizzaCount] = await Promise.all([
-      fetchHourlySales(tokenGw, dateStr, qbLocationId),
-      fetchProductMix(tokenGw, dateStr, qbLocationId)
-    ]);
+    const salesData = await fetchAllSalesData(tokenGw, dateStr, qbLocationId, locationId);
 
-    const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
-    const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
+    if (salesData.netSales <= 0) continue;
 
-    const formattedHourly: { hour: string; sales: number; checksCount: number }[] = [];
-    for (let h = 0; h < 24; h++) {
-      const hourStr = `${h.toString().padStart(2, '0')}:00`;
-      const hourData = hourly.find(hd => hd.hour === hourStr);
-      formattedHourly.push({
-        hour: hourStr,
-        sales: hourData?.sales || 0,
-        checksCount: hourData?.checksCount || 0,
-      });
-    }
-
-    // Skip if no sales (preserve any existing data)
-    if (netSales <= 0) continue;
+    const payload = buildUpsertPayload(locationId, dateStr, salesData);
 
     const { error: upsertError } = await supabase
       .from('sales_cache')
-      .upsert({
-        location_id: locationId,
-        sale_date: dateStr,
-        net_sales: netSales,
-        guest_count: guestCount,
-        pizza_count: Math.round(pizzaCount),
-        hourly_data: formattedHourly,
-        validation_status: 'valid',
-        validation_attempts: 1,
-        flagged_no_sales: false,
-        fetched_at: new Date().toISOString(),
-      }, { onConflict: 'location_id,sale_date' });
+      .upsert(payload, { onConflict: 'location_id,sale_date' });
 
     if (!upsertError) successCount++;
   }
@@ -641,7 +760,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 }
 
 // ============================================================================
-// ACTION: sync-day (replaces sync-day-sales)
+// ACTION: sync-day
 // ============================================================================
 
 async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
@@ -671,7 +790,6 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  // Authorize caller for this location
   const { data: hasAccess, error: accessError } = await supabase.rpc(
     'has_location_access',
     { _user_id: user.id, _location_id: locationId },
@@ -734,50 +852,21 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  const [hourly, pizzaCount] = await Promise.all([
-    fetchHourlySales(tokenGw, date, qbLocationId),
-    fetchProductMix(tokenGw, date, qbLocationId)
-  ]);
+  const salesData = await fetchAllSalesData(tokenGw, date, qbLocationId, locationId);
 
-  const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
-  const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
-
-  const formattedHourly: { hour: string; sales: number; checksCount: number }[] = [];
-  for (let h = 0; h < 24; h++) {
-    const hourStr = `${h.toString().padStart(2, '0')}:00`;
-    const hourData = hourly.find(hd => hd.hour === hourStr);
-    formattedHourly.push({
-      hour: hourStr,
-      sales: hourData?.sales || 0,
-      checksCount: hourData?.checksCount || 0,
-    });
-  }
-
-  if (netSales <= 0) {
+  if (salesData.netSales <= 0) {
     console.log(`[sales-service] sync-day: ${locationId} ${date} netSales=0, not overwriting`);
     return new Response(
-      JSON.stringify({ status: 'no_sales', locationId, date, netSales, guestCount }),
+      JSON.stringify({ status: 'no_sales', locationId, date, netSales: salesData.netSales, guestCount: salesData.guestCount }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
 
-  const avgTicket = guestCount > 0 ? netSales / guestCount : null;
+  const payload = buildUpsertPayload(locationId, date, salesData);
 
   const { error: upsertError } = await supabase
     .from('sales_cache')
-    .upsert({
-      location_id: locationId,
-      sale_date: date,
-      net_sales: netSales,
-      guest_count: guestCount,
-      pizza_count: Math.round(pizzaCount),
-      avg_ticket: avgTicket,
-      hourly_data: formattedHourly,
-      validation_status: 'valid',
-      validation_attempts: 1,
-      flagged_no_sales: false,
-      fetched_at: new Date().toISOString(),
-    }, { onConflict: 'location_id,sale_date' });
+    .upsert(payload, { onConflict: 'location_id,sale_date' });
 
   if (upsertError) {
     console.error('[sales-service] sync-day upsert failed:', upsertError);
@@ -787,10 +876,10 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  console.log(`[sales-service] sync-day OK: ${locationId} ${date} $${netSales.toFixed(2)} (${guestCount} guests, ${pizzaCount} pizzas)`);
+  console.log(`[sales-service] sync-day OK: ${locationId} ${date} $${salesData.netSales.toFixed(2)} (${salesData.guestCount} guests, ${salesData.pizzaCount} pizzas, ${salesData.productMix.length} items, YOY: ${salesData.yoyNetSales ? '$' + salesData.yoyNetSales.toFixed(2) : 'n/a'})`);
 
   return new Response(
-    JSON.stringify({ status: 'updated', locationId, date, netSales, guestCount, pizzaCount }),
+    JSON.stringify({ status: 'updated', locationId, date, netSales: salesData.netSales, guestCount: salesData.guestCount, pizzaCount: salesData.pizzaCount }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 }
@@ -824,7 +913,6 @@ serve(async (req) => {
       case 'backfill':
         return await handleBackfill(req, supabase);
       
-      // Future actions: fetch-full
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
