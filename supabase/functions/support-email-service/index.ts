@@ -382,8 +382,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   // Non-cash logbook entries
   const logEntries = (logbookEntries || []).filter((e: any) => !cashCategories.includes(e.category?.name));
 
-  // Format date
-  const displayDate = new Date(entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  // Format date - computed below using parsed yr/mo/dy to avoid timezone bugs
 
   // Helper for comparison badges
   const compBadge = (pct: string | null, label: string) => {
@@ -395,7 +394,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   };
 
   // ---- Build Email HTML ----
-  const shortDate = new Date(entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const dayNamesShort = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const shortDate = `${dayNamesShort[dayOfWeek]}, ${monthNamesShort[mo - 1]} ${dy}`;
+  const displayDate = `${dayNames[dayOfWeek]}, ${monthNames[mo - 1]} ${dy}, ${yr}`;
   const completedCount = checklistRows.filter(c => c.completed).length;
   const totalChecklists = checklistRows.length;
 
