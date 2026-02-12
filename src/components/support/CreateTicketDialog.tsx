@@ -104,10 +104,13 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
 
       // Notify support admins about new ticket
       try {
-        await supabase.functions.invoke('notify-support-ticket', {
+        await supabase.functions.invoke('support-email-service', {
           body: {
-            ticket_id: ticket.id,
-            event_type: 'new_ticket',
+            action: 'support_ticket',
+            payload: {
+              ticket_id: ticket.id,
+              event_type: 'new_ticket',
+            },
           },
         });
       } catch (notifyError) {
