@@ -55,9 +55,30 @@ Deno.serve(async (req) => {
 
     for (const item of queue) {
       try {
+        // Filter out bounced email addresses
+        const bouncedAddresses = await supabase
+          .from('bounced_emails')
+          .select('email_address')
+          .in('email_address', item.to_addresses)
+        
+        let recipientList = item.to_addresses
+        if (bouncedAddresses.data && bouncedAddresses.data.length > 0) {
+          const bounced = new Set(bouncedAddresses.data.map(b => b.email_address))
+          recipientList = item.to_addresses.filter(addr => !bounced.has(addr))
+          
+          if (recipientList.length === 0) {
+            console.log(`[email-queue-sender] ⏭️  Skipping - all recipients bounced: ${item.to_addresses.join(', ')}`)
+            await supabase
+              .from('email_queue')
+              .update({ status: 'bounced' })
+              .eq('id', item.id)
+            continue
+          }
+        }
+        
         const sendOpts: any = {
           from: item.from_address,
-          to: item.to_addresses,
+          to: recipientList,
           subject: item.subject,
           html: item.html,
         }
@@ -89,18 +110,55 @@ Deno.serve(async (req) => {
       } catch (sendErr: any) {
         errorCount++
         const newRetryCount = item.retry_count + 1
-        const newStatus = newRetryCount >= 3 ? 'failed' : 'pending'
+        const errorMsg = sendErr.message || 'Unknown error'
+        
+        // Detect bounce errors (permanent delivery failures)
+        const isBounce = errorMsg.includes('bounced') || 
+                        errorMsg.includes('invalid email') ||
+                        errorMsg.includes('does not exist') ||
+                        errorMsg.includes('undeliverable') ||
+                        sendErr.code === 'UNPROCESSABLE_ENTITY'
+        
+        if (isBounce && item.to_addresses && Array.isArray(item.to_addresses)) {
+          // Record each bounced email address
+          for (const email of item.to_addresses) {
+            const { error: bounceError } = await supabase
+              .from('bounced_emails')
+              .upsert({
+                email_address: email,
+                bounce_reason: errorMsg,
+                bounced_at: new Date().toISOString(),
+                bounce_count: 1,
+              }, { onConflict: 'email_address' })
+            
+            if (!bounceError) {
+              console.log(`[email-queue-sender] 🚫 Marked as bounced: ${email}`)
+            }
+          }
+          
+          // Mark as bounced so we don't retry
+          await supabase
+            .from('email_queue')
+            .update({
+              status: 'bounced',
+              last_error: `Bounced: ${errorMsg}`,
+            })
+            .eq('id', item.id)
+        } else {
+          // Transient error - retry up to 3 times
+          const newStatus = newRetryCount >= 3 ? 'failed' : 'pending'
+          
+          console.error(`[email-queue-sender] ❌ Failed (attempt ${newRetryCount}/3): ${item.subject}`, errorMsg)
 
-        console.error(`[email-queue-sender] ❌ Failed (attempt ${newRetryCount}/3): ${item.subject}`, sendErr.message)
-
-        await supabase
-          .from('email_queue')
-          .update({
-            retry_count: newRetryCount,
-            last_error: sendErr.message || 'Unknown error',
-            status: newStatus,
-          })
-          .eq('id', item.id)
+          await supabase
+            .from('email_queue')
+            .update({
+              retry_count: newRetryCount,
+              last_error: errorMsg,
+              status: newStatus,
+            })
+            .eq('id', item.id)
+        }
       }
 
       // Small delay between sends to respect rate limits

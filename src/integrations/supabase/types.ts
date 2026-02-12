@@ -492,6 +492,39 @@ export type Database = {
           },
         ]
       }
+      bounced_emails: {
+        Row: {
+          bounce_count: number
+          bounce_reason: string | null
+          bounced_at: string
+          created_at: string
+          email_address: string
+          first_bounced_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          bounce_count?: number
+          bounce_reason?: string | null
+          bounced_at?: string
+          created_at?: string
+          email_address: string
+          first_bounced_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          bounce_count?: number
+          bounce_reason?: string | null
+          bounced_at?: string
+          created_at?: string
+          email_address?: string
+          first_bounced_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       brand_members: {
         Row: {
           brand_id: string
