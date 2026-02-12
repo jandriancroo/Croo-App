@@ -386,128 +386,107 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   };
 
   // ---- Build Email HTML ----
-  const emailHtml = wrapEmail(`
-    ${getEmailHeader(`📊 Daily Summary: ${location.name}`)}
-    <tr><td style="padding:28px 36px;">
-      <p style="color:#888;font-size:13px;margin:0 0 24px;letter-spacing:0.5px;">${displayDate}</p>
-      
-      <!-- SALES PERFORMANCE -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">💰 SALES</h3>
-        <table style="width:100%;">
-          <tr>
-            <td style="padding:4px 0;vertical-align:top;">
-              <span style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">Net Sales</span><br/>
-              <strong style="color:${textColor};font-size:22px;">$${netSales.toLocaleString()}</strong>
-            </td>
-            <td style="padding:4px 0;text-align:right;vertical-align:top;">
-              <span style="color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">vs Projection</span><br/>
-              <strong style="color:${projColor};font-size:22px;">${projVariance >= 0 ? "+" : ""}${projVarianceStr}%</strong>
-              <br/><span style="color:${projColor};font-size:12px;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            </td>
-          </tr>
-          <tr>
-            <td colspan="2" style="padding:10px 0 2px;">
-              <div style="display:flex;gap:16px;">
-                ${compBadge(lwPct, "vs Last Week")} &nbsp;&nbsp; ${compBadge(lyPct, "vs Last Year")}
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0 0;"><span style="color:#888;font-size:11px;">GUESTS</span><br/><strong style="color:${textColor};font-size:15px;">${salesData?.guest_count || 0}</strong></td>
-            <td style="padding:8px 0 0;text-align:center;"><span style="color:#888;font-size:11px;">PIZZAS</span><br/><strong style="color:${textColor};font-size:15px;">${salesData?.pizza_count || 0}</strong></td>
-          </tr>
-        </table>
-      </div>
+  const shortDate = new Date(entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const completedCount = checklistRows.filter(c => c.completed).length;
+  const totalChecklists = checklistRows.length;
 
-      <!-- LABOR -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">👥 LABOR</h3>
-        <table style="width:100%;">
-          <tr>
-            <td style="padding:4px 0;">
-              <span style="color:#888;font-size:11px;text-transform:uppercase;">Labor %</span><br/>
-              <strong style="color:${laborColor};font-size:22px;">${laborPercent.toFixed(1)}%</strong>
-              <span style="color:#888;font-size:12px;"> / ${laborGoal}% goal</span>
-            </td>
-            <td style="padding:4px 0;text-align:right;">
-              <span style="color:#888;font-size:11px;text-transform:uppercase;">${laborOverUnder > 0 ? "Over" : "Under"} Goal</span><br/>
-              <strong style="color:${laborColor};font-size:22px;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0 0;"><span style="color:#888;font-size:11px;">HOURS</span><br/><strong style="color:${textColor};font-size:15px;">${totalLaborHours.toFixed(1)}h</strong></td>
-            <td style="padding:8px 0 0;text-align:right;"><span style="color:#888;font-size:11px;">COST</span><br/><strong style="color:${textColor};font-size:15px;">$${totalLaborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong></td>
-          </tr>
-        </table>
-      </div>
+  // Wider daily summary email with clean Croo branding
+  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
+<table style="max-width:680px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
-      <!-- CHECKLISTS -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">✅ CHECKLISTS</h3>
-        ${checklistRows.length > 0 ? checklistRows.map(c => `
-          <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-            <span style="font-size:16px;margin-right:8px;">${c.completed ? "✅" : "❌"}</span>
-            <span style="color:${textColor};font-size:14px;flex:1;">${c.title}</span>
-            ${c.completedBy ? `<span style="color:#888;font-size:11px;">${c.completedBy}</span>` : `<span style="color:#ef4444;font-size:11px;">Not completed</span>`}
-          </div>
-        `).join("") : `<p style="color:#888;font-size:13px;margin:0;">No checklists for today</p>`}
-      </div>
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
+    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;">Daily Summary</h1>
+    <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:6px 0 0;">${location.name} &middot; ${shortDate}</p>
+  </td></tr>
 
-      ${topItems.length > 0 ? `
-      <!-- TOP 5 ITEMS -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">🏆 TOP 5 ITEMS</h3>
-        <table style="width:100%;border-collapse:collapse;">
-          <tr style="border-bottom:2px solid rgba(0,0,0,0.1);">
-            <td style="padding:6px 0;color:#888;font-size:11px;text-transform:uppercase;">#</td>
-            <td style="padding:6px 0;color:#888;font-size:11px;text-transform:uppercase;">Item</td>
-            <td style="padding:6px 0;color:#888;font-size:11px;text-transform:uppercase;text-align:center;">Qty</td>
-            <td style="padding:6px 0;color:#888;font-size:11px;text-transform:uppercase;text-align:right;">Sales</td>
-          </tr>
-          ${topItems.map((item, i) => `
-          <tr style="border-bottom:1px solid rgba(0,0,0,0.05);">
-            <td style="padding:8px 0;color:${primaryColor};font-weight:700;font-size:14px;">${i + 1}</td>
-            <td style="padding:8px 0;color:${textColor};font-size:13px;">${item.name}</td>
-            <td style="padding:8px 0;color:${textColor};font-size:13px;text-align:center;">${item.qty}</td>
-            <td style="padding:8px 0;color:${textColor};font-size:13px;text-align:right;font-weight:600;">$${item.sales.toLocaleString()}</td>
-          </tr>`).join("")}
-        </table>
-      </div>
-      ` : ""}
+  <tr><td style="padding:28px 32px;">
 
-      ${cashDetails.length > 0 ? `
-      <!-- CASH HANDLING -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">💵 CASH HANDLING</h3>
-        ${cashDetails.map(c => `
-          <div style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.05);">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <strong style="color:${textColor};font-size:14px;">${c.category}</strong>
-              <span style="color:#888;font-size:11px;">${c.author}</span>
-            </div>
-            ${c.fields.map(f => `<div style="display:flex;justify-content:space-between;padding:2px 0;"><span style="color:#888;font-size:12px;">${f.name}</span><span style="color:${textColor};font-size:13px;font-weight:600;">${f.value}</span></div>`).join("")}
-          </div>
-        `).join("")}
-      </div>
-      ` : ""}
+    <!-- SALES + LABOR ROW -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <tr>
+        <td style="vertical-align:top;width:55%;padding-right:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
+          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${netSales.toLocaleString()}</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${projection.toLocaleString()} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>)</p>
+          <table style="margin-top:8px;"><tr>
+            <td style="padding-right:16px;">${compBadge(lwPct, "LW")}</td>
+            <td>${compBadge(lyPct, "LY")}</td>
+          </tr></table>
+        </td>
+        <td style="vertical-align:top;text-align:right;border-left:1px solid #e8e5df;padding-left:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
+          <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
+          <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
+        </td>
+      </tr>
+    </table>
 
-      ${logEntries.length > 0 ? `
-      <!-- LOGBOOK ENTRIES -->
-      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:16px;">
-        <h3 style="color:${primaryColor};font-size:15px;margin:0 0 14px;letter-spacing:0.3px;">📝 LOG ENTRIES (${logEntries.length})</h3>
-        ${logEntries.map((e: any) => `
-          <div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.05);display:flex;justify-content:space-between;">
-            <span style="color:${textColor};font-size:13px;">${e.category?.name || "Entry"}</span>
-            <span style="color:#888;font-size:11px;">${e.created_by_profile?.full_name || "Unknown"}</span>
-          </div>
-        `).join("")}
-      </div>
-      ` : ""}
+    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
 
-    </td></tr>
-    ${getEmailFooter()}
-  `);
+    <!-- CHECKLISTS + CASH HANDLING ROW -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr>
+        <td style="vertical-align:top;width:50%;padding-right:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists ${completedCount}/${totalChecklists}</p>
+          ${checklistRows.length > 0 ? checklistRows.map(c => 
+            `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${c.completed ? "&#9679;" : "&#9675;"} ${c.title}${c.completedBy ? ` <span style="color:#888;font-size:11px;">- ${c.completedBy}</span>` : ""}</p>`
+          ).join("") : `<p style="color:#888;font-size:13px;margin:0;">None scheduled</p>`}
+        </td>
+        <td style="vertical-align:top;border-left:1px solid #e8e5df;padding-left:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
+          ${cashDetails.length > 0 ? cashDetails.map(c => {
+            const shiftField = c.fields.find(f => f.name === "Shift");
+            const totalField = c.fields.find(f => f.name === "Total Safe" || f.name === "Total Drawer");
+            const diffField = c.fields.find(f => f.name === "Difference");
+            const diffColor = diffField && diffField.value !== "$0" ? "#ef4444" : "#22c55e";
+            return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${c.category}</strong></p>
+              <p style="margin:0 0 6px;font-size:13px;color:#888;">${shiftField ? shiftField.value + ": " : ""}${totalField ? totalField.value : ""} ${diffField ? `(<span style="color:${diffColor};">${diffField.value}</span>)` : ""} - ${c.author}</p>`;
+          }).join("") : `<p style="color:#888;font-size:13px;margin:0;">No records</p>`}
+          ${logEntries.length > 0 ? `
+            <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 10px;">Log Entries</p>
+            ${logEntries.map((e: any) => 
+              `<p style="margin:0 0 4px;font-size:13px;color:${textColor};">${e.category?.name || "Entry"} - <span style="color:#888;">${e.created_by_profile?.full_name || ""}</span></p>`
+            ).join("")}
+          ` : ""}
+        </td>
+      </tr>
+    </table>
+
+    ${topItems.length > 0 ? `
+    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+
+    <!-- TOP 5 ITEMS -->
+    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
+    <table style="width:100%;border-collapse:collapse;">
+      ${topItems.map((item, i) => `
+      <tr style="border-bottom:1px solid #f0ebe1;">
+        <td style="padding:6px 0;color:${primaryColor};font-weight:700;font-size:14px;width:24px;">${i + 1}</td>
+        <td style="padding:6px 0;color:${textColor};font-size:13px;">${item.name}</td>
+        <td style="padding:6px 0;color:#888;font-size:13px;text-align:center;width:50px;">${item.qty}</td>
+        <td style="padding:6px 0;color:${textColor};font-size:13px;text-align:right;font-weight:600;width:70px;">$${item.sales.toLocaleString()}</td>
+      </tr>`).join("")}
+    </table>
+    ` : `
+    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Top Items by Sales</p>
+    <p style="color:#888;font-size:13px;margin:0;">No sales data available</p>
+    `}
+
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="padding:20px 32px;text-align:center;border-top:1px solid #e8e5df;">
+    <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:24px;opacity:0.4;margin-bottom:8px;"/>
+    <p style="color:#bbb;font-size:11px;margin:0;">Team management made simple</p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
 
   // Send to all eligible recipients
   let sentCount = 0;
