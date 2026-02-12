@@ -57,3 +57,12 @@ verify_jwt = false
 
 [functions.email-queue-sender]
 verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
+
+[functions.notify-hiring-message]
+verify_jwt = false
+
+[functions.send-weekly-schedule-email]
+verify_jwt = false
