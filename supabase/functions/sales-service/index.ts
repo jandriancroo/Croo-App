@@ -386,6 +386,32 @@ function getYOYDate(dateStr: string): string {
   return `${year - 1}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+// Fetch YOY data from sales_cache (already backfilled) instead of hitting API
+async function getYOYFromCache(
+  supabase: any,
+  locationId: string,
+  dateStr: string
+): Promise<{ yoyNetSales: number | null; yoyHourlyData: any[] | null; yoySaleDate: string | null }> {
+  const yoyDateStr = getYOYDate(dateStr);
+  
+  const { data, error } = await supabase
+    .from('sales_cache')
+    .select('net_sales, hourly_data')
+    .eq('location_id', locationId)
+    .eq('sale_date', yoyDateStr)
+    .maybeSingle();
+
+  if (error || !data || !data.net_sales) {
+    return { yoyNetSales: null, yoyHourlyData: null, yoySaleDate: null };
+  }
+
+  return {
+    yoyNetSales: data.net_sales,
+    yoyHourlyData: data.hourly_data,
+    yoySaleDate: yoyDateStr,
+  };
+}
+
 // ============================================================================
 // HELPER: Build formatted 24-hour array from hourly data
 // ============================================================================
@@ -409,6 +435,7 @@ function formatHourlyTo24(hourlyData: { hour: string; sales: number; checksCount
 // ============================================================================
 
 async function fetchAllSalesData(
+  supabase: any,
   tokenGw: string,
   dateStr: string,
   qbLocationId: string,
@@ -425,24 +452,18 @@ async function fetchAllSalesData(
   yoyHourlyData: any[] | null;
   yoySaleDate: string | null;
 }> {
-  const yoyDateStr = getYOYDate(dateStr);
-  
-  // Fetch all data in parallel
-  const [hourlyData, pmResult, paymentsData, yoyHourly] = await Promise.all([
+  // Fetch API data + YOY from cache in parallel
+  const [hourlyData, pmResult, paymentsData, yoyData] = await Promise.all([
     fetchHourlySales(tokenGw, dateStr, qbLocationId),
     fetchProductMix(tokenGw, dateStr, qbLocationId),
     fetchPaymentsData(tokenGw, dateStr, qbLocationId),
-    fetchHourlySales(tokenGw, yoyDateStr, qbLocationId),
+    getYOYFromCache(supabase, locationId, dateStr),
   ]);
 
   const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
   const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
   const avgTicket = guestCount > 0 ? netSales / guestCount : null;
   const formattedHourly = formatHourlyTo24(hourlyData);
-
-  // YOY data
-  const yoyNetSales = yoyHourly.reduce((sum, h) => sum + h.sales, 0);
-  const yoyHourlyData = yoyNetSales > 0 ? formatHourlyTo24(yoyHourly) : null;
 
   return {
     netSales,
@@ -452,9 +473,7 @@ async function fetchAllSalesData(
     formattedHourly,
     productMix: pmResult.productMix,
     paymentsData,
-    yoyNetSales: yoyNetSales > 0 ? yoyNetSales : null,
-    yoyHourlyData,
-    yoySaleDate: yoyNetSales > 0 ? yoyDateStr : null,
+    ...yoyData,
   };
 }
 
@@ -605,7 +624,7 @@ async function handleSyncLive(supabase: any): Promise<Response> {
     }
 
     const todayStr = getDateStringForTimezone(new Date(), timezone);
-    const salesData = await fetchAllSalesData(tokenGw, todayStr, qbLocationId, locationId);
+    const salesData = await fetchAllSalesData(supabase, tokenGw, todayStr, qbLocationId, locationId);
 
     if (salesData.netSales > 0) {
       const payload = buildUpsertPayload(locationId, todayStr, salesData);
@@ -738,7 +757,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
 
   for (const dateStr of dates) {
     totalAttempted++;
-    const salesData = await fetchAllSalesData(tokenGw, dateStr, qbLocationId, locationId);
+    const salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
 
     if (salesData.netSales <= 0) continue;
 
@@ -852,7 +871,7 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
     });
   }
 
-  const salesData = await fetchAllSalesData(tokenGw, date, qbLocationId, locationId);
+  const salesData = await fetchAllSalesData(supabase, tokenGw, date, qbLocationId, locationId);
 
   if (salesData.netSales <= 0) {
     console.log(`[sales-service] sync-day: ${locationId} ${date} netSales=0, not overwriting`);
