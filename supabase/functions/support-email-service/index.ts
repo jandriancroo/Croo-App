@@ -274,7 +274,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name, avatar_url)").eq("location_id", location_id).gte("submitted_at", entry_date + "T00:00:00").lt("submitted_at", entry_date + "T23:59:59"),
-    supabase.from("checklists").select("id, title, frequency, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
 
@@ -377,7 +377,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       .map((i: any) => ({ name: i.name || i.itemName || "Item", qty: i.quantity || i.qty || 0, sales: i.sales || i.netSales || 0 }));
   }
 
-  // Checklists: match submissions to active daily + dynamic checklists
+  // Checklists: match submissions to active daily + dynamic checklists (dynamic may have frequency="weekly" but template_type="dynamic")
   const dailyChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
@@ -408,6 +408,18 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     }
   }
 
+  // Aggregate response counts per checklist (dynamic checklists may have multiple submissions)
+  const checklistResponseCounts: Record<string, number> = {};
+  const checklistLastSub: Record<string, any> = {};
+  for (const sub of (checklistSubs || [])) {
+    const cid = sub.checklist_id;
+    checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + (responseCounts[sub.id] || 0);
+    // Track the latest submission per checklist
+    if (!checklistLastSub[cid] || sub.submitted_at > checklistLastSub[cid].submitted_at) {
+      checklistLastSub[cid] = sub;
+    }
+  }
+
   const seenChecklistIds = new Set<string>();
   const checklistRows: { title: string; completed: boolean; completedBy: string | null; submittedAt: string | null; itemsCompleted: number; itemsTotal: number; pct: number }[] = [];
   
@@ -415,23 +427,23 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     if (seenChecklistIds.has(c.id)) continue;
     seenChecklistIds.add(c.id);
     const completed = completedIds.has(c.id);
-    const sub = (checklistSubs || []).find((s: any) => s.checklist_id === c.id);
+    const lastSub = checklistLastSub[c.id];
     const totalItems = checklistItemCounts[c.id] || 0;
-    const completedItems = sub ? (responseCounts[sub.id] || 0) : 0;
+    const completedItems = checklistResponseCounts[c.id] || 0;
     const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : (completed ? 100 : 0);
-    checklistRows.push({ title: c.title, completed, completedBy: sub?.submitted_by_profile?.full_name || null, submittedAt: sub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
+    checklistRows.push({ title: c.title, completed, completedBy: lastSub?.submitted_by_profile?.full_name || null, submittedAt: lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
   }
   for (const sub of (checklistSubs || [])) {
     if (!seenChecklistIds.has(sub.checklist_id)) {
       seenChecklistIds.add(sub.checklist_id);
       const totalItems = checklistItemCounts[sub.checklist_id] || 0;
-      const completedItems = responseCounts[sub.id] || 0;
+      const completedItems = checklistResponseCounts[sub.checklist_id] || 0;
       const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100;
       checklistRows.push({
         title: checklistMap.get(sub.checklist_id) || "Checklist",
         completed: true,
-        completedBy: sub?.submitted_by_profile?.full_name || null,
-        submittedAt: sub?.submitted_at || null,
+        completedBy: checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name || null,
+        submittedAt: checklistLastSub[sub.checklist_id]?.submitted_at || null,
         itemsCompleted: completedItems,
         itemsTotal: totalItems,
         pct,
