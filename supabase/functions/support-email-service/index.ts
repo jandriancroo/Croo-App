@@ -35,12 +35,14 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
+const systemFontStack = "VanSans, -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
 function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
 function getEmailHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">${title}</h1></td></tr>`;
+  return `<tr><td style="background-color:#0a7a8a;padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;font-family:${systemFontStack};">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
@@ -403,16 +405,18 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const completedCount = checklistRows.filter(c => c.completed).length;
   const totalChecklists = checklistRows.length;
 
+  // System font stack matching VanSans / -apple-system
+  const fontStack = "VanSans, -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
   // Wider daily summary email with clean Croo branding
   const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${fontStack};">
 <table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
-<table style="max-width:680px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+<table style="max-width:680px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
-  <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:24px 32px;text-align:center;">
-    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;">Daily Summary</h1>
-    <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:6px 0 0;">${location.name} &middot; ${shortDate}</p>
+  <tr><td style="background-color:#0a7a8a;padding:24px 32px;text-align:center;">
+    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${fontStack};">Daily Summary</h1>
+    <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:6px 0 0;font-family:${fontStack};">${location.name} &middot; ${shortDate}</p>
   </td></tr>
 
   <tr><td style="padding:28px 32px;">
@@ -464,8 +468,18 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
             const safeCounts = cashDetails.filter(c => c.category === "Safe Count");
             if (safeCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
             return safeCounts.map(c => {
+              const shiftField = c.fields.find(f => f.name === "Shift");
+              const shiftVal = shiftField?.value || "AM";
+              const isAM = shiftVal === "AM";
+              const badgeBg = isAM ? "#fef3c7" : "#312e81";
+              const badgeColor = isAM ? "#78350f" : "#e0e7ff";
+              const badgeBorder = isAM ? "#fcd34d" : "#4338ca";
+              const shiftIcon = isAM ? "☀️" : "🌙";
               const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
-              return `<p style="margin:0 0 6px;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>`;
+              return `<div style="margin-bottom:8px;">
+                <span style="display:inline-block;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;margin-bottom:4px;">${shiftIcon} ${shiftVal}</span>
+                <p style="margin:4px 0 0;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>
+              </div>`;
             }).join("");
           })()}
         </td>
@@ -475,17 +489,19 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
             const drawerCounts = cashDetails.filter(c => c.category === "Drawer Count");
             if (drawerCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
             return drawerCounts.map(c => {
-              const shiftField = c.fields.find(f => f.name === "Shift");
               const depositField = c.fields.find(f => f.name === "Actual Deposit") || c.fields.find(f => f.name.includes("Deposit"));
               const expectedField = c.fields.find(f => f.name === "Expected Deposit") || c.fields.find(f => f.name.includes("Expected"));
               const varianceField = c.fields.find(f => f.name === "Variance") || c.fields.find(f => f.name === "Difference");
               const depositVal = depositField?.value || "$0";
               const expectedVal = expectedField?.value || "$0";
               const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
-              const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;">Even</span>`;
-              const shiftLabel = shiftField?.value || "AM";
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">${shiftLabel}</p>
-                <p style="margin:0 0 8px;font-size:13px;color:#888;">${depositVal} / ${expectedVal} &middot; ${overUnder}</p>`;
+              const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;font-weight:600;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;font-weight:600;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;font-weight:600;">Even</span>`;
+              const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+              return `<div style="margin-bottom:8px;">
+                <p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">${depositVal} / ${expectedVal}</p>
+                <p style="margin:0 0 2px;font-size:12px;">${overUnder}</p>
+                <p style="margin:0;font-size:11px;color:#888;">${completedTime ? `${completedTime} - ` : ""}${c.author}</p>
+              </div>`;
             }).join("");
           })()}
         </td>
