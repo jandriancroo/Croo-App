@@ -9,14 +9,21 @@ import { ArrowLeft, Eye, Send, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
+const EMAIL_TYPES = [
+  { value: "daily_summary", label: "Daily Summary", description: "End-of-day logbook summary with sales, labor, checklists, cash handling" },
+  { value: "support_ticket", label: "Support Ticket", description: "New support ticket notification" },
+  { value: "weekly_schedule", label: "Weekly Schedule", description: "Weekly schedule email sent to employees" },
+  { value: "hiring_invite", label: "Hiring - Invite", description: "New employee onboarding invite email" },
+  { value: "hiring_rejection", label: "Hiring - Rejection", description: "Applicant rejection email" },
+  { value: "hiring_interview", label: "Hiring - Interview", description: "Interview invite email" },
+  { value: "test_batch", label: "Test Batch (Chat/Announce/Schedule)", description: "Batch of sample emails: chat, announcement, schedule" },
+];
+
 const EmailPreview = () => {
   const navigate = useNavigate();
+  const [selectedType, setSelectedType] = useState("daily_summary");
   const [selectedLocation, setSelectedLocation] = useState("");
-  const [entryDate, setEntryDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
-  });
+  const [entryDate, setEntryDate] = useState("2026-02-06");
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -30,20 +37,55 @@ const EmailPreview = () => {
   });
 
   const handlePreview = async () => {
-    if (!selectedLocation || !entryDate) return;
+    if (selectedType === "daily_summary" && (!selectedLocation || !entryDate)) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("support-email-service", {
-        body: {
-          action: "send_daily_logbook_summary",
-          payload: { location_id: selectedLocation, entry_date: entryDate, preview: true },
-        },
-      });
+      let data: any, error: any;
+
+      if (selectedType === "daily_summary") {
+        ({ data, error } = await supabase.functions.invoke("support-email-service", {
+          body: {
+            action: "send_daily_logbook_summary",
+            payload: { location_id: selectedLocation, entry_date: entryDate, preview: true },
+          },
+        }));
+      } else if (selectedType === "support_ticket") {
+        ({ data, error } = await supabase.functions.invoke("support-email-service", {
+          body: {
+            action: "support_ticket",
+            payload: { preview: true, ticketId: "preview", subject: "Test Ticket", message: "This is a preview of a support ticket email.", userName: "John Doe", userEmail: "john@example.com" },
+          },
+        }));
+      } else if (selectedType === "weekly_schedule") {
+        ({ data, error } = await supabase.functions.invoke("send-weekly-schedule-email", {
+          body: { preview: true, location_id: selectedLocation },
+        }));
+      } else if (selectedType === "hiring_invite") {
+        ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
+          body: { action: "send_invite", payload: { preview: true, to: "preview@test.com", fullName: "Jane Smith", resetLink: "https://croohq.com/reset", locationId: selectedLocation } },
+        }));
+      } else if (selectedType === "hiring_rejection") {
+        ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
+          body: { action: "send_rejection", payload: { preview: true, applicationId: "preview" } },
+        }));
+      } else if (selectedType === "hiring_interview") {
+        ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
+          body: { action: "send_interview_invite", payload: { preview: true, applicationId: "preview" } },
+        }));
+      } else if (selectedType === "test_batch") {
+        ({ data, error } = await supabase.functions.invoke("support-email-service", {
+          body: { action: "send_all_test_emails", payload: { preview: true } },
+        }));
+      }
+
       if (error) throw error;
       if (data?.html) {
         setPreviewHtml(data.html);
+      } else if (data?.results && Array.isArray(data.results)) {
+        // batch - show first one
+        setPreviewHtml(data.results[0]?.html || "<p>No HTML returned</p>");
       } else {
-        toast({ title: "No HTML returned", description: data?.message || "Check data availability", variant: "destructive" });
+        toast({ title: "No HTML returned", description: data?.message || data?.error || "Check if preview mode is supported for this email type", variant: "destructive" });
       }
     } catch (e: any) {
       toast({ title: "Preview failed", description: e.message, variant: "destructive" });
@@ -53,7 +95,7 @@ const EmailPreview = () => {
   };
 
   const handleSend = async () => {
-    if (!selectedLocation || !entryDate) return;
+    if (selectedType === "daily_summary" && (!selectedLocation || !entryDate)) return;
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("support-email-service", {
@@ -71,6 +113,11 @@ const EmailPreview = () => {
     }
   };
 
+  const selectedTypeInfo = EMAIL_TYPES.find(t => t.value === selectedType);
+  const needsLocation = ["daily_summary", "weekly_schedule", "hiring_invite"].includes(selectedType);
+  const needsDate = selectedType === "daily_summary";
+  const canSend = selectedType === "daily_summary";
+
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
@@ -78,38 +125,56 @@ const EmailPreview = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Email Preview</h1>
+          <h1 className="text-2xl font-bold text-foreground">Email Design Studio</h1>
         </div>
 
         <Card className="mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Daily Summary Email</CardTitle>
+            <CardTitle className="text-base">Email Type</CardTitle>
+            {selectedTypeInfo && <p className="text-xs text-muted-foreground">{selectedTypeInfo.description}</p>}
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex-1 min-w-[180px]">
-                <label className="text-xs text-muted-foreground mb-1 block">Location</label>
-                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-xs text-muted-foreground mb-1 block">Template</label>
+                <Select value={selectedType} onValueChange={(v) => { setSelectedType(v); setPreviewHtml(null); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {locations?.map(l => (
-                      <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                    {EMAIL_TYPES.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="min-w-[160px]">
-                <label className="text-xs text-muted-foreground mb-1 block">Date</label>
-                <Input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
-              </div>
-              <Button onClick={handlePreview} disabled={loading || !selectedLocation}>
+              {needsLocation && (
+                <div className="min-w-[180px]">
+                  <label className="text-xs text-muted-foreground mb-1 block">Location</label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <SelectContent>
+                      {locations?.map(l => (
+                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {needsDate && (
+                <div className="min-w-[160px]">
+                  <label className="text-xs text-muted-foreground mb-1 block">Date</label>
+                  <Input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
+                </div>
+              )}
+              <Button onClick={handlePreview} disabled={loading || (needsLocation && !selectedLocation)}>
                 {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                 Preview
               </Button>
-              <Button variant="secondary" onClick={handleSend} disabled={sending || !selectedLocation}>
-                {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send
-              </Button>
+              {canSend && (
+                <Button variant="secondary" onClick={handleSend} disabled={sending || !selectedLocation}>
+                  {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Send
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

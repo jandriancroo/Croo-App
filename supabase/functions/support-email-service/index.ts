@@ -464,10 +464,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
             const safeCounts = cashDetails.filter(c => c.category === "Safe Count");
             if (safeCounts.length === 0) return `<p style="color:#ef4444;font-size:13px;font-weight:600;margin:0;">Not Completed</p>`;
             return safeCounts.map(c => {
-              const shiftField = c.fields.find(f => f.name === "Shift");
               const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${shiftField ? shiftField.value : ""}</strong></p>
-                <p style="margin:0 0 6px;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>`;
+              return `<p style="margin:0 0 6px;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>`;
             }).join("");
           })()}
         </td>
@@ -485,9 +483,9 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
               const expectedVal = expectedField?.value || "$0";
               const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
               const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;">Even</span>`;
-              const shiftLabel = shiftField?.value || "";
-              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};"><strong>${shiftLabel}</strong></p>
-                <p style="margin:0 0 6px;font-size:13px;color:#888;">${depositVal} / ${expectedVal} (${overUnder}) - ${c.author}</p>`;
+              const shiftLabel = shiftField?.value || "AM";
+              return `<p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">${shiftLabel}</p>
+                <p style="margin:0 0 8px;font-size:13px;color:#888;">${depositVal} / ${expectedVal} &middot; ${overUnder}</p>`;
             }).join("");
           })()}
         </td>
@@ -532,10 +530,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   </td></tr>
 
   <!-- FOOTER -->
-  <tr><td style="padding:24px 32px;text-align:center;border-top:1px solid #e8e5df;">
-    <p style="color:${primaryColor};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;margin:0 0 8px;">POWERED BY CROO</p>
-    <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:20px;opacity:0.3;margin-bottom:6px;"/>
-    <p style="color:#bbb;font-size:10px;margin:0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p>
+  <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
+    <table role="presentation" style="margin:0 auto;"><tr>
+      <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
+      <td style="vertical-align:middle;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:28px;"/></td>
+    </tr></table>
+    <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${new Date().getFullYear()} Croo. All rights reserved.</p>
   </td></tr>
 
 </table>
