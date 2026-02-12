@@ -270,7 +270,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     { data: activeChecklists },
     { data: locationUsers },
   ] = await Promise.all([
-    supabase.from("locations").select("id, name, organization_id").eq("id", location_id).single(),
+    supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
     supabase.from("sales_cache").select("net_sales, guest_count, pizza_count, avg_ticket, projected_sales, override_projection, living_projection, initial_projection, product_mix, yoy_net_sales").eq("location_id", location_id).eq("sale_date", entry_date).maybeSingle(),
     supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", location_id).in("sale_date", [lwStr, lyStr]),
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
@@ -283,6 +283,16 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 
   if (!location) {
     return new Response(JSON.stringify({ error: "Location not found", success: false }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Fetch brand logo via organization → brand
+  let brandLogoUrl: string | null = null;
+  if (location.organization_id) {
+    const { data: org } = await supabase.from("organizations").select("brand_id").eq("id", location.organization_id).maybeSingle();
+    if (org?.brand_id) {
+      const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", org.brand_id).maybeSingle();
+      brandLogoUrl = brand?.logo_url || null;
+    }
   }
 
   // Get cash handling logbook entry values
@@ -487,9 +497,21 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 <table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
-  <tr><td style="background-color:#0a7a8a;padding:24px 32px;text-align:center;">
-    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${fontStack};">Daily Summary</h1>
-    <p style="color:rgba(255,255,255,0.8);font-size:14px;margin:6px 0 0;font-family:${fontStack};">${location.name} &middot; ${shortDate}</p>
+  <tr><td style="background-color:#0a7a8a;padding:20px 32px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr>
+        <td style="vertical-align:middle;width:60px;">
+          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
+        </td>
+        <td style="vertical-align:middle;text-align:center;">
+          <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${fontStack};">Daily Summary</h1>
+        </td>
+        <td style="vertical-align:middle;text-align:right;width:160px;">
+          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
+          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayDate}</p>
+        </td>
+      </tr>
+    </table>
   </td></tr>
 
   <tr><td style="padding:28px 32px;">
