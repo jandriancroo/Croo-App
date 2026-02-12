@@ -504,7 +504,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
           ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
         <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${fontStack};">Daily Summary</h1>
+          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;font-family:${fontStack};">Daily Summary</h1>
         </td>
         <td style="vertical-align:middle;text-align:right;width:160px;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
@@ -519,7 +519,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     <!-- SALES + LABOR ROW -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
       <tr>
-        <td style="vertical-align:top;width:55%;padding-right:16px;">
+        <td style="vertical-align:top;width:50%;padding-right:20px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Sales</p>
           <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${netSales.toLocaleString()}</strong></p>
           <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${projection.toLocaleString()} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>)</p>
@@ -528,7 +528,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
             <td>${compBadge(lyPct, "LY")}</td>
           </tr></table>
         </td>
-        <td style="vertical-align:top;text-align:right;border-left:1px solid #e8e5df;padding-left:16px;">
+        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
           <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Labor</p>
           <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
           <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
