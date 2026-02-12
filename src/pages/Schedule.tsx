@@ -428,7 +428,15 @@ export default function Schedule() {
           .from("location_settings")
           .select("blackout_dates, hours_open, hours_close")
           .eq("location_id", currentLocation.id)
-          .single()
+          .single(),
+        // Smart Tap: fetch last week's shifts for "recent" templates
+        lastWeekSchedule?.id
+          ? supabase
+              .from("scheduled_shifts")
+              .select("user_id, template_id, shift_date")
+              .eq("schedule_id", lastWeekSchedule.id)
+              .not("template_id", "is", null)
+          : Promise.resolve({ data: [], error: null })
       ]);
 
       console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
