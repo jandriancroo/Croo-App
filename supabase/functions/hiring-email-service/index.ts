@@ -337,7 +337,7 @@ async function sendInviteEmail(payload: any): Promise<Response> {
   const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${displayName}" style="max-height:100px;max-width:200px;margin-bottom:20px;border-radius:8px;"/>` : `<div style="font-size:48px;margin-bottom:16px;">🎉</div>`;
 
   await queueEmail({
-    from: "CrooHQ <hello@croohq.email>",
+    from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [to],
     subject: `🎉 Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
     html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:32px;font-weight:700;margin:0;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">${displayName}${locName ? ` • ${locName}` : ''}</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}! 👋</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>`),
@@ -565,7 +565,88 @@ async function notifyNewApplication(payload: any): Promise<Response> {
 }
 
 async function notifyEmployeeJoined(payload: any): Promise<Response> {
-  return new Response(JSON.stringify({ success: true, message: "Employee joined notification" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const { userId } = payload;
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "userId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+  // Get the new employee's profile
+  const { data: profile } = await supabase.from("profiles").select("id, full_name, email").eq("id", userId).single();
+  if (!profile) {
+    return new Response(JSON.stringify({ success: true, message: "Profile not found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Get their locations
+  const { data: userLocations } = await supabase.from("user_locations").select("location_id").eq("user_id", userId);
+  if (!userLocations || userLocations.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No locations" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const locationIds = userLocations.map(ul => ul.location_id);
+
+  // Get location names
+  const { data: locations } = await supabase.from("locations").select("id, name").in("id", locationIds);
+  const locationNames = (locations || []).map(l => l.name).join(", ");
+
+  // Get managers at those locations
+  const { data: locationUsers } = await supabase.from("user_locations").select("user_id").in("location_id", locationIds);
+  const managerCandidateIds = [...new Set((locationUsers || []).map(u => u.user_id))].filter(id => id !== userId);
+
+  if (managerCandidateIds.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No managers" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", managerCandidateIds);
+  const managerRoles = ["admin", "org_admin", "super_admin", "manager", "general_manager"];
+  const managerIds = (roles || []).filter(r => managerRoles.includes(r.role)).map(r => r.user_id);
+
+  if (managerIds.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No managers found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const { data: managerProfiles } = await supabase.from("profiles").select("id, email, full_name").in("id", managerIds);
+  const managerEmails = [...new Set((managerProfiles || []).map(p => p.email).filter(Boolean))] as string[];
+
+  if (managerEmails.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No manager emails" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const employeeName = profile.full_name || "New Employee";
+  const emailHtml = wrapEmail(`
+    ${getEmailHeader("👋 New Team Member")}
+    <tr><td style="padding:30px 40px;">
+      <p style="color:${textColor};font-size:15px;margin:0 0 20px;"><strong style="color:${primaryColor};">${employeeName}</strong> just logged in to Croo for the first time!</p>
+      <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+        <table style="width:100%;">
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Name</span><br/><strong style="color:${textColor};font-size:16px;">${employeeName}</strong></td></tr>
+          ${profile.email ? `<tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Email</span><br/><span style="color:${textColor};font-size:14px;">${profile.email}</span></td></tr>` : ''}
+          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${locationNames}</strong></td></tr>
+        </table>
+      </div>
+      <p style="color:#666;font-size:13px;">They're ready to be added to schedules and assigned tasks.</p>
+      ${getCTAButton("https://croohq.com/user-management", "View Team")}
+    </td></tr>
+    ${getEmailFooter()}
+  `);
+
+  for (const email of managerEmails) {
+    try {
+      await queueEmail({
+        from: "CrooHQ Hiring <hiring@croohq.email>",
+        to: [email],
+        subject: `👋 ${employeeName} just joined the team!`,
+        html: emailHtml,
+        source: "employee_joined",
+        dedupKey: `employee_joined_${userId}_${email}`,
+      });
+    } catch (e) {
+      console.error(`[hiring-email] Failed to queue employee_joined for ${email}:`, e);
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, message: `Notified ${managerEmails.length} managers` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
 async function notifyHiringMessage(payload: any): Promise<Response> {

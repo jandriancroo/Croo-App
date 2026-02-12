@@ -177,12 +177,15 @@ export function UserSupportView() {
           .eq('id', currentUserId)
           .single();
 
-        await supabase.functions.invoke('notify-support-ticket', {
+        await supabase.functions.invoke('support-email-service', {
           body: {
-            ticket_id: selectedTicket.id,
-            event_type: 'new_message',
-            message_content: messageContent,
-            sender_name: profile?.full_name || 'User',
+            action: 'support_ticket',
+            payload: {
+              ticket_id: selectedTicket.id,
+              event_type: 'new_message',
+              message_content: messageContent,
+              sender_name: profile?.full_name || 'User',
+            },
           },
         });
       } catch (notifyError) {

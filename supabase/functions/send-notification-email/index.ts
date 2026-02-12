@@ -63,11 +63,15 @@ serve(async (req) => {
 
     let subject = "";
     let content = "";
+    let headerTitle = "";
+    let source = "";
 
     // ========== EMPLOYEE WRITE-UP ISSUANCE ==========
     if (type === "employee_writeup") {
       const { reason, issue_description, next_steps, is_final_warning, manager_name, location_name, date } = data;
       subject = `📋 You've received a write-up from management`;
+      headerTitle = "📋 Write-up Notification";
+      source = "writeup_issued";
       content = `
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
         <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444;">
@@ -78,19 +82,15 @@ serve(async (req) => {
             <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Date</span><br/><strong style="color:${textColor};font-size:14px;">${date}</strong></td></tr>
           </table>
         </div>
-
         <div style="background:#fafafa;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid ${primaryColor};">
           <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Issue Description</p>
           <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${issue_description}</p>
         </div>
-
         <div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid ${primaryColor};">
           <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Next Steps</p>
           <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">${next_steps}</p>
         </div>
-
         ${is_final_warning ? `<div style="background:#fef2f2;border-radius:10px;padding:16px;margin-bottom:20px;border-left:4px solid #ef4444;"><p style="color:#991b1b;font-size:13px;font-weight:600;margin:0;">⚠️ This is a final warning.</p></div>` : ''}
-
         <p style="color:#666;font-size:13px;margin:0 0 20px;">Open the Croo app to review the full details and acknowledge this write-up.</p>
       `;
     }
@@ -98,6 +98,8 @@ serve(async (req) => {
     else if (type === "employee_writeup_signed") {
       const { reason, issue_description, next_steps, manager_name, location_name, signed_date } = data;
       subject = `✅ Write-up acknowledged by employee`;
+      headerTitle = "📋 Write-up Notification";
+      source = "writeup_signed";
       content = `
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">An employee has acknowledged and signed a write-up.</p>
         <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
@@ -109,12 +111,31 @@ serve(async (req) => {
         </div>
       `;
     }
+    // ========== PERFORMANCE REVIEW SIGNED ==========
+    else if (type === "performance_review_signed") {
+      const { manager_name, location_name, signed_date, average_rating } = data;
+      subject = `✅ Performance review acknowledged`;
+      headerTitle = "📊 Performance Review";
+      source = "review_signed";
+      content = `
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
+        <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
+          <table style="width:100%;">
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Reviewed By</span><br/><strong style="color:${textColor};font-size:14px;">${manager_name || 'Management'}</strong></td></tr>
+            ${location_name ? `<tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Location</span><br/><strong style="color:${textColor};font-size:14px;">${location_name}</strong></td></tr>` : ''}
+            <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Signed Date</span><br/><strong style="color:${textColor};font-size:14px;">${signed_date}</strong></td></tr>
+            ${average_rating ? `<tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Average Rating</span><br/><strong style="color:${primaryColor};font-size:18px;">⭐ ${average_rating}/10</strong></td></tr>` : ''}
+          </table>
+        </div>
+        <p style="color:#666;font-size:13px;margin:0 0 20px;">Your signed review is saved in your employee records. Open the Croo app to view it anytime.</p>
+      `;
+    }
     else {
-      return new Response(JSON.stringify({ error: "Unknown notification type" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unknown notification type: " + type }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const emailHtml = wrapEmail(`
-      ${getEmailHeader("📋 Write-up Notification")}
+      ${getEmailHeader(headerTitle)}
       <tr><td style="padding:30px 40px;">${content}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "Open Croo")}</div></td></tr>
       ${getEmailFooter()}
     `);
@@ -124,7 +145,7 @@ serve(async (req) => {
       to: Array.isArray(to) ? to : [to],
       subject,
       html: emailHtml,
-      source: type === "employee_writeup" ? "writeup_issued" : "writeup_signed",
+      source,
       dedupKey: `${type}_${to}_${Date.now()}`,
     });
 

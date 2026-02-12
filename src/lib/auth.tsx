@@ -43,9 +43,9 @@ const checkFirstLogin = async (userId: string) => {
 
     if (isFirstLogin) {
       // Also try to notify managers (non-blocking)
-      supabase.functions.invoke('notify-employee-joined', {
-        body: { userId }
-      }).catch(err => console.warn('notify-employee-joined failed:', err));
+      supabase.functions.invoke('hiring-email-service', {
+        body: { action: 'employee_joined', userId }
+      }).catch(err => console.warn('employee-joined notification failed:', err));
     }
   } catch (error) {
     console.error('Error checking first login:', error);
