@@ -372,6 +372,15 @@ export default function Schedule() {
       console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
       // Only fetch week-specific data - profiles/templates come from stableData
+      // Fetch last week's schedule ID for Smart Tap recent templates
+      const lastWeekDate = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
+      const { data: lastWeekSchedule } = await supabase
+        .from("schedules")
+        .select("id")
+        .eq("week_start_date", lastWeekDate)
+        .eq("location_id", currentLocation.id)
+        .single();
+
       const parallelStart = performance.now();
       const [
         shiftsResult,
@@ -380,7 +389,8 @@ export default function Schedule() {
         availabilityResult,
         salesResult,
         holidaysResult,
-        locationSettingsResult
+        locationSettingsResult,
+        lastWeekShiftsResult
       ] = await Promise.all([
         supabase
           .from("scheduled_shifts")
