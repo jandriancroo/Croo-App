@@ -35,10 +35,10 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
-const systemFontStack = "VanSans, -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const systemFontStack = "'Comfortaa', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
 function getEmailHeader(title: string): string {
@@ -347,10 +347,10 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   let topItems: { name: string; qty: number; sales: number }[] = [];
   if (salesData?.product_mix && Array.isArray(salesData.product_mix)) {
     topItems = (salesData.product_mix as any[])
-      .filter((i: any) => i.sales > 0)
-      .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
+      .filter((i: any) => (i.sales || i.netSales || 0) > 0)
+      .sort((a: any, b: any) => (b.sales || b.netSales || 0) - (a.sales || a.netSales || 0))
       .slice(0, 5)
-      .map((i: any) => ({ name: i.name || i.itemName || "Item", qty: i.quantity || i.qty || 0, sales: i.sales || 0 }));
+      .map((i: any) => ({ name: i.name || i.itemName || "Item", qty: i.quantity || i.qty || 0, sales: i.sales || i.netSales || 0 }));
   }
 
   // Checklists: match submissions to active daily + dynamic checklists
@@ -405,13 +405,13 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const completedCount = checklistRows.filter(c => c.completed).length;
   const totalChecklists = checklistRows.length;
 
-  // System font stack matching VanSans / -apple-system
-  const fontStack = "VanSans, -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  // System font - Comfortaa (Croo brand font)
+  const fontStack = "'Comfortaa', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
   // Wider daily summary email with clean Croo branding
-  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&display=swap" rel="stylesheet"></head>
 <body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${fontStack};">
 <table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
-<table style="max-width:680px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+<table style="max-width:680px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
   <tr><td style="background-color:#0a7a8a;padding:24px 32px;text-align:center;">
@@ -474,11 +474,14 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
               const badgeBg = isAM ? "#fef3c7" : "#312e81";
               const badgeColor = isAM ? "#78350f" : "#e0e7ff";
               const badgeBorder = isAM ? "#fcd34d" : "#4338ca";
-              const shiftIcon = isAM ? "☀️" : "🌙";
+              const shiftIcon = isAM ? "☀︎" : "☽";
               const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
-              return `<div style="margin-bottom:8px;">
-                <span style="display:inline-block;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;margin-bottom:4px;">${shiftIcon} ${shiftVal}</span>
-                <p style="margin:4px 0 0;font-size:13px;"><span style="color:#22c55e;font-weight:600;">Completed</span>${completedTime ? ` at ${completedTime}` : ""} - ${c.author}</p>
+              return `<div style="margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="display:inline-block;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${shiftIcon} ${shiftVal}</span>
+                  <span style="color:#22c55e;font-weight:600;font-size:13px;">Completed</span>
+                </div>
+                <p style="margin:4px 0 0;font-size:12px;color:#888;">${c.author}${completedTime ? ` &middot; ${completedTime}` : ""}</p>
               </div>`;
             }).join("");
           })()}
