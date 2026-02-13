@@ -322,29 +322,32 @@ const Design5 = () => (
     <CardContent className="pt-5 space-y-1">
       <h3 className="text-sm font-semibold text-foreground">Design 5 — Scoreboard</h3>
 
-      {/* Scoreboard header */}
-      <div className="rounded-2xl bg-orange-500 border border-orange-600 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[9px] text-white/60 font-bold uppercase">Actual</p>
-            <p className="text-3xl font-black text-white">{fmt(MOCK.sales)}</p>
-            <p className="text-[9px] text-white/60 font-bold uppercase mt-0.5">Goal</p>
-            <p className="text-lg font-bold text-white/70">{fmt(MOCK.projected)}</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <Badge className="bg-white text-orange-500 border-white text-[10px] px-2 py-0.5 font-bold">🔥 ON FIRE</Badge>
-            <p className="text-[9px] text-white/60 mt-1">+{MOCK.lwChange}% LW</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] text-white/60 font-bold uppercase">Pace</p>
-            <p className="text-3xl font-black text-white">{fmt(MOCK.pace)}</p>
-          </div>
+      {/* Hero tile - exact copy from Design 1 */}
+      <div className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
+            🔥 On Fire
+          </Badge>
         </div>
-        <div className="mt-1 flex items-center gap-1">
-          <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
-            <div className="h-full rounded-full bg-white" style={{ width: `${Math.min((MOCK.sales / MOCK.projected) * 100, 100)}%` }} />
+        <div className="grid grid-cols-2 gap-1 items-center">
+          <div>
+            <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
+            <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <TrendingUp className="h-3 w-3 text-white" />
+              <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
+            </div>
           </div>
-          <span className="text-[9px] text-white font-bold">{Math.round((MOCK.sales / MOCK.projected) * 100)}%</span>
+          <div className="text-right space-y-0">
+            <div>
+              <p className="text-[9px] text-white/70 font-bold">Goal</p>
+              <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] text-white/70 font-bold">Pace</p>
+              <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
+            </div>
+          </div>
         </div>
       </div>
 
