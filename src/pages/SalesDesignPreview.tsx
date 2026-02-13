@@ -104,16 +104,13 @@ const Design1 = () => (
          </div>
        </div>
 
-      {/* Combined metrics tile - system teal */}
+      {/* Labor tile - system teal */}
       <div className="rounded-2xl bg-primary border border-primary/80 p-3">
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
             { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign },
             { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
-            { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
-            { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
-            { label: "Guests", value: String(MOCK.guests), icon: Users },
           ].map((t) => (
             <div key={t.label} className="rounded-xl bg-white/15 p-2 text-center">
               <t.icon className="h-3.5 w-3.5 text-white/70 mx-auto mb-0.5" />
@@ -122,6 +119,21 @@ const Design1 = () => (
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Product tiles */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
+          { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
+          { label: "Guests", value: String(MOCK.guests), icon: Users },
+        ].map((t) => (
+          <div key={t.label} className="rounded-lg bg-muted/50 border border-border p-2 text-center">
+            <t.icon className="h-3.5 w-3.5 text-muted-foreground mx-auto mb-0.5" />
+            <p className="text-sm font-bold text-foreground">{t.value}</p>
+            <p className="text-[8px] text-muted-foreground">{t.label}</p>
+          </div>
+        ))}
       </div>
 
       <SalesChart />
