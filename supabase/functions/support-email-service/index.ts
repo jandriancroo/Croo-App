@@ -397,10 +397,10 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
-  // Fetch response counts and latest completer for submissions
+  // Fetch response counts and all unique completers per checklist
   const subIds = (checklistSubs || []).map((s: any) => s.id);
   let responseCounts: Record<string, number> = {};
-  // Track latest response per checklist (for showing the most recent completer)
+  const checklistCompleters: Record<string, Set<string>> = {};
   const checklistLatestResponse: Record<string, { full_name: string; created_at: string }> = {};
   if (subIds.length > 0) {
     const { data: responses } = await supabase
@@ -410,10 +410,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     if (responses) {
       for (const r of responses) {
         responseCounts[r.submission_id] = (responseCounts[r.submission_id] || 0) + 1;
-        // Find checklist_id for this submission
         const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
         if (sub && r.completed_by_profile?.full_name) {
           const cid = sub.checklist_id;
+          if (!checklistCompleters[cid]) checklistCompleters[cid] = new Set();
+          checklistCompleters[cid].add(r.completed_by_profile.full_name);
           if (!checklistLatestResponse[cid] || r.created_at > checklistLatestResponse[cid].created_at) {
             checklistLatestResponse[cid] = { full_name: r.completed_by_profile.full_name, created_at: r.created_at };
           }
@@ -443,7 +444,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   }
 
   const seenChecklistIds = new Set<string>();
-  const checklistRows: { title: string; completed: boolean; completedBy: string | null; submittedAt: string | null; itemsCompleted: number; itemsTotal: number; pct: number }[] = [];
+  const checklistRows: { title: string; completed: boolean; completers: string[]; submittedAt: string | null; itemsCompleted: number; itemsTotal: number; pct: number }[] = [];
   
   for (const c of dailyChecklists) {
     if (seenChecklistIds.has(c.id)) continue;
@@ -454,8 +455,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     const totalItems = checklistItemCounts[c.id] || 0;
     const completedItems = checklistResponseCounts[c.id] || 0;
     const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : (completed ? 100 : 0);
-    // Use latest response's completed_by for the name (more accurate than submission creator for dynamic checklists)
-    checklistRows.push({ title: c.title, completed, completedBy: latestResp?.full_name || lastSub?.submitted_by_profile?.full_name || null, submittedAt: latestResp?.created_at || lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
+    const completers = checklistCompleters[c.id] ? Array.from(checklistCompleters[c.id]) : (lastSub?.submitted_by_profile?.full_name ? [lastSub.submitted_by_profile.full_name] : []);
+    checklistRows.push({ title: c.title, completed, completers, submittedAt: latestResp?.created_at || lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
   }
   for (const sub of (checklistSubs || [])) {
     if (!seenChecklistIds.has(sub.checklist_id)) {
@@ -464,10 +465,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       const completedItems = checklistResponseCounts[sub.checklist_id] || 0;
       const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100;
       const latestResp = checklistLatestResponse[sub.checklist_id];
+      const completers = checklistCompleters[sub.checklist_id] ? Array.from(checklistCompleters[sub.checklist_id]) : (checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name ? [checklistLastSub[sub.checklist_id].submitted_by_profile.full_name] : []);
       checklistRows.push({
         title: checklistMap.get(sub.checklist_id) || "Checklist",
         completed: true,
-        completedBy: latestResp?.full_name || checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name || null,
+        completers,
         submittedAt: latestResp?.created_at || checklistLastSub[sub.checklist_id]?.submitted_at || null,
         itemsCompleted: completedItems,
         itemsTotal: totalItems,
@@ -570,7 +572,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
           </tr>
           <tr>
             <td>
-              <p style="margin:2px 0 0;font-size:11px;color:#888;">${c.completed ? (c.completedBy || '') : '<span style="color:#ef4444;">Not Completed</span>'}</p>
+              <p style="margin:2px 0 0;font-size:11px;color:#888;">${c.completed ? (c.completers.length > 0 ? c.completers.join(', ') : '') : '<span style="color:#ef4444;">Not Completed</span>'}</p>
             </td>
             <td style="text-align:right;">
               <span style="font-size:11px;color:#888;">${c.itemsCompleted}/${c.itemsTotal} items</span>
