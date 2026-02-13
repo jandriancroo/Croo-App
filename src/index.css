@@ -536,8 +536,8 @@ All colors MUST be HSL.
   .glass-dock {
     position: relative;
     background: hsl(var(--accent) / 0.98);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border: none;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 
@@ -562,8 +562,8 @@ All colors MUST be HSL.
   
   .dark .glass-dock {
     background: hsl(var(--accent) / 0.98);
-    backdrop-filter: blur(45px) saturate(160%);
-    -webkit-backdrop-filter: blur(45px) saturate(160%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-shadow: 
       0 -4px 24px hsl(0 0% 0% / 0.35),
       inset 0 1px 0 hsl(0 0% 100% / 0.12);
@@ -575,8 +575,8 @@ All colors MUST be HSL.
   
   [data-theme="oled"] .glass-dock {
     background: hsl(var(--accent) / 0.98);
-    backdrop-filter: blur(50px) saturate(150%);
-    -webkit-backdrop-filter: blur(50px) saturate(150%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-shadow: 
       0 -4px 28px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(0 0% 100% / 0.08);
