@@ -48,7 +48,43 @@ serve(async (req) => {
   }
 
   try {
-    const { conversationId, messageContent, senderName } = await req.json();
+    const body = await req.json();
+
+    // Preview mode
+    if (body.preview) {
+      const previewOrgName = "Blaze Pizza";
+      const previewLogoHtml = `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:36px;filter:brightness(0) invert(1);"/>`;
+      const previewChatUrl = "https://croohq.lovable.app/hiring-chat/preview-token";
+      const previewHtml = wrapEmail(`
+        <tr><td style="background:${primaryColor};padding:24px 40px;">
+          <table role="presentation" style="width:100%;"><tr>
+            <td style="width:33%;text-align:left;vertical-align:middle;">${previewLogoHtml}</td>
+            <td style="width:34%;text-align:center;vertical-align:middle;">
+              <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:1px;">💬 New Message</h1>
+            </td>
+            <td style="width:33%;text-align:right;vertical-align:middle;">
+              <span style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${previewOrgName}</span>
+            </td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:32px 40px;">
+          <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">Hi <strong>Jane</strong>,</p>
+          <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">You have a new message from <strong>Marcus Rivera</strong>:</p>
+          <div style="background:#fafaf8;border-radius:16px;padding:20px 24px;margin-bottom:28px;border-left:4px solid ${primaryColor};">
+            <p style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;font-weight:600;">Message Preview</p>
+            <p style="color:${textColor};font-size:15px;line-height:1.6;margin:0;font-style:italic;">"Hey Jane! Thanks for applying. We'd love to bring you in for a quick interview this week. Are you available Thursday or Friday afternoon? Let me know what works best!"</p>
+          </div>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${previewChatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
+          </div>
+          <p style="color:#999;font-size:12px;text-align:center;margin:0;">Or open: <a href="${previewChatUrl}" style="color:${primaryColor};text-decoration:underline;">${previewChatUrl}</a></p>
+        </td></tr>
+        ${getEmailFooter()}
+      `);
+      return new Response(JSON.stringify({ html: previewHtml }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { conversationId, messageContent, senderName } = body;
 
     if (!conversationId) {
       return new Response(JSON.stringify({ error: "conversationId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -86,27 +122,34 @@ serve(async (req) => {
     const sender = senderName || "a hiring manager";
 
     const logoHtml = logoUrl
-      ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:60px;max-width:160px;margin-bottom:12px;border-radius:8px;"/>`
-      : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>`;
+      ? `<img src="${logoUrl}" alt="${orgName}" style="max-height:44px;max-width:140px;border-radius:6px;"/>`
+      : `<img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:36px;filter:brightness(0) invert(1);"/>`;
 
     const subject = `New message from ${orgName}`;
 
     const emailHtml = wrapEmail(`
-      <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">
-        ${logoHtml}
-        <h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">New Message</h1>
-        <p style="color:rgba(255,255,255,0.9);font-size:14px;margin:8px 0 0;">${orgName}</p>
+      <tr><td style="background:${primaryColor};padding:24px 40px;">
+        <table role="presentation" style="width:100%;"><tr>
+          <td style="width:33%;text-align:left;vertical-align:middle;">${logoHtml}</td>
+          <td style="width:34%;text-align:center;vertical-align:middle;">
+            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:1px;">💬 New Message</h1>
+          </td>
+          <td style="width:33%;text-align:right;vertical-align:middle;">
+            <span style="color:rgba(255,255,255,0.9);font-size:13px;font-weight:500;">${orgName}</span>
+          </td>
+        </tr></table>
       </td></tr>
-      <tr><td style="padding:30px 40px;">
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p>
-        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have a new message from <strong>${sender}</strong>:</p>
-        <div style="background:${backgroundColor};border-radius:10px;padding:16px;margin-bottom:24px;border-left:4px solid ${primaryColor};">
-          <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;font-style:italic;">"${preview}"</p>
+      <tr><td style="padding:32px 40px;">
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">Hi <strong>${firstName}</strong>,</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;line-height:1.6;">You have a new message from <strong>${sender}</strong>:</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:20px 24px;margin-bottom:28px;border-left:4px solid ${primaryColor};">
+          <p style="color:#666;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;font-weight:600;">Message Preview</p>
+          <p style="color:${textColor};font-size:15px;line-height:1.6;margin:0;font-style:italic;">"${preview}"</p>
         </div>
-        <div style="text-align:center;margin:24px 0;">
-          <a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Reply Now</a>
+        <div style="text-align:center;margin:28px 0;">
+          <a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-weight:700;font-size:15px;letter-spacing:0.3px;">Reply Now</a>
         </div>
-        <p style="color:#888;font-size:13px;text-align:center;">Or open this link: ${chatUrl}</p>
+        <p style="color:#999;font-size:12px;text-align:center;margin:0;">Or open: <a href="${chatUrl}" style="color:${primaryColor};text-decoration:underline;">${chatUrl}</a></p>
       </td></tr>
       ${getEmailFooter()}
     `);

@@ -18,6 +18,7 @@ const EMAIL_TYPES = [
   { value: "hiring_invite", label: "Hiring - Invite", description: "New employee onboarding invite email" },
   { value: "hiring_rejection", label: "Hiring - Rejection", description: "Applicant rejection email" },
   { value: "hiring_interview", label: "Hiring - Interview", description: "Interview invite email" },
+  { value: "hiring_chat", label: "Hiring - Chat Message", description: "Email sent to applicant when a manager messages them" },
   { value: "test_batch", label: "Test Batch (Chat/Announce/Schedule)", description: "Batch of sample emails: chat, announcement, schedule" },
 ];
 
@@ -86,6 +87,10 @@ const EmailPreview = () => {
       } else if (selectedType === "hiring_interview") {
         ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
           body: { action: "send_interview_invite", preview: true },
+        }));
+      } else if (selectedType === "hiring_chat") {
+        ({ data, error } = await supabase.functions.invoke("notify-hiring-message", {
+          body: { preview: true },
         }));
       } else if (selectedType === "test_batch") {
         ({ data, error } = await supabase.functions.invoke("support-email-service", {
