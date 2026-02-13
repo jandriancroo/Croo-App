@@ -70,34 +70,36 @@ const SalesChart = () => (
 const Design1 = () => (
   <Card>
     <CardContent className="pt-5 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Design 1 — Compact Tiles</h3>
-        <Badge variant="outline" className="text-[10px] border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950">🔥 On Fire</Badge>
-      </div>
+       <div className="flex items-center justify-between">
+         <h3 className="text-sm font-semibold text-foreground">Design 1 — Compact Tiles</h3>
+       </div>
 
-      {/* Hero tile with rounded edges */}
-      <div className="rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Today's Sales</p>
-            <p className="text-2xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
-            <div className="flex items-center gap-1 mt-0.5">
-              <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-[9px] text-green-500 font-medium">+{MOCK.prevDayChange}%</span>
-            </div>
-          </div>
-          <div className="text-right space-y-1">
-            <div>
-              <p className="text-[9px] text-muted-foreground">Goal</p>
-              <p className="text-sm font-bold text-primary">{fmt(MOCK.projected)}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-muted-foreground">Pace</p>
-              <p className="text-sm font-bold text-amber-500">{fmt(MOCK.pace)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+       {/* Hero tile with rounded edges */}
+       <div className="rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
+         <div className="grid grid-cols-2 gap-2">
+           <div>
+             <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Today's Sales</p>
+             <p className="text-2xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
+             <div className="flex items-center gap-1 mt-0.5">
+               <TrendingUp className="h-3 w-3 text-green-500" />
+               <span className="text-[9px] text-green-500 font-medium">+{MOCK.prevDayChange}%</span>
+             </div>
+           </div>
+           <div className="text-right space-y-1">
+             <div>
+               <p className="text-[9px] text-muted-foreground">Goal</p>
+               <p className="text-sm font-bold text-primary">{fmt(MOCK.projected)}</p>
+             </div>
+             <div className="flex items-center justify-end gap-1.5">
+               <p className="text-[9px] text-muted-foreground">Pace</p>
+               <div className="flex items-center gap-1">
+                 <p className="text-sm font-bold text-amber-500">{fmt(MOCK.pace)}</p>
+                 <Badge variant="outline" className="text-[8px] border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950 whitespace-nowrap">🔥 On Fire</Badge>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
 
       {/* Labor tiles first */}
       <div className="grid grid-cols-3 gap-2">
