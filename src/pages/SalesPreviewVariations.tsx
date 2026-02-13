@@ -90,7 +90,7 @@ function SalesVariation({ v }: { v: Variation }) {
           <button className="h-8 w-8 flex items-center justify-center rounded-full">
             <ChevronLeft className="h-5 w-5 text-white" />
           </button>
-          <div className="rounded-md px-3 py-1" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+          <div className="rounded-md px-3 py-1" style={{ backgroundColor: v.name.startsWith('4.') ? 'transparent' : 'rgba(255,255,255,0.15)' }}>
             <span className="text-base font-semibold text-white">Today</span>
           </div>
           <button className="h-8 w-8 flex items-center justify-center rounded-full opacity-50">
