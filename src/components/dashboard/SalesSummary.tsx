@@ -1336,7 +1336,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 </Button>
                 <button
                   onClick={() => cycleView('next')}
-                  className="text-center px-2 select-none cursor-pointer bg-transparent border-none"
+                  className="text-center px-3 py-1 select-none cursor-pointer bg-transparent border border-primary-foreground rounded-md hover:bg-primary-foreground/10 transition-colors"
                 >
                   <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
                     {activeTab === 'today'
