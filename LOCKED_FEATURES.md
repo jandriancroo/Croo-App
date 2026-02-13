@@ -59,6 +59,32 @@
 
 ---
 
+### 5. Email System (All Templates)
+**Files:**
+- `src/pages/EmailPreview.tsx` (Email Design Studio preview interface)
+- `supabase/functions/support-email-service/index.ts` (Daily & Weekly Summary generation)
+- `supabase/functions/hiring-email-service/index.ts` (Hiring emails: Invite, Rejection, Interview)
+- `supabase/functions/notify-hiring-message/index.ts` (Applicant chat notifications)
+- `supabase/functions/send-weekly-schedule-email/index.ts` (Employee & Manager schedule emails)
+- `supabase/functions/send-notification-email/index.ts` (Employee write-ups & performance reviews)
+
+**Email Templates Locked:**
+- Daily Summary (logbook end-of-day recap)
+- Weekly Summary (aggregated Mon-Sun sales, labor, checklists, cash handling)
+- Support Ticket notifications
+- Weekly Schedule (Employee individual shifts)
+- Weekly Schedule (Manager team grid)
+- Hiring - Invite/Onboarding
+- Hiring - Rejection
+- Hiring - Interview Invite
+- Hiring - Chat Message (applicant notifications)
+
+**Description:** All system email templates are finalized with unified design system (720px container, 24px border-radius, Manrope font, 3-column header layout, linear gradient buttons, beige footer). All use America/Los_Angeles timezone for timestamp display. Do NOT modify styling, layout, or content without explicit unlock request.
+
+**Last Updated:** February 2026
+
+---
+
 ## Template for Adding Features
 
 ```markdown
