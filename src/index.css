@@ -535,13 +535,13 @@ All colors MUST be HSL.
   /* Mobile dock - frosted glass style (all themes) */
   .glass-dock {
     position: relative;
-    background: hsl(var(--dock-orange) / 0.88);
+    background: hsl(var(--accent) / 0.88);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     border: none;
     border-radius: 1rem 1rem 0 0;
     box-shadow: 
-      0 -4px 20px hsl(var(--dock-orange) / 0.25),
+      0 -4px 20px hsl(var(--accent) / 0.25),
       inset 0 1px 0 hsl(0 0% 100% / 0.18);
     overflow: hidden;
     /* Prevent dock from moving during scroll/address bar changes */
@@ -567,7 +567,7 @@ All colors MUST be HSL.
   }
   
   .dark .glass-dock {
-    background: hsl(var(--dock-orange) / 0.82);
+    background: hsl(var(--accent) / 0.82);
     backdrop-filter: blur(45px) saturate(160%);
     -webkit-backdrop-filter: blur(45px) saturate(160%);
     box-shadow: 
@@ -580,7 +580,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .glass-dock {
-    background: hsl(var(--dock-orange) / 0.78);
+    background: hsl(var(--accent) / 0.78);
     backdrop-filter: blur(50px) saturate(150%);
     -webkit-backdrop-filter: blur(50px) saturate(150%);
     box-shadow: 
@@ -1283,23 +1283,23 @@ All colors MUST be HSL.
   /* visionOS Dock matching current app dock - frosted orange */
   .vision-glass-dock-current {
     width: 100%;
-    background: hsl(var(--dock-orange) / 0.85);
+    background: hsl(var(--accent) / 0.85);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     box-shadow: 
-      0 -4px 20px hsl(var(--dock-orange) / 0.25),
+      0 -4px 20px hsl(var(--accent) / 0.25),
       inset 0 1px 0 hsl(0 0% 100% / 0.15);
   }
 
   .dark .vision-glass-dock-current {
-    background: hsl(var(--dock-orange) / 0.8);
+    background: hsl(var(--accent) / 0.8);
     box-shadow: 
       0 -4px 20px hsl(0 0% 0% / 0.4),
       inset 0 1px 0 hsl(0 0% 100% / 0.1);
   }
 
   [data-theme="oled"] .vision-glass-dock-current {
-    background: hsl(var(--dock-orange) / 0.75);
+    background: hsl(var(--accent) / 0.75);
     box-shadow: 
       0 -4px 20px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(0 0% 100% / 0.08);
