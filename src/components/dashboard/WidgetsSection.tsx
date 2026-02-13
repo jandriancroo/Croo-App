@@ -69,10 +69,6 @@ interface SortableChecklistsBlockProps {
 
 function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode, onSalesDataChange }: SortableDataCubeProps) {
   const isOled = useIsOledTheme();
-  const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
-    const saved = localStorage.getItem('dashboard-sales-overview-open');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
   
   // Use OLED color when in OLED theme
   const salesChartColor = isOled ? SALES_CHART_COLOR_OLED : SALES_CHART_COLOR;
@@ -109,30 +105,9 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
               </div>
             </div>
           )}
-          {/* Colored header matching other cubes */}
-          <Collapsible 
-            open={salesOverviewOpen} 
-            onOpenChange={(open) => {
-              if (!isReorderMode) {
-                setSalesOverviewOpen(open);
-                localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
-              }
-            }}
-          >
-            <CollapsibleTrigger asChild disabled={isReorderMode}>
-              <button 
-                className={`w-full px-3 py-2 flex items-center justify-between transition-opacity ${isReorderMode ? 'opacity-85 pointer-events-none' : 'cursor-pointer hover:opacity-90'}`}
-                style={{ backgroundColor: salesChartColor }}
-              >
-                <span className="text-sm font-semibold text-white">Sales Summary</span>
-                <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </CollapsibleTrigger>
-            {/* Always mount SalesSummary so it can fetch data for other cubes, even when collapsed */}
-            <div className={salesOverviewOpen ? (isReorderMode ? 'opacity-85' : '') : 'h-0 overflow-hidden'}>
-              <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
-            </div>
-          </Collapsible>
+          <div className={isReorderMode ? 'opacity-85' : ''}>
+            <SalesSummary locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
+          </div>
         </Card>
       </div>
     );
