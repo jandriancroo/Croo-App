@@ -127,11 +127,13 @@ function SalesVariation({ v }: { v: Variation }) {
               <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: v.heroSubtext }}>TODAY'S SALES</p>
               <div className="flex items-center gap-2">
                 <p className="text-2xl font-extrabold" style={{ color: v.heroText }}>$2,847</p>
-                {/* Inline badge */}
+                {/* Inline badge — centered overlay */}
                 {v.badgeStyle === 'inline' && (
-                  <div className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ backgroundColor: v.heroText === '#ffffff' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)' }}>
-                    <Flame className="h-3 w-3" style={{ color: v.heroText }} />
-                    <span className="text-[10px] font-bold" style={{ color: v.heroText }}>On Fire</span>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div className="flex items-center gap-1.5 rounded-full px-4 py-1.5 shadow-sm" style={{ backgroundColor: v.heroText === '#ffffff' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)' }}>
+                      <Flame className="h-4 w-4" style={{ color: v.heroText }} />
+                      <span className="text-sm font-bold" style={{ color: v.heroText }}>On Fire</span>
+                    </div>
                   </div>
                 )}
               </div>
