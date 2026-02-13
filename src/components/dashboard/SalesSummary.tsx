@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -75,6 +76,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const [diagnosticInfo, setDiagnosticInfo] = useState<DiagnosticInfo | null>(null);
   const [isRepairingWeek, setIsRepairingWeek] = useState(false);
   const isMobile = useIsMobile();
+  const [expandedToday, setExpandedToday] = useState(false);
+  const [expandedWeek, setExpandedWeek] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState(false);
   const queryClient = useQueryClient();
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
@@ -1311,7 +1315,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             </TabsList>
             
             {/* TODAY TAB */}
-            <TabsContent value="today" className="space-y-4">
+            <TabsContent value="today" className="space-y-0">
               <div className="mb-2">
                 <DateNavigator 
                   onPrev={() => navigateDay('prev')}
@@ -1322,135 +1326,137 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 />
               </div>
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-              <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">Sales</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
-                  </p>
-                  {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {pacingStatus && (
-                        <Badge 
-                          variant="outline" 
-                          className={`text-[10px] px-1.5 py-0 h-5 whitespace-nowrap ${
-                            pacingStatus === 'ahead'
-                              ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
-                              : pacingStatus === 'onTrack' 
-                                ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                                : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
-                          }`}
-                        >
-                          {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
-                        </Badge>
-                      )}
-                      <ComparisonBadge 
-                        current={salesData.daily} 
-                        previous={salesData.comparison.prevDay} 
-                        previousFullDay={salesData.comparison.prevDayFullDay}
-                        label={`by ${format(new Date(), 'ha').toLowerCase()} last ${format(targetDate, 'EEEE').slice(0, 3)}`}
-                      />
-                    </div>
+              {/* Scoreboard Hero Tile */}
+              <div
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none"
+                style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
+                onClick={() => setExpandedToday((v) => !v)}
+              >
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  {pacingStatus && (
+                    <Badge className={`text-sm font-bold border-white shadow-lg px-4 py-1.5 pointer-events-auto ${
+                      pacingStatus === 'ahead' 
+                        ? 'bg-white text-orange-500 shadow-orange-900/30' 
+                        : pacingStatus === 'onTrack'
+                          ? 'bg-white text-green-600 shadow-green-900/30'
+                          : 'bg-white text-sky-500 shadow-sky-900/30'
+                    }`}>
+                      {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
+                    </Badge>
                   )}
                 </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Pizzas</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.pizzaCount !== undefined 
-                      ? (typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount.daily : salesData.pizzaCount)
-                      : "--"}
-                  </p>
-                </div>
-                <div className="text-right min-w-0">
-                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.avgTicket ? formatCurrencyDecimal(salesData.avgTicket) : "--"}
-                  </p>
+                <div className="grid grid-cols-2 gap-1 items-center">
+                  <div>
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">TODAY'S SALES</p>
+                    <p className="text-2xl font-extrabold text-white">
+                      {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                    </p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {salesData?.comparison?.prevDay !== undefined && salesData?.daily !== undefined && (() => {
+                        const change = getChangePercent(salesData.daily, salesData.comparison!.prevDay!);
+                        if (change === null) return null;
+                        return (
+                          <>
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
+                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {format(targetDate, 'EEE')}
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-right space-y-0">
+                    <div>
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
+                        {salesData?.projections?.todayProjected ? formatCurrency(salesData.projections.todayProjected) : '--'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
+                        {isToday && salesData?.projections?.todayPaceAdjusted 
+                          ? formatCurrency(salesData.projections.todayPaceAdjusted)
+                          : '--'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Croo AI Projections & Live Labor for Today */}
-              <div className="flex flex-col gap-2 mb-2">
-                {/* Combined Target EOD and Pacing row */}
-                {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
-                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
-                    {/* Target EOD - Left */}
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                        <Sparkles className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
-                          <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
-                        </div>
-                        <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
-                          {formatCurrency(salesData.projections.todayProjected)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Pace - Right (only show for today when we have pace data) */}
-                    {isToday && salesData.projections.todayPaceAdjusted !== undefined && 
-                      salesData.projections.todayPaceAdjusted > 0 && (
-                        <div className="flex items-center gap-2 flex-1 justify-end">
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs text-muted-foreground">Pace</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
-                                {formatCurrency(salesData.projections.todayPaceAdjusted)}
-                              </span>
-                              {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
-                                <span className={`text-xs font-medium ${
-                                  salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
-                                    ? 'text-green-500' 
-                                    : 'text-red-500'
-                                }`}>
-                                  {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
-                                  {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                            <TrendingUp className="h-3.5 w-3.5 text-white" />
-                          </div>
-                        </div>
-                      )
-                    }
-                  </div>
-                )}
-
-                {/* Live Labor - Always show, even if no data */}
-                <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
-                      <span className="text-xs font-bold text-white">%</span>
-                    </div>
-                    <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
-                  </div>
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="text-right">
-                      <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">
+              {/* Collapsed tab */}
+              <AnimatePresence mode="wait">
+                {!expandedToday && (
+                  <motion.div
+                    key="collapsed-today"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="mx-auto w-36 bg-primary rounded-b-xl px-3 py-1.5 flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-md"
+                      onClick={() => setExpandedToday(true)}
+                    >
+                      <p className="text-xs font-bold text-white">
                         {salesData?.labor ? `${salesData.labor.laborPercent.toFixed(1)}%` : '--'}
                       </p>
+                      <p className="text-[10px] text-white/60">Labor %</p>
+                      <ChevronDown className="h-3 w-3 text-white/60" />
                     </div>
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">Cost</p>
-                      <p className="text-sm font-medium transition-all duration-300 ease-out">
-                        {salesData?.labor ? formatCurrency(salesData.labor.laborCost) : '--'}
-                      </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Expanded labor + product strips */}
+              <AnimatePresence mode="wait">
+                {expandedToday && (
+                  <motion.div
+                    key="expanded-today"
+                    initial={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    animate={{ opacity: 1, height: "auto", scaleY: 1 }}
+                    exit={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    className="origin-top overflow-hidden space-y-1"
+                  >
+                    {/* Labor strip */}
+                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                      <div className="flex items-center divide-x divide-white/20">
+                        {[
+                          { label: "Labor %", value: salesData?.labor ? `${salesData.labor.laborPercent.toFixed(1)}%` : '--' },
+                          { label: "Labor $", value: salesData?.labor ? formatCurrency(salesData.labor.laborCost) : '--' },
+                          { label: "Hours", value: salesData?.labor ? `${salesData.labor.hoursWorked.toFixed(1)}h` : '--' },
+                        ].map((t) => (
+                          <div key={t.label} className="flex-1 text-center">
+                            <p className="text-sm font-bold text-white">{t.value}</p>
+                            <p className="text-[10px] text-white/60">{t.label}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">Hours</p>
-                      <p className="text-sm font-medium transition-all duration-300 ease-out">
-                        {salesData?.labor ? `${salesData.labor.hoursWorked.toFixed(1)}h` : '--'}
-                      </p>
+
+                    {/* Product strip */}
+                    <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
+                      {[
+                        { label: "Pizzas", value: salesData?.pizzaCount !== undefined 
+                          ? String(typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount.daily : salesData.pizzaCount)
+                          : '--' },
+                        { label: "Ticket", value: salesData?.avgTicket ? formatCurrencyDecimal(salesData.avgTicket) : '--' },
+                        { label: "Guests", value: salesData?.guestCount?.daily ? String(salesData.guestCount.daily) : '--' },
+                      ].map((t) => (
+                        <div key={t.label} className="flex-1 text-center">
+                          <p className="text-sm font-bold text-foreground">{t.value}</p>
+                          <p className="text-[10px] text-muted-foreground">{t.label}</p>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </div>
-              </div>
-              
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="pt-2">
 {(() => {
                 if (!salesData?.hourly) {
                   return (
@@ -1524,6 +1530,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </ResponsiveContainer>
                 );
               })()}
+              </div>
 
               {/* Payments Section - Collapsible */}
               {isToday && (salesData?.payments?.daily?.length || 0) > 0 && (
@@ -1597,7 +1604,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             </TabsContent>
             
             {/* WEEK TAB */}
-            <TabsContent value="week" className="space-y-4">
+            <TabsContent value="week" className="space-y-0">
               <DateNavigator 
                 onPrev={() => navigateWeek('prev')}
                 onNext={() => navigateWeek('next')}
@@ -1609,129 +1616,120 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 narrow
               />
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-              <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">WTD</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
-                  </p>
-                  {salesData?.comparison?.prevWeek !== undefined && salesData.weekly !== undefined && (
-                    <ComparisonBadge 
-                      current={salesData.weekly} 
-                      previous={salesData.comparison.prevWeek} 
-                      label="last week"
-                    />
-                  )}
-                </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Pizzas</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.pizzaCount !== undefined 
-                      ? (typeof salesData.pizzaCount === 'object' ? Math.round(salesData.pizzaCount.weekly) : "--")
-                      : "--"}
-                  </p>
-                </div>
-                <div className="text-right min-w-0">
-                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.guestCount?.weekly && salesData?.weekly 
-                      ? formatCurrencyDecimal(salesData.weekly / salesData.guestCount.weekly) 
-                      : "--"}
-                  </p>
+              {/* Scoreboard Hero Tile - Week */}
+              <div
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none mt-2"
+                style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
+                onClick={() => setExpandedWeek((v) => !v)}
+              >
+                <div className="grid grid-cols-2 gap-1 items-center">
+                  <div>
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">WEEK-TO-DATE</p>
+                    <p className="text-2xl font-extrabold text-white">
+                      {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
+                    </p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {salesData?.comparison?.prevWeek !== undefined && salesData?.weekly !== undefined && (() => {
+                        const change = getChangePercent(salesData.weekly!, salesData.comparison!.prevWeek!);
+                        if (change === null) return null;
+                        return (
+                          <>
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
+                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LW
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-right space-y-0">
+                    <div>
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
+                        {calculatedWeekProjected > 0 ? formatCurrency(calculatedWeekProjected) : '--'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
+                        {isToday && calculatedWeekPace > 0 ? formatCurrency(calculatedWeekPace) : '--'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Croo AI Projection & Pacing & WTD Labor for Week */}
-              <div className="flex flex-col gap-2 mb-2">
-                {/* Week Projection with Pacing */}
-                {calculatedWeekProjected > 0 && (
-                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
-                    {/* Target EOW - Left */}
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                        <Sparkles className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
-                          {/* Show tag based on projection sources in week */}
-                          {salesData?.weeklyBreakdown?.some(d => d.projectionSource) && (
-                            <ProjectionTag 
-                              source={
-                                salesData.weeklyBreakdown.some(d => d.projectionSource === 'override') 
-                                  ? 'override' 
-                                  : salesData.weeklyBreakdown.some(d => d.projectionSource === 'living')
-                                    ? 'living'
-                                    : 'initial'
-                              } 
-                              size="sm" 
-                              showLabel={false} 
-                            />
-                          )}
-                        </div>
-                        <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
-                          {formatCurrency(calculatedWeekProjected)}
-                        </span>
-                      </div>
+              {/* Collapsed tab */}
+              <AnimatePresence mode="wait">
+                {!expandedWeek && (
+                  <motion.div
+                    key="collapsed-week"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="mx-auto w-36 bg-primary rounded-b-xl px-3 py-1.5 flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-md"
+                      onClick={() => setExpandedWeek(true)}
+                    >
+                      <p className="text-xs font-bold text-white">
+                        {salesData?.weeklyLabor ? `${salesData.weeklyLabor.laborPercent.toFixed(1)}%` : '--'}
+                      </p>
+                      <p className="text-[10px] text-white/60">Labor %</p>
+                      <ChevronDown className="h-3 w-3 text-white/60" />
                     </div>
-                    
-                    {/* Divider */}
-                    <div className="w-px bg-border/50 self-stretch" />
-                    
-                    {/* Pacing To - Right (show accumulated pace delta) */}
-                    {isToday && (salesData?.weeklyBreakdown?.length || 0) > 0 && (
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground">Pace</span>
-                          {(() => {
-                            const weekPacing = calculatedWeekPace;
-                            const isPositive = accumulatedWeekDelta >= 0;
-                            return (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
-                                  {formatCurrency(weekPacing)}
-                                </span>
-                                <span className={`text-xs font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                  ({isPositive ? '+' : ''}{formatCurrency(accumulatedWeekDelta)})
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                          <TrendingUp className="h-3.5 w-3.5 text-white" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  </motion.div>
                 )}
+              </AnimatePresence>
 
-                {/* WTD Live Labor */}
-                {salesData?.weeklyLabor && salesData.weeklyLabor.laborPercent > 0 && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
-                        <span className="text-xs font-bold text-white">%</span>
+              {/* Expanded labor + product strips */}
+              <AnimatePresence mode="wait">
+                {expandedWeek && (
+                  <motion.div
+                    key="expanded-week"
+                    initial={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    animate={{ opacity: 1, height: "auto", scaleY: 1 }}
+                    exit={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    className="origin-top overflow-hidden space-y-1"
+                  >
+                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                      <div className="flex items-center divide-x divide-white/20">
+                        {[
+                          { label: "Labor %", value: salesData?.weeklyLabor ? `${salesData.weeklyLabor.laborPercent.toFixed(1)}%` : '--' },
+                          { label: "Labor $", value: salesData?.weeklyLabor ? formatCurrency(salesData.weeklyLabor.laborCost) : '--' },
+                          { label: "Hours", value: salesData?.weeklyLabor ? `${salesData.weeklyLabor.hoursWorked.toFixed(1)}h` : '--' },
+                        ].map((t) => (
+                          <div key={t.label} className="flex-1 text-center">
+                            <p className="text-sm font-bold text-white">{t.value}</p>
+                            <p className="text-[10px] text-white/60">{t.label}</p>
+                          </div>
+                        ))}
                       </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">WTD Labor</span>
                     </div>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="text-right">
-                        <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.weeklyLabor.laborPercent.toFixed(1)}%</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Cost</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.weeklyLabor.laborCost)}</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Hours</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.weeklyLabor.hoursWorked.toFixed(1)}h</p>
-                      </div>
+                    <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
+                      {[
+                        { label: "Pizzas", value: salesData?.pizzaCount !== undefined 
+                          ? (typeof salesData.pizzaCount === 'object' ? String(Math.round(salesData.pizzaCount.weekly)) : '--')
+                          : '--' },
+                        { label: "Ticket", value: salesData?.guestCount?.weekly && salesData?.weekly 
+                          ? formatCurrencyDecimal(salesData.weekly / salesData.guestCount.weekly) : '--' },
+                        { label: "Guests", value: salesData?.guestCount?.weekly ? String(salesData.guestCount.weekly) : '--' },
+                      ].map((t) => (
+                        <div key={t.label} className="flex-1 text-center">
+                          <p className="text-sm font-bold text-foreground">{t.value}</p>
+                          <p className="text-[10px] text-muted-foreground">{t.label}</p>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
-              
+              </AnimatePresence>
+
+              <div className="pt-2">
               {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
                   <ComposedChart data={salesData.weeklyBreakdown.map(d => ({
@@ -1762,7 +1760,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                       formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual'}
                       wrapperStyle={{ fontSize: '12px' }}
                     />
-                    {/* Area for projections */}
                     <Area
                       type="monotone"
                       dataKey="projected"
@@ -1771,7 +1768,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                       strokeWidth={2}
                       fill="hsl(var(--muted-foreground) / 0.15)"
                     />
-                    {/* Bars for actuals */}
                     <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -1780,10 +1776,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   No weekly data available
                 </div>
               )}
+              </div>
             </TabsContent>
             
             {/* MONTH TAB */}
-            <TabsContent value="month" className="space-y-4">
+            <TabsContent value="month" className="space-y-0">
               <DateNavigator 
                 onPrev={() => navigateMonth('prev')}
                 onNext={() => navigateMonth('next')}
@@ -1792,121 +1789,122 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 narrow
               />
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-              <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">MTD</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
-                  </p>
-                  {salesData?.comparison?.prevMonth !== undefined && salesData.monthly !== undefined && (
-                    <ComparisonBadge 
-                      current={salesData.monthly} 
-                      previous={salesData.comparison.prevMonth} 
-                      label="last month"
-                    />
-                  )}
-                </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Pizzas</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.pizzaCount !== undefined 
-                      ? (typeof salesData.pizzaCount === 'object' ? Math.round(salesData.pizzaCount.monthly) : "--")
-                      : "--"}
-                  </p>
-                </div>
-                <div className="text-right min-w-0">
-                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.guestCount?.monthly && salesData?.monthly 
-                      ? formatCurrencyDecimal(salesData.monthly / salesData.guestCount.monthly) 
-                      : "--"}
-                  </p>
+              {/* Scoreboard Hero Tile - Month */}
+              <div
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none mt-2"
+                style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
+                onClick={() => setExpandedMonth((v) => !v)}
+              >
+                <div className="grid grid-cols-2 gap-1 items-center">
+                  <div>
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">MONTH-TO-DATE</p>
+                    <p className="text-2xl font-extrabold text-white">
+                      {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
+                    </p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      {salesData?.comparison?.prevMonth !== undefined && salesData?.monthly !== undefined && (() => {
+                        const change = getChangePercent(salesData.monthly!, salesData.comparison!.prevMonth!);
+                        if (change === null) return null;
+                        return (
+                          <>
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
+                              {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LM
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="text-right space-y-0">
+                    <div>
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
+                        {calculatedMonthProjected > 0 ? formatCurrency(calculatedMonthProjected) : '--'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
+                        {isToday && calculatedMonthPace > 0 ? formatCurrency(calculatedMonthPace) : '--'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Croo AI Projection & Pacing for Month */}
-              <div className="flex flex-col gap-2 mb-2">
-                {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
-                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
-                    {/* Target EOM - Left */}
-                    <div className="flex items-center gap-2 flex-1">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                        <Sparkles className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">Live AI Goal</span>
-                          {/* Show tag based on today's projection source */}
-                          {salesData.projections.todaySource && (
-                            <ProjectionTag source={salesData.projections.todaySource} size="sm" showLabel={false} />
-                          )}
-                        </div>
-                        <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
-                          {formatCurrency(salesData.projections.monthProjected)}
-                        </span>
-                      </div>
+              {/* Collapsed tab */}
+              <AnimatePresence mode="wait">
+                {!expandedMonth && (
+                  <motion.div
+                    key="collapsed-month"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className="mx-auto w-36 bg-primary rounded-b-xl px-3 py-1.5 flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-md"
+                      onClick={() => setExpandedMonth(true)}
+                    >
+                      <p className="text-xs font-bold text-white">
+                        {salesData?.monthlyLabor ? `${salesData.monthlyLabor.laborPercent.toFixed(1)}%` : '--'}
+                      </p>
+                      <p className="text-[10px] text-white/60">Labor %</p>
+                      <ChevronDown className="h-3 w-3 text-white/60" />
                     </div>
-                    
-                    {/* Divider */}
-                    <div className="w-px bg-border/50 self-stretch" />
-                    
-                    {/* Pacing To - Right (show accumulated pace delta) */}
-                    {isToday && (salesData?.monthlyBreakdown?.length || 0) > 0 && (
-                      <div className="flex items-center gap-2 flex-1 justify-end">
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground">Pace</span>
-                          {(() => {
-                            const monthPacing = (salesData?.projections?.monthProjected || 0) + accumulatedMonthDelta;
-                            const isPositive = accumulatedMonthDelta >= 0;
-                            return (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
-                                  {formatCurrency(monthPacing)}
-                                </span>
-                                <span className={`text-xs font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                  ({isPositive ? '+' : ''}{formatCurrency(accumulatedMonthDelta)})
-                                </span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                          <TrendingUp className="h-3.5 w-3.5 text-white" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  </motion.div>
                 )}
+              </AnimatePresence>
 
-                {/* MTD Live Labor */}
-                {salesData?.monthlyLabor && salesData.monthlyLabor.laborPercent > 0 && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
-                        <span className="text-xs font-bold text-white">%</span>
+              {/* Expanded labor + product strips */}
+              <AnimatePresence mode="wait">
+                {expandedMonth && (
+                  <motion.div
+                    key="expanded-month"
+                    initial={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    animate={{ opacity: 1, height: "auto", scaleY: 1 }}
+                    exit={{ opacity: 0, height: 0, scaleY: 0.8 }}
+                    transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                    className="origin-top overflow-hidden space-y-1"
+                  >
+                    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                      <div className="flex items-center divide-x divide-white/20">
+                        {[
+                          { label: "Labor %", value: salesData?.monthlyLabor ? `${salesData.monthlyLabor.laborPercent.toFixed(1)}%` : '--' },
+                          { label: "Labor $", value: salesData?.monthlyLabor ? formatCurrency(salesData.monthlyLabor.laborCost) : '--' },
+                          { label: "Hours", value: salesData?.monthlyLabor ? `${salesData.monthlyLabor.hoursWorked.toFixed(1)}h` : '--' },
+                        ].map((t) => (
+                          <div key={t.label} className="flex-1 text-center">
+                            <p className="text-sm font-bold text-white">{t.value}</p>
+                            <p className="text-[10px] text-white/60">{t.label}</p>
+                          </div>
+                        ))}
                       </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">MTD Labor</span>
                     </div>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="text-right">
-                        <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.monthlyLabor.laborPercent.toFixed(1)}%</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Cost</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.monthlyLabor.laborCost)}</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Hours</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.monthlyLabor.hoursWorked.toFixed(1)}h</p>
-                      </div>
+                    <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
+                      {[
+                        { label: "Pizzas", value: salesData?.pizzaCount !== undefined 
+                          ? (typeof salesData.pizzaCount === 'object' ? String(Math.round(salesData.pizzaCount.monthly)) : '--')
+                          : '--' },
+                        { label: "Ticket", value: salesData?.guestCount?.monthly && salesData?.monthly 
+                          ? formatCurrencyDecimal(salesData.monthly / salesData.guestCount.monthly) : '--' },
+                        { label: "Guests", value: salesData?.guestCount?.monthly ? String(salesData.guestCount.monthly) : '--' },
+                      ].map((t) => (
+                        <div key={t.label} className="flex-1 text-center">
+                          <p className="text-sm font-bold text-foreground">{t.value}</p>
+                          <p className="text-[10px] text-muted-foreground">{t.label}</p>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
-              
+              </AnimatePresence>
+
+              <div className="pt-2">
               {/* Mobile: Show weekly aggregated view, Desktop: Show daily view */}
               {isMobile ? (
-                // Mobile weekly aggregated view
                 monthlyWeeklyAggregated.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <ComposedChart data={monthlyWeeklyAggregated} barCategoryGap="20%">
@@ -1947,7 +1945,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                 )
               ) : (
-                // Desktop daily view
                 salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={salesData.monthlyBreakdown.map(d => ({
@@ -1991,6 +1988,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                 )
               )}
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
