@@ -115,7 +115,7 @@ const Design1 = () => (
             <div key={t.label} className="flex-1 py-1 text-center">
               <t.icon className="h-3.5 w-3.5 text-white/60 mx-auto mb-0.5" />
               <p className="text-sm font-bold text-white">{t.value}</p>
-              <p className="text-[8px] font-bold text-white/60">{t.label}</p>
+              <p className="text-[10px] font-bold text-white/60">{t.label}</p>
             </div>
           ))}
         </div>
@@ -131,7 +131,7 @@ const Design1 = () => (
           <div key={t.label} className="rounded-lg bg-muted/50 border border-border p-2 text-center">
             <t.icon className="h-3.5 w-3.5 text-muted-foreground mx-auto mb-0.5" />
             <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
+            <p className="text-[10px] text-muted-foreground">{t.label}</p>
           </div>
         ))}
       </div>
