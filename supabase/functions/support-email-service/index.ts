@@ -260,6 +260,13 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   lastYearDate.setDate(lastYearDate.getDate() + diff);
   const lyStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, "0")}-${String(lastYearDate.getDate()).padStart(2, "0")}`;
 
+  // Business day boundaries matching app logic:
+  // Default cutoff = 5 AM PST (close_time + 3 hours, default close = 2 AM → 5 AM)
+  // PST = UTC-8, so 5 AM PST = 13:00 UTC
+  // Business day for Feb 6 = Feb 6 13:00 UTC to Feb 7 13:00 UTC
+  const businessDayStartUTC = `${entry_date}T13:00:00.000Z`;
+  const businessDayEndUTC = `${nextDateStr}T13:00:00.000Z`;
+
   // Parallel data fetches
   const [
     { data: location },
@@ -278,9 +285,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
     supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
-    // Use America/Los_Angeles business day: PST=UTC-8, PDT=UTC-7. Use -8 (PST) as safe default.
-    // This means Feb 6 business day = Feb 6 08:00 UTC to Feb 7 08:00 UTC
-    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", `${entry_date}T08:00:00.000Z`).lt("submitted_at", `${nextDateStr}T08:00:00.000Z`),
+    // Use business day boundaries matching app's getBusinessDayRangeInTimezone
+    supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
     supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
@@ -415,7 +421,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     for (const i of todayItems) activeItemIds.add(i.id);
   }
 
-  // Fetch responses and only count those for today's active items
+  // Fetch ALL responses for submissions (same as app — count all, cap at itemCount)
   const subIds = (checklistSubs || []).map((s: any) => s.id);
   const checklistCompleters: Record<string, Set<string>> = {};
   const checklistLatestResponse: Record<string, { full_name: string; created_at: string }> = {};
@@ -425,17 +431,16 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   if (subIds.length > 0) {
     const { data: responses } = await supabase
       .from("checklist_responses")
-      .select("submission_id, item_id, created_at, completed_by_profile:completed_by (full_name)")
-      .in("submission_id", subIds);
+      .select("submission_id, item_id, created_at, completed_by, completed_by_profile:completed_by (full_name)")
+      .in("submission_id", subIds)
+      .not("completed_by", "is", null);
     if (responses) {
       for (const r of responses) {
-        // Only count responses for items active today
-        if (!activeItemIds.has(r.item_id)) continue;
-
         const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
         if (!sub) continue;
         const cid = sub.checklist_id;
 
+        // Count ALL responses (same as app), will cap at itemCount later
         checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
 
         if (r.completed_by_profile?.full_name) {
@@ -467,7 +472,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     const lastSub = checklistLastSub[c.id];
     const latestResp = checklistLatestResponse[c.id];
     const totalItems = checklistItemCounts[c.id] || 0;
-    const completedItems = checklistResponseCounts[c.id] || 0;
+    const completedItems = Math.min(checklistResponseCounts[c.id] || 0, totalItems);
     const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : (completed ? 100 : 0);
     const completers = checklistCompleters[c.id] ? Array.from(checklistCompleters[c.id]) : (lastSub?.submitted_by_profile?.full_name ? [lastSub.submitted_by_profile.full_name] : []);
     checklistRows.push({ title: c.title, completed, completers, submittedAt: latestResp?.created_at || lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
@@ -476,7 +481,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     if (!seenChecklistIds.has(sub.checklist_id)) {
       seenChecklistIds.add(sub.checklist_id);
       const totalItems = checklistItemCounts[sub.checklist_id] || 0;
-      const completedItems = checklistResponseCounts[sub.checklist_id] || 0;
+      const completedItems = Math.min(checklistResponseCounts[sub.checklist_id] || 0, totalItems);
       const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100;
       const latestResp = checklistLatestResponse[sub.checklist_id];
       const completers = checklistCompleters[sub.checklist_id] ? Array.from(checklistCompleters[sub.checklist_id]) : (checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name ? [checklistLastSub[sub.checklist_id].submitted_by_profile.full_name] : []);
