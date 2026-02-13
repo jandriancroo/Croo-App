@@ -1578,36 +1578,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               })()}
               </div>
 
-              {/* Payments Section - Collapsible */}
-              {isToday && (salesData?.payments?.daily?.length || 0) > 0 && (
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="w-full justify-between h-9 text-sm">
-                      <span className="flex items-center gap-2">
-                        <span>💳</span>
-                        Payments
-                        <Badge variant="secondary" className="text-[10px]">Real-time</Badge>
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {formatCurrencyDecimal((salesData.payments?.daily || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
-                        </span>
-                        <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
-                      </div>
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 px-2">
-                      {(salesData.payments?.daily || []).map((p) => (
-                        <div key={p.paymentType} className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-muted-foreground truncate">{p.paymentType}</span>
-                          <span className="text-xs font-medium tabular-nums">{formatCurrencyDecimal(p.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
 
               {/* Product Mix Section */}
               {salesData?.productMix && salesData.productMix.length > 0 && (() => {
