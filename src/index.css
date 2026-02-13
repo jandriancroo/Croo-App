@@ -556,14 +556,8 @@ All colors MUST be HSL.
     display: none;
   }
   
-  /* Subtle top edge highlight only */
   .glass-dock::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-top: 1px solid hsl(0 0% 100% / 0.2);
-    border-radius: inherit;
-    pointer-events: none;
+    display: none;
   }
   
   .dark .glass-dock {
@@ -576,7 +570,7 @@ All colors MUST be HSL.
   }
   
   .dark .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.15);
+    display: none;
   }
   
   [data-theme="oled"] .glass-dock {
@@ -589,7 +583,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .glass-dock::after {
-    border-top-color: hsl(0 0% 100% / 0.1);
+    display: none;
   }
 
   /* Neumorphic shadow utilities */
