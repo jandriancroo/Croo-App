@@ -69,23 +69,59 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   
   // Preview mode - return sample HTML without needing a real ticket
   if (preview) {
-    const sampleContent = `
-      <p style="color:${textColor};font-size:15px;margin:0 0 20px;">A new support ticket has been submitted.</p>
-      <div style="background:${backgroundColor};border-radius:16px;padding:20px;margin-bottom:24px;">
-        <table style="width:100%;">
-          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Ticket</span><br/><strong style="color:${primaryColor};font-size:16px;">#SUP-042</strong></td></tr>
-          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">Category</span><br/><strong style="color:${textColor};font-size:14px;">UI Glitch</strong></td></tr>
-          <tr><td style="padding:6px 0;"><span style="color:#666;font-size:12px;text-transform:uppercase;">From</span><br/><strong style="color:${textColor};font-size:14px;">John Doe</strong></td></tr>
-        </table>
-      </div>
-      <div style="background:#fafafa;border-radius:16px;padding:16px;border-left:4px solid ${primaryColor};">
-        <p style="color:#666;font-size:12px;text-transform:uppercase;margin:0 0 8px;">Description</p>
-        <p style="color:${textColor};font-size:14px;line-height:1.5;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
-      </div>
-    `;
+    const fontStack = systemFontStack;
     const html = wrapEmail(`
-      ${getEmailHeader("Support Notification")}
-      <tr><td style="padding:30px 40px;">${sampleContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
+      <!-- HEADER -->
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;">
+              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+            </td>
+            <td style="vertical-align:middle;text-align:center;">
+              <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
+            </td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">New Ticket</p>
+              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">Feb 12, 2026</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:28px 32px;">
+
+        <!-- TICKET INFO -->
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">Ticket</p>
+                <p style="color:${primaryColor};font-size:16px;font-weight:700;margin:0;">#SUP-042</p>
+              </td>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">Category</p>
+                <p style="color:${textColor};font-size:14px;font-weight:600;margin:0;">UI Glitch</p>
+              </td>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">From</p>
+                <p style="color:${textColor};font-size:14px;font-weight:600;margin:0;">John Doe</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
+
+        <!-- DESCRIPTION -->
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">The schedule page flickers when switching between weeks on mobile. Happens consistently on iPhone 15.</p>
+        </div>
+
+        <div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div>
+      </td></tr>
       ${getEmailFooter()}
     `);
     return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -121,24 +157,41 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   let pushTitle = "";
   let pushBody = "";
 
+  const fontStack = systemFontStack;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" });
+
   switch (event_type) {
     case "new_ticket":
       emailSubject = `New Support Ticket ${ticketNumber} from ${userName}`;
       pushTitle = `New Support Ticket ${ticketNumber}`;
       pushBody = `${userName} reported: ${categoryLabel}`;
       emailContent = `
-         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">A new support ticket has been submitted.</p>
-         <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:24px;">
-           <table style="width:100%;">
-             <tr><td style="padding:6px 0;"><span style="color:#888;font-size:11px;text-transform:uppercase;font-weight:500;">Ticket</span><br/><strong style="color:${primaryColor};font-size:16px;font-weight:600;">${ticketNumber}</strong></td></tr>
-             <tr><td style="padding:6px 0;margin-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;font-weight:500;">Category</span><br/><strong style="color:${textColor};font-size:14px;font-weight:600;">${categoryLabel}</strong></td></tr>
-             <tr><td style="padding:6px 0;margin-top:8px;"><span style="color:#888;font-size:11px;text-transform:uppercase;font-weight:500;">From</span><br/><strong style="color:${textColor};font-size:14px;font-weight:600;">${userName}</strong></td></tr>
-           </table>
-         </div>
-         <div style="background:${backgroundColor};border-radius:10px;padding:16px;border-left:4px solid ${primaryColor};">
-           <p style="color:#888;font-size:11px;text-transform:uppercase;margin:0 0 8px;font-weight:500;">Description</p>
-           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${ticket.description}</p>
-         </div>
+        <!-- TICKET INFO -->
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Ticket Details</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">Ticket</p>
+                <p style="color:${primaryColor};font-size:16px;font-weight:700;margin:0;">${ticketNumber}</p>
+              </td>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">Category</p>
+                <p style="color:${textColor};font-size:14px;font-weight:600;margin:0;">${categoryLabel}</p>
+              </td>
+              <td style="vertical-align:top;width:33%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">From</p>
+                <p style="color:${textColor};font-size:14px;font-weight:600;margin:0;">${userName}</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Description</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${ticket.description}</p>
+        </div>
        `;
       break;
     case "new_message":
@@ -146,11 +199,26 @@ async function notifySupportTicket(payload: any): Promise<Response> {
       pushTitle = `Message on ${ticketNumber}`;
       pushBody = message_content?.substring(0, 100) || "New message received";
       emailContent = `
-         <p style="color:${textColor};font-size:15px;margin:0 0 8px;">New message on <strong style="color:${primaryColor};">${ticketNumber}</strong></p>
-         <p style="color:#888;font-size:13px;margin:0 0 20px;">From: <strong>${sender_name || userName}</strong></p>
-         <div style="background:${backgroundColor};border-radius:10px;padding:16px;border-left:4px solid ${primaryColor};">
-           <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${message_content || "(no content)"}</p>
-         </div>
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">New Message</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:top;width:50%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">Ticket</p>
+                <p style="color:${primaryColor};font-size:16px;font-weight:700;margin:0;">${ticketNumber}</p>
+              </td>
+              <td style="vertical-align:top;width:50%;padding:4px 0;">
+                <p style="color:#888;font-size:11px;font-weight:500;text-transform:uppercase;margin:0 0 2px;">From</p>
+                <p style="color:${textColor};font-size:14px;font-weight:600;margin:0;">${sender_name || userName}</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="border-top:1px solid #e8e5df;margin-bottom:16px;"></div>
+        <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Message</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:16px 20px;border-left:4px solid ${primaryColor};">
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">${message_content || "(no content)"}</p>
+        </div>
        `;
       break;
     default:
@@ -158,8 +226,24 @@ async function notifySupportTicket(payload: any): Promise<Response> {
   }
 
    const emailHtml = wrapEmail(`
-     ${getEmailHeader("Support Ticket")}
-     <tr><td style="padding:30px 40px;">${emailContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
+     <!-- HEADER -->
+     <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+       <table style="width:100%;border-collapse:collapse;">
+         <tr>
+           <td style="vertical-align:middle;text-align:left;width:180px;">
+             <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+           </td>
+           <td style="vertical-align:middle;text-align:center;">
+             <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Support Ticket</h1>
+           </td>
+           <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+             <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${ticketNumber}</p>
+             <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${dateStr}</p>
+           </td>
+         </tr>
+       </table>
+     </td></tr>
+     <tr><td style="padding:28px 32px;">${emailContent}<div style="margin-top:24px;">${getCTAButton("https://croohq.com", "View in Croo")}</div></td></tr>
      ${getEmailFooter()}
    `);
 
