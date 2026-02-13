@@ -410,15 +410,13 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     }
   }
 
-  // Build item counts per checklist (filter by day of week for dynamic)
+  // Build item counts per checklist — only count items active on this day of week
+  // This matches the app's filtering: items with days_of_week that includes today,
+  // items with null days_of_week are excluded (same as Tasks > History logic)
   const checklistItemCounts: Record<string, number> = {};
   for (const c of (activeChecklists || [])) {
     const items = c.checklist_items || [];
-    if (c.template_type === "dynamic") {
-      checklistItemCounts[c.id] = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek)).length;
-    } else {
-      checklistItemCounts[c.id] = items.length;
-    }
+    checklistItemCounts[c.id] = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek)).length;
   }
 
   // Aggregate response counts per checklist (dynamic checklists may have multiple submissions)
