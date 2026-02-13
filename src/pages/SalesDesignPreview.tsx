@@ -92,8 +92,10 @@ const Design1 = () => (
              </div>
              <div className="flex items-center justify-end gap-1.5">
                <Badge variant="outline" className="text-[8px] border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950 whitespace-nowrap">🔥 On Fire</Badge>
-               <p className="text-[9px] text-muted-foreground">Pace</p>
-               <p className="text-sm font-bold text-amber-500">{fmt(MOCK.pace)}</p>
+               <div className="text-right">
+                 <p className="text-[9px] text-muted-foreground">Pace</p>
+                 <p className="text-sm font-bold text-amber-500">{fmt(MOCK.pace)}</p>
+               </div>
              </div>
            </div>
          </div>
