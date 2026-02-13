@@ -47,6 +47,18 @@
 
 ---
 
+### 4. Weekly Summary Email
+**Files:**
+- `supabase/functions/support-email-service/index.ts` (generation & formatting)
+- `src/pages/EmailPreview.tsx` (preview UI with week-range picker)
+- `src/components/logbook/WeeklySummaryEntry.tsx` (display component)
+
+**Description:** Aggregated Mon-Sun weekly email with sales breakdown, labor vs target, checklist completion, and cash handling. Uses unified Daily Summary design template with 720px container, 24px border-radius, Manrope font, linear gradient header, and beige footer.
+
+**Last Updated:** February 2026
+
+---
+
 ## Template for Adding Features
 
 ```markdown
