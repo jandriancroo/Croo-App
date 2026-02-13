@@ -514,13 +514,13 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   <tr><td style="background-color:#0a7a8a;padding:20px 32px;">
     <table style="width:100%;border-collapse:collapse;">
       <tr>
-        <td style="vertical-align:middle;text-align:center;width:60px;">
+        <td style="vertical-align:middle;text-align:left;width:180px;">
           ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
-        <td style="vertical-align:middle;text-align:center;flex:1;padding:0 32px;">
+        <td style="vertical-align:middle;text-align:center;">
           <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Summary</h1>
         </td>
-        <td style="vertical-align:middle;text-align:right;white-space:nowrap;">
+        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
           <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayDate}</p>
         </td>
