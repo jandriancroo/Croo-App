@@ -375,6 +375,12 @@ async function resendInviteEmail(payload: any): Promise<Response> {
 }
 
 async function sendRejectionEmail(payload: any): Promise<Response> {
+  if (payload.preview) {
+    const orgName = "Blaze Pizza";
+    const sampleBody = "Dear Jane,<br><br>Thank you for taking the time to apply to Blaze Pizza. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs.<br><br>We appreciate your interest in our team and encourage you to apply again in the future.<br><br>Best regards,<br>The Blaze Pizza Team";
+    const html = wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${orgName}</h1></td></tr><tr><td style="padding:30px 40px;"><div style="color:${textColor};font-size:15px;line-height:1.7;">${sampleBody}</div></td></tr>${getEmailFooter()}`);
+    return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   const { applicationId, templateId, overrideEmail } = payload;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
