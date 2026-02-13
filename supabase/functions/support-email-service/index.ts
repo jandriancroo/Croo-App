@@ -397,17 +397,27 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
-  // Fetch response counts for completed submissions
+  // Fetch response counts and latest completer for submissions
   const subIds = (checklistSubs || []).map((s: any) => s.id);
   let responseCounts: Record<string, number> = {};
+  // Track latest response per checklist (for showing the most recent completer)
+  const checklistLatestResponse: Record<string, { full_name: string; created_at: string }> = {};
   if (subIds.length > 0) {
     const { data: responses } = await supabase
       .from("checklist_responses")
-      .select("submission_id")
+      .select("submission_id, created_at, completed_by_profile:completed_by (full_name)")
       .in("submission_id", subIds);
     if (responses) {
       for (const r of responses) {
         responseCounts[r.submission_id] = (responseCounts[r.submission_id] || 0) + 1;
+        // Find checklist_id for this submission
+        const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
+        if (sub && r.completed_by_profile?.full_name) {
+          const cid = sub.checklist_id;
+          if (!checklistLatestResponse[cid] || r.created_at > checklistLatestResponse[cid].created_at) {
+            checklistLatestResponse[cid] = { full_name: r.completed_by_profile.full_name, created_at: r.created_at };
+          }
+        }
       }
     }
   }
@@ -427,7 +437,6 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   for (const sub of (checklistSubs || [])) {
     const cid = sub.checklist_id;
     checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + (responseCounts[sub.id] || 0);
-    // Track the latest submission per checklist
     if (!checklistLastSub[cid] || sub.submitted_at > checklistLastSub[cid].submitted_at) {
       checklistLastSub[cid] = sub;
     }
@@ -441,10 +450,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     seenChecklistIds.add(c.id);
     const completed = completedIds.has(c.id);
     const lastSub = checklistLastSub[c.id];
+    const latestResp = checklistLatestResponse[c.id];
     const totalItems = checklistItemCounts[c.id] || 0;
     const completedItems = checklistResponseCounts[c.id] || 0;
     const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : (completed ? 100 : 0);
-    checklistRows.push({ title: c.title, completed, completedBy: lastSub?.submitted_by_profile?.full_name || null, submittedAt: lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
+    // Use latest response's completed_by for the name (more accurate than submission creator for dynamic checklists)
+    checklistRows.push({ title: c.title, completed, completedBy: latestResp?.full_name || lastSub?.submitted_by_profile?.full_name || null, submittedAt: latestResp?.created_at || lastSub?.submitted_at || null, itemsCompleted: completedItems, itemsTotal: totalItems, pct });
   }
   for (const sub of (checklistSubs || [])) {
     if (!seenChecklistIds.has(sub.checklist_id)) {
@@ -452,11 +463,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       const totalItems = checklistItemCounts[sub.checklist_id] || 0;
       const completedItems = checklistResponseCounts[sub.checklist_id] || 0;
       const pct = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 100;
+      const latestResp = checklistLatestResponse[sub.checklist_id];
       checklistRows.push({
         title: checklistMap.get(sub.checklist_id) || "Checklist",
         completed: true,
-        completedBy: checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name || null,
-        submittedAt: checklistLastSub[sub.checklist_id]?.submitted_at || null,
+        completedBy: latestResp?.full_name || checklistLastSub[sub.checklist_id]?.submitted_by_profile?.full_name || null,
+        submittedAt: latestResp?.created_at || checklistLastSub[sub.checklist_id]?.submitted_at || null,
         itemsCompleted: completedItems,
         itemsTotal: totalItems,
         pct,
