@@ -535,7 +535,7 @@ All colors MUST be HSL.
   /* Mobile dock - frosted glass style (all themes) */
   .glass-dock {
     position: relative;
-    background: hsl(var(--accent) / 0.95);
+    background: hsl(var(--accent) / 0.98);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     border: none;
@@ -561,7 +561,7 @@ All colors MUST be HSL.
   }
   
   .dark .glass-dock {
-    background: hsl(var(--accent) / 0.92);
+    background: hsl(var(--accent) / 0.98);
     backdrop-filter: blur(45px) saturate(160%);
     -webkit-backdrop-filter: blur(45px) saturate(160%);
     box-shadow: 
@@ -574,7 +574,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .glass-dock {
-    background: hsl(var(--accent) / 0.90);
+    background: hsl(var(--accent) / 0.98);
     backdrop-filter: blur(50px) saturate(150%);
     -webkit-backdrop-filter: blur(50px) saturate(150%);
     box-shadow: 
