@@ -323,26 +323,28 @@ const Design5 = () => (
       <h3 className="text-sm font-semibold text-foreground">Design 5 — Scoreboard</h3>
 
       {/* Scoreboard header */}
-      <div className="rounded-2xl bg-foreground px-4 py-3">
+      <div className="rounded-2xl bg-orange-500 border border-orange-600 px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[9px] text-background/50 font-bold uppercase">Actual</p>
-            <p className="text-3xl font-black text-background">{fmt(MOCK.sales)}</p>
+            <p className="text-[9px] text-white/60 font-bold uppercase">Actual</p>
+            <p className="text-3xl font-black text-white">{fmt(MOCK.sales)}</p>
+            <p className="text-[9px] text-white/60 font-bold uppercase mt-0.5">Goal</p>
+            <p className="text-lg font-bold text-white/70">{fmt(MOCK.projected)}</p>
           </div>
           <div className="flex flex-col items-center">
-            <Badge className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5">🔥 ON FIRE</Badge>
-            <p className="text-[9px] text-background/50 mt-1">+{MOCK.lwChange}% LW</p>
+            <Badge className="bg-white text-orange-500 border-white text-[10px] px-2 py-0.5 font-bold">🔥 ON FIRE</Badge>
+            <p className="text-[9px] text-white/60 mt-1">+{MOCK.lwChange}% LW</p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] text-background/50 font-bold uppercase">Goal</p>
-            <p className="text-3xl font-black text-background/60">{fmt(MOCK.projected)}</p>
+            <p className="text-[9px] text-white/60 font-bold uppercase">Pace</p>
+            <p className="text-3xl font-black text-white">{fmt(MOCK.pace)}</p>
           </div>
         </div>
         <div className="mt-1 flex items-center gap-1">
-          <div className="flex-1 h-1.5 rounded-full bg-background/20 overflow-hidden">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min((MOCK.sales / MOCK.projected) * 100, 100)}%` }} />
+          <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+            <div className="h-full rounded-full bg-white" style={{ width: `${Math.min((MOCK.sales / MOCK.projected) * 100, 100)}%` }} />
           </div>
-          <span className="text-[9px] text-background/70 font-bold">{Math.round((MOCK.sales / MOCK.projected) * 100)}%</span>
+          <span className="text-[9px] text-white font-bold">{Math.round((MOCK.sales / MOCK.projected) * 100)}%</span>
         </div>
       </div>
 
