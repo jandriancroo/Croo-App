@@ -568,8 +568,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.3 }}
           onDragEnd={(_, info) => onDragEnd(info)}
-          className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl"
-          style={{ height: '75vh', touchAction: 'none', backgroundColor: 'hsl(var(--dock-orange))' }}
+          className="fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl"
+          style={{ height: '75vh', touchAction: 'none' }}
         >
           {/* Drag Handle */}
           <div className="flex justify-center pt-3 pb-2">
