@@ -260,12 +260,11 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   lastYearDate.setDate(lastYearDate.getDate() + diff);
   const lyStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, "0")}-${String(lastYearDate.getDate()).padStart(2, "0")}`;
 
-  // Business day boundaries matching app logic:
-  // Default cutoff = 5 AM PST (close_time + 3 hours, default close = 2 AM → 5 AM)
-  // PST = UTC-8, so 5 AM PST = 13:00 UTC
-  // Business day for Feb 6 = Feb 6 13:00 UTC to Feb 7 13:00 UTC
-  const businessDayStartUTC = `${entry_date}T13:00:00.000Z`;
-  const businessDayEndUTC = `${nextDateStr}T13:00:00.000Z`;
+  // Business day boundaries: midnight PST (08:00 UTC) to next midnight PST
+  // This matches how the app's Tasks>History page queries submissions
+  // PST = UTC-8, so midnight PST = 08:00 UTC
+  const businessDayStartUTC = `${entry_date}T08:00:00.000Z`;
+  const businessDayEndUTC = `${nextDateStr}T08:00:00.000Z`;
 
   // Parallel data fetches
   const [
@@ -429,11 +428,32 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const checklistLastSub: Record<string, any> = {};
 
   if (subIds.length > 0) {
-    const { data: responses } = await supabase
+    // No FK from completed_by → profiles, so query responses without join
+    const { data: responses, error: respErr } = await supabase
       .from("checklist_responses")
-      .select("submission_id, item_id, created_at, completed_by, completed_by_profile:completed_by (full_name)")
-      .in("submission_id", subIds)
-      .not("completed_by", "is", null);
+      .select("submission_id, item_id, created_at, completed_by")
+      .in("submission_id", subIds);
+    if (respErr) console.error("[DAILY-SUMMARY] Response query error:", respErr);
+
+    // Collect unique completer IDs to look up names
+    const completerIds = new Set<string>();
+    if (responses) {
+      for (const r of responses) {
+        if (r.completed_by) completerIds.add(r.completed_by);
+      }
+    }
+    // Fetch completer names
+    const completerNameMap = new Map<string, string>();
+    if (completerIds.size > 0) {
+      const { data: completerProfiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", Array.from(completerIds));
+      for (const p of (completerProfiles || [])) {
+        if (p.full_name) completerNameMap.set(p.id, p.full_name);
+      }
+    }
+
     if (responses) {
       for (const r of responses) {
         const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
@@ -443,11 +463,12 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         // Count ALL responses (same as app), will cap at itemCount later
         checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
 
-        if (r.completed_by_profile?.full_name) {
+        const completerName = r.completed_by ? completerNameMap.get(r.completed_by) : null;
+        if (completerName) {
           if (!checklistCompleters[cid]) checklistCompleters[cid] = new Set();
-          checklistCompleters[cid].add(r.completed_by_profile.full_name);
+          checklistCompleters[cid].add(completerName);
           if (!checklistLatestResponse[cid] || r.created_at > checklistLatestResponse[cid].created_at) {
-            checklistLatestResponse[cid] = { full_name: r.completed_by_profile.full_name, created_at: r.created_at };
+            checklistLatestResponse[cid] = { full_name: completerName, created_at: r.created_at };
           }
         }
       }
