@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 
 const EMAIL_TYPES = [
   { value: "daily_summary", label: "Daily Summary", description: "End-of-day logbook summary with sales, labor, checklists, cash handling" },
+  { value: "weekly_summary", label: "Weekly Summary", description: "Aggregated Mon-Sun sales, labor, checklists, and cash handling" },
   { value: "support_ticket", label: "Support Ticket", description: "New support ticket notification" },
   { value: "weekly_schedule", label: "Weekly Schedule", description: "Weekly schedule email sent to employees" },
   { value: "hiring_invite", label: "Hiring - Invite", description: "New employee onboarding invite email" },
@@ -24,6 +25,8 @@ const EmailPreview = () => {
   const [selectedType, setSelectedType] = useState("daily_summary");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [entryDate, setEntryDate] = useState("2026-02-06");
+  const [weekStart, setWeekStart] = useState("2026-02-02");
+  const [weekEnd, setWeekEnd] = useState("2026-02-08");
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -47,6 +50,13 @@ const EmailPreview = () => {
           body: {
             action: "send_daily_logbook_summary",
             payload: { location_id: selectedLocation, entry_date: entryDate, preview: true },
+          },
+        }));
+      } else if (selectedType === "weekly_summary") {
+        ({ data, error } = await supabase.functions.invoke("support-email-service", {
+          body: {
+            action: "send_weekly_summary_email",
+            payload: { location_id: selectedLocation, week_start: weekStart, week_end: weekEnd, preview: true },
           },
         }));
       } else if (selectedType === "support_ticket") {
@@ -114,8 +124,9 @@ const EmailPreview = () => {
   };
 
   const selectedTypeInfo = EMAIL_TYPES.find(t => t.value === selectedType);
-  const needsLocation = ["daily_summary", "weekly_schedule", "hiring_invite"].includes(selectedType);
+  const needsLocation = ["daily_summary", "weekly_summary", "weekly_schedule", "hiring_invite"].includes(selectedType);
   const needsDate = selectedType === "daily_summary";
+  const needsWeekRange = selectedType === "weekly_summary";
   const canSend = selectedType === "daily_summary";
 
   return (
@@ -164,6 +175,18 @@ const EmailPreview = () => {
                   <label className="text-xs text-muted-foreground mb-1 block">Date</label>
                   <Input type="date" value={entryDate} onChange={e => setEntryDate(e.target.value)} />
                 </div>
+              )}
+              {needsWeekRange && (
+                <>
+                  <div className="min-w-[140px]">
+                    <label className="text-xs text-muted-foreground mb-1 block">Week Start (Mon)</label>
+                    <Input type="date" value={weekStart} onChange={e => setWeekStart(e.target.value)} />
+                  </div>
+                  <div className="min-w-[140px]">
+                    <label className="text-xs text-muted-foreground mb-1 block">Week End (Sun)</label>
+                    <Input type="date" value={weekEnd} onChange={e => setWeekEnd(e.target.value)} />
+                  </div>
+                </>
               )}
               <Button onClick={handlePreview} disabled={loading || (needsLocation && !selectedLocation)}>
                 {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}

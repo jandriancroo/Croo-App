@@ -914,6 +914,373 @@ async function sendAllTestEmails(payload: any): Promise<Response> {
   });
 }
 
+// ============ WEEKLY SUMMARY EMAIL ============
+
+async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
+  const { location_id, week_start, week_end, preview } = payload;
+
+  if (!location_id || !week_start || !week_end) {
+    return new Response(JSON.stringify({ error: "location_id, week_start, and week_end required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  // Parse dates
+  const [sYr, sMo, sDy] = week_start.split("-").map(Number);
+  const [eYr, eMo, eDy] = week_end.split("-").map(Number);
+
+  // Generate date range
+  const weekDates: string[] = [];
+  const startD = new Date(sYr, sMo - 1, sDy);
+  const endD = new Date(eYr, eMo - 1, eDy);
+  const cur = new Date(startD);
+  while (cur <= endD) {
+    weekDates.push(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  // Parallel data fetches
+  const [
+    { data: location },
+    { data: salesRows },
+    { data: laborRows },
+    { data: locationSettings },
+    { data: activeChecklists },
+    { data: logbookEntries },
+  ] = await Promise.all([
+    supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
+    supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
+    supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
+    supabase.from("location_settings").select("labor_percentage_target").eq("location_id", location_id).maybeSingle(),
+    supabase.from("checklists").select("id, title, frequency, template_type, checklist_items(id, days_of_week)").eq("location_id", location_id).eq("is_active", true),
+    supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
+  ]);
+
+  if (!location) {
+    return new Response(JSON.stringify({ error: "Location not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Brand logo
+  let brandLogoUrl: string | null = null;
+  if (location.organization_id) {
+    const { data: org } = await supabase.from("organizations").select("brand_id").eq("id", location.organization_id).maybeSingle();
+    if (org?.brand_id) {
+      const { data: brand } = await supabase.from("brands").select("logo_url").eq("id", org.brand_id).maybeSingle();
+      brandLogoUrl = brand?.logo_url || null;
+    }
+  }
+
+  // ---- Aggregate Sales ----
+  let totalSales = 0;
+  let totalGuests = 0;
+  let totalPizzas = 0;
+  let totalProjection = 0;
+  const dailySales: { date: string; sales: number; projection: number }[] = [];
+
+  for (const dateStr of weekDates) {
+    const row = (salesRows || []).find((r: any) => r.sale_date === dateStr);
+    const sales = row?.net_sales || 0;
+    const proj = row?.override_projection || row?.living_projection || row?.initial_projection || row?.projected_sales || 0;
+    totalSales += sales;
+    totalGuests += row?.guest_count || 0;
+    totalPizzas += row?.pizza_count || 0;
+    totalProjection += proj;
+    dailySales.push({ date: dateStr, sales, projection: proj });
+  }
+
+  const projVariance = totalProjection > 0 ? ((totalSales - totalProjection) / totalProjection * 100) : 0;
+  const projDiff = totalSales - totalProjection;
+  const projColor = projDiff >= 0 ? "#22c55e" : "#ef4444";
+
+  // ---- Aggregate Labor ----
+  const totalLaborHours = (laborRows || []).reduce((sum: number, l: any) => sum + (l.labor_hours || 0), 0);
+  const totalLaborCost = (laborRows || []).reduce((sum: number, l: any) => sum + (l.labor_cost || 0), 0);
+  const laborPercent = totalSales > 0 ? (totalLaborCost / totalSales * 100) : 0;
+  const laborGoal = locationSettings?.labor_percentage_target || 25;
+  const laborGoalDollars = totalSales * (laborGoal / 100);
+  const laborOverUnder = totalLaborCost - laborGoalDollars;
+  const laborColor = laborPercent <= laborGoal ? "#22c55e" : "#ef4444";
+
+  // ---- Aggregate Checklists ----
+  // Fetch all submissions for the week
+  const { data: weekSubs } = await supabase
+    .from("checklist_submissions")
+    .select("id, checklist_id, submitted_at")
+    .eq("location_id", location_id)
+    .gte("submitted_at", `${week_start}T08:00:00.000Z`)
+    .lt("submitted_at", `${new Date(eYr, eMo - 1, eDy + 1).getFullYear()}-${String(new Date(eYr, eMo - 1, eDy + 1).getMonth() + 1).padStart(2, "0")}-${String(new Date(eYr, eMo - 1, eDy + 1).getDate()).padStart(2, "0")}T08:00:00.000Z`);
+
+  const subIds = (weekSubs || []).map((s: any) => s.id);
+  let totalResponseCount = 0;
+  if (subIds.length > 0) {
+    const { data: responses } = await supabase.from("checklist_responses").select("id").in("submission_id", subIds);
+    totalResponseCount = responses?.length || 0;
+  }
+
+  // Calculate expected items across the week
+  const dailyAndDynamicChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
+  let totalExpectedItems = 0;
+  for (const dateStr of weekDates) {
+    const date = new Date(dateStr + "T12:00:00");
+    const jsDow = date.getDay();
+    const monDow = (jsDow + 6) % 7;
+    for (const c of dailyAndDynamicChecklists) {
+      const items = c.checklist_items || [];
+      const isDynamic = c.template_type === "dynamic";
+      const todayItems = isDynamic
+        ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(monDow))
+        : items;
+      totalExpectedItems += todayItems.length;
+    }
+  }
+  const checklistPct = totalExpectedItems > 0 ? Math.round((Math.min(totalResponseCount, totalExpectedItems) / totalExpectedItems) * 100) : 0;
+
+  // ---- Cash Handling ----
+  const cashCategories = ["Drawer Count", "Safe Count", "Bank Deposit"];
+  const cashEntries = (logbookEntries || []).filter((e: any) => cashCategories.includes(e.category?.name));
+  let drawerVarianceTotal = 0;
+  let drawerCount = 0;
+  let safeCountTotal = 0;
+  let depositTotal = 0;
+
+  if (cashEntries.length > 0) {
+    const entryIds = cashEntries.map((e: any) => e.id);
+    const { data: entryValues } = await supabase
+      .from("logbook_entry_values")
+      .select("entry_id, value_text, field:field_id (field_name)")
+      .in("entry_id", entryIds);
+
+    for (const entry of cashEntries) {
+      const vals = (entryValues || []).filter((v: any) => v.entry_id === entry.id);
+      for (const v of vals) {
+        const fn = v.field?.field_name || "";
+        if (fn.includes("_data") && v.value_text) {
+          try {
+            const parsed = JSON.parse(v.value_text);
+            if (entry.category?.name === "Drawer Count" && parsed.variance !== undefined) {
+              drawerVarianceTotal += Number(parsed.variance);
+              drawerCount++;
+            }
+            if (entry.category?.name === "Safe Count" && parsed.totalSafe !== undefined) {
+              safeCountTotal++;
+            }
+            if (entry.category?.name === "Bank Deposit" && parsed.actualDeposit !== undefined) {
+              depositTotal += Number(parsed.actualDeposit);
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  // ---- Recipients ----
+  const { data: locationUsers } = await supabase.from("user_locations").select("user_id").eq("location_id", location_id);
+  const userIds = (locationUsers || []).map((u: any) => u.user_id);
+  const managerRoles = ["admin", "org_admin", "super_admin", "manager", "general_manager"];
+  let eligibleRecipients: { id: string; email: string; full_name: string }[] = [];
+
+  if (userIds.length > 0) {
+    const [{ data: profiles }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("id, email, full_name").in("id", userIds),
+      supabase.from("user_roles").select("user_id, role").in("user_id", userIds),
+    ]);
+    const roleMap = new Map((roles || []).map((r: any) => [r.user_id, r.role]));
+    eligibleRecipients = (profiles || []).filter((p: any) => managerRoles.includes(roleMap.get(p.id)) && p.email);
+  }
+
+  // ---- Format dates ----
+  const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const startDate = new Date(sYr, sMo - 1, sDy);
+  const endDate = new Date(eYr, eMo - 1, eDy);
+  const displayRange = `${monthNames[sMo - 1]} ${sDy} – ${sMo !== eMo ? monthNames[eMo - 1] + " " : ""}${eDy}, ${eYr}`;
+
+  // ---- Best / Worst Day ----
+  const sortedDays = [...dailySales].filter(d => d.sales > 0).sort((a, b) => b.sales - a.sales);
+  const bestDay = sortedDays[0];
+  const worstDay = sortedDays[sortedDays.length - 1];
+
+  // Average daily
+  const daysWithSales = dailySales.filter(d => d.sales > 0).length || 1;
+  const avgDailySales = totalSales / daysWithSales;
+
+  const fontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+  // Day name helper
+  const getDayName = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return dayNames[new Date(y, m - 1, d).getDay()];
+  };
+  const getShortDay = (dateStr: string) => getDayName(dateStr).slice(0, 3);
+
+  // Daily sales bar chart
+  const maxDaySales = Math.max(...dailySales.map(d => d.sales), 1);
+  const dailyBarsHtml = dailySales.map(d => {
+    const pct = Math.round((d.sales / maxDaySales) * 100);
+    const dayLabel = getShortDay(d.date);
+    const vsProj = d.projection > 0 ? ((d.sales - d.projection) / d.projection * 100).toFixed(1) : "0";
+    const vsProjColor = Number(vsProj) >= 0 ? "#22c55e" : "#ef4444";
+    return `<tr>
+      <td style="padding:3px 8px 3px 0;font-size:12px;color:#888;width:36px;text-align:right;">${dayLabel}</td>
+      <td style="padding:3px 0;width:100%;">
+        <div style="background:#e0f2f1;border-radius:4px;height:18px;width:100%;overflow:hidden;">
+          <div style="background:${primaryColor};height:100%;width:${pct}%;border-radius:4px;min-width:2px;"></div>
+        </div>
+      </td>
+      <td style="padding:3px 0 3px 8px;font-size:12px;color:${textColor};white-space:nowrap;text-align:right;width:80px;font-weight:600;">$${d.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+      <td style="padding:3px 0 3px 6px;font-size:11px;color:${vsProjColor};white-space:nowrap;text-align:right;width:50px;">${Number(vsProj) >= 0 ? "+" : ""}${vsProj}%</td>
+    </tr>`;
+  }).join("");
+
+  const emailHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head>
+<body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${fontStack};">
+<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:24px 16px;">
+<table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+
+  <!-- HEADER -->
+  <tr><td style="background-color:#0a7a8a;padding:20px 32px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <tr>
+        <td style="vertical-align:middle;text-align:left;width:180px;">
+          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
+        </td>
+        <td style="vertical-align:middle;text-align:center;">
+          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Weekly Summary</h1>
+        </td>
+        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+          <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
+          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayRange}</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="padding:28px 32px;">
+
+    <!-- SALES + LABOR ROW -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <tr>
+        <td style="vertical-align:top;width:50%;padding-right:20px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Sales</p>
+          <p style="margin:0;"><strong style="color:${textColor};font-size:28px;">$${totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">Target: $${totalProjection.toLocaleString(undefined, { maximumFractionDigits: 0 })} (<span style="color:${projColor};font-weight:600;">${projDiff >= 0 ? "+" : ""}$${Math.abs(projDiff).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>)</p>
+          <p style="color:#888;font-size:12px;margin:6px 0 0;">Avg Daily: $${avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalGuests.toLocaleString()} guests &middot; ${totalPizzas.toLocaleString()} pizzas</p>
+        </td>
+        <td style="vertical-align:top;width:50%;text-align:right;border-left:1px solid #e8e5df;padding-left:20px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 8px;">Total Labor</p>
+          <p style="margin:0;"><strong style="color:${laborColor};font-size:28px;">${laborPercent.toFixed(1)}%</strong></p>
+          <p style="color:#888;font-size:13px;margin:4px 0 0;">$${totalLaborCost.toLocaleString(undefined, { maximumFractionDigits: 0 })} &middot; ${totalLaborHours.toFixed(1)}h</p>
+          <p style="color:${laborColor};font-size:13px;font-weight:600;margin:4px 0 0;">${laborOverUnder > 0 ? "+" : "-"}$${Math.abs(laborOverUnder).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs ${laborGoal}% goal</p>
+        </td>
+      </tr>
+    </table>
+
+    <div style="border-top:1px solid #e8e5df;margin-bottom:20px;"></div>
+
+    <!-- DAILY BREAKDOWN CHART -->
+    <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Daily Breakdown</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      ${dailyBarsHtml}
+    </table>
+
+    ${bestDay && worstDay && bestDay.date !== worstDay.date ? `
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr>
+        <td style="width:50%;padding-right:8px;">
+          <div style="background:#f0fdf4;border-radius:12px;padding:10px 14px;">
+            <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Best Day</p>
+            <p style="margin:2px 0 0;font-size:14px;color:#22c55e;font-weight:700;">${getDayName(bestDay.date)} — $${bestDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+          </div>
+        </td>
+        <td style="width:50%;padding-left:8px;">
+          <div style="background:#fef2f2;border-radius:12px;padding:10px 14px;">
+            <p style="margin:0;font-size:11px;color:#888;text-transform:uppercase;">Slowest Day</p>
+            <p style="margin:2px 0 0;font-size:14px;color:#ef4444;font-weight:700;">${getDayName(worstDay.date)} — $${worstDay.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+    ` : ''}
+
+    <div style="border-top:1px solid #e8e5df;margin:20px 0;"></div>
+
+    <!-- CHECKLISTS + CASH -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <tr>
+        <td style="vertical-align:top;width:50%;padding-right:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Checklists</p>
+          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+            <p style="margin:0;font-size:22px;font-weight:700;color:${checklistPct >= 90 ? '#22c55e' : checklistPct >= 70 ? '#f59e0b' : '#ef4444'};">${checklistPct}%</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#888;">${Math.min(totalResponseCount, totalExpectedItems)}/${totalExpectedItems} items completed</p>
+            <div style="background:#e0f2f1;border-radius:4px;height:6px;width:100%;overflow:hidden;margin-top:6px;">
+              <div style="background:${primaryColor};height:100%;width:${checklistPct}%;border-radius:4px;"></div>
+            </div>
+          </div>
+        </td>
+        <td style="vertical-align:top;width:50%;border-left:1px solid #e8e5df;padding-left:16px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">Cash Handling</p>
+          <div style="background:#fafaf8;border-radius:12px;padding:12px 14px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Variance</td>
+                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${drawerVarianceTotal >= 0 ? '#22c55e' : '#ef4444'};">${drawerVarianceTotal >= 0 ? '+' : '-'}$${Math.abs(drawerVarianceTotal).toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding:3px 0;font-size:12px;color:#888;">Drawer Counts</td>
+                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">${drawerCount}</td>
+              </tr>
+              <tr>
+                <td style="padding:3px 0;font-size:12px;color:#888;">Safe Counts</td>
+                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">${safeCountTotal}</td>
+              </tr>
+              ${depositTotal > 0 ? `<tr>
+                <td style="padding:3px 0;font-size:12px;color:#888;">Total Deposits</td>
+                <td style="padding:3px 0;text-align:right;font-size:13px;font-weight:600;color:${textColor};">$${depositTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+              </tr>` : ''}
+            </table>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background-color:#f0ebe1;padding:28px 32px;text-align:center;border-top:1px solid #e8e5df;">
+    <table role="presentation" style="margin:0 auto;"><tr>
+      <td style="padding-right:10px;vertical-align:middle;"><span style="color:#3a5f7d;font-size:15px;font-weight:400;">Powered by</span></td>
+      <td style="vertical-align:middle;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:28px;"/></td>
+    </tr></table>
+    <p style="color:#bbb;font-size:10px;margin:12px 0 0;">&copy; ${eYr} Croo. All rights reserved.</p>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>`;
+
+  // Preview mode
+  if (preview) {
+    return new Response(JSON.stringify({ html: emailHtml, success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  // Send to eligible recipients
+  if (eligibleRecipients.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: "No eligible recipients", recipientCount: 0 }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const dedupKey = `weekly_summary_v1_${location_id}_${week_start}`;
+  await queueEmail({
+    from: "CrooHQ <reports@croohq.email>",
+    to: eligibleRecipients.map(r => r.email),
+    subject: `Weekly Summary — ${location.name} — ${displayRange}`,
+    html: emailHtml,
+    source: "weekly_summary",
+    dedupKey,
+  });
+
+  return new Response(JSON.stringify({ success: true, recipientCount: eligibleRecipients.length }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 // ============ HANDLER ============
 
 const handler = async (req: Request): Promise<Response> => {
@@ -932,6 +1299,7 @@ const handler = async (req: Request): Promise<Response> => {
       case "support_ticket": return await notifySupportTicket(payload);
       case "send_support_resolution": return await sendSupportResolution(payload);
       case "send_daily_logbook_summary": return await sendDailyLogbookSummary(payload);
+      case "send_weekly_summary_email": return await sendWeeklySummaryEmail(payload);
       case "send_test": return await sendTestEmail(payload);
       case "send_all_test_emails": return await sendAllTestEmails(payload);
       default:
