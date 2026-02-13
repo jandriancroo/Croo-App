@@ -361,7 +361,7 @@ const Design5 = () => (
           ].map((t) => (
             <div key={t.label} className="flex-1 text-center">
               <p className="text-sm font-bold text-white">{t.value}</p>
-              <p className="text-[8px] text-white/60">{t.label}</p>
+              <p className="text-[10px] text-white/60">{t.label}</p>
             </div>
           ))}
         </div>
@@ -376,7 +376,7 @@ const Design5 = () => (
         ].map((t) => (
           <div key={t.label} className="flex-1 text-center">
             <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
+            <p className="text-[10px] text-muted-foreground">{t.label}</p>
           </div>
         ))}
       </div>
