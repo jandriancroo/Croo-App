@@ -75,14 +75,14 @@ const Design1 = () => (
        </div>
 
        {/* Hero tile with rounded edges */}
-       <div className="relative rounded-2xl bg-orange-500 border border-orange-600 p-3">
+       <div className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2">
          {/* Centered On Fire badge */}
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
            <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
              🔥 On Fire
            </Badge>
          </div>
-         <div className="grid grid-cols-2 gap-2 items-center">
+         <div className="grid grid-cols-2 gap-1 items-center">
             <div>
               <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
               <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
@@ -91,7 +91,7 @@ const Design1 = () => (
                 <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
               </div>
             </div>
-            <div className="text-right space-y-1">
+            <div className="text-right space-y-0">
               <div>
                 <p className="text-[9px] text-white/70 font-bold">Goal</p>
                 <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
@@ -105,14 +105,14 @@ const Design1 = () => (
        </div>
 
       {/* Labor tile - system teal */}
-      <div className="rounded-2xl bg-primary border border-primary/80 p-3">
+      <div className="rounded-2xl bg-primary border border-primary/80 px-3 py-2">
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
             { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign },
             { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
           ].map((t) => (
-            <div key={t.label} className="rounded-xl bg-white/15 p-2 text-center">
+            <div key={t.label} className="rounded-xl bg-white/15 px-2 py-1.5 text-center">
               <t.icon className="h-3.5 w-3.5 text-white/70 mx-auto mb-0.5" />
               <p className="text-sm font-bold text-white">{t.value}</p>
               <p className="text-[8px] font-bold text-white/70">{t.label}</p>
