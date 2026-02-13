@@ -518,7 +518,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
         <td style="vertical-align:middle;text-align:center;flex:1;padding:0 32px;">
           <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Summary</h1>
         </td>
-        <td style="vertical-align:middle;text-align:right;width:60px;">
+        <td style="vertical-align:middle;text-align:right;white-space:nowrap;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
           <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayDate}</p>
         </td>
