@@ -77,15 +77,15 @@ const EmailPreview = () => {
         }));
       } else if (selectedType === "hiring_invite") {
         ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
-          body: { action: "send_invite", payload: { preview: true, to: "preview@test.com", fullName: "Jane Smith", resetLink: "https://croohq.com/reset", locationId: selectedLocation } },
+          body: { action: "send_invite", preview: true, to: "preview@test.com", fullName: "Jane Smith", resetLink: "https://croohq.com/reset", locationId: selectedLocation },
         }));
       } else if (selectedType === "hiring_rejection") {
         ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
-          body: { action: "send_rejection", payload: { preview: true, applicationId: "preview" } },
+          body: { action: "send_rejection", preview: true },
         }));
       } else if (selectedType === "hiring_interview") {
         ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
-          body: { action: "send_interview_invite", payload: { preview: true, applicationId: "preview" } },
+          body: { action: "send_interview_invite", preview: true },
         }));
       } else if (selectedType === "test_batch") {
         ({ data, error } = await supabase.functions.invoke("support-email-service", {
