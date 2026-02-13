@@ -1374,14 +1374,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile */}
               <div
-                className="relative rounded-2xl bg-white border border-gray-200 px-3 py-2 cursor-pointer select-none"
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none"
                 style={{ borderBottomLeftRadius: expandedToday ? '0' : undefined, borderBottomRightRadius: expandedToday ? '0' : undefined }}
                 onClick={() => setExpandedToday((v) => !v)}
               >
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                   {pacingStatus && (
-                    <div className="flex items-center gap-1.5 rounded-full px-4 py-1.5 shadow-sm pointer-events-auto" style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}>
-                      <span className="text-sm font-bold text-gray-900">
+                    <div className="flex items-center gap-1.5 rounded-full px-4 py-1.5 shadow-sm pointer-events-auto" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                      <span className="text-sm font-bold text-white">
                         {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
                       </span>
                     </div>
@@ -1389,8 +1389,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 </div>
                 <div className="grid grid-cols-2 gap-1 items-center">
                   <div>
-                    <p className="text-[10px] text-black/50 font-bold uppercase tracking-wider mb-0.5">TODAY'S SALES</p>
-                    <p className="text-2xl font-extrabold text-gray-900">
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">TODAY'S SALES</p>
+                    <p className="text-2xl font-extrabold text-white">
                       {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -1399,8 +1399,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         if (change === null) return null;
                         return (
                           <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-gray-900" /> : <TrendingDown className="h-3 w-3 text-gray-900" />}
-                            <span className="text-[9px] text-gray-900 font-medium">
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
                               {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs {format(targetDate, 'EEE')}
                             </span>
                           </>
@@ -1410,14 +1410,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                   <div className="text-right space-y-0">
                     <div>
-                      <p className="text-[9px] text-black/50 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
                         {salesData?.projections?.todayProjected ? formatCurrency(salesData.projections.todayProjected) : '--'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-black/50 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
                         {isToday && salesData?.projections?.todayPaceAdjusted 
                           ? formatCurrency(salesData.projections.todayPaceAdjusted)
                           : '--'}
@@ -1620,14 +1620,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Week */}
               <div
-                className="relative rounded-2xl bg-white border border-gray-200 px-3 py-2 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedWeek ? '0' : undefined, borderBottomRightRadius: expandedWeek ? '0' : undefined }}
                 onClick={() => setExpandedWeek((v) => !v)}
               >
                 <div className="grid grid-cols-2 gap-1 items-center">
                   <div>
-                    <p className="text-[10px] text-black/50 font-bold uppercase tracking-wider mb-0.5">WEEK-TO-DATE</p>
-                    <p className="text-2xl font-extrabold text-gray-900">
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">WEEK-TO-DATE</p>
+                    <p className="text-2xl font-extrabold text-white">
                       {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -1636,8 +1636,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         if (change === null) return null;
                         return (
                           <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-gray-900" /> : <TrendingDown className="h-3 w-3 text-gray-900" />}
-                            <span className="text-[9px] text-gray-900 font-medium">
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
                               {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LW
                             </span>
                           </>
@@ -1647,14 +1647,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                   <div className="text-right space-y-0">
                     <div>
-                      <p className="text-[9px] text-black/50 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
                         {calculatedWeekProjected > 0 ? formatCurrency(calculatedWeekProjected) : '--'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-black/50 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
                         {isToday && calculatedWeekPace > 0 ? formatCurrency(calculatedWeekPace) : '--'}
                       </p>
                     </div>
@@ -1786,14 +1786,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               
               {/* Scoreboard Hero Tile - Month */}
               <div
-                className="relative rounded-2xl bg-white border border-gray-200 px-3 py-2 cursor-pointer select-none mt-2"
+                className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none mt-2"
                 style={{ borderBottomLeftRadius: expandedMonth ? '0' : undefined, borderBottomRightRadius: expandedMonth ? '0' : undefined }}
                 onClick={() => setExpandedMonth((v) => !v)}
               >
                 <div className="grid grid-cols-2 gap-1 items-center">
                   <div>
-                    <p className="text-[10px] text-black/50 font-bold uppercase tracking-wider mb-0.5">MONTH-TO-DATE</p>
-                    <p className="text-2xl font-extrabold text-gray-900">
+                    <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider mb-0.5">MONTH-TO-DATE</p>
+                    <p className="text-2xl font-extrabold text-white">
                       {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -1802,8 +1802,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                         if (change === null) return null;
                         return (
                           <>
-                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-gray-900" /> : <TrendingDown className="h-3 w-3 text-gray-900" />}
-                            <span className="text-[9px] text-gray-900 font-medium">
+                            {change >= 0 ? <TrendingUp className="h-3 w-3 text-white" /> : <TrendingDown className="h-3 w-3 text-white" />}
+                            <span className="text-[9px] text-white font-medium">
                               {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs LM
                             </span>
                           </>
@@ -1813,14 +1813,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </div>
                   <div className="text-right space-y-0">
                     <div>
-                      <p className="text-[9px] text-black/50 font-bold">Goal</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                      <p className="text-lg font-bold text-white">
                         {calculatedMonthProjected > 0 ? formatCurrency(calculatedMonthProjected) : '--'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-black/50 font-bold">Pace</p>
-                      <p className="text-lg font-bold text-gray-900">
+                      <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                      <p className="text-lg font-bold text-white">
                         {isToday && calculatedMonthPace > 0 ? formatCurrency(calculatedMonthPace) : '--'}
                       </p>
                     </div>
