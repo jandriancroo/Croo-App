@@ -83,24 +83,24 @@ const Design1 = () => (
            </Badge>
          </div>
          <div className="grid grid-cols-2 gap-2 items-center">
-           <div>
-             <p className="text-[10px] text-white/70 font-medium mb-0.5">Today's Sales</p>
-             <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
-             <div className="flex items-center gap-1 mt-0.5">
-               <TrendingUp className="h-3 w-3 text-white" />
-               <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
-             </div>
-           </div>
-           <div className="text-right space-y-1">
-             <div>
-               <p className="text-[9px] text-white/70">Goal</p>
-               <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
-             </div>
-             <div className="text-right">
-               <p className="text-[9px] text-white/70">Pace</p>
-               <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
-             </div>
-           </div>
+            <div>
+              <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
+              <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <TrendingUp className="h-3 w-3 text-white" />
+                <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
+              </div>
+            </div>
+            <div className="text-right space-y-1">
+              <div>
+                <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
+              </div>
+            </div>
          </div>
        </div>
 
