@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
@@ -953,6 +953,16 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }));
   }, [salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDate]);
 
+  const VIEW_MODES = ['today', 'week', 'month'] as const;
+  const VIEW_LABELS: Record<string, string> = { today: 'Today', week: 'Week', month: 'Month' };
+  const cycleView = (direction: 'prev' | 'next') => {
+    const idx = VIEW_MODES.indexOf(activeTab as any);
+    const next = direction === 'next'
+      ? VIEW_MODES[(idx + 1) % VIEW_MODES.length]
+      : VIEW_MODES[(idx - 1 + VIEW_MODES.length) % VIEW_MODES.length];
+    setActiveTab(next);
+  };
+
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
   };
@@ -1307,15 +1317,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
       <Card>
         <CardContent className="pt-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-            </TabsList>
+          <div className="w-full">
+            <div className="flex justify-center mb-4">
+              <DateNavigator
+                onPrev={() => cycleView('prev')}
+                onNext={() => cycleView('next')}
+                label={VIEW_LABELS[activeTab] || 'Today'}
+              />
+            </div>
             
-            {/* TODAY TAB */}
-            <TabsContent value="today" className="space-y-0">
+            {/* TODAY VIEW */}
+            {activeTab === 'today' && <div className="space-y-0">
               <div className="mb-2">
                 <DateNavigator 
                   onPrev={() => navigateDay('prev')}
@@ -1601,10 +1613,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </Collapsible>
                 );
               })()}
-            </TabsContent>
+            </div>}
             
-            {/* WEEK TAB */}
-            <TabsContent value="week" className="space-y-0">
+            {/* WEEK VIEW */}
+            {activeTab === 'week' && <div className="space-y-0">
               <DateNavigator 
                 onPrev={() => navigateWeek('prev')}
                 onNext={() => navigateWeek('next')}
@@ -1777,10 +1789,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 </div>
               )}
               </div>
-            </TabsContent>
+            </div>}
             
-            {/* MONTH TAB */}
-            <TabsContent value="month" className="space-y-0">
+            {/* MONTH VIEW */}
+            {activeTab === 'month' && <div className="space-y-0">
               <DateNavigator 
                 onPrev={() => navigateMonth('prev')}
                 onNext={() => navigateMonth('next')}
@@ -1989,8 +2001,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                 )
               )}
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>}
+          </div>
         </CardContent>
       </Card>
     </div>
