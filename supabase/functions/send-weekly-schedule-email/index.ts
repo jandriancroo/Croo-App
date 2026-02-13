@@ -57,16 +57,125 @@ serve(async (req) => {
   }
 
   try {
-    const { schedule_id, location_id, preview } = await req.json();
+    const { schedule_id, location_id, preview, preview_type } = await req.json();
 
     // Preview mode – return sample HTML without needing real IDs
     if (preview) {
-      const sampleHtml = wrapEmail(
-        `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Your Schedule</h1><p style="color:rgba(255,255,255,0.8);font-size:14px;margin:8px 0 0;">Sample Location • Mon Feb 10 – Sun Feb 16</p></td></tr>` +
-        `<tr><td style="padding:24px 40px;"><p style="color:${textColor};font-size:15px;">Hi Team Member,</p><p style="color:${textColor};font-size:15px;line-height:1.7;">Here's your schedule for the upcoming week:</p>` +
-        DAY_NAMES.map((d, i) => `<div style="border-bottom:1px solid #eee;padding:12px 0;"><strong style="color:${primaryColor};">${d}</strong><br/><span style="color:${textColor};">${i < 5 ? '9:00 AM – 5:00 PM' : 'OFF'}</span></div>`).join('') +
-        `</td></tr>` + getEmailFooter()
-      );
+      if (preview_type === 'manager') {
+        // Manager full-team schedule preview
+        const weekLabel = 'Feb 10 – Feb 16';
+        const sampleEmployees = [
+          { name: 'Sarah Johnson', role: 'Shift Manager', shifts: ['9:00 AM – 5:00 PM', '9:00 AM – 5:00 PM', '10:00 AM – 6:00 PM', 'OFF', '8:00 AM – 4:00 PM', 'OFF', 'OFF'], hours: 38 },
+          { name: 'Mike Chen', role: 'Team Lead', shifts: ['OFF', '11:00 AM – 7:00 PM', '11:00 AM – 7:00 PM', '9:00 AM – 5:00 PM', '9:00 AM – 5:00 PM', '10:00 AM – 4:00 PM', 'OFF'], hours: 38 },
+          { name: 'Emily Davis', role: 'Crew', shifts: ['10:00 AM – 3:00 PM', 'OFF', '10:00 AM – 3:00 PM', '10:00 AM – 3:00 PM', 'OFF', '9:00 AM – 2:00 PM', 'OFF'], hours: 20 },
+          { name: 'James Wilson', role: 'Crew', shifts: ['OFF', '8:00 AM – 2:00 PM', 'OFF', '11:00 AM – 5:00 PM', '11:00 AM – 5:00 PM', 'OFF', '10:00 AM – 4:00 PM'], hours: 24 },
+          { name: 'Lisa Park', role: 'Crew', shifts: ['7:00 AM – 1:00 PM', '7:00 AM – 1:00 PM', 'OFF', 'OFF', '7:00 AM – 1:00 PM', '8:00 AM – 2:00 PM', 'OFF'], hours: 24 },
+        ];
+        const dayAbbrs = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const dayDates = ['10', '11', '12', '13', '14', '15', '16'];
+        const totalShifts = sampleEmployees.reduce((s, e) => s + e.shifts.filter(x => x !== 'OFF').length, 0);
+        const totalHours = sampleEmployees.reduce((s, e) => s + e.hours, 0);
+
+        const headerRow = `<tr><td style="padding:8px 12px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:left;min-width:140px;border-bottom:2px solid ${primaryColor};">Employee</td>${dayAbbrs.map((d, i) => `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:center;border-bottom:2px solid ${primaryColor};min-width:90px;"><div>${d}</div><div style="font-weight:400;font-size:10px;color:#999;">${dayDates[i]}</div></td>`).join('')}<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:center;border-bottom:2px solid ${primaryColor};">Hrs</td></tr>`;
+
+        const employeeRows = sampleEmployees.map((emp, idx) => {
+          const bg = idx % 2 === 0 ? '#fafaf8' : '#ffffff';
+          const shiftCells = emp.shifts.map(s => {
+            if (s === 'OFF') return `<td style="padding:6px;text-align:center;background:${bg};"><span style="color:#ccc;font-size:11px;">OFF</span></td>`;
+            return `<td style="padding:6px;text-align:center;background:${bg};"><div style="background:#e6f7f9;border-radius:8px;padding:4px 6px;font-size:11px;color:${primaryColor};font-weight:600;white-space:nowrap;">${s.replace(' – ', '<br/>')}</div></td>`;
+          }).join('');
+          return `<tr><td style="padding:8px 12px;background:${bg};"><div style="font-size:13px;font-weight:600;color:${textColor};">${emp.name}</div><div style="font-size:11px;color:#888;">${emp.role}</div></td>${shiftCells}<td style="padding:6px;text-align:center;background:${bg};font-weight:700;color:${primaryColor};font-size:13px;">${emp.hours}h</td></tr>`;
+        }).join('');
+
+        const html = wrapEmail(`
+          <!-- HEADER -->
+          <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr>
+                <td style="vertical-align:middle;text-align:left;width:180px;">
+                  <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+                </td>
+                <td style="vertical-align:middle;text-align:center;">
+                  <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Weekly Schedule</h1>
+                </td>
+                <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+                  <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Location</p>
+                  <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+
+          <tr><td style="padding:28px 24px;">
+            <!-- SUMMARY BADGES -->
+            <div style="text-align:center;margin-bottom:24px;">
+              <span style="display:inline-block;background:#e6f7f9;color:${primaryColor};padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin:0 4px;">${sampleEmployees.length} Employees</span>
+              <span style="display:inline-block;background:#e6f7f9;color:${primaryColor};padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin:0 4px;">${totalShifts} Shifts</span>
+              <span style="display:inline-block;background:#e6f7f9;color:${primaryColor};padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600;margin:0 4px;">${totalHours}h Total</span>
+            </div>
+
+            <!-- SCHEDULE GRID -->
+            <div style="overflow-x:auto;">
+              <table style="width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;">
+                ${headerRow}
+                ${employeeRows}
+              </table>
+            </div>
+          </td></tr>
+          ${getEmailFooter()}
+        `);
+        return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Individual employee preview (default)
+      const weekLabel = 'Feb 10 – Feb 16';
+      const sampleShifts = [
+        { day: 'Monday, Feb 10', time: '9:00 AM – 5:00 PM' },
+        { day: 'Tuesday, Feb 11', time: '9:00 AM – 5:00 PM' },
+        { day: 'Wednesday, Feb 12', time: '10:00 AM – 6:00 PM' },
+        { day: 'Thursday, Feb 13', time: null },
+        { day: 'Friday, Feb 14', time: '8:00 AM – 4:00 PM' },
+        { day: 'Saturday, Feb 15', time: null },
+        { day: 'Sunday, Feb 16', time: null },
+      ];
+
+      const shiftRows = sampleShifts.map(s => {
+        if (!s.time) {
+          return `<tr><td style="padding:10px 16px;border-bottom:1px solid #eee;"><strong style="color:${textColor};font-size:14px;">${s.day}</strong><br/><span style="color:#ccc;font-size:13px;">OFF</span></td></tr>`;
+        }
+        return `<tr><td style="padding:10px 16px;border-bottom:1px solid #eee;"><strong style="color:${textColor};font-size:14px;">${s.day}</strong><br/><span style="color:${primaryColor};font-size:14px;font-weight:600;">${s.time}</span></td></tr>`;
+      }).join('');
+
+      const sampleHtml = wrapEmail(`
+        <!-- HEADER -->
+        <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="vertical-align:middle;text-align:left;width:180px;">
+                <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+              </td>
+              <td style="vertical-align:middle;text-align:center;">
+                <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Your Schedule</h1>
+              </td>
+              <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+                <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Location</p>
+                <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="padding:28px 32px;">
+          <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey Sarah! Your schedule for the week has been published.</p>
+          <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
+            <table style="width:100%;">${shiftRows}</table>
+          </div>
+          <div style="text-align:center;margin-bottom:20px;">
+            <span style="display:inline-block;background:${primaryColor};color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600;">4 shifts • 30.0 hours</span>
+          </div>
+        </td></tr>
+        ${getEmailFooter()}
+      `);
       return new Response(JSON.stringify({ html: sampleHtml }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -178,18 +287,30 @@ serve(async (req) => {
       }, 0);
 
       const emailHtml = wrapEmail(`
-         <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">
-           <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>
-           <h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Your Schedule</h1>
-           <p style="color:rgba(255,255,255,0.9);font-size:14px;margin:8px 0 0;">${locationName} • ${weekLabel}</p>
+         <!-- HEADER -->
+         <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+           <table style="width:100%;border-collapse:collapse;">
+             <tr>
+               <td style="vertical-align:middle;text-align:left;width:180px;">
+                 <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+               </td>
+               <td style="vertical-align:middle;text-align:center;">
+                 <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Your Schedule</h1>
+               </td>
+               <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+                 <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${locationName}</p>
+                 <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${weekLabel}</p>
+               </td>
+             </tr>
+           </table>
          </td></tr>
-        <tr><td style="padding:30px 40px;">
+        <tr><td style="padding:28px 32px;">
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey ${firstName}! Your schedule for the week has been published.</p>
-          <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:20px;">
+          <div style="background:#fafaf8;border-radius:16px;padding:16px;margin-bottom:20px;">
             <table style="width:100%;">${shiftRows}</table>
           </div>
           <div style="text-align:center;margin-bottom:20px;">
-            <span style="background:${primaryColor};color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:600;">${workingShifts.length} shift${workingShifts.length !== 1 ? 's' : ''} • ${totalHours.toFixed(1)} hours</span>
+            <span style="display:inline-block;background:${primaryColor};color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600;">${workingShifts.length} shift${workingShifts.length !== 1 ? 's' : ''} • ${totalHours.toFixed(1)} hours</span>
           </div>
         </td></tr>
         ${getEmailFooter()}
