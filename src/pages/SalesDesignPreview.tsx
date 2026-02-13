@@ -31,7 +31,7 @@ const MOCK = {
   laborCost: 679,
   laborHours: 48.5,
   prevDayChange: 8.2,
-  paceDelta: 150,
+  lwChange: 12.5,
 };
 
 const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
@@ -75,14 +75,20 @@ const Design1 = () => (
        </div>
 
        {/* Hero tile with rounded edges */}
-       <div className="rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
+       <div className="relative rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
+         {/* Centered On Fire badge */}
+         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+           <Badge className="text-sm font-bold bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/30 px-4 py-1.5 pointer-events-auto">
+             🔥 On Fire
+           </Badge>
+         </div>
          <div className="grid grid-cols-2 gap-2 items-center">
            <div>
              <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Today's Sales</p>
              <p className="text-2xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
              <div className="flex items-center gap-1 mt-0.5">
                <TrendingUp className="h-3 w-3 text-green-500" />
-               <span className="text-[9px] text-green-500 font-medium">+{MOCK.prevDayChange}%</span>
+               <span className="text-[9px] text-green-500 font-medium">LW +{MOCK.lwChange}%</span>
              </div>
            </div>
            <div className="text-right space-y-1">
@@ -90,12 +96,9 @@ const Design1 = () => (
                <p className="text-[9px] text-muted-foreground">Goal</p>
                <p className="text-lg font-bold text-primary">{fmt(MOCK.projected)}</p>
              </div>
-             <div className="flex items-end justify-end gap-1.5">
-               <Badge variant="outline" className="text-[8px] border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950 whitespace-nowrap mb-0.5">🔥 On Fire</Badge>
-               <div className="text-right">
-                 <p className="text-[9px] text-muted-foreground">Pace</p>
-                 <p className="text-lg font-bold text-amber-500">{fmt(MOCK.pace)}</p>
-               </div>
+             <div className="text-right">
+               <p className="text-[9px] text-muted-foreground">Pace</p>
+               <p className="text-lg font-bold text-amber-500">{fmt(MOCK.pace)}</p>
              </div>
            </div>
          </div>
