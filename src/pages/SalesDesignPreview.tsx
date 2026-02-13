@@ -104,34 +104,24 @@ const Design1 = () => (
          </div>
        </div>
 
-      {/* Labor tiles first */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent, bg: "bg-orange-500/8 border-orange-500/10", iconColor: "text-orange-500" },
-          { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign, bg: "bg-purple-500/8 border-purple-500/10", iconColor: "text-purple-500" },
-          { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3, bg: "bg-cyan-500/8 border-cyan-500/10", iconColor: "text-cyan-500" },
-        ].map((t) => (
-          <div key={t.label} className={`rounded-lg ${t.bg} border p-2 text-center`}>
-            <t.icon className={`h-3.5 w-3.5 ${t.iconColor} mx-auto mb-0.5`} />
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Product tiles */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza, bg: "bg-red-500/8 border-red-500/10", iconColor: "text-red-500" },
-          { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt, bg: "bg-blue-500/8 border-blue-500/10", iconColor: "text-blue-500" },
-          { label: "Guests", value: String(MOCK.guests), icon: Users, bg: "bg-green-500/8 border-green-500/10", iconColor: "text-green-500" },
-        ].map((t) => (
-          <div key={t.label} className={`rounded-lg ${t.bg} border p-2 text-center`}>
-            <t.icon className={`h-3.5 w-3.5 ${t.iconColor} mx-auto mb-0.5`} />
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
+      {/* Combined metrics tile - system teal */}
+      <div className="rounded-2xl bg-primary border border-primary/80 p-3">
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
+            { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign },
+            { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
+            { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
+            { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
+            { label: "Guests", value: String(MOCK.guests), icon: Users },
+          ].map((t) => (
+            <div key={t.label} className="rounded-xl bg-white/15 p-2 text-center">
+              <t.icon className="h-3.5 w-3.5 text-white/70 mx-auto mb-0.5" />
+              <p className="text-sm font-bold text-white">{t.value}</p>
+              <p className="text-[8px] font-bold text-white/70">{t.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <SalesChart />
