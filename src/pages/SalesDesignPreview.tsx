@@ -76,7 +76,7 @@ const Design1 = () => (
 
        {/* Hero tile with rounded edges */}
        <div className="rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
-         <div className="grid grid-cols-2 gap-2">
+         <div className="grid grid-cols-2 gap-2 items-center">
            <div>
              <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Today's Sales</p>
              <p className="text-2xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
