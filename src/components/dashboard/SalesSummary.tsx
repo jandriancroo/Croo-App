@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
@@ -1318,25 +1318,59 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       <Card>
         <CardContent className="pt-4">
           <div className="w-full">
-            <div className="flex justify-center mb-4">
-              <DateNavigator
-                onPrev={() => cycleView('prev')}
-                onNext={() => cycleView('next')}
-                label={VIEW_LABELS[activeTab] || 'Today'}
-              />
+            {/* Unified nav bar: chevrons navigate date, tapping label cycles view */}
+            <div className="mb-2 px-[5%]">
+              <div className="flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 w-full">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    if (activeTab === 'today') navigateDay('prev');
+                    else if (activeTab === 'week') navigateWeek('prev');
+                    else navigateMonth('prev');
+                  }}
+                  disabled={false}
+                  className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <button
+                  onClick={() => cycleView('next')}
+                  className="text-center px-2 select-none cursor-pointer bg-transparent border-none"
+                >
+                  <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">
+                    {activeTab === 'today'
+                      ? (isToday ? 'Today' : format(targetDate, 'EEEE, MMM d'))
+                      : activeTab === 'week'
+                        ? (isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
+                          ? 'This Week'
+                          : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`)
+                        : format(targetDate, 'MMMM yyyy')
+                    }
+                  </span>
+                </button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    if (activeTab === 'today') navigateDay('next');
+                    else if (activeTab === 'week') navigateWeek('next');
+                    else navigateMonth('next');
+                  }}
+                  disabled={
+                    activeTab === 'today' ? isToday
+                    : activeTab === 'week' ? isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
+                    : isSameMonth(targetDate, new Date())
+                  }
+                  className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
             
             {/* TODAY VIEW */}
             {activeTab === 'today' && <div className="space-y-0">
-              <div className="mb-2">
-                <DateNavigator 
-                  onPrev={() => navigateDay('prev')}
-                  onNext={() => navigateDay('next')}
-                  label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
-                  canGoNext={!isToday}
-                  narrow
-                />
-              </div>
               
               {/* Scoreboard Hero Tile */}
               <div
@@ -1617,16 +1651,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             
             {/* WEEK VIEW */}
             {activeTab === 'week' && <div className="space-y-0">
-              <DateNavigator 
-                onPrev={() => navigateWeek('prev')}
-                onNext={() => navigateWeek('next')}
-                label={isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
-                  ? 'This Week'
-                  : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`
-                }
-                canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
-                narrow
-              />
               
               {/* Scoreboard Hero Tile - Week */}
               <div
@@ -1793,13 +1817,6 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             
             {/* MONTH VIEW */}
             {activeTab === 'month' && <div className="space-y-0">
-              <DateNavigator 
-                onPrev={() => navigateMonth('prev')}
-                onNext={() => navigateMonth('next')}
-                label={format(targetDate, 'MMMM yyyy')}
-                canGoNext={!isSameMonth(targetDate, new Date())}
-                narrow
-              />
               
               {/* Scoreboard Hero Tile - Month */}
               <div
