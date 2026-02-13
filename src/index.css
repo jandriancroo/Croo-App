@@ -54,11 +54,11 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 5%;
 
-    --primary: 189 37% 47%;
+    --primary: 189 55% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 189 30% 88%;
-    --secondary-foreground: 189 50% 18%;
+    --secondary: 189 45% 88%;
+    --secondary-foreground: 189 60% 18%;
 
     --muted: 220 18% 90%;
     --muted-foreground: 220 20% 35%;
@@ -71,7 +71,7 @@ All colors MUST be HSL.
 
     --border: 220 25% 78%;
     --input: 220 25% 85%;
-    --ring: 189 37% 40%;
+    --ring: 189 55% 38%;
 
     --radius: 0.75rem;
 
@@ -79,7 +79,7 @@ All colors MUST be HSL.
 
     --sidebar-foreground: 220 20% 15%;
 
-    --sidebar-primary: 189 37% 42%;
+    --sidebar-primary: 189 55% 38%;
 
     --sidebar-primary-foreground: 0 0% 100%;
 
@@ -89,7 +89,7 @@ All colors MUST be HSL.
 
     --sidebar-border: 220 20% 82%;
 
-    --sidebar-ring: 189 37% 42%;
+    --sidebar-ring: 189 55% 38%;
     
     --role-admin: 215 40% 30%;
     --role-manager: 215 35% 42%;
@@ -116,7 +116,7 @@ All colors MUST be HSL.
     --popover: 220 25% 8%;
     --popover-foreground: 186 28% 95%;
 
-    --primary: 189 37% 55%;
+    --primary: 189 55% 50%;
     --primary-foreground: 220 28% 4%;
 
     --secondary: 220 25% 14%;
@@ -133,15 +133,15 @@ All colors MUST be HSL.
 
     --border: 220 25% 16%;
     --input: 220 25% 16%;
-    --ring: 189 37% 55%;
+    --ring: 189 55% 50%;
     --sidebar-background: 220 25% 8%;
     --sidebar-foreground: 186 25% 90%;
-    --sidebar-primary: 189 37% 55%;
+    --sidebar-primary: 189 55% 50%;
     --sidebar-primary-foreground: 220 25% 6%;
     --sidebar-accent: 220 20% 14%;
     --sidebar-accent-foreground: 186 25% 90%;
     --sidebar-border: 220 20% 16%;
-    --sidebar-ring: 189 37% 55%;
+    --sidebar-ring: 189 55% 50%;
     
     --role-admin: 215 45% 35%;
     --role-manager: 215 38% 48%;
