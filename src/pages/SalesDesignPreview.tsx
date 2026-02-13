@@ -75,30 +75,30 @@ const Design1 = () => (
        </div>
 
        {/* Hero tile with rounded edges */}
-       <div className="relative rounded-2xl bg-gradient-to-br from-primary/12 via-primary/6 to-transparent border border-primary/12 p-3">
+       <div className="relative rounded-2xl bg-orange-500 border border-orange-600 p-3">
          {/* Centered On Fire badge */}
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-           <Badge className="text-sm font-bold bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/30 px-4 py-1.5 pointer-events-auto">
+           <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
              🔥 On Fire
            </Badge>
          </div>
          <div className="grid grid-cols-2 gap-2 items-center">
            <div>
-             <p className="text-[10px] text-muted-foreground font-medium mb-0.5">Today's Sales</p>
-             <p className="text-2xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
+             <p className="text-[10px] text-white/70 font-medium mb-0.5">Today's Sales</p>
+             <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
              <div className="flex items-center gap-1 mt-0.5">
-               <TrendingUp className="h-3 w-3 text-green-500" />
-               <span className="text-[9px] text-green-500 font-medium">LW +{MOCK.lwChange}%</span>
+               <TrendingUp className="h-3 w-3 text-white" />
+               <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
              </div>
            </div>
            <div className="text-right space-y-1">
              <div>
-               <p className="text-[9px] text-muted-foreground">Goal</p>
-               <p className="text-lg font-bold text-primary">{fmt(MOCK.projected)}</p>
+               <p className="text-[9px] text-white/70">Goal</p>
+               <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
              </div>
              <div className="text-right">
-               <p className="text-[9px] text-muted-foreground">Pace</p>
-               <p className="text-lg font-bold text-amber-500">{fmt(MOCK.pace)}</p>
+               <p className="text-[9px] text-white/70">Pace</p>
+               <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
              </div>
            </div>
          </div>
