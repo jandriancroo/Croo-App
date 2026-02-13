@@ -243,7 +243,9 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   // Parse entry_date safely to get same-day-last-week and same-day-last-year
   const [yr, mo, dy] = entry_date.split("-").map(Number);
   const entryLocal = new Date(yr, mo - 1, dy);
-  const dayOfWeek = entryLocal.getDay();
+  const jsDayOfWeek = entryLocal.getDay(); // JS Sunday-start (0=Sun, 5=Fri)
+  // Checklist items use Monday-start indexing (0=Mon, 4=Fri, 6=Sun) — convert
+  const dayOfWeek = (jsDayOfWeek + 6) % 7;
 
   const lastWeekDate = new Date(yr, mo - 1, dy - 7);
   const lwStr = `${lastWeekDate.getFullYear()}-${String(lastWeekDate.getMonth() + 1).padStart(2, "0")}-${String(lastWeekDate.getDate()).padStart(2, "0")}`;
@@ -397,22 +399,40 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
-  // Fetch response counts and all unique completers per checklist
+  // Build set of active item IDs per checklist for today's day of week
+  const checklistItemCounts: Record<string, number> = {};
+  const activeItemIds = new Set<string>();
+  for (const c of (activeChecklists || [])) {
+    const items = c.checklist_items || [];
+    const todayItems = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek));
+    checklistItemCounts[c.id] = todayItems.length;
+    for (const i of todayItems) activeItemIds.add(i.id);
+  }
+
+  // Fetch responses and only count those for today's active items
   const subIds = (checklistSubs || []).map((s: any) => s.id);
-  let responseCounts: Record<string, number> = {};
   const checklistCompleters: Record<string, Set<string>> = {};
   const checklistLatestResponse: Record<string, { full_name: string; created_at: string }> = {};
+  const checklistResponseCounts: Record<string, number> = {};
+  const checklistLastSub: Record<string, any> = {};
+
   if (subIds.length > 0) {
     const { data: responses } = await supabase
       .from("checklist_responses")
-      .select("submission_id, created_at, completed_by_profile:completed_by (full_name)")
+      .select("submission_id, item_id, created_at, completed_by_profile:completed_by (full_name)")
       .in("submission_id", subIds);
     if (responses) {
       for (const r of responses) {
-        responseCounts[r.submission_id] = (responseCounts[r.submission_id] || 0) + 1;
+        // Only count responses for items active on today's day of week
+        if (!activeItemIds.has(r.item_id)) continue;
+
         const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
-        if (sub && r.completed_by_profile?.full_name) {
-          const cid = sub.checklist_id;
+        if (!sub) continue;
+        const cid = sub.checklist_id;
+
+        checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + 1;
+
+        if (r.completed_by_profile?.full_name) {
           if (!checklistCompleters[cid]) checklistCompleters[cid] = new Set();
           checklistCompleters[cid].add(r.completed_by_profile.full_name);
           if (!checklistLatestResponse[cid] || r.created_at > checklistLatestResponse[cid].created_at) {
@@ -423,21 +443,9 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     }
   }
 
-  // Build item counts per checklist — only count items active on this day of week
-  // This matches the app's filtering: items with days_of_week that includes today,
-  // items with null days_of_week are excluded (same as Tasks > History logic)
-  const checklistItemCounts: Record<string, number> = {};
-  for (const c of (activeChecklists || [])) {
-    const items = c.checklist_items || [];
-    checklistItemCounts[c.id] = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek)).length;
-  }
-
-  // Aggregate response counts per checklist (dynamic checklists may have multiple submissions)
-  const checklistResponseCounts: Record<string, number> = {};
-  const checklistLastSub: Record<string, any> = {};
+  // Track latest submission per checklist
   for (const sub of (checklistSubs || [])) {
     const cid = sub.checklist_id;
-    checklistResponseCounts[cid] = (checklistResponseCounts[cid] || 0) + (responseCounts[sub.id] || 0);
     if (!checklistLastSub[cid] || sub.submitted_at > checklistLastSub[cid].submitted_at) {
       checklistLastSub[cid] = sub;
     }
@@ -497,8 +505,8 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const dayNamesShort = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const shortDate = `${dayNamesShort[dayOfWeek]}, ${monthNamesShort[mo - 1]} ${dy}`;
-  const displayDate = `${dayNames[dayOfWeek]}, ${monthNames[mo - 1]} ${dy}, ${yr}`;
+  const shortDate = `${dayNamesShort[jsDayOfWeek]}, ${monthNamesShort[mo - 1]} ${dy}`;
+  const displayDate = `${dayNames[jsDayOfWeek]}, ${monthNames[mo - 1]} ${dy}, ${yr}`;
   const completedCount = checklistRows.filter(c => c.completed).length;
   const totalChecklists = checklistRows.length;
 
