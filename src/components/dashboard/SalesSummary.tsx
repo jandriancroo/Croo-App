@@ -1319,7 +1319,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         <CardContent className="pt-4">
           <div className="w-full">
             {/* Unified nav bar: chevrons navigate date, tapping label cycles view */}
-            <div className="mb-2 px-[5%]">
+            <div className="mb-2">
               <div className="flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 w-full">
                 <Button 
                   variant="ghost" 
