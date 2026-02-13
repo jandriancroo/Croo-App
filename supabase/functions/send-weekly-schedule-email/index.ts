@@ -32,12 +32,14 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
+const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
 function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f8f7f5;padding:24px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><a href="https://croohq.com/schedule" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:16px;">View Schedule</a><p style="color:#aaa;font-size:11px;margin:16px 0 0;">© ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:12px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><div style="display:flex;align-items:center;gap:6px;"><span style="color:#1a1a1a;font-size:18px;font-weight:700;letter-spacing:-0.5px;">croo</span></div></div></td></tr></table></td></tr>`;
 }
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -60,7 +62,7 @@ serve(async (req) => {
     // Preview mode – return sample HTML without needing real IDs
     if (preview) {
       const sampleHtml = wrapEmail(
-        `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><h1 style="color:#fff;font-size:24px;font-weight:700;margin:0;">Your Schedule</h1><p style="color:rgba(255,255,255,0.8);font-size:14px;margin:8px 0 0;">Sample Location • Mon Feb 10 – Sun Feb 16</p></td></tr>` +
+        `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Your Schedule</h1><p style="color:rgba(255,255,255,0.8);font-size:14px;margin:8px 0 0;">Sample Location • Mon Feb 10 – Sun Feb 16</p></td></tr>` +
         `<tr><td style="padding:24px 40px;"><p style="color:${textColor};font-size:15px;">Hi Team Member,</p><p style="color:${textColor};font-size:15px;line-height:1.7;">Here's your schedule for the upcoming week:</p>` +
         DAY_NAMES.map((d, i) => `<div style="border-bottom:1px solid #eee;padding:12px 0;"><strong style="color:${primaryColor};">${d}</strong><br/><span style="color:${textColor};">${i < 5 ? '9:00 AM – 5:00 PM' : 'OFF'}</span></div>`).join('') +
         `</td></tr>` + getEmailFooter()
@@ -176,11 +178,11 @@ serve(async (req) => {
       }, 0);
 
       const emailHtml = wrapEmail(`
-        <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">
-          <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>
-          <h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">📅 Your Schedule</h1>
-          <p style="color:rgba(255,255,255,0.9);font-size:14px;margin:8px 0 0;">${locationName} • ${weekLabel}</p>
-        </td></tr>
+         <tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">
+           <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/>
+           <h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Your Schedule</h1>
+           <p style="color:rgba(255,255,255,0.9);font-size:14px;margin:8px 0 0;">${locationName} • ${weekLabel}</p>
+         </td></tr>
         <tr><td style="padding:30px 40px;">
           <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hey ${firstName}! Your schedule for the week has been published.</p>
           <div style="background:${backgroundColor};border-radius:10px;padding:20px;margin-bottom:20px;">
@@ -197,7 +199,7 @@ serve(async (req) => {
         await queueEmail({
           from: "CrooHQ <hello@croohq.email>",
           to: [profile.email],
-          subject: `📅 Schedule Published: ${weekLabel} - ${locationName}`,
+          subject: `Schedule Published: ${weekLabel} - ${locationName}`,
           html: emailHtml,
           source: "schedule_published",
           dedupKey: `schedule_${schedule_id}_${profile.id}`,

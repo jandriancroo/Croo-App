@@ -32,16 +32,18 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
+const systemFontStack = "'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
 function wrapEmail(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background-color:${backgroundColor};font-family:${systemFontStack};"><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:30px 20px;"><table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">${content}</table></td></tr></table></body></html>`;
 }
 
 function getEmailHeader(title: string): string {
-  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">${title}</h1></td></tr>`;
+  return `<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${title}</h1></td></tr>`;
 }
 
 function getEmailFooter(): string {
-  return `<tr><td style="background-color:#f8f7f5;padding:24px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><a href="https://croohq.com" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;margin-bottom:16px;">Open Croo</a><p style="color:#aaa;font-size:11px;margin:16px 0 0;">© ${new Date().getFullYear()} Croo. All rights reserved.</p></td></tr></table></td></tr>`;
+  return `<tr><td style="background-color:#f0ebe1;padding:30px 40px;border-top:1px solid #e8e5df;"><table role="presentation" style="width:100%;"><tr><td style="text-align:center;"><div style="display:inline-flex;align-items:center;gap:12px;justify-content:center;"><span style="color:#3a5f7d;font-size:16px;font-weight:400;letter-spacing:-0.2px;">Powered by</span><div style="display:flex;align-items:center;gap:6px;"><span style="color:#1a1a1a;font-size:18px;font-weight:700;letter-spacing:-0.5px;">croo</span></div></div></td></tr></table></td></tr>`;
 }
 
 function getCTAButton(url: string, text: string): string {
@@ -69,8 +71,8 @@ serve(async (req) => {
     // ========== EMPLOYEE WRITE-UP ISSUANCE ==========
     if (type === "employee_writeup") {
       const { reason, issue_description, next_steps, is_final_warning, manager_name, location_name, date } = data;
-      subject = `📋 You've received a write-up from management`;
-      headerTitle = "📋 Write-up Notification";
+      subject = `You've received a write-up from management`;
+      headerTitle = "Write-up Notification";
       source = "writeup_issued";
       content = `
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">You have received an employee write-up from management.</p>
@@ -97,8 +99,8 @@ serve(async (req) => {
     // ========== WRITE-UP SIGNED/ACKNOWLEDGED ==========
     else if (type === "employee_writeup_signed") {
       const { reason, issue_description, next_steps, manager_name, location_name, signed_date } = data;
-      subject = `✅ Write-up acknowledged by employee`;
-      headerTitle = "📋 Write-up Notification";
+      subject = `Write-up acknowledged by employee`;
+      headerTitle = "Write-up Notification";
       source = "writeup_signed";
       content = `
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">An employee has acknowledged and signed a write-up.</p>
@@ -114,8 +116,8 @@ serve(async (req) => {
     // ========== PERFORMANCE REVIEW SIGNED ==========
     else if (type === "performance_review_signed") {
       const { manager_name, location_name, signed_date, average_rating } = data;
-      subject = `✅ Performance review acknowledged`;
-      headerTitle = "📊 Performance Review";
+      subject = `Performance review acknowledged`;
+      headerTitle = "Performance Review";
       source = "review_signed";
       content = `
         <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Thank you for reviewing and acknowledging your performance review.</p>
