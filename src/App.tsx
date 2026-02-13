@@ -85,7 +85,7 @@ const DesignStylePreview = lazy(() => import("./pages/DesignStylePreview"));
 const AvailabilityRequestPreview = lazy(() => import("./pages/AvailabilityRequestPreview"));
 const VisionOSPreview = lazy(() => import("./pages/VisionOSPreview"));
 const EmailPreview = lazy(() => import("./pages/EmailPreview"));
-
+const SalesDesignPreview = lazy(() => import("./pages/SalesDesignPreview"));
 
 const queryClient = new QueryClient();
 
@@ -208,6 +208,7 @@ const AppContent = () => {
         <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
         <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
         <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
+        <Route path="/sales-design-preview" element={<ProtectedRoute><SalesDesignPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
