@@ -2,6 +2,15 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
+// Format a UTC timestamp to America/Los_Angeles time string
+function formatTimePST(isoString: string): string {
+  try {
+    return new Date(isoString).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/Los_Angeles" });
+  } catch {
+    return "";
+  }
+}
+
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -598,7 +607,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     ${checklistRows.length > 0 ? checklistRows.map(c => {
       const barColor = c.pct >= 100 ? primaryColor : primaryColor;
       const pctColor = c.pct >= 100 ? '#22c55e' : '#ef4444';
-      const timeStr = c.submittedAt ? new Date(c.submittedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+      const timeStr = c.submittedAt ? formatTimePST(c.submittedAt) : "";
       return `<div style="background:#fafaf8;border-radius:16px;padding:12px 16px;margin-bottom:8px;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
@@ -643,7 +652,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
               const badgeColor = isAM ? "#78350f" : "#e0e7ff";
               const badgeBorder = isAM ? "#fcd34d" : "#4338ca";
               const shiftIcon = isAM ? "☀︎" : "☽";
-              const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+              const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
               return `<div style="margin-bottom:10px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <span style="display:inline-block;background:${badgeBg};color:${badgeColor};border:1px solid ${badgeBorder};border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">${shiftIcon} ${shiftVal}</span>
@@ -667,7 +676,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
               const expectedVal = expectedField?.value || "$0";
               const varianceNum = varianceField ? parseFloat(varianceField.value.replace(/[^0-9.-]/g, '')) : 0;
               const overUnder = varianceNum > 0 ? `<span style="color:#22c55e;font-weight:600;">Over $${Math.abs(varianceNum).toLocaleString()}</span>` : varianceNum < 0 ? `<span style="color:#ef4444;font-weight:600;">Under $${Math.abs(varianceNum).toLocaleString()}</span>` : `<span style="color:#22c55e;font-weight:600;">Even</span>`;
-              const completedTime = c.completedAt ? new Date(c.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "";
+              const completedTime = c.completedAt ? formatTimePST(c.completedAt) : "";
               return `<div style="margin-bottom:8px;">
                 <p style="margin:0 0 2px;font-size:13px;color:${textColor};font-weight:600;">${depositVal} / ${expectedVal}</p>
                 <p style="margin:0 0 2px;font-size:12px;">${overUnder}</p>
