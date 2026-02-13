@@ -69,7 +69,7 @@ const SalesChart = () => (
 // ============================================================================
 const Design1 = () => (
   <Card>
-    <CardContent className="pt-5 space-y-3">
+    <CardContent className="pt-5 space-y-1">
        <div className="flex items-center justify-between">
          <h3 className="text-sm font-semibold text-foreground">Design 1 — Compact Tiles</h3>
        </div>
