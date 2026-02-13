@@ -316,7 +316,38 @@ function generateICS(date: string, time: string, orgName: string, locationName: 
 
 async function sendInviteEmail(payload: any): Promise<Response> {
   if (payload.preview) {
-    const html = wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;"><div style="font-size:48px;margin-bottom:16px;">🎉</div><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">Sample Organization • Sample Location</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">Sample Organization</strong> at the <strong>Sample Location</strong> location.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>${getEmailFooter()}`);
+    const html = wrapEmail(`
+      <!-- HEADER -->
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;">
+              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+            </td>
+            <td style="vertical-align:middle;text-align:center;">
+              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1>
+            </td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Organization</p>
+              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Sample Location</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
+        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey Jane!</p>
+        <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">Sample Organization</strong> at the <strong>Sample Location</strong> location.</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
+        </div>
+        <div style="text-align:center;margin:28px 0;">
+          <a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a>
+        </div>
+        <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+      </td></tr>
+      ${getEmailFooter()}`);
     return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const { to, fullName, locationId, resetLink } = payload;
@@ -346,7 +377,26 @@ async function sendInviteEmail(payload: any): Promise<Response> {
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [to],
     subject: `Welcome to ${displayName}${locName ? ` - ${locName}` : ''}!`,
-    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:50px 40px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Welcome to the Team!</h1><p style="color:rgba(255,255,255,0.9);font-size:18px;margin:12px 0 0;">${displayName}${locName ? ` • ${locName}` : ''}</p></td></tr><tr><td style="padding:40px;"><p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p><p style="color:${textColor};font-size:16px;line-height:1.7;margin:0 0 20px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p><table style="width:100%;margin:35px 0;"><tr><td style="text-align:center;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:16px 40px;border-radius:12px;font-weight:600;font-size:16px;">Set Your Password</a></td></tr></table><p style="color:#888;font-size:13px;text-align:center;">This link expires in 24 hours.</p></td></tr>${getEmailFooter()}`),
+    html: wrapEmail(`
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace('margin-bottom:20px;', '').replace('margin-bottom:16px;', '').replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Welcome to the Team!</h1></td>
+          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <div style="text-align:center;margin-bottom:24px;font-size:48px;">🎉</div>
+        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+        <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;"><strong>Congratulations!</strong> You've been invited to join <strong style="color:${primaryColor};">${displayName}</strong>${locName ? ` at the <strong>${locName}</strong> location` : ''}.</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:24px;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Next Steps</p>
+          <p style="color:${textColor};font-size:14px;line-height:1.6;margin:0;">Click the button below to set your password and get started. Once you're in, your manager will add you to the schedule.</p>
+        </div>
+        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+        <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+      </td></tr>
+      ${getEmailFooter()}`),
     source: 'invite',
     dedupKey: `invite_${to}_${Date.now()}`,
   });
@@ -378,7 +428,30 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
   if (payload.preview) {
     const orgName = "Blaze Pizza";
     const sampleBody = "Dear Jane,<br><br>Thank you for taking the time to apply to Blaze Pizza. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs.<br><br>We appreciate your interest in our team and encourage you to apply again in the future.<br><br>Best regards,<br>The Blaze Pizza Team";
-    const html = wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${orgName}</h1></td></tr><tr><td style="padding:30px 40px;"><div style="color:${textColor};font-size:15px;line-height:1.7;">${sampleBody}</div></td></tr>${getEmailFooter()}`);
+    const html = wrapEmail(`
+      <!-- HEADER -->
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;">
+              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+            </td>
+            <td style="vertical-align:middle;text-align:center;">
+              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1>
+            </td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p>
+              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Standard Template</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;margin-bottom:20px;">
+          <div style="color:${textColor};font-size:15px;line-height:1.7;">${sampleBody}</div>
+        </div>
+      </td></tr>
+      ${getEmailFooter()}`);
     return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const { applicationId, templateId, overrideEmail } = payload;
@@ -407,7 +480,20 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [overrideEmail || app.email],
     subject,
-    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">${orgName}</h1></td></tr><tr><td style="padding:30px 40px;"><div style="color:${textColor};font-size:15px;line-height:1.7;">${body}</div></td></tr>${getEmailFooter()}`),
+    html: wrapEmail(`
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Application Update</h1></td>
+          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;">
+          <div style="color:${textColor};font-size:15px;line-height:1.7;">${body}</div>
+        </div>
+      </td></tr>
+      ${getEmailFooter()}`),
     source: 'rejection',
     dedupKey: `rejection_${applicationId}_${templateId}`,
   });
@@ -419,7 +505,38 @@ async function sendRejectionEmail(payload: any): Promise<Response> {
 
 async function sendInterviewInvite(payload: any): Promise<Response> {
   if (payload.preview) {
-    const html = wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:50px;margin-bottom:12px;filter:brightness(0) invert(1);"/><h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Interview Invitation</h1><p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">Sample Organization</p></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p><p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Sample Organization</strong>.</p><div style="background:#f0f9fa;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center;"><p style="color:${primaryColor};font-size:13px;font-weight:600;margin:0 0 8px;text-transform:uppercase;">Interview Details</p><p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">Wednesday, February 19, 2026</p><p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">2:00 PM</p><p style="color:#666;font-size:14px;margin:0;">Sample Location</p></div><div style="text-align:center;margin:24px 0;"><a href="#" style="display:inline-block;background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;">Accept Interview</a></div></td></tr>${getEmailFooter()}`);
+    const html = wrapEmail(`
+      <!-- HEADER -->
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="vertical-align:middle;text-align:left;width:180px;">
+              <img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="height:40px;filter:brightness(0) invert(1);" />
+            </td>
+            <td style="vertical-align:middle;text-align:center;">
+              <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1>
+            </td>
+            <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+              <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">Sample Organization</p>
+              <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">Sample Location</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi Jane,</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>John Manager</strong> would like to invite you for an interview at <strong>Sample Organization</strong>.</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;margin:0 0 24px;text-align:center;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
+          <p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">Wednesday, February 19, 2026</p>
+          <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">2:00 PM</p>
+          <p style="color:#666;font-size:14px;margin:0;">Sample Location</p>
+        </div>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="#" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a>
+        </div>
+      </td></tr>
+      ${getEmailFooter()}`);
     return new Response(JSON.stringify({ html }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const { conversationId, interviewDate, interviewTime, locationName, locationAddress, scheduledByName } = payload;
@@ -454,7 +571,27 @@ async function sendInterviewInvite(payload: any): Promise<Response> {
     from: "CrooHQ Hiring <hiring@croohq.email>",
     to: [applicantEmail],
     subject: `Interview Invitation - ${orgName} on ${formattedDate}`,
-    html: wrapEmail(`<tr><td style="background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);padding:30px 40px;text-align:center;">${logoHtml}<h1 style="color:#fff;font-size:28px;font-weight:600;margin:0;font-family:${systemFontStack};text-transform:uppercase;letter-spacing:0.5px;">Interview Invitation</h1><p style="color:rgba(255,255,255,0.9);font-size:16px;margin:8px 0 0;">${orgName}</p></td></tr><tr><td style="padding:30px 40px;"><p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p><p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>${scheduledByName}</strong> would like to invite you for an interview at <strong>${orgName}</strong>.</p><div style="background:#f0f9fa;border-radius:12px;padding:24px;margin:0 0 24px;text-align:center;"><p style="color:${primaryColor};font-size:13px;font-weight:600;margin:0 0 8px;text-transform:uppercase;">Interview Details</p><p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">${formattedDate}</p><p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p><p style="color:#666;font-size:14px;margin:0;">${locationName}</p>${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}</div><div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${primaryColor} 0%,#0d5a65 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:600;">Accept Interview</a></div></td></tr>${getEmailFooter()}`),
+    html: wrapEmail(`
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td style="vertical-align:middle;text-align:left;width:180px;">${logoHtml.replace(/style="[^"]*"/, `style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);"`)}</td>
+          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Interview Invitation</h1></td>
+          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${orgName}</p><p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locationName}</p></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <p style="color:${textColor};font-size:15px;margin:0 0 20px;">Hi ${firstName},</p>
+        <p style="color:${textColor};font-size:15px;margin:0 0 24px;"><strong>${scheduledByName}</strong> would like to invite you for an interview at <strong>${orgName}</strong>.</p>
+        <div style="background:#fafaf8;border-radius:16px;padding:24px;margin:0 0 24px;text-align:center;">
+          <p style="color:${primaryColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 12px;">Interview Details</p>
+          <p style="color:${textColor};font-size:20px;font-weight:700;margin:0 0 4px;">${formattedDate}</p>
+          <p style="color:${primaryColor};font-size:24px;font-weight:700;margin:0 0 12px;">${formattedTime}</p>
+          <p style="color:#666;font-size:14px;margin:0;">${locationName}</p>
+          ${locationAddress ? `<p style="color:#888;font-size:13px;margin:4px 0 0;">${locationAddress}</p>` : ''}
+        </div>
+        <div style="text-align:center;margin:24px 0;"><a href="${chatUrl}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;">Accept Interview</a></div>
+      </td></tr>
+      ${getEmailFooter()}`),
     source: 'interview_invite',
     dedupKey: `interview_${conversationId}_${interviewDate}_${interviewTime}`,
     metadata: { attachments: [{ filename: "interview.ics", content: btoa(icsContent) }] },
