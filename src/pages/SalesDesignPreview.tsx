@@ -106,16 +106,16 @@ const Design1 = () => (
 
       {/* Labor tile - system teal */}
       <div className="rounded-2xl bg-primary border border-primary/80 px-3 py-2">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex items-center divide-x divide-white/20">
           {[
             { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
             { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign },
             { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
           ].map((t) => (
-            <div key={t.label} className="rounded-xl bg-white/15 px-2 py-1.5 text-center">
-              <t.icon className="h-3.5 w-3.5 text-white/70 mx-auto mb-0.5" />
+            <div key={t.label} className="flex-1 py-1 text-center">
+              <t.icon className="h-3.5 w-3.5 text-white/60 mx-auto mb-0.5" />
               <p className="text-sm font-bold text-white">{t.value}</p>
-              <p className="text-[8px] font-bold text-white/70">{t.label}</p>
+              <p className="text-[8px] font-bold text-white/60">{t.label}</p>
             </div>
           ))}
         </div>
