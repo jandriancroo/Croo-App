@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, TrendingUp, DollarSign, Pizza, Receipt, Users, BarChart3, Percent } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Pizza, Receipt, Users, BarChart3, Percent, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveContainer, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Mock data matching real SalesSummary shape
 const MOCK_HOURLY = [
@@ -317,74 +319,121 @@ const Design4 = () => (
 // ============================================================================
 // DESIGN 5: "Scoreboard" — sports-style with big numbers
 // ============================================================================
-const Design5 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-      <h3 className="text-sm font-semibold text-foreground">Design 5 — Scoreboard</h3>
+const Design5 = () => {
+  const [expanded, setExpanded] = useState(false);
 
-      {/* Hero tile - exact copy from Design 1 */}
-      <div className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
-            🔥 On Fire
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 gap-1 items-center">
-          <div>
-            <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
-            <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
-            <div className="flex items-center gap-1 mt-0.5">
-              <TrendingUp className="h-3 w-3 text-white" />
-              <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
-            </div>
+  return (
+    <Card>
+      <CardContent className="pt-5 space-y-0">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Design 5 — Scoreboard</h3>
+
+        {/* Sales hero tile */}
+        <div
+          className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none"
+          style={{ borderBottomLeftRadius: expanded ? '0' : undefined, borderBottomRightRadius: expanded ? '0' : undefined }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
+              🔥 On Fire
+            </Badge>
           </div>
-          <div className="text-right space-y-0">
+          <div className="grid grid-cols-2 gap-1 items-center">
             <div>
-              <p className="text-[9px] text-white/70 font-bold">Goal</p>
-              <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
+              <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
+              <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <TrendingUp className="h-3 w-3 text-white" />
+                <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[9px] text-white/70 font-bold">Pace</p>
-              <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
+            <div className="text-right space-y-0">
+              <div>
+                <p className="text-[9px] text-white/70 font-bold">Goal</p>
+                <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] text-white/70 font-bold">Pace</p>
+                <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Labor strip */}
-      <div className="rounded-2xl bg-primary px-3 py-2">
-        <div className="flex items-center divide-x divide-white/20">
-          {[
-            { label: "Labor %", value: `${MOCK.laborPercent}%` },
-            { label: "Labor $", value: fmt(MOCK.laborCost) },
-            { label: "Hours", value: `${MOCK.laborHours}h` },
-          ].map((t) => (
-            <div key={t.label} className="flex-1 text-center">
-              <p className="text-sm font-bold text-white">{t.value}</p>
-              <p className="text-[10px] text-white/60">{t.label}</p>
-            </div>
-          ))}
+        {/* Collapsed tab - shows only when NOT expanded */}
+        <AnimatePresence mode="wait">
+          {!expanded && (
+            <motion.div
+              key="collapsed-tab"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div
+                className="mx-auto w-36 bg-primary rounded-b-xl px-3 py-1.5 flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-md"
+                onClick={() => setExpanded(true)}
+              >
+                <p className="text-xs font-bold text-white">{MOCK.laborPercent}%</p>
+                <p className="text-[10px] text-white/60">Labor %</p>
+                <ChevronDown className="h-3 w-3 text-white/60" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Expanded detail tiles - morph in */}
+        <AnimatePresence mode="wait">
+          {expanded && (
+            <motion.div
+              key="expanded-details"
+              initial={{ opacity: 0, height: 0, scaleY: 0.8 }}
+              animate={{ opacity: 1, height: "auto", scaleY: 1 }}
+              exit={{ opacity: 0, height: 0, scaleY: 0.8 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="origin-top overflow-hidden space-y-1"
+            >
+              {/* Labor strip */}
+              <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                <div className="flex items-center divide-x divide-white/20">
+                  {[
+                    { label: "Labor %", value: `${MOCK.laborPercent}%` },
+                    { label: "Labor $", value: fmt(MOCK.laborCost) },
+                    { label: "Hours", value: `${MOCK.laborHours}h` },
+                  ].map((t) => (
+                    <div key={t.label} className="flex-1 text-center">
+                      <p className="text-sm font-bold text-white">{t.value}</p>
+                      <p className="text-[10px] text-white/60">{t.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Product strip */}
+              <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
+                {[
+                  { label: "Pizzas", value: String(MOCK.pizzas) },
+                  { label: "Ticket", value: fmtDec(MOCK.avgTicket) },
+                  { label: "Guests", value: String(MOCK.guests) },
+                ].map((t) => (
+                  <div key={t.label} className="flex-1 text-center">
+                    <p className="text-sm font-bold text-foreground">{t.value}</p>
+                    <p className="text-[10px] text-muted-foreground">{t.label}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="pt-1">
+          <SalesChart />
         </div>
-      </div>
-
-      {/* Product strip */}
-      <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
-        {[
-          { label: "Pizzas", value: String(MOCK.pizzas) },
-          { label: "Ticket", value: fmtDec(MOCK.avgTicket) },
-          { label: "Guests", value: String(MOCK.guests) },
-        ].map((t) => (
-          <div key={t.label} className="flex-1 text-center">
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[10px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <SalesChart />
-    </CardContent>
-  </Card>
-);
+      </CardContent>
+    </Card>
+  );
+};
 
 // ============================================================================
 // DESIGN 6: "Card List" — each metric is its own row
