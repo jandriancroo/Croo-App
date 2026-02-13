@@ -54,16 +54,16 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 25% 5%;
 
-    --primary: 186 85% 30%;
+    --primary: 189 37% 47%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 186 55% 88%;
-    --secondary-foreground: 186 90% 18%;
+    --secondary: 189 30% 88%;
+    --secondary-foreground: 189 50% 18%;
 
     --muted: 220 18% 90%;
     --muted-foreground: 220 20% 35%;
 
-    --accent: 28 95% 48%;
+    --accent: 22 84% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 90% 55%;
@@ -71,7 +71,7 @@ All colors MUST be HSL.
 
     --border: 220 25% 78%;
     --input: 220 25% 85%;
-    --ring: 186 85% 30%;
+    --ring: 189 37% 40%;
 
     --radius: 0.75rem;
 
@@ -79,7 +79,7 @@ All colors MUST be HSL.
 
     --sidebar-foreground: 220 20% 15%;
 
-    --sidebar-primary: 186 80% 32%;
+    --sidebar-primary: 189 37% 42%;
 
     --sidebar-primary-foreground: 0 0% 100%;
 
@@ -89,13 +89,13 @@ All colors MUST be HSL.
 
     --sidebar-border: 220 20% 82%;
 
-    --sidebar-ring: 186 80% 32%;
+    --sidebar-ring: 189 37% 42%;
     
     --role-admin: 215 40% 30%;
     --role-manager: 215 35% 42%;
     --role-team-member: 215 30% 55%;
     
-    --croo-orange: 28 95% 48%;
+    --croo-orange: 22 84% 58%;
     --croo-beige: 40 33% 94%;
     
     /* Liquid Glass UI */
@@ -115,7 +115,7 @@ All colors MUST be HSL.
     --popover: 220 25% 8%;
     --popover-foreground: 186 28% 95%;
 
-    --primary: 186 85% 48%;
+    --primary: 189 37% 55%;
     --primary-foreground: 220 28% 4%;
 
     --secondary: 220 25% 14%;
@@ -124,7 +124,7 @@ All colors MUST be HSL.
     --muted: 220 25% 14%;
     --muted-foreground: 186 25% 62%;
 
-    --accent: 28 98% 55%;
+    --accent: 22 84% 62%;
     --accent-foreground: 220 28% 4%;
 
     --destructive: 0 75% 52%;
@@ -132,21 +132,21 @@ All colors MUST be HSL.
 
     --border: 220 25% 16%;
     --input: 220 25% 16%;
-    --ring: 186 85% 48%;
+    --ring: 189 37% 55%;
     --sidebar-background: 220 25% 8%;
     --sidebar-foreground: 186 25% 90%;
-    --sidebar-primary: 186 80% 50%;
+    --sidebar-primary: 189 37% 55%;
     --sidebar-primary-foreground: 220 25% 6%;
     --sidebar-accent: 220 20% 14%;
     --sidebar-accent-foreground: 186 25% 90%;
     --sidebar-border: 220 20% 16%;
-    --sidebar-ring: 186 80% 50%;
+    --sidebar-ring: 189 37% 55%;
     
     --role-admin: 215 45% 35%;
     --role-manager: 215 38% 48%;
     --role-team-member: 215 32% 62%;
     
-    --croo-orange: 28 98% 55%;
+    --croo-orange: 22 84% 62%;
     --croo-beige: 40 25% 85%;
     
     /* Liquid Glass UI - Dark */
