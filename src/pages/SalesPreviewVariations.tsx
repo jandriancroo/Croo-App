@@ -158,12 +158,12 @@ function SalesVariation({ v }: { v: Variation }) {
         {/* Collapsed Labor Tab */}
         <div className="flex justify-center">
           <div
-            className="w-36 rounded-b-xl px-3 py-1.5 flex items-center justify-center gap-1.5 shadow-md"
-            style={{ backgroundColor: v.laborBg, ...(v.heroFrosted ? {} : {}) }}
+            className="w-44 rounded-b-xl px-4 py-2 flex items-center justify-center gap-2 shadow-md"
+            style={{ backgroundColor: v.laborBg }}
           >
-            <p className="text-xs font-bold" style={{ color: v.laborText }}>24.2%</p>
-            <p className="text-[10px]" style={{ color: v.laborSubtext }}>Labor %</p>
-            <ChevronDown className="h-3 w-3" style={{ color: v.laborSubtext }} />
+            <p className="text-sm font-bold" style={{ color: v.laborText }}>24.2%</p>
+            <p className="text-xs" style={{ color: v.laborSubtext }}>Labor %</p>
+            <ChevronDown className="h-3.5 w-3.5" style={{ color: v.laborSubtext }} />
           </div>
         </div>
 
