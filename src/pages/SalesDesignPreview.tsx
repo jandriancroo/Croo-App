@@ -88,13 +88,13 @@ const Design1 = () => (
            <div className="text-right space-y-1">
              <div>
                <p className="text-[9px] text-muted-foreground">Goal</p>
-               <p className="text-sm font-bold text-primary">{fmt(MOCK.projected)}</p>
+               <p className="text-lg font-bold text-primary">{fmt(MOCK.projected)}</p>
              </div>
              <div className="flex items-end justify-end gap-1.5">
                <Badge variant="outline" className="text-[8px] border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950 whitespace-nowrap mb-0.5">🔥 On Fire</Badge>
                <div className="text-right">
                  <p className="text-[9px] text-muted-foreground">Pace</p>
-                 <p className="text-sm font-bold text-amber-500">{fmt(MOCK.pace)}</p>
+                 <p className="text-lg font-bold text-amber-500">{fmt(MOCK.pace)}</p>
                </div>
              </div>
            </div>
