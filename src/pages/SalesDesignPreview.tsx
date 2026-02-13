@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, TrendingUp, DollarSign, Pizza, Receipt, Users, BarChart3, Percent, ChevronDown } from "lucide-react";
+import { ArrowLeft, TrendingUp, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ResponsiveContainer, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
@@ -66,301 +66,26 @@ const SalesChart = () => (
   </ResponsiveContainer>
 );
 
-// ============================================================================
-// DESIGN 1: "Compact Tiles" — minimal spacing, dense information
-// ============================================================================
-const Design1 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-       <div className="flex items-center justify-between">
-         <h3 className="text-sm font-semibold text-foreground">Design 1 — Compact Tiles</h3>
-       </div>
-
-       {/* Hero tile with rounded edges */}
-       <div className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2">
-         {/* Centered On Fire badge */}
-         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-           <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
-             🔥 On Fire
-           </Badge>
-         </div>
-         <div className="grid grid-cols-2 gap-1 items-center">
-            <div>
-              <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
-              <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <TrendingUp className="h-3 w-3 text-white" />
-                <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
-              </div>
-            </div>
-            <div className="text-right space-y-0">
-              <div>
-                <p className="text-[9px] text-white/70 font-bold">Goal</p>
-                <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] text-white/70 font-bold">Pace</p>
-                <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
-              </div>
-            </div>
-         </div>
-       </div>
-
-      {/* Labor tile - system teal */}
-      <div className="rounded-2xl bg-primary border border-primary/80 px-3 py-2">
-        <div className="flex items-center divide-x divide-white/20">
-          {[
-            { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
-            { label: "Labor Cost", value: fmt(MOCK.laborCost), icon: DollarSign },
-            { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
-          ].map((t) => (
-            <div key={t.label} className="flex-1 py-1 text-center">
-              <t.icon className="h-3.5 w-3.5 text-white/60 mx-auto mb-0.5" />
-              <p className="text-sm font-bold text-white">{t.value}</p>
-              <p className="text-[10px] font-bold text-white/60">{t.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Product tiles */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
-          { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
-          { label: "Guests", value: String(MOCK.guests), icon: Users },
-        ].map((t) => (
-          <div key={t.label} className="rounded-lg bg-muted/50 border border-border p-2 text-center">
-            <t.icon className="h-3.5 w-3.5 text-muted-foreground mx-auto mb-0.5" />
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[10px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <SalesChart />
-    </CardContent>
-  </Card>
-);
-
-// ============================================================================
-// DESIGN 2: "Minimal Stack" — no colored tiles, clean lines
-// ============================================================================
-const Design2 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-      <h3 className="text-sm font-semibold text-foreground">Design 2 — Minimal Stack</h3>
-
-      {/* Sales header - flat, no bg */}
-      <div className="px-1 py-2">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <p className="text-[10px] text-muted-foreground font-medium">Today's Sales</p>
-            <p className="text-3xl font-extrabold text-foreground">{fmt(MOCK.sales)}</p>
-          </div>
-          <div className="text-right">
-            <Badge variant="outline" className="text-xs border-primary text-primary">🔥 On Fire</Badge>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="text-xs text-muted-foreground">Goal <span className="text-foreground font-semibold">{fmt(MOCK.projected)}</span></span>
-          <span className="text-xs text-muted-foreground">Pace <span className="text-foreground font-semibold">{fmt(MOCK.pace)}</span></span>
-          <span className="text-xs text-primary font-medium flex items-center gap-0.5"><TrendingUp className="h-3 w-3" />+{MOCK.lwChange}%</span>
-        </div>
-      </div>
-
-      <div className="border-t border-border" />
-
-      {/* Labor row - inline with dividers */}
-      <div className="flex items-center divide-x divide-border py-2">
-        {[
-          { label: "Labor %", value: `${MOCK.laborPercent}%` },
-          { label: "Labor $", value: fmt(MOCK.laborCost) },
-          { label: "Hours", value: `${MOCK.laborHours}h` },
-        ].map((t) => (
-          <div key={t.label} className="flex-1 text-center">
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[9px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="border-t border-border" />
-
-      {/* Product row - inline with dividers */}
-      <div className="flex items-center divide-x divide-border py-2">
-        {[
-          { label: "Pizzas", value: String(MOCK.pizzas) },
-          { label: "Avg Ticket", value: fmtDec(MOCK.avgTicket) },
-          { label: "Guests", value: String(MOCK.guests) },
-        ].map((t) => (
-          <div key={t.label} className="flex-1 text-center">
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[9px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <SalesChart />
-    </CardContent>
-  </Card>
-);
-
-// ============================================================================
-// DESIGN 3: "Bold Banner" — large hero number, horizontal stat bar
-// ============================================================================
-const Design3 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-      <h3 className="text-sm font-semibold text-foreground">Design 3 — Bold Banner</h3>
-
-      {/* Giant sales number */}
-      <div className="rounded-2xl bg-primary px-4 py-3 text-center">
-        <p className="text-[10px] text-white/60 font-bold tracking-wider uppercase">Today's Sales</p>
-        <p className="text-4xl font-black text-white tracking-tight">{fmt(MOCK.sales)}</p>
-        <div className="flex items-center justify-center gap-3 mt-1">
-          <span className="text-[10px] text-white/70">Goal {fmt(MOCK.projected)}</span>
-          <span className="text-white/30">|</span>
-          <span className="text-[10px] text-white/70">Pace {fmt(MOCK.pace)}</span>
-          <span className="text-white/30">|</span>
-          <span className="text-[10px] text-white font-medium flex items-center gap-0.5"><TrendingUp className="h-3 w-3" />+{MOCK.lwChange}%</span>
-        </div>
-      </div>
-
-      {/* All 6 metrics in a flat grid */}
-      <div className="grid grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
-        {[
-          { label: "Labor %", value: `${MOCK.laborPercent}%`, icon: Percent },
-          { label: "Labor $", value: fmt(MOCK.laborCost), icon: DollarSign },
-          { label: "Hours", value: `${MOCK.laborHours}h`, icon: BarChart3 },
-          { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
-          { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
-          { label: "Guests", value: String(MOCK.guests), icon: Users },
-        ].map((t) => (
-          <div key={t.label} className="bg-card py-2 text-center">
-            <t.icon className="h-3 w-3 text-muted-foreground mx-auto mb-0.5" />
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <SalesChart />
-    </CardContent>
-  </Card>
-);
-
-// ============================================================================
-// DESIGN 4: "Split Panel" — left-right layout, sales vs labor
-// ============================================================================
-const Design4 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-      <h3 className="text-sm font-semibold text-foreground">Design 4 — Split Panel</h3>
-
-      <div className="flex gap-1">
-        {/* Left: Sales */}
-        <div className="flex-1 rounded-2xl bg-primary/10 border border-primary/20 p-3">
-          <p className="text-[9px] text-primary font-bold uppercase tracking-wider">Sales</p>
-          <p className="text-2xl font-black text-foreground mt-0.5">{fmt(MOCK.sales)}</p>
-          <div className="mt-2 space-y-1">
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">Goal</span>
-              <span className="font-semibold text-foreground">{fmt(MOCK.projected)}</span>
-            </div>
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">Pace</span>
-              <span className="font-semibold text-foreground">{fmt(MOCK.pace)}</span>
-            </div>
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">vs LW</span>
-              <span className="font-semibold text-primary">+{MOCK.lwChange}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Labor */}
-        <div className="flex-1 rounded-2xl bg-muted/50 border border-border p-3">
-          <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider">Labor</p>
-          <p className="text-2xl font-black text-foreground mt-0.5">{MOCK.laborPercent}%</p>
-          <div className="mt-2 space-y-1">
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">Cost</span>
-              <span className="font-semibold text-foreground">{fmt(MOCK.laborCost)}</span>
-            </div>
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">Hours</span>
-              <span className="font-semibold text-foreground">{MOCK.laborHours}h</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Product row */}
-      <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
-        {[
-          { label: "Pizzas", value: String(MOCK.pizzas), icon: Pizza },
-          { label: "Ticket", value: fmtDec(MOCK.avgTicket), icon: Receipt },
-          { label: "Guests", value: String(MOCK.guests), icon: Users },
-        ].map((t) => (
-          <div key={t.label} className="flex-1 text-center">
-            <t.icon className="h-3 w-3 text-muted-foreground mx-auto mb-0.5" />
-            <p className="text-sm font-bold text-foreground">{t.value}</p>
-            <p className="text-[8px] text-muted-foreground">{t.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <SalesChart />
-    </CardContent>
-  </Card>
-);
-
-// ============================================================================
-// DESIGN 5: "Scoreboard" — sports-style with big numbers
-// ============================================================================
-const Design5 = () => {
+// Shared collapsed tab + expand logic used across all variations
+const CollapsibleScoreboard = ({
+  title,
+  heroContent,
+  expandedContent,
+}: {
+  title: string;
+  heroContent: (expanded: boolean, toggle: () => void) => React.ReactNode;
+  expandedContent: React.ReactNode;
+}) => {
   const [expanded, setExpanded] = useState(false);
+  const toggle = () => setExpanded((v) => !v);
 
   return (
     <Card>
       <CardContent className="pt-5 space-y-0">
-        <h3 className="text-sm font-semibold text-foreground mb-1">Design 5 — Scoreboard</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-1">{title}</h3>
+        {heroContent(expanded, toggle)}
 
-        {/* Sales hero tile */}
-        <div
-          className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none"
-          style={{ borderBottomLeftRadius: expanded ? '0' : undefined, borderBottomRightRadius: expanded ? '0' : undefined }}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
-              🔥 On Fire
-            </Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-1 items-center">
-            <div>
-              <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
-              <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <TrendingUp className="h-3 w-3 text-white" />
-                <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
-              </div>
-            </div>
-            <div className="text-right space-y-0">
-              <div>
-                <p className="text-[9px] text-white/70 font-bold">Goal</p>
-                <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] text-white/70 font-bold">Pace</p>
-                <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Collapsed tab - shows only when NOT expanded */}
+        {/* Collapsed tab */}
         <AnimatePresence mode="wait">
           {!expanded && (
             <motion.div
@@ -383,7 +108,7 @@ const Design5 = () => {
           )}
         </AnimatePresence>
 
-        {/* Expanded detail tiles - morph in */}
+        {/* Expanded */}
         <AnimatePresence mode="wait">
           {expanded && (
             <motion.div
@@ -394,35 +119,7 @@ const Design5 = () => {
               transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="origin-top overflow-hidden space-y-1"
             >
-              {/* Labor strip */}
-              <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-                <div className="flex items-center divide-x divide-white/20">
-                  {[
-                    { label: "Labor %", value: `${MOCK.laborPercent}%` },
-                    { label: "Labor $", value: fmt(MOCK.laborCost) },
-                    { label: "Hours", value: `${MOCK.laborHours}h` },
-                  ].map((t) => (
-                    <div key={t.label} className="flex-1 text-center">
-                      <p className="text-sm font-bold text-white">{t.value}</p>
-                      <p className="text-[10px] text-white/60">{t.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Product strip */}
-              <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
-                {[
-                  { label: "Pizzas", value: String(MOCK.pizzas) },
-                  { label: "Ticket", value: fmtDec(MOCK.avgTicket) },
-                  { label: "Guests", value: String(MOCK.guests) },
-                ].map((t) => (
-                  <div key={t.label} className="flex-1 text-center">
-                    <p className="text-sm font-bold text-foreground">{t.value}</p>
-                    <p className="text-[10px] text-muted-foreground">{t.label}</p>
-                  </div>
-                ))}
-              </div>
+              {expandedContent}
             </motion.div>
           )}
         </AnimatePresence>
@@ -436,54 +133,185 @@ const Design5 = () => {
 };
 
 // ============================================================================
-// DESIGN 6: "Card List" — each metric is its own row
+// Shared expanded content (labor + product strips)
 // ============================================================================
-const Design6 = () => (
-  <Card>
-    <CardContent className="pt-5 space-y-1">
-      <h3 className="text-sm font-semibold text-foreground">Design 6 — Card List</h3>
-
-      {/* Hero row */}
-      <div className="flex items-center justify-between rounded-2xl bg-primary px-4 py-2.5">
-        <div>
-          <p className="text-[9px] text-white/60 font-bold">TODAY'S SALES</p>
-          <p className="text-2xl font-black text-white">{fmt(MOCK.sales)}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right">
-            <p className="text-lg font-bold text-white/80">{fmt(MOCK.projected)}</p>
-            <p className="text-[8px] text-white/50">Goal</p>
+const StandardExpandedContent = () => (
+  <>
+    <div className="rounded-2xl bg-primary px-3 py-2" style={{ borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+      <div className="flex items-center divide-x divide-white/20">
+        {[
+          { label: "Labor %", value: `${MOCK.laborPercent}%` },
+          { label: "Labor $", value: fmt(MOCK.laborCost) },
+          { label: "Hours", value: `${MOCK.laborHours}h` },
+        ].map((t) => (
+          <div key={t.label} className="flex-1 text-center">
+            <p className="text-sm font-bold text-white">{t.value}</p>
+            <p className="text-[10px] text-white/60">{t.label}</p>
           </div>
-          <div className="w-px h-8 bg-white/20" />
-          <div className="text-right">
-            <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
-            <p className="text-[8px] text-white/50">Pace</p>
+        ))}
+      </div>
+    </div>
+    <div className="flex items-center divide-x divide-border rounded-xl border border-border py-2">
+      {[
+        { label: "Pizzas", value: String(MOCK.pizzas) },
+        { label: "Ticket", value: fmtDec(MOCK.avgTicket) },
+        { label: "Guests", value: String(MOCK.guests) },
+      ].map((t) => (
+        <div key={t.label} className="flex-1 text-center">
+          <p className="text-sm font-bold text-foreground">{t.value}</p>
+          <p className="text-[10px] text-muted-foreground">{t.label}</p>
+        </div>
+      ))}
+    </div>
+  </>
+);
+
+// ============================================================================
+// VARIATION A: "Classic" — Original orange hero with centered badge
+// ============================================================================
+const VariationA = () => (
+  <CollapsibleScoreboard
+    title="Variation A — Classic Badge"
+    heroContent={(expanded, toggle) => (
+      <div
+        className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2 cursor-pointer select-none"
+        style={{ borderBottomLeftRadius: expanded ? '0' : undefined, borderBottomRightRadius: expanded ? '0' : undefined }}
+        onClick={toggle}
+      >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <Badge className="text-sm font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-4 py-1.5 pointer-events-auto">
+            🔥 On Fire
+          </Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-1 items-center">
+          <div>
+            <p className="text-[10px] text-white/70 font-bold mb-0.5">Today's Sales</p>
+            <p className="text-2xl font-extrabold text-white">{fmt(MOCK.sales)}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <TrendingUp className="h-3 w-3 text-white" />
+              <span className="text-[9px] text-white font-medium">LW +{MOCK.lwChange}%</span>
+            </div>
+          </div>
+          <div className="text-right space-y-0">
+            <div>
+              <p className="text-[9px] text-white/70 font-bold">Goal</p>
+              <p className="text-lg font-bold text-white">{fmt(MOCK.projected)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] text-white/70 font-bold">Pace</p>
+              <p className="text-lg font-bold text-white">{fmt(MOCK.pace)}</p>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Metric rows */}
-      {[
-        { label: "Labor", primary: `${MOCK.laborPercent}%`, secondary: `${fmt(MOCK.laborCost)} · ${MOCK.laborHours}h`, icon: Percent, accent: true },
-        { label: "Pizzas Sold", primary: String(MOCK.pizzas), secondary: `${fmtDec(MOCK.avgTicket)} avg ticket`, icon: Pizza, accent: false },
-        { label: "Guest Count", primary: String(MOCK.guests), secondary: `+${MOCK.lwChange}% vs last week`, icon: Users, accent: false },
-      ].map((row) => (
-        <div key={row.label} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${row.accent ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50 border border-border'}`}>
-          <div className={`rounded-lg p-1.5 ${row.accent ? 'bg-primary/20' : 'bg-muted'}`}>
-            <row.icon className={`h-4 w-4 ${row.accent ? 'text-primary' : 'text-muted-foreground'}`} />
-          </div>
-          <div className="flex-1">
-            <p className="text-[9px] text-muted-foreground font-medium">{row.label}</p>
-            <p className="text-sm font-bold text-foreground">{row.primary}</p>
-          </div>
-          <p className="text-[10px] text-muted-foreground">{row.secondary}</p>
-        </div>
-      ))}
-
-      <SalesChart />
-    </CardContent>
-  </Card>
+    )}
+    expandedContent={<StandardExpandedContent />}
+  />
 );
+
+// ============================================================================
+// VARIATION B: "Top Badge" — Badge pinned top-right, bigger sales number
+// ============================================================================
+const VariationB = () => (
+  <CollapsibleScoreboard
+    title="Variation B — Top Badge, Bold Sales"
+    heroContent={(expanded, toggle) => (
+      <div
+        className="relative rounded-2xl bg-orange-500 border border-orange-600 px-4 py-3 cursor-pointer select-none"
+        style={{ borderBottomLeftRadius: expanded ? '0' : undefined, borderBottomRightRadius: expanded ? '0' : undefined }}
+        onClick={toggle}
+      >
+        {/* Badge top-right */}
+        <div className="absolute top-2 right-2 z-10">
+          <Badge className="text-[10px] font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-2 py-0.5">
+            🔥 On Fire
+          </Badge>
+        </div>
+
+        <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">Today's Sales</p>
+        <p className="text-4xl font-black text-white tracking-tight mt-0.5">{fmt(MOCK.sales)}</p>
+        <div className="flex items-center gap-4 mt-2">
+          <div>
+            <p className="text-[9px] text-white/50 font-bold">Goal</p>
+            <p className="text-base font-bold text-white/80">{fmt(MOCK.projected)}</p>
+          </div>
+          <div className="w-px h-6 bg-white/20" />
+          <div>
+            <p className="text-[9px] text-white/50 font-bold">Pace</p>
+            <p className="text-base font-bold text-white">{fmt(MOCK.pace)}</p>
+          </div>
+          <div className="w-px h-6 bg-white/20" />
+          <div className="flex items-center gap-1">
+            <TrendingUp className="h-3 w-3 text-white" />
+            <span className="text-xs text-white font-semibold">+{MOCK.lwChange}%</span>
+            <span className="text-[9px] text-white/50">LW</span>
+          </div>
+        </div>
+      </div>
+    )}
+    expandedContent={<StandardExpandedContent />}
+  />
+);
+
+// ============================================================================
+// VARIATION C: "Progress Bar" — visual progress toward goal
+// ============================================================================
+const VariationC = () => {
+  const progress = Math.min((MOCK.sales / MOCK.projected) * 100, 100);
+
+  return (
+    <CollapsibleScoreboard
+      title="Variation C — Progress Bar"
+      heroContent={(expanded, toggle) => (
+        <div
+          className="relative rounded-2xl bg-orange-500 border border-orange-600 px-3 py-2.5 cursor-pointer select-none"
+          style={{ borderBottomLeftRadius: expanded ? '0' : undefined, borderBottomRightRadius: expanded ? '0' : undefined }}
+          onClick={toggle}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">Today's Sales</p>
+              <p className="text-3xl font-black text-white tracking-tight">{fmt(MOCK.sales)}</p>
+            </div>
+            <div className="text-right">
+              <Badge className="text-[10px] font-bold bg-white text-orange-500 border-white shadow-lg shadow-orange-900/30 px-2 py-0.5 mb-1">
+                🔥 On Fire
+              </Badge>
+              <div className="flex items-center gap-1 justify-end">
+                <TrendingUp className="h-3 w-3 text-white" />
+                <span className="text-xs text-white font-semibold">+{MOCK.lwChange}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-2 mb-1">
+            <div className="flex items-center justify-between text-[9px] text-white/60 mb-1">
+              <span>Progress to Goal</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-white rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mt-1.5">
+            <span className="text-[10px] text-white/60">Goal <span className="text-white font-semibold">{fmt(MOCK.projected)}</span></span>
+            <span className="text-white/30">·</span>
+            <span className="text-[10px] text-white/60">Pace <span className="text-white font-semibold">{fmt(MOCK.pace)}</span></span>
+          </div>
+        </div>
+      )}
+      expandedContent={<StandardExpandedContent />}
+    />
+  );
+};
+
 
 
 const SalesDesignPreview = () => {
@@ -497,17 +325,14 @@ const SalesDesignPreview = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Sales Summary Designs</h1>
-            <p className="text-xs text-muted-foreground">6 layout variations</p>
+            <h1 className="text-xl font-bold text-foreground">Scoreboard Finals</h1>
+            <p className="text-xs text-muted-foreground">3 variations — tap to expand</p>
           </div>
         </div>
 
-        <Design1 />
-        <Design2 />
-        <Design3 />
-        <Design4 />
-        <Design5 />
-        <Design6 />
+        <VariationA />
+        <VariationB />
+        <VariationC />
       </div>
     </div>
   );
