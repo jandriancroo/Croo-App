@@ -13,7 +13,8 @@ const EMAIL_TYPES = [
   { value: "daily_summary", label: "Daily Summary", description: "End-of-day logbook summary with sales, labor, checklists, cash handling" },
   { value: "weekly_summary", label: "Weekly Summary", description: "Aggregated Mon-Sun sales, labor, checklists, and cash handling" },
   { value: "support_ticket", label: "Support Ticket", description: "New support ticket notification" },
-  { value: "weekly_schedule", label: "Weekly Schedule", description: "Weekly schedule email sent to employees" },
+  { value: "weekly_schedule", label: "Weekly Schedule (Employee)", description: "Individual schedule email sent to each employee" },
+  { value: "weekly_schedule_manager", label: "Weekly Schedule (Manager)", description: "Full team schedule grid sent to shift managers and above" },
   { value: "hiring_invite", label: "Hiring - Invite", description: "New employee onboarding invite email" },
   { value: "hiring_rejection", label: "Hiring - Rejection", description: "Applicant rejection email" },
   { value: "hiring_interview", label: "Hiring - Interview", description: "Interview invite email" },
@@ -68,7 +69,11 @@ const EmailPreview = () => {
         }));
       } else if (selectedType === "weekly_schedule") {
         ({ data, error } = await supabase.functions.invoke("send-weekly-schedule-email", {
-          body: { preview: true, location_id: selectedLocation },
+          body: { preview: true, location_id: selectedLocation, preview_type: "employee" },
+        }));
+      } else if (selectedType === "weekly_schedule_manager") {
+        ({ data, error } = await supabase.functions.invoke("send-weekly-schedule-email", {
+          body: { preview: true, location_id: selectedLocation, preview_type: "manager" },
         }));
       } else if (selectedType === "hiring_invite") {
         ({ data, error } = await supabase.functions.invoke("hiring-email-service", {
@@ -124,7 +129,7 @@ const EmailPreview = () => {
   };
 
   const selectedTypeInfo = EMAIL_TYPES.find(t => t.value === selectedType);
-  const needsLocation = ["daily_summary", "weekly_summary", "weekly_schedule", "hiring_invite"].includes(selectedType);
+  const needsLocation = ["daily_summary", "weekly_summary", "weekly_schedule", "weekly_schedule_manager", "hiring_invite"].includes(selectedType);
   const needsDate = selectedType === "daily_summary";
   const needsWeekRange = selectedType === "weekly_summary";
   const canSend = selectedType === "daily_summary";
