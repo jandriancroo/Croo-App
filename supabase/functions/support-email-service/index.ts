@@ -400,11 +400,17 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
   // Build set of active item IDs per checklist for today's day of week
+  // Dynamic checklists: only items with days_of_week matching today
+  // Regular daily checklists: all items (null days_of_week = every day)
   const checklistItemCounts: Record<string, number> = {};
   const activeItemIds = new Set<string>();
+  const checklistTypeMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.template_type]));
   for (const c of (activeChecklists || [])) {
     const items = c.checklist_items || [];
-    const todayItems = items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek));
+    const isDynamic = c.template_type === "dynamic";
+    const todayItems = isDynamic
+      ? items.filter((i: any) => i.days_of_week && i.days_of_week.includes(dayOfWeek))
+      : items; // Regular checklists: all items are active every day
     checklistItemCounts[c.id] = todayItems.length;
     for (const i of todayItems) activeItemIds.add(i.id);
   }
@@ -423,7 +429,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       .in("submission_id", subIds);
     if (responses) {
       for (const r of responses) {
-        // Only count responses for items active on today's day of week
+        // Only count responses for items active today
         if (!activeItemIds.has(r.item_id)) continue;
 
         const sub = (checklistSubs || []).find((s: any) => s.id === r.submission_id);
