@@ -76,15 +76,15 @@ serve(async (req) => {
         const totalShifts = sampleEmployees.reduce((s, e) => s + e.shifts.filter(x => x !== 'OFF').length, 0);
         const totalHours = sampleEmployees.reduce((s, e) => s + e.hours, 0);
 
-        const headerRow = `<tr><td style="padding:8px 12px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:left;min-width:140px;border-bottom:2px solid ${primaryColor};">Employee</td>${dayAbbrs.map((d, i) => `<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:center;border-bottom:2px solid ${primaryColor};min-width:90px;"><div>${d}</div><div style="font-weight:400;font-size:10px;color:#999;">${dayDates[i]}</div></td>`).join('')}<td style="padding:8px 6px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:center;border-bottom:2px solid ${primaryColor};">Hrs</td></tr>`;
+        const headerRow = `<tr><td style="padding:8px 10px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:left;border-bottom:2px solid ${primaryColor};">Employee</td>${dayAbbrs.map((d, i) => `<td style="padding:8px 4px;font-size:11px;font-weight:700;color:#666;text-transform:uppercase;text-align:center;border-bottom:2px solid ${primaryColor};"><div>${d}</div><div style="font-weight:400;font-size:10px;color:#999;">${dayDates[i]}</div></td>`).join('')}</tr>`;
 
         const employeeRows = sampleEmployees.map((emp, idx) => {
           const bg = idx % 2 === 0 ? '#fafaf8' : '#ffffff';
           const shiftCells = emp.shifts.map(s => {
-            if (s === 'OFF') return `<td style="padding:6px;text-align:center;background:${bg};"><span style="color:#ccc;font-size:11px;">OFF</span></td>`;
-            return `<td style="padding:6px;text-align:center;background:${bg};"><div style="background:#e6f7f9;border-radius:8px;padding:4px 6px;font-size:11px;color:${primaryColor};font-weight:600;white-space:nowrap;">${s.replace(' – ', '<br/>')}</div></td>`;
+            if (s === 'OFF') return `<td style="padding:4px 2px;text-align:center;background:${bg};"><span style="color:#ccc;font-size:10px;">OFF</span></td>`;
+            return `<td style="padding:4px 2px;text-align:center;background:${bg};"><div style="background:#e6f7f9;border-radius:6px;padding:3px 4px;font-size:10px;color:${primaryColor};font-weight:600;line-height:1.4;">${s.replace(' – ', '<br/>')}</div></td>`;
           }).join('');
-          return `<tr><td style="padding:8px 12px;background:${bg};"><div style="font-size:13px;font-weight:600;color:${textColor};">${emp.name}</div><div style="font-size:11px;color:#888;">${emp.role}</div></td>${shiftCells}<td style="padding:6px;text-align:center;background:${bg};font-weight:700;color:${primaryColor};font-size:13px;">${emp.hours}h</td></tr>`;
+          return `<tr><td style="padding:6px 10px;background:${bg};white-space:nowrap;"><div style="font-size:12px;font-weight:600;color:${textColor};">${emp.name}</div><div style="font-size:10px;color:#888;">${emp.role}</div></td>${shiftCells}</tr>`;
         }).join('');
 
         const html = wrapEmail(`
