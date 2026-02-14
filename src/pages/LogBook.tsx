@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { FolderTabs, FolderTabContent } from "@/components/ui/folder-tabs";
+import { PillGroup } from "@/components/ui/folder-tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
@@ -1628,14 +1628,11 @@ export default function LogBook() {
           <PageHeaderDivider />
         </div>
 
-        <FolderTabs
-          tabs={folderTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        >
-          {/* Recent Logs Tab */}
-          <FolderTabContent value="search" activeValue={activeTab} keepMounted>
-            <div className="space-y-4">
+        <PillGroup items={folderTabs} active={activeTab} onSelect={setActiveTab} />
+
+        {/* Recent Logs Tab */}
+        {activeTab === "search" && (
+          <div className="space-y-4" style={{ marginTop: "1rem" }}>
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
@@ -2102,33 +2099,32 @@ export default function LogBook() {
                 <p className="text-center text-muted-foreground py-8">No entries found</p>
               )}
             </div>
-            </div>
-          </FolderTabContent>
+          </div>
+        )}
 
-           {/* Catering Orders Tab */}
-           <FolderTabContent value="catering" activeValue={activeTab} keepMounted>
-             <div className="space-y-4">
-               <div className="flex items-center gap-2">
-                 <Search className="h-4 w-4 text-muted-foreground" />
-                 <Input
-                   placeholder="Search orders..."
-                   value={cateringSearchQuery}
-                   onChange={(e) => setCateringSearchQuery(e.target.value)}
-                   className="flex-1"
-                 />
-                 <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                   <Plus className="h-4 w-4" />
-                 </Button>
-               </div>
-               <CateringOrdersSection 
-                 showHeader={false} 
-                 externalUploadOpen={showCateringUpload}
-                 onExternalUploadChange={setShowCateringUpload}
-                 searchQuery={cateringSearchQuery}
-               />
-             </div>
-          </FolderTabContent>
-        </FolderTabs>
+        {/* Catering Orders Tab */}
+        {activeTab === "catering" && (
+          <div className="space-y-4" style={{ marginTop: "1rem" }}>
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search orders..."
+                value={cateringSearchQuery}
+                onChange={(e) => setCateringSearchQuery(e.target.value)}
+                className="flex-1"
+              />
+              <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <CateringOrdersSection 
+              showHeader={false} 
+              externalUploadOpen={showCateringUpload}
+              onExternalUploadChange={setShowCateringUpload}
+              searchQuery={cateringSearchQuery}
+            />
+          </div>
+        )}
 
         {isAdmin && (
           <ManageCategoriesDialog
