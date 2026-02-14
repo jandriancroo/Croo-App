@@ -529,6 +529,102 @@ async function handleSubmitQRTaskReport(req: Request, supabaseAdmin: any): Promi
   }
 }
 
+// ============= VERIFY TURNSTILE + UPLOAD RESUME =============
+async function handleVerifyTurnstileUpload(req: Request, supabaseAdmin: any): Promise<Response> {
+  try {
+    const contentType = req.headers.get("content-type") || "";
+    
+    if (!contentType.includes("multipart/form-data")) {
+      return new Response(
+        JSON.stringify({ error: "Expected multipart/form-data" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const formData = await req.formData();
+    const turnstileToken = formData.get("turnstile_token") as string;
+    const file = formData.get("file") as File;
+    const filePath = formData.get("file_path") as string;
+
+    if (!turnstileToken) {
+      return new Response(
+        JSON.stringify({ error: "CAPTCHA verification required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!file || !filePath) {
+      return new Response(
+        JSON.stringify({ error: "File and file_path are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify Turnstile token with Cloudflare
+    const secretKey = Deno.env.get("TURNSTILE_SECRET_KEY");
+    if (!secretKey) {
+      console.error("TURNSTILE_SECRET_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "CAPTCHA verification not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const verifyResponse = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: secretKey,
+        response: turnstileToken,
+      }),
+    });
+
+    const verifyResult = await verifyResponse.json();
+
+    if (!verifyResult.success) {
+      console.log("Turnstile verification failed:", verifyResult);
+      return new Response(
+        JSON.stringify({ error: "CAPTCHA verification failed. Please try again." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Turnstile passed — upload file via service role
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    const { data, error } = await supabaseAdmin.storage
+      .from("resumes")
+      .upload(filePath, uint8Array, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error("Storage upload error:", error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from("resumes")
+      .getPublicUrl(filePath);
+
+    return new Response(
+      JSON.stringify({ success: true, url: urlData.publicUrl }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("verify-turnstile-upload error:", error);
+    return new Response(
+      JSON.stringify({ error: error?.message || "Upload failed" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+}
+
 // ============= MAIN ROUTER =============
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -557,6 +653,8 @@ serve(async (req: Request): Promise<Response> => {
         return await handleUploadBrandAsset(req, supabaseAdmin);
       case "submit-qr-task-report":
         return await handleSubmitQRTaskReport(req, supabaseAdmin);
+      case "verify-turnstile-upload":
+        return await handleVerifyTurnstileUpload(req, supabaseAdmin);
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
