@@ -461,8 +461,8 @@ function ChatRow({ chat, variant }: { chat: any; variant?: "full-width" }) {
   return (
     <div className={`flex items-center gap-3 p-2.5 ${px} rounded-lg mb-0.5 cursor-pointer hover:bg-muted/50 transition-colors ${chat.pinned ? "bg-primary/5" : ""}`}>
       <Avatar className="h-10 w-10 shrink-0">
-        <AvatarFallback className={`text-xs font-medium ${chat.type === "announcement" ? "bg-primary/10" : ""}`}>
-          {chat.type === "announcement" ? <Megaphone className="h-4 w-4 text-primary" /> : chat.avatar}
+        <AvatarFallback className={`text-xs font-medium ${chat.type === "announcement" ? "bg-primary/10" : chat.type === "marketplace" ? "bg-primary/10" : ""}`}>
+          {chat.type === "announcement" ? <Megaphone className="h-4 w-4 text-primary" /> : chat.type === "marketplace" ? <ArrowLeftRight className="h-4 w-4 text-primary" /> : chat.avatar}
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
