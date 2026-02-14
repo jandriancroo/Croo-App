@@ -14,8 +14,8 @@ import {
 const mockChats = [
   { id: "1", name: "Manager Chat 🔑", type: "group", pinned: true, unread: 2, preview: "If you need him to print labels or fi...", time: "Feb 12", avatar: "MC" },
   { id: "2", name: "Hemet Chat", type: "group", pinned: true, unread: 0, preview: "Keep up the good work guys!!! W...", time: "Feb 11", avatar: "HC" },
-  { id: "3", name: "Diego Martinez", type: "dm", pinned: false, unread: 0, preview: "Thanks!", time: "Feb 8", avatar: "DM" },
-  { id: "4", name: "Training Group", type: "group", pinned: false, unread: 0, preview: "Yes", time: "Jan 31", avatar: "TG" },
+  { id: "3", name: "Training Group", type: "group", pinned: false, unread: 0, preview: "Yes", time: "Jan 31", avatar: "TG" },
+  { id: "4", name: "Diego Martinez", type: "dm", pinned: false, unread: 0, preview: "Thanks!", time: "Feb 8", avatar: "DM" },
   { id: "5", name: "Andrea Gonzalez", type: "dm", pinned: false, unread: 1, preview: "okay just testing", time: "Jan 21", avatar: "AG" },
   { id: "6", name: "Shift Marketplace", type: "marketplace", pinned: false, unread: 0, preview: "New shift available", time: "Feb 10", avatar: "SM" },
 ];
