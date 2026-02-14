@@ -146,6 +146,7 @@ export default function PunchClock() {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
+  const isPunchingRef = useRef(false); // Prevent double-tap duplicate punches
   const [currentTime, setCurrentTime] = useState(new Date());
   // Active meeting event (if user is assigned to one happening now)
   const [activeMeetingEvent, setActiveMeetingEvent] = useState<any>(null);
@@ -852,6 +853,10 @@ export default function PunchClock() {
   };
 
   const handleClockIn = async () => {
+    // Prevent double-tap
+    if (isPunchingRef.current) return;
+    isPunchingRef.current = true;
+    try {
     // Block if already clocked in
     if (lastPunch?.punch_type === 'clock_in') {
       toast.error('You are already clocked in');
@@ -951,6 +956,7 @@ export default function PunchClock() {
     
     // Show post clock-in tasks instead of immediately returning to PIN screen
     setShowPostClockInTasks(true);
+    } finally { isPunchingRef.current = false; }
   };
 
   const handlePostClockInDismiss = () => {
@@ -962,6 +968,10 @@ export default function PunchClock() {
   };
 
   const handleBreak = async (type: 'break_start' | 'break_end', duration: number) => {
+    // Prevent double-tap
+    if (isPunchingRef.current) return;
+    isPunchingRef.current = true;
+    try {
     // Use timezone-aware timestamp for punch recording
     const { getNowISOString } = await import('@/utils/timezoneUtils');
     
@@ -994,6 +1004,7 @@ export default function PunchClock() {
       setTodayShift(null);
       setLastPunch(null);
     }, 2000);
+    } finally { isPunchingRef.current = false; }
   };
 
   // Check if user is currently on break and calculate time remaining
@@ -1038,6 +1049,10 @@ export default function PunchClock() {
   }, [isOnBreak, breakStatus?.canEnd]);
 
   const handleEndBreak = async () => {
+    // Prevent double-tap
+    if (isPunchingRef.current) return;
+    isPunchingRef.current = true;
+    try {
     if (!breakStatus?.canEnd) {
       const mins = Math.floor(breakStatus!.remaining / 60);
       const secs = breakStatus!.remaining % 60;
@@ -1078,9 +1093,14 @@ export default function PunchClock() {
       setTodayShift(null);
       setLastPunch(null);
     }, 2000);
+    } finally { isPunchingRef.current = false; }
   };
 
   const handleClockOut = async () => {
+    // Prevent double-tap
+    if (isPunchingRef.current) return;
+    isPunchingRef.current = true;
+    try {
     // Use the open shift_id from the last punch (handles overnight shifts).
     const activeShiftId = lastPunch?.shift_id ?? todayShift?.id;
 
@@ -1125,6 +1145,7 @@ export default function PunchClock() {
       // For admins, just refresh the punch data
       checkLastPunch();
     }
+    } finally { isPunchingRef.current = false; }
   };
 
 // User is considered "clocked in" if last punch is clock_in OR break_end (returned from break)
