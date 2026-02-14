@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   MessageCircle, Megaphone, ArrowLeftRight, Briefcase, Headphones,
-  Plus, Pin, Users, Search, ChevronRight, AlertCircle, Star
+  Plus, Pin, Users, Search, ChevronRight, AlertCircle, Star, UserPlus
 } from "lucide-react";
 
 // Mock data
@@ -135,7 +141,25 @@ function Option2() {
         <h2 className="text-lg font-bold">Chat</h2>
         <div className="flex gap-1.5">
           <Button size="icon" variant="outline" className="h-8 w-8"><Megaphone className="h-4 w-4" /></Button>
-          <Button size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem className="gap-2">
+                <MessageCircle className="h-4 w-4" />
+                New DM
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2">
+                <Users className="h-4 w-4" />
+                New Group
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2">
+                <Megaphone className="h-4 w-4" />
+                New Announcement
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
