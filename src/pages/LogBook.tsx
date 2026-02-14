@@ -1602,8 +1602,8 @@ export default function LogBook() {
   }
 
   const folderTabs = [
-    { id: "search", label: "Recent Logs", icon: <ClipboardList className="h-4 w-4" /> },
-    { id: "catering", label: "Catering Orders", icon: <Truck className="h-4 w-4" /> },
+    { id: "search", label: "Recent Logs" },
+    { id: "catering", label: "Catering Orders" },
   ];
 
   return (
