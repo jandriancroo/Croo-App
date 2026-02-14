@@ -118,7 +118,11 @@ function Option2() {
     switch (filter) {
       case "support": return [];
       case "announcements": return [];
-      case "groups": return mockChats.filter(c => c.type === "group" || c.type === "marketplace");
+      case "groups": {
+        const marketplace = mockChats.filter(c => c.type === "marketplace");
+        const groups = mockChats.filter(c => c.type === "group");
+        return [...marketplace, ...groups];
+      }
       case "dms": return mockChats.filter(c => c.type === "dm");
       case "hiring": return [];
       default: return mockChats;
