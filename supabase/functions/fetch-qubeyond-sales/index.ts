@@ -1470,6 +1470,7 @@ async function fetchHistoricalDataFromCache(
     sameWeek: number;
     sameMonth: number;
     weeklyBreakdown: { date: string; sales: number }[];
+    monthlyBreakdown: { date: string; sales: number }[];
     hourlyData?: { hour: string; sales: number }[];
   } | undefined;
   prevWeekSales: number;
@@ -1481,11 +1482,20 @@ async function fetchHistoricalDataFromCache(
   
   // Calculate date ranges needed
   // Last 4 same-day-of-weeks (e.g., last 4 Fridays if today is Friday)
+  // CUTOFF: only include days that are "yesterday or older" to avoid $0 incomplete days
+  const yesterdayDate = new Date(today);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
+  
   const fourWeekDates: string[] = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 6; i++) { // Look back up to 6 weeks to find 4 valid same-DOW dates
     const d = new Date(today);
     d.setDate(d.getDate() - (i * 7));
-    fourWeekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (dStr <= yesterdayStr) {
+      fourWeekDates.push(dStr);
+    }
+    if (fourWeekDates.length >= 4) break;
   }
   
   // Last year same day of week
@@ -1683,6 +1693,7 @@ async function fetchHistoricalDataFromCache(
     sameWeek: number;
     sameMonth: number;
     weeklyBreakdown: { date: string; sales: number }[];
+    monthlyBreakdown: { date: string; sales: number }[];
     hourlyData?: { hour: string; sales: number }[];
   } | undefined;
   
@@ -1697,6 +1708,7 @@ async function fetchHistoricalDataFromCache(
       sameWeek: lastYearSameWeek,
       sameMonth: lastYearSameMonth,
       weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+      monthlyBreakdown: lastYearMonthDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
       hourlyData: lastYearDayCached?.hourly_data as { hour: string; sales: number }[] | undefined
     };
     console.log(`[CACHE] Last year: day=$${lastYearSameDay}, week=$${lastYearSameWeek}, month=$${lastYearSameMonth}`);
@@ -1722,6 +1734,7 @@ async function fetchHistoricalDataFromCache(
           sameWeek: lastYearSameWeek,
           sameMonth: lastYearSameMonth,
           weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+          monthlyBreakdown: lastYearMonthDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
           hourlyData: holidayDateCached.hourly_data as { hour: string; sales: number }[] | undefined
         };
       }
@@ -1745,6 +1758,7 @@ async function fetchHistoricalDataFromCache(
             sameWeek: lastYearSameWeek,
             sameMonth: lastYearSameMonth,
             weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+            monthlyBreakdown: lastYearMonthDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
             hourlyData: holidayData.hourly_data as { hour: string; sales: number }[] | undefined
           };
         }
@@ -1835,7 +1849,8 @@ function generateDailyProjectionsForWeek(
   weeklyBreakdown: { date: string; sales: number }[],
   weekStartStr: string,
   locationId: string,
-  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
+  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] },
+  lastYearWeeklyBreakdown?: { date: string; sales: number }[]
 ): { date: string; sales: number; projected: number }[] {
   const result: { date: string; sales: number; projected: number }[] = [];
   
@@ -1864,9 +1879,6 @@ function generateDailyProjectionsForWeek(
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = date.getDay();
     
-    // Each day gets its own unique random factor seeded by date+location
-    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
-    
     const actual = weeklyBreakdown.find(d => d.date === dateStr)?.sales || 0;
     
     // Prefer 4-week by-DOW average when available; otherwise fall back to observed week averages
@@ -1875,7 +1887,23 @@ function generateDailyProjectionsForWeek(
       : 0;
 
     const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
-    const projected = base > 0 ? base * randomFactor : 0;
+    
+    // Blend with last year same-day-of-week: (4wk avg + YOY) / 2
+    // If no YOY data, use 4wk avg alone
+    const lastYearDay = lastYearWeeklyBreakdown?.find(d => {
+      const lyDow = new Date(d.date + 'T12:00:00').getDay();
+      return lyDow === dayOfWeek;
+    });
+    const lastYearSales = lastYearDay?.sales || 0;
+    
+    let projected: number;
+    if (base > 0 && lastYearSales > 0) {
+      // Formula: (4-week avg + last year same DOW) / 2
+      projected = (base + lastYearSales) / 2;
+    } else {
+      // Only one source available, use it directly
+      projected = base > 0 ? base : lastYearSales;
+    }
     
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
   }
@@ -1888,7 +1916,8 @@ function generateDailyProjectionsForMonth(
   monthlyBreakdown: { date: string; sales: number }[],
   monthStartStr: string,
   locationId: string,
-  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
+  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] },
+  lastYearMonthlyBreakdown?: { date: string; sales: number }[]
 ): { date: string; sales: number; projected: number }[] {
   const result: { date: string; sales: number; projected: number }[] = [];
 
@@ -1913,13 +1942,21 @@ function generateDailyProjectionsForMonth(
     avgByDow[dow] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   }
 
+  // Build last year lookup by day-of-week
+  const lastYearByDow: Record<number, number[]> = {};
+  if (lastYearMonthlyBreakdown) {
+    for (const d of lastYearMonthlyBreakdown) {
+      if (d.sales > 0) {
+        const dow = new Date(d.date + 'T12:00:00').getDay();
+        (lastYearByDow[dow] ||= []).push(d.sales);
+      }
+    }
+  }
+
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = date.getDay();
-
-    // Each day gets its own unique random factor seeded by date+location
-    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
 
     const actual = monthlyBreakdown.find(d => d.date === dateStr)?.sales || 0;
 
@@ -1929,7 +1966,17 @@ function generateDailyProjectionsForMonth(
       : 0;
 
     const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
-    const projected = base > 0 ? base * randomFactor : 0;
+    
+    // Blend with last year same DOW average for the month
+    const lyVals = lastYearByDow[dayOfWeek];
+    const lastYearAvg = lyVals && lyVals.length > 0 ? lyVals.reduce((a, b) => a + b, 0) / lyVals.length : 0;
+    
+    let projected: number;
+    if (base > 0 && lastYearAvg > 0) {
+      projected = (base + lastYearAvg) / 2;
+    } else {
+      projected = base > 0 ? base : lastYearAvg;
+    }
 
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
   }
@@ -2812,12 +2859,13 @@ serve(async (req) => {
     
     const { fourWeekAverage, fourWeekHourlyPattern, prevWeekSales, prevMonthSales, holidayContext } = historicalData;
     
-    // Map lastYearData to expected shape (without hourlyData field for compatibility)
+    // Map lastYearData to expected shape
     const lastYearData = historicalData.lastYearData ? {
       sameDay: historicalData.lastYearData.sameDay,
       sameWeek: historicalData.lastYearData.sameWeek,
       sameMonth: historicalData.lastYearData.sameMonth,
-      weeklyBreakdown: historicalData.lastYearData.weeklyBreakdown
+      weeklyBreakdown: historicalData.lastYearData.weeklyBreakdown,
+      monthlyBreakdown: historicalData.lastYearData.monthlyBreakdown
     } : undefined;
 
     // First, calculate preliminary daily projection for hourly distribution
@@ -2944,20 +2992,23 @@ serve(async (req) => {
       // projections will remain 0, client will use cached values
     }
     
-    // Generate daily projections for week (uses 4-week average if available, otherwise estimate)
+    // Generate daily projections for week (uses 4-week average + YOY blend)
     const weeklyWithProjections = generateDailyProjectionsForWeek(
       weeklyBreakdown,
       weekStartStr,
       locationId || 'default',
-      fourWeekAverage
+      fourWeekAverage,
+      lastYearData?.weeklyBreakdown
     );
     
-    // Generate daily projections for month
+    // Generate daily projections for month (uses 4-week average + YOY blend)
+    const lastYearMonthBreakdown = historicalData.lastYearData?.monthlyBreakdown;
     const monthlyWithProjections = generateDailyProjectionsForMonth(
       monthlyBreakdown,
       monthStartStr,
       locationId || 'default',
-      fourWeekAverage
+      fourWeekAverage,
+      lastYearMonthBreakdown
     );
     
     // Recalculate week/month projections using pace logic:
