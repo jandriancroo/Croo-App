@@ -148,17 +148,17 @@ function Option2() {
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
-                className={`flex items-center gap-1.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+                className={`flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
                   isActive
-                    ? "bg-primary text-primary-foreground px-3"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 px-2"
+                    ? "bg-primary text-primary-foreground px-4"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 px-2.5"
                 }`}
                 style={{
-                  maxWidth: isActive ? '200px' : '36px',
-                  minWidth: isActive ? 'auto' : '36px',
+                  maxWidth: isActive ? '200px' : '42px',
+                  minWidth: isActive ? 'auto' : '42px',
                 }}
               >
-                <f.icon className="h-3.5 w-3.5 shrink-0" />
+                <f.icon className="h-4.5 w-4.5 shrink-0" />
                 <span
                   className="transition-all duration-300 ease-in-out overflow-hidden"
                   style={{
