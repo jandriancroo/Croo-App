@@ -1606,28 +1606,24 @@ export default function LogBook() {
     <Layout>
       <div className="space-y-4">
         <div className="mb-4">
-          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold">Logs</h1>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                  <TabsTrigger value="search">Recent Logs</TabsTrigger>
-                  <TabsTrigger value="catering">Catering Orders</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <Button 
-                  size="icon" 
-                  variant="outline" 
-                  onClick={() => setManageCategoriesOpen(true)}
-                  title="Manage Categories"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+          <h1 className="text-3xl font-bold">Logs</h1>
+          <div className="flex items-center justify-between mt-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="search">Recent Logs</TabsTrigger>
+                <TabsTrigger value="catering">Catering Orders</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {isAdmin && (
+              <Button 
+                size="icon" 
+                variant="outline" 
+                onClick={() => setManageCategoriesOpen(true)}
+                title="Manage Categories"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <PageHeaderDivider />
         </div>
