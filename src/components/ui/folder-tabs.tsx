@@ -85,35 +85,92 @@ export const FolderTabs = memo(function FolderTabs({
   );
 });
 
+// ── Shared pill component ──
+export const PillGroup = memo(function PillGroup({ items, active, onSelect, size = "md" }: {
+  items: { id: string; label: string; icon?: React.ReactNode }[];
+  active: string;
+  onSelect: (id: string) => void;
+  size?: "sm" | "md";
+}) {
+  return (
+    <div className={cn("inline-flex bg-muted rounded-full p-1 gap-0.5", size === "sm" && "p-0.5")}>
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => onSelect(item.id)}
+          className={cn(
+            "rounded-full font-medium transition-all duration-200",
+            size === "sm" ? "px-3.5 py-1.5 text-xs" : "px-5 py-2 text-sm",
+            active === item.id
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span className="flex items-center gap-1.5">{item.icon}{item.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+});
+
+// ── Shared underline tabs ──
+export const UnderlineGroup = memo(function UnderlineGroup({ items, active, onSelect, size = "md" }: {
+  items: { id: string; label: string; icon?: React.ReactNode }[];
+  active: string;
+  onSelect: (id: string) => void;
+  size?: "sm" | "md";
+}) {
+  return (
+    <div className={cn("flex border-b border-border", size === "sm" ? "gap-4" : "gap-6")}>
+      {items.map(item => (
+        <button
+          key={item.id}
+          onClick={() => onSelect(item.id)}
+          className={cn(
+            "pb-2.5 font-medium transition-colors relative",
+            size === "sm" ? "text-xs" : "text-sm",
+            active === item.id ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span className="flex items-center gap-1.5">{item.icon}{item.label}</span>
+          {active === item.id && (
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary rounded-full" />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+});
+
 interface FolderTabContentProps {
-  value: string;
-  activeValue: string;
-  children: React.ReactNode;
-  /** Keep content mounted but hidden for faster switching (default: false) */
-  keepMounted?: boolean;
-}
+   value: string;
+   activeValue: string;
+   children: React.ReactNode;
+   /** Keep content mounted but hidden for faster switching (default: false) */
+   keepMounted?: boolean;
+ }
 
 export const FolderTabContent = memo(function FolderTabContent({ 
-  value, 
-  activeValue, 
-  children,
-  keepMounted = false,
-}: FolderTabContentProps) {
-  const isActive = value === activeValue;
-  
-  // For heavy content, use CSS visibility instead of unmounting
-  if (keepMounted) {
-    return (
-      <div 
-        className={isActive ? "block" : "hidden"}
-        aria-hidden={!isActive}
-      >
-        {children}
-      </div>
-    );
-  }
-  
-  // Default: unmount inactive tabs (lighter content)
-  if (!isActive) return null;
-  return <>{children}</>;
-});
+   value, 
+   activeValue, 
+   children,
+   keepMounted = false,
+ }: FolderTabContentProps) {
+   const isActive = value === activeValue;
+   
+   // For heavy content, use CSS visibility instead of unmounting
+   if (keepMounted) {
+     return (
+       <div 
+         className={isActive ? "block" : "hidden"}
+         aria-hidden={!isActive}
+       >
+         {children}
+       </div>
+     );
+   }
+   
+   // Default: unmount inactive tabs (lighter content)
+   if (!isActive) return null;
+   return <>{children}</>;
+ });
