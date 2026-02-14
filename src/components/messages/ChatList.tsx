@@ -204,9 +204,9 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
           : chat.isPinned
-          ? 'bg-primary/5 hover:bg-primary/10'
+          ? 'bg-primary/15 hover:bg-primary/20'
           : chat.unreadCount && chat.unreadCount > 0
-          ? 'bg-primary/5 hover:bg-primary/10'
+          ? 'bg-primary/10 hover:bg-primary/15'
           : 'hover:bg-muted'
       }`}
     >
