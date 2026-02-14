@@ -311,8 +311,22 @@ export function MobileScheduleView({
           const clockOutTime = lastClockOut?.punch_time || null;
           const clockInMs = new Date(firstClockIn.punch_time).getTime();
           const endTime = clockOutTime ? new Date(clockOutTime).getTime() : new Date().getTime();
+          // Deduct unpaid break time (30-min meal breaks)
+          let breakDeductionMs = 0;
+          if (breakStart?.punch_time) {
+            const isUnpaidBreak = breakStart.notes?.includes('30') || 
+              breakStart.notes?.toLowerCase().includes('unpaid') || 
+              breakStart.notes?.toLowerCase().includes('meal');
+            if (isUnpaidBreak) {
+              const breakStartMs = new Date(breakStart.punch_time).getTime();
+              const breakEndMs = breakEnd?.punch_time 
+                ? new Date(breakEnd.punch_time).getTime() 
+                : (isOnBreak ? new Date().getTime() : breakStartMs + 30 * 60000);
+              breakDeductionMs = breakEndMs - breakStartMs;
+            }
+          }
           // Defensive clamp: if we ever get a negative due to missing/odd punch ordering, show 0.
-          const hoursWorked = Math.max(0, (endTime - clockInMs) / 3600000);
+          const hoursWorked = Math.max(0, (endTime - clockInMs - breakDeductionMs) / 3600000);
           const scheduledShift = todayScheduledShifts.find(s => s.user_id === userId);
           
           const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
