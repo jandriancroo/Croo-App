@@ -5,18 +5,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, AlertTriangle, Radio, Clock, UserPlus } from "lucide-react";
+import { AlertCircle, AlertTriangle, Radio, Clock, UserPlus, Bug } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getDateDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { useUserRole } from "@/hooks/useUserRole";
+import { CreateTicketDialog } from "@/components/support/CreateTicketDialog";
+import { Button } from "@/components/ui/button";
 
 export default function Alerts() {
   const navigate = useNavigate();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
+  const { isSuperAdmin } = useUserRole();
+  const [showCreateTicket, setShowCreateTicket] = useState(false);
 
   const { data: logbookAlerts = [] } = useQuery({
     queryKey: ['all-logbook-alerts', currentLocation?.id],
@@ -494,16 +500,28 @@ export default function Alerts() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Radio className="h-8 w-8 text-destructive" />
-            <div className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Radio className="h-8 w-8 text-destructive" />
+              <div className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">Alert Feed</h1>
+              <p className="text-muted-foreground">Live monitoring of all system alerts</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold">Alert Feed</h1>
-            <p className="text-muted-foreground">Live monitoring of all system alerts</p>
-          </div>
+          {isSuperAdmin && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowCreateTicket(true)}>
+              <Bug className="h-4 w-4" />
+              Report Bug
+            </Button>
+          )}
         </div>
+
+        {isSuperAdmin && (
+          <CreateTicketDialog open={showCreateTicket} onOpenChange={setShowCreateTicket} />
+        )}
 
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="w-full flex flex-wrap gap-2 h-auto md:grid md:grid-cols-5 p-1">
