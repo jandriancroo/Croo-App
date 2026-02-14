@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trigger_daily_logbook_summary ON logbook_entries;
