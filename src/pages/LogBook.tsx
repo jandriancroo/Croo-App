@@ -1744,8 +1744,8 @@ export default function LogBook() {
             <div className="space-y-6">
               {sortedDays.map((dateKey) => (
                 <div key={dateKey} className="space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-card py-2 -mx-5 px-5 z-10">
-                    {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0 bg-background py-2 z-10">
+                    {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMM d')}
                   </h3>
                   <div className="space-y-2">
                     {entriesByDay[dateKey].map((entry: any) => {
