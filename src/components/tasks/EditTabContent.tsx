@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { FolderTabs, FolderTabContent } from "@/components/ui/folder-tabs";
+import { UnderlineGroup } from "@/components/ui/folder-tabs";
 
 interface EditTabContentProps {
   checklists: any[];
@@ -111,26 +111,24 @@ export default function EditTabContent({
   const currentDayIndex = getDayOfWeekInTimezone(timezone);
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  const folderTabs = [
-    { id: "quick-tasks", label: "Quick Tasks", icon: <Zap className="h-4 w-4" /> },
-    { id: "templates", label: "Templates", icon: <ClipboardList className="h-4 w-4" /> },
+  const subTabs = [
+    { id: "quick-tasks", label: "Quick Tasks", icon: <Zap className="h-3.5 w-3.5" /> },
+    { id: "templates", label: "Templates", icon: <ClipboardList className="h-3.5 w-3.5" /> },
   ];
 
   return (
     <div className="space-y-4">
-      <FolderTabs
-        tabs={folderTabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      >
-        {/* Quick Tasks Tab */}
-        <FolderTabContent value="quick-tasks" activeValue={activeTab}>
-          <TemporaryTasksSection />
-        </FolderTabContent>
+      {/* Sub-navigation: Underline tabs */}
+      <UnderlineGroup items={subTabs} active={activeTab} onSelect={setActiveTab} size="sm" />
 
-        {/* Templates Tab */}
-        <FolderTabContent value="templates" activeValue={activeTab}>
-          <div className="space-y-4">
+      {/* Quick Tasks Tab Content */}
+      {activeTab === "quick-tasks" && (
+        <TemporaryTasksSection />
+      )}
+
+      {/* Templates Tab Content */}
+      {activeTab === "templates" && (
+        <div className="space-y-4">
             {/* Header with actions */}
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Checklist Templates</h3>
@@ -194,8 +192,7 @@ export default function EditTabContent({
               </DndContext>
             )}
           </div>
-        </FolderTabContent>
-      </FolderTabs>
+        )}
 
       <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
       <CopyChecklistDialog
