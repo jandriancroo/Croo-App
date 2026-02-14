@@ -151,7 +151,9 @@ function calculateDayHours(dayPunches: PunchRecord[]): number {
       
       const breakEnd = sortedPunches.find(p => {
         const pTime = new Date(p.punch_time).getTime();
-        if (p.punch_type === 'break_end' && p.notes?.includes('30 minute')) {
+        // Match a break_end that follows this break_start (notes check not required —
+        // the break_start already confirmed it's a 30-min unpaid break)
+        if (p.punch_type === 'break_end') {
           return pTime > breakStartTime && pTime < clockOutTime;
         }
         if (p.punch_type === 'clock_in' && pTime > breakStartTime && pTime < clockOutTime) {
