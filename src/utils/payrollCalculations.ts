@@ -156,9 +156,12 @@ export const calculateDayHours = (dayPunches: TimePunch[], showLive = true): num
       
       const breakEnd = sortedPunches.find(p => {
         const pTime = new Date(p.punch_time).getTime();
-        if (p.punch_type === 'break_end' && p.notes?.includes('30 minute')) {
+        // Match a break_end that follows this break_start (notes check not required —
+        // the break_start already confirmed it's a 30-min unpaid break)
+        if (p.punch_type === 'break_end') {
           return pTime > breakStartTime && pTime < clockOutTime;
         }
+        // A clock_in immediately after a break_start acts as an implicit break_end
         if (p.punch_type === 'clock_in' && pTime > breakStartTime && pTime < clockOutTime) {
           const nextPunchAfterBreak = sortedPunches.find(np => 
             new Date(np.punch_time).getTime() > breakStartTime
