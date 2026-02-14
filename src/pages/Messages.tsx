@@ -589,69 +589,90 @@ export default function Messages() {
       </div>
 
       {/* Mobile Layout */}
-      <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col bg-card rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Chat</h2>
-          <div className="flex gap-2">
+      <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col bg-card rounded-lg">
+        {/* Mobile Header - Option 2 style */}
+        <div className="flex items-center justify-between p-3 pb-2">
+          <span className="text-sm font-medium text-muted-foreground">All Conversations</span>
+          <div className="flex gap-1.5">
             {isAdmin && (
               <Button
-                size="sm"
+                size="icon"
                 variant="outline"
                 onClick={() => setIsAnnouncementOpen(true)}
-                className="gap-2"
+                className="h-8 w-8"
               >
                 <Megaphone className="h-4 w-4" />
               </Button>
             )}
             <Button
-              size="sm"
+              size="icon"
               onClick={() => setIsNewChatOpen(true)}
-              className="gap-2"
+              className="h-8 w-8"
             >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        
-        <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support')} className="mb-3">
-          <TabsList className={`grid w-full ${showSupportTab ? 'grid-cols-3' : 'grid-cols-4'} h-10 p-1 gap-1`}>
-            <TabsTrigger value="chats" className="h-8 relative" title="Chats">
-              <MessageCircle className="h-4 w-4" />
-              <ChatTabBadge count={unreadCounts.chats} />
-            </TabsTrigger>
-            <TabsTrigger value="announcements" className="h-8 relative" title="Announcements">
-              <Megaphone className="h-4 w-4" />
-              <ChatTabBadge count={unreadCounts.announcements} />
-            </TabsTrigger>
-            <TabsTrigger value="marketplace" className="h-8 relative" title="Shift Marketplace">
-              <ArrowLeftRight className="h-4 w-4" />
-              <ChatTabBadge count={unreadCounts.marketplace} />
-            </TabsTrigger>
-            {!showSupportTab && (
-              <TabsTrigger 
-                value="hiring" 
-                className={`h-8 relative ${!showHiringTab ? 'invisible' : ''}`} 
-                title="Hiring"
-                disabled={!showHiringTab}
-              >
-                <Briefcase className="h-4 w-4" />
-                <ChatTabBadge count={unreadCounts.hiring} />
-              </TabsTrigger>
-            )}
-          </TabsList>
-          {showSupportTab && (
-            <TabsList className="grid w-full grid-cols-2 h-10 p-1 gap-1 mt-1">
-              <TabsTrigger value="hiring" className="h-8 relative" title="Hiring">
-                <Briefcase className="h-4 w-4" />
-                <ChatTabBadge count={unreadCounts.hiring} />
-              </TabsTrigger>
-              <TabsTrigger value="support" className="h-8 relative" title="Support">
-                <Headphones className="h-4 w-4" />
-                <ChatTabBadge count={unreadCounts.support} />
-              </TabsTrigger>
-            </TabsList>
-          )}
-        </Tabs>
+
+        {/* Collapsing chip bar */}
+        <div className="px-3 pb-2 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1.5 min-w-max">
+            {(() => {
+              const mobileFilters: Array<{ id: typeof viewMode; label: string; icon: any; badge: number }> = [
+                { id: 'chats', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
+                { id: 'announcements', label: 'Announce', icon: Megaphone, badge: unreadCounts.announcements },
+                { id: 'marketplace', label: 'Market', icon: ArrowLeftRight, badge: unreadCounts.marketplace },
+                ...(showHiringTab ? [{ id: 'hiring' as typeof viewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
+                ...(showSupportTab ? [{ id: 'support' as typeof viewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
+              ];
+
+              return mobileFilters.map(f => {
+                const isActive = viewMode === f.id;
+                const Icon = f.icon;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => handleViewModeChange(f.id)}
+                    className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
+                      isActive
+                        ? "bg-primary text-primary-foreground px-4"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 px-2.5"
+                    }`}
+                    style={{
+                      maxWidth: isActive ? '200px' : '42px',
+                      minWidth: isActive ? 'auto' : '42px',
+                    }}
+                    aria-label={f.label}
+                  >
+                    <Icon className="h-4.5 w-4.5 shrink-0" />
+                    <span
+                      className="transition-all duration-300 ease-in-out overflow-hidden"
+                      style={{
+                        maxWidth: isActive ? '120px' : '0px',
+                        opacity: isActive ? 1 : 0,
+                      }}
+                    >
+                      {f.label}
+                    </span>
+                    {f.badge > 0 && isActive && (
+                      <span className="ml-0.5 bg-destructive text-destructive-foreground rounded-full px-1.5 text-[10px] font-bold shrink-0">{f.badge}</span>
+                    )}
+                    {f.badge > 0 && !isActive && (
+                      <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </div>
+
+        {/* Search bar */}
+        {viewMode !== 'marketplace' && viewMode !== 'hiring' && viewMode !== 'support' && (
+          <div className="px-3 pb-2">
+            <ChatSearch onSearch={handleSearch} placeholder="Search..." />
+          </div>
+        )}
         
         <div className="flex-1 overflow-hidden">
           {viewMode === 'support' ? (
@@ -665,21 +686,24 @@ export default function Messages() {
               selectedId={selectedHiringConversation?.id}
               autoSelectApplicationId={pendingHiringApplicationId}
             />
-          ) : viewMode !== 'marketplace' && (
-            <>
-              <div className="mb-2">
-                <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
-              </div>
-              <ChatList
-                chats={filteredChats}
-                selectedChatId={selectedChatId}
-                onSelectChat={setSelectedChatId}
-                onTogglePin={handleTogglePin}
-                loading={loading}
-                searchQuery={searchQuery}
-                currentUserId={currentUserId}
-              />
-            </>
+          ) : viewMode === 'marketplace' ? (
+            // Auto-open marketplace chat
+            (() => {
+              if (marketplaceChatId && !selectedChatId) {
+                setTimeout(() => setSelectedChatId(marketplaceChatId), 0);
+              }
+              return null;
+            })()
+          ) : (
+            <ChatList
+              chats={filteredChats}
+              selectedChatId={selectedChatId}
+              onSelectChat={setSelectedChatId}
+              onTogglePin={handleTogglePin}
+              loading={loading}
+              searchQuery={searchQuery}
+              currentUserId={currentUserId}
+            />
           )}
         </div>
       </div>
