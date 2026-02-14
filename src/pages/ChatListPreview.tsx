@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   MessageCircle, Megaphone, ArrowLeftRight, Briefcase, Headphones,
   Plus, Pin, Users, Search, ChevronRight, AlertCircle, Star, UserPlus
@@ -141,25 +142,45 @@ function Option2() {
         <h2 className="text-lg font-bold">Chat</h2>
         <div className="flex gap-1.5">
           <Button size="icon" variant="outline" className="h-8 w-8"><Megaphone className="h-4 w-4" /></Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Dialog>
+            <DialogTrigger asChild>
               <Button size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="gap-2">
-                <MessageCircle className="h-4 w-4" />
-                New DM
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2">
-                <Users className="h-4 w-4" />
-                New Group
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2">
-                <Megaphone className="h-4 w-4" />
-                New Announcement
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </DialogTrigger>
+            <DialogContent className="max-w-xs">
+              <DialogHeader>
+                <DialogTitle>New Conversation</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-2 pt-2">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <MessageCircle className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">New DM</p>
+                    <p className="text-xs text-muted-foreground">Message a team member</p>
+                  </div>
+                </button>
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">New Group</p>
+                    <p className="text-xs text-muted-foreground">Create a group chat</p>
+                  </div>
+                </button>
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                  <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                    <Megaphone className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">New Announcement</p>
+                    <p className="text-xs text-muted-foreground">Broadcast to your team</p>
+                  </div>
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
