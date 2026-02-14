@@ -191,7 +191,7 @@ function Option2() {
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
-                className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+                className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
                   isActive
                     ? "bg-primary text-primary-foreground px-4"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 px-2.5"
