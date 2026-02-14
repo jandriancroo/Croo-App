@@ -191,19 +191,32 @@ function Option2() {
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
-                className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ease-in-out ${
+                className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
                   isActive
                     ? "bg-primary text-primary-foreground px-4"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 px-2.5"
                 }`}
+                style={{
+                  maxWidth: isActive ? '200px' : '42px',
+                  minWidth: isActive ? 'auto' : '42px',
+                }}
                 aria-label={f.label}
               >
-                {f.icon && <f.icon className="h-5 w-5" />}
-                <span className="max-w-[120px] overflow-hidden text-ellipsis">
+                <f.icon className="h-4.5 w-4.5 shrink-0" />
+                <span
+                  className="transition-all duration-300 ease-in-out overflow-hidden"
+                  style={{
+                    maxWidth: isActive ? '120px' : '0px',
+                    opacity: isActive ? 1 : 0,
+                  }}
+                >
                   {f.label}
                 </span>
+                {f.badge && isActive && (
+                  <span className="ml-0.5 bg-destructive text-destructive-foreground rounded-full px-1.5 text-[10px] font-bold shrink-0">{f.badge}</span>
+                )}
                 {f.badge && !isActive && (
-                  <div className="h-2 w-2 rounded-full bg-destructive ml-auto" />
+                  <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
                 )}
               </button>
             );
