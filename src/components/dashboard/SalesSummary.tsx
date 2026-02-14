@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
@@ -1382,8 +1382,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   {pacingStatus && (
                     <div className="flex items-center gap-1.5 rounded-full px-4 py-1.5 shadow-sm pointer-events-auto" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
                       {pacingStatus === 'ahead' && <Flame className="h-4 w-4 text-white" />}
+                      {pacingStatus === 'onTrack' && <Activity className="h-4 w-4 text-white" />}
+                      {pacingStatus === 'behind' && <AlertCircle className="h-4 w-4 text-white" />}
                       <span className="text-sm font-bold text-white">
-                        {pacingStatus === 'ahead' ? 'On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
+                        {pacingStatus === 'ahead' ? 'On Fire' : pacingStatus === 'onTrack' ? 'On Track' : 'Behind'}
                       </span>
                     </div>
                   )}
