@@ -119,7 +119,9 @@ export default function EditTabContent({
   return (
     <div className="space-y-4">
       {/* Sub-navigation: Underline tabs */}
-      <UnderlineGroup items={subTabs} active={activeTab} onSelect={setActiveTab} size="sm" />
+      <div className="pl-4">
+        <UnderlineGroup items={subTabs} active={activeTab} onSelect={setActiveTab} size="sm" />
+      </div>
 
       {/* Quick Tasks Tab Content */}
       {activeTab === "quick-tasks" && (
