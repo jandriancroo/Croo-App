@@ -142,23 +142,38 @@ function Option2() {
       {/* Horizontal scroll chip bar */}
       <div className="px-3 pb-2 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1.5 min-w-max">
-          {filters.map(f => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                filter === f.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              <f.icon className="h-3.5 w-3.5" />
-              {f.label}
-              {f.badge && (
-                <span className="ml-0.5 bg-destructive text-destructive-foreground rounded-full px-1.5 text-[10px] font-bold">{f.badge}</span>
-              )}
-            </button>
-          ))}
+          {filters.map(f => {
+            const isActive = filter === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={`flex items-center gap-1.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out ${
+                  isActive
+                    ? "bg-primary text-primary-foreground px-3"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 px-2"
+                }`}
+                style={{
+                  maxWidth: isActive ? '200px' : '36px',
+                  minWidth: isActive ? 'auto' : '36px',
+                }}
+              >
+                <f.icon className="h-3.5 w-3.5 shrink-0" />
+                <span
+                  className="transition-all duration-300 ease-in-out overflow-hidden"
+                  style={{
+                    maxWidth: isActive ? '120px' : '0px',
+                    opacity: isActive ? 1 : 0,
+                  }}
+                >
+                  {f.label}
+                </span>
+                {f.badge && isActive && (
+                  <span className="ml-0.5 bg-destructive text-destructive-foreground rounded-full px-1.5 text-[10px] font-bold shrink-0">{f.badge}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
