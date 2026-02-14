@@ -139,53 +139,47 @@ function Option2() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 pb-0">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-3xl font-bold">Chat</h1>
-          <div className="flex gap-1.5">
-            <Button size="icon" variant="outline" className="h-8 w-8"><Megaphone className="h-4 w-4" /></Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-xs">
-                <DialogHeader>
-                  <DialogTitle>New Conversation</DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-2 pt-2">
-                  <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <MessageCircle className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">New DM</p>
-                      <p className="text-xs text-muted-foreground">Message a team member</p>
-                    </div>
-                  </button>
-                  <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Users className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">New Group</p>
-                      <p className="text-xs text-muted-foreground">Create a group chat</p>
-                    </div>
-                  </button>
-                  <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
-                    <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
-                      <Megaphone className="h-5 w-5 text-accent" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">New Announcement</p>
-                      <p className="text-xs text-muted-foreground">Broadcast to your team</p>
-                    </div>
-                  </button>
+      <div className="flex items-center justify-between p-3 pb-2">
+        <span className="text-sm font-medium text-muted-foreground">All Conversations</span>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="icon" className="h-8 w-8"><Plus className="h-4 w-4" /></Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xs">
+            <DialogHeader>
+              <DialogTitle>New Conversation</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-2 pt-2">
+              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <MessageCircle className="h-5 w-5 text-primary" />
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-        <PageHeaderDivider />
+                <div>
+                  <p className="text-sm font-medium">New DM</p>
+                  <p className="text-xs text-muted-foreground">Message a team member</p>
+                </div>
+              </button>
+              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">New Group</p>
+                  <p className="text-xs text-muted-foreground">Create a group chat</p>
+                </div>
+              </button>
+              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left">
+                <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                  <Megaphone className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">New Announcement</p>
+                  <p className="text-xs text-muted-foreground">Broadcast to your team</p>
+                </div>
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Horizontal scroll chip bar */}
@@ -574,8 +568,11 @@ export default function ChatListPreview() {
   return (
     <Layout>
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold mb-2">Chat List Redesign</h1>
-        <p className="text-sm text-muted-foreground mb-4">Tap each option to preview. All show support tickets prominently.</p>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-3xl font-bold">Chat</h1>
+        </div>
+        <PageHeaderDivider />
+        <p className="text-sm text-muted-foreground mb-4 mt-2">Tap each option to preview. All show support tickets prominently.</p>
 
         {/* Option selector */}
         <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-4">
