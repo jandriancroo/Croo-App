@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { PillGroup } from "@/components/ui/folder-tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, ChevronLeft, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine } from "lucide-react";
@@ -1601,10 +1601,6 @@ export default function LogBook() {
     );
   }
 
-  const folderTabs = [
-    { id: "search", label: "Recent Logs" },
-    { id: "catering", label: "Catering Orders" },
-  ];
 
   return (
     <Layout>
@@ -1628,7 +1624,12 @@ export default function LogBook() {
           <PageHeaderDivider />
         </div>
 
-        <PillGroup items={folderTabs} active={activeTab} onSelect={setActiveTab} />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="search">Recent Logs</TabsTrigger>
+            <TabsTrigger value="catering">Catering Orders</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Recent Logs Tab */}
         {activeTab === "search" && (
