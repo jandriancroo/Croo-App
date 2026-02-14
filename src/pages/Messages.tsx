@@ -6,14 +6,19 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, Briefcase, MessageCircle, Headphones } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
 import { ChatSearch } from '@/components/messages/ChatSearch';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -21,8 +26,8 @@ import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
-import { ChatTabBadge } from '@/components/messages/ChatTabBadge';
-import { useChatUnreadCounts, triggerChatCountRefetch } from '@/hooks/useChatUnreadCounts';
+
+import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 interface Chat {
@@ -66,7 +71,8 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support'>('chats');
+  const [viewMode, setViewMode] = useState<'all' | 'groups' | 'dms' | 'announcements' | 'hiring' | 'support'>('all');
+  const [isNewActionOpen, setIsNewActionOpen] = useState(false);
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
   const [pendingHiringApplicationId, setPendingHiringApplicationId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -226,10 +232,13 @@ export default function Messages() {
         setMarketplaceChatId(marketplaceItem.id);
       }
 
-      // Sort chats: pinned first, then unread, then by updated_at (excluding marketplace from regular list)
+      // Sort chats: pinned first, then unread, then by updated_at
+      // Shift Marketplace always sorts to top when in groups view
       const sortedChats = chatsWithUnread
-        .filter((c: any) => c.title !== 'Shift Marketplace')
         .sort((a: any, b: any) => {
+          // Shift Marketplace always at top
+          if (a.title === 'Shift Marketplace') return -1;
+          if (b.title === 'Shift Marketplace') return 1;
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
@@ -255,19 +264,28 @@ export default function Messages() {
     }, 750);
   }, [fetchChats]);
 
-  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support') => {
-    if (mode === 'marketplace' || mode === 'hiring' || mode === 'support') {
-      // Marketplace, Hiring, and Support are handled separately
+  const applyViewFilter = (chatList: Chat[], mode: typeof viewMode) => {
+    if (mode === 'hiring' || mode === 'support') {
       setFilteredChats([]);
       return;
     }
-    let filtered = mode === 'announcements' 
-      ? chatList.filter(chat => chat.is_announcement)
-      : chatList.filter(chat => !chat.is_announcement);
+    
+    let filtered = chatList;
     
     // Hide arcade chats when arcade is disabled
     if (!FEATURE_FLAGS.ARCADE_ENABLED) {
       filtered = filtered.filter(chat => !chat.is_arcade);
+    }
+    
+    if (mode === 'announcements') {
+      filtered = filtered.filter(chat => chat.is_announcement);
+    } else if (mode === 'groups') {
+      // Groups: group chats (non-announcement) + marketplace pinned at top
+      filtered = filtered.filter(chat => chat.is_group && !chat.is_announcement);
+    } else if (mode === 'dms') {
+      filtered = filtered.filter(chat => !chat.is_group && !chat.is_announcement);
+    } else if (mode === 'all') {
+      filtered = filtered.filter(chat => !chat.is_announcement);
     }
     
     setFilteredChats(filtered);
@@ -309,9 +327,7 @@ export default function Messages() {
       // Filter chats based on view mode first, then apply search
       const modeFilteredChats = viewMode === 'announcements'
         ? chats.filter(chat => chat.is_announcement)
-        : viewMode === 'chats'
-        ? chats.filter(chat => !chat.is_announcement)
-        : [];
+        : chats.filter(chat => !chat.is_announcement);
 
       // Then filter by search criteria
       const filtered = modeFilteredChats
@@ -331,13 +347,11 @@ export default function Messages() {
     }
   };
 
-  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support') => {
+  const handleViewModeChange = (mode: typeof viewMode) => {
     setViewMode(mode);
     setSearchQuery('');
     setSelectedHiringConversation(null);
-    if (mode === 'marketplace' && marketplaceChatId) {
-      setSelectedChatId(marketplaceChatId);
-    } else if (mode === 'hiring' || mode === 'support') {
+    if (mode === 'hiring' || mode === 'support') {
       setSelectedChatId(null);
     } else {
       setSelectedChatId(null);
@@ -425,9 +439,9 @@ export default function Messages() {
       if (targetChat.is_announcement && viewMode !== 'announcements') {
         setViewMode('announcements');
         applyViewFilter(chats, 'announcements');
-      } else if (!targetChat.is_announcement && viewMode !== 'chats') {
-        setViewMode('chats');
-        applyViewFilter(chats, 'chats');
+      } else if (!targetChat.is_announcement && viewMode !== 'all') {
+        setViewMode('all');
+        applyViewFilter(chats, 'all');
       }
       
       // Select the chat
@@ -441,7 +455,7 @@ export default function Messages() {
       // Chat not in our list - might be a chat we need to fetch directly
       // Check if it's the marketplace
       if (urlChatId === marketplaceChatId) {
-        setViewMode('marketplace');
+        setViewMode('groups');
         setSelectedChatId(urlChatId);
         setShowChatList(false);
         urlChatIdProcessed.current = true;
@@ -458,25 +472,13 @@ export default function Messages() {
         <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">Chat</h1>
-            <div className="flex gap-2">
-              {isAdmin && (
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => setIsAnnouncementOpen(true)}
-                  className="h-8 w-8"
-                >
-                  <Megaphone className="h-4 w-4" />
-                </Button>
-              )}
-              <Button
-                size="icon"
-                onClick={() => setIsNewChatOpen(true)}
-                className="h-8 w-8"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              size="icon"
+              onClick={() => setIsNewActionOpen(true)}
+              className="h-8 w-8"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           
           {/* Collapsing chip bar - desktop */}
@@ -484,11 +486,12 @@ export default function Messages() {
             <div className="flex gap-1.5 min-w-max">
               {(() => {
                 const desktopFilters: Array<{ id: typeof viewMode; label: string; icon: any; badge: number }> = [
-                  { id: 'chats', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
-                  { id: 'announcements', label: 'Announce', icon: Megaphone, badge: unreadCounts.announcements },
-                  { id: 'marketplace', label: 'Market', icon: ArrowLeftRight, badge: unreadCounts.marketplace },
-                  ...(showHiringTab ? [{ id: 'hiring' as typeof viewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
+                  { id: 'all', label: 'All', icon: MessageCircle, badge: unreadCounts.chats },
                   ...(showSupportTab ? [{ id: 'support' as typeof viewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
+                  { id: 'groups', label: 'Groups', icon: Users, badge: 0 },
+                  { id: 'dms', label: 'DMs', icon: MessageCircle, badge: 0 },
+                  { id: 'announcements', label: 'Announce', icon: Send, badge: unreadCounts.announcements },
+                  ...(showHiringTab ? [{ id: 'hiring' as typeof viewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
                 ];
 
                 return desktopFilters.map(f => {
@@ -543,7 +546,7 @@ export default function Messages() {
             />
           ) : viewMode === 'support' ? (
             null
-          ) : viewMode !== 'marketplace' && (
+          ) : (
             <>
               <div className="mb-4">
                 <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
@@ -574,16 +577,13 @@ export default function Messages() {
                 applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
               />
             </div>
-          ) : selectedChatId || viewMode === 'marketplace' ? (
+          ) : selectedChatId ? (
             <div className="w-full">
               <ChatWindow
-                chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
-                chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
+              chatId={selectedChatId}
+              chatDetails={chats.find(c => c.id === selectedChatId) || null}
                 onChatDeleted={() => {
                   setSelectedChatId(null);
-                  if (viewMode === 'marketplace') {
-                    setViewMode('chats');
-                  }
                   fetchChats();
                 }}
                 onChatUpdated={fetchChats}
@@ -613,19 +613,9 @@ export default function Messages() {
         <div className="flex items-center justify-between p-3 pb-2">
           <span className="text-sm font-medium text-muted-foreground">All Conversations</span>
           <div className="flex gap-1.5">
-            {isAdmin && (
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => setIsAnnouncementOpen(true)}
-                className="h-8 w-8"
-              >
-                <Megaphone className="h-4 w-4" />
-              </Button>
-            )}
             <Button
               size="icon"
-              onClick={() => setIsNewChatOpen(true)}
+              onClick={() => setIsNewActionOpen(true)}
               className="h-8 w-8"
             >
               <Plus className="h-4 w-4" />
@@ -638,11 +628,12 @@ export default function Messages() {
           <div className="flex gap-1.5 min-w-max">
             {(() => {
               const mobileFilters: Array<{ id: typeof viewMode; label: string; icon: any; badge: number }> = [
-                { id: 'chats', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
-                { id: 'announcements', label: 'Announce', icon: Megaphone, badge: unreadCounts.announcements },
-                { id: 'marketplace', label: 'Market', icon: ArrowLeftRight, badge: unreadCounts.marketplace },
-                ...(showHiringTab ? [{ id: 'hiring' as typeof viewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
+                { id: 'all', label: 'All', icon: MessageCircle, badge: unreadCounts.chats },
                 ...(showSupportTab ? [{ id: 'support' as typeof viewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
+                { id: 'groups', label: 'Groups', icon: Users, badge: 0 },
+                { id: 'dms', label: 'DMs', icon: MessageCircle, badge: 0 },
+                { id: 'announcements', label: 'Announce', icon: Send, badge: unreadCounts.announcements },
+                ...(showHiringTab ? [{ id: 'hiring' as typeof viewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
               ];
 
               return mobileFilters.map(f => {
@@ -687,7 +678,7 @@ export default function Messages() {
         </div>
 
         {/* Search bar */}
-        {viewMode !== 'marketplace' && viewMode !== 'hiring' && viewMode !== 'support' && (
+        {viewMode !== 'hiring' && viewMode !== 'support' && (
           <div className="px-3 pb-2">
             <ChatSearch onSearch={handleSearch} placeholder="Search..." />
           </div>
@@ -705,14 +696,6 @@ export default function Messages() {
               selectedId={selectedHiringConversation?.id}
               autoSelectApplicationId={pendingHiringApplicationId}
             />
-          ) : viewMode === 'marketplace' ? (
-            // Auto-open marketplace chat
-            (() => {
-              if (marketplaceChatId && !selectedChatId) {
-                setTimeout(() => setSelectedChatId(marketplaceChatId), 0);
-              }
-              return null;
-            })()
           ) : (
             <ChatList
               chats={filteredChats}
@@ -730,13 +713,10 @@ export default function Messages() {
       
       {/* Mobile Slide-Over Chat Window */}
       <Sheet 
-        open={isMobile && (!!selectedChatId || viewMode === 'marketplace')} 
+        open={isMobile && !!selectedChatId} 
         onOpenChange={(open) => {
           if (!open) {
             setSelectedChatId(null);
-            if (viewMode === 'marketplace') {
-              setViewMode('chats');
-            }
           }
         }}
       >
@@ -749,27 +729,19 @@ export default function Messages() {
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedChatId(null);
-                  if (viewMode === 'marketplace') {
-                    setViewMode('chats');
-                  }
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h2 className="text-lg font-semibold">
-                {viewMode === 'marketplace' ? 'Shift Marketplace' : 'Chat'}
-              </h2>
+              <h2 className="text-lg font-semibold">Chat</h2>
             </div>
             <div className="flex-1 overflow-hidden pb-4">
-              {(selectedChatId || viewMode === 'marketplace') && (
+              {selectedChatId && (
                 <ChatWindow
-                  chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
-                  chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
+                  chatId={selectedChatId}
+                  chatDetails={chats.find(c => c.id === selectedChatId) || null}
                   onChatDeleted={() => {
                     setSelectedChatId(null);
-                    if (viewMode === 'marketplace') {
-                      setViewMode('chats');
-                    }
                     fetchChats();
                   }}
                   onChatUpdated={fetchChats}
@@ -817,6 +789,54 @@ export default function Messages() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* New Action Dialog - DM, Group, or Announcement */}
+      <Dialog open={isNewActionOpen} onOpenChange={setIsNewActionOpen}>
+        <DialogContent className="max-w-[320px] rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="text-center">New Conversation</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              variant="outline"
+              className="w-full gap-3 justify-start h-12"
+              onClick={() => {
+                setIsNewActionOpen(false);
+                setIsNewChatOpen(true);
+              }}
+            >
+              <User className="h-5 w-5" />
+              Direct Message
+            </Button>
+            {(isAdmin || isManager) && (
+              <Button
+                variant="outline"
+                className="w-full gap-3 justify-start h-12"
+                onClick={() => {
+                  setIsNewActionOpen(false);
+                  setIsNewChatOpen(true);
+                }}
+              >
+                <Users className="h-5 w-5" />
+                Group Chat
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant="outline"
+                className="w-full gap-3 justify-start h-12"
+                onClick={() => {
+                  setIsNewActionOpen(false);
+                  setIsAnnouncementOpen(true);
+                }}
+              >
+                <Send className="h-5 w-5" />
+                Announcement
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <NewChatDialog
         open={isNewChatOpen}
