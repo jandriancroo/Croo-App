@@ -2127,7 +2127,7 @@ export default function LogBook() {
                  searchQuery={cateringSearchQuery}
                />
              </div>
-           </FolderTabContent>
+          </FolderTabContent>
         </FolderTabs>
 
         {isAdmin && (
