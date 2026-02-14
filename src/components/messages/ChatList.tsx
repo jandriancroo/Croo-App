@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Users, Megaphone, Pin, PinOff } from 'lucide-react';
+import { Users, Megaphone, Pin, PinOff, ArrowLeftRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import {
   Dialog,
@@ -203,6 +203,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
+          : chat.title === 'Shift Marketplace'
+          ? 'bg-accent/15 hover:bg-accent/20 border border-accent/30'
           : chat.isPinned
           ? 'bg-primary/15 hover:bg-primary/20'
           : chat.unreadCount && chat.unreadCount > 0
@@ -210,8 +212,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-12 w-12 flex-shrink-0">
-        {chat.is_announcement ? (
+      <Avatar className={`h-12 w-12 flex-shrink-0 ${chat.title === 'Shift Marketplace' ? 'bg-accent/20' : ''}`}>
+        {chat.title === 'Shift Marketplace' ? (
+          <AvatarFallback className="bg-accent/15">
+            <ArrowLeftRight className="h-6 w-6 text-accent" />
+          </AvatarFallback>
+        ) : chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
             <Megaphone className="h-6 w-6 text-primary" />
           </AvatarFallback>
