@@ -121,7 +121,7 @@ const EmailPreview = () => {
       const { data, error } = await supabase.functions.invoke("support-email-service", {
         body: {
           action: "send_daily_logbook_summary",
-          payload: { location_id: selectedLocation, entry_date: entryDate },
+          payload: { location_id: selectedLocation, entry_date: entryDate, test: true },
         },
       });
       if (error) throw error;
