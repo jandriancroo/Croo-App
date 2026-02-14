@@ -108,10 +108,9 @@ function Option2() {
   const filters = [
     { id: "all", label: "All", icon: MessageCircle },
     { id: "support", label: "Support", icon: Headphones, badge: 2 },
-    { id: "announcements", label: "Announce", icon: Megaphone },
-    { id: "groups", label: "Groups", icon: Users },
     { id: "dms", label: "DMs", icon: MessageCircle },
-    { id: "marketplace", label: "Market", icon: ArrowLeftRight },
+    { id: "groups", label: "Groups", icon: Users },
+    { id: "announcements", label: "Announce", icon: Megaphone },
     { id: "hiring", label: "Hiring", icon: Briefcase },
   ];
 
@@ -119,9 +118,8 @@ function Option2() {
     switch (filter) {
       case "support": return [];
       case "announcements": return [];
-      case "groups": return mockChats.filter(c => c.type === "group");
+      case "groups": return mockChats.filter(c => c.type === "group" || c.type === "marketplace");
       case "dms": return mockChats.filter(c => c.type === "dm");
-      case "marketplace": return mockChats.filter(c => c.type === "marketplace");
       case "hiring": return [];
       default: return mockChats;
     }
