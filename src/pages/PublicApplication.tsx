@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Upload, CheckCircle, Sparkles } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo.webp';
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAACcJ6BAHEpqeaClk';
 
 interface WorkHistoryEntry {
   employer_name: string;
@@ -50,6 +52,8 @@ export default function PublicApplication() {
   const { orgSlug } = useParams();
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -156,7 +160,44 @@ export default function PublicApplication() {
     }
   }, [templates, selectedTemplate]);
 
-  // Parse resume with AI
+  // Load Turnstile script
+  useEffect(() => {
+    if (document.getElementById('turnstile-script')) return;
+    const script = document.createElement('script');
+    script.id = 'turnstile-script';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById('turnstile-script');
+      if (el) el.remove();
+    };
+  }, []);
+
+  // Render Turnstile widget when ref is available
+  useEffect(() => {
+    if (!turnstileRef.current) return;
+    const w = window as any;
+    const render = () => {
+      if (!turnstileRef.current || turnstileRef.current.childElementCount > 0) return;
+      w.turnstile.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(null),
+        'error-callback': () => setTurnstileToken(null),
+        theme: 'auto',
+      });
+    };
+    if (w.turnstile) {
+      render();
+    } else {
+      const script = document.getElementById('turnstile-script');
+      script?.addEventListener('load', render);
+      return () => script?.removeEventListener('load', render);
+    }
+  }, [turnstileRef.current]);
+
   const parseResumeWithAI = async (file: File) => {
     setIsScanning(true);
     try {
@@ -230,33 +271,47 @@ export default function PublicApplication() {
     }
   };
 
-  // Handle resume upload
+  // Handle resume upload via Turnstile-verified edge function
   const handleResumeUpload = async (file: File) => {
+    if (!turnstileToken) {
+      toast.error('Please complete the CAPTCHA verification first');
+      return;
+    }
+
     setUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${orgSlug}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, file);
+      const formData = new FormData();
+      formData.append('turnstile_token', turnstileToken);
+      formData.append('file', file);
+      formData.append('file_path', filePath);
 
-      if (uploadError) throw uploadError;
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/utility-service?action=verify-turnstile-upload`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
+      const result = await response.json();
 
-      setResumeUrl(publicUrl);
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      setResumeUrl(result.url);
       setResumeFile(file);
       toast.success('Resume uploaded');
 
       // Try to parse with AI
       parseResumeWithAI(file);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload resume');
+      toast.error(error?.message || 'Failed to upload resume');
     } finally {
       setUploading(false);
     }
@@ -448,6 +503,11 @@ export default function PublicApplication() {
         toast.error('Please add at least one work history entry');
         return;
       }
+    }
+
+    if (!turnstileToken) {
+      toast.error('Please complete the CAPTCHA verification');
+      return;
     }
 
     submitMutation.mutate();
@@ -925,10 +985,15 @@ export default function PublicApplication() {
             </Card>
           )}
 
+          {/* Turnstile CAPTCHA */}
+          <div className="flex justify-center">
+            <div ref={turnstileRef} />
+          </div>
+
           <Button 
             type="submit" 
             className="w-full h-12 text-lg"
-            disabled={submitMutation.isPending}
+            disabled={submitMutation.isPending || !turnstileToken}
           >
             {submitMutation.isPending ? (
               <>
