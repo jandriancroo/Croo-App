@@ -831,13 +831,14 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   let sentCount = 0;
   for (const recipient of eligibleRecipients) {
     try {
+      const isTest = payload.test === true;
       await queueEmail({
         from: "CrooHQ <reports@croohq.email>",
         to: [recipient.email],
-        subject: `Daily Summary: ${location.name} - ${shortDate}`,
+        subject: `${isTest ? '[TEST] ' : ''}Daily Summary: ${location.name} - ${shortDate}`,
         html: emailHtml,
-        source: 'daily_summary',
-        dedupKey: `daily_summary_v5_${location_id}_${entry_date}_${recipient.email}`,
+        source: isTest ? 'test_preview' : 'daily_summary',
+        dedupKey: isTest ? `test_${Date.now()}_${recipient.email}` : `daily_summary_v5_${location_id}_${entry_date}_${recipient.email}`,
       });
       sentCount++;
     } catch (e) {
