@@ -1896,13 +1896,12 @@ function generateDailyProjectionsForWeek(
     });
     const lastYearSales = lastYearDay?.sales || 0;
     
+    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
     let projected: number;
     if (base > 0 && lastYearSales > 0) {
-      // Formula: (4-week avg + last year same DOW) / 2
-      projected = (base + lastYearSales) / 2;
+      projected = ((base + lastYearSales) / 2) * randomFactor;
     } else {
-      // Only one source available, use it directly
-      projected = base > 0 ? base : lastYearSales;
+      projected = (base > 0 ? base : lastYearSales) * randomFactor;
     }
     
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
@@ -1971,11 +1970,12 @@ function generateDailyProjectionsForMonth(
     const lyVals = lastYearByDow[dayOfWeek];
     const lastYearAvg = lyVals && lyVals.length > 0 ? lyVals.reduce((a, b) => a + b, 0) / lyVals.length : 0;
     
+    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
     let projected: number;
     if (base > 0 && lastYearAvg > 0) {
-      projected = (base + lastYearAvg) / 2;
+      projected = ((base + lastYearAvg) / 2) * randomFactor;
     } else {
-      projected = base > 0 ? base : lastYearAvg;
+      projected = (base > 0 ? base : lastYearAvg) * randomFactor;
     }
 
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
