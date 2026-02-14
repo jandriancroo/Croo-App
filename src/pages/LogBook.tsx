@@ -72,6 +72,7 @@ export default function LogBook() {
   const [preselectedShift, setPreselectedShift] = useState<'AM' | 'PM' | null>(null);
   const [isSavingSpecialForm, setIsSavingSpecialForm] = useState(false);
   const [cateringSearchQuery, setCateringSearchQuery] = useState("");
+  const [searchDateFilter, setSearchDateFilter] = useState<Date | undefined>(undefined);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -749,8 +750,13 @@ export default function LogBook() {
     return prevDaySafeCounts.some(sc => sc.shift === 'PM' && checkNeedsBankRun(sc));
   };
 
+  // Apply date filter if set
+  const dateFilteredEntries = searchDateFilter
+    ? expandedEntries.filter((entry: any) => entry.entry_date === format(searchDateFilter, 'yyyy-MM-dd'))
+    : expandedEntries;
+
   // Group entries by day - use entry_date directly as it's already YYYY-MM-DD
-  const entriesByDay = expandedEntries.reduce((acc: any, entry: any) => {
+  const entriesByDay = dateFilteredEntries.reduce((acc: any, entry: any) => {
     const dateKey = entry.entry_date;
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -1639,6 +1645,29 @@ export default function LogBook() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1"
               />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="icon" variant={searchDateFilter ? "default" : "outline"} title="Filter by date">
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={searchDateFilter}
+                    onSelect={(date) => setSearchDateFilter(date || undefined)}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                  {searchDateFilter && (
+                    <div className="p-2 border-t border-border">
+                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setSearchDateFilter(undefined)}>
+                        Clear date filter
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
               {(isShiftManager || isManager || isAdmin) && (
                 <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
                   setShowNewEntrySheet(open);
