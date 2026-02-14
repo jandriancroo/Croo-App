@@ -23,6 +23,7 @@ import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
 import { ChatTabBadge } from '@/components/messages/ChatTabBadge';
 import { useChatUnreadCounts, triggerChatCountRefetch } from '@/hooks/useChatUnreadCounts';
+import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 interface Chat {
   id: string;
@@ -600,7 +601,14 @@ export default function Messages() {
       </div>
 
       {/* Mobile Layout */}
-      <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col bg-card rounded-lg">
+      <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col">
+        {/* Mobile page header */}
+        <div className="mb-2">
+          <h1 className="text-3xl font-bold">Chat</h1>
+          <PageHeaderDivider />
+        </div>
+
+        <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
         {/* Mobile Header - Option 2 style */}
         <div className="flex items-center justify-between p-3 pb-2">
           <span className="text-sm font-medium text-muted-foreground">All Conversations</span>
@@ -716,6 +724,7 @@ export default function Messages() {
               currentUserId={currentUserId}
             />
           )}
+        </div>
         </div>
       </div>
       
