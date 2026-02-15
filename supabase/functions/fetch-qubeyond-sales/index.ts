@@ -3144,54 +3144,43 @@ serve(async (req) => {
           }
           
           if (allProjections.length > 0) {
-            // First, check which dates already have projections saved
-            const datesToCheck = allProjections.map(p => p.sale_date);
-            const { data: existingData } = await cacheSupabase
-              .from('sales_cache')
-              .select('sale_date, projected_sales')
-              .eq('location_id', locationId)
-              .in('sale_date', datesToCheck);
+            console.log(`[BACKGROUND] Saving ${allProjections.length} projections as living_projection...`);
             
-            // Only save projections for dates that don't already have one
-            const existingProjections = new Set(
-              (existingData || [])
-                .filter((d: { projected_sales: number | null; sale_date: string }) => d.projected_sales && d.projected_sales > 0)
-                .map((d: { sale_date: string }) => d.sale_date)
-            );
-            
-            const newProjections = allProjections.filter(p => !existingProjections.has(p.sale_date));
-            
-            if (newProjections.length > 0) {
-              console.log(`[BACKGROUND] Saving ${newProjections.length} NEW projections...`);
+            for (const proj of allProjections) {
+              const { data: existing } = await cacheSupabase
+                .from('sales_cache')
+                .select('id, initial_projection')
+                .eq('location_id', proj.location_id)
+                .eq('sale_date', proj.sale_date)
+                .single();
               
-              for (const proj of newProjections) {
-                const { data: existing } = await cacheSupabase
-                  .from('sales_cache')
-                  .select('id')
-                  .eq('location_id', proj.location_id)
-                  .eq('sale_date', proj.sale_date)
-                  .single();
-                
-                if (existing) {
-                  await cacheSupabase
-                    .from('sales_cache')
-                    .update({ projected_sales: proj.projected_sales })
-                    .eq('location_id', proj.location_id)
-                    .eq('sale_date', proj.sale_date);
-                } else {
-                  await cacheSupabase
-                    .from('sales_cache')
-                    .insert({
-                      location_id: proj.location_id,
-                      sale_date: proj.sale_date,
-                      projected_sales: proj.projected_sales,
-                      net_sales: 0,
-                      guest_count: 0
-                    });
+              if (existing) {
+                // Update living_projection (recalculated daily)
+                // If no initial_projection yet, also set it
+                const updateData: Record<string, any> = { living_projection: proj.projected_sales };
+                if (!existing.initial_projection || existing.initial_projection <= 0) {
+                  updateData.initial_projection = proj.projected_sales;
                 }
+                await cacheSupabase
+                  .from('sales_cache')
+                  .update(updateData)
+                  .eq('location_id', proj.location_id)
+                  .eq('sale_date', proj.sale_date);
+              } else {
+                await cacheSupabase
+                  .from('sales_cache')
+                  .insert({
+                    location_id: proj.location_id,
+                    sale_date: proj.sale_date,
+                    initial_projection: proj.projected_sales,
+                    living_projection: proj.projected_sales,
+                    projected_sales: proj.projected_sales,
+                    net_sales: 0,
+                    guest_count: 0
+                  });
               }
-              console.log('[BACKGROUND] Projections stored successfully');
             }
+            console.log('[BACKGROUND] Living projections stored successfully');
           }
         }
         
