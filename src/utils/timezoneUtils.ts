@@ -304,7 +304,7 @@ const HOURS_AFTER_CLOSE = 3;
  * @returns Cutoff hour (0-23)
  */
 export const calculateCutoffHour = (closeTime?: string | null): number => {
-  if (!closeTime) return DEFAULT_CUTOFF_HOUR;
+  if (!closeTime || typeof closeTime !== 'string') return DEFAULT_CUTOFF_HOUR;
   
   const [hours] = closeTime.split(':').map(Number);
   if (isNaN(hours)) return DEFAULT_CUTOFF_HOUR;
