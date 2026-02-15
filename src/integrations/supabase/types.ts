@@ -2819,6 +2819,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_active: boolean
           latitude: number | null
           location_code: string | null
           location_type: string
@@ -2833,6 +2834,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_active?: boolean
           latitude?: number | null
           location_code?: string | null
           location_type?: string
@@ -2847,6 +2849,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_active?: boolean
           latitude?: number | null
           location_code?: string | null
           location_type?: string
