@@ -296,6 +296,7 @@ export function MobileScheduleView({
           }
           if (p.punch_type === 'break_start') {
             breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
+            breakEnd = null; // Reset so we don't show stale end time from a previous break
             isOnBreak = true;
             return;
           }

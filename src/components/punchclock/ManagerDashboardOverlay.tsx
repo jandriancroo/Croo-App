@@ -767,11 +767,22 @@ export function ManagerDashboardOverlay({
     }).format(time);
   };
 
-  const getBreakReturnTime = (breakStartTime: string) => {
+  const getBreakReturnTime = (breakStartTime: string, breakType?: string | null) => {
     const breakStart = new Date(breakStartTime);
     const now = new Date();
     const minutesOnBreak = differenceInMinutes(now, breakStart);
-    const expectedBreakLength = 30; // 30-minute break
+    
+    // Parse expected break length from notes (e.g. "10 minute paid break", "30 minute unpaid break")
+    let expectedBreakLength = 30; // default fallback
+    if (breakType) {
+      const match = breakType.match(/(\d+)\s*min/i);
+      if (match) {
+        expectedBreakLength = parseInt(match[1], 10);
+      } else if (breakType.toLowerCase().includes('paid') && !breakType.toLowerCase().includes('unpaid')) {
+        expectedBreakLength = 10; // paid breaks are typically 10 min
+      }
+    }
+    
     const minutesRemaining = expectedBreakLength - minutesOnBreak;
     
     if (minutesRemaining <= 0) {
@@ -1351,11 +1362,11 @@ export function ManagerDashboardOverlay({
                                   <div className="flex items-center gap-1">
                                     <Coffee className="h-3 w-3 lg:h-4 lg:w-4 text-amber-500" />
                                     <span className={`text-[9px] lg:text-[10px] font-bold ${
-                                      getBreakReturnTime(shift.breakStartTime).isOverdue 
+                                      getBreakReturnTime(shift.breakStartTime, shift.breakType).isOverdue 
                                         ? 'text-red-500' 
                                         : 'text-amber-500'
                                     }`}>
-                                      {getBreakReturnTime(shift.breakStartTime).text}
+                                      {getBreakReturnTime(shift.breakStartTime, shift.breakType).text}
                                     </span>
                                   </div>
                                 ) : (
