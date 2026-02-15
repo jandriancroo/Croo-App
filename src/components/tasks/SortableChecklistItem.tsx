@@ -70,39 +70,41 @@ export function SortableChecklistItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex gap-2 items-start"
     >
-      {isAdmin && (
-        <div
-          className="cursor-grab active:cursor-grabbing mt-2 touch-none text-muted-foreground"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" />
-        </div>
-      )}
       <div
-        className="flex-1 border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+        className="border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
         style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
         onClick={handleClick}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="font-medium text-sm truncate">{checklist.title}</p>
-              {isDynamic && (
-                <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
-                  <CalendarDays className="h-2.5 w-2.5" />
-                  {dayNames[currentDay]}
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-[10px] px-1.5">
-                {frequencyLabel}
-              </Badge>
-            </div>
-            {checklist.description && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
+          <div className="flex-1 min-w-0 flex items-start gap-2">
+            {isAdmin && (
+              <div
+                className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground mt-0.5 flex-shrink-0"
+                {...attributes}
+                {...listeners}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-4 w-4" />
+              </div>
             )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm truncate">{checklist.title}</p>
+                {isDynamic && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
+                    <CalendarDays className="h-2.5 w-2.5" />
+                    {dayNames[currentDay]}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px] px-1.5">
+                  {frequencyLabel}
+                </Badge>
+              </div>
+              {checklist.description && (
+                <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
+              )}
+            </div>
           </div>
           {isAdmin && (
             <DropdownMenu>
