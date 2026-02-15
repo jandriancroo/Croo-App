@@ -98,14 +98,21 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
   
-  // Query keys to refresh on pull-to-refresh
-  const REFRESH_QUERY_KEYS = [
+  // Light DB reads — always refetch on pull
+  const ALWAYS_REFRESH_KEYS = [
     ['user-checklists'],
     ['checklist-stats'],
     ['user-data-cubes'],
     ['catering-orders'],
     ['temporary-tasks'],
     ['location-hours-today'],
+  ];
+  
+  // Heavy API/edge function calls — cooldown-gated
+  const COOLDOWN_KEYS = [
+    ['sales-cache'],
+    ['labor-cache'],
+    ['daily-tips'],
   ];
   
   // Handle pull-to-refresh
@@ -992,7 +999,8 @@ export default function Dashboard() {
   );
   return <Layout>
       <PullToRefresh
-        queryKeys={REFRESH_QUERY_KEYS}
+        alwaysRefreshKeys={ALWAYS_REFRESH_KEYS}
+        cooldownKeys={COOLDOWN_KEYS}
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
