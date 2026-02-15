@@ -2642,9 +2642,21 @@ serve(async (req) => {
     let monthlyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
     let laborSource: 'qu' | 'punches' | null = null;
     
-    // Always fetch tips data
+    // Tips are only fetched at close-of-business (daily sync) and cached in daily_tips table
+    // Dashboard reads tips entirely from DB cache - no live API calls needed
     let tipsData = null;
     let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
+    
+    // Load all weekly tips from DB cache (including today if already synced at close)
+    if (locationId) {
+      const allWeekTips = await getCachedTipsData(cacheSupabase, locationId, weekDates);
+      tipsData = allWeekTips.dailyTips.find(d => d.date === todayStr) 
+        ? { ccTips: allWeekTips.dailyTips.find(d => d.date === todayStr)!.ccTips, cashTips: allWeekTips.dailyTips.find(d => d.date === todayStr)!.cashTips, totalTips: 0, byEmployee: [] as any[] }
+        : null;
+      if (tipsData) tipsData.totalTips = tipsData.ccTips + tipsData.cashTips;
+      weeklyTipsData = allWeekTips;
+      console.log(`[TIPS] Loaded from DB cache: ${allWeekTips.dailyTips.length} days, cc=$${allWeekTips.ccTips}, cash=$${allWeekTips.cashTips}`);
+    }
     
     if (credentials.pull_labor) {
       console.log('Pull labor enabled - fetching today live from Qu, historical from labor_cache');
@@ -2653,27 +2665,13 @@ serve(async (req) => {
       const pastMonthDates = monthDates.filter(d => d < todayStr);
       const pastWeekDates = weekDates.filter(d => d < todayStr);
       
-      // Fetch today's labor + tips live, historical from cache
-      const pastWeekTipsDates = weekDates.filter(d => d !== todayStr);
-      const [todayLabor, cachedMonthLabor, todayTips, cachedWeekTips] = await Promise.all([
+      const [todayLabor, cachedMonthLabor] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
         getCachedLaborData(cacheSupabase, locationId, pastMonthDates),
-        fetchTipsData(tokenGw, todayStr, qbLocationId),
-        locationId ? getCachedTipsData(cacheSupabase, locationId, pastWeekTipsDates) : Promise.resolve({ ccTips: 0, cashTips: 0, dailyTips: [] })
       ]);
       
       laborData = todayLabor;
       laborSource = 'qu';
-      tipsData = todayTips;
-      // Merge today's live tips with cached past week tips
-      weeklyTipsData = {
-        ccTips: cachedWeekTips.ccTips + (todayTips?.ccTips || 0),
-        cashTips: cachedWeekTips.cashTips + (todayTips?.cashTips || 0),
-        dailyTips: [
-          ...cachedWeekTips.dailyTips,
-          ...(todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [])
-        ]
-      };
       
       // Calculate MTD from cached historical + today's live
       let mtdLaborCost = todayLabor?.laborCost || 0;
@@ -2762,29 +2760,17 @@ serve(async (req) => {
         console.log(`[LABOR-BLEND] Cached QU dates (${cachedDates.length}): ${cachedDates.join(', ')}`);
         console.log(`[LABOR-BLEND] Punch dates (${punchDates.length + 1}): ${[...punchDates, todayStr].join(', ')}`);
         
-        const pastWeekTipsDates2 = weekDates.filter(d => d !== todayStr);
-        const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, cachedWeekTips2] = await Promise.all([
+        const [todayPunchLabor, weekPunchLabor, punchMonthLabor] = await Promise.all([
           calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
           calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
           punchDates.length > 0
             ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
             : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
-          fetchTipsData(tokenGw, todayStr, qbLocationId),
-          getCachedTipsData(cacheSupabase, locationId, pastWeekTipsDates2)
         ]);
         
         laborData = todayPunchLabor;
         weeklyLaborData = weekPunchLabor;
-        tipsData = todayTips;
-        // Merge today's live tips with cached past week tips
-        weeklyTipsData = {
-          ccTips: cachedWeekTips2.ccTips + (todayTips?.ccTips || 0),
-          cashTips: cachedWeekTips2.cashTips + (todayTips?.cashTips || 0),
-          dailyTips: [
-            ...cachedWeekTips2.dailyTips,
-            ...(todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [])
-          ]
-        };
+        // Tips already loaded from DB cache above
         
         // Calculate cached QU labor totals
         let cachedLaborCost = 0;
@@ -2848,10 +2834,8 @@ serve(async (req) => {
         
         laborSource = 'punches';
       } else {
-        // No location ID, still fetch tips (live only, no cache available)
-        const todayTips = await fetchTipsData(tokenGw, todayStr, qbLocationId);
-        tipsData = todayTips;
-        weeklyTipsData = { ccTips: todayTips?.ccTips || 0, cashTips: todayTips?.cashTips || 0, dailyTips: todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [] };
+        // No location ID - tips already loaded from DB cache above (will be null if no locationId)
+        console.log('[TIPS] No location ID for punch labor, tips loaded from cache');
       }
     }
 
@@ -3361,25 +3345,30 @@ serve(async (req) => {
             }
           }
           
-          // Save today's tips to daily_tips cache for future WTD lookups
-          if (tipsData && (tipsData.ccTips > 0 || tipsData.cashTips > 0)) {
-            const { error: tipsError } = await cacheSupabase
-              .from('daily_tips')
-              .upsert({
-                location_id: locationId,
-                tip_date: todayStr,
-                total_cc_tips: tipsData.ccTips,
-                total_cash_tips: tipsData.cashTips,
-                fetched_at: new Date().toISOString()
-              }, {
-                onConflict: 'location_id,tip_date'
-              });
-            
-            if (tipsError) {
-              console.error(`[BACKGROUND] Failed to save tips to daily_tips:`, tipsError.message);
-            } else {
-              console.log(`[BACKGROUND] Saved tips: cc=$${tipsData.ccTips}, cash=$${tipsData.cashTips}`);
+          // Fetch and save today's tips to daily_tips cache (tips only need live fetch at sync time, not on every dashboard load)
+          try {
+            const liveTips = await fetchTipsData(tokenGw, todayStr, qbLocationId);
+            if (liveTips && (liveTips.ccTips > 0 || liveTips.cashTips > 0)) {
+              const { error: tipsError } = await cacheSupabase
+                .from('daily_tips')
+                .upsert({
+                  location_id: locationId,
+                  tip_date: todayStr,
+                  total_cc_tips: liveTips.ccTips,
+                  total_cash_tips: liveTips.cashTips,
+                  fetched_at: new Date().toISOString()
+                }, {
+                  onConflict: 'location_id,tip_date'
+                });
+              
+              if (tipsError) {
+                console.error(`[BACKGROUND] Failed to save tips to daily_tips:`, tipsError.message);
+              } else {
+                console.log(`[BACKGROUND] Saved tips: cc=$${liveTips.ccTips}, cash=$${liveTips.cashTips}`);
+              }
             }
+          } catch (tipsErr) {
+            console.error(`[BACKGROUND] Tips fetch/save error:`, tipsErr);
           }
         }
       } catch (bgError) {
