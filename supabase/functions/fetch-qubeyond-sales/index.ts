@@ -798,19 +798,22 @@ async function fetchPaymentTypes(
   return [];
 }
 
-// Fetch payment types for multiple dates and aggregate
+// Fetch payment types for multiple dates and aggregate (PARALLEL)
 async function fetchPaymentTypesForDates(
   tokenGw: string,
   dates: string[],
   qbLocationId: string
 ): Promise<{ paymentType: string; amount: number }[]> {
-  console.log(`[PAYMENTS] Fetching payment types for ${dates.length} days`);
+  console.log(`[PAYMENTS] Fetching payment types for ${dates.length} days (parallel)`);
   
   const aggregated: Map<string, number> = new Map();
   
-  // Batch fetch for all dates
-  for (const dateStr of dates) {
-    const dayPayments = await fetchPaymentTypes(tokenGw, dateStr, qbLocationId);
+  // Fetch ALL days in parallel instead of sequentially
+  const results = await Promise.all(
+    dates.map(dateStr => fetchPaymentTypes(tokenGw, dateStr, qbLocationId))
+  );
+  
+  for (const dayPayments of results) {
     for (const p of dayPayments) {
       const current = aggregated.get(p.paymentType) || 0;
       aggregated.set(p.paymentType, current + p.amount);
@@ -824,6 +827,102 @@ async function fetchPaymentTypesForDates(
   }
   
   return result;
+}
+
+// Get cached payment types from sales_cache for past days
+async function getCachedPaymentTypes(
+  supabase: any,
+  locationId: string,
+  dates: string[]
+): Promise<{ paymentType: string; amount: number }[]> {
+  if (dates.length === 0) return [];
+  
+  const { data, error } = await supabase
+    .from('sales_cache')
+    .select('sale_date, payments_data')
+    .eq('location_id', locationId)
+    .in('sale_date', dates);
+  
+  if (error || !data) {
+    console.error('[PAYMENTS-CACHE] Error fetching cached payments:', error?.message);
+    return [];
+  }
+  
+  const aggregated = new Map<string, number>();
+  let cachedCount = 0;
+  
+  for (const row of data) {
+    if (row.payments_data && Array.isArray(row.payments_data)) {
+      cachedCount++;
+      for (const p of row.payments_data as { paymentType: string; amount: number }[]) {
+        const current = aggregated.get(p.paymentType) || 0;
+        aggregated.set(p.paymentType, current + p.amount);
+      }
+    }
+  }
+  
+  console.log(`[PAYMENTS-CACHE] Got cached payments for ${cachedCount}/${dates.length} days`);
+  
+  return Array.from(aggregated.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
+}
+
+// Get cached tips from daily_tips table for past days
+async function getCachedTipsData(
+  supabase: any,
+  locationId: string,
+  dates: string[]
+): Promise<{ ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] }> {
+  if (dates.length === 0) return { ccTips: 0, cashTips: 0, dailyTips: [] };
+  
+  const { data, error } = await supabase
+    .from('daily_tips')
+    .select('tip_date, total_cc_tips, total_cash_tips')
+    .eq('location_id', locationId)
+    .in('tip_date', dates);
+  
+  if (error || !data) {
+    console.error('[TIPS-CACHE] Error fetching cached tips:', error?.message);
+    return { ccTips: 0, cashTips: 0, dailyTips: [] };
+  }
+  
+  let totalCcTips = 0;
+  let totalCashTips = 0;
+  const dailyTips: { date: string; ccTips: number; cashTips: number }[] = [];
+  
+  for (const row of data) {
+    const ccTips = row.total_cc_tips || 0;
+    const cashTips = row.total_cash_tips || 0;
+    totalCcTips += ccTips;
+    totalCashTips += cashTips;
+    dailyTips.push({ date: row.tip_date, ccTips, cashTips });
+  }
+  
+  console.log(`[TIPS-CACHE] Got cached tips for ${data.length}/${dates.length} days: cc=$${totalCcTips}, cash=$${totalCashTips}`);
+  return { ccTips: totalCcTips, cashTips: totalCashTips, dailyTips };
+}
+
+// Get cached hourly data for a specific date from sales_cache
+async function getCachedHourlyData(
+  supabase: any,
+  locationId: string,
+  dateStr: string
+): Promise<{ hour: string; sales: number; checksCount: number }[] | null> {
+  const { data, error } = await supabase
+    .from('sales_cache')
+    .select('hourly_data')
+    .eq('location_id', locationId)
+    .eq('sale_date', dateStr)
+    .maybeSingle();
+  
+  if (error || !data?.hourly_data) return null;
+  
+  // hourly_data in sales_cache has hour, sales/projected, checksCount
+  const hourlyData = data.hourly_data as any[];
+  return hourlyData.map((h: any) => ({
+    hour: h.hour || '',
+    sales: h.sales || h.actual || 0,
+    checksCount: h.checksCount || h.guestCount || 0
+  }));
 }
 
 // Type for punch records
@@ -2518,21 +2617,24 @@ serve(async (req) => {
       });
     }
 
-    // Fetch hourly data for today and previous day (for real-time comparison)
-    // ONLY TODAY is fetched live - past days come from cache
+    // Fetch hourly data for today live; previous day from CACHE (already synced)
+    // This eliminates one live QuBeyond API call (~1s saved)
     const [
       todayHourly,
-      prevDayHourly,
+      cachedPrevDayHourly,
       productMix,
       tillsData,
       todayPayments
     ] = await Promise.all([
       fetchHourlySales(tokenGw, todayStr, qbLocationId),
-      fetchHourlySales(tokenGw, prevDayStr, qbLocationId),
+      locationId ? getCachedHourlyData(cacheSupabase, locationId, prevDayStr) : Promise.resolve(null),
       fetchProductMix(tokenGw, [todayStr], qbLocationId),
       fetchTillsData(tokenGw, todayStr, qbLocationId),
       fetchPaymentTypes(tokenGw, todayStr, qbLocationId)
     ]);
+    
+    // If cache miss for prev day, fall back to live fetch
+    const prevDayHourly = cachedPrevDayHourly || await fetchHourlySales(tokenGw, prevDayStr, qbLocationId);
 
     // Fetch labor data - from Qu if pull_labor enabled, otherwise from punches
     let laborData = null;
@@ -2551,18 +2653,27 @@ serve(async (req) => {
       const pastMonthDates = monthDates.filter(d => d < todayStr);
       const pastWeekDates = weekDates.filter(d => d < todayStr);
       
-      // Fetch today's labor live, historical from cache
-      const [todayLabor, cachedMonthLabor, todayTips, weekTips] = await Promise.all([
+      // Fetch today's labor + tips live, historical from cache
+      const pastWeekTipsDates = weekDates.filter(d => d !== todayStr);
+      const [todayLabor, cachedMonthLabor, todayTips, cachedWeekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
         getCachedLaborData(cacheSupabase, locationId, pastMonthDates),
         fetchTipsData(tokenGw, todayStr, qbLocationId),
-        fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+        locationId ? getCachedTipsData(cacheSupabase, locationId, pastWeekTipsDates) : Promise.resolve({ ccTips: 0, cashTips: 0, dailyTips: [] })
       ]);
       
       laborData = todayLabor;
       laborSource = 'qu';
       tipsData = todayTips;
-      weeklyTipsData = weekTips;
+      // Merge today's live tips with cached past week tips
+      weeklyTipsData = {
+        ccTips: cachedWeekTips.ccTips + (todayTips?.ccTips || 0),
+        cashTips: cachedWeekTips.cashTips + (todayTips?.cashTips || 0),
+        dailyTips: [
+          ...cachedWeekTips.dailyTips,
+          ...(todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [])
+        ]
+      };
       
       // Calculate MTD from cached historical + today's live
       let mtdLaborCost = todayLabor?.laborCost || 0;
@@ -2651,20 +2762,29 @@ serve(async (req) => {
         console.log(`[LABOR-BLEND] Cached QU dates (${cachedDates.length}): ${cachedDates.join(', ')}`);
         console.log(`[LABOR-BLEND] Punch dates (${punchDates.length + 1}): ${[...punchDates, todayStr].join(', ')}`);
         
-        const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
+        const pastWeekTipsDates2 = weekDates.filter(d => d !== todayStr);
+        const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, cachedWeekTips2] = await Promise.all([
           calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
           calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
           punchDates.length > 0
             ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
             : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
           fetchTipsData(tokenGw, todayStr, qbLocationId),
-          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+          getCachedTipsData(cacheSupabase, locationId, pastWeekTipsDates2)
         ]);
         
         laborData = todayPunchLabor;
         weeklyLaborData = weekPunchLabor;
         tipsData = todayTips;
-        weeklyTipsData = weekTips;
+        // Merge today's live tips with cached past week tips
+        weeklyTipsData = {
+          ccTips: cachedWeekTips2.ccTips + (todayTips?.ccTips || 0),
+          cashTips: cachedWeekTips2.cashTips + (todayTips?.cashTips || 0),
+          dailyTips: [
+            ...cachedWeekTips2.dailyTips,
+            ...(todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [])
+          ]
+        };
         
         // Calculate cached QU labor totals
         let cachedLaborCost = 0;
@@ -2728,34 +2848,28 @@ serve(async (req) => {
         
         laborSource = 'punches';
       } else {
-        // No location ID, still fetch tips
-        const [todayTips, weekTips] = await Promise.all([
-          fetchTipsData(tokenGw, todayStr, qbLocationId),
-          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
-        ]);
+        // No location ID, still fetch tips (live only, no cache available)
+        const todayTips = await fetchTipsData(tokenGw, todayStr, qbLocationId);
         tipsData = todayTips;
-        weeklyTipsData = weekTips;
+        weeklyTipsData = { ccTips: todayTips?.ccTips || 0, cashTips: todayTips?.cashTips || 0, dailyTips: todayTips ? [{ date: todayStr, ccTips: todayTips.ccTips, cashTips: todayTips.cashTips }] : [] };
       }
     }
 
-    // Fetch payment types for week and month periods
-    let weeklyPayments: { paymentType: string; amount: number }[] = [];
-    let monthlyPayments: { paymentType: string; amount: number }[] = [];
-    
-    // Aggregate weekly and monthly payment data from past days (today already fetched)
+    // === PAYMENT TYPES: Use DB cache for past days, only today from live API ===
+    // This eliminates sequential per-day API calls (saves 3-6 seconds)
     const pastWeekPaymentDates = weekDates.filter(d => d !== todayStr);
     const pastMonthPaymentDates = monthDates.filter(d => d !== todayStr);
     
-    const [weekPayments, monthPayments] = await Promise.all([
-      pastWeekPaymentDates.length > 0 
-        ? fetchPaymentTypesForDates(tokenGw, pastWeekPaymentDates, qbLocationId)
+    const [weekPaymentsFromCache, monthPaymentsFromCache] = await Promise.all([
+      locationId && pastWeekPaymentDates.length > 0
+        ? getCachedPaymentTypes(cacheSupabase, locationId, pastWeekPaymentDates)
         : Promise.resolve([]),
-      pastMonthPaymentDates.length > 0
-        ? fetchPaymentTypesForDates(tokenGw, pastMonthPaymentDates, qbLocationId)
+      locationId && pastMonthPaymentDates.length > 0
+        ? getCachedPaymentTypes(cacheSupabase, locationId, pastMonthPaymentDates)
         : Promise.resolve([])
     ]);
     
-    // Merge today's payments with weekly/monthly
+    // Merge today's live payments with cached past days
     const mergePayments = (existing: { paymentType: string; amount: number }[], today: { paymentType: string; amount: number }[]) => {
       const map = new Map<string, number>();
       for (const p of existing) {
@@ -2767,8 +2881,8 @@ serve(async (req) => {
       return Array.from(map.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
     };
     
-    weeklyPayments = mergePayments(weekPayments, todayPayments);
-    monthlyPayments = mergePayments(monthPayments, todayPayments);
+    const weeklyPayments = mergePayments(weekPaymentsFromCache, todayPayments);
+    const monthlyPayments = mergePayments(monthPaymentsFromCache, todayPayments);
 
     const dailySales = todayHourly.reduce((sum, h) => sum + h.sales, 0);
     const dailyGuestCount = todayHourly.reduce((sum, h) => sum + h.checksCount, 0);
@@ -3244,6 +3358,27 @@ serve(async (req) => {
               console.error(`[BACKGROUND] Failed to save labor to labor_cache:`, laborError.message);
             } else {
               console.log(`[BACKGROUND] Saved labor to labor_cache: ${laborSource} source, $${laborData.laborCost.toFixed(2)}, ${laborData.hoursWorked.toFixed(2)}h`);
+            }
+          }
+          
+          // Save today's tips to daily_tips cache for future WTD lookups
+          if (tipsData && (tipsData.ccTips > 0 || tipsData.cashTips > 0)) {
+            const { error: tipsError } = await cacheSupabase
+              .from('daily_tips')
+              .upsert({
+                location_id: locationId,
+                tip_date: todayStr,
+                total_cc_tips: tipsData.ccTips,
+                total_cash_tips: tipsData.cashTips,
+                fetched_at: new Date().toISOString()
+              }, {
+                onConflict: 'location_id,tip_date'
+              });
+            
+            if (tipsError) {
+              console.error(`[BACKGROUND] Failed to save tips to daily_tips:`, tipsError.message);
+            } else {
+              console.log(`[BACKGROUND] Saved tips: cc=$${tipsData.ccTips}, cash=$${tipsData.cashTips}`);
             }
           }
         }
