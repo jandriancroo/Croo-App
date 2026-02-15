@@ -87,67 +87,63 @@ export default function Messages() {
   const chatIdsRef = useRef<Set<string>>(new Set());
   const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Ensure marketplace chat exists — fire-and-forget, only once per session
+  const marketplaceChecked = useRef(false);
+  const ensureMarketplaceChat = useCallback(async () => {
+    if (marketplaceChecked.current || !user || !currentLocation) return;
+    marketplaceChecked.current = true;
+
+    let { data: marketplaceChats } = await supabase
+      .from("chats")
+      .select("id, title")
+      .ilike("title", "%Shift Marketplace%");
+
+    if (marketplaceChats && marketplaceChats.length > 1) {
+      const [keepChat, ...deleteChats] = marketplaceChats;
+      for (const chat of deleteChats) {
+        await supabase.from("chats").delete().eq("id", chat.id);
+      }
+      marketplaceChats = [keepChat];
+    }
+
+    let marketplaceChat = marketplaceChats?.[0] || null;
+
+    if (marketplaceChat && marketplaceChat.title !== "Shift Marketplace") {
+      await supabase
+        .from("chats")
+        .update({ title: "Shift Marketplace" })
+        .eq("id", marketplaceChat.id);
+    }
+
+    if (!marketplaceChat) {
+      const { data: newChat } = await supabase
+        .from("chats")
+        .insert({
+          created_by: user.id,
+          is_group: true,
+          title: "Shift Marketplace",
+          location_id: currentLocation.id,
+        })
+        .select()
+        .single();
+
+      if (newChat) {
+        const { data: allUsers } = await supabase.from("profiles").select("id");
+        if (allUsers) {
+          await supabase
+            .from("chat_members")
+            .insert(allUsers.map((u) => ({ chat_id: newChat.id, user_id: u.id })));
+        }
+      }
+    }
+  }, [user, currentLocation]);
+
   const fetchChats = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-
-      // Ensure shift marketplace chat exists (single instance)
-      let { data: marketplaceChats } = await supabase
-        .from("chats")
-        .select("id, title")
-        .ilike("title", "%Shift Marketplace%");
-
-      // Remove duplicates if any exist
-      if (marketplaceChats && marketplaceChats.length > 1) {
-        const [keepChat, ...deleteChats] = marketplaceChats;
-        for (const chat of deleteChats) {
-          await supabase.from("chats").delete().eq("id", chat.id);
-        }
-        marketplaceChats = [keepChat];
-      }
-
-      let marketplaceChat = marketplaceChats?.[0] || null;
-
-      // Update existing chat to remove rotating icon if present
-      if (marketplaceChat && marketplaceChat.title !== "Shift Marketplace") {
-        await supabase
-          .from("chats")
-          .update({ title: "Shift Marketplace" })
-          .eq("id", marketplaceChat.id);
-      }
-
-      // Create if doesn't exist
-      if (!marketplaceChat && currentLocation) {
-        const { data: newChat } = await supabase
-          .from("chats")
-          .insert({
-            created_by: user.id,
-            is_group: true,
-            title: "Shift Marketplace",
-            location_id: currentLocation.id,
-          })
-          .select()
-          .single();
-
-        if (newChat) {
-          marketplaceChat = newChat;
-
-          // Add all users to marketplace chat
-          const { data: allUsers } = await supabase.from("profiles").select("id");
-
-          if (allUsers) {
-            await supabase
-              .from("chat_members")
-              .insert(
-                allUsers.map((u) => ({
-                  chat_id: newChat.id,
-                  user_id: u.id,
-                }))
-              );
-          }
-        }
-      }
+      // Fire-and-forget marketplace check (doesn't block chat loading)
+      ensureMarketplaceChat();
 
       // Filter chats by current location - include last_read_at for unread detection
       let query = supabase
@@ -177,14 +173,16 @@ export default function Messages() {
       const chatIds = userChats.map((c: any) => c.id);
       chatIdsRef.current = new Set(chatIds);
 
-      // Bulk fetch latest message per chat
+      // Bulk fetch latest message per chat — LIMIT to 1 per chat via chunked queries
       const latestPerChat = new Map<string, { id: string; sender_id: string; content: string | null; created_at: string }>();
       if (chatIds.length > 0) {
+        // Fetch latest messages with a reasonable limit (max ~3x chat count to cover gaps)
         const { data: latestMessages } = await supabase
           .from('messages')
           .select('id, chat_id, sender_id, content, created_at')
           .in('chat_id', chatIds)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(chatIds.length * 3);
 
         for (const msg of latestMessages || []) {
           if (!latestPerChat.has(msg.chat_id)) {
