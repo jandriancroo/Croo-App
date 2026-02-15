@@ -898,11 +898,23 @@ export default function PayrollReview() {
     const punchQueryStart = new Date(selectedPeriod.start.getTime() - 24 * 60 * 60 * 1000);
     const punchQueryEnd = new Date(selectedPeriod.end.getTime() + 24 * 60 * 60 * 1000);
 
-    // Fetch location hours for all days to get dynamic cutoff times
-    const { data: locationHours } = await supabase
-      .from('location_hours')
-      .select('day_of_week, close_time')
-      .eq('location_id', currentLocation.id);
+    // Fetch location hours, assigned users, and punch users in parallel
+    const [{ data: locationHours }, { data: userLocations }, { data: punchUsers }] = await Promise.all([
+      supabase
+        .from('location_hours')
+        .select('day_of_week, close_time')
+        .eq('location_id', currentLocation.id),
+      supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id),
+      supabase
+        .from('time_punches')
+        .select('user_id')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', punchQueryStart.toISOString())
+        .lte('punch_time', punchQueryEnd.toISOString()),
+    ]);
     
     // Create map of day_of_week -> cutoff hour (close_time + 3 hours)
     const cutoffByDayOfWeek = new Map<number, number>();
@@ -912,23 +924,7 @@ export default function PayrollReview() {
     // Default cutoff if no hours configured
     const defaultCutoff = 5;
 
-    // Get users assigned to current location
-    const { data: userLocations } = await supabase
-      .from('user_locations')
-      .select('user_id')
-      .eq('location_id', currentLocation.id);
-
     const assignedUserIds = new Set(userLocations?.map(ul => ul.user_id) || []);
-
-    // Also get users who have punches at this location in the selected period
-    // (they may have punched in without being assigned to the location)
-    const { data: punchUsers } = await supabase
-      .from('time_punches')
-      .select('user_id')
-      .eq('location_id', currentLocation.id)
-      .gte('punch_time', punchQueryStart.toISOString())
-      .lte('punch_time', punchQueryEnd.toISOString());
-
     const punchUserIds = new Set(punchUsers?.map(p => p.user_id) || []);
     
     // Combine both sets of user IDs
@@ -948,30 +944,59 @@ export default function PayrollReview() {
 
     if (!profiles) return;
 
-    const cards = await Promise.all(
-      profiles.map(async (profile) => {
-        // Fetch punches and scheduled shifts in parallel
-        const [punchesResult, shiftsResult, wageResult] = await Promise.all([
-          supabase
-            .from('time_punches')
-            .select('*')
-            .eq('user_id', profile.id)
-            .eq('location_id', currentLocation.id)
-            .gte('punch_time', punchQueryStart.toISOString())
-            .lte('punch_time', punchQueryEnd.toISOString())
-            .order('punch_time'),
-          (supabase
-            .from('scheduled_shifts' as any)
-            .select('shift_date, start_time, end_time, is_time_off')
-            .eq('user_id', profile.id)
-            .gte('shift_date', selectedPeriod.startDate)
-            .lte('shift_date', selectedPeriod.endDate) as any),
-          supabase.rpc('get_current_wage', { p_user_id: profile.id })
-        ]);
-        
-        const punches = punchesResult.data;
-        const scheduledShifts = shiftsResult.data || [];
-        const currentWage = wageResult.data;
+
+
+    // BULK fetch all punches, shifts, and wages in parallel (instead of per-employee N+1)
+    const [allPunchesResult, allShiftsResult, ...wageResults] = await Promise.all([
+      supabase
+        .from('time_punches')
+        .select('*')
+        .eq('location_id', currentLocation.id)
+        .in('user_id', allUserIds)
+        .gte('punch_time', punchQueryStart.toISOString())
+        .lte('punch_time', punchQueryEnd.toISOString())
+        .order('punch_time'),
+      supabase
+        .from('scheduled_shifts' as any)
+        .select('user_id, shift_date, start_time, end_time, is_time_off')
+        .in('user_id', allUserIds)
+        .gte('shift_date', selectedPeriod.startDate)
+        .lte('shift_date', selectedPeriod.endDate) as any,
+      ...allUserIds.map(uid => supabase.rpc('get_current_wage', { p_user_id: uid })),
+    ]);
+
+    // Index bulk data by user_id
+    const punchesByUser = new Map<string, any[]>();
+    (allPunchesResult.data || []).forEach((p: any) => {
+      const arr = punchesByUser.get(p.user_id) || [];
+      arr.push(p);
+      punchesByUser.set(p.user_id, arr);
+    });
+
+    const shiftsByUser = new Map<string, any[]>();
+    ((allShiftsResult as any).data || []).forEach((s: any) => {
+      const arr = shiftsByUser.get(s.user_id) || [];
+      arr.push(s);
+      shiftsByUser.set(s.user_id, arr);
+    });
+
+    // Bulk fetch all creator profiles referenced in punches
+    const allCreatorIds = [...new Set(
+      (allPunchesResult.data || [])
+        .filter((p: any) => p.created_by || p.edited_by)
+        .flatMap((p: any) => [p.created_by, p.edited_by].filter(Boolean))
+    )] as string[];
+    
+    const { data: allCreatorProfiles } = allCreatorIds.length > 0
+      ? await supabase.from('profiles').select('id, full_name').in('id', allCreatorIds)
+      : { data: [] };
+    
+    const globalCreatorMap = new Map((allCreatorProfiles || []).map((p: any) => [p.id, p.full_name]));
+
+    const cards = profiles.map((profile, index) => {
+        const punches = punchesByUser.get(profile.id) || [];
+        const scheduledShifts = shiftsByUser.get(profile.id) || [];
+        const currentWage = wageResults[index]?.data;
         
         // Create a map of scheduled shifts by date
         const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean }>();
@@ -983,19 +1008,7 @@ export default function PayrollReview() {
           });
         });
 
-        // Fetch creator profiles for punches made by someone other than the employee
-        const creatorIds = [...new Set((punches || [])
-          .filter(p => p.created_by && p.created_by !== profile.id)
-          .map(p => p.created_by))] as string[];
-        
-        const { data: creatorProfiles } = creatorIds.length > 0
-          ? await supabase
-              .from('profiles')
-              .select('id, full_name')
-              .in('id', creatorIds)
-          : { data: [] };
-        
-        const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
+        const creatorMap = globalCreatorMap;
 
         // Group punches by day (in the location timezone) and attach creator names
         // IMPORTANT: Handle overnight shifts - if a clock_out is early AM (before cutoff) without
@@ -1154,8 +1167,8 @@ export default function PayrollReview() {
           totalHours,
           issues
         };
-      })
-    );
+      });
+    
 
     setTimeCards(cards);
   };
