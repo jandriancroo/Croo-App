@@ -1,7 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, MoreVertical, EyeOff, Trash2, Copy } from "lucide-react";
+import { FileCheck, GripVertical, MoreVertical, EyeOff, Trash2, Copy, CalendarDays } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 interface SortableChecklistItemProps {
@@ -60,48 +61,53 @@ export function SortableChecklistItem({
     }
   };
 
+  const frequencyLabel = checklist.frequency === 'daily' ? 'Daily' 
+    : checklist.frequency === 'weekly' ? 'Weekly'
+    : checklist.frequency === 'monthly' ? 'Monthly'
+    : checklist.frequency;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex gap-2"
+      className="flex gap-2 items-start"
     >
       {isReordering && (
         <Button
           variant="ghost"
           size="icon"
-          className="cursor-grab active:cursor-grabbing"
+          className="cursor-grab active:cursor-grabbing mt-1"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
         </Button>
       )}
-      <Button
-        variant="outline"
-        className="flex-1 justify-start min-w-0 overflow-hidden"
-        onClick={handleClick}
-        disabled={isReordering}
+      <div
+        className="flex-1 border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+        style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
+        onClick={isReordering ? undefined : handleClick}
       >
-        <FileCheck className="h-4 w-4 mr-2 flex-shrink-0" />
-        <div className="flex-1 text-left min-w-0 overflow-hidden">
-          <div className="font-medium truncate">
-            {checklist.title}
-            {isDynamic && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                ({dayNames[currentDay]})
-              </span>
-            )}
-          </div>
-          {checklist.description && (
-            <div className="text-xs text-muted-foreground truncate">{checklist.description}</div>
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-sm truncate">{checklist.title}</p>
+          {isDynamic && (
+            <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
+              <CalendarDays className="h-2.5 w-2.5" />
+              {dayNames[currentDay]}
+            </Badge>
           )}
+          <Badge variant="outline" className="text-[10px] px-1.5">
+            {frequencyLabel}
+          </Badge>
         </div>
-      </Button>
+        {checklist.description && (
+          <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
+        )}
+      </div>
       {isAdmin && !isReordering && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="mt-1">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
