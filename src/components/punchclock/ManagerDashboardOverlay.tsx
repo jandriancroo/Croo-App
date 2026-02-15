@@ -546,22 +546,24 @@ export function ManagerDashboardOverlay({
 
       // Calculate actual completion status for each checklist
       return relevantChecklists.map(c => {
-        // Calculate total items for this checklist (accounting for dynamic day filtering)
-        let totalItems = c.checklist_items?.length || 0;
+        // Get the active item IDs for today (accounting for dynamic day filtering)
+        let activeItems: any[] = c.checklist_items || [];
         if (c.template_type === 'dynamic') {
-          totalItems = c.checklist_items?.filter((item: any) => 
+          activeItems = activeItems.filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(todayDayOfWeek)
-          ).length || 0;
+          );
         }
+        const totalItems = activeItems.length;
+        const activeItemIds = new Set(activeItems.map((item: any) => item.id));
 
         // Get all submissions for this checklist today
         const checklistSubmissions = (submissions || []).filter(s => s.checklist_id === c.id);
         
-        // Count unique completed items across all submissions (not total responses)
+        // Count unique completed items that are ALSO active today
         const uniqueItemIds = new Set<string>();
         checklistSubmissions.forEach((sub: any) => {
           sub.checklist_responses?.forEach((response: any) => {
-            if (response.item_id) {
+            if (response.item_id && activeItemIds.has(response.item_id)) {
               uniqueItemIds.add(response.item_id);
             }
           });
