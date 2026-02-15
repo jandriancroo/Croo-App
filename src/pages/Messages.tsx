@@ -641,18 +641,18 @@ export default function Messages() {
                   <button
                     key={f.id}
                     onClick={() => handleViewModeChange(f.id)}
-                    className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
+                    className={`relative flex items-center gap-1.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
                       isActive
-                        ? "bg-primary text-primary-foreground px-4"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80 px-2.5"
+                        ? "bg-primary text-primary-foreground px-3"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 px-2"
                     }`}
                     style={{
-                      maxWidth: isActive ? '200px' : '42px',
-                      minWidth: isActive ? 'auto' : '42px',
+                      maxWidth: isActive ? '160px' : '34px',
+                      minWidth: isActive ? 'auto' : '34px',
                     }}
                     aria-label={f.label}
                   >
-                    <Icon className="h-4.5 w-4.5 shrink-0" />
+                    <Icon className="h-4 w-4 shrink-0" />
                     <span
                       className="transition-all duration-300 ease-in-out overflow-hidden"
                       style={{
@@ -682,7 +682,7 @@ export default function Messages() {
           </div>
         )}
         
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {viewMode === 'support' ? (
             <SupportChatPanel />
           ) : viewMode === 'hiring' ? (
