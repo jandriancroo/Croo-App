@@ -86,53 +86,62 @@ export function SortableChecklistItem({
         style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
         onClick={handleClick}
       >
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-sm truncate">{checklist.title}</p>
-          {isDynamic && (
-            <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
-              <CalendarDays className="h-2.5 w-2.5" />
-              {dayNames[currentDay]}
-            </Badge>
-          )}
-          <Badge variant="outline" className="text-[10px] px-1.5">
-            {frequencyLabel}
-          </Badge>
-        </div>
-        {checklist.description && (
-          <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
-        )}
-      </div>
-      {isAdmin && !isReordering && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 mt-1">
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onCopyTo && (
-              <>
-                <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy To...
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-sm truncate">{checklist.title}</p>
+              {isDynamic && (
+                <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
+                  <CalendarDays className="h-2.5 w-2.5" />
+                  {dayNames[currentDay]}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] px-1.5">
+                {frequencyLabel}
+              </Badge>
+            </div>
+            {checklist.description && (
+              <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
             )}
-            <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-              <EyeOff className="h-4 w-4 mr-2" />
-              Make Inactive
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => onDelete(checklist.id)}
-              className="text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+          </div>
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 flex-shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onCopyTo && (
+                  <>
+                    <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy To...
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Make Inactive
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => onDelete(checklist.id)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
