@@ -247,10 +247,11 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
         }
       }
       
-      // Also expire pace-adjusted projection after 30 minutes
+      // Also expire pace-adjusted projection after 7 minutes (matches live sync interval)
+      const sevenMinutes = 7 * 60 * 1000;
       if (result.todayPaceAdjustedAt) {
         const paceTime = new Date(result.todayPaceAdjustedAt).getTime();
-        if (now - paceTime > thirtyMinutes) {
+        if (now - paceTime > sevenMinutes) {
           result.todayPaceAdjusted = undefined;
           result.todayPaceAdjustedAt = undefined;
         }
