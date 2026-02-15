@@ -135,15 +135,6 @@ export default function EditTabContent({
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Checklist Templates</h3>
               <div className="flex gap-2">
-                {isAdmin && checklists.length > 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsReordering(!isReordering)}
-                  >
-                    {isReordering ? "Done" : "Reorder"}
-                  </Button>
-                )}
                 {isAdmin && (
                   <Button
                     size="icon"
@@ -177,7 +168,7 @@ export default function EditTabContent({
                           key={checklist.id}
                           checklist={checklist}
                           isDynamic={isDynamicChecklist}
-                          isReordering={isReordering}
+                          isReordering={false}
                           isAdmin={isAdmin}
                           currentDay={currentDayIndex}
                           dayNames={dayNames}
