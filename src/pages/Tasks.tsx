@@ -550,8 +550,7 @@ export default function Tasks() {
           completed_by,
           event:schedule_events!inner(
             id,
-            title,
-            event_color,
+            event_name,
             location_id
           )
         `)
@@ -576,10 +575,10 @@ export default function Tasks() {
 
       return completions.map(c => ({
         id: c.id,
-        title: (c.event as any)?.title || 'Event',
+        title: (c.event as any)?.event_name || 'Event',
         completed_at: c.completed_at,
         completed_by: c.completed_by,
-        accent_color: (c.event as any)?.event_color || null,
+        accent_color: null,
         task_style: 'event' as const,
         completerName: completersMap[c.completed_by]?.full_name || null,
         completerPhoto: completersMap[c.completed_by]?.profile_photo_url || null,
