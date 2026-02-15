@@ -151,6 +151,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           'time-punches', 'payroll', 'temporary-tasks', 'logbook', 'catering',
           'certifications', 'holidays', 'events', 'availability', 'user-checklists',
           'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
+          'completion-history', 'submission-stats', 'completed-temp-tasks',
+          'location-timezone',
         ];
         return locationScopedKeys.some(prefix => key[0] === prefix);
       },
