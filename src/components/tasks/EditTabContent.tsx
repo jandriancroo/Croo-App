@@ -113,7 +113,7 @@ export default function EditTabContent({
 
   const subTabs = [
     { id: "quick-tasks", label: "Quick Tasks", icon: <Zap className="h-3.5 w-3.5" /> },
-    { id: "templates", label: "Templates", icon: <ClipboardList className="h-3.5 w-3.5" /> },
+    { id: "templates", label: "Checklists", icon: <ClipboardList className="h-3.5 w-3.5" /> },
   ];
 
   return (
