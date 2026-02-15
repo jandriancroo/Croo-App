@@ -463,6 +463,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       return orgData;
     },
     enabled: !!currentLocation?.id,
+    staleTime: 5 * 60 * 1000, // 5 min — matches prefetch, logo rarely changes
   });
 
   // Cache the brand logo URL for instant load on next visit
