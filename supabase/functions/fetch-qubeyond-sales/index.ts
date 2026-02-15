@@ -761,8 +761,9 @@ async function fetchPaymentTypes(
     return payments;
   };
 
-  for (const c of candidates) {
-    try {
+  // Fire all candidates in parallel instead of sequentially (~0.5-1.5s saved)
+  const results = await Promise.allSettled(
+    candidates.map(async (c) => {
       const resp = await fetch(c.url, {
         method: 'POST',
         headers: commonHeaders,
@@ -772,25 +773,27 @@ async function fetchPaymentTypes(
       if (!resp.ok) {
         const txt = await resp.text().catch(() => '');
         console.error(`[PAYMENTS] ${c.name} failed: ${resp.status} ${txt.substring(0, 120)}`);
-        continue;
+        return { name: c.name, parsed: [] as { paymentType: string; amount: number }[], valid: false };
       }
 
       const data = await resp.json();
       const parsed = parsePayments(data);
 
-      // Heuristic: only accept if it looks like real payment methods
       const looksLikePaymentMethods = parsed.some((p) =>
         /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
       );
 
       console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}`);
 
-      if (looksLikePaymentMethods) {
-        console.log(`[PAYMENTS] Using ${c.name}:`, JSON.stringify(parsed).substring(0, 800));
-        return parsed;
-      }
-    } catch (e) {
-      console.error(`[PAYMENTS] ${c.name} error:`, e);
+      return { name: c.name, parsed, valid: looksLikePaymentMethods };
+    })
+  );
+
+  // Pick the first valid result (preserving candidate priority order)
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.valid) {
+      console.log(`[PAYMENTS] Using ${result.value.name}:`, JSON.stringify(result.value.parsed).substring(0, 800));
+      return result.value.parsed;
     }
   }
 
@@ -2619,18 +2622,27 @@ serve(async (req) => {
 
     // Fetch hourly data for today live; previous day from CACHE (already synced)
     // This eliminates one live QuBeyond API call (~1s saved)
+    // === UNIFIED PARALLEL BLOCK: Live API calls + DB reads all at once ===
     const [
       todayHourly,
       cachedPrevDayHourly,
       productMix,
       tillsData,
-      todayPayments
+      todayPayments,
+      allWeekTips,
+      historicalData
     ] = await Promise.all([
       fetchHourlySales(tokenGw, todayStr, qbLocationId),
       locationId ? getCachedHourlyData(cacheSupabase, locationId, prevDayStr) : Promise.resolve(null),
       fetchProductMix(tokenGw, [todayStr], qbLocationId),
       fetchTillsData(tokenGw, todayStr, qbLocationId),
-      fetchPaymentTypes(tokenGw, todayStr, qbLocationId)
+      fetchPaymentTypes(tokenGw, todayStr, qbLocationId),
+      // DB reads that previously ran sequentially - now parallel with API calls
+      locationId ? getCachedTipsData(cacheSupabase, locationId, weekDates) : Promise.resolve({ ccTips: 0, cashTips: 0, dailyTips: [] }),
+      locationId ? fetchHistoricalDataFromCache(cacheSupabase, locationId, todayStr, timezone) : Promise.resolve({
+        fourWeekAverage: undefined, fourWeekHourlyPattern: undefined, lastYearData: undefined,
+        prevWeekSales: 0, prevMonthSales: 0, holidayContext: { lastYearWeight: 0.5, reason: 'No location' }
+      })
     ]);
     
     // If cache miss for prev day, fall back to live fetch
@@ -2642,14 +2654,11 @@ serve(async (req) => {
     let monthlyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
     let laborSource: 'qu' | 'punches' | null = null;
     
-    // Tips are only fetched at close-of-business (daily sync) and cached in daily_tips table
-    // Dashboard reads tips entirely from DB cache - no live API calls needed
+    // Tips from DB cache (already fetched in parallel above)
     let tipsData = null;
     let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
     
-    // Load all weekly tips from DB cache (including today if already synced at close)
-    if (locationId) {
-      const allWeekTips = await getCachedTipsData(cacheSupabase, locationId, weekDates);
+    if (locationId && allWeekTips) {
       tipsData = allWeekTips.dailyTips.find(d => d.date === todayStr) 
         ? { ccTips: allWeekTips.dailyTips.find(d => d.date === todayStr)!.ccTips, cashTips: allWeekTips.dailyTips.find(d => d.date === todayStr)!.cashTips, totalTips: 0, byEmployee: [] as any[] }
         : null;
@@ -2943,18 +2952,7 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // ALWAYS use sales_cache for historical projection data (not live API calls)
-    // This ensures projections use your 365-day cached history consistently
-    // (Reuse cacheSupabase client from above)
-    
-    console.log('Fetching historical projection data from sales_cache...');
-    const historicalData = await fetchHistoricalDataFromCache(
-      cacheSupabase,
-      locationId || '',
-      todayStr,
-      timezone
-    );
-    
+    // historicalData already fetched in the main parallel block above
     const { fourWeekAverage, fourWeekHourlyPattern, prevWeekSales, prevMonthSales, holidayContext } = historicalData;
     
     // Map lastYearData to expected shape
