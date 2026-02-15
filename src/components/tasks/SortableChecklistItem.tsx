@@ -39,7 +39,7 @@ export function SortableChecklistItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: checklist.id, disabled: !isReordering });
+  } = useSortable({ id: checklist.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -72,21 +72,19 @@ export function SortableChecklistItem({
       style={style}
       className="flex gap-2 items-start"
     >
-      {isReordering && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="cursor-grab active:cursor-grabbing mt-1"
+      {isAdmin && (
+        <div
+          className="cursor-grab active:cursor-grabbing mt-2 touch-none text-muted-foreground"
           {...attributes}
           {...listeners}
         >
           <GripVertical className="h-4 w-4" />
-        </Button>
+        </div>
       )}
       <div
         className="flex-1 border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
         style={{ borderLeftWidth: 4, borderLeftColor: 'hsl(var(--primary))' }}
-        onClick={isReordering ? undefined : handleClick}
+        onClick={handleClick}
       >
         <div className="flex items-center gap-2">
           <p className="font-medium text-sm truncate">{checklist.title}</p>
