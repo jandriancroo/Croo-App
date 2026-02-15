@@ -1,5 +1,6 @@
 import { useState, useRef, ReactNode, useCallback, createContext, useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { RefreshCw } from 'lucide-react';
 
 // Context to expose refreshing state to children
 const PullToRefreshContext = createContext<{ isRefreshing: boolean }>({ isRefreshing: false });
@@ -10,6 +11,10 @@ interface PullToRefreshProps {
   children: ReactNode;
   /** Query keys to invalidate on refresh. If not provided, all queries are invalidated. */
   queryKeys?: string[][];
+  /** Query keys that should always refetch (no cooldown). Cheap DB reads. */
+  alwaysRefreshKeys?: string[][];
+  /** Query keys that are cooldown-gated. Expensive API calls. */
+  cooldownKeys?: string[][];
   /** Cooldown in milliseconds. Default: 2 minutes */
   cooldownMs?: number;
   /** Callback when refresh completes, passes the display timestamp */
@@ -22,6 +27,8 @@ const lastSyncTimes: Record<string, number> = {};
 export const PullToRefresh = ({ 
   children, 
   queryKeys,
+  alwaysRefreshKeys,
+  cooldownKeys,
   cooldownMs = 2 * 60 * 1000, // 2 minutes default
   onRefresh 
 }: PullToRefreshProps) => {
@@ -34,11 +41,12 @@ export const PullToRefresh = ({
 
   const threshold = 80;
 
-  // Generate a cache key from query keys for tracking sync time
+  // Generate a cache key from cooldown keys for tracking sync time
   const getCacheKey = useCallback(() => {
-    if (!queryKeys || queryKeys.length === 0) return 'global';
-    return queryKeys.map(k => k.join('-')).join('|');
-  }, [queryKeys]);
+    const keys = cooldownKeys || queryKeys;
+    if (!keys || keys.length === 0) return 'global';
+    return keys.map(k => k.join('-')).join('|');
+  }, [cooldownKeys, queryKeys]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const container = containerRef.current;
@@ -77,29 +85,48 @@ export const PullToRefresh = ({
       const timeSinceSync = Date.now() - lastSync;
       const isWithinCooldown = timeSinceSync < cooldownMs;
       
-      // Animation always plays, but behavior differs based on cooldown
-      if (isWithinCooldown) {
-        // Silent refresh - use cached data but update display timestamp
-        // Quick animation (feels responsive)
-        await new Promise(resolve => setTimeout(resolve, 300));
+      // If using split keys pattern
+      if (alwaysRefreshKeys || cooldownKeys) {
+        const promises: Promise<any>[] = [];
         
-        // Notify parent with display timestamp, mark as cached refresh
-        onRefresh?.(new Date(), false);
+        // Always refetch cheap DB reads
+        if (alwaysRefreshKeys && alwaysRefreshKeys.length > 0) {
+          promises.push(...alwaysRefreshKeys.map(key => 
+            queryClient.invalidateQueries({ queryKey: key })
+          ));
+        }
+        
+        // Only refetch expensive API calls outside cooldown
+        if (!isWithinCooldown && cooldownKeys && cooldownKeys.length > 0) {
+          promises.push(...cooldownKeys.map(key => 
+            queryClient.invalidateQueries({ queryKey: key })
+          ));
+        }
+        
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1500));
+        await Promise.race([Promise.all(promises), timeoutPromise]);
+        
+        if (!isWithinCooldown) {
+          lastSyncTimes[cacheKey] = Date.now();
+        }
+        
+        onRefresh?.(new Date(), !isWithinCooldown);
       } else {
-        // Actual refresh - invalidate queries and update sync time
-        const refreshPromise = queryKeys && queryKeys.length > 0
-          ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
-          : queryClient.invalidateQueries();
-        
-        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
-        
-        await Promise.race([refreshPromise, timeoutPromise]);
-        
-        // Update last sync time
-        lastSyncTimes[cacheKey] = Date.now();
-        
-        // Notify parent with display timestamp, mark as actual refresh
-        onRefresh?.(new Date(), true);
+        // Legacy behavior: single queryKeys array with full cooldown
+        if (isWithinCooldown) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+          onRefresh?.(new Date(), false);
+        } else {
+          const refreshPromise = queryKeys && queryKeys.length > 0
+            ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
+            : queryClient.invalidateQueries();
+          
+          const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+          await Promise.race([refreshPromise, timeoutPromise]);
+          
+          lastSyncTimes[cacheKey] = Date.now();
+          onRefresh?.(new Date(), true);
+        }
       }
       
       setIsRefreshing(false);
@@ -109,6 +136,7 @@ export const PullToRefresh = ({
   };
 
   const progress = Math.min(pullDistance / threshold, 1);
+  const isReady = progress >= 1;
 
   return (
     <PullToRefreshContext.Provider value={{ isRefreshing }}>
@@ -121,51 +149,54 @@ export const PullToRefresh = ({
       >
         {/* Pull indicator */}
         <div 
-          className="flex items-center justify-center overflow-hidden transition-all duration-200"
+          className="flex flex-col items-center justify-center overflow-hidden"
           style={{ 
             height: pullDistance > 0 ? pullDistance : 0,
-            opacity: progress
+            opacity: Math.max(progress * 1.2, isRefreshing ? 1 : 0),
+            transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease',
           }}
         >
-          {/* Custom spinner - fast and satisfying */}
-          <div className="relative w-10 h-10">
-            {/* Outer spinning ring */}
-            <svg
-              className={`w-full h-full ${isRefreshing ? 'animate-spin' : ''}`}
-              style={{ 
-                transform: isRefreshing ? undefined : `rotate(${progress * 720}deg)`,
-                animationDuration: '0.6s'
-              }}
-              viewBox="0 0 40 40"
+          <div className="flex flex-col items-center gap-1.5 py-1">
+            {/* Icon */}
+            <div 
+              className={`rounded-full p-2 transition-all duration-200 ${
+                isRefreshing 
+                  ? 'bg-primary/15 scale-110' 
+                  : isReady 
+                    ? 'bg-primary/10 scale-105' 
+                    : 'bg-muted/50'
+              }`}
             >
-              {/* Background circle */}
-              <circle
-                cx="20"
-                cy="20"
-                r="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                className="text-muted-foreground/20"
-              />
-              {/* Animated arc - grows as you pull */}
-              <circle
-                cx="20"
-                cy="20"
-                r="16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                className="text-primary"
-                style={{
-                  strokeDasharray: `${progress * 80} 100`,
-                  strokeDashoffset: 0,
-                  transform: 'rotate(-90deg)',
-                  transformOrigin: 'center',
+              <RefreshCw 
+                className={`h-5 w-5 transition-all duration-200 ${
+                  isRefreshing 
+                    ? 'text-primary animate-spin' 
+                    : isReady 
+                      ? 'text-primary' 
+                      : 'text-muted-foreground'
+                }`}
+                style={{ 
+                  transform: isRefreshing ? undefined : `rotate(${progress * 360}deg)`,
+                  animationDuration: '0.7s',
                 }}
+                strokeWidth={isReady || isRefreshing ? 2.5 : 2}
               />
-            </svg>
+            </div>
+            
+            {/* Status text */}
+            <span className={`text-[11px] font-medium transition-colors duration-200 ${
+              isRefreshing 
+                ? 'text-primary' 
+                : isReady 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground'
+            }`}>
+              {isRefreshing 
+                ? 'Updating…' 
+                : isReady 
+                  ? 'Release to refresh' 
+                  : 'Pull to refresh'}
+            </span>
           </div>
         </div>
         {children}
