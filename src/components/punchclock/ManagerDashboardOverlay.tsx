@@ -539,8 +539,8 @@ export function ManagerDashboardOverlay({
           checklist_responses(id, item_id)
         `)
         .eq('location_id', locationId)
-        .gte('submitted_at', `${todayStr}T00:00:00`)
-        .lte('submitted_at', `${todayStr}T23:59:59`);
+        .gte('submitted_at', new Date(`${todayStr}T00:00:00${getTimezoneOffset(timezone)}`).toISOString())
+        .lte('submitted_at', new Date(`${todayStr}T23:59:59${getTimezoneOffset(timezone)}`).toISOString());
 
       if (subError) throw subError;
 
