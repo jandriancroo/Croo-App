@@ -63,6 +63,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const snoozeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const snoozedAlarmRef = useRef<AlarmTask | null>(null);
+  const snoozeExpiresAtRef = useRef<number | null>(null); // timestamp when snooze expires
   const alarmLoopRef = useRef<NodeJS.Timeout | null>(null);
   const alarmLoopTokenRef = useRef(0);
 
@@ -314,7 +315,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
     // IMPORTANT: Realtime can occasionally miss events on kiosk devices.
     // Polling ensures the Punch Clock still alarms even if the UPDATE event is dropped.
+    // Also catches expired snoozes when iOS suspends setTimeout in background.
     const pollRef = setInterval(() => {
+      // Check if a snoozed alarm has expired (iOS kills setTimeout in background)
+      if (snoozeExpiresAtRef.current && Date.now() >= snoozeExpiresAtRef.current && snoozedAlarmRef.current) {
+        if (snoozeTimeoutRef.current) clearTimeout(snoozeTimeoutRef.current);
+        reTriggerSnoozedAlarm();
+        return; // Don't also run checkPendingAlarms this cycle
+      }
       void checkPendingAlarms();
     }, 10_000);
 
@@ -660,8 +668,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     setSnoozeCount(newCount);
     snoozeCountRef.current = newCount;
     
-    // Store the alarm for snooze
+    // Store the alarm for snooze with expiry timestamp
     snoozedAlarmRef.current = activeAlarm;
+    snoozeExpiresAtRef.current = Date.now() + SNOOZE_DURATION_MS;
     setIsSnoozed(true);
     setIsVisible(false);
     setShowEmployeePicker(false);
@@ -682,26 +691,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     
     // Show again after snooze duration
     snoozeTimeoutRef.current = setTimeout(() => {
-      if (snoozedAlarmRef.current) {
-        setActiveAlarm(snoozedAlarmRef.current);
-        setIsVisible(true);
-        setIsSnoozed(false);
-        setShowEmployeePicker(false);
-        startAlarmLoop(snoozedAlarmRef.current.title);
-        setCountdown(AUTO_DISMISS_SECONDS);
-        startCountdown(AUTO_DISMISS_SECONDS);
-        
-        // Set auto-action based on remaining snoozes
-        timeoutRef.current = setTimeout(() => {
-          if (snoozeCountRef.current >= MAX_SNOOZES) {
-            // No more snoozes - keep visible, force PIN
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            setCountdown(0);
-          } else {
-            handleSnooze();
-          }
-        }, AUTO_DISMISS_SECONDS * 1000);
-      }
+      reTriggerSnoozedAlarm();
     }, SNOOZE_DURATION_MS);
     
     setTimeout(() => {
@@ -710,6 +700,34 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     
     const snoozesRemaining = MAX_SNOOZES - newCount;
     toast.info(`Snoozed for 5 minutes (${snoozesRemaining} snooze${snoozesRemaining !== 1 ? 's' : ''} remaining)`, { duration: 3000 });
+  };
+
+  /** Re-trigger a snoozed alarm - called by setTimeout OR by the poll fallback */
+  const reTriggerSnoozedAlarm = () => {
+    if (!snoozedAlarmRef.current) return;
+    
+    const alarm = snoozedAlarmRef.current;
+    snoozedAlarmRef.current = null;
+    snoozeExpiresAtRef.current = null;
+    
+    setActiveAlarm(alarm);
+    setIsVisible(true);
+    setIsSnoozed(false);
+    setShowEmployeePicker(false);
+    startAlarmLoop(alarm.title);
+    setCountdown(AUTO_DISMISS_SECONDS);
+    startCountdown(AUTO_DISMISS_SECONDS);
+    
+    // Set auto-action based on remaining snoozes
+    timeoutRef.current = setTimeout(() => {
+      if (snoozeCountRef.current >= MAX_SNOOZES) {
+        // No more snoozes - keep visible, force completion
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        setCountdown(0);
+      } else {
+        handleSnooze();
+      }
+    }, AUTO_DISMISS_SECONDS * 1000);
   };
 
   if (!activeAlarm && !showConfirmation) return null;
