@@ -1186,7 +1186,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }
     if (salesData.daily < 100) return null; // Not enough data yet
 
-    const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
+    const effectivePace = Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0);
+    const paceVsProjection = (effectivePace / salesData.projections.todayProjected) * 100;
 
     if (paceVsProjection >= 102) return 'ahead';
     if (paceVsProjection >= 95) return 'onTrack';
@@ -1422,7 +1423,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                       <p className="text-[9px] text-white/70 font-bold">Pace</p>
                       <p className="text-lg font-bold text-white">
                         {isToday && salesData?.projections?.todayPaceAdjusted 
-                          ? formatCurrency(salesData.projections.todayPaceAdjusted)
+                          ? formatCurrency(Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0))
                           : '--'}
                       </p>
                     </div>
