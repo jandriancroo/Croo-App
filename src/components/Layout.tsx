@@ -255,11 +255,11 @@ export const Layout = ({
   const location = useLocation();
   const {
     isAdmin,
-    isManager,
     isShiftManager,
-    canApproveRequests,
-    canViewTimecards,
     canViewSalesAndLabor,
+    canViewTimecards,
+    isSuperAdmin,
+    isBrandAdmin,
     loading: roleLoading
   } = useUserRole();
   const isMobile = useIsMobile();
@@ -272,7 +272,6 @@ export const Layout = ({
   const { canViewWallet } = useRolePermissions();
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
@@ -376,22 +375,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     }
   };
 
-  // Check if user is super_admin or has FBC/brand_admin/multi-location access
+  // Derive super_admin/brand_admin from useUserRole cache — no extra RPCs needed
+  // Only check FBC role and org_admin multi-location access (not available in useUserRole)
   useEffect(() => {
-    const checkRoles = async () => {
+    const checkExtras = async () => {
       if (!user?.id) {
-        setIsSuperAdmin(false);
         setHasFBCAccess(false);
         setHasMultiLocationAccess(false);
         return;
       }
       
-      const perfStart = performance.now();
-      
-      // Parallelize all role checks
-      const [superAdminResult, brandAdminResult, fbcResult, orgMembershipsResult] = await Promise.all([
-        supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' }),
-        supabase.rpc('has_role', { _user_id: user.id, _role: 'brand_admin' }),
+      // Only fetch what useUserRole doesn't provide: FBC role + org_admin membership
+      const [fbcResult, orgMembershipsResult] = await Promise.all([
         supabase.rpc('has_role', { _user_id: user.id, _role: 'fbc' }),
         supabase
           .from('organization_members')
@@ -401,19 +396,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           .limit(1)
       ]);
       
-      console.log(`[Layout] Role checks: ${(performance.now() - perfStart).toFixed(0)}ms`);
-      
-      const isSuperAdminResult = superAdminResult.data === true;
-      const isBrandAdmin = brandAdminResult.data === true;
       const isFBC = fbcResult.data === true;
       const hasOrgAdmin = orgMembershipsResult.data && orgMembershipsResult.data.length > 0;
       
-      setIsSuperAdmin(isSuperAdminResult);
-      setHasFBCAccess(isSuperAdminResult || isBrandAdmin || isFBC);
-      setHasMultiLocationAccess(isSuperAdminResult || isBrandAdmin || hasOrgAdmin);
+      setHasFBCAccess(isSuperAdmin || isBrandAdmin || isFBC);
+      setHasMultiLocationAccess(isSuperAdmin || isBrandAdmin || !!hasOrgAdmin);
     };
-    checkRoles();
-  }, [user?.id]);
+    checkExtras();
+  }, [user?.id, isSuperAdmin, isBrandAdmin]);
 
   // Fetch user profile for avatar
   const { data: userProfile } = useQuery({

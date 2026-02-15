@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import {
@@ -19,61 +20,48 @@ const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
 export const useLocationTimezone = () => {
   const { currentLocation } = useAppLocation();
-  const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
-  const [closeTime, setCloseTime] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const locationId = currentLocation?.id;
 
-  useEffect(() => {
-    const fetchTimezoneAndHours = async () => {
-      if (!currentLocation?.id) {
-        setTimezone(DEFAULT_TIMEZONE);
-        setCloseTime(null);
-        setLoading(false);
-        return;
+  // Cached timezone query — shared across all consumers via queryKey
+  const { data: timezone = DEFAULT_TIMEZONE } = useQuery({
+    queryKey: ['location-timezone', locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('timezone')
+        .eq('location_id', locationId!)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching timezone:', error);
       }
+      return data?.timezone || DEFAULT_TIMEZONE;
+    },
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-      try {
-        // Fetch timezone from location_settings
-        const { data: settings, error: settingsError } = await supabase
-          .from('location_settings')
-          .select('timezone')
-          .eq('location_id', currentLocation.id)
-          .single();
+  // Cached close time query — shared key matches usePrefetchDashboard
+  const currentDayOfWeek = useMemo(() => getDayOfWeekInTimezone(timezone), [timezone]);
 
-        if (settingsError && settingsError.code !== 'PGRST116') {
-          console.error('Error fetching timezone:', settingsError);
-        }
-
-        const tz = settings?.timezone || DEFAULT_TIMEZONE;
-        setTimezone(tz);
-
-        // Get current day of week in the location's timezone to fetch correct close time
-        const currentDayOfWeek = getDayOfWeekInTimezone(tz);
-        
-        // Fetch close time for current day from location_hours
-        const { data: hours, error: hoursError } = await supabase
-          .from('location_hours')
-          .select('close_time')
-          .eq('location_id', currentLocation.id)
-          .eq('day_of_week', currentDayOfWeek)
-          .single();
-
-        if (hoursError && hoursError.code !== 'PGRST116') {
-          console.error('Error fetching location hours:', hoursError);
-        }
-
-        setCloseTime(hours?.close_time || null);
-      } catch (error) {
-        console.error('Error fetching timezone/hours:', error);
-        setTimezone(DEFAULT_TIMEZONE);
-        setCloseTime(null);
-      } finally {
-        setLoading(false);
+  const { data: closeTime = null, isLoading: loading } = useQuery({
+    queryKey: ['location-hours-today', locationId, timezone],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('location_hours')
+        .select('close_time')
+        .eq('location_id', locationId!)
+        .eq('day_of_week', currentDayOfWeek)
+        .single();
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching location hours:', error);
       }
-    };
-
-    fetchTimezoneAndHours();
-  }, [currentLocation?.id]);
+      return data?.close_time || null;
+    },
+    enabled: !!locationId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
   // Date utilities using the location's timezone
   const getTodayInTimezone = (): string => {
