@@ -16,6 +16,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Queue an email for reliable delivery via email_queue table
+// Gracefully skips duplicates (dedup constraint violations)
 async function queueEmail(opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string; metadata?: Record<string, any> }) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const { error } = await supabase.from('email_queue').insert({
@@ -28,6 +29,11 @@ async function queueEmail(opts: { from: string; to: string[]; subject: string; h
     metadata: opts.metadata || {},
   });
   if (error) {
+    // Duplicate key = already sent, skip gracefully
+    if (error.code === '23505') {
+      console.log(`[support-email] ⏭️ Already sent (dedup): "${opts.subject}" → ${opts.to.join(', ')}`);
+      return;
+    }
     console.error(`[support-email] Queue insert failed for "${opts.subject}":`, error);
     throw error;
   }

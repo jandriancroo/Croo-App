@@ -1308,49 +1308,66 @@ export type Database = {
         Row: {
           created_at: string
           dedup_key: string | null
+          email_type: string | null
           from_address: string
           html: string
           id: string
           last_error: string | null
+          location_id: string | null
           metadata: Json | null
           retry_count: number
           sent_at: string | null
           source: string | null
           status: string
           subject: string
+          target_date: string | null
           to_addresses: string[]
         }
         Insert: {
           created_at?: string
           dedup_key?: string | null
+          email_type?: string | null
           from_address?: string
           html: string
           id?: string
           last_error?: string | null
+          location_id?: string | null
           metadata?: Json | null
           retry_count?: number
           sent_at?: string | null
           source?: string | null
           status?: string
           subject: string
+          target_date?: string | null
           to_addresses: string[]
         }
         Update: {
           created_at?: string
           dedup_key?: string | null
+          email_type?: string | null
           from_address?: string
           html?: string
           id?: string
           last_error?: string | null
+          location_id?: string | null
           metadata?: Json | null
           retry_count?: number
           sent_at?: string | null
           source?: string | null
           status?: string
           subject?: string
+          target_date?: string | null
           to_addresses?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_queue_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_notes: {
         Row: {
@@ -6143,6 +6160,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
