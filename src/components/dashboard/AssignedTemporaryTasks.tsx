@@ -179,7 +179,7 @@ export function AssignedTemporaryTasks({
 
   // Fetch catering orders for today
   const { data: cateringOrders = [], refetch: refetchCatering } = useQuery({
-    queryKey: ["today-catering-orders", currentLocation?.id, includeCateringOrders],
+    queryKey: ["assigned-catering-orders", currentLocation?.id, includeCateringOrders],
     queryFn: async () => {
       if (!currentLocation?.id || !includeCateringOrders) return [];
       const today = getTodayInTimezone();

@@ -41,7 +41,7 @@ export function CateringOrdersAlert() {
 
   // Fetch today's orders with React Query
   const { data: todaysOrders = [], isLoading: loadingToday } = useQuery({
-    queryKey: ["catering-orders-today", currentLocation?.id, today],
+    queryKey: ["catering-alerts-today", currentLocation?.id, today],
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -110,7 +110,8 @@ export function CateringOrdersAlert() {
       toast.success("Catering order completed!");
       setSelectedOrder(null);
       // Invalidate query to refetch
-      queryClient.invalidateQueries({ queryKey: ["catering-orders-today"] });
+      queryClient.invalidateQueries({ queryKey: ["catering-alerts-today"] });
+      queryClient.invalidateQueries({ queryKey: ["todays-catering-orders"] });
     } catch (error) {
       console.error("Error completing order:", error);
       toast.error("Failed to complete order");
