@@ -371,15 +371,8 @@ export default function Schedule() {
 
       console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
-      // Only fetch week-specific data - profiles/templates come from stableData
-      // Fetch last week's schedule ID for Smart Tap recent templates
+      // Fetch last week's schedule ID in parallel with all other queries
       const lastWeekDate = format(addDays(currentWeekStart, -7), 'yyyy-MM-dd');
-      const { data: lastWeekSchedule } = await supabase
-        .from("schedules")
-        .select("id")
-        .eq("week_start_date", lastWeekDate)
-        .eq("location_id", currentLocation.id)
-        .single();
 
       const parallelStart = performance.now();
       const [
@@ -390,7 +383,7 @@ export default function Schedule() {
         salesResult,
         holidaysResult,
         locationSettingsResult,
-        lastWeekShiftsResult
+        lastWeekScheduleResult
       ] = await Promise.all([
         supabase
           .from("scheduled_shifts")
@@ -429,15 +422,24 @@ export default function Schedule() {
           .select("blackout_dates, hours_open, hours_close")
           .eq("location_id", currentLocation.id)
           .single(),
-        // Smart Tap: fetch last week's shifts for "recent" templates
-        lastWeekSchedule?.id
-          ? supabase
-              .from("scheduled_shifts")
-              .select("user_id, template_id, shift_date")
-              .eq("schedule_id", lastWeekSchedule.id)
-              .not("template_id", "is", null)
-          : Promise.resolve({ data: [], error: null })
+        // Smart Tap: fetch last week's schedule ID (parallelized instead of sequential)
+        supabase
+          .from("schedules")
+          .select("id")
+          .eq("week_start_date", lastWeekDate)
+          .eq("location_id", currentLocation.id)
+          .single(),
       ]);
+
+      // Now fetch last week's shifts if we found the schedule (fast follow-up query)
+      const lastWeekSchedule = lastWeekScheduleResult.data;
+      const lastWeekShiftsResult = lastWeekSchedule?.id
+        ? await supabase
+            .from("scheduled_shifts")
+            .select("user_id, template_id, shift_date")
+            .eq("schedule_id", lastWeekSchedule.id)
+            .not("template_id", "is", null)
+        : { data: [], error: null };
 
       console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
