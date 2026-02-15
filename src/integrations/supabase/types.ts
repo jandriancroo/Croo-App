@@ -5317,6 +5317,7 @@ export type Database = {
           qr_code: string | null
           qr_issue_options: Json | null
           qr_notify_punch_clock: boolean | null
+          shareable: boolean
           show_on_dashboard: boolean
           show_on_punch_clock: boolean | null
           task_style: string
@@ -5353,6 +5354,7 @@ export type Database = {
           qr_code?: string | null
           qr_issue_options?: Json | null
           qr_notify_punch_clock?: boolean | null
+          shareable?: boolean
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
           task_style?: string
@@ -5389,6 +5391,7 @@ export type Database = {
           qr_code?: string | null
           qr_issue_options?: Json | null
           qr_notify_punch_clock?: boolean | null
+          shareable?: boolean
           show_on_dashboard?: boolean
           show_on_punch_clock?: boolean | null
           task_style?: string

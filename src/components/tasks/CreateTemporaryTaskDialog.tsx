@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -120,6 +120,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
   const [newSubtask, setNewSubtask] = useState("");
   const [newSubtaskType, setNewSubtaskType] = useState<"checkbox" | "photo">("checkbox");
   
+  const [shareable, setShareable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch employees at the location
@@ -175,6 +176,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
     setSubtasks([]);
     setNewSubtask("");
     setNewSubtaskType("checkbox");
+    setShareable(false);
   };
 
   useEffect(() => {
@@ -348,6 +350,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
         is_recurring: taskStyle === "alarm",
         show_on_dashboard: taskStyle === "qr" ? false : showOnDashboard,
+        shareable: taskStyle !== "qr" && subtasks.length > 0 ? shareable : false,
       };
 
       if (taskStyle === "standard") {
@@ -1009,9 +1012,28 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
                       </Button>
                     </div>
                   ))}
-                </div>
-              )}
             </div>
+          )}
+
+          {/* Shareable Toggle - only when subtasks exist and not QR */}
+          {subtasks.length > 0 && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <Label>Allow sharing to chat</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Show send button on the task card
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={shareable}
+                onCheckedChange={setShareable}
+              />
+            </div>
+          )}
+        </div>
           )}
         </div>
 

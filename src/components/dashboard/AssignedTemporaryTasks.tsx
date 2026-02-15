@@ -375,7 +375,7 @@ export function AssignedTemporaryTasks({
             buttonLabel={task.write_up_id ? "Sign" : undefined}
             onAction={() => setSelectedTask(task)}
             taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
-            showShare={!task.write_up_id && !(counts?.total && counts.total > 0)}
+            showShare={!!task.shareable}
             subtasksCompleted={counts?.completed}
             subtasksTotal={counts?.total}
           />
