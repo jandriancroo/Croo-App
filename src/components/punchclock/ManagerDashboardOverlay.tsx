@@ -1533,37 +1533,55 @@ export function ManagerDashboardOverlay({
                     {checklistsData.length > 0 && (
                       <div>
                         <p className={`text-[9px] uppercase tracking-wide mb-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Checklists</p>
-                        {checklistsData.slice(0, 4).map((checklist: any) => (
-                          <div
-                            key={checklist.id}
-                            className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
-                          >
-                            {checklist.isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <Circle className={`h-3.5 w-3.5 flex-shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[10px] sm:text-xs font-medium truncate ${
-                                checklist.isComplete 
-                                  ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
-                                  : isDayMode ? 'text-foreground' : 'text-white'
-                              }`}>
-                                {checklist.title}
-                              </p>
-                            </div>
-                            <Badge 
-                              variant="secondary" 
-                              className={`text-[8px] px-1.5 py-0 ${
-                                checklist.isComplete 
-                                  ? 'bg-green-500/20 text-green-500' 
-                                  : isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'
-                              }`}
+                        {checklistsData.slice(0, 4).map((checklist: any) => {
+                          const completed = checklist.completedItems || 0;
+                          const total = checklist.totalItems || 0;
+                          const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                          const progressColor = progressPct >= 100 
+                            ? 'hsl(142, 71%, 45%)' 
+                            : progressPct > 0 
+                              ? 'hsl(45, 93%, 47%)' 
+                              : isDayMode ? 'hsl(var(--muted))' : 'hsl(0, 0%, 40%)';
+                          return (
+                            <div
+                              key={checklist.id}
+                              className={`flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded mb-1 ${isDayMode ? 'bg-secondary' : 'bg-neutral-700/50'}`}
                             >
-                              {checklist.isComplete ? '✓' : checklist.frequency}
-                            </Badge>
-                          </div>
-                        ))}
+                              {checklist.isComplete ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                              ) : (
+                                <Circle className={`h-3.5 w-3.5 flex-shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`} />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-[10px] sm:text-xs font-medium truncate ${
+                                  checklist.isComplete 
+                                    ? isDayMode ? 'text-muted-foreground line-through' : 'text-neutral-500 line-through' 
+                                    : isDayMode ? 'text-foreground' : 'text-white'
+                                }`}>
+                                  {checklist.title}
+                                </p>
+                                {total > 0 && (
+                                  <div className={`mt-0.5 h-[2px] rounded-full overflow-hidden ${isDayMode ? 'bg-muted' : 'bg-neutral-600'}`}>
+                                    <div 
+                                      className="h-full rounded-full transition-all duration-300"
+                                      style={{ width: `${progressPct}%`, backgroundColor: progressColor }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-[8px] px-1.5 py-0 ${
+                                  checklist.isComplete 
+                                    ? 'bg-green-500/20 text-green-500' 
+                                    : isDayMode ? 'bg-secondary text-muted-foreground' : 'bg-neutral-700 text-neutral-400'
+                                }`}
+                              >
+                                {checklist.isComplete ? 'Done' : `${completed}/${total}`}
+                              </Badge>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     
