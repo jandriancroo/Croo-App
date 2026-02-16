@@ -1637,8 +1637,10 @@ export default function PayrollReview() {
     return periodStatuses[key];
   };
 
+  const [closingPeriod, setClosingPeriod] = useState(false);
+
   const handleClosePeriod = async () => {
-    if (!selectedPeriod) return;
+    if (!selectedPeriod || !currentLocation) return;
 
     // Check if all shifts are approved
     if (totalPunchesAwaitingApproval > 0) {
@@ -1652,6 +1654,44 @@ export default function PayrollReview() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    setClosingPeriod(true);
+
+    // Step 1: Sync tips from QU for the full date range before closing
+    try {
+      toast.info('Syncing tips from QuBeyond...');
+
+      // Use query param approach since sales-service routes via URL params
+      const syncResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-service?action=sync-tips`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            locationId: currentLocation.id,
+            startDate,
+            endDate,
+          }),
+        }
+      );
+
+      if (syncResponse.ok) {
+        const syncData = await syncResponse.json();
+        console.log('[PayrollReview] Tips sync result:', syncData);
+        if (syncData.synced > 0) {
+          toast.success(`Synced tips for ${syncData.synced} days`);
+        }
+      } else {
+        console.warn('[PayrollReview] Tips sync failed, continuing with close');
+      }
+    } catch (tipSyncError) {
+      console.warn('[PayrollReview] Tips sync error (non-blocking):', tipSyncError);
+    }
+
+    // Step 2: Close the period
     const { error } = await supabase
       .from('pay_periods')
       .upsert(
@@ -1664,6 +1704,8 @@ export default function PayrollReview() {
         },
         { onConflict: 'start_date,end_date' }
       );
+
+    setClosingPeriod(false);
 
     if (error) {
       toast.error('Failed to close pay period');

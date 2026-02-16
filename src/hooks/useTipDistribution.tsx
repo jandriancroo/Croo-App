@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
 
 interface DailyTipData {
   date: string;
@@ -32,13 +31,13 @@ export function useTipDistribution(
   startDate: Date | null,
   endDate: Date | null,
   timeCards: any[],
-  enabled: boolean = true // Only fetch when needed (e.g., when period is closed)
+  enabled: boolean = true
 ): TipDistributionResult {
   const [dailyTips, setDailyTips] = useState<DailyTipData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTipsData = async () => {
+  const fetchTipsFromCache = async () => {
     if (!locationId || !startDate || !endDate || !enabled) {
       setIsLoading(false);
       return;
@@ -48,120 +47,36 @@ export function useTipDistribution(
     setError(null);
     
     try {
-      // Get QuBeyond integration for this location
-      const { data: integration } = await supabase
-        .from('location_integrations')
-        .select('credentials, is_active')
+      const startStr = startDate.toISOString().slice(0, 10);
+      const endStr = endDate.toISOString().slice(0, 10);
+
+      // Read directly from the daily_tips cache table
+      const { data, error: fetchError } = await supabase
+        .from('daily_tips')
+        .select('tip_date, total_cc_tips, total_cash_tips')
         .eq('location_id', locationId)
-        .eq('integration_type', 'qubeyond')
-        .eq('is_active', true)
-        .single();
-      
-      if (!integration) {
+        .gte('tip_date', startStr)
+        .lte('tip_date', endStr)
+        .order('tip_date');
+
+      if (fetchError) {
+        console.error('[TipDistribution] DB fetch error:', fetchError);
+        setError('Failed to fetch tips data');
         setDailyTips([]);
-        setIsLoading(false);
         return;
       }
-      
-      // Generate date range
-      const dates: string[] = [];
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        dates.push(format(current, 'yyyy-MM-dd'));
-        current.setDate(current.getDate() + 1);
-      }
-      
-      console.log('[TipDistribution] Fetching tips for dates:', dates);
-      
-      // Get unique weeks that we need to fetch
-      // The edge function returns a full calendar week of tips for each targetDate
-      const weekStarts = new Set<string>();
-      dates.forEach(date => {
-        const d = new Date(date + 'T12:00:00');
-        const day = d.getDay();
-        const diff = day === 0 ? 6 : day - 1; // Monday-based week start
-        d.setDate(d.getDate() - diff);
-        const weekStart = format(d, 'yyyy-MM-dd');
-        weekStarts.add(weekStart);
-      });
-      
-      console.log('[TipDistribution] Week starts to fetch:', Array.from(weekStarts));
-      
-      // Fetch tips for each week in parallel
-      const allTips: DailyTipData[] = [];
-      const weekStartsArray = Array.from(weekStarts);
-      
-      const results = await Promise.all(
-        weekStartsArray.map(async (weekStart) => {
-          // Use the last day of the week (Sunday) as target date, but never go beyond today
-          const weekStartDate = new Date(weekStart + 'T12:00:00');
-          const weekEndDate = new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000);
-          const today = new Date();
-          // Clamp to today so we don't request future dates from QuBeyond
-          const effectiveEndDate = weekEndDate > today ? today : weekEndDate;
-          const targetDate = format(effectiveEndDate, 'yyyy-MM-dd');
 
-          try {
-            const { data, error: fetchError } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-              body: { 
-                locationId, 
-                targetDate,
-                skipProjections: true // We only need tips data
-              }
-            });
-            
-            if (fetchError) {
-              console.error(`[TipDistribution] Error fetching tips for week ${weekStart}:`, fetchError);
-              return [];
-            }
-            
-            console.log(`[TipDistribution] Response for ${targetDate}:`, {
-              hasTips: !!data?.tips,
-              hasWeeklyTips: !!data?.weeklyTips,
-              dailyTipsCount: data?.weeklyTips?.dailyTips?.length || 0
-            });
-            
-            const weekTips: DailyTipData[] = [];
-            
-            // Extract daily tips from weeklyTips breakdown
-            if (data?.weeklyTips?.dailyTips) {
-              data.weeklyTips.dailyTips.forEach((dayTip: any) => {
-                // Only include dates within our requested range
-                if (dates.includes(dayTip.date)) {
-                  const totalTips = (dayTip.ccTips || 0) + (dayTip.cashTips || 0);
-                  weekTips.push({
-                    date: dayTip.date,
-                    ccTips: dayTip.ccTips || 0,
-                    cashTips: dayTip.cashTips || 0,
-                    totalTips
-                  });
-                }
-              });
-            }
-            
-            return weekTips;
-          } catch (err) {
-            console.error(`[TipDistribution] Error fetching tips for week ${weekStart}:`, err);
-            return [];
-          }
-        })
-      );
-      
-      // Flatten results and remove duplicates
-      results.forEach(weekTips => allTips.push(...weekTips));
-      
-      const uniqueTips = allTips.reduce((acc, tip) => {
-        const existing = acc.find(t => t.date === tip.date);
-        if (!existing) {
-          acc.push(tip);
-        }
-        return acc;
-      }, [] as DailyTipData[]);
-      
-      console.log('[TipDistribution] Final tips:', uniqueTips);
-      setDailyTips(uniqueTips.sort((a, b) => a.date.localeCompare(b.date)));
+      const tips: DailyTipData[] = (data || []).map((row: any) => ({
+        date: row.tip_date,
+        ccTips: row.total_cc_tips || 0,
+        cashTips: row.total_cash_tips || 0,
+        totalTips: (row.total_cc_tips || 0) + (row.total_cash_tips || 0),
+      }));
+
+      console.log('[TipDistribution] Loaded from cache:', tips.length, 'days');
+      setDailyTips(tips);
     } catch (err) {
-      console.error('[TipDistribution] Error fetching tips:', err);
+      console.error('[TipDistribution] Error:', err);
       setError('Failed to fetch tips data');
     } finally {
       setIsLoading(false);
@@ -170,7 +85,7 @@ export function useTipDistribution(
 
   useEffect(() => {
     if (enabled) {
-      fetchTipsData();
+      fetchTipsFromCache();
     }
   }, [locationId, startDate?.toISOString(), endDate?.toISOString(), enabled]);
 
@@ -184,13 +99,11 @@ export function useTipDistribution(
       const dailyBreakdown: { date: string; hours: number; tipShare: number }[] = [];
       let totalTips = 0;
       
-      // For each day with tips, calculate this employee's share
       dailyTips.forEach(tipDay => {
         const dayPunches = card.punchesByDay[tipDay.date] || [];
         
         if (dayPunches.length === 0 || tipDay.totalTips === 0) return;
         
-        // Calculate hours worked this day
         const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
         const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
         
@@ -213,7 +126,6 @@ export function useTipDistribution(
         
         if (hours <= 0) return;
         
-        // Calculate total hours worked by all employees this day
         let totalDayHours = 0;
         timeCards.forEach(otherCard => {
           const otherDayPunches = otherCard.punchesByDay[tipDay.date] || [];
@@ -241,7 +153,6 @@ export function useTipDistribution(
           }
         });
         
-        // Calculate tip share proportionally
         const tipShare = totalDayHours > 0 ? (hours / totalDayHours) * tipDay.totalTips : 0;
         
         dailyBreakdown.push({
@@ -270,7 +181,6 @@ export function useTipDistribution(
     return dailyTips.reduce((sum, day) => sum + day.totalTips, 0);
   }, [dailyTips]);
 
-  // Calculate total distributed tips and total hours that earned tips
   const { totalDistributedTips, totalHoursWithTips } = useMemo(() => {
     let distributed = 0;
     let hours = 0;
@@ -293,6 +203,6 @@ export function useTipDistribution(
     totalTipPool,
     totalDistributedTips,
     totalHoursWithTips,
-    refetch: fetchTipsData
+    refetch: fetchTipsFromCache
   };
 }

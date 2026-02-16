@@ -904,6 +904,175 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 }
 
 // ============================================================================
+// TIPS SYNC — Bulk fetch tips for a date range and upsert into daily_tips
+// ============================================================================
+
+async function fetchTipsForDate(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<{ ccTips: number; cashTips: number } | null> {
+  try {
+    const requestPayload = {
+      fields: [
+        { fieldName: "employee" },
+        { fieldName: "tips" },
+        { fieldName: "creditCardTips" },
+        { fieldName: "cashTips" },
+        { fieldName: "totalTips" }
+      ],
+      filters: {
+        date: { from: null, to: null, values: [dateStr], type: "custom" },
+        location: { operationalUnits: [parseInt(qbLocationId)] }
+      },
+      params: { sectionId: "main", pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true }
+    };
+
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    if (!response.ok) {
+      console.error(`[sync-tips] Fetch failed for ${dateStr}:`, response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    let totalCcTips = 0;
+    let totalCashTips = 0;
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        totalCcTips += parseFloat(String(item.tipsAmount || item.tips || item.creditCardTips || '0').replace(/[$,]/g, '')) || 0;
+        totalCashTips += parseFloat(String(item.cashTips || '0').replace(/[$,]/g, '')) || 0;
+      }
+    }
+
+    if (data.totals) {
+      const totalFromTotals = parseFloat(String(data.totals.tipsAmount || data.totals.tips || data.totals.creditCardTips || '0').replace(/[$,]/g, '')) || 0;
+      const cashFromTotals = parseFloat(String(data.totals.cashTips || '0').replace(/[$,]/g, '')) || 0;
+      if (totalFromTotals > 0) totalCcTips = totalFromTotals;
+      if (cashFromTotals > 0) totalCashTips = cashFromTotals;
+    }
+
+    return { ccTips: totalCcTips, cashTips: totalCashTips };
+  } catch (error) {
+    console.error(`[sync-tips] Error fetching tips for ${dateStr}:`, error);
+    return null;
+  }
+}
+
+async function handleSyncTips(req: Request, supabase: any) {
+  const body = await req.json();
+  const { locationId, startDate, endDate } = body;
+
+  if (!locationId || !startDate || !endDate) {
+    return new Response(JSON.stringify({ error: 'Missing locationId, startDate, or endDate' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  console.log(`[sync-tips] Syncing tips for location ${locationId} from ${startDate} to ${endDate}`);
+
+  // Get QU integration
+  const { data: integration } = await supabase
+    .from('location_integrations')
+    .select('id, credentials, is_active')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true)
+    .single();
+
+  if (!integration) {
+    return new Response(JSON.stringify({ error: 'No active QuBeyond integration found', synced: 0 }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const creds = integration.credentials as any;
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, creds.username, creds.password);
+  if (!tokenGw) {
+    return new Response(JSON.stringify({ error: 'Authentication failed' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const qbLocationId = creds.location_id;
+
+  // Generate date range
+  const dates: string[] = [];
+  const current = new Date(startDate + 'T12:00:00Z');
+  const end = new Date(endDate + 'T12:00:00Z');
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  console.log(`[sync-tips] Fetching tips for ${dates.length} days`);
+
+  // Fetch tips in parallel batches of 5 to avoid rate limiting
+  const BATCH_SIZE = 5;
+  const allResults: { date: string; ccTips: number; cashTips: number }[] = [];
+
+  for (let i = 0; i < dates.length; i += BATCH_SIZE) {
+    const batch = dates.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (dateStr) => {
+        const tips = await fetchTipsForDate(tokenGw, dateStr, qbLocationId);
+        return tips ? { date: dateStr, ...tips } : null;
+      })
+    );
+    results.forEach(r => { if (r) allResults.push(r); });
+  }
+
+  // Bulk upsert into daily_tips
+  if (allResults.length > 0) {
+    const rows = allResults.map(r => ({
+      location_id: locationId,
+      tip_date: r.date,
+      total_cc_tips: r.ccTips,
+      total_cash_tips: r.cashTips,
+      fetched_at: new Date().toISOString()
+    }));
+
+    // Upsert in batches of 100
+    for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100);
+      const { error } = await supabase
+        .from('daily_tips')
+        .upsert(batch, { onConflict: 'location_id,tip_date' });
+
+      if (error) {
+        console.error(`[sync-tips] Upsert error batch ${i}:`, error.message);
+      }
+    }
+  }
+
+  console.log(`[sync-tips] Done. Synced ${allResults.length}/${dates.length} days`);
+
+  return new Response(JSON.stringify({
+    status: 'ok',
+    synced: allResults.length,
+    total: dates.length,
+    totalCcTips: allResults.reduce((s, r) => s + r.ccTips, 0),
+    totalCashTips: allResults.reduce((s, r) => s + r.cashTips, 0),
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+// ============================================================================
 // MAIN ROUTER
 // ============================================================================
 
@@ -931,6 +1100,9 @@ serve(async (req) => {
       
       case 'backfill':
         return await handleBackfill(req, supabase);
+      
+      case 'sync-tips':
+        return await handleSyncTips(req, supabase);
       
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
