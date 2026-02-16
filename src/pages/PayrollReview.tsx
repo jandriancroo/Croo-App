@@ -965,6 +965,13 @@ export default function PayrollReview() {
       ...allUserIds.map(uid => supabase.rpc('get_current_wage', { p_user_id: uid })),
     ]);
 
+    // Build a wage map keyed by user_id so wage lookups are independent of array order
+    const wageByUserId = new Map<string, number>();
+    allUserIds.forEach((uid, idx) => {
+      const wage = wageResults[idx]?.data;
+      if (wage != null) wageByUserId.set(uid, wage);
+    });
+
     // Index bulk data by user_id
     const punchesByUser = new Map<string, any[]>();
     (allPunchesResult.data || []).forEach((p: any) => {
@@ -993,10 +1000,10 @@ export default function PayrollReview() {
     
     const globalCreatorMap = new Map((allCreatorProfiles || []).map((p: any) => [p.id, p.full_name]));
 
-    const cards = profiles.map((profile, index) => {
+    const cards = profiles.map((profile) => {
         const punches = punchesByUser.get(profile.id) || [];
         const scheduledShifts = shiftsByUser.get(profile.id) || [];
-        const currentWage = wageResults[index]?.data;
+        const currentWage = wageByUserId.get(profile.id) ?? null;
         
         // Create a map of scheduled shifts by date
         const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean }>();
