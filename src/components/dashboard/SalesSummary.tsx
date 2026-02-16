@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Package, RefreshCcw, Flame, Activity, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Area, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -15,6 +15,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
@@ -69,6 +70,7 @@ interface DiagnosticInfo {
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
+  const { getTodayInTimezone, getDateInTimezone } = useLocationTimezone();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
@@ -105,14 +107,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }).format(amount);
   };
 
+  // Timezone-aware date string: uses location timezone, NOT browser local time
   const getDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getDateInTimezone(date);
   };
 
-  const isToday = isSameDay(targetDate, new Date());
+  // Timezone-aware "today" string for comparisons
+  const todayTzStr = getTodayInTimezone();
+  const isToday = getDateString(targetDate) === todayTzStr;
 
   // Check database cache for historical dates
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
@@ -225,7 +227,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const weekDataMap = new Map(weekData.map(d => [d.sale_date, d]));
     
     // Get today's date string for pace logic
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = todayTzStr;
     
     // Build full 7-day breakdown with labor data
     const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number; projectionSource?: ProjectionSource }[] = [];
@@ -403,7 +405,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   // Fetch fresh data from API
   const fetchSalesData = async (): Promise<SalesData | null> => {
     const dateStr = getDateString(targetDate);
-    const isTodayCheck = isSameDay(targetDate, new Date());
+    const isTodayCheck = getDateString(targetDate) === todayTzStr;
     
     // For historical dates, use database cache only
     // Don't call the edge function for past dates - it won't have data
@@ -496,7 +498,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     // For Mon..Yesterday, prefer the backend sales_cache + labor_cache so labor% is stable and correct.
     if (isTodayCheck && currentLocation?.id && salesData?.weeklyBreakdown?.length) {
       try {
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const todayStr = todayTzStr;
         const weekStartStr = salesData.dateRange?.weekStart
           ? salesData.dateRange.weekStart
           : format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -625,7 +627,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Historical dates: always fresh from DB cache (staleTime: 0)
   // Today: use 5-minute stale time for live data
-  const isTodayQuery = isSameDay(targetDate, new Date());
+  const isTodayQuery = getDateString(targetDate) === todayTzStr;
   
   // Get initial data from cache for instant render - computed directly in useMemo
   const initialData = useMemo(() => {
@@ -721,7 +723,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   // Background refresh when cache is stale but we have data to show
   useEffect(() => {
-    if (!currentLocation?.id || !isSameDay(targetDate, new Date())) return;
+    if (!currentLocation?.id || !isToday) return;
     
     const cached = getCachedLiveSales(currentLocation.id);
     // Only refetch if cache exists but is stale (> 3 min old) - not if it's fresh
@@ -748,7 +750,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       }
 
       // If page becomes visible and we're viewing today, start refresh interval
-      if (document.visibilityState === 'visible' && isSameDay(targetDate, new Date())) {
+      if (document.visibilityState === 'visible' && isToday) {
         // Check if cache is stale (> 3 min) - if fresh, don't refresh yet
         const cached = getCachedLiveSales(currentLocation.id);
         if (!cached?.isFresh) {
@@ -771,7 +773,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Initial check - if page is already visible, start interval
-    if (document.visibilityState === 'visible' && isSameDay(targetDate, new Date())) {
+    if (document.visibilityState === 'visible' && isToday) {
       visibilityRefreshInterval.current = setInterval(() => {
         if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
           isBackgroundRefreshing.current = true;
@@ -996,7 +998,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       return salesData?.projections?.weekProjected || 0;
     }
     
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const todayStr = todayTzStr;
     
     let total = 0;
     for (const day of salesData.weeklyBreakdown) {
