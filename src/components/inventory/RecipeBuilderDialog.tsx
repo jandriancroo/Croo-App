@@ -146,8 +146,15 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         // Native unit → convert to cases via units_per_case
         const casesUsed = ing.quantity / upc;
         total += casesUsed * item.cost_per_unit;
+      } else if (upc && upc > 0 && TO_OZ[ing.unit] && TO_OZ[nativeUnit]) {
+        // Convert ingredient qty to native units, then to cases
+        // e.g., 20 oz of olive oil where native = gal, 1 gal = 128 oz
+        const ingInOz = ing.quantity * TO_OZ[ing.unit];
+        const nativeInOz = TO_OZ[nativeUnit];
+        const ingInNativeUnits = ingInOz / nativeInOz;
+        const casesUsed = ingInNativeUnits / upc;
+        total += casesUsed * item.cost_per_unit;
       } else {
-        // Non-native unit (e.g. oz on an 'ea' item) — can't reliably convert
         allHaveCost = false;
       }
     }
