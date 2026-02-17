@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // ============================================================================
 // PFG SERVICE - Consolidated service for all PFG operations
-// Actions: fetch_orders, fetch_products, fetch_categories, test, sync_orders
+// Actions: oauth_start, oauth_exchange, fetch, test, sync_orders, refresh_keep_alive
 // ============================================================================
 
 // PFG Azure AD B2C Configuration
@@ -17,6 +17,7 @@ const PFG_B2C_POLICY = 'b2c_1a_signup_signin';
 const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_SCOPE = 'https://pfgcustomerfirst.onmicrosoft.com/api/customer-first-site-api openid profile offline_access';
 const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/token`;
+const PFG_REDIRECT_URI = 'https://www.customerfirstsolutions.com';
 
 const PFG_API_BASES = [
   'https://www.customerfirstsolutions.com/api/v1',
@@ -69,6 +70,7 @@ interface PFGCredentials {
   customer_id?: string;
   access_token?: string;
   token_expires_at?: string;
+  refresh_token_updated_at?: string;
 }
 
 interface TokenResponse {
@@ -76,6 +78,7 @@ interface TokenResponse {
   refresh_token: string;
   expires_in: number;
   token_type: string;
+  refresh_token_expires_in?: number;
 }
 
 // Generate PKCE code verifier and challenge
@@ -92,222 +95,6 @@ async function generatePKCE(): Promise<{ verifier: string; challenge: string }> 
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   
   return { verifier, challenge };
-}
-
-// Extract cookies from response headers
-function extractCookies(response: Response): string {
-  const cookies: string[] = [];
-  response.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'set-cookie') {
-      const cookiePart = value.split(';')[0];
-      cookies.push(cookiePart);
-    }
-  });
-  return cookies.join('; ');
-}
-
-// Headless browser OAuth login - mimics the B2C login page flow
-async function loginWithPassword(username: string, password: string): Promise<TokenResponse | null> {
-  try {
-    console.log('[PFG Auth] Starting headless OAuth flow for:', username);
-
-    // Step 1: Generate PKCE
-    const pkce = await generatePKCE();
-    const state = btoa(JSON.stringify({ id: crypto.randomUUID(), meta: { interactionType: 'redirect' } }));
-    const nonce = crypto.randomUUID();
-    
-    const redirectUri = 'https://www.customerfirstsolutions.com';
-    
-    const authorizeUrl = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/authorize?` +
-      new URLSearchParams({
-        client_id: PFG_CLIENT_ID,
-        scope: 'openid profile offline_access',
-        redirect_uri: redirectUri,
-        response_mode: 'fragment',
-        response_type: 'code',
-        code_challenge: pkce.challenge,
-        code_challenge_method: 'S256',
-        nonce,
-        state,
-      }).toString();
-
-    console.log('[PFG Auth] Step 1: GET authorize page');
-    const authResponse = await fetch(authorizeUrl, { redirect: 'manual' });
-    
-    // Collect cookies from all set-cookie headers
-    const rawHeaders = authResponse.headers;
-    let cookies = '';
-    const cookieArr: string[] = [];
-    // Response.headers.getSetCookie() may be available in Deno
-    try {
-      const setCookies = (rawHeaders as any).getSetCookie?.() || [];
-      for (const sc of setCookies) {
-        cookieArr.push(sc.split(';')[0]);
-      }
-    } catch {
-      // Fallback: try forEach
-      rawHeaders.forEach((value, key) => {
-        if (key.toLowerCase() === 'set-cookie') {
-          cookieArr.push(value.split(';')[0]);
-        }
-      });
-    }
-    cookies = cookieArr.join('; ');
-    
-    const authHtml = await authResponse.text();
-    console.log('[PFG Auth] Got authorize page, status:', authResponse.status, 'cookies:', cookieArr.length);
-    // Log a large chunk of the HTML to understand the page structure
-    console.log('[PFG Auth] HTML chunk 1:', authHtml.substring(0, 3000));
-    console.log('[PFG Auth] HTML chunk 2:', authHtml.substring(3000, 6000));
-
-    // Step 2: Extract CSRF token and transId from the HTML/settings
-    // Look for the settings JSON in the page
-    const settingsMatch = authHtml.match(/var SETTINGS\s*=\s*(\{[^;]+\});/);
-    const csrfMatch = authHtml.match(/"csrf"\s*:\s*"([^"]+)"/);
-    const transIdMatch = authHtml.match(/"transId"\s*:\s*"([^"]+)"/);
-    
-    let csrf = csrfMatch?.[1] || '';
-    let transId = transIdMatch?.[1] || '';
-    
-    // Also try to extract from meta tags or hidden inputs
-    if (!csrf) {
-      const csrfMeta = authHtml.match(/name="x-ms-cpim-csrf"\s+content="([^"]+)"/);
-      csrf = csrfMeta?.[1] || '';
-    }
-    if (!transId) {
-      const transMatch = authHtml.match(/transId=([^&"]+)/);
-      transId = transMatch?.[1] || '';
-    }
-    
-    // Extract the API URL for SelfAsserted
-    const apiMatch = authHtml.match(/"api"\s*:\s*"([^"]+)"/);
-    const apiPath = apiMatch?.[1] || '/SelfAsserted';
-    
-    // Also look for the full settings block to understand the URL pattern
-    const settingsSnippet = settingsMatch?.[1]?.substring(0, 500) || 'no SETTINGS found';
-    console.log('[PFG Auth] Step 2: csrf:', csrf ? 'found' : 'MISSING', 'transId:', transId ? 'found' : 'MISSING', 'apiPath:', apiPath, 'settings:', settingsSnippet);
-    
-    if (!csrf || !transId) {
-      // Log some of the HTML to help debug
-      console.error('[PFG Auth] Could not extract csrf/transId. HTML snippet:', authHtml.substring(0, 2000));
-      return null;
-    }
-
-    // Step 3: POST credentials
-    // Extract the exact tenant host path from settings (includes correct casing)
-    const hostsMatch = authHtml.match(/"hosts"\s*:\s*\{[^}]*"tenant"\s*:\s*"([^"]+)"/);
-    const tenantPath = hostsMatch?.[1] || `/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}`;
-    
-    // B2C SelfAsserted endpoint - use the api path from settings (e.g. CombinedSigninAndSignup)
-    const selfAssertedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/${apiPath}?` +
-      new URLSearchParams({
-        tx: transId,
-        p: PFG_B2C_POLICY,
-      }).toString();
-
-    console.log('[PFG Auth] SelfAsserted URL:', selfAssertedUrl);
-
-    const formData = new URLSearchParams({
-      request_type: 'RESPONSE',
-      signInName: username,
-      password: password,
-    });
-
-    console.log('[PFG Auth] Step 3: POST credentials to SelfAsserted');
-    const selfAssertedResponse = await fetch(selfAssertedUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRF-TOKEN': csrf,
-        'Cookie': cookies,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: formData.toString(),
-      redirect: 'manual',
-    });
-
-    const selfAssertedText = await selfAssertedResponse.text();
-    console.log('[PFG Auth] SelfAsserted response:', selfAssertedResponse.status, selfAssertedText.substring(0, 500));
-
-    // Collect any new cookies
-    try {
-      const newCookies = (selfAssertedResponse.headers as any).getSetCookie?.() || [];
-      for (const sc of newCookies) {
-        cookieArr.push(sc.split(';')[0]);
-      }
-      cookies = cookieArr.join('; ');
-    } catch {}
-
-    // Check for error in the response
-    if (selfAssertedResponse.status !== 200 || selfAssertedText.includes('"status":"FAIL"')) {
-      console.error('[PFG Auth] SelfAsserted login failed:', selfAssertedText.substring(0, 500));
-      return null;
-    }
-
-    // Step 4: GET the confirmed endpoint to get the redirect with auth code
-    const confirmedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/${apiPath}/confirmed?` +
-      new URLSearchParams({
-        rememberMe: 'false',
-        csrf_token: csrf,
-        tx: transId,
-        p: PFG_B2C_POLICY,
-      }).toString();
-
-    console.log('[PFG Auth] Step 4: GET confirmed endpoint');
-    const confirmedResponse = await fetch(confirmedUrl, {
-      headers: {
-        'Cookie': cookies,
-      },
-      redirect: 'manual',
-    });
-
-    const location = confirmedResponse.headers.get('location') || '';
-    console.log('[PFG Auth] Confirmed response:', confirmedResponse.status, 'redirect:', location.substring(0, 200));
-
-    // The redirect URL should contain the authorization code in the fragment
-    // e.g., https://www.customerfirstsolutions.com#code=XXXXX&state=...
-    const codeMatch = location.match(/[#&?]code=([^&]+)/);
-    
-    if (!codeMatch) {
-      const confirmedText = await confirmedResponse.text();
-      console.error('[PFG Auth] No auth code in redirect. Location:', location, 'Body:', confirmedText.substring(0, 500));
-      return null;
-    }
-
-    const authCode = decodeURIComponent(codeMatch[1]);
-    console.log('[PFG Auth] Step 4: Got authorization code!');
-
-    // Step 5: Exchange the code for tokens
-    const tokenParams = new URLSearchParams({
-      client_id: PFG_CLIENT_ID,
-      scope: 'openid profile offline_access',
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-      code: authCode,
-      code_verifier: pkce.verifier,
-    });
-
-    console.log('[PFG Auth] Step 5: Exchanging code for tokens');
-    const tokenResponse = await fetch(PFG_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: tokenParams.toString(),
-    });
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('[PFG Auth] Token exchange failed:', tokenResponse.status, errorText);
-      return null;
-    }
-
-    const tokenData = await tokenResponse.json();
-    console.log('[PFG Auth] Headless OAuth flow COMPLETE! Token acquired.');
-    console.log('[PFG Auth] Token expires_in:', tokenData.expires_in, 'refresh_token_expires_in:', tokenData.refresh_token_expires_in);
-    return tokenData;
-  } catch (error) {
-    console.error('[PFG Auth] Headless login error:', error);
-    return null;
-  }
 }
 
 // Refresh an existing token
@@ -500,10 +287,12 @@ function parsePfgDate(dateStr: string | null | undefined): string | null {
 // ============================================================================
 
 const TOKEN_REFRESH_BUFFER_MS = 2 * 60 * 60 * 1000; // 2 hours before expiry
+const TOKEN_PROACTIVE_REFRESH_MS = 18 * 60 * 60 * 1000; // 18 hours — backup refresh threshold
 
 /**
  * Returns a valid access token, using the cached one when possible.
  * Only refreshes when the cached token is within 2 hours of expiry.
+ * Also proactively refreshes if the refresh_token is >18 hours old (backup for cron).
  * Persists the new tokens back to location_integrations.
  */
 async function getValidAccessToken(
@@ -516,36 +305,46 @@ async function getValidAccessToken(
   if (credentials.access_token && credentials.token_expires_at) {
     const expiresAt = new Date(credentials.token_expires_at).getTime();
     const now = Date.now();
-    if (expiresAt - now > TOKEN_REFRESH_BUFFER_MS) {
-      console.log('[PFG Auth] Using cached access token (expires in', Math.round((expiresAt - now) / 60000), 'min)');
+    
+    // Also check if refresh token is getting old (>18h) — proactive backup refresh
+    const refreshAge = credentials.refresh_token_updated_at 
+      ? now - new Date(credentials.refresh_token_updated_at).getTime()
+      : Infinity;
+    
+    if (expiresAt - now > TOKEN_REFRESH_BUFFER_MS && refreshAge < TOKEN_PROACTIVE_REFRESH_MS) {
+      console.log('[PFG Auth] Using cached access token (expires in', Math.round((expiresAt - now) / 60000), 'min, refresh age:', Math.round(refreshAge / 3600000), 'h)');
       return { accessToken: credentials.access_token, updatedCredentials: credentials };
     }
-    console.log('[PFG Auth] Cached token near expiry — refreshing');
+    
+    if (refreshAge >= TOKEN_PROACTIVE_REFRESH_MS) {
+      console.log('[PFG Auth] Refresh token is', Math.round(refreshAge / 3600000), 'h old — proactive refresh (backup for cron)');
+    } else {
+      console.log('[PFG Auth] Cached token near expiry — refreshing');
+    }
   }
 
   // 2. Try refresh_token
-  let tokenData = credentials.refresh_token
+  const tokenData = credentials.refresh_token
     ? await refreshAccessToken(credentials.refresh_token)
     : null;
 
-  // 3. Fallback: re-login with stored password
-  if (!tokenData && credentials.username && credentials.password) {
-    console.log('[PFG Auth] Refresh failed, attempting auto-re-login…');
-    tokenData = await loginWithPassword(credentials.username, credentials.password);
+  if (!tokenData) {
+    console.error('[PFG Auth] Token refresh failed — manual re-login required via OAuth popup');
+    return null;
   }
 
-  if (!tokenData) return null;
-
-  // 4. Build updated credentials with cached access_token + expiry
-  const expiresAtIso = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+  // 3. Build updated credentials with cached access_token + expiry
+  const now = new Date();
+  const expiresAtIso = new Date(now.getTime() + tokenData.expires_in * 1000).toISOString();
   const updatedCredentials: PFGCredentials = {
     ...credentials,
     refresh_token: tokenData.refresh_token,
     access_token: tokenData.access_token,
     token_expires_at: expiresAtIso,
+    refresh_token_updated_at: now.toISOString(),
   };
 
-  // 5. Persist
+  // 4. Persist
   if (integrationId) {
     await supabase
       .from('location_integrations')
@@ -555,6 +354,219 @@ async function getValidAccessToken(
   }
 
   return { accessToken: tokenData.access_token, updatedCredentials };
+}
+
+// ============================================================================
+// OAUTH FLOW — popup-based login
+// ============================================================================
+
+/**
+ * Generate the OAuth authorize URL + PKCE verifier for the popup flow.
+ * The client opens this URL in a popup. After login, PFG redirects to
+ * PFG_REDIRECT_URI#code=XXX&state=YYY. The client captures the code
+ * and sends it back via oauth_exchange.
+ */
+async function handleOAuthStart(): Promise<Response> {
+  const pkce = await generatePKCE();
+  const state = crypto.randomUUID();
+
+  const authorizeUrl = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/authorize?` +
+    new URLSearchParams({
+      client_id: PFG_CLIENT_ID,
+      scope: 'openid profile offline_access',
+      redirect_uri: PFG_REDIRECT_URI,
+      response_mode: 'fragment',
+      response_type: 'code',
+      code_challenge: pkce.challenge,
+      code_challenge_method: 'S256',
+      nonce: crypto.randomUUID(),
+      state,
+    }).toString();
+
+  return new Response(JSON.stringify({
+    authorizeUrl,
+    codeVerifier: pkce.verifier,
+    state,
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * Exchange the auth code from the popup redirect for tokens.
+ * Saves the tokens to location_integrations.
+ */
+async function handleOAuthExchange(supabase: any, body: any): Promise<Response> {
+  const { locationId, code, codeVerifier } = body;
+
+  if (!locationId || !code || !codeVerifier) {
+    return new Response(JSON.stringify({
+      error: 'Missing locationId, code, or codeVerifier',
+      authenticated: false,
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log('[PFG OAuth] Exchanging code for tokens, location:', locationId);
+
+  // Exchange code for tokens
+  const tokenParams = new URLSearchParams({
+    client_id: PFG_CLIENT_ID,
+    scope: 'openid profile offline_access',
+    redirect_uri: PFG_REDIRECT_URI,
+    grant_type: 'authorization_code',
+    code,
+    code_verifier: codeVerifier,
+  });
+
+  const tokenResponse = await fetch(PFG_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: tokenParams.toString(),
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    console.error('[PFG OAuth] Token exchange failed:', tokenResponse.status, errorText);
+    return new Response(JSON.stringify({
+      error: 'Token exchange failed — please try again.',
+      authenticated: false,
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const tokenData: TokenResponse = await tokenResponse.json();
+  console.log('[PFG OAuth] Token exchange successful! expires_in:', tokenData.expires_in);
+
+  // Save/update the integration
+  const now = new Date();
+  const credentials: PFGCredentials = {
+    refresh_token: tokenData.refresh_token,
+    access_token: tokenData.access_token,
+    token_expires_at: new Date(now.getTime() + tokenData.expires_in * 1000).toISOString(),
+    refresh_token_updated_at: now.toISOString(),
+  };
+
+  const { data: existing } = await supabase
+    .from('location_integrations')
+    .select('id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .maybeSingle();
+
+  if (existing) {
+    // Preserve existing fields like customer_id, username
+    const existingCreds = existing.credentials as any || {};
+    const mergedCreds = {
+      ...existingCreds,
+      ...credentials,
+    };
+    await supabase
+      .from('location_integrations')
+      .update({ credentials: mergedCreds, is_active: true })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('location_integrations')
+      .insert({
+        location_id: locationId,
+        integration_type: 'pfg',
+        credentials,
+        is_active: true,
+      });
+  }
+
+  return new Response(JSON.stringify({
+    authenticated: true,
+    message: 'PFG connected via OAuth! Token saved.',
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// ============================================================================
+// KEEP-ALIVE — proactive token refresh for cron
+// ============================================================================
+
+async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  
+  // If locationId specified, refresh just that one; otherwise refresh ALL active PFG integrations
+  let query = supabase
+    .from('location_integrations')
+    .select('id, location_id, credentials')
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true);
+  
+  if (locationId) {
+    query = query.eq('location_id', locationId);
+  }
+
+  const { data: integrations, error } = await query;
+
+  if (error) throw new Error(`Failed to fetch PFG integrations: ${error.message}`);
+  if (!integrations || integrations.length === 0) {
+    return new Response(JSON.stringify({ success: true, refreshed: 0, message: 'No active PFG integrations' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log(`[PFG Keep-Alive] Refreshing ${integrations.length} integrations`);
+  const results: { locationId: string; success: boolean; error?: string }[] = [];
+
+  for (const integration of integrations) {
+    const creds = integration.credentials as unknown as PFGCredentials;
+    
+    if (!creds?.refresh_token) {
+      results.push({ locationId: integration.location_id, success: false, error: 'No refresh token' });
+      continue;
+    }
+
+    try {
+      const tokenData = await refreshAccessToken(creds.refresh_token);
+      
+      if (!tokenData) {
+        results.push({ locationId: integration.location_id, success: false, error: 'Refresh failed — manual re-login needed' });
+        continue;
+      }
+
+      const now = new Date();
+      const updatedCreds: PFGCredentials = {
+        ...creds,
+        refresh_token: tokenData.refresh_token,
+        access_token: tokenData.access_token,
+        token_expires_at: new Date(now.getTime() + tokenData.expires_in * 1000).toISOString(),
+        refresh_token_updated_at: now.toISOString(),
+      };
+
+      await supabase
+        .from('location_integrations')
+        .update({ credentials: updatedCreds })
+        .eq('id', integration.id);
+
+      results.push({ locationId: integration.location_id, success: true });
+      console.log(`[PFG Keep-Alive] ✓ Refreshed token for location ${integration.location_id}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      results.push({ locationId: integration.location_id, success: false, error: msg });
+      console.error(`[PFG Keep-Alive] ✗ Failed for location ${integration.location_id}:`, msg);
+    }
+  }
+
+  const succeeded = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+
+  return new Response(JSON.stringify({
+    success: true,
+    refreshed: succeeded,
+    failed,
+    results,
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 // ============================================================================
@@ -602,9 +614,9 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  if (!credentials.refresh_token && !credentials.password) {
+  if (!credentials.refresh_token) {
     return new Response(JSON.stringify({ 
-      error: 'No refresh token or password stored — please log in to PFG.',
+      error: 'No refresh token stored — please connect to PFG via the login button.',
       authenticated: false 
     }), {
       status: 400,
@@ -616,7 +628,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
 
   if (!tokenResult) {
     return new Response(JSON.stringify({ 
-      error: 'Token refresh failed and auto-login failed — please log in to PFG again.',
+      error: 'Token refresh failed — please reconnect to PFG.',
       authenticated: false 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -758,7 +770,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
   for (const integration of integrations) {
     const credentials = integration.credentials as unknown as PFGCredentials;
     
-    if (!credentials?.refresh_token && !credentials?.password) {
+    if (!credentials?.refresh_token) {
       results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'No credentials stored' });
       continue;
     }
@@ -838,68 +850,6 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
   });
 }
 
-async function handleLogin(supabase: any, body: any): Promise<Response> {
-  const { locationId, username, password } = body;
-
-  if (!locationId || !username || !password) {
-    return new Response(JSON.stringify({ 
-      error: 'Missing locationId, username, or password',
-      authenticated: false 
-    }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  const tokenData = await loginWithPassword(username, password);
-
-  if (!tokenData) {
-    return new Response(JSON.stringify({ 
-      error: 'PFG login failed — check your email and password.',
-      authenticated: false 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Save/update the integration with the new refresh token
-  const credentials = {
-    username,
-    password,
-    refresh_token: tokenData.refresh_token,
-  };
-
-  const { data: existing } = await supabase
-    .from('location_integrations')
-    .select('id')
-    .eq('location_id', locationId)
-    .eq('integration_type', 'pfg')
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from('location_integrations')
-      .update({ credentials, is_active: true })
-      .eq('id', existing.id);
-  } else {
-    await supabase
-      .from('location_integrations')
-      .insert({
-        location_id: locationId,
-        integration_type: 'pfg',
-        credentials,
-        is_active: true,
-      });
-  }
-
-  return new Response(JSON.stringify({ 
-    authenticated: true,
-    message: 'PFG login successful! Token saved.',
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
-
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -927,8 +877,14 @@ serve(async (req) => {
     console.log('[PFG Service] Action:', action || 'fetch');
 
     switch (action) {
-      case 'login':
-        return await handleLogin(supabase, body);
+      case 'oauth_start':
+        return await handleOAuthStart();
+      
+      case 'oauth_exchange':
+        return await handleOAuthExchange(supabase, body);
+      
+      case 'refresh_keep_alive':
+        return await handleRefreshKeepAlive(supabase, body);
       
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);

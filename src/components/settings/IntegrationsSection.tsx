@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw } from "lucide-react";
+import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw, ExternalLink } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface QuBeyondCredentials {
@@ -16,12 +16,6 @@ interface QuBeyondCredentials {
   password: string;
   location_id?: string;
   pull_labor?: boolean;
-}
-
-interface PFGCredentials {
-  username: string;
-  password: string;
-  refresh_token?: string;
 }
 
 interface IntegrationsSectionProps {
@@ -48,14 +42,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // PFG state
-  const [pfgCredentials, setPfgCredentials] = useState<PFGCredentials>({
-    username: "",
-    password: "",
-  });
   const [pfgIsActive, setPfgIsActive] = useState(true);
-  const [pfgShowPassword, setPfgShowPassword] = useState(false);
   const [pfgIsTesting, setPfgIsTesting] = useState(false);
   const [pfgTestResult, setPfgTestResult] = useState<'success' | 'error' | null>(null);
+  const [pfgIsConnecting, setPfgIsConnecting] = useState(false);
 
   // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
@@ -112,15 +102,130 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   // Update local state when PFG integration data loads
   useEffect(() => {
     if (pfgIntegration) {
-      const creds = pfgIntegration.credentials as unknown as PFGCredentials;
-      setPfgCredentials({
-        username: creds?.username || "",
-        password: "", // Never pre-fill password
-        refresh_token: creds?.refresh_token,
-      });
       setPfgIsActive(pfgIntegration.is_active);
     }
   }, [pfgIntegration]);
+
+  // PFG OAuth popup login flow
+  const startPfgOAuth = useCallback(async () => {
+    if (!locationId) return;
+    setPfgIsConnecting(true);
+
+    try {
+      // Step 1: Get the authorize URL + PKCE verifier from our edge function
+      const startResp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({}),
+        }
+      );
+      const startData = await startResp.json();
+      
+      if (!startData?.authorizeUrl) {
+        throw new Error('Failed to generate login URL');
+      }
+
+      const { authorizeUrl, codeVerifier } = startData;
+
+      // Step 2: Open popup to PFG's real login page
+      const width = 500;
+      const height = 650;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const popup = window.open(
+        authorizeUrl,
+        'pfg-login',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
+
+      if (!popup) {
+        throw new Error('Popup blocked — please allow popups for this site');
+      }
+
+      // Step 3: Poll the popup for the redirect with auth code
+      const pollInterval = setInterval(async () => {
+        try {
+          if (popup.closed) {
+            clearInterval(pollInterval);
+            setPfgIsConnecting(false);
+            return;
+          }
+
+          // Check if we can access the popup's URL (same-origin check will fail until redirect)
+          let popupUrl: string;
+          try {
+            popupUrl = popup.location.href;
+          } catch {
+            // Cross-origin — popup is still on PFG's login page
+            return;
+          }
+
+          // Check if the popup has redirected to PFG_REDIRECT_URI with a code
+          if (popupUrl.includes('customerfirstsolutions.com')) {
+            // Parse the code from the URL fragment
+            const hash = popup.location.hash || '';
+            const params = new URLSearchParams(hash.replace('#', ''));
+            const code = params.get('code');
+
+            if (code) {
+              clearInterval(pollInterval);
+              popup.close();
+
+              // Step 4: Exchange the code for tokens
+              const exchangeResp = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_exchange`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                    'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  },
+                  body: JSON.stringify({
+                    locationId,
+                    code,
+                    codeVerifier,
+                  }),
+                }
+              );
+
+              const exchangeData = await exchangeResp.json();
+
+              if (exchangeData?.authenticated) {
+                toast.success("PFG connected successfully!");
+                queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+              } else {
+                toast.error(exchangeData?.error || 'PFG login failed');
+              }
+
+              setPfgIsConnecting(false);
+            }
+          }
+        } catch {
+          // Cross-origin error — still on PFG page, keep polling
+        }
+      }, 500);
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        if (!popup.closed) popup.close();
+        setPfgIsConnecting(false);
+      }, 5 * 60 * 1000);
+
+    } catch (error) {
+      console.error('[PFG OAuth] Error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start PFG login');
+      setPfgIsConnecting(false);
+    }
+  }, [locationId, queryClient]);
 
   // Trigger background backfill of historical sales data
   const triggerBackfill = async (integrationId: string) => {
@@ -236,46 +341,6 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   });
 
-  // PFG Login mutation — authenticates with PFG and auto-stores refresh token
-  const pfgLoginMutation = useMutation({
-    mutationFn: async () => {
-      if (!locationId) throw new Error("No location selected");
-      if (!pfgCredentials.username || !pfgCredentials.password) {
-        throw new Error("Please enter PFG email and password");
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({
-            locationId,
-            username: pfgCredentials.username,
-            password: pfgCredentials.password,
-          }),
-        }
-      );
-      const data = await response.json();
-      if (!data?.authenticated) {
-        throw new Error(data?.error || 'PFG login failed');
-      }
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("PFG connected successfully!");
-      setPfgCredentials(prev => ({ ...prev, password: "" }));
-      queryClient.invalidateQueries({ queryKey: ['location-integration'] });
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "PFG login failed");
-    }
-  });
-
   // QuBeyond Test connection
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) {
@@ -331,7 +396,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
         toast.success("PFG connection active!");
       } else {
         setPfgTestResult('error');
-        toast.error("PFG token expired — please log in again.");
+        toast.error("PFG token expired — please reconnect.");
       }
     } catch (error) {
       setPfgTestResult('error');
@@ -340,6 +405,12 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgIsTesting(false);
     }
   };
+
+  const pfgHasToken = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token;
+  const pfgUsername = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.username;
+  const pfgRefreshAge = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token_updated_at
+    ? Math.round((Date.now() - new Date((pfgIntegration.credentials as any).refresh_token_updated_at).getTime()) / 3600000)
+    : null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -528,14 +599,22 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               ) : (
                 <>
-                  {pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token ? (
+                  {pfgHasToken ? (
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-sm">
                         <Check className="h-4 w-4 text-primary" />
                         <span className="text-muted-foreground">
-                          Connected as <span className="font-medium text-foreground">{(pfgIntegration.credentials as any)?.username || 'PFG User'}</span>
+                          Connected{pfgUsername ? <> as <span className="font-medium text-foreground">{pfgUsername}</span></> : null}
                         </span>
                       </div>
+                      {pfgRefreshAge !== null && (
+                        <p className="text-xs text-muted-foreground">
+                          Token refreshed {pfgRefreshAge < 1 ? 'just now' : `${pfgRefreshAge}h ago`}
+                          {pfgRefreshAge > 18 && (
+                            <span className="text-yellow-500 ml-1">⚠ Getting old</span>
+                          )}
+                        </p>
+                      )}
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
@@ -557,68 +636,29 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       </div>
                       {pfgTestResult === 'error' && (
                         <p className="text-xs text-destructive">
-                          Token expired — log in again below to reconnect.
+                          Token expired — reconnect below.
                         </p>
                       )}
                     </div>
                   ) : null}
 
-                  <div className="space-y-3 border-t pt-3">
-                    <p className="text-sm font-medium">
-                      {pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token 
-                        ? 'Re-authenticate' 
-                        : 'Log in to PFG'}
-                    </p>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pfg-email" className="text-sm">PFG Email</Label>
-                      <Input
-                        id="pfg-email"
-                        type="email"
-                        value={pfgCredentials.username}
-                        onChange={(e) => setPfgCredentials(prev => ({ ...prev, username: e.target.value }))}
-                        placeholder="your@email.com"
-                        className="h-9"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pfg-password" className="text-sm">PFG Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="pfg-password"
-                          type={pfgShowPassword ? "text" : "password"}
-                          value={pfgCredentials.password}
-                          onChange={(e) => setPfgCredentials(prev => ({ ...prev, password: e.target.value }))}
-                          placeholder="Your PFG password"
-                          className="h-9 pr-10"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute right-0 top-0 h-full px-3"
-                          onClick={() => setPfgShowPassword(!pfgShowPassword)}
-                        >
-                          {pfgShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-
+                  <div className={pfgHasToken ? "border-t pt-3" : ""}>
                     <Button
                       size="sm"
-                      onClick={() => pfgLoginMutation.mutate()}
-                      disabled={pfgLoginMutation.isPending || !pfgCredentials.username || !pfgCredentials.password}
+                      onClick={startPfgOAuth}
+                      disabled={pfgIsConnecting}
                       className="w-full"
                     >
-                      {pfgLoginMutation.isPending ? (
+                      {pfgIsConnecting ? (
                         <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                       ) : (
-                        <Plug className="h-4 w-4 mr-1.5" />
+                        <ExternalLink className="h-4 w-4 mr-1.5" />
                       )}
-                      {pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token
-                        ? 'Reconnect to PFG'
-                        : 'Connect to PFG'}
+                      {pfgHasToken ? 'Reconnect to PFG' : 'Log in to PFG'}
                     </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Opens PFG login in a popup — one-time setup
+                    </p>
                   </div>
                 </>
               )}

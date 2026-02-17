@@ -103,6 +103,8 @@ async function processTask(
       return await processBackfillLabor(supabaseUrl, supabaseKey, task);
     case "weekly_summary":
       return await processWeeklySummary(supabaseUrl, supabaseKey, task);
+    case "refresh_pfg_token":
+      return await processRefreshPfgToken(supabaseUrl, supabaseKey, task);
     default:
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
@@ -182,6 +184,24 @@ async function processWeeklySummary(supabaseUrl: string, supabaseKey: string, ta
         week_end: weekEndStr,
       },
     }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  return await response.json();
+}
+
+// ============================================================================
+// REFRESH PFG TOKEN — calls pfg-service keep-alive
+// ============================================================================
+async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/pfg-service?action=refresh_keep_alive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({ locationId: task.location_id }),
   });
 
   if (!response.ok) {
