@@ -37,7 +37,52 @@ interface InventoryItem {
   storage_location: { name: string } | null;
 }
 
-const COMMON_UNITS = ["oz", "lb", "ea", "gal", "ml", "portions", "slices", "bags", "boxes"];
+/** Parse PFG pack_size like "2/5 LB" → { count: 2, size: 5, unit: "LB" } */
+const parsePackSize = (packSize: string | null): { count: number; size: number; unit: string } | null => {
+  if (!packSize) return null;
+  const match = packSize.match(/^(\d+)\/([\d.]+)\s*(.+)$/i);
+  if (!match) return null;
+  return { count: parseInt(match[1]), size: parseFloat(match[2]), unit: match[3].trim().toUpperCase() };
+};
+
+/** Get smart unit options based on pack_size unit type, with auto-calculated units per case */
+const getSmartUnitOptions = (item: InventoryItem): { unit: string; unitsPerCase: number; label: string }[] => {
+  const parsed = parsePackSize(item.pack_size);
+  if (!parsed) return [{ unit: "ea", unitsPerCase: item.pack_quantity || 1, label: `ea (${item.pack_quantity || 1}/cs)` }];
+
+  const totalRaw = parsed.count * parsed.size;
+  const options: { unit: string; unitsPerCase: number; label: string }[] = [];
+
+  switch (parsed.unit) {
+    case "LB":
+      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 16 * 100) / 100, label: `oz (${Math.round(totalRaw * 16)}/cs)` });
+      options.push({ unit: "lb", unitsPerCase: totalRaw, label: `lb (${totalRaw}/cs)` });
+      break;
+    case "OZ":
+      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 100) / 100, label: `oz (${Math.round(totalRaw)}/cs)` });
+      if (totalRaw >= 16) {
+        options.push({ unit: "lb", unitsPerCase: Math.round(totalRaw / 16 * 100) / 100, label: `lb (${Math.round(totalRaw / 16 * 100) / 100}/cs)` });
+      }
+      break;
+    case "GA":
+      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 128), label: `oz (${Math.round(totalRaw * 128)}/cs)` });
+      options.push({ unit: "gal", unitsPerCase: totalRaw, label: `gal (${totalRaw}/cs)` });
+      break;
+    case "CT":
+      options.push({ unit: "ea", unitsPerCase: totalRaw, label: `ea (${totalRaw}/cs)` });
+      options.push({ unit: "cs", unitsPerCase: 1, label: `cs (1/cs)` });
+      break;
+    case "KG":
+      options.push({ unit: "oz", unitsPerCase: Math.round(totalRaw * 35.274 * 100) / 100, label: `oz (${Math.round(totalRaw * 35.274)}/cs)` });
+      options.push({ unit: "lb", unitsPerCase: Math.round(totalRaw * 2.205 * 100) / 100, label: `lb (${Math.round(totalRaw * 2.205 * 100) / 100}/cs)` });
+      break;
+    default:
+      options.push({ unit: "ea", unitsPerCase: parsed.count * parsed.size, label: `ea (${parsed.count * parsed.size}/cs)` });
+      break;
+  }
+
+  return options;
+};
 
 const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const queryClient = useQueryClient();
@@ -264,10 +309,9 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   }
 
   const openUnitEditor = (itemId: string) => {
-    const item = getItem(itemId);
     setEditingUnitItemId(itemId);
-    setEditCountUnit(item?.count_unit || "");
-    setEditUnitsPerCase(item?.count_units_per_case?.toString() || "");
+    setEditCountUnit("");
+    setEditUnitsPerCase("");
   };
 
   const saveCountUnit = () => {
@@ -342,38 +386,40 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                     </Button>
                   </div>
 
-                  {/* Inline unit editor */}
-                  {editingUnitItemId === itemId && (
-                    <div className="flex items-center gap-2 pl-3 py-1 bg-muted/50 rounded">
-                      <Select value={editCountUnit} onValueChange={setEditCountUnit}>
-                        <SelectTrigger className="h-7 text-xs w-24">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COMMON_UNITS.map((u) => (
-                            <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-xs text-muted-foreground">×</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="h-7 w-20 text-xs"
-                        value={editUnitsPerCase}
-                        onChange={(e) => setEditUnitsPerCase(e.target.value)}
-                        placeholder="per case"
-                      />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">per case</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveCountUnit}
-                        disabled={updateCountUnitMutation.isPending}>
-                        {updateCountUnitMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingUnitItemId(null)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
+                  {/* Inline unit selector — auto-derived from pack_size */}
+                  {editingUnitItemId === itemId && (() => {
+                    const smartOptions = getSmartUnitOptions(item!);
+                    return (
+                      <div className="flex items-center gap-2 pl-3 py-1.5 bg-muted/50 rounded flex-wrap">
+                        <span className="text-xs text-muted-foreground">Count in:</span>
+                        {smartOptions.map((opt) => (
+                          <Button
+                            key={opt.unit}
+                            variant={editCountUnit === opt.unit ? "default" : "outline"}
+                            size="sm"
+                            className="h-7 text-xs px-3"
+                            onClick={() => {
+                              setEditCountUnit(opt.unit);
+                              setEditUnitsPerCase(opt.unitsPerCase.toString());
+                            }}
+                          >
+                            {opt.label}
+                          </Button>
+                        ))}
+                        {editCountUnit && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveCountUnit}
+                              disabled={updateCountUnitMutation.isPending}>
+                              {updateCountUnitMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-600" />}
+                            </Button>
+                          </>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingUnitItemId(null)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })()}
 
                   {/* Rate rows per product group */}
                   {rates.map((rate) => (
