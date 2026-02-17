@@ -1,0 +1,465 @@
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, X, Loader2, Search, FlaskConical } from "lucide-react";
+import { toast } from "sonner";
+
+interface RecipeBuilderDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  locationId: string;
+  editRecipeId?: string | null;
+}
+
+interface RecipeIngredient {
+  ingredient_item_id: string;
+  quantity: number;
+  unit: string;
+}
+
+const UNIT_OPTIONS = ["oz", "lb", "ea", "gal", "ml", "cups", "bags", "ct"];
+
+const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: RecipeBuilderDialogProps) => {
+  const queryClient = useQueryClient();
+  const [recipeName, setRecipeName] = useState("");
+  const [yieldQty, setYieldQty] = useState("");
+  const [yieldUnit, setYieldUnit] = useState("oz");
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+  const [addingIngredient, setAddingIngredient] = useState(false);
+  const [ingredientSearch, setIngredientSearch] = useState("");
+  const [selectedIngredientId, setSelectedIngredientId] = useState("");
+  const [ingredientQty, setIngredientQty] = useState("");
+  const [ingredientUnit, setIngredientUnit] = useState("oz");
+
+  // Fetch available inventory items (non-recipe items only)
+  const { data: availableItems } = useQuery({
+    queryKey: ["inventory-items-for-recipe", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name, unit, cost_per_unit, pack_size, count_unit, count_units_per_case")
+        .eq("location_id", locationId)
+        .eq("is_active", true)
+        .eq("is_recipe", false)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch existing recipe data if editing
+  const { data: existingRecipe } = useQuery({
+    queryKey: ["recipe-detail", editRecipeId],
+    queryFn: async () => {
+      if (!editRecipeId) return null;
+      const { data: item } = await supabase
+        .from("inventory_items")
+        .select("id, name, recipe_yield_qty, recipe_yield_unit")
+        .eq("id", editRecipeId)
+        .single();
+
+      const { data: ings } = await supabase
+        .from("inventory_recipe_ingredients")
+        .select("ingredient_item_id, quantity, unit")
+        .eq("recipe_item_id", editRecipeId);
+
+      return { item, ingredients: ings || [] };
+    },
+    enabled: open && !!editRecipeId,
+  });
+
+  // Populate form when editing
+  useState(() => {
+    if (existingRecipe?.item) {
+      setRecipeName(existingRecipe.item.name);
+      setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
+      setYieldUnit(existingRecipe.item.recipe_yield_unit || "oz");
+      setIngredients(existingRecipe.ingredients.map(i => ({
+        ingredient_item_id: i.ingredient_item_id,
+        quantity: Number(i.quantity),
+        unit: i.unit,
+      })));
+    }
+  });
+
+  // Calculate total recipe cost from ingredients
+  const recipeCost = useMemo(() => {
+    if (!availableItems || ingredients.length === 0) return null;
+    let total = 0;
+    let allHaveCost = true;
+
+    for (const ing of ingredients) {
+      const item = availableItems.find(i => i.id === ing.ingredient_item_id);
+      if (!item?.cost_per_unit) {
+        allHaveCost = false;
+        continue;
+      }
+
+      // Convert ingredient quantity to cases to get cost
+      const upc = item.count_units_per_case;
+      if (upc && upc > 0) {
+        // If ingredient unit matches item's count_unit, convert via units_per_case
+        const casesUsed = ing.quantity / upc;
+        total += casesUsed * item.cost_per_unit;
+      } else {
+        // Fallback: assume 1:1 (ingredient qty = cases)
+        total += ing.quantity * item.cost_per_unit;
+      }
+    }
+
+    return allHaveCost ? total : null;
+  }, [ingredients, availableItems]);
+
+  // Cost per yield unit
+  const costPerYieldUnit = useMemo(() => {
+    if (recipeCost === null || !yieldQty || parseFloat(yieldQty) <= 0) return null;
+    return recipeCost / parseFloat(yieldQty);
+  }, [recipeCost, yieldQty]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!recipeName.trim()) throw new Error("Name required");
+      if (!yieldQty || parseFloat(yieldQty) <= 0) throw new Error("Yield required");
+      if (ingredients.length === 0) throw new Error("Add at least one ingredient");
+
+      // Calculate cost_per_unit as total recipe cost (cost of one batch = one "case")
+      const costPerCase = recipeCost;
+
+      if (editRecipeId) {
+        // Update existing recipe item
+        const { error: itemErr } = await supabase
+          .from("inventory_items")
+          .update({
+            name: recipeName.trim(),
+            recipe_yield_qty: parseFloat(yieldQty),
+            recipe_yield_unit: yieldUnit,
+            count_unit: yieldUnit,
+            count_units_per_case: parseFloat(yieldQty),
+            cost_per_unit: costPerCase,
+          })
+          .eq("id", editRecipeId);
+        if (itemErr) throw itemErr;
+
+        // Delete old ingredients and re-insert
+        await supabase
+          .from("inventory_recipe_ingredients")
+          .delete()
+          .eq("recipe_item_id", editRecipeId);
+
+        const { error: ingErr } = await supabase
+          .from("inventory_recipe_ingredients")
+          .insert(ingredients.map(ing => ({
+            recipe_item_id: editRecipeId,
+            ingredient_item_id: ing.ingredient_item_id,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })));
+        if (ingErr) throw ingErr;
+      } else {
+        // Create new recipe item
+        const { data: newItem, error: itemErr } = await supabase
+          .from("inventory_items")
+          .insert({
+            location_id: locationId,
+            name: recipeName.trim(),
+            unit: "recipe",
+            is_recipe: true,
+            is_active: true,
+            recipe_yield_qty: parseFloat(yieldQty),
+            recipe_yield_unit: yieldUnit,
+            count_unit: yieldUnit,
+            count_units_per_case: parseFloat(yieldQty),
+            cost_per_unit: costPerCase,
+            display_order: 0,
+          })
+          .select("id")
+          .single();
+        if (itemErr || !newItem) throw itemErr || new Error("Failed to create recipe");
+
+        const { error: ingErr } = await supabase
+          .from("inventory_recipe_ingredients")
+          .insert(ingredients.map(ing => ({
+            recipe_item_id: newItem.id,
+            ingredient_item_id: ing.ingredient_item_id,
+            quantity: ing.quantity,
+            unit: ing.unit,
+          })));
+        if (ingErr) throw ingErr;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-usage", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-for-recipe", locationId] });
+      toast.success(editRecipeId ? "Recipe updated" : "Recipe created");
+      resetForm();
+      onOpenChange(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to save recipe");
+    },
+  });
+
+  const resetForm = () => {
+    setRecipeName("");
+    setYieldQty("");
+    setYieldUnit("oz");
+    setIngredients([]);
+    setAddingIngredient(false);
+    setIngredientSearch("");
+    setSelectedIngredientId("");
+    setIngredientQty("");
+    setIngredientUnit("oz");
+  };
+
+  const addIngredient = () => {
+    if (!selectedIngredientId || !ingredientQty || parseFloat(ingredientQty) <= 0) {
+      toast.error("Select an item and enter a quantity");
+      return;
+    }
+    if (ingredients.some(i => i.ingredient_item_id === selectedIngredientId)) {
+      toast.error("Item already in recipe");
+      return;
+    }
+    setIngredients(prev => [...prev, {
+      ingredient_item_id: selectedIngredientId,
+      quantity: parseFloat(ingredientQty),
+      unit: ingredientUnit,
+    }]);
+    setSelectedIngredientId("");
+    setIngredientQty("");
+    setIngredientSearch("");
+    setAddingIngredient(false);
+  };
+
+  const removeIngredient = (itemId: string) => {
+    setIngredients(prev => prev.filter(i => i.ingredient_item_id !== itemId));
+  };
+
+  const getItemName = (itemId: string) =>
+    availableItems?.find(i => i.id === itemId)?.name || "Unknown";
+
+  const filteredItems = useMemo(() => {
+    if (!availableItems) return [];
+    const search = ingredientSearch.toLowerCase().trim();
+    return availableItems
+      .filter(i => !ingredients.some(ing => ing.ingredient_item_id === i.id))
+      .filter(i => !search || i.name.toLowerCase().includes(search));
+  }, [availableItems, ingredientSearch, ingredients]);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) resetForm(); onOpenChange(o); }}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FlaskConical className="h-5 w-5" />
+            {editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Recipe Name */}
+          <div className="space-y-2">
+            <Label>Recipe Name</Label>
+            <Input
+              placeholder="e.g., Dough, Red Sauce, Pesto Blend"
+              value={recipeName}
+              onChange={(e) => setRecipeName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          {/* Yield */}
+          <div className="space-y-2">
+            <Label>Recipe Yield (one batch makes...)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                step="0.1"
+                placeholder="e.g., 160"
+                value={yieldQty}
+                onChange={(e) => setYieldQty(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={yieldUnit} onValueChange={setYieldUnit}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNIT_OPTIONS.map(u => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              How much finished product does one batch produce?
+            </p>
+          </div>
+
+          {/* Ingredients List */}
+          <div className="space-y-2">
+            <Label>Ingredients</Label>
+            {ingredients.length > 0 ? (
+              <div className="space-y-1 border rounded-md p-2">
+                {ingredients.map(ing => (
+                  <div key={ing.ingredient_item_id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{getItemName(ing.ingredient_item_id)}</span>
+                      <span className="text-muted-foreground font-mono text-xs">
+                        {ing.quantity} {ing.unit}
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => removeIngredient(ing.ingredient_item_id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic py-2">
+                No ingredients added yet
+              </p>
+            )}
+
+            {/* Add ingredient form */}
+            {addingIngredient ? (
+              <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search items..."
+                    value={ingredientSearch}
+                    onChange={(e) => setIngredientSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs"
+                  />
+                </div>
+                {filteredItems.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto border rounded-md">
+                    {filteredItems.slice(0, 20).map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`w-full text-left text-xs py-1.5 px-2 hover:bg-accent ${
+                          selectedIngredientId === item.id ? "bg-accent font-medium" : ""
+                        }`}
+                        onClick={() => {
+                          setSelectedIngredientId(item.id);
+                          // Auto-set unit from item's count_unit
+                          if (item.count_unit) setIngredientUnit(item.count_unit);
+                        }}
+                      >
+                        {item.name}
+                        {item.cost_per_unit && (
+                          <span className="text-muted-foreground ml-2">${item.cost_per_unit.toFixed(2)}/cs</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedIngredientId && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="Qty"
+                      value={ingredientQty}
+                      onChange={(e) => setIngredientQty(e.target.value)}
+                      className="h-8 w-20 text-xs"
+                      autoFocus
+                    />
+                    <Select value={ingredientUnit} onValueChange={setIngredientUnit}>
+                      <SelectTrigger className="h-8 w-20 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UNIT_OPTIONS.map(u => (
+                          <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" className="h-8 text-xs" onClick={addIngredient}>
+                      Add
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => {
+                      setAddingIngredient(false);
+                      setSelectedIngredientId("");
+                      setIngredientSearch("");
+                    }}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setAddingIngredient(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Ingredient
+              </Button>
+            )}
+          </div>
+
+          {/* Cost Summary */}
+          {ingredients.length > 0 && (
+            <div className="border rounded-md p-3 bg-muted/30 space-y-1">
+              <p className="text-xs font-medium">Recipe Cost</p>
+              {recipeCost !== null ? (
+                <>
+                  <p className="text-sm font-mono">
+                    Batch cost: <span className="font-semibold">${recipeCost.toFixed(2)}</span>
+                  </p>
+                  {costPerYieldUnit !== null && (
+                    <p className="text-xs text-muted-foreground font-mono">
+                      = ${costPerYieldUnit.toFixed(4)}/{yieldUnit}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  Some ingredients missing cost data from PFG
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => { resetForm(); onOpenChange(false); }}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !recipeName.trim() || ingredients.length === 0}
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                editRecipeId ? "Update Recipe" : "Create Recipe"
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default RecipeBuilderDialog;

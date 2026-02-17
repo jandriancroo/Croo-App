@@ -2042,6 +2042,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_recipe: boolean
           item_number: string | null
           location_id: string | null
           name: string
@@ -2050,6 +2051,8 @@ export type Database = {
           pack_size: string | null
           par_level: number | null
           qubeyond_item_id: string | null
+          recipe_yield_qty: number | null
+          recipe_yield_unit: string | null
           storage_location_id: string | null
           unit: string
           updated_at: string
@@ -2064,6 +2067,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_recipe?: boolean
           item_number?: string | null
           location_id?: string | null
           name: string
@@ -2072,6 +2076,8 @@ export type Database = {
           pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
@@ -2086,6 +2092,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_recipe?: boolean
           item_number?: string | null
           location_id?: string | null
           name?: string
@@ -2094,6 +2101,8 @@ export type Database = {
           pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
@@ -2193,6 +2202,48 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_recipe_ingredients: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_item_id: string
+          quantity: number
+          recipe_item_id: string
+          unit: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_item_id: string
+          quantity: number
+          recipe_item_id: string
+          unit?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_item_id?: string
+          quantity?: number
+          recipe_item_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_recipe_ingredients_ingredient_item_id_fkey"
+            columns: ["ingredient_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_recipe_ingredients_recipe_item_id_fkey"
+            columns: ["recipe_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]

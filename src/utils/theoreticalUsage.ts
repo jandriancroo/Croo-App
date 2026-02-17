@@ -72,7 +72,33 @@ export async function calculateTheoreticalUsage(
       }
     }
 
-    // 4. Calculate theoretical per item-group mapping
+    // 4. Fetch recipe ingredients for cascade
+    const { data: recipeIngredients } = await supabase
+      .from("inventory_recipe_ingredients")
+      .select("recipe_item_id, ingredient_item_id, quantity, unit");
+
+    // Build recipe map: recipe_item_id -> ingredients[]
+    const recipeMap = new Map<string, { ingredient_item_id: string; quantity: number; unit: string }[]>();
+    for (const ri of recipeIngredients || []) {
+      const existing = recipeMap.get(ri.recipe_item_id) || [];
+      existing.push({ ingredient_item_id: ri.ingredient_item_id, quantity: Number(ri.quantity), unit: ri.unit });
+      recipeMap.set(ri.recipe_item_id, existing);
+    }
+
+    // Fetch recipe items for yield info
+    const { data: recipeItems } = await supabase
+      .from("inventory_items")
+      .select("id, name, recipe_yield_qty, recipe_yield_unit")
+      .eq("is_recipe", true);
+
+    const recipeYieldMap = new Map<string, { yieldQty: number; yieldUnit: string }>();
+    for (const ri of recipeItems || []) {
+      if (ri.recipe_yield_qty) {
+        recipeYieldMap.set(ri.id, { yieldQty: Number(ri.recipe_yield_qty), yieldUnit: ri.recipe_yield_unit || "ea" });
+      }
+    }
+
+    // 5. Calculate theoretical per item-group mapping
     const results: TheoreticalUsageResult[] = [];
 
     for (const rate of usageRates) {
@@ -94,15 +120,47 @@ export async function calculateTheoreticalUsage(
 
       const theoretical = unitsSold * Number(rate.usage_rate);
 
-      results.push({
-        itemId: rate.inventory_item_id,
-        itemName: item.name,
-        unit: item.unit,
-        theoreticalUsage: Math.round(theoretical * 100) / 100,
-        productGroupName: group.name,
-        usageRate: Number(rate.usage_rate),
-        unitsSold,
-      });
+      // If this is a recipe item, cascade to raw ingredients
+      const recipeIngs = recipeMap.get(rate.inventory_item_id);
+      const recipeYield = recipeYieldMap.get(rate.inventory_item_id);
+
+      if (recipeIngs && recipeYield && recipeYield.yieldQty > 0) {
+        // Add the recipe itself
+        results.push({
+          itemId: rate.inventory_item_id,
+          itemName: item.name + " (recipe)",
+          unit: item.unit,
+          theoreticalUsage: Math.round(theoretical * 100) / 100,
+          productGroupName: group.name,
+          usageRate: Number(rate.usage_rate),
+          unitsSold,
+        });
+
+        // Cascade: theoretical oz of recipe needed → ratio of batches → raw ingredient qty
+        const batchesNeeded = theoretical / recipeYield.yieldQty;
+        for (const ing of recipeIngs) {
+          const rawQty = batchesNeeded * ing.quantity;
+          results.push({
+            itemId: ing.ingredient_item_id,
+            itemName: `↳ (via ${item.name})`,
+            unit: ing.unit,
+            theoreticalUsage: Math.round(rawQty * 100) / 100,
+            productGroupName: group.name,
+            usageRate: 0, // derived, not direct
+            unitsSold,
+          });
+        }
+      } else {
+        results.push({
+          itemId: rate.inventory_item_id,
+          itemName: item.name,
+          unit: item.unit,
+          theoreticalUsage: Math.round(theoretical * 100) / 100,
+          productGroupName: group.name,
+          usageRate: Number(rate.usage_rate),
+          unitsSold,
+        });
+      }
     }
 
     return results;
