@@ -427,12 +427,39 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             <Label>Ingredients</Label>
             {ingredients.length > 0 ? (
               <div className="space-y-1 border rounded-md p-2">
-                {ingredients.map(ing => (
+                {ingredients.map(ing => {
+                  // Calculate per-ingredient cost
+                  const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
+                  let ingCost: number | null = null;
+                  if (item?.cost_per_unit) {
+                    let upc = item.count_units_per_case;
+                    let nativeUnit = item.count_unit;
+                    if ((!upc || !nativeUnit) && item.pack_size) {
+                      const parsed = parsePackSize(item.pack_size);
+                      if (parsed) { if (!upc) upc = parsed.count; if (!nativeUnit) nativeUnit = parsed.unit; }
+                    }
+                    nativeUnit = nativeUnit || "ea";
+                    if (ing.unit === "cs") {
+                      ingCost = ing.quantity * item.cost_per_unit;
+                    } else if (ing.unit === "cn") {
+                      const cpc = parseCansPerCase(item.pack_size);
+                      if (cpc && cpc > 0) ingCost = (ing.quantity / cpc) * item.cost_per_unit;
+                    } else if (ing.unit === nativeUnit && upc && upc > 0) {
+                      ingCost = (ing.quantity / upc) * item.cost_per_unit;
+                    } else if (upc && upc > 0 && TO_OZ[ing.unit] && TO_OZ[nativeUnit]) {
+                      const ingInNative = (ing.quantity * TO_OZ[ing.unit]) / TO_OZ[nativeUnit];
+                      ingCost = (ingInNative / upc) * item.cost_per_unit;
+                    }
+                  }
+                  return (
                   <div key={ing.ingredient_item_id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{getItemName(ing.ingredient_item_id)}</span>
                       <span className="text-muted-foreground font-mono text-xs">
                         {ing.quantity} {ing.unit}
+                        {ingCost !== null && (
+                          <span className="ml-1">· ${ingCost.toFixed(2)}</span>
+                        )}
                       </span>
                     </div>
                     <Button
@@ -444,7 +471,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-xs text-muted-foreground italic py-2">
