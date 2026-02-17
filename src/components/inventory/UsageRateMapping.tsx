@@ -25,6 +25,15 @@ interface UsageRate {
   last_calculated_at: string | null;
 }
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  unit: string;
+  pack_quantity: number | null;
+  pack_quantity_override: number | null;
+  storage_location: { name: string } | null;
+}
+
 const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const queryClient = useQueryClient();
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
@@ -47,18 +56,18 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     },
   });
 
-  // Fetch inventory items
+  // Fetch inventory items (include pack quantities for conversion)
   const { data: items } = useQuery({
     queryKey: ["inventory-items", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, storage_location:inventory_locations(name)")
+        .select("id, name, unit, pack_quantity, pack_quantity_override, storage_location:inventory_locations(name)")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
-      return data;
+      return data as InventoryItem[];
     },
   });
 
@@ -102,7 +111,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     },
   });
 
-  // Update rate
+  // Update rate — user enters individual units, we convert to cases for storage
   const updateRateMutation = useMutation({
     mutationFn: async ({ id, rate }: { id: string; rate: number | null }) => {
       const { error } = await supabase
@@ -144,8 +153,37 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const getItemName = (itemId: string) =>
     items?.find((i) => i.id === itemId)?.name || "Unknown";
 
-  const getItemUnit = (itemId: string) =>
-    items?.find((i) => i.id === itemId)?.unit || "";
+  const getItem = (itemId: string) =>
+    items?.find((i) => i.id === itemId);
+
+  /** Get the effective pack quantity (override > PFG > null) */
+  const getPackQuantity = (itemId: string): number | null => {
+    const item = getItem(itemId);
+    if (!item) return null;
+    return item.pack_quantity_override ?? item.pack_quantity ?? null;
+  };
+
+  /** Convert DB rate (cases/unit sold) → display rate (individual units/unit sold) */
+  const casesToUnits = (caseRate: number, packQty: number | null): number => {
+    if (!packQty || packQty <= 0) return caseRate;
+    return Math.round(caseRate * packQty * 100) / 100;
+  };
+
+  /** Convert display rate (individual units/unit sold) → DB rate (cases/unit sold) */
+  const unitsToCases = (unitRate: number, packQty: number | null): number => {
+    if (!packQty || packQty <= 0) return unitRate;
+    return Math.round((unitRate / packQty) * 10000) / 10000;
+  };
+
+  /** Get a friendly unit label like "boxes" from item unit "case" */
+  const getUnitLabel = (itemId: string): string => {
+    const item = getItem(itemId);
+    const packQty = getPackQuantity(itemId);
+    if (packQty && packQty > 1) {
+      return "ea"; // individual units
+    }
+    return item?.unit || "units";
+  };
 
   // Group rates by item
   const ratesByItem = new Map<string, UsageRate[]>();
@@ -179,7 +217,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
           Usage Rate Mappings
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Link inventory items to product groups. Rates auto-calculate from counts, or set manually.
+          Link inventory items to product groups. Enter how many individual units you use per 1 item sold. Rates auto-calculate from counts, or set manually.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -188,140 +226,160 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
         ) : (
           <>
             {/* Existing mappings grouped by item */}
-            {Array.from(ratesByItem.entries()).map(([itemId, rates]) => (
-              <div key={itemId} className="border rounded-lg p-3 space-y-2">
-                <p className="font-medium text-sm">{getItemName(itemId)}</p>
-                {rates.map((rate) => (
-                  <div key={rate.id} className="flex items-center justify-between gap-2 pl-3">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <Badge variant="outline" className="text-xs flex-shrink-0">
-                        {getGroupName(rate.product_group_id)}
-                      </Badge>
-                      {editingRateId === rate.id ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="h-7 w-20 text-xs"
-                            value={editRateValue}
-                            onChange={(e) => setEditRateValue(e.target.value)}
-                            autoFocus
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {getItemUnit(itemId)}/unit
-                          </span>
+            {Array.from(ratesByItem.entries()).map(([itemId, rates]) => {
+              const packQty = getPackQuantity(itemId);
+              const unitLabel = getUnitLabel(itemId);
+
+              return (
+                <div key={itemId} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{getItemName(itemId)}</p>
+                    {packQty && (
+                      <span className="text-[10px] text-muted-foreground">({packQty}/cs)</span>
+                    )}
+                  </div>
+                  {rates.map((rate) => (
+                    <div key={rate.id} className="flex items-center justify-between gap-2 pl-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {getGroupName(rate.product_group_id)}
+                        </Badge>
+                        {editingRateId === rate.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              className="h-7 w-20 text-xs"
+                              value={editRateValue}
+                              onChange={(e) => setEditRateValue(e.target.value)}
+                              autoFocus
+                              placeholder="e.g. 1"
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {unitLabel}/sold
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                if (editRateValue.trim() === "") {
+                                  updateRateMutation.mutate({ id: rate.id, rate: null });
+                                } else {
+                                  const displayVal = parseFloat(editRateValue);
+                                  const caseVal = unitsToCases(displayVal, packQty);
+                                  updateRateMutation.mutate({ id: rate.id, rate: caseVal });
+                                }
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setEditingRateId(null)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            {rate.usage_rate !== null ? (
+                              <span className="text-xs font-mono">
+                                {casesToUnits(rate.usage_rate, packQty)} {unitLabel}/sold
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">
+                                No rate yet
+                              </span>
+                            )}
+                            {rate.manual_override && (
+                              <Badge variant="secondary" className="text-[10px] px-1">Manual</Badge>
+                            )}
+                            {rate.last_calculated_at && !rate.manual_override && (
+                              <Badge variant="secondary" className="text-[10px] px-1">Auto</Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {editingRateId !== rate.id && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
                             onClick={() => {
-                              const val = editRateValue.trim() === "" ? null : parseFloat(editRateValue);
-                              updateRateMutation.mutate({ id: rate.id, rate: val });
+                              setEditingRateId(rate.id);
+                              // Convert stored case rate to display units
+                              const displayVal = rate.usage_rate !== null
+                                ? casesToUnits(rate.usage_rate, packQty).toString()
+                                : "";
+                              setEditRateValue(displayVal);
                             }}
                           >
-                            <Check className="h-3 w-3" />
+                            <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => setEditingRateId(null)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          {rate.usage_rate !== null ? (
-                            <span className="text-xs font-mono">
-                              {rate.usage_rate} {getItemUnit(itemId)}/unit
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">
-                              No rate yet
-                            </span>
-                          )}
-                          {rate.manual_override && (
-                            <Badge variant="secondary" className="text-[10px] px-1">Manual</Badge>
-                          )}
-                          {rate.last_calculated_at && !rate.manual_override && (
-                            <Badge variant="secondary" className="text-[10px] px-1">Auto</Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {editingRateId !== rate.id && (
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
-                          onClick={() => {
-                            setEditingRateId(rate.id);
-                            setEditRateValue(rate.usage_rate?.toString() || "");
-                          }}
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => deleteMutation.mutate(rate.id)}
                         >
-                          <Pencil className="h-3 w-3" />
+                          <X className="h-3 w-3" />
                         </Button>
-                      )}
+                      </div>
+                    </div>
+                  ))}
+                  {/* Add another group to this item */}
+                  {addingForItem === itemId ? (
+                    <div className="flex items-center gap-2 pl-3">
+                      <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                        <SelectTrigger className="h-8 text-xs w-40">
+                          <SelectValue placeholder="Select group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groups
+                            ?.filter((g) => !rates.some((r) => r.product_group_id === g.id))
+                            .map((g) => (
+                              <SelectItem key={g.id} value={g.id} className="text-xs">
+                                {g.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(rate.id)}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        disabled={!selectedGroup || addMutation.isPending}
+                        onClick={() => addMutation.mutate({ itemId, groupId: selectedGroup })}
                       >
-                        <X className="h-3 w-3" />
+                        {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs"
+                        onClick={() => { setAddingForItem(null); setSelectedGroup(""); }}
+                      >
+                        Cancel
                       </Button>
                     </div>
-                  </div>
-                ))}
-                {/* Add another group to this item */}
-                {addingForItem === itemId ? (
-                  <div className="flex items-center gap-2 pl-3">
-                    <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-                      <SelectTrigger className="h-8 text-xs w-40">
-                        <SelectValue placeholder="Select group" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {groups
-                          ?.filter((g) => !rates.some((r) => r.product_group_id === g.id))
-                          .map((g) => (
-                            <SelectItem key={g.id} value={g.id} className="text-xs">
-                              {g.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                  ) : (
                     <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      disabled={!selectedGroup || addMutation.isPending}
-                      onClick={() => addMutation.mutate({ itemId, groupId: selectedGroup })}
-                    >
-                      {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
-                    </Button>
-                    <Button
-                      size="sm"
                       variant="ghost"
-                      className="h-8 text-xs"
-                      onClick={() => { setAddingForItem(null); setSelectedGroup(""); }}
+                      size="sm"
+                      className="text-xs h-7 ml-3"
+                      onClick={() => setAddingForItem(itemId)}
                     >
-                      Cancel
+                      + Add group
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-7 ml-3"
-                    onClick={() => setAddingForItem(itemId)}
-                  >
-                    + Add group
-                  </Button>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
 
             {/* Unmapped items */}
             {unmappedItems.length > 0 && (
