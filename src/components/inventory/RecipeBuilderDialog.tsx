@@ -25,11 +25,23 @@ interface RecipeIngredient {
 
 const UNIT_OPTIONS = ["oz", "lb", "ea", "gal", "ml", "cups", "bags", "ct"];
 
+// Conversion factors to oz (base unit for auto-calc)
+const TO_OZ: Record<string, number> = {
+  oz: 1, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1,
+};
+
+const convertYield = (qty: number, fromUnit: string, toUnit: string): number => {
+  const fromFactor = TO_OZ[fromUnit] ?? 1;
+  const toFactor = TO_OZ[toUnit] ?? 1;
+  return (qty * fromFactor) / toFactor;
+};
+
 const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: RecipeBuilderDialogProps) => {
   const queryClient = useQueryClient();
   const [recipeName, setRecipeName] = useState("");
   const [yieldQty, setYieldQty] = useState("");
   const [yieldUnit, setYieldUnit] = useState("oz");
+  const [yieldManuallyEdited, setYieldManuallyEdited] = useState(false);
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [addingIngredient, setAddingIngredient] = useState(false);
   const [ingredientSearch, setIngredientSearch] = useState("");
@@ -74,6 +86,28 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     },
     enabled: open && !!editRecipeId,
   });
+
+  // Auto-calculate yield from ingredients (sum in current yieldUnit)
+  const autoYield = useMemo(() => {
+    if (ingredients.length === 0) return 0;
+    let totalOz = 0;
+    for (const ing of ingredients) {
+      const factor = TO_OZ[ing.unit] ?? 1;
+      totalOz += ing.quantity * factor;
+    }
+    const toFactor = TO_OZ[yieldUnit] ?? 1;
+    return totalOz / toFactor;
+  }, [ingredients, yieldUnit]);
+
+  // Auto-fill yield when ingredients change (unless manually edited)
+  const prevAutoYield = useState({ val: 0 });
+  if (!yieldManuallyEdited && autoYield > 0 && autoYield !== prevAutoYield[0].val) {
+    prevAutoYield[0].val = autoYield;
+    const rounded = parseFloat(autoYield.toFixed(2));
+    if (yieldQty !== rounded.toString()) {
+      setYieldQty(rounded.toString());
+    }
+  }
 
   // Populate form when editing
   useState(() => {
@@ -211,6 +245,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     setRecipeName("");
     setYieldQty("");
     setYieldUnit("oz");
+    setYieldManuallyEdited(false);
     setIngredients([]);
     setAddingIngredient(false);
     setIngredientSearch("");
@@ -283,12 +318,22 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
               <Input
                 type="number"
                 step="0.1"
-                placeholder="e.g., 160"
+                placeholder="auto from ingredients"
                 value={yieldQty}
-                onChange={(e) => setYieldQty(e.target.value)}
+                onChange={(e) => {
+                  setYieldQty(e.target.value);
+                  setYieldManuallyEdited(true);
+                }}
                 className="flex-1"
               />
-              <Select value={yieldUnit} onValueChange={setYieldUnit}>
+              <Select value={yieldUnit} onValueChange={(newUnit) => {
+                // Convert existing yield to new unit
+                if (yieldQty && parseFloat(yieldQty) > 0) {
+                  const converted = convertYield(parseFloat(yieldQty), yieldUnit, newUnit);
+                  setYieldQty(parseFloat(converted.toFixed(2)).toString());
+                }
+                setYieldUnit(newUnit);
+              }}>
                 <SelectTrigger className="w-24">
                   <SelectValue />
                 </SelectTrigger>
@@ -300,7 +345,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
               </Select>
             </div>
             <p className="text-xs text-muted-foreground">
-              How much finished product does one batch produce?
+              {yieldManuallyEdited ? "Manually set — " : "Auto-calculated from ingredients — "}
+              <button type="button" className="underline" onClick={() => {
+                setYieldManuallyEdited(false);
+                const rounded = parseFloat(autoYield.toFixed(2));
+                setYieldQty(rounded > 0 ? rounded.toString() : "");
+              }}>
+                {yieldManuallyEdited ? "reset to auto" : "edit manually"}
+              </button>
             </p>
           </div>
 
