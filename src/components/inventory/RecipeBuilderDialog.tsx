@@ -134,12 +134,27 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     if (ingredients.length === 0) return 0;
     let totalOz = 0;
     for (const ing of ingredients) {
-      const factor = TO_OZ[ing.unit] ?? 1;
-      totalOz += ing.quantity * factor;
+      if (ing.unit === "cn") {
+        // Resolve can to oz using the item's pack_size
+        const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
+        const canMatch = item?.pack_size?.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
+        const ozPerCan = canMatch ? (CAN_SIZES[canMatch[2]] || 1) : 1;
+        totalOz += ing.quantity * ozPerCan;
+      } else if (ing.unit === "cs") {
+        // Resolve case to oz using pack_size
+        const item = availableItems?.find(i => i.id === ing.ingredient_item_id);
+        const parsed = item?.pack_size ? parsePackSize(item.pack_size) : null;
+        const upc = item?.count_units_per_case || parsed?.count || 1;
+        const nativeUnit = item?.count_unit || parsed?.unit || "oz";
+        totalOz += upc * (TO_OZ[nativeUnit] ?? 1);
+      } else {
+        const factor = TO_OZ[ing.unit] ?? 1;
+        totalOz += ing.quantity * factor;
+      }
     }
     const toFactor = TO_OZ[yieldUnit] ?? 1;
     return totalOz / toFactor;
-  }, [ingredients, yieldUnit]);
+  }, [ingredients, yieldUnit, availableItems]);
 
   // Auto-fill yield when ingredients change (unless manually edited)
   const prevAutoYield = useState({ val: 0 });
