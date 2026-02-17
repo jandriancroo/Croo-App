@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp, AlertTriangle, Calendar, Calculator } from "lucide-react";
+import { TrendingDown, TrendingUp, AlertTriangle, Calendar, Calculator, ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { calculateTheoreticalUsage, TheoreticalUsageResult } from "@/utils/theoreticalUsage";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from "recharts";
 
 interface InventoryVarianceReportProps {
   locationId: string;
@@ -15,11 +16,13 @@ interface InventoryVarianceReportProps {
 
 const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) => {
   const [dateRange, setDateRange] = useState("7");
+  const days = parseInt(dateRange);
 
-  const startDate = subDays(new Date(), parseInt(dateRange)).toISOString().split("T")[0];
+  const startDate = subDays(new Date(), days).toISOString().split("T")[0];
+  const prevStartDate = subDays(new Date(), days * 2).toISOString().split("T")[0];
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch completed counts with items
+  // Fetch completed counts with items (current period)
   const { data: counts } = useQuery({
     queryKey: ["inventory-variance", locationId, dateRange],
     queryFn: async () => {
@@ -38,7 +41,30 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
         .eq("location_id", locationId)
         .eq("status", "completed")
         .gte("count_date", startDate)
-        .order("count_date", { ascending: false });
+        .order("count_date", { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Fetch previous period counts for comparison
+  const { data: prevCounts } = useQuery({
+    queryKey: ["inventory-variance-prev", locationId, dateRange],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_counts")
+        .select(`
+          *,
+          inventory_count_items(
+            variance_cost
+          )
+        `)
+        .eq("location_id", locationId)
+        .eq("status", "completed")
+        .gte("count_date", prevStartDate)
+        .lt("count_date", startDate)
+        .order("count_date", { ascending: true });
       
       if (error) throw error;
       return data;
@@ -67,49 +93,91 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     }
   });
 
-  // Calculate variance summary
-  const varianceSummary = counts?.reduce((acc, count) => {
-    count.inventory_count_items?.forEach((ci: any) => {
-      if (ci.variance_cost) {
-        acc.totalVarianceCost += Math.abs(ci.variance_cost);
-        if (ci.variance_cost < 0) {
-          acc.shortageCount++;
-          acc.shortageCost += Math.abs(ci.variance_cost);
-        } else {
-          acc.overageCount++;
-          acc.overageCost += ci.variance_cost;
+  // Calculate variance summary for current period
+  const varianceSummary = useMemo(() => {
+    return counts?.reduce((acc, count) => {
+      count.inventory_count_items?.forEach((ci: any) => {
+        if (ci.variance_cost) {
+          acc.totalVarianceCost += Math.abs(ci.variance_cost);
+          if (ci.variance_cost < 0) {
+            acc.shortageCount++;
+            acc.shortageCost += Math.abs(ci.variance_cost);
+          } else {
+            acc.overageCount++;
+            acc.overageCost += ci.variance_cost;
+          }
         }
-      }
+      });
+      return acc;
+    }, { 
+      totalVarianceCost: 0, shortageCount: 0, overageCount: 0,
+      shortageCost: 0, overageCost: 0
+    }) || { totalVarianceCost: 0, shortageCount: 0, overageCount: 0, shortageCost: 0, overageCost: 0 };
+  }, [counts]);
+
+  // Calculate previous period total for comparison
+  const prevTotalVariance = useMemo(() => {
+    return prevCounts?.reduce((total, count) => {
+      return total + (count.inventory_count_items || []).reduce((sum: number, ci: any) => {
+        return sum + Math.abs(ci.variance_cost || 0);
+      }, 0);
+    }, 0) || 0;
+  }, [prevCounts]);
+
+  const varianceChange = varianceSummary.totalVarianceCost - prevTotalVariance;
+  const varianceChangePercent = prevTotalVariance > 0 
+    ? ((varianceChange / prevTotalVariance) * 100).toFixed(0) 
+    : null;
+
+  // Build trend chart data — variance cost per count date
+  const trendData = useMemo(() => {
+    if (!counts) return [];
+    return counts.map(count => {
+      let shortage = 0;
+      let overage = 0;
+      (count.inventory_count_items || []).forEach((ci: any) => {
+        if (ci.variance_cost && ci.variance_cost < 0) {
+          shortage += Math.abs(ci.variance_cost);
+        } else if (ci.variance_cost && ci.variance_cost > 0) {
+          overage += ci.variance_cost;
+        }
+      });
+      return {
+        date: format(new Date(count.count_date), "MMM d"),
+        shortage: -shortage,
+        overage,
+        net: overage - shortage,
+      };
     });
-    return acc;
-  }, { 
-    totalVarianceCost: 0, shortageCount: 0, overageCount: 0,
-    shortageCost: 0, overageCost: 0
-  }) || { totalVarianceCost: 0, shortageCount: 0, overageCount: 0, shortageCost: 0, overageCost: 0 };
+  }, [counts]);
 
   // Get items with significant variances
-  const significantVariances = counts?.flatMap(count => 
-    (count.inventory_count_items || [])
-      .filter((ci: any) => ci.variance && Math.abs(ci.variance) > 0)
-      .map((ci: any) => ({
-        ...ci,
-        count_date: count.count_date
-      }))
-  ).sort((a: any, b: any) => Math.abs(b.variance_cost || 0) - Math.abs(a.variance_cost || 0))
-  .slice(0, 10) || [];
+  const significantVariances = useMemo(() => {
+    return counts?.flatMap(count => 
+      (count.inventory_count_items || [])
+        .filter((ci: any) => ci.variance && Math.abs(ci.variance) > 0)
+        .map((ci: any) => ({
+          ...ci,
+          count_date: count.count_date
+        }))
+    ).sort((a: any, b: any) => Math.abs(b.variance_cost || 0) - Math.abs(a.variance_cost || 0))
+    .slice(0, 10) || [];
+  }, [counts]);
 
-  // Build theoretical lookup by item name for easy matching
-  const theoreticalByItem = new Map<string, TheoreticalUsageResult>();
-  theoreticalData?.forEach(t => {
-    // Aggregate if same item appears across multiple groups
-    const existing = theoreticalByItem.get(t.itemName);
-    if (existing) {
-      existing.theoreticalUsage += t.theoreticalUsage;
-      existing.unitsSold += t.unitsSold;
-    } else {
-      theoreticalByItem.set(t.itemName, { ...t });
-    }
-  });
+  // Build theoretical lookup by item name
+  const theoreticalByItem = useMemo(() => {
+    const map = new Map<string, TheoreticalUsageResult>();
+    theoreticalData?.forEach(t => {
+      const existing = map.get(t.itemName);
+      if (existing) {
+        existing.theoreticalUsage += t.theoreticalUsage;
+        existing.unitsSold += t.unitsSold;
+      } else {
+        map.set(t.itemName, { ...t });
+      }
+    });
+    return map;
+  }, [theoreticalData]);
 
   return (
     <div className="space-y-4">
@@ -132,13 +200,22 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
         </Select>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards with period comparison */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
             <AlertTriangle className="h-5 w-5 mx-auto text-amber-500 mb-1" />
             <p className="text-2xl font-bold">${varianceSummary.totalVarianceCost.toFixed(0)}</p>
             <p className="text-xs text-muted-foreground">Total Variance</p>
+            {varianceChangePercent && prevTotalVariance > 0 && (
+              <div className={cn(
+                "flex items-center justify-center gap-1 mt-1 text-xs font-medium",
+                varianceChange > 0 ? "text-destructive" : "text-green-600 dark:text-green-400"
+              )}>
+                {varianceChange > 0 ? <ArrowUp className="h-3 w-3" /> : varianceChange < 0 ? <ArrowDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                {Math.abs(Number(varianceChangePercent))}% vs prev
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -146,7 +223,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
           <CardContent className="p-4 text-center">
             <TrendingDown className="h-5 w-5 mx-auto text-destructive mb-1" />
             <p className="text-2xl font-bold">${varianceSummary.shortageCost.toFixed(0)}</p>
-            <p className="text-xs text-muted-foreground">Shortages</p>
+            <p className="text-xs text-muted-foreground">Shortages ({varianceSummary.shortageCount})</p>
           </CardContent>
         </Card>
         
@@ -154,10 +231,60 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
           <CardContent className="p-4 text-center">
             <TrendingUp className="h-5 w-5 mx-auto text-green-500 mb-1" />
             <p className="text-2xl font-bold">${varianceSummary.overageCost.toFixed(0)}</p>
-            <p className="text-xs text-muted-foreground">Overages</p>
+            <p className="text-xs text-muted-foreground">Overages ({varianceSummary.overageCount})</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Variance Trend Chart */}
+      {trendData.length > 1 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Variance Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                  <XAxis 
+                    dataKey="date" 
+                    tick={{ fontSize: 11 }} 
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 11 }} 
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => `$${Math.abs(v)}`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      `$${Math.abs(value).toFixed(2)}`,
+                      name === "shortage" ? "Shortages" : "Overages"
+                    ]}
+                    contentStyle={{ 
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                  />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                  <Bar dataKey="shortage" stackId="a" radius={[0, 0, 4, 4]}>
+                    {trendData.map((_, i) => (
+                      <Cell key={i} fill="hsl(var(--destructive))" fillOpacity={0.8} />
+                    ))}
+                  </Bar>
+                  <Bar dataKey="overage" stackId="a" radius={[4, 4, 0, 0]}>
+                    {trendData.map((_, i) => (
+                      <Cell key={i} fill="hsl(142 71% 45%)" fillOpacity={0.8} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Theoretical Usage Section */}
       {theoreticalData && theoreticalData.length > 0 && (
