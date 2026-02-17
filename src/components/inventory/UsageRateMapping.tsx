@@ -250,9 +250,9 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                 <div key={itemId} className="border rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm">{getItemName(itemId)}</p>
-                    {getItem(itemId)?.pack_size && (
+                    {packQty && packQty > 1 && (
                       <span className="text-[10px] text-muted-foreground">
-                        ({getItem(itemId)?.pack_size} — {packQty} {unitLabel}/cs)
+                        ({packQty} {unitLabel}/cs)
                       </span>
                     )}
                   </div>
