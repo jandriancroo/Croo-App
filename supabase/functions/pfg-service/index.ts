@@ -76,38 +76,234 @@ interface TokenResponse {
   token_type: string;
 }
 
-// Login with username/password (ROPC flow)
+// Generate PKCE code verifier and challenge
+async function generatePKCE(): Promise<{ verifier: string; challenge: string }> {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const verifier = btoa(String.fromCharCode(...array))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
+  return { verifier, challenge };
+}
+
+// Extract cookies from response headers
+function extractCookies(response: Response): string {
+  const cookies: string[] = [];
+  response.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie') {
+      const cookiePart = value.split(';')[0];
+      cookies.push(cookiePart);
+    }
+  });
+  return cookies.join('; ');
+}
+
+// Headless browser OAuth login - mimics the B2C login page flow
 async function loginWithPassword(username: string, password: string): Promise<TokenResponse | null> {
   try {
-    console.log('[PFG Auth] Logging in with username/password for:', username);
+    console.log('[PFG Auth] Starting headless OAuth flow for:', username);
 
-    const params = new URLSearchParams({
-      client_id: PFG_CLIENT_ID,
-      scope: PFG_SCOPE,
-      grant_type: 'password',
-      username,
-      password,
-      response_type: 'token',
-      client_info: '1',
-    });
+    // Step 1: Generate PKCE
+    const pkce = await generatePKCE();
+    const state = btoa(JSON.stringify({ id: crypto.randomUUID(), meta: { interactionType: 'redirect' } }));
+    const nonce = crypto.randomUUID();
+    
+    const redirectUri = 'https://www.customerfirstsolutions.com';
+    
+    const authorizeUrl = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/authorize?` +
+      new URLSearchParams({
+        client_id: PFG_CLIENT_ID,
+        scope: 'openid profile offline_access',
+        redirect_uri: redirectUri,
+        response_mode: 'fragment',
+        response_type: 'code',
+        code_challenge: pkce.challenge,
+        code_challenge_method: 'S256',
+        nonce,
+        state,
+      }).toString();
 
-    const response = await fetch(PFG_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
+    console.log('[PFG Auth] Step 1: GET authorize page');
+    const authResponse = await fetch(authorizeUrl, { redirect: 'manual' });
+    
+    // Collect cookies from all set-cookie headers
+    const rawHeaders = authResponse.headers;
+    let cookies = '';
+    const cookieArr: string[] = [];
+    // Response.headers.getSetCookie() may be available in Deno
+    try {
+      const setCookies = (rawHeaders as any).getSetCookie?.() || [];
+      for (const sc of setCookies) {
+        cookieArr.push(sc.split(';')[0]);
+      }
+    } catch {
+      // Fallback: try forEach
+      rawHeaders.forEach((value, key) => {
+        if (key.toLowerCase() === 'set-cookie') {
+          cookieArr.push(value.split(';')[0]);
+        }
+      });
+    }
+    cookies = cookieArr.join('; ');
+    
+    const authHtml = await authResponse.text();
+    console.log('[PFG Auth] Got authorize page, status:', authResponse.status, 'cookies:', cookieArr.length);
+    // Log a large chunk of the HTML to understand the page structure
+    console.log('[PFG Auth] HTML chunk 1:', authHtml.substring(0, 3000));
+    console.log('[PFG Auth] HTML chunk 2:', authHtml.substring(3000, 6000));
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[PFG Auth] Password login failed:', response.status, errorText);
+    // Step 2: Extract CSRF token and transId from the HTML/settings
+    // Look for the settings JSON in the page
+    const settingsMatch = authHtml.match(/var SETTINGS\s*=\s*(\{[^;]+\});/);
+    const csrfMatch = authHtml.match(/"csrf"\s*:\s*"([^"]+)"/);
+    const transIdMatch = authHtml.match(/"transId"\s*:\s*"([^"]+)"/);
+    
+    let csrf = csrfMatch?.[1] || '';
+    let transId = transIdMatch?.[1] || '';
+    
+    // Also try to extract from meta tags or hidden inputs
+    if (!csrf) {
+      const csrfMeta = authHtml.match(/name="x-ms-cpim-csrf"\s+content="([^"]+)"/);
+      csrf = csrfMeta?.[1] || '';
+    }
+    if (!transId) {
+      const transMatch = authHtml.match(/transId=([^&"]+)/);
+      transId = transMatch?.[1] || '';
+    }
+    
+    // Extract the API URL for SelfAsserted
+    const apiMatch = authHtml.match(/"api"\s*:\s*"([^"]+)"/);
+    const apiPath = apiMatch?.[1] || '/SelfAsserted';
+    
+    // Also look for the full settings block to understand the URL pattern
+    const settingsSnippet = settingsMatch?.[1]?.substring(0, 500) || 'no SETTINGS found';
+    console.log('[PFG Auth] Step 2: csrf:', csrf ? 'found' : 'MISSING', 'transId:', transId ? 'found' : 'MISSING', 'apiPath:', apiPath, 'settings:', settingsSnippet);
+    
+    if (!csrf || !transId) {
+      // Log some of the HTML to help debug
+      console.error('[PFG Auth] Could not extract csrf/transId. HTML snippet:', authHtml.substring(0, 2000));
       return null;
     }
 
-    const tokenData = await response.json();
-    console.log('[PFG Auth] Password login successful');
+    // Step 3: POST credentials
+    // Extract the exact tenant host path from settings (includes correct casing)
+    const hostsMatch = authHtml.match(/"hosts"\s*:\s*\{[^}]*"tenant"\s*:\s*"([^"]+)"/);
+    const tenantPath = hostsMatch?.[1] || `/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}`;
+    
+    // B2C SelfAsserted endpoint - must use exact policy casing from the page
+    const selfAssertedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/SelfAsserted?` +
+      new URLSearchParams({
+        tx: transId,
+        p: PFG_B2C_POLICY,
+      }).toString();
+
+    console.log('[PFG Auth] SelfAsserted URL:', selfAssertedUrl);
+
+    const formData = new URLSearchParams({
+      request_type: 'RESPONSE',
+      signInName: username,
+      password: password,
+    });
+
+    console.log('[PFG Auth] Step 3: POST credentials to SelfAsserted');
+    const selfAssertedResponse = await fetch(selfAssertedUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-TOKEN': csrf,
+        'Cookie': cookies,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: formData.toString(),
+      redirect: 'manual',
+    });
+
+    const selfAssertedText = await selfAssertedResponse.text();
+    console.log('[PFG Auth] SelfAsserted response:', selfAssertedResponse.status, selfAssertedText.substring(0, 500));
+
+    // Collect any new cookies
+    try {
+      const newCookies = (selfAssertedResponse.headers as any).getSetCookie?.() || [];
+      for (const sc of newCookies) {
+        cookieArr.push(sc.split(';')[0]);
+      }
+      cookies = cookieArr.join('; ');
+    } catch {}
+
+    // Check for error in the response
+    if (selfAssertedResponse.status !== 200 || selfAssertedText.includes('"status":"FAIL"')) {
+      console.error('[PFG Auth] SelfAsserted login failed:', selfAssertedText.substring(0, 500));
+      return null;
+    }
+
+    // Step 4: GET the confirmed endpoint to get the redirect with auth code
+    const confirmedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/${apiPath}/confirmed?` +
+      new URLSearchParams({
+        rememberMe: 'false',
+        csrf_token: csrf,
+        tx: transId,
+        p: PFG_B2C_POLICY,
+      }).toString();
+
+    console.log('[PFG Auth] Step 4: GET confirmed endpoint');
+    const confirmedResponse = await fetch(confirmedUrl, {
+      headers: {
+        'Cookie': cookies,
+      },
+      redirect: 'manual',
+    });
+
+    const location = confirmedResponse.headers.get('location') || '';
+    console.log('[PFG Auth] Confirmed response:', confirmedResponse.status, 'redirect:', location.substring(0, 200));
+
+    // The redirect URL should contain the authorization code in the fragment
+    // e.g., https://www.customerfirstsolutions.com#code=XXXXX&state=...
+    const codeMatch = location.match(/[#&?]code=([^&]+)/);
+    
+    if (!codeMatch) {
+      const confirmedText = await confirmedResponse.text();
+      console.error('[PFG Auth] No auth code in redirect. Location:', location, 'Body:', confirmedText.substring(0, 500));
+      return null;
+    }
+
+    const authCode = decodeURIComponent(codeMatch[1]);
+    console.log('[PFG Auth] Step 4: Got authorization code!');
+
+    // Step 5: Exchange the code for tokens
+    const tokenParams = new URLSearchParams({
+      client_id: PFG_CLIENT_ID,
+      scope: 'openid profile offline_access',
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+      code: authCode,
+      code_verifier: pkce.verifier,
+    });
+
+    console.log('[PFG Auth] Step 5: Exchanging code for tokens');
+    const tokenResponse = await fetch(PFG_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams.toString(),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('[PFG Auth] Token exchange failed:', tokenResponse.status, errorText);
+      return null;
+    }
+
+    const tokenData = await tokenResponse.json();
+    console.log('[PFG Auth] Headless OAuth flow COMPLETE! Token acquired.');
+    console.log('[PFG Auth] Token expires_in:', tokenData.expires_in, 'refresh_token_expires_in:', tokenData.refresh_token_expires_in);
     return tokenData;
   } catch (error) {
-    console.error('[PFG Auth] Login error:', error);
+    console.error('[PFG Auth] Headless login error:', error);
     return null;
   }
 }
