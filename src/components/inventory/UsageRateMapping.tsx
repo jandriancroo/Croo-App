@@ -175,14 +175,9 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     return Math.round((unitRate / packQty) * 10000) / 10000;
   };
 
-  /** Get a friendly unit label like "boxes" from item unit "case" */
-  const getUnitLabel = (itemId: string): string => {
-    const item = getItem(itemId);
-    const packQty = getPackQuantity(itemId);
-    if (packQty && packQty > 1) {
-      return "ea"; // individual units
-    }
-    return item?.unit || "units";
+  /** Get a friendly unit label — always show "ea" for individual units */
+  const getUnitLabel = (): string => {
+    return "ea";
   };
 
   // Group rates by item
@@ -228,7 +223,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
             {/* Existing mappings grouped by item */}
             {Array.from(ratesByItem.entries()).map(([itemId, rates]) => {
               const packQty = getPackQuantity(itemId);
-              const unitLabel = getUnitLabel(itemId);
+              const unitLabel = getUnitLabel();
 
               return (
                 <div key={itemId} className="border rounded-lg p-3 space-y-2">
