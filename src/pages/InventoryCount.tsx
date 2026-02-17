@@ -9,6 +9,7 @@ import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
@@ -73,10 +74,24 @@ const InventoryCount = () => {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Inventory count submitted!");
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-count-details", countId] });
+      
+      // Auto-calculate usage rates from this and previous count
+      try {
+        const result = await calculateUsageRates(countId!, locationId!);
+        if (result.calculated > 0) {
+          toast.success(`Auto-calculated ${result.calculated} usage rate${result.calculated > 1 ? 's' : ''}`, {
+            description: "Based on count-to-count usage and POS sales data",
+          });
+          queryClient.invalidateQueries({ queryKey: ["inventory-usage-rates", locationId] });
+        }
+      } catch (err) {
+        console.error("Usage rate auto-calculation failed:", err);
+      }
+      
       navigate(`/inventory/${locationId}`);
     },
     onError: () => {

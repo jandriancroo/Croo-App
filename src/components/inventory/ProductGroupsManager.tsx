@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, GripVertical, Layers } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ interface ProductGroup {
   description: string | null;
   display_order: number;
   is_active: boolean;
+  pos_categories: string[] | null;
 }
 
 const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
@@ -28,6 +30,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const [editingGroup, setEditingGroup] = useState<ProductGroup | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedPosCategories, setSelectedPosCategories] = useState<string[]>([]);
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ["inventory-product-groups", locationId],
@@ -43,12 +46,39 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
   });
 
+  // Fetch distinct POS categories from sales_cache product_mix
+  const { data: posCategories } = useQuery({
+    queryKey: ["pos-categories", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales_cache")
+        .select("product_mix")
+        .eq("location_id", locationId)
+        .not("product_mix", "is", null)
+        .order("sale_date", { ascending: false })
+        .limit(7);
+
+      if (error) throw error;
+
+      const categories = new Set<string>();
+      for (const row of data || []) {
+        const mix = row.product_mix as any[];
+        if (Array.isArray(mix)) {
+          for (const item of mix) {
+            if (item.category) categories.add(item.category);
+          }
+        }
+      }
+      return Array.from(categories).sort();
+    },
+  });
+
   const upsertMutation = useMutation({
-    mutationFn: async ({ id, name, description }: { id?: string; name: string; description: string }) => {
+    mutationFn: async ({ id, name, description, posCategories }: { id?: string; name: string; description: string; posCategories: string[] }) => {
       if (id) {
         const { error } = await supabase
           .from("inventory_product_groups")
-          .update({ name, description: description || null })
+          .update({ name, description: description || null, pos_categories: posCategories })
           .eq("id", id);
         if (error) throw error;
       } else {
@@ -60,6 +90,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             name,
             description: description || null,
             display_order: maxOrder,
+            pos_categories: posCategories,
           });
         if (error) throw error;
       }
@@ -99,6 +130,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setEditingGroup(null);
     setName("");
     setDescription("");
+    setSelectedPosCategories([]);
     setShowDialog(true);
   };
 
@@ -106,6 +138,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setEditingGroup(group);
     setName(group.name);
     setDescription(group.description || "");
+    setSelectedPosCategories(group.pos_categories || []);
     setShowDialog(true);
   };
 
@@ -114,6 +147,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setEditingGroup(null);
     setName("");
     setDescription("");
+    setSelectedPosCategories([]);
   };
 
   const handleSave = () => {
@@ -121,7 +155,20 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       toast.error("Name is required");
       return;
     }
-    upsertMutation.mutate({ id: editingGroup?.id, name: name.trim(), description: description.trim() });
+    upsertMutation.mutate({
+      id: editingGroup?.id,
+      name: name.trim(),
+      description: description.trim(),
+      posCategories: selectedPosCategories,
+    });
+  };
+
+  const togglePosCategory = (category: string) => {
+    setSelectedPosCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   return (
@@ -172,6 +219,15 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                       {group.description && (
                         <p className="text-xs text-muted-foreground truncate">{group.description}</p>
                       )}
+                      {group.pos_categories && group.pos_categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {group.pos_categories.map(cat => (
+                            <Badge key={cat} variant="outline" className="text-[10px] px-1.5 py-0">
+                              {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -195,7 +251,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       </Card>
 
       <Dialog open={showDialog} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingGroup ? "Edit Group" : "Add Product Group"}</DialogTitle>
           </DialogHeader>
@@ -219,6 +275,44 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
+
+            {/* POS Category Mapping */}
+            <div className="space-y-2">
+              <Label>POS Categories</Label>
+              <p className="text-xs text-muted-foreground">
+                Which QUBeyond menu categories count toward this group's units sold?
+              </p>
+              {posCategories && posCategories.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto space-y-1 border rounded-md p-2">
+                  {posCategories.map(cat => (
+                    <label
+                      key={cat}
+                      className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedPosCategories.includes(cat)}
+                        onCheckedChange={() => togglePosCategory(cat)}
+                      />
+                      <span className="text-sm">{cat}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No POS data found — categories will appear after sales sync
+                </p>
+              )}
+              {selectedPosCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {selectedPosCategories.map(cat => (
+                    <Badge key={cat} variant="secondary" className="text-xs">
+                      {cat}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={closeDialog}>
                 Cancel
