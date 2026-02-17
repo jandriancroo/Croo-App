@@ -48,6 +48,21 @@ const parsePackSize = (packSize: string | null): { count: number; size: number; 
 
 /** Get smart unit options based on pack_size unit type, with auto-calculated units per case */
 const getSmartUnitOptions = (item: InventoryItem): { unit: string; unitsPerCase: number; label: string }[] => {
+  // For recipe items, use the saved count_unit/count_units_per_case (set from yield)
+  if (item.is_recipe && item.count_unit && item.count_units_per_case) {
+    const yieldUnit = item.count_unit;
+    const yieldQty = item.count_units_per_case;
+    const options = [
+      { unit: yieldUnit, unitsPerCase: yieldQty, label: `${yieldUnit} (${yieldQty}/batch)` },
+    ];
+    // Add oz conversion if yield isn't already oz
+    if (yieldUnit !== "oz" && TO_OZ_MAP[yieldUnit]) {
+      const totalOz = yieldQty * TO_OZ_MAP[yieldUnit];
+      options.push({ unit: "oz", unitsPerCase: Math.round(totalOz * 100) / 100, label: `oz (${Math.round(totalOz)}/batch)` });
+    }
+    return options;
+  }
+
   const parsed = parsePackSize(item.pack_size);
   if (!parsed) return [{ unit: "ea", unitsPerCase: item.pack_quantity || 1, label: `ea (${item.pack_quantity || 1}/cs)` }];
 
