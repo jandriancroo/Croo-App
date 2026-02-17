@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, FileSpreadsheet, Upload, CheckCircle2, ChevronDown, Link2 } from "lucide-react";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
-import { BOMMatchingManager } from "./BOMMatchingManager";
-import { BOMMenuItemMatcher } from "./BOMMenuItemMatcher";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -33,14 +30,6 @@ interface SyncProgress {
   detail?: string;
 }
 
-interface BOMImportStats {
-  totalRows: number;
-  uniqueIngredients: number;
-  uniqueMenuItems: number;
-  recipeMappings: number;
-  ingredientCategories: Record<string, number>;
-  menuCategories: Record<string, number>;
-}
 
 const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
@@ -49,10 +38,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [overrideValue, setOverrideValue] = useState("");
   
-  // BOM import state
-  const [isImportingBOM, setIsImportingBOM] = useState(false);
-  const [bomStats, setBomStats] = useState<BOMImportStats | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -103,35 +88,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
-  // Fetch BOM stats
-  const { data: bomData } = useQuery({
-    queryKey: ["bom-stats", locationId],
-    queryFn: async () => {
-      const [ingredientsRes, menuItemsRes, recipesRes] = await Promise.all([
-        supabase
-          .from("bom_ingredients")
-          .select("id, category", { count: "exact" })
-          .eq("location_id", locationId),
-        supabase
-          .from("bom_menu_items")
-          .select("id, is_sellable", { count: "exact" })
-          .eq("location_id", locationId),
-        supabase
-          .from("bom_recipe_ingredients")
-          .select("id", { count: "exact" })
-          .eq("location_id", locationId)
-      ]);
-      
-      const sellableCount = menuItemsRes.data?.filter(m => m.is_sellable).length || 0;
-      
-      return {
-        ingredientsCount: ingredientsRes.count || 0,
-        menuItemsCount: menuItemsRes.count || 0,
-        sellableItemsCount: sellableCount,
-        recipeMappingsCount: recipesRes.count || 0
-      };
-    }
-  });
 
   // Update pack quantity override mutation
   const updateOverrideMutation = useMutation({
@@ -169,41 +125,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     updateOverrideMutation.mutate({ itemId: editingItem.id, override: value });
   };
 
-  // Handle BOM CSV file selection
-  const handleBOMFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsImportingBOM(true);
-    setBomStats(null);
-
-    try {
-      const content = await file.text();
-      
-      const { data, error } = await supabase.functions.invoke("data-sync-service?action=import-bom", {
-        body: { csvContent: content, locationId }
-      });
-
-      if (error) throw error;
-      
-      if (data?.success) {
-        setBomStats(data.stats);
-        queryClient.invalidateQueries({ queryKey: ["bom-stats", locationId] });
-        toast.success(`BOM imported: ${data.stats.uniqueIngredients} ingredients, ${data.stats.uniqueMenuItems} menu items`);
-      } else {
-        throw new Error(data?.error || "Import failed");
-      }
-    } catch (err: any) {
-      console.error("BOM import error:", err);
-      toast.error(err.message || "Failed to import BOM");
-    } finally {
-      setIsImportingBOM(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
 
   // Sync everything from PFG (locations + items)
   const syncFromPFG = async () => {
@@ -497,113 +418,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       )}
 
       {/* BOM Import */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            Bill of Materials (BOM)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Current BOM stats */}
-          {bomData && bomData.ingredientsCount > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                {bomData.ingredientsCount} Ingredients
-              </Badge>
-              <Badge variant="secondary">
-                {bomData.menuItemsCount} Recipes
-              </Badge>
-              <Badge variant="secondary">
-                {bomData.sellableItemsCount} Sellable Items
-              </Badge>
-              <Badge variant="secondary">
-                {bomData.recipeMappingsCount} Mappings
-              </Badge>
-            </div>
-          )}
-
-          {/* Import result stats */}
-          {bomStats && (
-            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm space-y-2">
-              <p className="font-medium text-green-600 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Import Complete
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>Ingredients: <span className="font-medium">{bomStats.uniqueIngredients}</span></div>
-                <div>Menu Items: <span className="font-medium">{bomStats.uniqueMenuItems}</span></div>
-                <div>Mappings: <span className="font-medium">{bomStats.recipeMappings}</span></div>
-                <div>CSV Rows: <span className="font-medium">{bomStats.totalRows}</span></div>
-              </div>
-            </div>
-          )}
-
-          {/* Upload button */}
-          <div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".csv"
-              onChange={handleBOMFileSelect}
-              className="hidden"
-            />
-            <Button 
-              variant="outline"
-              className="w-full" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isImportingBOM}
-            >
-              {isImportingBOM ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              {bomData && bomData.ingredientsCount > 0 ? "Re-import BOM CSV" : "Import BOM CSV"}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              Import R365 ingredient/recipe CSV to calculate theoretical usage
-            </p>
-          </div>
-
-          {/* BOM Matching - collapsible */}
-          {bomData && bomData.ingredientsCount > 0 && (
-            <>
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between">
-                    <span className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Link BOM to Inventory Items
-                    </span>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-4">
-                  <BOMMatchingManager locationId={locationId} />
-                </CollapsibleContent>
-              </Collapsible>
-              
-              {/* Link Menu Items to QU */}
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between">
-                    <span className="flex items-center gap-2">
-                      <Link2 className="h-4 w-4" />
-                      Link Menu Items to QU Products
-                    </span>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-4">
-                  <BOMMenuItemMatcher locationId={locationId} />
-                </CollapsibleContent>
-              </Collapsible>
-            </>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Storage Locations */}
       <Card>
