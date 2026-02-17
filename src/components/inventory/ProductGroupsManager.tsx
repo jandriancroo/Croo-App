@@ -22,6 +22,7 @@ interface ProductGroup {
   display_order: number;
   is_active: boolean;
   pos_categories: string[] | null;
+  pos_items: string[] | null;
 }
 
 const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
@@ -31,6 +32,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedPosCategories, setSelectedPosCategories] = useState<string[]>([]);
+  const [selectedPosItems, setSelectedPosItems] = useState<string[]>([]);
+  const [itemSearch, setItemSearch] = useState("");
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ["inventory-product-groups", locationId],
@@ -46,9 +49,9 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     },
   });
 
-  // Fetch distinct POS categories from sales_cache product_mix
-  const { data: posCategories } = useQuery({
-    queryKey: ["pos-categories", locationId],
+  // Fetch distinct POS categories and items from sales_cache product_mix
+  const { data: posData } = useQuery({
+    queryKey: ["pos-categories-items", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales_cache")
@@ -61,24 +64,34 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       if (error) throw error;
 
       const categories = new Set<string>();
+      const items = new Map<string, string>(); // itemName -> category
       for (const row of data || []) {
         const mix = row.product_mix as any[];
         if (Array.isArray(mix)) {
           for (const item of mix) {
             if (item.category) categories.add(item.category);
+            if (item.itemName && item.category) {
+              items.set(item.itemName, item.category);
+            }
           }
         }
       }
-      return Array.from(categories).sort();
+      return {
+        categories: Array.from(categories).sort(),
+        items: Array.from(items.entries()).map(([name, category]) => ({ name, category })).sort((a, b) => a.name.localeCompare(b.name)),
+      };
     },
   });
 
+  const posCategories = posData?.categories || [];
+  const posItems = posData?.items || [];
+
   const upsertMutation = useMutation({
-    mutationFn: async ({ id, name, description, posCategories }: { id?: string; name: string; description: string; posCategories: string[] }) => {
+    mutationFn: async ({ id, name, description, posCategories, posItems }: { id?: string; name: string; description: string; posCategories: string[]; posItems: string[] }) => {
       if (id) {
         const { error } = await supabase
           .from("inventory_product_groups")
-          .update({ name, description: description || null, pos_categories: posCategories })
+          .update({ name, description: description || null, pos_categories: posCategories, pos_items: posItems })
           .eq("id", id);
         if (error) throw error;
       } else {
@@ -91,6 +104,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
             description: description || null,
             display_order: maxOrder,
             pos_categories: posCategories,
+            pos_items: posItems,
           });
         if (error) throw error;
       }
@@ -131,6 +145,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setName("");
     setDescription("");
     setSelectedPosCategories([]);
+    setSelectedPosItems([]);
+    setItemSearch("");
     setShowDialog(true);
   };
 
@@ -139,6 +155,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setName(group.name);
     setDescription(group.description || "");
     setSelectedPosCategories(group.pos_categories || []);
+    setSelectedPosItems(group.pos_items || []);
+    setItemSearch("");
     setShowDialog(true);
   };
 
@@ -148,6 +166,8 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
     setName("");
     setDescription("");
     setSelectedPosCategories([]);
+    setSelectedPosItems([]);
+    setItemSearch("");
   };
 
   const handleSave = () => {
@@ -160,6 +180,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       name: name.trim(),
       description: description.trim(),
       posCategories: selectedPosCategories,
+      posItems: selectedPosItems,
     });
   };
 
@@ -168,6 +189,14 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
       prev.includes(category)
         ? prev.filter(c => c !== category)
         : [...prev, category]
+    );
+  };
+
+  const togglePosItem = (itemName: string) => {
+    setSelectedPosItems(prev =>
+      prev.includes(itemName)
+        ? prev.filter(i => i !== itemName)
+        : [...prev, itemName]
     );
   };
 
@@ -224,6 +253,15 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                           {group.pos_categories.map(cat => (
                             <Badge key={cat} variant="outline" className="text-[10px] px-1.5 py-0">
                               {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {group.pos_items && group.pos_items.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {group.pos_items.map(item => (
+                            <Badge key={item} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30">
+                              🍕 {item}
                             </Badge>
                           ))}
                         </div>
@@ -307,6 +345,54 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
                   {selectedPosCategories.map(cat => (
                     <Badge key={cat} variant="secondary" className="text-xs">
                       {cat}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Individual POS Items */}
+            <div className="space-y-2">
+              <Label>Individual Menu Items (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                For more granular tracking — pick specific items instead of whole categories
+              </p>
+              {posItems.length > 0 ? (
+                <>
+                  <Input
+                    placeholder="Search items..."
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  <div className="max-h-48 overflow-y-auto space-y-1 border rounded-md p-2">
+                    {posItems
+                      .filter(i => !itemSearch || i.name.toLowerCase().includes(itemSearch.toLowerCase()))
+                      .map(item => (
+                        <label
+                          key={item.name}
+                          className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={selectedPosItems.includes(item.name)}
+                            onCheckedChange={() => togglePosItem(item.name)}
+                          />
+                          <span className="text-sm">{item.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">{item.category}</span>
+                        </label>
+                      ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  No POS items found — items will appear after sales sync
+                </p>
+              )}
+              {selectedPosItems.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {selectedPosItems.map(item => (
+                    <Badge key={item} variant="secondary" className="text-xs">
+                      🍕 {item}
                     </Badge>
                   ))}
                 </div>

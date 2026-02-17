@@ -114,7 +114,7 @@ export async function calculateUsageRates(
     // 6. Get product groups with POS category mappings
     const { data: productGroups } = await supabase
       .from("inventory_product_groups")
-      .select("id, name, pos_categories")
+      .select("id, name, pos_categories, pos_items")
       .eq("location_id", locationId)
       .eq("is_active", true);
 
@@ -132,8 +132,9 @@ export async function calculateUsageRates(
       .lte("sale_date", periodEnd)
       .not("product_mix", "is", null);
 
-    // Sum quantities by POS category across all days
+    // Sum quantities by POS category AND individual item name
     const categorySales = new Map<string, number>();
+    const itemSales = new Map<string, number>();
     for (const day of salesData || []) {
       const mix = day.product_mix as any[];
       if (!Array.isArray(mix)) continue;
@@ -142,6 +143,10 @@ export async function calculateUsageRates(
           const cat = item.category as string;
           categorySales.set(cat, (categorySales.get(cat) || 0) + Number(item.quantity));
         }
+        if (item.itemName && item.quantity) {
+          const name = item.itemName as string;
+          itemSales.set(name, (itemSales.get(name) || 0) + Number(item.quantity));
+        }
       }
     }
 
@@ -149,9 +154,13 @@ export async function calculateUsageRates(
     const groupUnitsSold = new Map<string, number>();
     for (const group of productGroups) {
       const cats = (group.pos_categories as string[]) || [];
+      const items = (group.pos_items as string[]) || [];
       let total = 0;
       for (const cat of cats) {
         total += categorySales.get(cat) || 0;
+      }
+      for (const itemName of items) {
+        total += itemSales.get(itemName) || 0;
       }
       groupUnitsSold.set(group.id, total);
     }

@@ -31,7 +31,7 @@ export async function calculateTheoreticalUsage(
         product_group_id,
         usage_rate,
         item:inventory_items(name, unit),
-        group:inventory_product_groups(name, pos_categories)
+        group:inventory_product_groups(name, pos_categories, pos_items)
       `)
       .eq("location_id", locationId)
       .not("usage_rate", "is", null);
@@ -54,8 +54,9 @@ export async function calculateTheoreticalUsage(
       return [];
     }
 
-    // 3. Sum quantities by POS category
+    // 3. Sum quantities by POS category AND by individual item name
     const categorySales = new Map<string, number>();
+    const itemSales = new Map<string, number>();
     for (const day of salesData || []) {
       const mix = day.product_mix as any[];
       if (!Array.isArray(mix)) continue;
@@ -63,6 +64,10 @@ export async function calculateTheoreticalUsage(
         if (item.category && item.quantity) {
           const cat = item.category as string;
           categorySales.set(cat, (categorySales.get(cat) || 0) + Number(item.quantity));
+        }
+        if (item.itemName && item.quantity) {
+          const name = item.itemName as string;
+          itemSales.set(name, (itemSales.get(name) || 0) + Number(item.quantity));
         }
       }
     }
@@ -76,9 +81,13 @@ export async function calculateTheoreticalUsage(
       if (!item || !group || !rate.usage_rate) continue;
 
       const posCategories = (group.pos_categories as string[]) || [];
+      const posItemNames = (group.pos_items as string[]) || [];
       let unitsSold = 0;
       for (const cat of posCategories) {
         unitsSold += categorySales.get(cat) || 0;
+      }
+      for (const itemName of posItemNames) {
+        unitsSold += itemSales.get(itemName) || 0;
       }
 
       if (unitsSold === 0) continue;
