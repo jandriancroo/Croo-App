@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
+import ProductGroupsManager from "./ProductGroupsManager";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -417,8 +418,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         </Card>
       )}
 
-      {/* BOM Import */}
-
+      {/* Product Groups */}
+      <ProductGroupsManager locationId={locationId} />
       {/* Storage Locations */}
       <Card>
         <CardHeader>
