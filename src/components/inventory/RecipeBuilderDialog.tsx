@@ -547,8 +547,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   const parsed = selectedItem?.pack_size ? parsePackSize(selectedItem.pack_size) : null;
                   const nativeUnit = selectedItem?.count_unit || parsed?.unit || "ea";
                   const isCan = parseCansPerCase(selectedItem?.pack_size ?? null) !== null;
-                  // Build contextual unit options: cn for can items, native unit, cs, oz (deduplicated)
-                  const unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), nativeUnit, "cs", "oz"]));
+                  // Build contextual unit options: cn for can items, native unit, cs, oz, tbsp, tsp (deduplicated)
+                  const unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), nativeUnit, "cs", "oz", "tbsp", "tsp"]));
                   return (
                   <div className="flex items-center gap-2">
                     <Input
