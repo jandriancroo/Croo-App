@@ -59,7 +59,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
 
   // Fetch inventory items (include pack quantities for conversion)
   const { data: items } = useQuery({
-    queryKey: ["inventory-items", locationId],
+    queryKey: ["inventory-items-usage", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
@@ -406,7 +406,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                   Unmapped Items ({unmappedItems.length})
                 </p>
                 <div className="space-y-1">
-                  {unmappedItems.slice(0, 20).map((item) => (
+                  {unmappedItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
                       <span className="text-sm truncate">{item.name}</span>
                       {addingForItem === item.id ? (
@@ -454,11 +454,6 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                       )}
                     </div>
                   ))}
-                  {unmappedItems.length > 20 && (
-                    <p className="text-xs text-muted-foreground text-center">
-                      +{unmappedItems.length - 20} more items
-                    </p>
-                  )}
                 </div>
               </div>
             )}
