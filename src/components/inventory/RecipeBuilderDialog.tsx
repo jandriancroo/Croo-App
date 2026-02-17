@@ -136,15 +136,19 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         continue;
       }
 
-      // Convert ingredient quantity to cases to get cost
       const upc = item.count_units_per_case;
-      if (upc && upc > 0) {
-        // If ingredient unit matches item's count_unit, convert via units_per_case
+      const nativeUnit = item.count_unit || "ea";
+
+      if (ing.unit === "cs") {
+        // Directly in cases
+        total += ing.quantity * item.cost_per_unit;
+      } else if (ing.unit === nativeUnit && upc && upc > 0) {
+        // Native unit → convert to cases via units_per_case
         const casesUsed = ing.quantity / upc;
         total += casesUsed * item.cost_per_unit;
       } else {
-        // Fallback: assume 1:1 (ingredient qty = cases)
-        total += ing.quantity * item.cost_per_unit;
+        // Non-native unit (e.g. oz on an 'ea' item) — can't reliably convert
+        allHaveCost = false;
       }
     }
 
