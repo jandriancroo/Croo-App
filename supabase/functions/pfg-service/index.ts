@@ -357,7 +357,78 @@ async function getValidAccessToken(
 }
 
 // ============================================================================
-// OAUTH FLOW — popup-based login
+// SAVE TOKEN — manually pasted refresh token
+// ============================================================================
+
+async function handleSaveToken(supabase: any, body: any): Promise<Response> {
+  const { locationId, refreshToken } = body;
+
+  if (!locationId || !refreshToken) {
+    return new Response(JSON.stringify({ error: 'Missing locationId or refreshToken', success: false }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log('[PFG] Saving manually-pasted refresh token for location:', locationId);
+
+  // Try refreshing the token to validate it works
+  try {
+    const tokenParams = new URLSearchParams({
+      client_id: PFG_CLIENT_ID,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      scope: PFG_SCOPE,
+    });
+
+    const tokenResp = await fetch(PFG_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenParams.toString(),
+    });
+
+    if (!tokenResp.ok) {
+      const errText = await tokenResp.text();
+      console.error('[PFG] Token validation failed:', errText);
+      return new Response(JSON.stringify({ error: 'Invalid token — could not refresh. Please try again.', success: false }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const tokenData = await tokenResp.json();
+    const newRefreshToken = tokenData.refresh_token || refreshToken;
+
+    // Upsert the integration
+    const { error: upsertError } = await supabase
+      .from('location_integrations')
+      .upsert({
+        location_id: locationId,
+        integration_type: 'pfg',
+        credentials: {
+          refresh_token: newRefreshToken,
+          refresh_token_updated_at: new Date().toISOString(),
+        },
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,integration_type' });
+
+    if (upsertError) throw upsertError;
+
+    console.log('[PFG] Token saved and validated successfully');
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('[PFG] Save token error:', err);
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error', success: false }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+// ============================================================================
+// OAUTH FLOW — popup-based login (legacy, may not work with PFG's B2C config)
 // ============================================================================
 
 /**
@@ -877,6 +948,9 @@ serve(async (req) => {
     console.log('[PFG Service] Action:', action || 'fetch');
 
     switch (action) {
+      case 'save_token':
+        return await handleSaveToken(supabase, body);
+
       case 'oauth_start':
         return await handleOAuthStart();
       

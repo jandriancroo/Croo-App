@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw, ExternalLink } from "lucide-react";
+import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface QuBeyondCredentials {
@@ -46,9 +46,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsTesting, setPfgIsTesting] = useState(false);
   const [pfgTestResult, setPfgTestResult] = useState<'success' | 'error' | null>(null);
   const [pfgIsConnecting, setPfgIsConnecting] = useState(false);
-  const [pfgOAuthStep, setPfgOAuthStep] = useState<'idle' | 'waiting_paste' | 'exchanging'>('idle');
-  const [pfgCodeVerifier, setPfgCodeVerifier] = useState<string | null>(null);
-  const [pfgPastedUrl, setPfgPastedUrl] = useState('');
+  const [pfgShowTokenInput, setPfgShowTokenInput] = useState(false);
+  const [pfgPastedToken, setPfgPastedToken] = useState('');
 
   // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
@@ -110,106 +109,45 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   }, [pfgIntegration]);
 
   // PFG OAuth popup login flow
-  const startPfgOAuth = useCallback(async () => {
-    if (!locationId) return;
+  // PFG: Save a manually-pasted refresh token
+  const savePfgToken = useCallback(async () => {
+    if (!locationId || !pfgPastedToken.trim()) return;
     setPfgIsConnecting(true);
-    setPfgOAuthStep('idle');
 
     try {
-      // Step 1: Get the authorize URL + PKCE verifier from our edge function
-      const startResp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_start`,
+      const { data: session } = await supabase.auth.getSession();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=save_token`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({}),
-        }
-      );
-      const startData = await startResp.json();
-      
-      if (!startData?.authorizeUrl) {
-        throw new Error('Failed to generate login URL');
-      }
-
-      const { authorizeUrl, codeVerifier } = startData;
-
-      // Step 2: Open PFG login in a new tab
-      window.open(authorizeUrl, '_blank');
-
-      // Step 3: Show the paste-URL input
-      setPfgCodeVerifier(codeVerifier);
-      setPfgOAuthStep('waiting_paste');
-      setPfgPastedUrl('');
-      setPfgIsConnecting(false);
-
-    } catch (error) {
-      console.error('[PFG OAuth] Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to start PFG login');
-      setPfgIsConnecting(false);
-    }
-  }, [locationId]);
-
-  const completePfgOAuth = useCallback(async () => {
-    if (!locationId || !pfgCodeVerifier || !pfgPastedUrl) return;
-
-    // Extract code from the pasted URL (fragment or query)
-    let code: string | null = null;
-    try {
-      const url = new URL(pfgPastedUrl);
-      const hashParams = new URLSearchParams(url.hash.replace('#', ''));
-      code = hashParams.get('code') || url.searchParams.get('code');
-    } catch {
-      toast.error('Invalid URL — paste the full URL from your browser address bar');
-      return;
-    }
-
-    if (!code) {
-      toast.error('No authorization code found in URL — make sure you copied the full URL after logging in');
-      return;
-    }
-
-    setPfgIsConnecting(true);
-
-    try {
-      const exchangeResp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_exchange`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${session.session?.access_token}`,
             'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             locationId,
-            code,
-            codeVerifier: pfgCodeVerifier,
+            refreshToken: pfgPastedToken.trim(),
           }),
         }
       );
 
-      const exchangeData = await exchangeResp.json();
-
-      if (exchangeData?.authenticated) {
-        toast.success("PFG connected successfully!");
+      const data = await resp.json();
+      if (data?.success) {
+        toast.success('PFG connected successfully!');
         queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
-        setPfgOAuthStep('idle');
-        setPfgCodeVerifier(null);
-        setPfgPastedUrl('');
+        setPfgShowTokenInput(false);
+        setPfgPastedToken('');
       } else {
-        toast.error(exchangeData?.error || 'PFG login failed');
+        toast.error(data?.error || 'Failed to save PFG token');
       }
     } catch (error) {
-      console.error('[PFG OAuth] Exchange error:', error);
-      toast.error('Failed to complete PFG login');
+      console.error('[PFG] Save token error:', error);
+      toast.error('Failed to save PFG token');
     } finally {
       setPfgIsConnecting(false);
     }
-  }, [locationId, pfgCodeVerifier, pfgPastedUrl, queryClient]);
+  }, [locationId, pfgPastedToken, queryClient]);
 
   // Trigger background backfill of historical sales data
   const triggerBackfill = async (integrationId: string) => {
@@ -627,22 +565,31 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   ) : null}
 
                    <div className={pfgHasToken ? "border-t pt-3" : ""}>
-                    {pfgOAuthStep === 'waiting_paste' ? (
+                    {pfgShowTokenInput ? (
                       <div className="space-y-2">
                         <p className="text-xs text-muted-foreground">
-                          After logging in to PFG, copy the full URL from the address bar and paste it below:
+                          1. Log in at{' '}
+                          <a href="https://www.customerfirstsolutions.com" target="_blank" rel="noopener noreferrer" className="underline text-primary">
+                            customerfirstsolutions.com
+                          </a>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          2. Open DevTools (F12) → Application → Local Storage
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          3. Find the key containing <code className="bg-muted px-1 rounded">refreshToken</code> and paste the value below:
                         </p>
                         <Input
-                          placeholder="Paste the redirect URL here..."
-                          value={pfgPastedUrl}
-                          onChange={(e) => setPfgPastedUrl(e.target.value)}
-                          className="text-xs"
+                          placeholder="Paste refresh token here..."
+                          value={pfgPastedToken}
+                          onChange={(e) => setPfgPastedToken(e.target.value)}
+                          className="text-xs font-mono"
                         />
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={completePfgOAuth}
-                            disabled={!pfgPastedUrl || pfgIsConnecting}
+                            onClick={savePfgToken}
+                            disabled={!pfgPastedToken.trim() || pfgIsConnecting}
                             className="flex-1"
                           >
                             {pfgIsConnecting ? (
@@ -650,12 +597,12 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                             ) : (
                               <Check className="h-4 w-4 mr-1.5" />
                             )}
-                            Connect
+                            Save Token
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => { setPfgOAuthStep('idle'); setPfgCodeVerifier(null); setPfgPastedUrl(''); }}
+                            onClick={() => { setPfgShowTokenInput(false); setPfgPastedToken(''); }}
                           >
                             Cancel
                           </Button>
@@ -665,19 +612,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       <>
                         <Button
                           size="sm"
-                          onClick={startPfgOAuth}
-                          disabled={pfgIsConnecting}
+                          onClick={() => setPfgShowTokenInput(true)}
                           className="w-full"
                         >
-                          {pfgIsConnecting ? (
-                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                          ) : (
-                            <ExternalLink className="h-4 w-4 mr-1.5" />
-                          )}
-                          {pfgHasToken ? 'Reconnect to PFG' : 'Log in to PFG'}
+                          <Plug className="h-4 w-4 mr-1.5" />
+                          {pfgHasToken ? 'Reconnect to PFG' : 'Connect PFG'}
                         </Button>
                         <p className="text-xs text-muted-foreground mt-2 text-center">
-                          Opens PFG login in a new tab — one-time setup
+                          One-time setup — paste your PFG refresh token
                         </p>
                       </>
                     )}
