@@ -2160,6 +2160,7 @@ export type Database = {
           location_id: string
           name: string
           pos_categories: string[] | null
+          pos_items: string[] | null
           updated_at: string
         }
         Insert: {
@@ -2171,6 +2172,7 @@ export type Database = {
           location_id: string
           name: string
           pos_categories?: string[] | null
+          pos_items?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -2182,6 +2184,7 @@ export type Database = {
           location_id?: string
           name?: string
           pos_categories?: string[] | null
+          pos_items?: string[] | null
           updated_at?: string
         }
         Relationships: [
