@@ -12,6 +12,7 @@ import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown } from "lucide
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
+import UsageRateMapping from "./UsageRateMapping";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -420,6 +421,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       {/* Product Groups */}
       <ProductGroupsManager locationId={locationId} />
+
+      {/* Usage Rate Mappings */}
+      <UsageRateMapping locationId={locationId} />
+
       {/* Storage Locations */}
       <Card>
         <CardHeader>
