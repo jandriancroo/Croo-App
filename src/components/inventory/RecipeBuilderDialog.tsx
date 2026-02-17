@@ -30,6 +30,23 @@ const TO_OZ: Record<string, number> = {
   oz: 1, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1,
 };
 
+const PACK_UNIT_MAP: Record<string, string> = {
+  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea",
+};
+
+/** Parse pack_size like "1/5 GA" → { count: 5, unit: "gal" } or "10/33 OZ" → { count: 330, unit: "oz" } */
+const parsePackSize = (packSize: string | null): { count: number; unit: string } | null => {
+  if (!packSize) return null;
+  const match = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*([A-Za-z]+)$/);
+  if (!match) return null;
+  const packs = parseInt(match[1]);
+  const sizePerPack = parseFloat(match[2]);
+  const rawUnit = match[3].toUpperCase();
+  const unit = PACK_UNIT_MAP[rawUnit];
+  if (!unit) return null;
+  return { count: packs * sizePerPack, unit };
+};
+
 const convertYield = (qty: number, fromUnit: string, toUnit: string): number => {
   const fromFactor = TO_OZ[fromUnit] ?? 1;
   const toFactor = TO_OZ[toUnit] ?? 1;
@@ -136,19 +153,24 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
         continue;
       }
 
-      const upc = item.count_units_per_case;
-      const nativeUnit = item.count_unit || "ea";
+      // Get unit info — use structured fields, fallback to parsing pack_size
+      let upc = item.count_units_per_case;
+      let nativeUnit = item.count_unit;
+      if ((!upc || !nativeUnit) && item.pack_size) {
+        const parsed = parsePackSize(item.pack_size);
+        if (parsed) {
+          if (!upc) upc = parsed.count;
+          if (!nativeUnit) nativeUnit = parsed.unit;
+        }
+      }
+      nativeUnit = nativeUnit || "ea";
 
       if (ing.unit === "cs") {
-        // Directly in cases
         total += ing.quantity * item.cost_per_unit;
       } else if (ing.unit === nativeUnit && upc && upc > 0) {
-        // Native unit → convert to cases via units_per_case
         const casesUsed = ing.quantity / upc;
         total += casesUsed * item.cost_per_unit;
       } else if (upc && upc > 0 && TO_OZ[ing.unit] && TO_OZ[nativeUnit]) {
-        // Convert ingredient qty to native units, then to cases
-        // e.g., 20 oz of olive oil where native = gal, 1 gal = 128 oz
         const ingInOz = ing.quantity * TO_OZ[ing.unit];
         const nativeInOz = TO_OZ[nativeUnit];
         const ingInNativeUnits = ingInOz / nativeInOz;
@@ -420,22 +442,32 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                         }`}
                         onClick={() => {
                           setSelectedIngredientId(item.id);
-                          // Auto-set unit from item's count_unit, fallback to pack_size unit or 'ea'
-                          setIngredientUnit(item.count_unit || "ea");
+                          const parsed = parsePackSize(item.pack_size);
+                          const unit = item.count_unit || parsed?.unit || "ea";
+                          const upc = item.count_units_per_case || parsed?.count;
+                          setIngredientUnit(unit);
                         }}
                       >
                         {item.name}
-                        <span className="text-muted-foreground ml-2">
-                          {item.cost_per_unit ? `$${item.cost_per_unit.toFixed(2)}/cs` : ""}
-                          {item.count_unit ? ` · ${item.count_units_per_case || "?"} ${item.count_unit}/cs` : ""}
-                        </span>
+                        {(() => {
+                          const parsed = parsePackSize(item.pack_size);
+                          const unit = item.count_unit || parsed?.unit;
+                          const upc = item.count_units_per_case || parsed?.count;
+                          return (
+                            <span className="text-muted-foreground ml-2">
+                              {item.cost_per_unit ? `$${item.cost_per_unit.toFixed(2)}/cs` : ""}
+                              {unit ? ` · ${upc || "?"} ${unit}/cs` : ""}
+                            </span>
+                          );
+                        })()}
                       </button>
                     ))}
                   </div>
                 )}
                 {selectedIngredientId && (() => {
                   const selectedItem = availableItems?.find(i => i.id === selectedIngredientId);
-                  const nativeUnit = selectedItem?.count_unit || "ea";
+                  const parsed = selectedItem?.pack_size ? parsePackSize(selectedItem.pack_size) : null;
+                  const nativeUnit = selectedItem?.count_unit || parsed?.unit || "ea";
                   // Build contextual unit options: native unit, cs, oz (deduplicated)
                   const unitOptions = Array.from(new Set([nativeUnit, "cs", "oz"]));
                   return (
