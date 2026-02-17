@@ -46,6 +46,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsTesting, setPfgIsTesting] = useState(false);
   const [pfgTestResult, setPfgTestResult] = useState<'success' | 'error' | null>(null);
   const [pfgIsConnecting, setPfgIsConnecting] = useState(false);
+  const [pfgOAuthStep, setPfgOAuthStep] = useState<'idle' | 'waiting_paste' | 'exchanging'>('idle');
+  const [pfgCodeVerifier, setPfgCodeVerifier] = useState<string | null>(null);
+  const [pfgPastedUrl, setPfgPastedUrl] = useState('');
 
   // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
@@ -110,6 +113,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const startPfgOAuth = useCallback(async () => {
     if (!locationId) return;
     setPfgIsConnecting(true);
+    setPfgOAuthStep('idle');
 
     try {
       // Step 1: Get the authorize URL + PKCE verifier from our edge function
@@ -133,99 +137,79 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
       const { authorizeUrl, codeVerifier } = startData;
 
-      // Step 2: Open popup to PFG's real login page
-      const width = 500;
-      const height = 650;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        authorizeUrl,
-        'pfg-login',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-      );
+      // Step 2: Open PFG login in a new tab
+      window.open(authorizeUrl, '_blank');
 
-      if (!popup) {
-        throw new Error('Popup blocked — please allow popups for this site');
-      }
-
-      // Step 3: Poll the popup for the redirect with auth code
-      const pollInterval = setInterval(async () => {
-        try {
-          if (popup.closed) {
-            clearInterval(pollInterval);
-            setPfgIsConnecting(false);
-            return;
-          }
-
-          // Check if we can access the popup's URL (same-origin check will fail until redirect)
-          let popupUrl: string;
-          try {
-            popupUrl = popup.location.href;
-          } catch {
-            // Cross-origin — popup is still on PFG's login page
-            return;
-          }
-
-          // Check if the popup has redirected to PFG_REDIRECT_URI with a code
-          if (popupUrl.includes('customerfirstsolutions.com')) {
-            // Parse the code from the URL fragment
-            const hash = popup.location.hash || '';
-            const params = new URLSearchParams(hash.replace('#', ''));
-            const code = params.get('code');
-
-            if (code) {
-              clearInterval(pollInterval);
-              popup.close();
-
-              // Step 4: Exchange the code for tokens
-              const exchangeResp = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_exchange`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-                    'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                  },
-                  body: JSON.stringify({
-                    locationId,
-                    code,
-                    codeVerifier,
-                  }),
-                }
-              );
-
-              const exchangeData = await exchangeResp.json();
-
-              if (exchangeData?.authenticated) {
-                toast.success("PFG connected successfully!");
-                queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
-              } else {
-                toast.error(exchangeData?.error || 'PFG login failed');
-              }
-
-              setPfgIsConnecting(false);
-            }
-          }
-        } catch {
-          // Cross-origin error — still on PFG page, keep polling
-        }
-      }, 500);
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        if (!popup.closed) popup.close();
-        setPfgIsConnecting(false);
-      }, 5 * 60 * 1000);
+      // Step 3: Show the paste-URL input
+      setPfgCodeVerifier(codeVerifier);
+      setPfgOAuthStep('waiting_paste');
+      setPfgPastedUrl('');
+      setPfgIsConnecting(false);
 
     } catch (error) {
       console.error('[PFG OAuth] Error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start PFG login');
       setPfgIsConnecting(false);
     }
-  }, [locationId, queryClient]);
+  }, [locationId]);
+
+  const completePfgOAuth = useCallback(async () => {
+    if (!locationId || !pfgCodeVerifier || !pfgPastedUrl) return;
+
+    // Extract code from the pasted URL (fragment or query)
+    let code: string | null = null;
+    try {
+      const url = new URL(pfgPastedUrl);
+      const hashParams = new URLSearchParams(url.hash.replace('#', ''));
+      code = hashParams.get('code') || url.searchParams.get('code');
+    } catch {
+      toast.error('Invalid URL — paste the full URL from your browser address bar');
+      return;
+    }
+
+    if (!code) {
+      toast.error('No authorization code found in URL — make sure you copied the full URL after logging in');
+      return;
+    }
+
+    setPfgIsConnecting(true);
+
+    try {
+      const exchangeResp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=oauth_exchange`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            locationId,
+            code,
+            codeVerifier: pfgCodeVerifier,
+          }),
+        }
+      );
+
+      const exchangeData = await exchangeResp.json();
+
+      if (exchangeData?.authenticated) {
+        toast.success("PFG connected successfully!");
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+        setPfgOAuthStep('idle');
+        setPfgCodeVerifier(null);
+        setPfgPastedUrl('');
+      } else {
+        toast.error(exchangeData?.error || 'PFG login failed');
+      }
+    } catch (error) {
+      console.error('[PFG OAuth] Exchange error:', error);
+      toast.error('Failed to complete PFG login');
+    } finally {
+      setPfgIsConnecting(false);
+    }
+  }, [locationId, pfgCodeVerifier, pfgPastedUrl, queryClient]);
 
   // Trigger background backfill of historical sales data
   const triggerBackfill = async (integrationId: string) => {
@@ -642,23 +626,61 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     </div>
                   ) : null}
 
-                  <div className={pfgHasToken ? "border-t pt-3" : ""}>
-                    <Button
-                      size="sm"
-                      onClick={startPfgOAuth}
-                      disabled={pfgIsConnecting}
-                      className="w-full"
-                    >
-                      {pfgIsConnecting ? (
-                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                      ) : (
-                        <ExternalLink className="h-4 w-4 mr-1.5" />
-                      )}
-                      {pfgHasToken ? 'Reconnect to PFG' : 'Log in to PFG'}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      Opens PFG login in a popup — one-time setup
-                    </p>
+                   <div className={pfgHasToken ? "border-t pt-3" : ""}>
+                    {pfgOAuthStep === 'waiting_paste' ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          After logging in to PFG, copy the full URL from the address bar and paste it below:
+                        </p>
+                        <Input
+                          placeholder="Paste the redirect URL here..."
+                          value={pfgPastedUrl}
+                          onChange={(e) => setPfgPastedUrl(e.target.value)}
+                          className="text-xs"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={completePfgOAuth}
+                            disabled={!pfgPastedUrl || pfgIsConnecting}
+                            className="flex-1"
+                          >
+                            {pfgIsConnecting ? (
+                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 mr-1.5" />
+                            )}
+                            Connect
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setPfgOAuthStep('idle'); setPfgCodeVerifier(null); setPfgPastedUrl(''); }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={startPfgOAuth}
+                          disabled={pfgIsConnecting}
+                          className="w-full"
+                        >
+                          {pfgIsConnecting ? (
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          ) : (
+                            <ExternalLink className="h-4 w-4 mr-1.5" />
+                          )}
+                          {pfgHasToken ? 'Reconnect to PFG' : 'Log in to PFG'}
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Opens PFG login in a new tab — one-time setup
+                        </p>
+                      </>
+                    )}
                   </div>
                 </>
               )}
