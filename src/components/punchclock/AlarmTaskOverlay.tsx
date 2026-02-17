@@ -288,14 +288,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         ) return;
 
         // Check if already completed
-        const { data: completion } = await supabase
+        const { data: completions } = await supabase
           .from('alarm_task_completions')
           .select('id')
           .eq('task_id', task.id)
           .eq('interval_key', intervalKey)
-          .maybeSingle();
+          .limit(1);
 
-        if (!completion) {
+        if (!completions || completions.length === 0) {
           initializeAlarm(task, intervalKey);
         }
       }
@@ -334,14 +334,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               ) return;
 
               // Check completion
-              const { data: completion } = await supabase
+              const { data: completions } = await supabase
                 .from('alarm_task_completions')
                 .select('id')
                 .eq('task_id', task.id)
                 .eq('interval_key', intervalKey)
-                .maybeSingle();
+                .limit(1);
 
-              if (!completion) {
+              if (!completions || completions.length === 0) {
                 initializeAlarm(task, intervalKey);
               }
             }
@@ -366,11 +366,11 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     try {
       const { error } = await supabase
         .from("alarm_task_completions")
-        .insert({
+        .upsert({
           task_id: activeAlarm.id,
           interval_key: activeAlarm.interval_key,
           completed_by: employee.id,
-        });
+        }, { onConflict: 'task_id,interval_key', ignoreDuplicates: true });
       if (error) throw error;
 
       const userName = employee.full_name || 'User';
