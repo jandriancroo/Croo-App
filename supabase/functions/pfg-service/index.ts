@@ -64,6 +64,7 @@ async function fetchPfgJson(
 
 interface PFGCredentials {
   username?: string;
+  password?: string;
   refresh_token: string;
   customer_id?: string;
 }
@@ -341,9 +342,9 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  if (!credentials.refresh_token) {
+  if (!credentials.refresh_token && !credentials.password) {
     return new Response(JSON.stringify({ 
-      error: 'No refresh token provided',
+      error: 'No refresh token or password stored — please log in to PFG.',
       authenticated: false 
     }), {
       status: 400,
@@ -351,11 +352,28 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  const tokenData = await refreshAccessToken(credentials.refresh_token);
+  let tokenData = credentials.refresh_token 
+    ? await refreshAccessToken(credentials.refresh_token) 
+    : null;
   
+  // Auto-re-login if refresh failed and we have stored credentials
+  if (!tokenData && credentials.username && credentials.password) {
+    console.log('[PFG] Refresh token expired, auto-re-logging in...');
+    tokenData = await loginWithPassword(credentials.username, credentials.password);
+    
+    // Save the new refresh token
+    if (tokenData && integrationId) {
+      await supabase
+        .from('location_integrations')
+        .update({ credentials: { ...credentials, refresh_token: tokenData.refresh_token } })
+        .eq('id', integrationId);
+      console.log('[PFG] Auto-re-login successful, new token saved.');
+    }
+  }
+
   if (!tokenData) {
     return new Response(JSON.stringify({ 
-      error: 'Token refresh failed - please log in to PFG again.',
+      error: 'Token refresh failed and auto-login failed — please log in to PFG again.',
       authenticated: false 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -503,16 +521,24 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
   for (const integration of integrations) {
     const credentials = integration.credentials as unknown as PFGCredentials;
     
-    if (!credentials?.refresh_token) {
-      results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'No refresh token' });
+    if (!credentials?.refresh_token && !credentials?.password) {
+      results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'No credentials stored' });
       continue;
     }
 
     try {
-      const tokenData = await refreshAccessToken(credentials.refresh_token);
+      let tokenData = credentials.refresh_token 
+        ? await refreshAccessToken(credentials.refresh_token) 
+        : null;
       
+      // Auto-re-login if refresh failed
+      if (!tokenData && credentials.username && credentials.password) {
+        console.log(`[PFG Sync] Auto-re-login for location ${integration.location_id}`);
+        tokenData = await loginWithPassword(credentials.username, credentials.password);
+      }
+
       if (!tokenData) {
-        results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'Token refresh failed' });
+        results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'Auth failed — re-login needed' });
         continue;
       }
 
@@ -615,6 +641,7 @@ async function handleLogin(supabase: any, body: any): Promise<Response> {
   // Save/update the integration with the new refresh token
   const credentials = {
     username,
+    password,
     refresh_token: tokenData.refresh_token,
   };
 
