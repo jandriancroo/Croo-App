@@ -270,7 +270,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const displayToCases = (displayRate: number, itemId: string): number => {
     const upc = getUnitsPerCase(itemId);
     if (!upc || upc <= 0) return displayRate;
-    return Math.round((displayRate / upc) * 10000) / 10000;
+    return displayRate / upc;
   };
 
   // Group rates by item
