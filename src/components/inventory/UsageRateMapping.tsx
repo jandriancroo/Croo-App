@@ -34,6 +34,7 @@ interface InventoryItem {
   pack_quantity_override: number | null;
   count_unit: string | null;
   count_units_per_case: number | null;
+  cost_per_unit: number | null;
   storage_location: { name: string } | null;
 }
 
@@ -116,7 +117,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, count_unit, count_units_per_case, storage_location:inventory_locations(name)")
+        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, count_unit, count_units_per_case, cost_per_unit, storage_location:inventory_locations(name)")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -358,12 +359,16 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
               const unitLabel = getUnitLabel(itemId);
               const item = getItem(itemId);
               const hasCustomUnit = !!item?.count_unit && !!item?.count_units_per_case;
+              const upc = getUnitsPerCase(itemId);
+              const costPerUnit = (item?.cost_per_unit && upc && upc > 0)
+                ? (item.cost_per_unit / upc)
+                : null;
 
               return (
                 <div key={itemId} className="border rounded-lg p-3 space-y-2">
                   {/* Item header with unit config */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-sm">{getItemName(itemId)}</p>
                       {hasCustomUnit ? (
                         <span className="text-[10px] text-muted-foreground">
@@ -372,6 +377,11 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                       ) : (
                         <span className="text-[10px] text-destructive">
                           ⚠ Set unit
+                        </span>
+                      )}
+                      {costPerUnit !== null && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          ${costPerUnit.toFixed(2)}/{unitLabel}
                         </span>
                       )}
                     </div>
