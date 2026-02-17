@@ -137,7 +137,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, count_unit, count_units_per_case, cost_per_unit, storage_location:inventory_locations(name)")
+        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, count_unit, count_units_per_case, cost_per_unit, is_recipe, storage_location:inventory_locations(name)")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
