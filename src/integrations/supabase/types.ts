@@ -2035,6 +2035,8 @@ export type Database = {
         Row: {
           brand: string | null
           cost_per_unit: number | null
+          count_unit: string | null
+          count_units_per_case: number | null
           created_at: string
           display_order: number | null
           id: string
@@ -2055,6 +2057,8 @@ export type Database = {
         Insert: {
           brand?: string | null
           cost_per_unit?: number | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
           created_at?: string
           display_order?: number | null
           id?: string
@@ -2075,6 +2079,8 @@ export type Database = {
         Update: {
           brand?: string | null
           cost_per_unit?: number | null
+          count_unit?: string | null
+          count_units_per_case?: number | null
           created_at?: string
           display_order?: number | null
           id?: string

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Link2, Loader2, Check, X, Pencil, Search } from "lucide-react";
+import { Link2, Loader2, Check, X, Pencil, Search, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface UsageRateMappingProps {
@@ -32,8 +32,12 @@ interface InventoryItem {
   pack_size: string | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
+  count_unit: string | null;
+  count_units_per_case: number | null;
   storage_location: { name: string } | null;
 }
+
+const COMMON_UNITS = ["oz", "lb", "ea", "gal", "ml", "portions", "slices", "bags", "boxes"];
 
 const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const queryClient = useQueryClient();
@@ -42,6 +46,9 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const [addingForItem, setAddingForItem] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingUnitItemId, setEditingUnitItemId] = useState<string | null>(null);
+  const [editCountUnit, setEditCountUnit] = useState("");
+  const [editUnitsPerCase, setEditUnitsPerCase] = useState("");
 
   // Fetch product groups
   const { data: groups } = useQuery({
@@ -58,13 +65,13 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     },
   });
 
-  // Fetch inventory items (include pack quantities for conversion)
+  // Fetch inventory items (include pack quantities + count unit for conversion)
   const { data: items } = useQuery({
     queryKey: ["inventory-items-usage", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, storage_location:inventory_locations(name)")
+        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, count_unit, count_units_per_case, storage_location:inventory_locations(name)")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -113,7 +120,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     },
   });
 
-  // Update rate — user enters individual units, we convert to cases for storage
+  // Update rate — user enters in count_unit, we convert to cases for storage
   const updateRateMutation = useMutation({
     mutationFn: async ({ id, rate }: { id: string; rate: number | null }) => {
       const { error } = await supabase
@@ -131,6 +138,26 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
       setEditingRateId(null);
     },
     onError: () => toast.error("Failed to update rate"),
+  });
+
+  // Update count unit on item
+  const updateCountUnitMutation = useMutation({
+    mutationFn: async ({ itemId, countUnit, unitsPerCase }: { itemId: string; countUnit: string; unitsPerCase: number }) => {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({
+          count_unit: countUnit,
+          count_units_per_case: unitsPerCase,
+        })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-usage", locationId] });
+      toast.success("Count unit saved");
+      setEditingUnitItemId(null);
+    },
+    onError: () => toast.error("Failed to save count unit"),
   });
 
   // Delete mapping
@@ -158,48 +185,47 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const getItem = (itemId: string) =>
     items?.find((i) => i.id === itemId);
 
-  /** Get the effective pack quantity (override > PFG > null) */
-  const getPackQuantity = (itemId: string): number | null => {
+  /** Get count_units_per_case for conversion. If not set, fall back to pack_quantity logic */
+  const getUnitsPerCase = (itemId: string): number | null => {
     const item = getItem(itemId);
     if (!item) return null;
+    // Prefer explicit count_units_per_case
+    if (item.count_units_per_case && item.count_units_per_case > 0) {
+      return item.count_units_per_case;
+    }
+    // Fallback to pack_quantity
     return item.pack_quantity_override ?? item.pack_quantity ?? null;
   };
 
-  /** Convert DB rate (cases/unit sold) → display rate (individual units/unit sold) */
-  const casesToUnits = (caseRate: number, packQty: number | null): number => {
-    if (!packQty || packQty <= 0) return caseRate;
-    return Math.round(caseRate * packQty * 100) / 100;
-  };
-
-  /** Convert display rate (individual units/unit sold) → DB rate (cases/unit sold) */
-  const unitsToCases = (unitRate: number, packQty: number | null): number => {
-    if (!packQty || packQty <= 0) return unitRate;
-    return Math.round((unitRate / packQty) * 10000) / 10000;
-  };
-
-  /** 
-   * Parse the sub-unit from pack_size (e.g., "24/20 OZ" → "oz", "6/3 LB" → "lb", "2/5 LB" → "lb")
-   * Falls back to "ea" if not parseable 
-   */
+  /** Get the display unit label */
   const getUnitLabel = (itemId: string): string => {
     const item = getItem(itemId);
-    if (!item?.pack_size) return "ea";
-    // pack_size format: "COUNT/SIZE UNIT" e.g. "24/20 OZ", "6/3 LB", "1/1000 CT"
-    const match = item.pack_size.match(/\d+\/[\d.]+ (.+)/i);
-    if (match) {
-      const unit = match[1].trim().toLowerCase();
-      // Map common PFG abbreviations to friendly labels
-      const unitMap: Record<string, string> = {
-        'oz': 'oz',
-        'lb': 'lb',
-        'ga': 'gal',
-        'ct': 'ea',
-        'ml': 'ml',
-        'lt': 'L',
-      };
-      return unitMap[unit] || unit;
+    // If custom count_unit is set, use it
+    if (item?.count_unit) return item.count_unit;
+    // Fallback: parse from pack_size
+    if (item?.pack_size) {
+      const match = item.pack_size.match(/\d+\/[\d.]+ (.+)/i);
+      if (match) {
+        const unit = match[1].trim().toLowerCase();
+        const unitMap: Record<string, string> = { 'oz': 'oz', 'lb': 'lb', 'ga': 'gal', 'ct': 'ea', 'ml': 'ml', 'lt': 'L' };
+        return unitMap[unit] || unit;
+      }
     }
     return "ea";
+  };
+
+  /** Convert DB rate (cases/unit sold) → display rate (count_unit/unit sold) */
+  const casesToDisplay = (caseRate: number, itemId: string): number => {
+    const upc = getUnitsPerCase(itemId);
+    if (!upc || upc <= 0) return caseRate;
+    return Math.round(caseRate * upc * 100) / 100;
+  };
+
+  /** Convert display rate (count_unit/unit sold) → DB rate (cases/unit sold) */
+  const displayToCases = (displayRate: number, itemId: string): number => {
+    const upc = getUnitsPerCase(itemId);
+    if (!upc || upc <= 0) return displayRate;
+    return Math.round((displayRate / upc) * 10000) / 10000;
   };
 
   // Group rates by item
@@ -237,6 +263,25 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     );
   }
 
+  const openUnitEditor = (itemId: string) => {
+    const item = getItem(itemId);
+    setEditingUnitItemId(itemId);
+    setEditCountUnit(item?.count_unit || "");
+    setEditUnitsPerCase(item?.count_units_per_case?.toString() || "");
+  };
+
+  const saveCountUnit = () => {
+    if (!editingUnitItemId || !editCountUnit.trim() || !editUnitsPerCase.trim()) {
+      toast.error("Enter both unit name and units per case");
+      return;
+    }
+    updateCountUnitMutation.mutate({
+      itemId: editingUnitItemId,
+      countUnit: editCountUnit.trim().toLowerCase(),
+      unitsPerCase: parseFloat(editUnitsPerCase),
+    });
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -245,7 +290,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
           Usage Rate Mappings
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Link inventory items to product groups. Enter how many individual units you use per 1 item sold. Rates auto-calculate from counts, or set manually.
+          Link items to product groups and enter how much of each item goes into one unit sold (e.g., 8 oz of mozz per large pizza).
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -266,19 +311,71 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
           <div className="max-h-[500px] overflow-y-auto space-y-4 pr-1">
             {/* Existing mappings grouped by item */}
             {filteredMappedEntries.map(([itemId, rates]) => {
-              const packQty = getPackQuantity(itemId);
               const unitLabel = getUnitLabel(itemId);
+              const item = getItem(itemId);
+              const hasCustomUnit = !!item?.count_unit && !!item?.count_units_per_case;
 
               return (
                 <div key={itemId} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm">{getItemName(itemId)}</p>
-                    {packQty && packQty > 1 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        ({packQty} {unitLabel}/cs)
-                      </span>
-                    )}
+                  {/* Item header with unit config */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{getItemName(itemId)}</p>
+                      {hasCustomUnit ? (
+                        <span className="text-[10px] text-muted-foreground">
+                          ({item!.count_units_per_case} {item!.count_unit}/cs)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-destructive">
+                          ⚠ Set unit
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => openUnitEditor(itemId)}
+                      title="Configure counting unit"
+                    >
+                      <Settings2 className="h-3 w-3" />
+                    </Button>
                   </div>
+
+                  {/* Inline unit editor */}
+                  {editingUnitItemId === itemId && (
+                    <div className="flex items-center gap-2 pl-3 py-1 bg-muted/50 rounded">
+                      <Select value={editCountUnit} onValueChange={setEditCountUnit}>
+                        <SelectTrigger className="h-7 text-xs w-24">
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COMMON_UNITS.map((u) => (
+                            <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-xs text-muted-foreground">×</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className="h-7 w-20 text-xs"
+                        value={editUnitsPerCase}
+                        onChange={(e) => setEditUnitsPerCase(e.target.value)}
+                        placeholder="per case"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">per case</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveCountUnit}
+                        disabled={updateCountUnitMutation.isPending}>
+                        {updateCountUnitMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingUnitItemId(null)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Rate rows per product group */}
                   {rates.map((rate) => (
                     <div key={rate.id} className="flex items-center justify-between gap-2 pl-3">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -294,7 +391,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                               value={editRateValue}
                               onChange={(e) => setEditRateValue(e.target.value)}
                               autoFocus
-                              placeholder="e.g. 1"
+                              placeholder="e.g. 8"
                             />
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {unitLabel}/sold
@@ -308,7 +405,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                                   updateRateMutation.mutate({ id: rate.id, rate: null });
                                 } else {
                                   const displayVal = parseFloat(editRateValue);
-                                  const caseVal = unitsToCases(displayVal, packQty);
+                                  const caseVal = displayToCases(displayVal, itemId);
                                   updateRateMutation.mutate({ id: rate.id, rate: caseVal });
                                 }
                               }}
@@ -328,7 +425,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                           <div className="flex items-center gap-1">
                             {rate.usage_rate !== null ? (
                               <span className="text-xs font-mono">
-                                {casesToUnits(rate.usage_rate, packQty)} {unitLabel}/sold
+                                {casesToDisplay(rate.usage_rate, itemId)} {unitLabel}/sold
                               </span>
                             ) : (
                               <span className="text-xs text-muted-foreground italic">
@@ -352,9 +449,8 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                             className="h-6 w-6"
                             onClick={() => {
                               setEditingRateId(rate.id);
-                              // Convert stored case rate to display units
                               const displayVal = rate.usage_rate !== null
-                                ? casesToUnits(rate.usage_rate, packQty).toString()
+                                ? casesToDisplay(rate.usage_rate, itemId).toString()
                                 : "";
                               setEditRateValue(displayVal);
                             }}
@@ -373,6 +469,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
                       </div>
                     </div>
                   ))}
+
                   {/* Add another group to this item */}
                   {addingForItem === itemId ? (
                     <div className="flex items-center gap-2 pl-3">
