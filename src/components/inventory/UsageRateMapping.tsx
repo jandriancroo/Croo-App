@@ -29,6 +29,7 @@ interface InventoryItem {
   id: string;
   name: string;
   unit: string;
+  pack_size: string | null;
   pack_quantity: number | null;
   pack_quantity_override: number | null;
   storage_location: { name: string } | null;
@@ -62,7 +63,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, unit, pack_quantity, pack_quantity_override, storage_location:inventory_locations(name)")
+        .select("id, name, unit, pack_size, pack_quantity, pack_quantity_override, storage_location:inventory_locations(name)")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -175,8 +176,28 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
     return Math.round((unitRate / packQty) * 10000) / 10000;
   };
 
-  /** Get a friendly unit label — always show "ea" for individual units */
-  const getUnitLabel = (): string => {
+  /** 
+   * Parse the sub-unit from pack_size (e.g., "24/20 OZ" → "oz", "6/3 LB" → "lb", "2/5 LB" → "lb")
+   * Falls back to "ea" if not parseable 
+   */
+  const getUnitLabel = (itemId: string): string => {
+    const item = getItem(itemId);
+    if (!item?.pack_size) return "ea";
+    // pack_size format: "COUNT/SIZE UNIT" e.g. "24/20 OZ", "6/3 LB", "1/1000 CT"
+    const match = item.pack_size.match(/\d+\/[\d.]+ (.+)/i);
+    if (match) {
+      const unit = match[1].trim().toLowerCase();
+      // Map common PFG abbreviations to friendly labels
+      const unitMap: Record<string, string> = {
+        'oz': 'oz',
+        'lb': 'lb',
+        'ga': 'gal',
+        'ct': 'ea',
+        'ml': 'ml',
+        'lt': 'L',
+      };
+      return unitMap[unit] || unit;
+    }
     return "ea";
   };
 
@@ -223,14 +244,16 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
             {/* Existing mappings grouped by item */}
             {Array.from(ratesByItem.entries()).map(([itemId, rates]) => {
               const packQty = getPackQuantity(itemId);
-              const unitLabel = getUnitLabel();
+              const unitLabel = getUnitLabel(itemId);
 
               return (
                 <div key={itemId} className="border rounded-lg p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm">{getItemName(itemId)}</p>
-                    {packQty && (
-                      <span className="text-[10px] text-muted-foreground">({packQty}/cs)</span>
+                    {getItem(itemId)?.pack_size && (
+                      <span className="text-[10px] text-muted-foreground">
+                        ({getItem(itemId)?.pack_size} — {packQty} {unitLabel}/cs)
+                      </span>
                     )}
                   </div>
                   {rates.map((rate) => (
