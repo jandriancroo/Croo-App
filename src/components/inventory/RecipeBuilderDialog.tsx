@@ -31,12 +31,29 @@ const TO_OZ: Record<string, number> = {
 };
 
 const PACK_UNIT_MAP: Record<string, string> = {
-  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea",
+  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea", CN: "ea",
 };
 
-/** Parse pack_size like "1/5 GA" → { count: 5, unit: "gal" } or "10/33 OZ" → { count: 330, unit: "oz" } */
+// Standard can sizes in oz
+const CAN_SIZES: Record<string, number> = { "10": 106, "5": 56, "2.5": 26 };
+
+/** Parse pack_size like "1/5 GA", "6/#10 CN", "10/33 OZ" */
 const parsePackSize = (packSize: string | null): { count: number; unit: string } | null => {
   if (!packSize) return null;
+  // Handle #N can notation: "6/#10 CN" → 6 cans
+  const canMatch = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
+  if (canMatch) {
+    const packs = parseInt(canMatch[1]);
+    const canSize = canMatch[2];
+    const rawUnit = canMatch[3].toUpperCase();
+    const unit = PACK_UNIT_MAP[rawUnit];
+    if (!unit) return null;
+    // For CN (cans), total count = number of cans; if we know oz per can, use oz instead
+    const ozPerCan = CAN_SIZES[canSize];
+    if (ozPerCan) return { count: packs * ozPerCan, unit: "oz" };
+    return { count: packs, unit: unit };
+  }
+  // Standard notation: "1/5 GA", "10/33 OZ"
   const match = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*([A-Za-z]+)$/);
   if (!match) return null;
   const packs = parseInt(match[1]);
