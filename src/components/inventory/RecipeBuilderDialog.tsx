@@ -37,6 +37,14 @@ const PACK_UNIT_MAP: Record<string, string> = {
 // Standard can sizes in oz
 const CAN_SIZES: Record<string, number> = { "10": 106, "5": 56, "2.5": 26 };
 
+/** Detect if pack_size is can-based, return cans per case */
+const parseCansPerCase = (packSize: string | null): number | null => {
+  if (!packSize) return null;
+  const canMatch = packSize.match(/^(\d+)\s*\/\s*#(\d+\.?\d*)\s*([A-Za-z]+)$/);
+  if (canMatch) return parseInt(canMatch[1]);
+  return null;
+};
+
 /** Parse pack_size like "1/5 GA", "6/#10 CN", "10/33 OZ" */
 const parsePackSize = (packSize: string | null): { count: number; unit: string } | null => {
   if (!packSize) return null;
@@ -184,6 +192,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
       if (ing.unit === "cs") {
         total += ing.quantity * item.cost_per_unit;
+      } else if (ing.unit === "cn") {
+        // Cans: cost = (cans / cans_per_case) * case_cost
+        const cansPerCase = parseCansPerCase(item.pack_size);
+        if (cansPerCase && cansPerCase > 0) {
+          total += (ing.quantity / cansPerCase) * item.cost_per_unit;
+        } else {
+          allHaveCost = false;
+        }
       } else if (ing.unit === nativeUnit && upc && upc > 0) {
         const casesUsed = ing.quantity / upc;
         total += casesUsed * item.cost_per_unit;
@@ -461,8 +477,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                           setSelectedIngredientId(item.id);
                           const parsed = parsePackSize(item.pack_size);
                           const unit = item.count_unit || parsed?.unit || "ea";
-                          const upc = item.count_units_per_case || parsed?.count;
-                          setIngredientUnit(unit);
+                          const isCan = parseCansPerCase(item.pack_size) !== null;
+                          setIngredientUnit(isCan ? "cn" : unit);
                         }}
                       >
                         {item.name}
@@ -470,10 +486,11 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                           const parsed = parsePackSize(item.pack_size);
                           const unit = item.count_unit || parsed?.unit;
                           const upc = item.count_units_per_case || parsed?.count;
+                          const cansPerCase = parseCansPerCase(item.pack_size);
                           return (
                             <span className="text-muted-foreground ml-2">
                               {item.cost_per_unit ? `$${item.cost_per_unit.toFixed(2)}/cs` : ""}
-                              {unit ? ` · ${upc || "?"} ${unit}/cs` : ""}
+                              {cansPerCase ? ` · ${cansPerCase} cn/cs` : unit ? ` · ${upc || "?"} ${unit}/cs` : ""}
                             </span>
                           );
                         })()}
@@ -485,8 +502,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                   const selectedItem = availableItems?.find(i => i.id === selectedIngredientId);
                   const parsed = selectedItem?.pack_size ? parsePackSize(selectedItem.pack_size) : null;
                   const nativeUnit = selectedItem?.count_unit || parsed?.unit || "ea";
-                  // Build contextual unit options: native unit, cs, oz (deduplicated)
-                  const unitOptions = Array.from(new Set([nativeUnit, "cs", "oz"]));
+                  const isCan = parseCansPerCase(selectedItem?.pack_size ?? null) !== null;
+                  // Build contextual unit options: cn for can items, native unit, cs, oz (deduplicated)
+                  const unitOptions = Array.from(new Set([...(isCan ? ["cn"] : []), nativeUnit, "cs", "oz"]));
                   return (
                   <div className="flex items-center gap-2">
                     <Input
@@ -505,7 +523,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                       <SelectContent>
                         {unitOptions.map(u => (
                           <SelectItem key={u} value={u} className="text-xs">
-                            {u === "cs" ? "cs (case)" : u}
+                            {u === "cs" ? "cs (case)" : u === "cn" ? "cn (can)" : u}
                           </SelectItem>
                         ))}
                       </SelectContent>
