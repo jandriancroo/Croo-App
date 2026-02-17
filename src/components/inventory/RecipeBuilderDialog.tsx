@@ -409,14 +409,15 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                         }`}
                         onClick={() => {
                           setSelectedIngredientId(item.id);
-                          // Auto-set unit from item's count_unit
-                          if (item.count_unit) setIngredientUnit(item.count_unit);
+                          // Auto-set unit from item's count_unit, fallback to pack_size unit or 'ea'
+                          setIngredientUnit(item.count_unit || "ea");
                         }}
                       >
                         {item.name}
-                        {item.cost_per_unit && (
-                          <span className="text-muted-foreground ml-2">${item.cost_per_unit.toFixed(2)}/cs</span>
-                        )}
+                        <span className="text-muted-foreground ml-2">
+                          {item.cost_per_unit ? `$${item.cost_per_unit.toFixed(2)}/cs` : ""}
+                          {item.count_unit ? ` · ${item.count_units_per_case || "?"} ${item.count_unit}/cs` : ""}
+                        </span>
                       </button>
                     ))}
                   </div>
