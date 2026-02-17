@@ -23,11 +23,11 @@ interface RecipeIngredient {
   unit: string;
 }
 
-const UNIT_OPTIONS = ["oz", "lb", "ea", "gal", "ml", "cups", "bags", "ct"];
+const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "ea", "ml", "cups", "bags", "ct"];
 
 // Conversion factors to oz (base unit for auto-calc)
 const TO_OZ: Record<string, number> = {
-  oz: 1, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1,
+  oz: 1, qt: 32, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1,
 };
 
 const PACK_UNIT_MAP: Record<string, string> = {
