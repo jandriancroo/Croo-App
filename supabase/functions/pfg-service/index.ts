@@ -67,6 +67,8 @@ interface PFGCredentials {
   password?: string;
   refresh_token: string;
   customer_id?: string;
+  access_token?: string;
+  token_expires_at?: string;
 }
 
 interface TokenResponse {
@@ -494,6 +496,68 @@ function parsePfgDate(dateStr: string | null | undefined): string | null {
 }
 
 // ============================================================================
+// TOKEN CACHING — inline check-and-refresh pattern
+// ============================================================================
+
+const TOKEN_REFRESH_BUFFER_MS = 2 * 60 * 60 * 1000; // 2 hours before expiry
+
+/**
+ * Returns a valid access token, using the cached one when possible.
+ * Only refreshes when the cached token is within 2 hours of expiry.
+ * Persists the new tokens back to location_integrations.
+ */
+async function getValidAccessToken(
+  supabase: any,
+  credentials: PFGCredentials,
+  integrationId: string | null,
+): Promise<{ accessToken: string; updatedCredentials: PFGCredentials } | null> {
+
+  // 1. Check if cached access_token is still fresh
+  if (credentials.access_token && credentials.token_expires_at) {
+    const expiresAt = new Date(credentials.token_expires_at).getTime();
+    const now = Date.now();
+    if (expiresAt - now > TOKEN_REFRESH_BUFFER_MS) {
+      console.log('[PFG Auth] Using cached access token (expires in', Math.round((expiresAt - now) / 60000), 'min)');
+      return { accessToken: credentials.access_token, updatedCredentials: credentials };
+    }
+    console.log('[PFG Auth] Cached token near expiry — refreshing');
+  }
+
+  // 2. Try refresh_token
+  let tokenData = credentials.refresh_token
+    ? await refreshAccessToken(credentials.refresh_token)
+    : null;
+
+  // 3. Fallback: re-login with stored password
+  if (!tokenData && credentials.username && credentials.password) {
+    console.log('[PFG Auth] Refresh failed, attempting auto-re-login…');
+    tokenData = await loginWithPassword(credentials.username, credentials.password);
+  }
+
+  if (!tokenData) return null;
+
+  // 4. Build updated credentials with cached access_token + expiry
+  const expiresAtIso = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+  const updatedCredentials: PFGCredentials = {
+    ...credentials,
+    refresh_token: tokenData.refresh_token,
+    access_token: tokenData.access_token,
+    token_expires_at: expiresAtIso,
+  };
+
+  // 5. Persist
+  if (integrationId) {
+    await supabase
+      .from('location_integrations')
+      .update({ credentials: updatedCredentials })
+      .eq('id', integrationId);
+    console.log('[PFG Auth] Tokens cached until', expiresAtIso);
+  }
+
+  return { accessToken: tokenData.access_token, updatedCredentials };
+}
+
+// ============================================================================
 // ACTION HANDLERS
 // ============================================================================
 
@@ -548,26 +612,9 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  let tokenData = credentials.refresh_token 
-    ? await refreshAccessToken(credentials.refresh_token) 
-    : null;
-  
-  // Auto-re-login if refresh failed and we have stored credentials
-  if (!tokenData && credentials.username && credentials.password) {
-    console.log('[PFG] Refresh token expired, auto-re-logging in...');
-    tokenData = await loginWithPassword(credentials.username, credentials.password);
-    
-    // Save the new refresh token
-    if (tokenData && integrationId) {
-      await supabase
-        .from('location_integrations')
-        .update({ credentials: { ...credentials, refresh_token: tokenData.refresh_token } })
-        .eq('id', integrationId);
-      console.log('[PFG] Auto-re-login successful, new token saved.');
-    }
-  }
+  const tokenResult = await getValidAccessToken(supabase, credentials, integrationId);
 
-  if (!tokenData) {
+  if (!tokenResult) {
     return new Response(JSON.stringify({ 
       error: 'Token refresh failed and auto-login failed — please log in to PFG again.',
       authenticated: false 
@@ -576,13 +623,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
-  // Update stored refresh token
-  if (integrationId && tokenData.refresh_token) {
-    await supabase
-      .from('location_integrations')
-      .update({ credentials: { ...credentials, refresh_token: tokenData.refresh_token } })
-      .eq('id', integrationId);
-  }
+  const { accessToken } = tokenResult;
 
   // Handle different fetch actions
   if (action === 'test') {
@@ -595,14 +636,14 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
   }
 
   if (action === 'orders') {
-    const orders = await fetchOrderHistory(tokenData.access_token);
+    const orders = await fetchOrderHistory(accessToken);
     return new Response(JSON.stringify({ authenticated: true, data: orders }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   if (action === 'products') {
-    const products = await fetchProductList(tokenData.access_token, '');
+    const products = await fetchProductList(accessToken, '');
     return new Response(JSON.stringify({ authenticated: true, data: products }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -630,7 +671,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
       });
     }
     
-    const categoriesData = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
+    const categoriesData = await fetchProductListItems(accessToken, productListHeaderId, customerIdToUse);
     const categories = categoriesData.categories || [];
     
     // Fetch missing prices
@@ -650,7 +691,7 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
       
       const results = await Promise.allSettled(
         batch.map(({ product }) => 
-          fetchProductDetail(tokenData.access_token, product.id, customerIdToUse)
+          fetchProductDetail(accessToken, product.id, customerIdToUse)
         )
       );
       
@@ -723,29 +764,16 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
     }
 
     try {
-      let tokenData = credentials.refresh_token 
-        ? await refreshAccessToken(credentials.refresh_token) 
-        : null;
-      
-      // Auto-re-login if refresh failed
-      if (!tokenData && credentials.username && credentials.password) {
-        console.log(`[PFG Sync] Auto-re-login for location ${integration.location_id}`);
-        tokenData = await loginWithPassword(credentials.username, credentials.password);
-      }
+      const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
 
-      if (!tokenData) {
+      if (!tokenResult) {
         results.push({ locationId: integration.location_id, success: false, ordersImported: 0, error: 'Auth failed — re-login needed' });
         continue;
       }
 
-      if (tokenData.refresh_token) {
-        await supabase
-          .from('location_integrations')
-          .update({ credentials: { ...credentials, refresh_token: tokenData.refresh_token } })
-          .eq('id', integration.id);
-      }
+      const { accessToken } = tokenResult;
 
-      const orderData = await fetchOrderHistory(tokenData.access_token);
+      const orderData = await fetchOrderHistory(accessToken);
       const rawOrders = orderData?.ResultObject?.Orders || orderData?.Orders || orderData?.ResultObject || [];
       const orders = Array.isArray(rawOrders) ? rawOrders : [];
       
