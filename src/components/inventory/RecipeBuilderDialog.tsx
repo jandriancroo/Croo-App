@@ -174,7 +174,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
     for (const ing of ingredients) {
       const item = availableItems.find(i => i.id === ing.ingredient_item_id);
-      if (!item?.cost_per_unit) {
+      if (item?.cost_per_unit == null) {
         allHaveCost = false;
         continue;
       }
