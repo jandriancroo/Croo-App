@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown } from "lucide-react";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown, FlaskConical, Plus } from "lucide-react";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
 import UsageRateMapping from "./UsageRateMapping";
+import RecipeBuilderDialog from "./RecipeBuilderDialog";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -39,6 +40,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [overrideValue, setOverrideValue] = useState("");
+  const [showRecipeDialog, setShowRecipeDialog] = useState(false);
+  const [editRecipeId, setEditRecipeId] = useState<string | null>(null);
   
 
   // Check if PFG is configured
@@ -453,16 +456,68 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       {/* Inventory Items */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Items ({items?.length || 0})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Items ({items?.length || 0})
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}>
+              <FlaskConical className="h-4 w-4 mr-1" />
+              Create Recipe
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {items && items.length > 0 ? (
             <div className="space-y-4 max-h-[400px] overflow-y-auto">
+              {/* Recipe items first */}
+              {(() => {
+                const recipeItems = items.filter(i => i.is_recipe);
+                if (recipeItems.length === 0) return null;
+                return (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                      <FlaskConical className="h-3.5 w-3.5" />
+                      Prep Recipes
+                    </h4>
+                    <div className="grid gap-1">
+                      {recipeItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <span className="truncate">{item.name}</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                              <FlaskConical className="h-2.5 w-2.5 mr-0.5" />
+                              Recipe
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            {item.recipe_yield_qty && item.recipe_yield_unit && (
+                              <span className="text-xs">
+                                yields {item.recipe_yield_qty} {item.recipe_yield_unit}
+                              </span>
+                            )}
+                            {item.cost_per_unit && (
+                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}/batch</span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => { setEditRecipeId(item.id); setShowRecipeDialog(true); }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Regular items grouped by storage location */}
               {storageLocations?.map((loc) => {
-                const locItems = items.filter(i => i.storage_location_id === loc.id);
+                const locItems = items.filter(i => i.storage_location_id === loc.id && !i.is_recipe);
                 if (locItems.length === 0) return null;
                 return (
                   <div key={loc.id}>
@@ -479,7 +534,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             )}
                             {item.pack_size && <span className="text-xs">{item.pack_size}</span>}
                             {item.cost_per_unit && (
-                              <span className="text-xs text-primary">${item.cost_per_unit.toFixed(2)}</span>
+                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
                             )}
                             <Button
                               variant="ghost"
@@ -561,6 +616,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Recipe Builder Dialog */}
+      <RecipeBuilderDialog
+        open={showRecipeDialog}
+        onOpenChange={setShowRecipeDialog}
+        locationId={locationId}
+        editRecipeId={editRecipeId}
+      />
     </>
   );
 };
