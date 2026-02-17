@@ -35,8 +35,13 @@ interface InventoryItem {
   count_unit: string | null;
   count_units_per_case: number | null;
   cost_per_unit: number | null;
+  is_recipe: boolean | null;
   storage_location: { name: string } | null;
 }
+
+const TO_OZ_MAP: Record<string, number> = {
+  oz: 1, qt: 32, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, tbsp: 0.5, tsp: 0.1667,
+};
 
 /** Parse PFG pack_size like "2/5 LB" → { count: 2, size: 5, unit: "LB" } */
 const parsePackSize = (packSize: string | null): { count: number; size: number; unit: string } | null => {
