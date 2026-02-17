@@ -2153,6 +2153,7 @@ export type Database = {
           is_active: boolean | null
           location_id: string
           name: string
+          pos_categories: string[] | null
           updated_at: string
         }
         Insert: {
@@ -2163,6 +2164,7 @@ export type Database = {
           is_active?: boolean | null
           location_id: string
           name: string
+          pos_categories?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -2173,6 +2175,7 @@ export type Database = {
           is_active?: boolean | null
           location_id?: string
           name?: string
+          pos_categories?: string[] | null
           updated_at?: string
         }
         Relationships: [
