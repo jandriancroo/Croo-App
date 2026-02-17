@@ -138,7 +138,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse |
     }
 
     const tokenData = await response.json();
-    console.log('[PFG Auth] Token refresh successful');
+    console.log('[PFG Auth] Token refresh successful. expires_in:', tokenData.expires_in, 'refresh_token_expires_in:', tokenData.refresh_token_expires_in);
     return tokenData;
   } catch (error) {
     console.error('[PFG Auth] Refresh error:', error);
