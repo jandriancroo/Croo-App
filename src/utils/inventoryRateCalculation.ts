@@ -86,7 +86,7 @@ export async function calculateUsageRates(
     // First get item mappings (qubeyond_item_id -> inventory item id)
     const { data: inventoryItems } = await supabase
       .from("inventory_items")
-      .select("id, qubeyond_item_id")
+      .select("id, qubeyond_item_id, count_units_per_case, pack_quantity, pack_quantity_override")
       .eq("location_id", locationId)
       .eq("is_active", true)
       .not("qubeyond_item_id", "is", null);
