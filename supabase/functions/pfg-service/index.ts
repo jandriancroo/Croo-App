@@ -75,6 +75,42 @@ interface TokenResponse {
   token_type: string;
 }
 
+// Login with username/password (ROPC flow)
+async function loginWithPassword(username: string, password: string): Promise<TokenResponse | null> {
+  try {
+    console.log('[PFG Auth] Logging in with username/password for:', username);
+
+    const params = new URLSearchParams({
+      client_id: PFG_CLIENT_ID,
+      scope: PFG_SCOPE,
+      grant_type: 'password',
+      username,
+      password,
+      response_type: 'token',
+      client_info: '1',
+    });
+
+    const response = await fetch(PFG_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[PFG Auth] Password login failed:', response.status, errorText);
+      return null;
+    }
+
+    const tokenData = await response.json();
+    console.log('[PFG Auth] Password login successful');
+    return tokenData;
+  } catch (error) {
+    console.error('[PFG Auth] Login error:', error);
+    return null;
+  }
+}
+
 // Refresh an existing token
 async function refreshAccessToken(refreshToken: string): Promise<TokenResponse | null> {
   try {
@@ -552,6 +588,67 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
   });
 }
 
+async function handleLogin(supabase: any, body: any): Promise<Response> {
+  const { locationId, username, password } = body;
+
+  if (!locationId || !username || !password) {
+    return new Response(JSON.stringify({ 
+      error: 'Missing locationId, username, or password',
+      authenticated: false 
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const tokenData = await loginWithPassword(username, password);
+
+  if (!tokenData) {
+    return new Response(JSON.stringify({ 
+      error: 'PFG login failed — check your email and password.',
+      authenticated: false 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Save/update the integration with the new refresh token
+  const credentials = {
+    username,
+    refresh_token: tokenData.refresh_token,
+  };
+
+  const { data: existing } = await supabase
+    .from('location_integrations')
+    .select('id')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from('location_integrations')
+      .update({ credentials, is_active: true })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('location_integrations')
+      .insert({
+        location_id: locationId,
+        integration_type: 'pfg',
+        credentials,
+        is_active: true,
+      });
+  }
+
+  return new Response(JSON.stringify({ 
+    authenticated: true,
+    message: 'PFG login successful! Token saved.',
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -579,12 +676,14 @@ serve(async (req) => {
     console.log('[PFG Service] Action:', action || 'fetch');
 
     switch (action) {
+      case 'login':
+        return await handleLogin(supabase, body);
+      
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
       
       case 'fetch':
       default:
-        // Default to fetch action (handles test, orders, products, categories)
         return await handleFetchAction(supabase, body);
     }
 
