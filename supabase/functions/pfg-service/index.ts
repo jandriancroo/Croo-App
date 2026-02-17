@@ -198,8 +198,8 @@ async function loginWithPassword(username: string, password: string): Promise<To
     const hostsMatch = authHtml.match(/"hosts"\s*:\s*\{[^}]*"tenant"\s*:\s*"([^"]+)"/);
     const tenantPath = hostsMatch?.[1] || `/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}`;
     
-    // B2C SelfAsserted endpoint - must use exact policy casing from the page
-    const selfAssertedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/SelfAsserted?` +
+    // B2C SelfAsserted endpoint - use the api path from settings (e.g. CombinedSigninAndSignup)
+    const selfAssertedUrl = `https://${PFG_B2C_TENANT}.b2clogin.com${tenantPath}/api/${apiPath}?` +
       new URLSearchParams({
         tx: transId,
         p: PFG_B2C_POLICY,
