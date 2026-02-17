@@ -422,7 +422,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                     ))}
                   </div>
                 )}
-                {selectedIngredientId && (
+                {selectedIngredientId && (() => {
+                  const selectedItem = availableItems?.find(i => i.id === selectedIngredientId);
+                  const nativeUnit = selectedItem?.count_unit || "ea";
+                  // Build contextual unit options: native unit, cs, oz (deduplicated)
+                  const unitOptions = Array.from(new Set([nativeUnit, "cs", "oz"]));
+                  return (
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
@@ -438,8 +443,10 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {UNIT_OPTIONS.map(u => (
-                          <SelectItem key={u} value={u} className="text-xs">{u}</SelectItem>
+                        {unitOptions.map(u => (
+                          <SelectItem key={u} value={u} className="text-xs">
+                            {u === "cs" ? "cs (case)" : u}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -454,7 +461,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                       Cancel
                     </Button>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             ) : (
               <Button
