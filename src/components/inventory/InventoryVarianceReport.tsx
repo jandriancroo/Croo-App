@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp, AlertTriangle, Calendar, Calculator, ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { TrendingDown, TrendingUp, AlertTriangle, Calendar, Calculator, ArrowDown, ArrowUp, Minus, ChevronDown, ChevronRight } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { calculateTheoreticalUsage, TheoreticalUsageResult } from "@/utils/theoreticalUsage";
@@ -16,13 +16,14 @@ interface InventoryVarianceReportProps {
 
 const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) => {
   const [dateRange, setDateRange] = useState("7");
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const days = parseInt(dateRange);
 
   const startDate = subDays(new Date(), days).toISOString().split("T")[0];
   const prevStartDate = subDays(new Date(), days * 2).toISOString().split("T")[0];
   const today = new Date().toISOString().split("T")[0];
 
-  // Fetch completed counts with items (current period)
+  // Fetch completed counts with items (current period) — include category
   const { data: counts } = useQuery({
     queryKey: ["inventory-variance", locationId, dateRange],
     queryFn: async () => {
@@ -35,7 +36,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
             theoretical_quantity,
             variance,
             variance_cost,
-            item:inventory_items(name, unit, cost_per_unit)
+            item:inventory_items(name, unit, cost_per_unit, category)
           )
         `)
         .eq("location_id", locationId)
@@ -75,6 +76,25 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
   const { data: theoreticalData } = useQuery({
     queryKey: ["theoretical-usage", locationId, dateRange],
     queryFn: () => calculateTheoreticalUsage(locationId, startDate, today),
+  });
+
+  // Fetch item categories for theoretical grouping
+  const { data: itemCategories } = useQuery({
+    queryKey: ["inventory-item-categories", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name, category")
+        .eq("location_id", locationId)
+        .eq("is_active", true);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      data?.forEach(item => {
+        if (item.category) map.set(item.id, item.category);
+        if (item.category) map.set(item.name, item.category);
+      });
+      return map;
+    }
   });
 
   // Fetch sales data for QU integration note
@@ -129,7 +149,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     ? ((varianceChange / prevTotalVariance) * 100).toFixed(0) 
     : null;
 
-  // Build trend chart data — variance cost per count date
+  // Build trend chart data
   const trendData = useMemo(() => {
     if (!counts) return [];
     return counts.map(count => {
@@ -178,6 +198,37 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     });
     return map;
   }, [theoreticalData]);
+
+  // Group theoretical data by category
+  const theoreticalByCategory = useMemo(() => {
+    if (!theoreticalData || !itemCategories) return new Map<string, TheoreticalUsageResult[]>();
+    const grouped = new Map<string, TheoreticalUsageResult[]>();
+    
+    for (const t of theoreticalData) {
+      const category = itemCategories.get(t.itemId) || itemCategories.get(t.itemName) || "Uncategorized";
+      const existing = grouped.get(category) || [];
+      existing.push(t);
+      grouped.set(category, existing);
+    }
+    
+    // Sort categories alphabetically, with Uncategorized last
+    return new Map(
+      [...grouped.entries()].sort(([a], [b]) => {
+        if (a === "Uncategorized") return 1;
+        if (b === "Uncategorized") return -1;
+        return a.localeCompare(b);
+      })
+    );
+  }, [theoreticalData, itemCategories]);
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -286,7 +337,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
         </Card>
       )}
 
-      {/* Theoretical Usage Section */}
+      {/* Theoretical Usage Section — grouped by category */}
       {theoreticalData && theoreticalData.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -299,27 +350,59 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
             </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {theoreticalData.map((t, idx) => (
-                <div key={`${t.itemId}-${t.productGroupName}-${idx}`} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">{t.itemName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t.unitsSold} units sold × {t.usageRate} rate
-                      <span className="ml-1 text-muted-foreground/70">({t.productGroupName})</span>
-                    </p>
+            <div className="space-y-3">
+              {[...theoreticalByCategory.entries()].map(([category, items]) => {
+                const isCollapsed = collapsedCategories.has(category);
+                const categoryTotal = items.reduce((sum, t) => sum + t.theoreticalUsage, 0);
+                const hasMultipleUnits = new Set(items.map(t => t.unit)).size > 1;
+                
+                return (
+                  <div key={category}>
+                    {/* Category header */}
+                    <button
+                      className="flex items-center justify-between w-full p-2 rounded-lg bg-muted/80 hover:bg-muted transition-colors text-left"
+                      onClick={() => toggleCategory(category)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <span className="font-medium text-sm">{category}</span>
+                        <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+                      </div>
+                      {!hasMultipleUnits && (
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {Math.round(categoryTotal * 100) / 100} {items[0]?.unit}
+                        </span>
+                      )}
+                    </button>
+                    
+                    {/* Items within category */}
+                    {!isCollapsed && (
+                      <div className="space-y-1 mt-1 ml-6">
+                        {items.map((t, idx) => (
+                          <div key={`${t.itemId}-${t.productGroupName}-${idx}`} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="font-medium text-sm">{t.itemName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {t.unitsSold} sold × {t.usageRate} rate
+                                <span className="ml-1 text-muted-foreground/70">({t.productGroupName})</span>
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="font-mono">
+                              {t.theoreticalUsage} {t.unit}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Badge variant="secondary" className="font-mono">
-                    {t.theoreticalUsage} {t.unit}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Significant variances list */}
+      {/* Significant variances list — grouped by category */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Top Variances</CardTitle>
@@ -329,10 +412,16 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
             <div className="space-y-3">
               {significantVariances.map((item: any, idx: number) => {
                 const theoretical = theoreticalByItem.get(item.item?.name);
+                const category = item.item?.category;
                 return (
                   <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div>
-                      <p className="font-medium">{item.item?.name || "Unknown Item"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{item.item?.name || "Unknown Item"}</p>
+                        {category && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{category}</Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {format(new Date(item.count_date), "MMM d")} • 
                         Counted: {item.quantity} {item.item?.unit}

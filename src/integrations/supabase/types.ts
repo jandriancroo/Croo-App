@@ -2034,6 +2034,7 @@ export type Database = {
       inventory_items: {
         Row: {
           brand: string | null
+          category: string | null
           cost_per_unit: number | null
           count_unit: string | null
           count_units_per_case: number | null
@@ -2044,6 +2045,7 @@ export type Database = {
           is_active: boolean | null
           is_recipe: boolean
           item_number: string | null
+          last_synced_at: string | null
           location_id: string | null
           name: string
           pack_quantity: number | null
@@ -2059,6 +2061,7 @@ export type Database = {
         }
         Insert: {
           brand?: string | null
+          category?: string | null
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null
@@ -2069,6 +2072,7 @@ export type Database = {
           is_active?: boolean | null
           is_recipe?: boolean
           item_number?: string | null
+          last_synced_at?: string | null
           location_id?: string | null
           name: string
           pack_quantity?: number | null
@@ -2084,6 +2088,7 @@ export type Database = {
         }
         Update: {
           brand?: string | null
+          category?: string | null
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null
@@ -2094,6 +2099,7 @@ export type Database = {
           is_active?: boolean | null
           is_recipe?: boolean
           item_number?: string | null
+          last_synced_at?: string | null
           location_id?: string | null
           name?: string
           pack_quantity?: number | null
