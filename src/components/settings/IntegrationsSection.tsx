@@ -567,17 +567,21 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                    <div className={pfgHasToken ? "border-t pt-3" : ""}>
                     {pfgShowTokenInput ? (
                       <div className="space-y-2">
+                        <p className="text-xs font-medium text-foreground">Use a desktop computer for this step:</p>
                         <p className="text-xs text-muted-foreground">
-                          1. Log in at{' '}
+                          1. On a laptop/desktop, log in at{' '}
                           <a href="https://www.customerfirstsolutions.com" target="_blank" rel="noopener noreferrer" className="underline text-primary">
                             customerfirstsolutions.com
                           </a>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          2. Open DevTools (F12) → Application → Local Storage
+                          2. Press F12 → Application tab → Local Storage
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          3. Find the key containing <code className="bg-muted px-1 rounded">refreshToken</code> and paste the value below:
+                          3. Copy the value from the key containing "refreshToken"
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          4. Paste it below (you can do this step from your phone):
                         </p>
                         <Input
                           placeholder="Paste refresh token here..."
