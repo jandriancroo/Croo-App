@@ -2144,6 +2144,47 @@ export type Database = {
           },
         ]
       }
+      inventory_product_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          location_id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_product_groups_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_schedule_settings: {
         Row: {
           created_at: string
@@ -2184,6 +2225,73 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_usage_rates: {
+        Row: {
+          calculated_from_period_end: string | null
+          calculated_from_period_start: string | null
+          created_at: string
+          id: string
+          inventory_item_id: string
+          last_calculated_at: string | null
+          location_id: string
+          manual_override: boolean | null
+          product_group_id: string
+          rate_unit: string | null
+          updated_at: string
+          usage_rate: number | null
+        }
+        Insert: {
+          calculated_from_period_end?: string | null
+          calculated_from_period_start?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id: string
+          last_calculated_at?: string | null
+          location_id: string
+          manual_override?: boolean | null
+          product_group_id: string
+          rate_unit?: string | null
+          updated_at?: string
+          usage_rate?: number | null
+        }
+        Update: {
+          calculated_from_period_end?: string | null
+          calculated_from_period_start?: string | null
+          created_at?: string
+          id?: string
+          inventory_item_id?: string
+          last_calculated_at?: string | null
+          location_id?: string
+          manual_override?: boolean | null
+          product_group_id?: string
+          rate_unit?: string | null
+          updated_at?: string
+          usage_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_usage_rates_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_usage_rates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_usage_rates_product_group_id_fkey"
+            columns: ["product_group_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_groups"
             referencedColumns: ["id"]
           },
         ]
