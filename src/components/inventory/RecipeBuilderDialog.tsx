@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -152,18 +152,19 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   }
 
   // Populate form when editing
-  useState(() => {
+  useEffect(() => {
     if (existingRecipe?.item) {
       setRecipeName(existingRecipe.item.name);
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
       setYieldUnit(existingRecipe.item.recipe_yield_unit || "oz");
+      setYieldManuallyEdited(true);
       setIngredients(existingRecipe.ingredients.map(i => ({
         ingredient_item_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
         unit: i.unit,
       })));
     }
-  });
+  }, [existingRecipe]);
 
   // Calculate total recipe cost from ingredients
   const recipeCost = useMemo(() => {
