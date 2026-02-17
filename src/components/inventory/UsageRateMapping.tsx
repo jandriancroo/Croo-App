@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Link2, Loader2, Check, X, Pencil } from "lucide-react";
+import { Link2, Loader2, Check, X, Pencil, Search } from "lucide-react";
 import { toast } from "sonner";
 
 interface UsageRateMappingProps {
@@ -41,6 +41,7 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const [editRateValue, setEditRateValue] = useState("");
   const [addingForItem, setAddingForItem] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch product groups
   const { data: groups } = useQuery({
@@ -213,6 +214,17 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
   const mappedItemIds = new Set(usageRates?.map((r) => r.inventory_item_id) || []);
   const unmappedItems = items?.filter((i) => !mappedItemIds.has(i.id)) || [];
 
+  // Filter by search
+  const lowerSearch = searchQuery.toLowerCase().trim();
+  const filteredMappedEntries = lowerSearch
+    ? Array.from(ratesByItem.entries()).filter(([itemId]) =>
+        getItemName(itemId).toLowerCase().includes(lowerSearch)
+      )
+    : Array.from(ratesByItem.entries());
+  const filteredUnmapped = lowerSearch
+    ? unmappedItems.filter((i) => i.name.toLowerCase().includes(lowerSearch))
+    : unmappedItems;
+
   if (!groups || groups.length === 0) {
     return (
       <Card>
@@ -237,12 +249,23 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search items..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+
         {isLoading ? (
           <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
         ) : (
-          <>
+          <div className="max-h-[500px] overflow-y-auto space-y-4 pr-1">
             {/* Existing mappings grouped by item */}
-            {Array.from(ratesByItem.entries()).map(([itemId, rates]) => {
+            {filteredMappedEntries.map(([itemId, rates]) => {
               const packQty = getPackQuantity(itemId);
               const unitLabel = getUnitLabel(itemId);
 
@@ -400,13 +423,13 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
             })}
 
             {/* Unmapped items */}
-            {unmappedItems.length > 0 && (
+            {filteredUnmapped.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Unmapped Items ({unmappedItems.length})
+                  Unmapped Items ({filteredUnmapped.length})
                 </p>
                 <div className="space-y-1">
-                  {unmappedItems.map((item) => (
+                  {filteredUnmapped.map((item) => (
                     <div key={item.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
                       <span className="text-sm truncate">{item.name}</span>
                       {addingForItem === item.id ? (
@@ -458,12 +481,12 @@ const UsageRateMapping = ({ locationId }: UsageRateMappingProps) => {
               </div>
             )}
 
-            {ratesByItem.size === 0 && unmappedItems.length === 0 && (
+            {filteredMappedEntries.length === 0 && filteredUnmapped.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No inventory items found. Sync from PFG first.
+                {lowerSearch ? "No items match your search" : "No inventory items found. Sync from PFG first."}
               </p>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
