@@ -450,14 +450,22 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
 // ============================================================================
 
 async function handleTest(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+  const { locationId, testCredentials } = body;
+  
+  // Use testCredentials if provided (for testing before saving), otherwise fetch from DB
+  let credentials: PACredentials | null = null;
+  if (testCredentials?.username && testCredentials?.password) {
+    credentials = { username: testCredentials.username, password: testCredentials.password, pa_location_id: testCredentials.pa_location_id };
+  } else {
+    credentials = await getCredentials(supabase, locationId);
+  }
+  
+  if (!credentials) return jsonResponse({ authenticated: false, error: 'PA integration not configured' });
 
   const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'Login failed — check credentials' });
+  if (!session) return jsonResponse({ authenticated: false, error: 'Login failed — check credentials' });
 
-  return jsonResponse({ success: true, message: 'Produce Alliance connection successful!' });
+  return jsonResponse({ authenticated: true, success: true, message: 'Produce Alliance connection successful!' });
 }
 
 async function handleItems(supabase: any, body: any): Promise<Response> {
