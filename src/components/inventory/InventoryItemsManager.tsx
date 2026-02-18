@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown, FlaskConical, Plus } from "lucide-react";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown, FlaskConical, Plus, Leaf } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
@@ -41,8 +42,11 @@ interface SyncProgress {
 
 const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [paProgress, setPaProgress] = useState<SyncProgress | null>(null);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [overrideValue, setOverrideValue] = useState("");
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
@@ -59,6 +63,21 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         .select("*")
         .eq("location_id", locationId)
         .eq("integration_type", "pfg")
+        .eq("is_active", true)
+        .maybeSingle();
+      return data;
+    }
+  });
+
+  // Check if Produce Alliance is configured
+  const { data: paIntegration } = useQuery({
+    queryKey: ["pa-integration", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("integration_type", "produce_alliance")
         .eq("is_active", true)
         .maybeSingle();
       return data;
@@ -386,6 +405,55 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   };
 
+  // Sync from Produce Alliance
+  const syncFromPA = async () => {
+    if (!paIntegration) return;
+    setIsPaSyncing(true);
+    setPaProgress({ phase: "Connecting to Produce Alliance...", current: 0, total: 100 });
+
+    try {
+      const credentials = paIntegration.credentials as any;
+      
+      setPaProgress({ phase: "Syncing items from PA...", current: 20, total: 100 });
+
+      const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
+        body: {
+          action: "sync_inventory",
+          locationId,
+          username: credentials?.username,
+          password: credentials?.password,
+          paLocationId: credentials?.pa_location_id,
+          triggeredBy: user?.id,
+        }
+      });
+
+      if (error) throw error;
+
+      setPaProgress({ phase: "Complete!", current: 100, total: 100 });
+
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+
+      const itemCount = data?.itemsSynced || data?.items_synced || 0;
+      if (itemCount > 0) {
+        toast.success(`Synced ${itemCount} items from Produce Alliance`);
+      } else {
+        toast.info("Already in sync with Produce Alliance");
+      }
+
+      if (data?.errors?.length > 0) {
+        toast.warning(`${data.errors.length} warning(s) during sync`);
+      }
+    } catch (err: any) {
+      console.error("PA sync error:", err);
+      setPaProgress({ phase: "Sync failed", current: 0, total: 100 });
+      toast.error(err.message || "Failed to sync from Produce Alliance");
+    } finally {
+      setIsPaSyncing(false);
+      setTimeout(() => setPaProgress(null), 2000);
+    }
+  };
+
   return (
     <>
     <div className="space-y-6">
@@ -426,6 +494,43 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             {!progress && (
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Syncs storage locations and items from your PFG product list
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Produce Alliance Sync Button */}
+      {paIntegration && (
+        <Card>
+          <CardContent className="pt-6">
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={syncFromPA}
+              disabled={isPaSyncing}
+            >
+              {isPaSyncing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Leaf className="h-4 w-4 mr-2" />
+              )}
+              Sync with Produce Alliance
+            </Button>
+            
+            {paProgress && (
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">{paProgress.phase}</span>
+                  <span className="text-muted-foreground">{paProgress.current}%</span>
+                </div>
+                <Progress value={paProgress.current} className="h-2" />
+              </div>
+            )}
+            
+            {!paProgress && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Syncs produce items and order history from Produce Alliance
               </p>
             )}
           </CardContent>
