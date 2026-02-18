@@ -244,6 +244,126 @@ async function fetchProductDetail(accessToken: string, productKey: string, custo
   };
 }
 
+// Fetch customer info to get CustomerId
+async function fetchCustomerInfo(accessToken: string): Promise<any> {
+  console.log('[PFG API] Fetching customer info');
+  
+  const endpoints = [
+    '/Customer/V1/GetCustomer',
+    '/Customer/V1/GetCustomers',
+    '/Customer/V1/GetCurrentCustomer',
+    '/Customer/V1/GetAllCustomers',
+    '/Customer/V1/GetCustomerList',
+    '/Account/V1/GetCustomerInfo',
+  ];
+  
+  for (const path of endpoints) {
+    try {
+      const data = await fetchPfgJson(path, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+      console.log('[PFG API] Customer response from', path, '→', JSON.stringify(data).slice(0, 1200));
+      const result = data?.ResultObject || data;
+      // If it's an array of customers, return the full list
+      if (Array.isArray(result)) {
+        console.log('[PFG API] Found', result.length, 'customers');
+        return result;
+      }
+      return result;
+    } catch (err) {
+      console.warn('[PFG API] Customer endpoint failed:', path, (err as Error).message?.slice(0, 100));
+    }
+  }
+  return null;
+}
+
+// Fetch available order guides / product list headers
+async function fetchProductListHeaders(accessToken: string, customerId?: string): Promise<{ guides: any[]; customerId?: string }> {
+  console.log('[PFG API] Fetching product list headers');
+
+  // First, get the customer ID if not provided
+  let resolvedCustomerId = customerId;
+  if (!resolvedCustomerId) {
+    const customerInfo = await fetchCustomerInfo(accessToken);
+    if (customerInfo) {
+      resolvedCustomerId = customerInfo.CustomerId || customerInfo.Id || customerInfo.CustomerNumber;
+      console.log('[PFG API] Resolved customer ID:', resolvedCustomerId);
+    }
+  }
+
+  // Try multiple known endpoints
+  const endpoints = [
+    { path: '/ProductList/V1/GetProductListHeaders', method: 'GET' },
+    { path: '/ProductListHeader/V1/GetProductListHeaders', method: 'GET' },
+    { path: '/Customer/V1/GetCustomerProductListHeaders', method: 'GET' },
+  ];
+
+  for (const ep of endpoints) {
+    try {
+      const url = resolvedCustomerId ? `${ep.path}?CustomerId=${resolvedCustomerId}` : ep.path;
+      const data = await fetchPfgJson(url, {
+        method: ep.method,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+      console.log('[PFG API] Headers response from', ep.path, '→', JSON.stringify(data).slice(0, 500));
+      const result = data?.ResultObject || data;
+      if (Array.isArray(result) && result.length > 0) {
+        console.log('[PFG API] Found', result.length, 'product list headers via', ep.path);
+        return { guides: result, customerId: resolvedCustomerId };
+      }
+      // If ResultObject is an object with nested arrays, try common patterns
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+        const keys = Object.keys(result);
+        console.log('[PFG API] ResultObject keys:', keys.join(', '));
+        for (const key of keys) {
+          if (Array.isArray(result[key]) && result[key].length > 0) {
+            console.log('[PFG API] Found array at key', key, 'with', result[key].length, 'items');
+            console.log('[PFG API] First item sample:', JSON.stringify(result[key][0]).slice(0, 300));
+            return { guides: result[key], customerId: resolvedCustomerId };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[PFG API] Headers endpoint failed:', ep.path, (err as Error).message?.slice(0, 100));
+    }
+  }
+
+  // Fallback: call SearchProductList with no search and extract from raw response
+  console.log('[PFG API] Trying SearchProductList fallback for headers');
+  try {
+    const data = await fetchPfgJson(
+      '/ProductListSearch/V1/SearchProductList',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ searchTerm: '', pageNumber: 1, pageSize: 1 }),
+      },
+    );
+    console.log('[PFG API] SearchProductList response keys:', JSON.stringify(Object.keys(data?.ResultObject || {})));
+    console.log('[PFG API] Full SupportMessages:', JSON.stringify(data?.SupportMessages));
+    console.log('[PFG API] Full ResultObject:', JSON.stringify(data?.ResultObject).slice(0, 1000));
+    
+    if (data?.ResultObject?.ProductListHeaders) {
+      return { guides: data.ResultObject.ProductListHeaders, customerId: resolvedCustomerId };
+    }
+  } catch (err) {
+    console.warn('[PFG API] SearchProductList fallback failed:', (err as Error).message?.slice(0, 100));
+  }
+
+  return { guides: [], customerId: resolvedCustomerId };
+}
+
 // Fetch order history from PFG
 async function fetchOrderHistory(accessToken: string): Promise<any> {
   console.log('[PFG API] Fetching order history');
@@ -791,6 +911,17 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     return new Response(JSON.stringify({ 
       authenticated: true,
       data: { categories } 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (action === 'list_guides') {
+    const customerIdToUse = customerId || credentials.customer_id;
+    const result = await fetchProductListHeaders(accessToken, customerIdToUse);
+    return new Response(JSON.stringify({ 
+      authenticated: true,
+      data: result
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
