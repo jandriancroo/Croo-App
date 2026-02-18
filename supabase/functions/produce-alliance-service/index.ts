@@ -159,86 +159,96 @@ async function fetchPAItems(session: PASession): Promise<any[]> {
   }
   const updatedCookies = mergeCookies(session.cookies, extractCookies(homeResp.headers));
 
-  // Navigate to Order Guide Options page
-  const guideResp = await fetch(`${PA_BASE_URL}/Ordering/OrderGuideOptions?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: {
-      'Cookie': updatedCookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-    },
-    redirect: 'follow',
-  });
+  // Step 1: Get Order Guide headers to find the default guide's ogID
+  try {
+    const headerResp = await fetch(`${PA_BASE_URL}/Ordering/GetOrderGuideHeaderPartialData`, {
+      method: 'POST',
+      headers: {
+        'Cookie': updatedCookies,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+      },
+      body: `locationid=${session.locationId}`,
+      redirect: 'follow',
+    });
 
-  if (!guideResp.ok) {
-    console.error('[PA API] Order Guide page failed:', guideResp.status);
-    return [];
+    if (headerResp.ok) {
+      const headerData = await headerResp.json();
+      console.log('[PA API] OrderGuideHeader response:', JSON.stringify(headerData).slice(0, 1000));
+      
+      const guides = headerData.Data || headerData.data || [];
+      if (Array.isArray(guides) && guides.length > 0) {
+        // Find the default guide, or use the first one
+        const defaultGuide = guides.find((g: any) => g.IsDefault === true) || guides[0];
+        const ogid = defaultGuide.ogID || defaultGuide.OgID || defaultGuide.id;
+        console.log('[PA API] Using order guide:', defaultGuide.GuideName || defaultGuide.guideName, 'ogid:', ogid, 'LineCountDisplay:', defaultGuide.LineCountDisplay);
+
+        if (ogid) {
+          // Step 2: Fetch Order Guide Options page (server-rendered table with items)
+          const guideResp = await fetch(`${PA_BASE_URL}/Ordering/OrderGuideOptions?ogid=${ogid}&DDLLocationID=${session.locationId}`, {
+            method: 'GET',
+            headers: {
+              'Cookie': updatedCookies,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+            },
+            redirect: 'follow',
+          });
+
+          if (guideResp.ok) {
+            const guideHtml = await guideResp.text();
+            console.log('[PA API] OrderGuideOptions page length:', guideHtml.length);
+            const items = parseOrderGuideHtml(guideHtml);
+            if (items.length > 0) {
+              console.log(`[PA API] Parsed ${items.length} displayed items from Order Guide`);
+              return items;
+            }
+            // Log sample for debugging
+            console.log('[PA API] OrderGuideOptions HTML sample:', guideHtml.replace(/\s+/g, ' ').slice(0, 3000));
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[PA API] OrderGuideHeader error:', e);
   }
 
-  const guideHtml = await guideResp.text();
-  console.log('[PA API] Order Guide page length:', guideHtml.length);
+  // Fallback: try the AJAX catalog endpoint
+  console.log('[PA API] Falling back to AJAX catalog fetch');
+  return await fetchPAItemsAjax(session, updatedCookies);
+}
 
-  // Parse the HTML table rows
-  // Table structure: <tr><td>Seq</td><td>Display (checkbox)</td><td>PA Product ID</td><td>Description</td>...</tr>
+function parseOrderGuideHtml(html: string): any[] {
   const items: any[] = [];
-  
-  // Match table rows - each row has: seq, display checkbox, PA Product ID, Description, ...
-  // The "Display" column has a checked checkbox (checked="checked" or similar) for active items
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let rowMatch;
   let rowCount = 0;
   
-  while ((rowMatch = rowRegex.exec(guideHtml)) !== null) {
+  while ((rowMatch = rowRegex.exec(html)) !== null) {
     const rowHtml = rowMatch[1];
-    
-    // Extract all <td> contents
     const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
     const cells: string[] = [];
     let tdMatch;
     while ((tdMatch = tdRegex.exec(rowHtml)) !== null) {
       cells.push(tdMatch[1].trim());
     }
-    
     if (cells.length < 4) continue;
     rowCount++;
     
-    // cells[0] = Seq, cells[1] = Display (checkbox HTML), cells[2] = PA Product ID, cells[3] = Description
     const displayHtml = cells[1];
     const isDisplayed = /checked/i.test(displayHtml);
-    
-    // Extract PA Product ID - could be in an input or just text
     let productId = cells[2].replace(/<[^>]*>/g, '').trim();
-    
-    // Extract Description
     let description = cells[3].replace(/<[^>]*>/g, '').trim();
     
-    // Skip header row or empty rows
     if (!productId || !description || /^PA Product/i.test(productId) || /^Description$/i.test(description)) continue;
+    if (!isDisplayed) continue;
     
-    // Only include items that are on the order guide (Display checked)
-    if (!isDisplayed) {
-      continue;
-    }
-    
-    items.push({
-      id: productId,
-      name: description,
-      unit: 'case', // Will be overridden by pricing merge
-      itemNumber: productId,
-    });
+    items.push({ id: productId, name: description, unit: 'case', itemNumber: productId });
   }
   
-  console.log(`[PA API] Order Guide: ${rowCount} total rows, ${items.length} displayed items`);
-  
-  if (items.length === 0) {
-    // Log a snippet of the page for debugging
-    console.log('[PA API] Order Guide HTML sample:', guideHtml.slice(0, 2000).replace(/\s+/g, ' '));
-    
-    // Fallback: try the AJAX endpoint
-    console.log('[PA API] Falling back to AJAX catalog fetch');
-    return await fetchPAItemsAjax(session, updatedCookies);
-  }
-  
+  console.log(`[PA API] Order Guide parse: ${rowCount} total rows, ${items.length} displayed items`);
   return items;
 }
 
@@ -1018,6 +1028,29 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     synced++;
   }
 
+  // Deactivate PA items that are NOT on the order guide
+  const syncedPaIds = items.map(i => String(i.id)).filter(Boolean);
+  if (syncedPaIds.length > 0) {
+    const { data: allPaItems } = await supabase
+      .from('inventory_items')
+      .select('id, pa_item_id')
+      .eq('location_id', locationId)
+      .eq('vendor_source', 'produce_alliance')
+      .eq('is_active', true);
+    
+    const toDeactivate = (allPaItems || []).filter(
+      (item: any) => item.pa_item_id && !syncedPaIds.includes(String(item.pa_item_id))
+    );
+    
+    if (toDeactivate.length > 0) {
+      const deactivateIds = toDeactivate.map((i: any) => i.id);
+      await supabase.from('inventory_items')
+        .update({ is_active: false })
+        .in('id', deactivateIds);
+      console.log(`[PA Sync] Deactivated ${toDeactivate.length} items not on order guide`);
+    }
+  }
+
   await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, []);
   return jsonResponse({ success: true, synced });
 }
@@ -1110,6 +1143,22 @@ async function handleExplore(supabase: any, body: any): Promise<Response> {
     // Go back further to find the AJAX url
     const context = pageHtml.slice(Math.max(0, tblPricesIdx - 2000), tblPricesIdx + 1000).replace(/\s+/g, ' ');
     console.log('[PA Explore] tblpricestablesummary context:', context);
+  }
+
+  // Search for Order Guide related JS/AJAX
+  const ogJsRegex = /(?:function\s+getItems|OrderGuide|orderguide|GetOrderGuide|tblOrderGuide)[^;]{0,800}/gi;
+  const ogMatches: string[] = [];
+  let ogm;
+  while ((ogm = ogJsRegex.exec(pageHtml)) !== null) {
+    ogMatches.push(ogm[0].replace(/\s+/g, ' ').trim().slice(0, 400));
+  }
+  console.log('[PA Explore] OrderGuide JS matches:', JSON.stringify(ogMatches));
+
+  // Also search for the specific getItems function
+  const getItemsIdx = pageHtml.indexOf('function getItems');
+  if (getItemsIdx > -1) {
+    const context = pageHtml.slice(getItemsIdx, getItemsIdx + 1500).replace(/\s+/g, ' ');
+    console.log('[PA Explore] getItems function:', context);
   }
 
   // Log full HTML for debugging (first 5000 chars)
