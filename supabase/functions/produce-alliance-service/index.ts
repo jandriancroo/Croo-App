@@ -1161,6 +1161,156 @@ function jsonResponse(data: any, status = 200): Response {
 }
 
 // ============================================================================
+// TEST VISION — fetch one order PDF, send to Gemini Vision for line items
+// ============================================================================
+
+async function handleTestVision(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Step 1: Get orders list
+  const rawOrders = await fetchPAOrders(session);
+  if (rawOrders.length === 0) return jsonResponse({ success: false, error: 'No orders found' });
+
+  const firstOrder = rawOrders[0];
+  const orderId = firstOrder.OrderID;
+  console.log(`[PA Vision] Testing with order ${orderId}, total: $${firstOrder.OrderTotal}`);
+
+  // Step 2: Fetch the order PDF
+  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+    method: 'GET',
+    headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    redirect: 'follow',
+  });
+  await pageResp.text();
+  const detailCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+
+  const urls = [
+    `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${orderId}&locationid=${session.locationId}&download=false`,
+    `${PA_BASE_URL}/Ordering/OrderDetailPage?orderid=${orderId}&locationid=${session.locationId}&download=false`,
+    `${PA_BASE_URL}/Ordering/InvoiceDetailPage?orderid=${orderId}&locationid=${session.locationId}&download=false`,
+  ];
+
+  let pdfBase64 = '';
+  let pdfUrl = '';
+
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Cookie': detailCookies,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        redirect: 'follow',
+      });
+
+      if (resp.ok) {
+        const rawBytes = new Uint8Array(await resp.arrayBuffer());
+        const isPdf = rawBytes[0] === 0x25 && rawBytes[1] === 0x50; // %P
+        console.log(`[PA Vision] ${url.split('/Ordering/')[1]?.split('?')[0]} → ${resp.status}, size: ${rawBytes.length}, isPdf: ${isPdf}`);
+        
+        if (isPdf && rawBytes.length > 100) {
+          // Convert to base64 for Gemini
+          let binary = '';
+          for (let i = 0; i < rawBytes.length; i++) {
+            binary += String.fromCharCode(rawBytes[i]);
+          }
+          pdfBase64 = btoa(binary);
+          pdfUrl = url;
+          console.log(`[PA Vision] Got PDF: ${rawBytes.length} bytes, base64: ${pdfBase64.length} chars`);
+          break;
+        } else {
+          await resp.text().catch(() => '');
+        }
+      } else {
+        await resp.text().catch(() => '');
+      }
+    } catch (e) {
+      console.warn(`[PA Vision] Error fetching ${url}:`, e);
+    }
+  }
+
+  if (!pdfBase64) {
+    return jsonResponse({ success: false, error: 'Could not fetch order PDF from any URL' });
+  }
+
+  // Step 3: Send to Gemini Vision via Lovable AI
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
+  }
+
+  console.log('[PA Vision] Sending PDF to Gemini Vision...');
+
+  const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit (case/each/lb/etc), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.`,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${pdfBase64}`,
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!aiResp.ok) {
+    const errText = await aiResp.text();
+    console.error('[PA Vision] AI error:', aiResp.status, errText);
+    return jsonResponse({ success: false, error: `AI gateway error: ${aiResp.status}` });
+  }
+
+  const aiResult = await aiResp.json();
+  const content = aiResult.choices?.[0]?.message?.content || '';
+  console.log('[PA Vision] AI response:', content.slice(0, 2000));
+
+  // Try to parse the JSON from the response
+  let lineItems: any[] = [];
+  try {
+    // Strip markdown code block if present
+    const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    lineItems = JSON.parse(cleaned);
+  } catch (e) {
+    console.warn('[PA Vision] Could not parse AI response as JSON:', e);
+  }
+
+  return jsonResponse({
+    success: true,
+    data: {
+      orderId,
+      orderTotal: firstOrder.OrderTotal,
+      deliveryDate: firstOrder.DeliveryDate,
+      pdfSize: pdfBase64.length,
+      pdfUrl,
+      lineItems,
+      lineItemCount: lineItems.length,
+      rawAiResponse: content.slice(0, 3000),
+    },
+  });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -1188,6 +1338,7 @@ serve(async (req) => {
       case 'save_credentials': return await handleSaveCredentials(supabase, body);
       case 'explore': return await handleExplore(supabase, body);
       case 'pricing': return await handlePricing(supabase, body);
+      case 'test_vision': return await handleTestVision(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
