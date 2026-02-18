@@ -692,7 +692,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       <p className="font-medium truncate">{item.item_name}</p>
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
                         {item.item_number && <span>#{item.item_number}</span>}
-                        {item.pack_size && <span>{item.pack_size}</span>}
+                        <span>{item.pack_size || item.unit || 'ea'}</span>
                         {item.cost_per_unit && (
                           <span className="text-primary font-medium">
                             {formatCurrency(item.cost_per_unit)}/case

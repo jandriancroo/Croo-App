@@ -672,7 +672,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                 {item.pack_quantity_override}/case
                               </span>
                             )}
-                            {item.pack_size && <span className="text-xs">{item.pack_size}</span>}
+                            <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
                             {item.cost_per_unit && (
                               <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
                             )}
@@ -719,7 +719,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             )}
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            {item.unit && <span className="text-xs">{item.unit}</span>}
+                            <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
                             {item.cost_per_unit && (
                               <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
                             )}
