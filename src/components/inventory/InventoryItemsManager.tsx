@@ -431,7 +431,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
         body: {
-          action: "sync_inventory",
+          action: "sync_items",
           locationId,
           username: credentials?.username,
           password: credentials?.password,
