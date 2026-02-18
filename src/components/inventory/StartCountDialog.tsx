@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -341,10 +342,14 @@ const StartCountDialog = ({
     setSyncProgress({ phase: "Connecting to PFG...", current: 0, total: 100 });
     
     try {
-      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
-        || "b4680e1a-4815-44c6-968e-634e94188009";
-      const customerId = (pfgIntegration?.credentials as any)?.customer_id
-        || "73094123-ab82-4044-9722-65099b55a11e";
+      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id;
+      const customerId = (pfgIntegration?.credentials as any)?.customer_id;
+      
+      if (!productListHeaderId || !customerId) {
+        toast.error('PFG Order Guide not configured — go to Location Settings → Integrations to set it up');
+        setIsSyncing(false);
+        return;
+      }
       
       setSyncProgress({ phase: "Fetching products from PFG...", current: 15, total: 100 });
       

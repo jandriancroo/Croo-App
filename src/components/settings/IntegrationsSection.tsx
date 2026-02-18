@@ -56,6 +56,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsConnecting, setPfgIsConnecting] = useState(false);
   const [pfgShowTokenInput, setPfgShowTokenInput] = useState(false);
   const [pfgPastedToken, setPfgPastedToken] = useState('');
+  const [pfgOrderGuideId, setPfgOrderGuideId] = useState('');
+  const [pfgCustomerId, setPfgCustomerId] = useState('');
+  const [pfgIsSavingGuide, setPfgIsSavingGuide] = useState(false);
 
   // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
@@ -130,6 +133,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   useEffect(() => {
     if (pfgIntegration) {
       setPfgIsActive(pfgIntegration.is_active);
+      const creds = pfgIntegration.credentials as any;
+      setPfgOrderGuideId(creds?.product_list_header_id || '');
+      setPfgCustomerId(creds?.customer_id || '');
     }
   }, [pfgIntegration]);
 
@@ -239,6 +245,31 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgIsConnecting(false);
     }
   }, [locationId, pfgPastedToken, queryClient]);
+
+  // Save PFG order guide ID and customer ID
+  const savePfgGuideSettings = async () => {
+    if (!pfgIntegration) return;
+    setPfgIsSavingGuide(true);
+    try {
+      const existingCreds = (pfgIntegration.credentials as any) || {};
+      const updatedCreds = {
+        ...existingCreds,
+        product_list_header_id: pfgOrderGuideId.trim() || null,
+        customer_id: pfgCustomerId.trim() || null,
+      };
+      const { error } = await supabase
+        .from('location_integrations')
+        .update({ credentials: updatedCreds })
+        .eq('id', pfgIntegration.id);
+      if (error) throw error;
+      toast.success('PFG order guide saved!');
+      queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+    } catch (error) {
+      toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setPfgIsSavingGuide(false);
+    }
+  };
 
   // Trigger background backfill of historical sales data
   const triggerBackfill = async (integrationId: string) => {
@@ -654,6 +685,50 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       )}
                     </div>
                   ) : null}
+
+                  {/* Order Guide Settings - only show when connected */}
+                  {pfgHasToken && (
+                    <div className="border-t pt-3 space-y-3">
+                      <h5 className="text-sm font-medium">Order Guide</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="pfg-guide-id" className="text-sm">Product List Header ID</Label>
+                          <Input
+                            id="pfg-guide-id"
+                            value={pfgOrderGuideId}
+                            onChange={(e) => setPfgOrderGuideId(e.target.value)}
+                            placeholder="e.g., b4680e1a-4815-..."
+                            className="h-9 text-xs font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="pfg-customer-id" className="text-sm">Customer ID</Label>
+                          <Input
+                            id="pfg-customer-id"
+                            value={pfgCustomerId}
+                            onChange={(e) => setPfgCustomerId(e.target.value)}
+                            placeholder="e.g., 73094123-ab82-..."
+                            className="h-9 text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={savePfgGuideSettings}
+                        disabled={pfgIsSavingGuide}
+                      >
+                        {pfgIsSavingGuide ? (
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-1.5" />
+                        )}
+                        Save Guide
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Find these in your PFG portal URL or browser DevTools when viewing an order guide
+                      </p>
+                    </div>
+                  )}
 
                    <div className={pfgHasToken ? "border-t pt-3" : ""}>
                     {pfgShowTokenInput ? (

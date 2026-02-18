@@ -197,10 +197,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     setProgress({ phase: "Connecting to PFG...", current: 0, total: 100 });
     
     try {
-      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
-        || "b4680e1a-4815-44c6-968e-634e94188009";
-      const customerId = (pfgIntegration?.credentials as any)?.customer_id
-        || "73094123-ab82-4044-9722-65099b55a11e";
+      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id;
+      const customerId = (pfgIntegration?.credentials as any)?.customer_id;
+      
+      if (!productListHeaderId || !customerId) {
+        toast.error('PFG Order Guide not configured — go to Location Settings → Integrations to set it up');
+        setIsSyncing(false);
+        return;
+      }
       
       setProgress({ phase: "Fetching product list from PFG...", current: 10, total: 100 });
       
