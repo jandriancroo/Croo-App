@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown, FlaskConical, Plus, Leaf } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
@@ -26,6 +27,7 @@ interface EditingItem {
   pack_quantity: number | null;
   pack_quantity_override: number | null;
   category: string | null;
+  common_name: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
@@ -52,6 +54,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [editRecipeId, setEditRecipeId] = useState<string | null>(null);
   const [categoryValue, setCategoryValue] = useState<string>("");
+  const [useCommonName, setUseCommonName] = useState(false);
+  const [commonNameValue, setCommonNameValue] = useState("");
   
 
   // Check if PFG is configured
@@ -121,10 +125,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category }: { itemId: string; override: number | null; category: string | null }) => {
+    mutationFn: async ({ itemId, override, category, common_name }: { itemId: string; override: number | null; category: string | null; common_name: string | null }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category })
+        .update({ pack_quantity_override: override, category, common_name } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -145,17 +149,21 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       name: item.name,
       pack_quantity: item.pack_quantity,
       pack_quantity_override: item.pack_quantity_override,
-      category: item.category
+      category: item.category,
+      common_name: item.common_name || null
     });
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
+    setUseCommonName(!!item.common_name);
+    setCommonNameValue(item.common_name || "");
   };
 
   const saveItem = () => {
     if (!editingItem) return;
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category });
+    const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
+    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name });
   };
 
 
@@ -641,7 +649,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       {locItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
                           <div className="flex items-center gap-2 truncate flex-1">
-                            <span className="truncate">{item.name}</span>
+                            <span className="truncate">{(item as any).common_name || item.name}</span>
+                            {(item as any).common_name && (
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={item.name}>
+                                ({item.name})
+                              </span>
+                            )}
                             {item.category && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
                                 {item.category}
@@ -710,6 +723,36 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 <p className="text-xs text-muted-foreground">
                   Used to group items in variance reports
                 </p>
+              </div>
+
+              {/* Common Name */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="use-common-name"
+                    checked={useCommonName}
+                    onCheckedChange={(checked) => {
+                      setUseCommonName(!!checked);
+                      if (!checked) setCommonNameValue("");
+                    }}
+                  />
+                  <Label htmlFor="use-common-name" className="text-sm cursor-pointer">
+                    Use common name
+                  </Label>
+                </div>
+                {useCommonName && (
+                  <div className="space-y-1">
+                    <Input
+                      id="common-name"
+                      placeholder="e.g., Sausage, Mozzarella, Pepperoni"
+                      value={commonNameValue}
+                      onChange={(e) => setCommonNameValue(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      A simple name shown instead of the vendor item name
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
