@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, FlaskConical, Leaf } from "lucide-react";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, FlaskConical, Leaf, EyeOff } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -124,6 +124,25 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
+
+  // Deactivate item mutation
+  const deactivateItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ is_active: false })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Item deactivated");
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      setEditingItem(null);
+    },
+    onError: () => {
+      toast.error("Failed to deactivate item");
+    }
+  });
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
@@ -847,6 +866,17 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 </div>
               </div>
               
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full"
+                onClick={() => editingItem && deactivateItemMutation.mutate(editingItem.id)}
+                disabled={deactivateItemMutation.isPending}
+              >
+                <EyeOff className="h-4 w-4 mr-1" />
+                {deactivateItemMutation.isPending ? "Deactivating..." : "Deactivate Item"}
+              </Button>
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
