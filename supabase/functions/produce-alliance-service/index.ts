@@ -1164,23 +1164,8 @@ function jsonResponse(data: any, status = 200): Response {
 // TEST VISION — fetch one order PDF, send to Gemini Vision for line items
 // ============================================================================
 
-async function handleTestVision(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  // Step 1: Get orders list
-  const rawOrders = await fetchPAOrders(session);
-  if (rawOrders.length === 0) return jsonResponse({ success: false, error: 'No orders found' });
-
-  const firstOrder = rawOrders[0];
-  const orderId = firstOrder.OrderID;
-  console.log(`[PA Vision] Testing with order ${orderId}, total: $${firstOrder.OrderTotal}`);
-
-  // Step 2: Fetch the order PDF
+async function fetchOrderPdf(session: PASession, orderId: string): Promise<string | null> {
+  // Establish cookies
   const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
     method: 'GET',
     headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
@@ -1195,118 +1180,193 @@ async function handleTestVision(supabase: any, body: any): Promise<Response> {
     `${PA_BASE_URL}/Ordering/InvoiceDetailPage?orderid=${orderId}&locationid=${session.locationId}&download=false`,
   ];
 
-  let pdfBase64 = '';
-  let pdfUrl = '';
-
   for (const url of urls) {
     try {
       const resp = await fetch(url, {
         method: 'GET',
-        headers: {
-          'Cookie': detailCookies,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
+        headers: { 'Cookie': detailCookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         redirect: 'follow',
       });
-
       if (resp.ok) {
         const rawBytes = new Uint8Array(await resp.arrayBuffer());
-        const isPdf = rawBytes[0] === 0x25 && rawBytes[1] === 0x50; // %P
-        console.log(`[PA Vision] ${url.split('/Ordering/')[1]?.split('?')[0]} → ${resp.status}, size: ${rawBytes.length}, isPdf: ${isPdf}`);
-        
+        const isPdf = rawBytes[0] === 0x25 && rawBytes[1] === 0x50;
         if (isPdf && rawBytes.length > 100) {
-          // Convert to base64 for Gemini
           let binary = '';
-          for (let i = 0; i < rawBytes.length; i++) {
-            binary += String.fromCharCode(rawBytes[i]);
-          }
-          pdfBase64 = btoa(binary);
-          pdfUrl = url;
-          console.log(`[PA Vision] Got PDF: ${rawBytes.length} bytes, base64: ${pdfBase64.length} chars`);
-          break;
-        } else {
-          await resp.text().catch(() => '');
+          for (let i = 0; i < rawBytes.length; i++) binary += String.fromCharCode(rawBytes[i]);
+          return btoa(binary);
         }
-      } else {
-        await resp.text().catch(() => '');
       }
+      await resp.text().catch(() => '');
     } catch (e) {
       console.warn(`[PA Vision] Error fetching ${url}:`, e);
     }
   }
+  return null;
+}
 
-  if (!pdfBase64) {
-    return jsonResponse({ success: false, error: 'Could not fetch order PDF from any URL' });
-  }
-
-  // Step 3: Send to Gemini Vision via Lovable AI
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) {
-    return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
-  }
-
-  console.log('[PA Vision] Sending PDF to Gemini Vision...');
-
+async function extractLineItemsFromPdf(pdfBase64: string, apiKey: string): Promise<any[]> {
   const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit (case/each/lb/etc), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.`,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:application/pdf;base64,${pdfBase64}`,
-              },
-            },
-          ],
-        },
-      ],
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit (case/each/lb/etc), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.` },
+          { type: 'image_url', image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
+        ],
+      }],
     }),
   });
 
   if (!aiResp.ok) {
-    const errText = await aiResp.text();
-    console.error('[PA Vision] AI error:', aiResp.status, errText);
-    return jsonResponse({ success: false, error: `AI gateway error: ${aiResp.status}` });
+    console.error('[PA Vision] AI error:', aiResp.status);
+    return [];
   }
 
   const aiResult = await aiResp.json();
   const content = aiResult.choices?.[0]?.message?.content || '';
-  console.log('[PA Vision] AI response:', content.slice(0, 2000));
-
-  // Try to parse the JSON from the response
-  let lineItems: any[] = [];
   try {
-    // Strip markdown code block if present
     const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    lineItems = JSON.parse(cleaned);
-  } catch (e) {
-    console.warn('[PA Vision] Could not parse AI response as JSON:', e);
+    return JSON.parse(cleaned);
+  } catch {
+    console.warn('[PA Vision] Could not parse AI response');
+    return [];
+  }
+}
+
+async function handleTestVision(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const rawOrders = await fetchPAOrders(session);
+  if (rawOrders.length === 0) return jsonResponse({ success: false, error: 'No orders found' });
+
+  const firstOrder = rawOrders[0];
+  const orderId = firstOrder.OrderID;
+  console.log(`[PA Vision] Testing with order ${orderId}`);
+
+  const pdfBase64 = await fetchOrderPdf(session, orderId);
+  if (!pdfBase64) return jsonResponse({ success: false, error: 'Could not fetch order PDF' });
+
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
+
+  const lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
+
+  return jsonResponse({
+    success: true,
+    data: { orderId, orderTotal: firstOrder.OrderTotal, lineItems, lineItemCount: lineItems.length },
+  });
+}
+
+// ============================================================================
+// SYNC INVENTORY — process recent orders via Vision and upsert to inventory
+// ============================================================================
+
+async function handleSyncInventory(supabase: any, body: any): Promise<Response> {
+  const { locationId, maxOrders = 3 } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
+
+  // Step 1: Get orders
+  const rawOrders = await fetchPAOrders(session);
+  if (rawOrders.length === 0) return jsonResponse({ success: true, synced: 0, message: 'No orders found' });
+
+  const ordersToProcess = rawOrders.slice(0, maxOrders);
+  console.log(`[PA Sync] Processing ${ordersToProcess.length} of ${rawOrders.length} orders`);
+
+  // Step 2: Ensure "Produce Alliance" storage location exists
+  let storageLocationId: string;
+  const { data: existingLoc } = await supabase
+    .from('inventory_locations')
+    .select('id')
+    .eq('location_id', locationId)
+    .ilike('name', 'Produce Alliance')
+    .maybeSingle();
+  
+  if (existingLoc) {
+    storageLocationId = existingLoc.id;
+  } else {
+    const { data: inserted } = await supabase
+      .from('inventory_locations')
+      .insert({ location_id: locationId, name: 'Produce Alliance' })
+      .select('id')
+      .single();
+    storageLocationId = inserted?.id;
+  }
+  if (!storageLocationId) return jsonResponse({ success: false, error: 'Could not create storage location' });
+
+  // Step 3: Process each order via Vision
+  const allItems = new Map<string, any>(); // name -> latest data
+  let ordersProcessed = 0;
+
+  for (const order of ordersToProcess) {
+    const orderId = order.OrderID;
+    console.log(`[PA Sync] Processing order ${orderId}`);
+    
+    const pdfBase64 = await fetchOrderPdf(session, orderId);
+    if (!pdfBase64) {
+      console.warn(`[PA Sync] Could not get PDF for order ${orderId}`);
+      continue;
+    }
+
+    const lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
+    console.log(`[PA Sync] Order ${orderId}: ${lineItems.length} items extracted`);
+    
+    for (const item of lineItems) {
+      if (item.name) {
+        // Keep latest price per item name
+        allItems.set(item.name.toLowerCase(), item);
+      }
+    }
+    ordersProcessed++;
+  }
+
+  // Step 4: Upsert items to inventory
+  let synced = 0;
+  for (const [, item] of allItems) {
+    // Match by name (case-insensitive)
+    const { data: existing } = await supabase
+      .from('inventory_items')
+      .select('id')
+      .eq('location_id', locationId)
+      .ilike('name', item.name)
+      .maybeSingle();
+
+    const itemData = {
+      name: item.name,
+      unit: item.unit?.toLowerCase() || 'case',
+      storage_location_id: storageLocationId,
+      cost_per_unit: item.price || null,
+      vendor_source: 'produce_alliance',
+      is_active: true,
+    };
+
+    if (existing) {
+      await supabase.from('inventory_items').update(itemData).eq('id', existing.id);
+    } else {
+      await supabase.from('inventory_items').insert({ location_id: locationId, ...itemData });
+    }
+    synced++;
   }
 
   return jsonResponse({
     success: true,
-    data: {
-      orderId,
-      orderTotal: firstOrder.OrderTotal,
-      deliveryDate: firstOrder.DeliveryDate,
-      pdfSize: pdfBase64.length,
-      pdfUrl,
-      lineItems,
-      lineItemCount: lineItems.length,
-      rawAiResponse: content.slice(0, 3000),
-    },
+    synced,
+    ordersProcessed,
+    totalOrdersAvailable: rawOrders.length,
   });
 }
 
@@ -1339,6 +1399,7 @@ serve(async (req) => {
       case 'explore': return await handleExplore(supabase, body);
       case 'pricing': return await handlePricing(supabase, body);
       case 'test_vision': return await handleTestVision(supabase, body);
+      case 'sync_inventory': return await handleSyncInventory(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {

@@ -65,8 +65,10 @@ const StartCountDialog = ({
   const [step, setStep] = useState<"period" | "sync">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingPA, setIsSyncingPA] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncComplete, setSyncComplete] = useState(false);
+  const [paSyncComplete, setPaSyncComplete] = useState(false);
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -74,6 +76,7 @@ const StartCountDialog = ({
       setStep("period");
       setSelectedPeriod(null);
       setSyncComplete(false);
+      setPaSyncComplete(false);
       setSyncProgress(null);
     }
   }, [open]);
@@ -119,6 +122,22 @@ const StartCountDialog = ({
         .select("*")
         .eq("location_id", locationId)
         .eq("integration_type", "pfg")
+        .eq("is_active", true)
+        .maybeSingle();
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch PA integration status
+  const { data: paIntegration } = useQuery({
+    queryKey: ["pa-integration", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("integration_type", "produce_alliance")
         .eq("is_active", true)
         .maybeSingle();
       return data;
@@ -442,6 +461,42 @@ const StartCountDialog = ({
     }
   };
 
+  // Sync from Produce Alliance (Vision-based)
+  const syncFromPA = async () => {
+    if (!paIntegration) return;
+    
+    setIsSyncingPA(true);
+    setSyncProgress({ phase: "Connecting to Produce Alliance...", current: 0, total: 100 });
+    
+    try {
+      setSyncProgress({ phase: "Fetching orders & extracting items via AI...", current: 20, total: 100 });
+      
+      const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
+        body: { locationId, action: "sync_inventory", maxOrders: 3 }
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "PA sync failed");
+
+      setSyncProgress({ 
+        phase: `Synced ${data.synced} items from ${data.ordersProcessed} orders`, 
+        current: 100, 
+        total: 100 
+      });
+      setPaSyncComplete(true);
+      
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+      refetchSyncInfo();
+      
+    } catch (err) {
+      console.error("PA sync error:", err);
+      setSyncProgress({ phase: "PA sync failed", current: 0, total: 100 });
+    } finally {
+      setIsSyncingPA(false);
+    }
+  };
+
   const handleContinueToSync = () => {
     setStep("sync");
   };
@@ -640,7 +695,24 @@ const StartCountDialog = ({
                   </Button>
                 )}
 
-                {syncComplete && (
+                {/* PA Sync Button */}
+                {paIntegration && !paSyncComplete && (
+                  <Button 
+                    variant="outline"
+                    className="w-full" 
+                    onClick={syncFromPA}
+                    disabled={isSyncingPA || isSyncing}
+                  >
+                    {isSyncingPA ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Sync Items from Produce Alliance
+                  </Button>
+                )}
+
+                {(syncComplete || paSyncComplete) && (
                   <div className="flex items-center justify-center gap-2 text-green-600 py-2">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-medium">Sync complete</span>
@@ -654,7 +726,7 @@ const StartCountDialog = ({
               <Button
                 variant="outline"
                 onClick={handleBack}
-                disabled={isSyncing || isPending}
+                disabled={isSyncing || isSyncingPA || isPending}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
@@ -662,7 +734,7 @@ const StartCountDialog = ({
               <Button
                 className="flex-1"
                 size="lg"
-                disabled={isSyncing || isPending}
+                disabled={isSyncing || isSyncingPA || isPending}
                 onClick={handleStart}
               >
                 {isPending ? (
