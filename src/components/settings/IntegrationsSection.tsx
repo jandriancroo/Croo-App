@@ -18,11 +18,6 @@ interface QuBeyondCredentials {
   pull_labor?: boolean;
 }
 
-interface PACredentials {
-  username: string;
-  password: string;
-}
-
 interface IntegrationsSectionProps {
   locationId: string | undefined;
 }
@@ -47,7 +42,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // PA (Produce Alliance) state
-  const [paCredentials, setPaCredentials] = useState({ username: '', password: '' });
+  const [paCredentials, setPaCredentials] = useState({ username: '', password: '', pa_location_id: '' });
   const [paIsActive, setPaIsActive] = useState(true);
   const [paShowPassword, setPaShowPassword] = useState(false);
   const [paIsTesting, setPaIsTesting] = useState(false);
@@ -141,10 +136,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   // Update local state when PA integration data loads
   useEffect(() => {
     if (paIntegration) {
-      const creds = paIntegration.credentials as unknown as PACredentials;
+      const creds = paIntegration.credentials as any;
       setPaCredentials({
         username: creds?.username || '',
         password: creds?.password || '',
+        pa_location_id: creds?.pa_location_id || '',
       });
       setPaIsActive(paIntegration.is_active);
     }
@@ -187,7 +183,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     setPaIsSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
-        body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password }
+        body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password, paLocationId: paCredentials.pa_location_id || undefined }
       });
       if (error) throw error;
       if (data?.success) {
@@ -738,7 +734,21 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
                 <Switch
                   checked={paIsActive}
-                  onCheckedChange={setPaIsActive}
+                  onCheckedChange={async (checked) => {
+                    setPaIsActive(checked);
+                    if (paIntegration) {
+                      try {
+                        await supabase
+                          .from('location_integrations')
+                          .update({ is_active: checked })
+                          .eq('id', paIntegration.id);
+                        toast.success(checked ? 'Produce Alliance enabled' : 'Produce Alliance disabled');
+                      } catch (err) {
+                        toast.error('Failed to update status');
+                        setPaIsActive(!checked);
+                      }
+                    }
+                  }}
                 />
               </div>
 
@@ -792,6 +802,20 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                         </Button>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pa-location-id" className="text-sm">PA Location ID</Label>
+                    <Input
+                      id="pa-location-id"
+                      value={paCredentials.pa_location_id}
+                      onChange={(e) => setPaCredentials(prev => ({ ...prev, pa_location_id: e.target.value }))}
+                      placeholder="e.g., 18046"
+                      className="h-9"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your Produce Alliance location/store ID (check your PA portal URL)
+                    </p>
                   </div>
 
                   <div className="flex gap-2">
