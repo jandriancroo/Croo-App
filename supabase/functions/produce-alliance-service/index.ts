@@ -817,85 +817,57 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: true, message: 'No items found on PA portal', synced: 0 });
   }
 
-  // Group by category
-  const categoryMap = new Map<string, any[]>();
-  for (const item of items) {
-    const cat = item.category || 'Produce Alliance';
-    if (!categoryMap.has(cat)) categoryMap.set(cat, []);
-    categoryMap.get(cat)!.push(item);
-  }
-
+  // Upsert items WITHOUT storage location — user assigns manually
   let synced = 0;
 
-  for (const [categoryName, categoryItems] of categoryMap) {
-    const { data: existing } = await supabase
-      .from('inventory_locations')
-      .select('id')
-      .eq('location_id', locationId)
-      .ilike('name', categoryName)
-      .maybeSingle();
-
-    let storageLocationId: string;
-    if (existing) {
-      storageLocationId = existing.id;
-    } else {
-      const { data: inserted } = await supabase
-        .from('inventory_locations')
-        .insert({ location_id: locationId, name: categoryName })
+  for (const item of items) {
+    let existingItem = null;
+    if (item.id) {
+      const { data } = await supabase
+        .from('inventory_items')
         .select('id')
-        .single();
-      storageLocationId = inserted?.id;
+        .eq('location_id', locationId)
+        .eq('pa_item_id', String(item.id))
+        .maybeSingle();
+      existingItem = data;
     }
-    if (!storageLocationId) continue;
-
-    for (const item of categoryItems) {
-      let existingItem = null;
-      if (item.id) {
-        const { data } = await supabase
-          .from('inventory_items')
-          .select('id')
-          .eq('location_id', locationId)
-          .eq('pa_item_id', String(item.id))
-          .maybeSingle();
-        existingItem = data;
-      }
-      if (!existingItem && item.name) {
-        const { data } = await supabase
-          .from('inventory_items')
-          .select('id')
-          .eq('location_id', locationId)
-          .ilike('name', item.name)
-          .maybeSingle();
-        existingItem = data;
-      }
-
-      const itemData = {
-        name: item.name,
-        unit: item.unit?.toLowerCase() || 'case',
-        storage_location_id: storageLocationId,
-        cost_per_unit: item.price,
-        pack_size: item.packSize || null,
-        brand: item.brand || null,
-        item_number: item.itemNumber || null,
-        vendor_source: 'produce_alliance',
-        is_active: true,
-      };
-
-      if (existingItem) {
-        await supabase.from('inventory_items').update(itemData).eq('id', existingItem.id);
-      } else {
-        await supabase.from('inventory_items').insert({
-          location_id: locationId,
-          pa_item_id: item.id ? String(item.id) : null,
-          ...itemData,
-        });
-      }
-      synced++;
+    if (!existingItem && item.name) {
+      const { data } = await supabase
+        .from('inventory_items')
+        .select('id')
+        .eq('location_id', locationId)
+        .ilike('name', item.name)
+        .maybeSingle();
+      existingItem = data;
     }
+
+    const itemData = {
+      name: item.name,
+      unit: item.unit?.toLowerCase() || 'case',
+      cost_per_unit: item.price,
+      pack_size: item.packSize || null,
+      brand: item.brand || null,
+      item_number: item.itemNumber || null,
+      vendor_source: 'produce_alliance',
+      is_active: true,
+    };
+
+    if (existingItem) {
+      // Don't overwrite storage_location_id if user already assigned one
+      await supabase.from('inventory_items').update(itemData).eq('id', existingItem.id);
+    } else {
+      await supabase.from('inventory_items').insert({
+        location_id: locationId,
+        pa_item_id: item.id ? String(item.id) : null,
+        storage_location_id: null, // User assigns manually
+        ...itemData,
+      });
+    }
+    synced++;
   }
 
-  await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, [], { categories: categoryMap.size });
-  return jsonResponse({ success: true, synced, categories: categoryMap.size });
+  await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, []);
+  return jsonResponse({ success: true, synced });
 }
 
 async function handleSaveCredentials(supabase: any, body: any): Promise<Response> {
@@ -1260,7 +1232,7 @@ async function extractLineItemsFromPdf(pdfBase64: string, apiKey: string): Promi
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit (case/each/lb/etc), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.` },
+          { type: 'text', text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit of measure EXACTLY as shown (e.g. cs, ea, lb, bg, ct, cn, bx, pk, dz, hd, bn, bh, fl, jg, bunch, flat, each, case, pound — use the abbreviation from the document), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.` },
           { type: 'image_url', image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
         ],
       }],
@@ -1362,31 +1334,7 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
   const ordersToProcess = rawOrders.slice(0, maxOrders);
   console.log(`[PA Sync] Processing ${ordersToProcess.length} of ${rawOrders.length} orders`);
 
-  // Step 2: Ensure "Produce Alliance" storage location exists
-  let storageLocationId: string;
-  const { data: existingLoc } = await supabase
-    .from('inventory_locations')
-    .select('id')
-    .eq('location_id', locationId)
-    .ilike('name', 'Produce Alliance')
-    .maybeSingle();
-  
-  if (existingLoc) {
-    storageLocationId = existingLoc.id;
-  } else {
-    const { data: inserted } = await supabase
-      .from('inventory_locations')
-      .insert({ location_id: locationId, name: 'Produce Alliance' })
-      .select('id')
-      .single();
-    storageLocationId = inserted?.id;
-  }
-  if (!storageLocationId) {
-    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['Could not create storage location']);
-    return jsonResponse({ success: false, error: 'Could not create storage location' });
-  }
-
-  // Step 3: Process each order via Vision with retry
+  // Step 2: Process each order via Vision with retry
   const allItems = new Map<string, any>(); // name -> latest data
   let ordersProcessed = 0;
 
@@ -1444,7 +1392,6 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     const itemData = {
       name: item.name,
       unit: item.unit?.toLowerCase() || 'case',
-      storage_location_id: storageLocationId,
       cost_per_unit: item.price || null,
       vendor_source: 'produce_alliance',
       pa_item_id: stablePaItemId,
@@ -1452,9 +1399,10 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     };
 
     if (existing) {
+      // Don't overwrite storage_location_id if user already assigned one
       await supabase.from('inventory_items').update(itemData).eq('id', existing.id);
     } else {
-      await supabase.from('inventory_items').insert({ location_id: locationId, ...itemData });
+      await supabase.from('inventory_items').insert({ location_id: locationId, storage_location_id: null, ...itemData });
     }
     synced++;
   }
