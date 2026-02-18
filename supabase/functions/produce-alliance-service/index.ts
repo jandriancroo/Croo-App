@@ -397,6 +397,8 @@ async function fetchPAOrders(session: PASession): Promise<any[]> {
 
 async function fetchPAPricing(session: PASession): Promise<any[]> {
   try {
+    console.log('[PA Pricing] Starting pricing fetch for location:', session.locationId);
+    
     // Load ordering page first
     const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
       method: 'GET',
@@ -419,12 +421,18 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
       body: `locationid=${session.locationId}`,
     });
 
-    if (!priceListResp.ok) return [];
+    console.log('[PA Pricing] GetPriceListPartialData status:', priceListResp.status);
+    if (!priceListResp.ok) {
+      console.log('[PA Pricing] Failed to fetch price list dates');
+      return [];
+    }
     const priceListData = await priceListResp.json();
     const priceDates = priceListData.Data || priceListData.data || [];
+    console.log('[PA Pricing] Price dates count:', priceDates.length);
     if (!Array.isArray(priceDates) || priceDates.length === 0) return [];
 
     const dateBegin = priceDates[0].DateBegin || priceDates[0].dateBegin;
+    console.log('[PA Pricing] Using date:', dateBegin);
 
     // Fetch pricing HTML page
     const pricingResp = await fetch(
@@ -436,9 +444,19 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
       }
     );
 
-    if (!pricingResp.ok) return [];
+    console.log('[PA Pricing] PricesDetailPage status:', pricingResp.status);
+    if (!pricingResp.ok) {
+      console.log('[PA Pricing] PricesDetailPage failed');
+      return [];
+    }
     const html = await pricingResp.text();
-    return parsePricingHtml(html);
+    console.log('[PA Pricing] HTML length:', html.length, 'first 500:', html.slice(0, 500).replace(/\s+/g, ' '));
+    const items = parsePricingHtml(html);
+    console.log('[PA Pricing] Parsed', items.length, 'items from pricing HTML');
+    if (items.length > 0) {
+      console.log('[PA Pricing] Sample parsed item:', JSON.stringify(items[0]));
+    }
+    return items;
   } catch (e) {
     console.warn('[PA Pricing] Error fetching pricing:', e);
     return [];
@@ -481,9 +499,10 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
   // Also fetch current pricing and merge
   const pricing = await fetchPAPricing(session);
   if (pricing.length > 0) {
-    const priceMap = new Map(pricing.map((p: any) => [String(p.id), p]));
+    const priceMapById = new Map(pricing.map((p: any) => [String(p.id), p]));
+    const priceMapByName = new Map(pricing.map((p: any) => [p.name?.toUpperCase()?.trim(), p]));
     for (const item of items) {
-      const priceInfo = priceMap.get(String(item.id));
+      const priceInfo = priceMapById.get(String(item.id)) || priceMapByName.get(item.name?.toUpperCase()?.trim());
       if (priceInfo) {
         item.price = priceInfo.price;
         item.unit = priceInfo.unit?.toLowerCase() || item.unit;
@@ -814,16 +833,33 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   // Merge pricing data (contains actual UOM)
   const pricing = await fetchPAPricing(session);
+  console.log('[PA Sync] Got', pricing.length, 'pricing entries to merge UOM');
   if (pricing.length > 0) {
-    console.log('[PA Sync] Got', pricing.length, 'pricing entries to merge UOM');
-    const priceMap = new Map(pricing.map((p: any) => [String(p.id), p]));
+    // Log sample pricing entry for debugging
+    console.log('[PA Sync] Sample pricing entry:', JSON.stringify(pricing[0]));
+    
+    // Build maps by both ID and normalized name for matching
+    const priceMapById = new Map(pricing.map((p: any) => [String(p.id), p]));
+    const priceMapByName = new Map(pricing.map((p: any) => [p.name?.toUpperCase()?.trim(), p]));
+    
+    let matched = 0;
     for (const item of items) {
-      const priceInfo = priceMap.get(String(item.id));
+      // Try matching by ID first, then by name
+      const priceInfo = priceMapById.get(String(item.id)) || priceMapByName.get(item.name?.toUpperCase()?.trim());
       if (priceInfo) {
         item.price = priceInfo.price ?? item.price;
-        item.unit = priceInfo.unit?.toLowerCase() || item.unit;
+        const pricingUnit = priceInfo.unit?.toLowerCase()?.trim();
+        if (pricingUnit && pricingUnit !== 'case' && pricingUnit !== 'cs') {
+          item.unit = pricingUnit;
+        } else if (pricingUnit) {
+          item.unit = pricingUnit;
+        }
+        matched++;
       }
     }
+    console.log('[PA Sync] Matched', matched, 'of', items.length, 'items with pricing UOM');
+  } else {
+    console.log('[PA Sync] WARNING: No pricing data returned — units will default to "case"');
   }
 
   if (items.length === 0) {
