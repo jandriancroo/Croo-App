@@ -187,7 +187,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     setPaIsSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
-        body: { action: 'save_credentials', locationId, credentials: paCredentials }
+        body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password }
       });
       if (error) throw error;
       if (data?.success) {
