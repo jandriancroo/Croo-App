@@ -2048,6 +2048,7 @@ export type Database = {
           last_synced_at: string | null
           location_id: string | null
           name: string
+          pa_item_id: string | null
           pack_quantity: number | null
           pack_quantity_override: number | null
           pack_size: string | null
@@ -2058,6 +2059,7 @@ export type Database = {
           storage_location_id: string | null
           unit: string
           updated_at: string
+          vendor_source: string | null
         }
         Insert: {
           brand?: string | null
@@ -2075,6 +2077,7 @@ export type Database = {
           last_synced_at?: string | null
           location_id?: string | null
           name: string
+          pa_item_id?: string | null
           pack_quantity?: number | null
           pack_quantity_override?: number | null
           pack_size?: string | null
@@ -2085,6 +2088,7 @@ export type Database = {
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
+          vendor_source?: string | null
         }
         Update: {
           brand?: string | null
@@ -2102,6 +2106,7 @@ export type Database = {
           last_synced_at?: string | null
           location_id?: string | null
           name?: string
+          pa_item_id?: string | null
           pack_quantity?: number | null
           pack_quantity_override?: number | null
           pack_size?: string | null
@@ -2112,6 +2117,7 @@ export type Database = {
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
+          vendor_source?: string | null
         }
         Relationships: [
           {
