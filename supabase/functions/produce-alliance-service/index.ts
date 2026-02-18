@@ -224,8 +224,27 @@ async function fetchPAItems(session: PASession): Promise<any[]> {
     console.warn('[PA API] VerifyOrderGuide error:', e);
   }
 
-  // Log page structure for debugging
-  console.log('[PA API] Page HTML sample:', pageHtml.replace(/\s+/g, ' ').slice(0, 3000));
+  // Log order/invoice related JS
+  const orderJsRegex = /(?:order|invoice|GetOrder|GetInvoice|tblorder|tblinvoice)[^;]{0,300}/gi;
+  const orderMatches: string[] = [];
+  let m;
+  while ((m = orderJsRegex.exec(pageHtml)) !== null) {
+    orderMatches.push(m[0].replace(/\s+/g, ' ').trim());
+  }
+  console.log('[PA API] Order-related JS snippets:', JSON.stringify(orderMatches.slice(0, 20)));
+
+  // Also log the full page for order section
+  const orderSectionIdx = pageHtml.indexOf('storeHomeOrders');
+  if (orderSectionIdx > -1) {
+    const orderContext = pageHtml.slice(Math.max(0, orderSectionIdx - 500), orderSectionIdx + 3000).replace(/\s+/g, ' ');
+    console.log('[PA API] Order section context:', orderContext);
+  }
+  
+  const invoiceSectionIdx = pageHtml.indexOf('storeHomeInvoices');
+  if (invoiceSectionIdx > -1) {
+    const invoiceContext = pageHtml.slice(Math.max(0, invoiceSectionIdx - 500), invoiceSectionIdx + 3000).replace(/\s+/g, ' ');
+    console.log('[PA API] Invoice section context:', invoiceContext);
+  }
 
   return [];
 }
@@ -282,57 +301,90 @@ function normalizeItem(raw: any): any {
 // ============================================================================
 
 async function fetchPAOrders(session: PASession): Promise<any[]> {
-  console.log('[PA API] Fetching invoices');
+  console.log('[PA API] Fetching invoices/orders');
 
-  const bodies = [
-    `DDLLocationID=${session.locationId}&page=1&pageSize=100`,
-    `sort=&group=&filter=&DDLLocationID=${session.locationId}`,
+  // First load the ordering page to establish session state
+  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+    method: 'GET',
+    headers: {
+      'Cookie': session.cookies,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    redirect: 'follow',
+  });
+  const pageHtml = await pageResp.text();
+  const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+
+  // Log order/invoice related AJAX endpoints from the page JS
+  const ajaxUrlRegex = /url[:\s]*["']([^"']*(?:order|invoice|Order|Invoice)[^"']*)["']/gi;
+  const foundEndpoints: string[] = [];
+  let m;
+  while ((m = ajaxUrlRegex.exec(pageHtml)) !== null) {
+    if (!foundEndpoints.includes(m[1])) foundEndpoints.push(m[1]);
+  }
+  console.log('[PA API] Found order/invoice endpoints:', JSON.stringify(foundEndpoints));
+
+  // Also look for the order/invoice table setup 
+  const orderTableRegex = /(?:tblorder|tblinvoice|storeHomeOrder|storeHomeInvoice|GetOrder|GetInvoice)[^;]{0,500}/gi;
+  const orderTableMatches: string[] = [];
+  while ((m = orderTableRegex.exec(pageHtml)) !== null) {
+    orderTableMatches.push(m[0].replace(/\s+/g, ' ').trim().slice(0, 200));
+  }
+  console.log('[PA API] Order/invoice table JS:', JSON.stringify(orderTableMatches.slice(0, 10)));
+
+  // Use the correct partial data endpoints discovered from page JS
+  const endpoints = [
+    { url: '/Ordering/GetOrdersPartialData', body: `locationid=${session.locationId}` },
+    { url: '/Ordering/GetInvoicesPartialData', body: `locationid=${session.locationId}` },
+    { url: '/Ordering/GetInvoices', body: `DDLLocationID=${session.locationId}` },
+    { url: '/Ordering/GetOrders', body: `DDLLocationID=${session.locationId}` },
   ];
 
-  for (const body of bodies) {
+  for (const endpoint of endpoints) {
     try {
-      const resp = await fetch(`${PA_BASE_URL}/Ordering/GetInvoices`, {
+      console.log('[PA API] Trying', endpoint.url);
+      const resp = await fetch(`${PA_BASE_URL}${endpoint.url}`, {
         method: 'POST',
         headers: {
-          'Cookie': session.cookies,
+          'Cookie': updatedCookies,
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-Requested-With': 'XMLHttpRequest',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
         },
-        body,
+        body: endpoint.body,
         redirect: 'follow',
       });
 
-      if (resp.ok) {
-        const text = await resp.text();
+      const text = await resp.text();
+      console.log('[PA API]', endpoint.url, '→', resp.status, 'len:', text.length);
+      
+      if (resp.ok && text.length > 5) {
         try {
           const data = JSON.parse(text);
-          console.log('[PA API] GetInvoices keys:', Object.keys(data).join(', '));
+          console.log('[PA API]', endpoint.url, 'keys:', Object.keys(data).join(', '));
           
-          const invoices = data.Data || data.data || data.Invoices || data;
-          if (Array.isArray(invoices) && invoices.length > 0) {
-            console.log('[PA API] Found', invoices.length, 'invoices');
-            if (invoices[0]) console.log('[PA API] Sample invoice keys:', Object.keys(invoices[0]).join(', '));
-            return invoices;
+          const items = data.Data || data.data || data.Invoices || data.Orders || data;
+          if (Array.isArray(items) && items.length > 0) {
+            console.log('[PA API] Found', items.length, 'from', endpoint.url);
+            if (items[0]) console.log('[PA API] Sample:', JSON.stringify(items[0]).slice(0, 500));
+            return items;
           }
           
           for (const key of Object.keys(data)) {
             if (Array.isArray(data[key]) && data[key].length > 0) {
+              console.log('[PA API] Found', data[key].length, 'at', key);
               return data[key];
             }
           }
           
-          console.log('[PA API] GetInvoices response:', JSON.stringify(data).slice(0, 500));
+          console.log('[PA API]', endpoint.url, ':', JSON.stringify(data).slice(0, 300));
         } catch {
-          console.log('[PA API] GetInvoices non-JSON');
+          console.log('[PA API]', endpoint.url, 'non-JSON:', text.slice(0, 200));
         }
-      } else {
-        console.log('[PA API] GetInvoices →', resp.status);
-        await resp.text().catch(() => '');
       }
     } catch (e) {
-      console.warn('[PA API] GetInvoices error:', e);
+      console.warn('[PA API]', endpoint.url, 'error:', e);
     }
   }
 
@@ -435,15 +487,87 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
 }
 
 async function handleOrders(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
+  const { locationId, fetchDetails } = body;
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
 
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  const orders = await fetchPAOrders(session);
+  const rawOrders = await fetchPAOrders(session);
+  
+  // Parse MS date format /Date(timestamp)/
+  const parseMSDate = (d: string | null) => {
+    if (!d) return null;
+    const match = d.match(/\/Date\((\d+)\)\//);
+    return match ? new Date(parseInt(match[1])).toISOString() : null;
+  };
+
+  const orders = rawOrders.map((o: any) => ({
+    orderId: o.OrderID,
+    orderTotal: o.OrderTotal,
+    dateCreated: parseMSDate(o.DateCreated),
+    deliveryDate: parseMSDate(o.DeliveryDate),
+    hasNote: o.isNote === 'Yes',
+    lineItems: o.OrderDetails || [],
+  }));
+
+  // Optionally fetch line-item details for recent orders
+  if (fetchDetails && orders.length > 0) {
+    const detailCount = Math.min(orders.length, 5); // Limit to 5 most recent
+    for (let i = 0; i < detailCount; i++) {
+      try {
+        const detailResp = await fetch(
+          `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${orders[i].orderId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Cookie': session.cookies,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+            redirect: 'follow',
+          }
+        );
+        if (detailResp.ok) {
+          const html = await detailResp.text();
+          orders[i].lineItems = parseOrderDetailHtml(html);
+          console.log(`[PA API] Order ${orders[i].orderId}: ${orders[i].lineItems.length} line items`);
+        }
+      } catch (e) {
+        console.warn(`[PA API] Failed to fetch details for order ${orders[i].orderId}:`, e);
+      }
+    }
+  }
+
   return jsonResponse({ success: true, data: { orders, count: orders.length } });
+}
+
+function parseOrderDetailHtml(html: string): any[] {
+  const items: any[] = [];
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let match;
+  while ((match = rowRegex.exec(html)) !== null) {
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(match[1])) !== null) {
+      cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+    }
+    // Look for rows with item data (typically: item#, description, qty, unit, price, total)
+    if (cells.length >= 4) {
+      const qtyVal = parseFloat(cells.find(c => /^\d+\.?\d*$/.test(c)) || '0');
+      const priceVal = parseFloat((cells.find(c => /\$/.test(c)) || '').replace(/[$,]/g, ''));
+      if (qtyVal > 0 || priceVal > 0) {
+        items.push({
+          name: cells[1] || cells[0],
+          quantity: qtyVal,
+          price: priceVal || 0,
+          raw: cells,
+        });
+      }
+    }
+  }
+  return items;
 }
 
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
