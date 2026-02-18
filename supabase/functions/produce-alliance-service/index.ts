@@ -281,15 +281,83 @@ function logSampleItem(item: any, source: string) {
   console.log(`[PA API] ${source} sample item:`, JSON.stringify(item).slice(0, 500));
 }
 
+// Parse pack size info from item name
+// Patterns: "4/5#" → qty=4, size="4/5#"  |  "5#" → qty=1, size="5#"  |  "12 CT" → qty=12, size="12 CT"
+// "#10" is a can size, not weight. "6/#10" → qty=6, size="6/#10"
+function parsePackFromName(name: string): { packSize: string | null; packQuantity: number | null } {
+  if (!name) return { packSize: null, packQuantity: null };
+  const trimmed = name.trim();
+
+  // Match count/weight# pattern: "4/5#", "6/2#", "4/1#", "8/1#", "16/1 QT"
+  const countSlashWeight = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*#(?!\d)/);
+  if (countSlashWeight) {
+    const qty = parseInt(countSlashWeight[1]);
+    return { packSize: `${qty}/${countSlashWeight[2]}#`, packQuantity: qty };
+  }
+
+  // Match count/#10 (can size): "6/#10"
+  const countCan = trimmed.match(/(\d+)\/#(\d+)/);
+  if (countCan) {
+    const qty = parseInt(countCan[1]);
+    return { packSize: `${qty}/#${countCan[2]}`, packQuantity: qty };
+  }
+
+  // Match count/weight LB: "4/3 LB"
+  const countSlashLb = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(?:LB|lb)/);
+  if (countSlashLb) {
+    const qty = parseInt(countSlashLb[1]);
+    return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty };
+  }
+
+  // Match count/weight QT: "16/1 QT"
+  const countSlashQt = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*QT/i);
+  if (countSlashQt) {
+    const qty = parseInt(countSlashQt[1]);
+    return { packSize: `${qty}/${countSlashQt[2]} QT`, packQuantity: qty };
+  }
+
+  // Match N CT pattern: "12 CT", "24 CT", "3 CT"
+  const nCt = trimmed.match(/(\d+)\s*CT\b/i);
+  if (nCt) {
+    const qty = parseInt(nCt[1]);
+    return { packSize: `${qty} CT`, packQuantity: qty };
+  }
+
+  // Match N PINT: "12 PINT"
+  const nPint = trimmed.match(/(\d+)\s*PINT\b/i);
+  if (nPint) {
+    const qty = parseInt(nPint[1]);
+    return { packSize: `${qty} PINT`, packQuantity: qty };
+  }
+
+  // Match standalone weight#: "5#", "10#", "2.5#", "1#" (but NOT dimension like 1/8")
+  const standalone = trimmed.match(/\b(\d+(?:\.\d+)?)\s*#(?!\d)/);
+  if (standalone) {
+    return { packSize: `${standalone[1]}#`, packQuantity: 1 };
+  }
+
+  // Match N OZ: "4 OZ", "6 OZ"
+  const nOz = trimmed.match(/(\d+(?:\.\d+)?)\s*OZ\b/i);
+  if (nOz) {
+    return { packSize: `${nOz[1]} OZ`, packQuantity: 1 };
+  }
+
+  return { packSize: null, packQuantity: null };
+}
+
 function normalizeItem(raw: any): any {
+  const name = (raw.PADescription || raw.Description || raw.Name || raw.ProductName || raw.ProductDescription || raw.name || raw.ItemName || '').trim();
+  const parsed = parsePackFromName(name);
+  
   return {
     id: raw.PAProductID || raw.Id || raw.ItemId || raw.ProductId || raw.ProductID || raw.id || raw.InvoiceProductID || '',
-    name: raw.PADescription || raw.Description || raw.Name || raw.ProductName || raw.ProductDescription || raw.name || raw.ItemName || '',
+    name,
     itemNumber: raw.ItemNumber || raw.ProductNumber || raw.ItemNo || raw.Code || raw.itemNumber || raw.ProductCode || raw.SpecificationID || null,
     brand: raw.Brand || raw.BrandName || raw.brand || null,
     price: raw.Price || raw.UnitPrice || raw.CurrentPrice || raw.price || raw.Cost || raw.ExtPrice || raw.LastPrice || null,
     unit: raw.Unit || raw.UOM || raw.UnitOfMeasure || raw.unit || raw.Pack || 'case',
-    packSize: raw.PackSize || raw.Size || raw.PackDescription || raw.packSize || raw.Sizing || raw.SizeDiameter || null,
+    packSize: raw.PackSize || raw.Size || raw.PackDescription || raw.packSize || raw.Sizing || raw.SizeDiameter || parsed.packSize || null,
+    packQuantity: parsed.packQuantity || null,
     category: raw.Category || raw.CategoryName || raw.GroupName || raw.category || raw.ProductCategory || raw.StorageZone || null,
     imageUrl: raw.ImageURL || raw.imageUrl || null,
     variety: raw.Variety || null,
@@ -891,11 +959,15 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       existingItem = data;
     }
 
+    // Parse pack info from item name
+    const parsedPack = parsePackFromName(item.name || '');
+    
     const itemData = {
-      name: item.name,
+      name: (item.name || '').trim(),
       unit: item.unit?.toLowerCase() || 'case',
       cost_per_unit: item.price,
-      pack_size: item.packSize || null,
+      pack_size: item.packSize || parsedPack.packSize || null,
+      pack_quantity: item.packQuantity || parsedPack.packQuantity || null,
       brand: item.brand || null,
       item_number: item.itemNumber || null,
       vendor_source: 'produce_alliance',
