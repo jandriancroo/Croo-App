@@ -159,64 +159,33 @@ async function fetchPAItems(session: PASession): Promise<any[]> {
   }
   const updatedCookies = mergeCookies(session.cookies, extractCookies(homeResp.headers));
 
-  // Step 1: Get Order Guide headers to find the default guide's ogID
-  try {
-    const headerResp = await fetch(`${PA_BASE_URL}/Ordering/GetOrderGuideHeaderPartialData`, {
-      method: 'POST',
-      headers: {
-        'Cookie': updatedCookies,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Requested-With': 'XMLHttpRequest',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-      },
-      body: `locationid=${session.locationId}`,
-      redirect: 'follow',
-    });
-
-    if (headerResp.ok) {
-      const headerData = await headerResp.json();
-      console.log('[PA API] OrderGuideHeader response:', JSON.stringify(headerData).slice(0, 1000));
-      
-      const guides = headerData.Data || headerData.data || [];
-      if (Array.isArray(guides) && guides.length > 0) {
-        // Find the default guide, or use the first one
-        const defaultGuide = guides.find((g: any) => g.IsDefault === true) || guides[0];
-        const ogid = defaultGuide.ogID || defaultGuide.OgID || defaultGuide.id;
-        console.log('[PA API] Using order guide:', defaultGuide.GuideName || defaultGuide.guideName, 'ogid:', ogid, 'LineCountDisplay:', defaultGuide.LineCountDisplay);
-
-        if (ogid) {
-          // Step 2: Fetch Order Guide Options page (server-rendered table with items)
-          const guideResp = await fetch(`${PA_BASE_URL}/Ordering/OrderGuideOptions?ogid=${ogid}&DDLLocationID=${session.locationId}`, {
-            method: 'GET',
-            headers: {
-              'Cookie': updatedCookies,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-            },
-            redirect: 'follow',
-          });
-
-          if (guideResp.ok) {
-            const guideHtml = await guideResp.text();
-            console.log('[PA API] OrderGuideOptions page length:', guideHtml.length);
-            const items = parseOrderGuideHtml(guideHtml);
-            if (items.length > 0) {
-              console.log(`[PA API] Parsed ${items.length} displayed items from Order Guide`);
-              return items;
-            }
-            // Log sample for debugging
-            console.log('[PA API] OrderGuideOptions HTML sample:', guideHtml.replace(/\s+/g, ' ').slice(0, 3000));
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[PA API] OrderGuideHeader error:', e);
+  // Strategy: Use the PRICING PAGE as the source of truth for Order Guide items.
+  // The pricing page returns exactly the items on the Order Guide (LineCount matches).
+  // GetInvoiceProducts returns the FULL catalog (all 58+ items) which includes items
+  // not on the order guide. The pricing page is the most reliable filter.
+  
+  // First get pricing items (= order guide items with actual data)
+  const pricingItems = await fetchPAPricing(session);
+  
+  if (pricingItems.length > 0) {
+    console.log(`[PA API] Using ${pricingItems.length} items from pricing page (= Order Guide items)`);
+    // The pricing page items are the order guide items - normalize and return them
+    return pricingItems.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      unit: p.unit?.toLowerCase() || 'case',
+      price: p.price,
+      itemNumber: p.itemNumber || null,
+      brand: p.brand || null,
+      packSize: p.packSize || null,
+      packQuantity: p.packQuantity || null,
+      category: p.category || null,
+      imageUrl: null,
+    }));
   }
 
-  // Fallback: try the AJAX catalog endpoint
-  console.log('[PA API] Falling back to AJAX catalog fetch');
+  // Fallback: if pricing page fails, use AJAX catalog 
+  console.log('[PA API] Pricing page returned 0 items, falling back to AJAX catalog fetch');
   return await fetchPAItemsAjax(session, updatedCookies);
 }
 
