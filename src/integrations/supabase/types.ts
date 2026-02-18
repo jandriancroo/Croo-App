@@ -2304,6 +2304,66 @@ export type Database = {
           },
         ]
       }
+      inventory_sync_logs: {
+        Row: {
+          completed_at: string | null
+          errors: string[] | null
+          id: string
+          items_synced: number | null
+          location_id: string
+          metadata: Json | null
+          orders_processed: number | null
+          started_at: string
+          status: string
+          sync_source: string
+          sync_type: string
+          triggered_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          errors?: string[] | null
+          id?: string
+          items_synced?: number | null
+          location_id: string
+          metadata?: Json | null
+          orders_processed?: number | null
+          started_at?: string
+          status?: string
+          sync_source: string
+          sync_type?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          errors?: string[] | null
+          id?: string
+          items_synced?: number | null
+          location_id?: string
+          metadata?: Json | null
+          orders_processed?: number | null
+          started_at?: string
+          status?: string
+          sync_source?: string
+          sync_type?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_sync_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_sync_logs_triggered_by_fkey"
+            columns: ["triggered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_usage_rates: {
         Row: {
           calculated_from_period_end: string | null

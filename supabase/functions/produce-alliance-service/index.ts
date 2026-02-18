@@ -780,17 +780,40 @@ async function decompressDeflate(data: Uint8Array): Promise<Uint8Array> {
 }
 
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
+  const { locationId, triggeredBy } = body;
+
+  // Create sync log
+  const { data: syncLog } = await supabase
+    .from('inventory_sync_logs')
+    .insert({
+      location_id: locationId,
+      sync_source: 'produce_alliance',
+      sync_type: 'manual',
+      status: 'in_progress',
+      triggered_by: triggeredBy || null,
+      metadata: { method: 'ajax' },
+    })
+    .select('id')
+    .single();
+  const syncLogId = syncLog?.id;
+
   const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+  if (!credentials) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA integration not configured']);
+    return jsonResponse({ success: false, error: 'PA integration not configured' });
+  }
 
   const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+  if (!session) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA login failed']);
+    return jsonResponse({ success: false, error: 'PA login failed' });
+  }
 
   const items = await fetchPAItems(session);
   console.log('[PA Sync] Got', items.length, 'items to sync');
 
   if (items.length === 0) {
+    await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No items found' });
     return jsonResponse({ success: true, message: 'No items found on PA portal', synced: 0 });
   }
 
@@ -871,6 +894,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
   }
 
+  await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, [], { categories: categoryMap.size });
   return jsonResponse({ success: true, synced, categories: categoryMap.size });
 }
 
@@ -1168,6 +1192,21 @@ function jsonResponse(data: any, status = 200): Response {
   });
 }
 
+async function updateSyncLog(
+  supabase: any, syncLogId: string | null, status: string, 
+  itemsSynced: number, ordersProcessed: number, errors: string[], metadata?: any
+) {
+  if (!syncLogId) return;
+  await supabase.from('inventory_sync_logs').update({
+    status,
+    items_synced: itemsSynced,
+    orders_processed: ordersProcessed,
+    errors,
+    completed_at: new Date().toISOString(),
+    metadata: metadata || {},
+  }).eq('id', syncLogId);
+}
+
 // ============================================================================
 // TEST VISION — fetch one order PDF, send to Gemini Vision for line items
 // ============================================================================
@@ -1278,19 +1317,47 @@ async function handleTestVision(supabase: any, body: any): Promise<Response> {
 // ============================================================================
 
 async function handleSyncInventory(supabase: any, body: any): Promise<Response> {
-  const { locationId, maxOrders = 3 } = body;
+  const { locationId, maxOrders = 3, triggeredBy } = body;
+  const errors: string[] = [];
+
+  // Create sync log entry
+  const { data: syncLog } = await supabase
+    .from('inventory_sync_logs')
+    .insert({
+      location_id: locationId,
+      sync_source: 'produce_alliance',
+      sync_type: 'manual',
+      status: 'in_progress',
+      triggered_by: triggeredBy || null,
+    })
+    .select('id')
+    .single();
+  const syncLogId = syncLog?.id;
+
   const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+  if (!credentials) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA integration not configured']);
+    return jsonResponse({ success: false, error: 'PA integration not configured' });
+  }
 
   const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+  if (!session) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA login failed']);
+    return jsonResponse({ success: false, error: 'PA login failed' });
+  }
 
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
+  if (!LOVABLE_API_KEY) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['LOVABLE_API_KEY not configured']);
+    return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
+  }
 
   // Step 1: Get orders
   const rawOrders = await fetchPAOrders(session);
-  if (rawOrders.length === 0) return jsonResponse({ success: true, synced: 0, message: 'No orders found' });
+  if (rawOrders.length === 0) {
+    await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No orders found' });
+    return jsonResponse({ success: true, synced: 0, message: 'No orders found' });
+  }
 
   const ordersToProcess = rawOrders.slice(0, maxOrders);
   console.log(`[PA Sync] Processing ${ordersToProcess.length} of ${rawOrders.length} orders`);
@@ -1314,9 +1381,12 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
       .single();
     storageLocationId = inserted?.id;
   }
-  if (!storageLocationId) return jsonResponse({ success: false, error: 'Could not create storage location' });
+  if (!storageLocationId) {
+    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['Could not create storage location']);
+    return jsonResponse({ success: false, error: 'Could not create storage location' });
+  }
 
-  // Step 3: Process each order via Vision
+  // Step 3: Process each order via Vision with retry
   const allItems = new Map<string, any>(); // name -> latest data
   let ordersProcessed = 0;
 
@@ -1326,23 +1396,38 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     
     const pdfBase64 = await fetchOrderPdf(session, orderId);
     if (!pdfBase64) {
-      console.warn(`[PA Sync] Could not get PDF for order ${orderId}`);
+      const errMsg = `Could not fetch PDF for order ${orderId}`;
+      console.warn(`[PA Sync] ${errMsg}`);
+      errors.push(errMsg);
       continue;
     }
 
-    const lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
+    // Retry Vision extraction up to 2 times
+    let lineItems: any[] = [];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
+      if (lineItems.length > 0) break;
+      if (attempt < 2) {
+        console.warn(`[PA Sync] Vision attempt ${attempt} failed for order ${orderId}, retrying...`);
+        await new Promise(r => setTimeout(r, 1000));
+      } else {
+        const errMsg = `Vision extraction failed for order ${orderId} after ${attempt} attempts`;
+        console.warn(`[PA Sync] ${errMsg}`);
+        errors.push(errMsg);
+      }
+    }
+
     console.log(`[PA Sync] Order ${orderId}: ${lineItems.length} items extracted`);
     
     for (const item of lineItems) {
       if (item.name) {
-        // Keep latest price per item name
         allItems.set(item.name.toLowerCase(), item);
       }
     }
     ordersProcessed++;
   }
 
-  // Step 4: Upsert items to inventory
+  // Step 4: Upsert items to inventory with pa_item_id
   let synced = 0;
   for (const [, item] of allItems) {
     // Match by name (case-insensitive)
@@ -1353,12 +1438,16 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
       .ilike('name', item.name)
       .maybeSingle();
 
+    // Generate a stable pa_item_id from the item name
+    const stablePaItemId = `pa_${item.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 60)}`;
+
     const itemData = {
       name: item.name,
       unit: item.unit?.toLowerCase() || 'case',
       storage_location_id: storageLocationId,
       cost_per_unit: item.price || null,
       vendor_source: 'produce_alliance',
+      pa_item_id: stablePaItemId,
       is_active: true,
     };
 
@@ -1370,11 +1459,17 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     synced++;
   }
 
+  // Update sync log
+  await updateSyncLog(supabase, syncLogId, errors.length > 0 && synced === 0 ? 'failed' : 'completed', synced, ordersProcessed, errors, {
+    totalOrdersAvailable: rawOrders.length,
+  });
+
   return jsonResponse({
     success: true,
     synced,
     ordersProcessed,
     totalOrdersAvailable: rawOrders.length,
+    errors: errors.length > 0 ? errors : undefined,
   });
 }
 
