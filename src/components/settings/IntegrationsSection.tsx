@@ -18,6 +18,11 @@ interface QuBeyondCredentials {
   pull_labor?: boolean;
 }
 
+interface PACredentials {
+  username: string;
+  password: string;
+}
+
 interface IntegrationsSectionProps {
   locationId: string | undefined;
 }
@@ -40,6 +45,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  // PA (Produce Alliance) state
+  const [paCredentials, setPaCredentials] = useState({ username: '', password: '' });
+  const [paIsActive, setPaIsActive] = useState(true);
+  const [paShowPassword, setPaShowPassword] = useState(false);
+  const [paIsTesting, setPaIsTesting] = useState(false);
+  const [paTestResult, setPaTestResult] = useState<'success' | 'error' | null>(null);
+  const [paIsSaving, setPaIsSaving] = useState(false);
 
   // PFG state
   const [pfgIsActive, setPfgIsActive] = useState(true);
@@ -87,6 +100,23 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
+  // Fetch existing PA integration
+  const { data: paIntegration, isLoading: paIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'produce_alliance'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase
+        .from('location_integrations')
+        .select('*')
+        .eq('location_id', locationId)
+        .eq('integration_type', 'produce_alliance')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
   // Update local state when QuBeyond integration data loads
   useEffect(() => {
     if (integration) {
@@ -107,6 +137,71 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgIsActive(pfgIntegration.is_active);
     }
   }, [pfgIntegration]);
+
+  // Update local state when PA integration data loads
+  useEffect(() => {
+    if (paIntegration) {
+      const creds = paIntegration.credentials as unknown as PACredentials;
+      setPaCredentials({
+        username: creds?.username || '',
+        password: creds?.password || '',
+      });
+      setPaIsActive(paIntegration.is_active);
+    }
+  }, [paIntegration]);
+
+  // PA Test connection
+  const testPaConnection = async () => {
+    if (!paCredentials.username || !paCredentials.password) {
+      toast.error('Please enter username and password');
+      return;
+    }
+    setPaIsTesting(true);
+    setPaTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
+        body: { action: 'test', locationId, testCredentials: paCredentials }
+      });
+      if (error) throw error;
+      if (data?.authenticated) {
+        setPaTestResult('success');
+        toast.success('Produce Alliance connection successful!');
+      } else {
+        setPaTestResult('error');
+        toast.error('Authentication failed: ' + (data?.error || 'Invalid credentials'));
+      }
+    } catch (error) {
+      setPaTestResult('error');
+      toast.error('Test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setPaIsTesting(false);
+    }
+  };
+
+  // PA Save credentials
+  const savePaCredentials = async () => {
+    if (!locationId || !paCredentials.username || !paCredentials.password) {
+      toast.error('Please enter username and password');
+      return;
+    }
+    setPaIsSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('produce-alliance-service', {
+        body: { action: 'save_credentials', locationId, credentials: paCredentials }
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success('Produce Alliance credentials saved!');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'produce_alliance'] });
+      } else {
+        toast.error(data?.error || 'Failed to save credentials');
+      }
+    } catch (error) {
+      toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setPaIsSaving(false);
+    }
+  };
 
   // PFG OAuth popup login flow
   // PFG: Save a manually-pasted refresh token
@@ -345,7 +440,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <div>
                   <CardTitle className="text-base">Integrations</CardTitle>
                   <CardDescription className="text-sm">
-                    Connect external services like QuBeyond POS and PFG
+                    Connect external services like QuBeyond POS, PFG & Produce Alliance
                   </CardDescription>
                 </div>
               </div>
@@ -628,6 +723,113 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       </>
                     )}
                   </div>
+                </>
+              )}
+            </div>
+
+            {/* Produce Alliance Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">Produce Alliance</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Sync produce orders & pricing into inventory
+                  </p>
+                </div>
+                <Switch
+                  checked={paIsActive}
+                  onCheckedChange={setPaIsActive}
+                />
+              </div>
+
+              {paIsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {paIntegration ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Check className="h-4 w-4 text-primary" />
+                        <span className="text-muted-foreground">
+                          Connected as <span className="font-medium text-foreground">{(paIntegration.credentials as any)?.username || 'Unknown'}</span>
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pa-username" className="text-sm">Username</Label>
+                      <Input
+                        id="pa-username"
+                        value={paCredentials.username}
+                        onChange={(e) => setPaCredentials(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="PA portal username"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pa-password" className="text-sm">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="pa-password"
+                          type={paShowPassword ? "text" : "password"}
+                          value={paCredentials.password}
+                          onChange={(e) => setPaCredentials(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="PA portal password"
+                          className="h-9 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setPaShowPassword(!paShowPassword)}
+                        >
+                          {paShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={testPaConnection}
+                      disabled={paIsTesting || !paCredentials.username || !paCredentials.password}
+                    >
+                      {paIsTesting ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : paTestResult === 'success' ? (
+                        <Check className="h-4 w-4 mr-1.5 text-primary" />
+                      ) : paTestResult === 'error' ? (
+                        <X className="h-4 w-4 mr-1.5 text-destructive" />
+                      ) : (
+                        <TestTube className="h-4 w-4 mr-1.5" />
+                      )}
+                      Test
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      onClick={savePaCredentials}
+                      disabled={paIsSaving || !paCredentials.username || !paCredentials.password}
+                    >
+                      {paIsSaving ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1.5" />
+                      )}
+                      Save
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Enter your Produce Alliance portal credentials to enable automatic inventory sync
+                  </p>
                 </>
               )}
             </div>
