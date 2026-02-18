@@ -812,6 +812,20 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const items = await fetchPAItems(session);
   console.log('[PA Sync] Got', items.length, 'items to sync');
 
+  // Merge pricing data (contains actual UOM)
+  const pricing = await fetchPAPricing(session);
+  if (pricing.length > 0) {
+    console.log('[PA Sync] Got', pricing.length, 'pricing entries to merge UOM');
+    const priceMap = new Map(pricing.map((p: any) => [String(p.id), p]));
+    for (const item of items) {
+      const priceInfo = priceMap.get(String(item.id));
+      if (priceInfo) {
+        item.price = priceInfo.price ?? item.price;
+        item.unit = priceInfo.unit?.toLowerCase() || item.unit;
+      }
+    }
+  }
+
   if (items.length === 0) {
     await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No items found' });
     return jsonResponse({ success: true, message: 'No items found on PA portal', synced: 0 });
