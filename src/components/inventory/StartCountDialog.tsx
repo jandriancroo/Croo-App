@@ -435,7 +435,22 @@ const StartCountDialog = ({
           
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
-          const imageUrl = existing?.image_url || product.imageUrl || null;
+          let imageUrl = existing?.image_url || product.imageUrl || null;
+          
+          // Check cross-location for existing AI-generated image
+          if (!imageUrl && product.itemNumber) {
+            const { data: crossLocationItem } = await supabase
+              .from("inventory_items")
+              .select("image_url")
+              .eq("item_number", product.itemNumber)
+              .not("image_url", "is", null)
+              .neq("location_id", locationId)
+              .limit(1)
+              .maybeSingle();
+            if (crossLocationItem?.image_url) {
+              imageUrl = crossLocationItem.image_url;
+            }
+          }
           
           const itemData = {
             name: product.name,
