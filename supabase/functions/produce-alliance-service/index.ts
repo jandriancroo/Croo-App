@@ -1576,37 +1576,50 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     ordersProcessed++;
   }
 
-  // Step 4: Upsert items to inventory with pa_item_id
+  // Step 4: Update EXISTING items only — never create new items from order PDFs
+  // Order PDFs use abbreviated names that don't match catalog entries, so creating
+  // new items from them causes duplicates and phantom entries.
   let synced = 0;
+  let skippedNew = 0;
   for (const [, item] of allItems) {
-    // Match by name (case-insensitive)
-    const { data: existing } = await supabase
+    // Try matching by exact name first
+    let existing = null;
+    const { data: exactMatch } = await supabase
       .from('inventory_items')
       .select('id')
       .eq('location_id', locationId)
       .ilike('name', item.name)
       .maybeSingle();
+    existing = exactMatch;
 
-    // Generate a stable pa_item_id from the item name
-    const stablePaItemId = `pa_${item.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 60)}`;
-
-    const itemData = {
-      name: item.name,
-      unit: item.unit?.toLowerCase() || 'case',
-      cost_per_unit: item.price || null,
-      vendor_source: 'produce_alliance',
-      pa_item_id: stablePaItemId,
-      is_active: true,
-    };
+    // Also try matching by pa_item_id if name has a stable ID pattern
+    if (!existing) {
+      const stablePaItemId = `pa_${item.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 60)}`;
+      const { data: paMatch } = await supabase
+        .from('inventory_items')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('pa_item_id', stablePaItemId)
+        .maybeSingle();
+      existing = paMatch;
+    }
 
     if (existing) {
-      // Don't overwrite storage_location_id if user already assigned one
-      await supabase.from('inventory_items').update(itemData).eq('id', existing.id);
+      // Only update price — don't overwrite name, unit, or storage location
+      const updateData: any = {};
+      if (item.price) updateData.cost_per_unit = item.price;
+      if (Object.keys(updateData).length > 0) {
+        await supabase.from('inventory_items').update(updateData).eq('id', existing.id);
+      }
+      synced++;
     } else {
-      await supabase.from('inventory_items').insert({ location_id: locationId, storage_location_id: null, ...itemData });
+      // Do NOT create new items from order PDFs — they use abbreviated names
+      // that don't match catalog entries and cause duplicates
+      skippedNew++;
+      console.log(`[PA Sync] Skipped new item from order PDF (not in inventory): "${item.name}"`);
     }
-    synced++;
   }
+  console.log(`[PA Sync] Updated ${synced} existing items, skipped ${skippedNew} unmatched items`);
 
   // Update sync log
   await updateSyncLog(supabase, syncLogId, errors.length > 0 && synced === 0 ? 'failed' : 'completed', synced, ordersProcessed, errors, {
