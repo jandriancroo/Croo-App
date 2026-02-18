@@ -304,12 +304,29 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
           
-          // Use existing image if present, otherwise use PFG image, otherwise leave null for AI generation
-          // Only generate AI images for items with NO image at all
+          // Use existing image if present, otherwise use PFG image, 
+          // otherwise check cross-location for same item_number, otherwise leave null for AI generation
           const hasExistingImage = existing?.image_url;
           const hasPfgImage = product.imageUrl;
-          const imageUrl = hasExistingImage || hasPfgImage || null;
-          const needsAiImage = !hasExistingImage && !hasPfgImage;
+          let imageUrl = hasExistingImage || hasPfgImage || null;
+          let needsAiImage = !imageUrl;
+          
+          // Check if another location already has an AI-generated image for this item
+          if (needsAiImage && product.itemNumber) {
+            const { data: crossLocationItem } = await supabase
+              .from("inventory_items")
+              .select("image_url")
+              .eq("item_number", product.itemNumber)
+              .not("image_url", "is", null)
+              .neq("location_id", locationId)
+              .limit(1)
+              .maybeSingle();
+            
+            if (crossLocationItem?.image_url) {
+              imageUrl = crossLocationItem.image_url;
+              needsAiImage = false;
+            }
+          }
           
           const itemData = {
             name: product.name,
