@@ -340,6 +340,60 @@ async function fetchPAOrders(session: PASession): Promise<any[]> {
 }
 
 // ============================================================================
+// PRICING — fetch current prices via PricesDetailPage
+// ============================================================================
+
+async function fetchPAPricing(session: PASession): Promise<any[]> {
+  try {
+    // Load ordering page first
+    const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+      method: 'GET',
+      headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      redirect: 'follow',
+    });
+    await pageResp.text();
+    const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+
+    // Get price list dates
+    const priceListResp = await fetch(`${PA_BASE_URL}/Ordering/GetPriceListPartialData`, {
+      method: 'POST',
+      headers: {
+        'Cookie': updatedCookies,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+      },
+      body: `locationid=${session.locationId}`,
+    });
+
+    if (!priceListResp.ok) return [];
+    const priceListData = await priceListResp.json();
+    const priceDates = priceListData.Data || priceListData.data || [];
+    if (!Array.isArray(priceDates) || priceDates.length === 0) return [];
+
+    const dateBegin = priceDates[0].DateBegin || priceDates[0].dateBegin;
+
+    // Fetch pricing HTML page
+    const pricingResp = await fetch(
+      `${PA_BASE_URL}/Ordering/PricesDetailPage?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
+      {
+        method: 'GET',
+        headers: { 'Cookie': updatedCookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        redirect: 'follow',
+      }
+    );
+
+    if (!pricingResp.ok) return [];
+    const html = await pricingResp.text();
+    return parsePricingHtml(html);
+  } catch (e) {
+    console.warn('[PA Pricing] Error fetching pricing:', e);
+    return [];
+  }
+}
+
+// ============================================================================
 // ACTION HANDLERS
 // ============================================================================
 
@@ -363,6 +417,20 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
   const items = await fetchPAItems(session);
+
+  // Also fetch current pricing and merge
+  const pricing = await fetchPAPricing(session);
+  if (pricing.length > 0) {
+    const priceMap = new Map(pricing.map((p: any) => [String(p.id), p]));
+    for (const item of items) {
+      const priceInfo = priceMap.get(String(item.id));
+      if (priceInfo) {
+        item.price = priceInfo.price;
+        item.unit = priceInfo.unit?.toLowerCase() || item.unit;
+      }
+    }
+  }
+
   return jsonResponse({ success: true, data: { items, count: items.length } });
 }
 
@@ -504,6 +572,245 @@ async function handleSaveCredentials(supabase: any, body: any): Promise<Response
 }
 
 // ============================================================================
+// EXPLORE — discover links on the ordering page
+// ============================================================================
+
+async function handleExplore(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+    method: 'GET',
+    headers: {
+      'Cookie': session.cookies,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    redirect: 'follow',
+  });
+
+  const pageHtml = await pageResp.text();
+
+  // Extract all links
+  const linkRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const links: { href: string; text: string }[] = [];
+  let match;
+  while ((match = linkRegex.exec(pageHtml)) !== null) {
+    links.push({ href: match[1], text: match[2].replace(/<[^>]+>/g, '').trim() });
+  }
+
+  // Extract navigation/sidebar items
+  const navRegex = /class="[^"]*(?:nav|menu|sidebar|tab)[^"]*"[^>]*>([\s\S]*?)<\//gi;
+  const navItems: string[] = [];
+  while ((match = navRegex.exec(pageHtml)) !== null) {
+    const text = match[1].replace(/<[^>]+>/g, '').trim();
+    if (text) navItems.push(text);
+  }
+
+  // Look for pricing-related links
+  const pricingLinks = links.filter(l => 
+    /pric|cost|rate|pdf|report|export|download/i.test(l.href + ' ' + l.text)
+  );
+
+  // Search for pricing AJAX endpoint
+  const pricingAjaxMatches = pageHtml.match(/url[:\s]*["'][^"']*[Pp]rice[^"']*["']/gi);
+  console.log('[PA Explore] Pricing AJAX URLs:', JSON.stringify(pricingAjaxMatches));
+
+  // Search for GetPrices or similar endpoints
+  const getPricesMatches = pageHtml.match(/(?:Get|Load|Fetch)[A-Za-z]*[Pp]rice[^"'\s)}\]]*["')}\]]/gi);
+  console.log('[PA Explore] GetPrices matches:', JSON.stringify(getPricesMatches));
+
+  // Find the tblpricestablesummary AJAX setup - search around it
+  const tblPricesIdx = pageHtml.indexOf('tblpricestablesummary');
+  if (tblPricesIdx > -1) {
+    // Go back further to find the AJAX url
+    const context = pageHtml.slice(Math.max(0, tblPricesIdx - 2000), tblPricesIdx + 1000).replace(/\s+/g, ' ');
+    console.log('[PA Explore] tblpricestablesummary context:', context);
+  }
+
+  // Log full HTML for debugging (first 5000 chars)
+  console.log('[PA Explore] Page HTML (5000 chars):', pageHtml.replace(/\s+/g, ' ').slice(0, 5000));
+  console.log('[PA Explore] All links:', JSON.stringify(links));
+  console.log('[PA Explore] Pricing links:', JSON.stringify(pricingLinks));
+
+  return jsonResponse({
+    success: true,
+    data: {
+      allLinks: links,
+      pricingLinks,
+      navItems,
+      pageLength: pageHtml.length,
+    }
+  });
+}
+
+// ============================================================================
+// PRICING — fetch pricing list PDF
+// ============================================================================
+
+async function handlePricing(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Step 1: Load ordering page to establish session state
+  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+    method: 'GET',
+    headers: {
+      'Cookie': session.cookies,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    redirect: 'follow',
+  });
+  await pageResp.text();
+  const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+
+  // Step 2: Get price list dates from AJAX endpoint
+  console.log('[PA Pricing] Fetching price list dates...');
+  const priceListResp = await fetch(`${PA_BASE_URL}/Ordering/GetPriceListPartialData`, {
+    method: 'POST',
+    headers: {
+      'Cookie': updatedCookies,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Requested-With': 'XMLHttpRequest',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+    },
+    body: `locationid=${session.locationId}`,
+    redirect: 'follow',
+  });
+
+  if (!priceListResp.ok) {
+    console.log('[PA Pricing] GetPriceListPartialData →', priceListResp.status);
+    return jsonResponse({ success: false, error: 'Failed to fetch price list dates' });
+  }
+
+  const priceListData = await priceListResp.json();
+  console.log('[PA Pricing] Price list data:', JSON.stringify(priceListData).slice(0, 1000));
+
+  const priceDates = priceListData.Data || priceListData.data || [];
+  if (!Array.isArray(priceDates) || priceDates.length === 0) {
+    return jsonResponse({ success: true, data: { priceLists: [], message: 'No price lists available' } });
+  }
+
+  // Step 3: Fetch the most recent pricing page (HTML version for parsing)
+  const latestDate = priceDates[0];
+  const dateBegin = latestDate.DateBegin || latestDate.dateBegin;
+  console.log('[PA Pricing] Fetching latest price list for date:', dateBegin);
+
+  const pricingPageResp = await fetch(
+    `${PA_BASE_URL}/Ordering/PricesDetailPage?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
+    {
+      method: 'GET',
+      headers: {
+        'Cookie': updatedCookies,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      redirect: 'follow',
+    }
+  );
+
+  console.log('[PA Pricing] PricesDetailPage status:', pricingPageResp.status, 'content-type:', pricingPageResp.headers.get('content-type'));
+
+  if (!pricingPageResp.ok) {
+    // Try PDF version instead
+    console.log('[PA Pricing] HTML failed, trying PDF...');
+    const pdfResp = await fetch(
+      `${PA_BASE_URL}/Ordering/PricesDetail?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
+      {
+        method: 'GET',
+        headers: {
+          'Cookie': updatedCookies,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        redirect: 'follow',
+      }
+    );
+
+    const pdfContentType = pdfResp.headers.get('content-type') || '';
+    console.log('[PA Pricing] PDF status:', pdfResp.status, 'content-type:', pdfContentType);
+
+    if (pdfResp.ok && pdfContentType.includes('pdf')) {
+      const pdfBytes = new Uint8Array(await pdfResp.arrayBuffer());
+      console.log('[PA Pricing] Got PDF, size:', pdfBytes.byteLength, 'bytes');
+      return jsonResponse({
+        success: true,
+        data: {
+          type: 'pdf',
+          dateBegin,
+          dateEnd: latestDate.DateEnd || latestDate.dateEnd,
+          lineCount: latestDate.LineCount || latestDate.lineCount,
+          pdfSize: pdfBytes.byteLength,
+          allDates: priceDates,
+        }
+      });
+    }
+
+    const text = await pdfResp.text();
+    console.log('[PA Pricing] Response (500 chars):', text.slice(0, 500));
+    return jsonResponse({ success: false, error: 'Could not fetch pricing data' });
+  }
+
+  // Parse the HTML pricing page for item prices
+  const pricingHtml = await pricingPageResp.text();
+  console.log('[PA Pricing] Got pricing page HTML, length:', pricingHtml.length);
+  console.log('[PA Pricing] HTML sample (2000 chars):', pricingHtml.replace(/\s+/g, ' ').slice(0, 2000));
+
+  // Try to extract pricing data from the HTML table
+  const items = parsePricingHtml(pricingHtml);
+
+  return jsonResponse({
+    success: true,
+    data: {
+      type: 'html',
+      dateBegin,
+      dateEnd: latestDate.DateEnd || latestDate.dateEnd,
+      lineCount: latestDate.LineCount || latestDate.lineCount,
+      items,
+      itemCount: items.length,
+      allDates: priceDates,
+    }
+  });
+}
+
+function parsePricingHtml(html: string): any[] {
+  const items: any[] = [];
+  
+  // Table format: [itemId, name, unit, quantity, price($XX.XX)]
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let match;
+  while ((match = rowRegex.exec(html)) !== null) {
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(match[1])) !== null) {
+      cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+    }
+    // Expected: [id, name, unit, qty, price]
+    if (cells.length >= 5) {
+      const priceStr = cells[4];
+      if (priceStr && /\$/.test(priceStr)) {
+        items.push({
+          id: cells[0],
+          name: cells[1],
+          unit: cells[2],
+          quantity: parseFloat(cells[3]) || 1,
+          price: parseFloat(priceStr.replace(/[$,]/g, '')) || 0,
+        });
+      }
+    }
+  }
+  
+  return items;
+}
+
+// ============================================================================
 // HELPERS
 // ============================================================================
 
@@ -554,6 +861,8 @@ serve(async (req) => {
       case 'orders': return await handleOrders(supabase, body);
       case 'sync_items': return await handleSyncItems(supabase, body);
       case 'save_credentials': return await handleSaveCredentials(supabase, body);
+      case 'explore': return await handleExplore(supabase, body);
+      case 'pricing': return await handlePricing(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
