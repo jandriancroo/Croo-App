@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, ChevronDown, FlaskConical, Plus, Leaf } from "lucide-react";
+import { RefreshCw, MapPin, Package, Loader2, Pencil, FlaskConical, Leaf } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ interface EditingItem {
   pack_quantity_override: number | null;
   category: string | null;
   common_name: string | null;
+  storage_location_id: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
@@ -56,6 +57,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [categoryValue, setCategoryValue] = useState<string>("");
   const [useCommonName, setUseCommonName] = useState(false);
   const [commonNameValue, setCommonNameValue] = useState("");
+  const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   
 
   // Check if PFG is configured
@@ -125,10 +127,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, common_name }: { itemId: string; override: number | null; category: string | null; common_name: string | null }) => {
+    mutationFn: async ({ itemId, override, category, common_name, storage_location_id }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, common_name } as any)
+        .update({ pack_quantity_override: override, category, common_name, storage_location_id } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -150,12 +152,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       pack_quantity: item.pack_quantity,
       pack_quantity_override: item.pack_quantity_override,
       category: item.category,
-      common_name: item.common_name || null
+      common_name: item.common_name || null,
+      storage_location_id: item.storage_location_id || null
     });
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
     setUseCommonName(!!item.common_name);
     setCommonNameValue(item.common_name || "");
+    setStorageLocationValue(item.storage_location_id || "");
   };
 
   const saveItem = () => {
@@ -163,7 +167,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
     const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name });
+    const storage_location_id = storageLocationValue || null;
+    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id });
   };
 
 
@@ -686,6 +691,53 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   </div>
                 );
               })}
+
+              {/* Unassigned items (no storage location) */}
+              {(() => {
+                const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe);
+                if (unassigned.length === 0) return null;
+                return (
+                  <div>
+                    <h4 className="text-sm font-medium text-amber-500 mb-2 flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Unassigned ({unassigned.length})
+                    </h4>
+                    <div className="grid gap-1">
+                      {unassigned.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-amber-500/10 border border-amber-500/20 rounded text-sm group">
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <span className="truncate">{(item as any).common_name || item.name}</span>
+                            {(item as any).common_name && (
+                              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={item.name}>
+                                ({item.name})
+                              </span>
+                            )}
+                            {item.vendor_source && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                                {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            {item.unit && <span className="text-xs">{item.unit}</span>}
+                            {item.cost_per_unit && (
+                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <p className="text-muted-foreground text-center py-4">
@@ -705,7 +757,26 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           {editingItem && (
             <div className="space-y-4">
               <p className="text-sm font-medium">{editingItem.name}</p>
-              
+
+              {/* Storage Location selector */}
+              <div className="space-y-1">
+                <Label htmlFor="storage-location">Storage Location</Label>
+                <select
+                  id="storage-location"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={storageLocationValue}
+                  onChange={(e) => setStorageLocationValue(e.target.value)}
+                >
+                  <option value="">Unassigned</option>
+                  {storageLocations?.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Which storage area this item belongs to
+                </p>
+              </div>
+
               {/* Category selector */}
               <div className="space-y-1">
                 <Label htmlFor="category">Category</Label>
