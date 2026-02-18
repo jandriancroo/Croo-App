@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,7 @@ const StartCountDialog = ({
   isPending,
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [step, setStep] = useState<"period" | "sync">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -69,6 +71,7 @@ const StartCountDialog = ({
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [syncComplete, setSyncComplete] = useState(false);
   const [paSyncComplete, setPaSyncComplete] = useState(false);
+  const [lastSyncErrors, setLastSyncErrors] = useState<string[]>([]);
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -78,6 +81,7 @@ const StartCountDialog = ({
       setSyncComplete(false);
       setPaSyncComplete(false);
       setSyncProgress(null);
+      setLastSyncErrors([]);
     }
   }, [open]);
 
@@ -176,6 +180,25 @@ const StartCountDialog = ({
         totalItems: count || 0,
         itemsWithPrices: itemsWithPrices || 0,
       };
+    },
+    enabled: open && step === "sync",
+  });
+
+  // Fetch last PA sync log
+  const { data: lastPaSyncLog, refetch: refetchSyncLog } = useQuery({
+    queryKey: ["inventory-last-pa-sync", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_sync_logs")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("sync_source", "produce_alliance")
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
     },
     enabled: open && step === "sync",
   });
@@ -466,20 +489,24 @@ const StartCountDialog = ({
     if (!paIntegration) return;
     
     setIsSyncingPA(true);
+    setLastSyncErrors([]);
     setSyncProgress({ phase: "Connecting to Produce Alliance...", current: 0, total: 100 });
     
     try {
       setSyncProgress({ phase: "Fetching orders & extracting items via AI...", current: 20, total: 100 });
       
       const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
-        body: { locationId, action: "sync_inventory", maxOrders: 3 }
+        body: { locationId, action: "sync_inventory", maxOrders: 3, triggeredBy: user?.id }
       });
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || "PA sync failed");
 
+      const syncErrors = data.errors || [];
+      setLastSyncErrors(syncErrors);
+
       setSyncProgress({ 
-        phase: `Synced ${data.synced} items from ${data.ordersProcessed} orders`, 
+        phase: `Synced ${data.synced} items from ${data.ordersProcessed} orders${syncErrors.length > 0 ? ` (${syncErrors.length} warnings)` : ''}`, 
         current: 100, 
         total: 100 
       });
@@ -487,6 +514,7 @@ const StartCountDialog = ({
       
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-last-pa-sync", locationId] });
       refetchSyncInfo();
       
     } catch (err) {
@@ -716,6 +744,39 @@ const StartCountDialog = ({
                   <div className="flex items-center justify-center gap-2 text-green-600 py-2">
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-medium">Sync complete</span>
+                  </div>
+                )}
+
+                {/* Sync warnings/errors */}
+                {lastSyncErrors.length > 0 && (
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {lastSyncErrors.length} warning{lastSyncErrors.length > 1 ? 's' : ''}
+                    </p>
+                    {lastSyncErrors.map((err, i) => (
+                      <p key={i} className="text-muted-foreground text-xs pl-5">{err}</p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Last PA sync log */}
+                {lastPaSyncLog && !paSyncComplete && (
+                  <div className="text-xs text-muted-foreground border-t pt-2 space-y-1">
+                    <p>
+                      Last PA sync: {formatDistanceToNow(new Date(lastPaSyncLog.started_at), { addSuffix: true })}
+                      {' — '}
+                      <span className={lastPaSyncLog.status === 'failed' ? 'text-destructive' : ''}>
+                        {lastPaSyncLog.status === 'completed' 
+                          ? `${lastPaSyncLog.items_synced} items synced` 
+                          : lastPaSyncLog.status}
+                      </span>
+                    </p>
+                    {(lastPaSyncLog.errors as string[])?.length > 0 && (
+                      <p className="text-destructive">
+                        {(lastPaSyncLog.errors as string[]).length} error{(lastPaSyncLog.errors as string[]).length > 1 ? 's' : ''} last run
+                      </p>
+                    )}
                   </div>
                 )}
               </CardContent>
