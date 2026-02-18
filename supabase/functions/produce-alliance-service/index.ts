@@ -514,27 +514,73 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
 
   // Optionally fetch line-item details for recent orders
   if (fetchDetails && orders.length > 0) {
-    const detailCount = Math.min(orders.length, 5); // Limit to 5 most recent
+    // Need fresh cookies from the ordering page
+    const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+      method: 'GET',
+      headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      redirect: 'follow',
+    });
+    await pageResp.text();
+    const detailCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+
+    const detailCount = Math.min(orders.length, 5);
     for (let i = 0; i < detailCount; i++) {
-      try {
-        const detailResp = await fetch(
-          `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${orders[i].orderId}`,
-          {
+      const oid = orders[i].orderId;
+      console.log(`[PA API] Fetching detail for order ${oid}`);
+      
+      // Try multiple URL patterns — the "View" button opens a page like the price list
+      const urls = [
+        `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${oid}&locationid=${session.locationId}&download=false`,
+        `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${oid}&download=false`,
+        `${PA_BASE_URL}/Ordering/OrderDetailPage?orderid=${oid}&locationid=${session.locationId}&download=false`,
+        `${PA_BASE_URL}/Ordering/InvoiceDetailPage?orderid=${oid}&locationid=${session.locationId}&download=false`,
+      ];
+
+      for (const url of urls) {
+        try {
+          const detailResp = await fetch(url, {
             method: 'GET',
             headers: {
-              'Cookie': session.cookies,
+              'Cookie': detailCookies,
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
             },
             redirect: 'follow',
+          });
+          
+          console.log(`[PA API] Order detail ${url.split('/Ordering/')[1]?.split('?')[0]} → ${detailResp.status}, len: ${detailResp.headers.get('content-length') || '?'}`);
+          
+          if (detailResp.ok) {
+            const contentType = detailResp.headers.get('content-type') || '';
+            const rawBytes = new Uint8Array(await detailResp.arrayBuffer());
+            const text = new TextDecoder('utf-8', { fatal: false }).decode(rawBytes);
+            const isPdf = text.startsWith('%PDF');
+            
+            console.log(`[PA API] Order ${oid} type: ${contentType}, isPdf: ${isPdf}, len: ${text.length}`);
+            
+            if (isPdf) {
+              // Extract text from PDF streams
+              const parsed = await parsePdfOrderDetail(rawBytes);
+              if (parsed.length > 0) {
+                orders[i].lineItems = parsed;
+                console.log(`[PA API] Order ${oid}: ${parsed.length} line items from PDF`);
+                break;
+              }
+            } else {
+              console.log(`[PA API] Order ${oid} first 500:`, text.slice(0, 500).replace(/\s+/g, ' '));
+              const parsed = parseOrderDetailHtml(text);
+              if (parsed.length > 0) {
+                orders[i].lineItems = parsed;
+                console.log(`[PA API] Order ${oid}: ${parsed.length} line items from HTML`);
+                break;
+              }
+            }
+          } else {
+            await detailResp.text().catch(() => '');
           }
-        );
-        if (detailResp.ok) {
-          const html = await detailResp.text();
-          orders[i].lineItems = parseOrderDetailHtml(html);
-          console.log(`[PA API] Order ${orders[i].orderId}: ${orders[i].lineItems.length} line items`);
+        } catch (e) {
+          console.warn(`[PA API] Detail fetch error for ${oid}:`, e);
         }
-      } catch (e) {
-        console.warn(`[PA API] Failed to fetch details for order ${orders[i].orderId}:`, e);
       }
     }
   }
@@ -568,6 +614,161 @@ function parseOrderDetailHtml(html: string): any[] {
     }
   }
   return items;
+}
+
+// Parse order line items from PDF binary (wkhtmltopdf with FlateDecode streams)
+async function parsePdfOrderDetail(bytes: Uint8Array): Promise<any[]> {
+  try {
+    const rawText = new TextDecoder('latin1').decode(bytes);
+    const allTextParts: string[] = [];
+    
+    // Find and decompress FlateDecode streams
+    let searchFrom = 0;
+    let streamCount = 0;
+    let decompressedCount = 0;
+    
+    while (true) {
+      // Handle both \n and \r\n after "stream"
+      let streamIdx = rawText.indexOf('stream\r\n', searchFrom);
+      let dataStart = streamIdx === -1 ? -1 : streamIdx + 'stream\r\n'.length;
+      if (streamIdx === -1) {
+        streamIdx = rawText.indexOf('stream\n', searchFrom);
+        dataStart = streamIdx === -1 ? -1 : streamIdx + 'stream\n'.length;
+      }
+      if (streamIdx === -1) break;
+      
+      // Find endstream (could be \nendstream or \r\nendstream)
+      let endIdx = rawText.indexOf('\r\nendstream', dataStart);
+      if (endIdx === -1) endIdx = rawText.indexOf('\nendstream', dataStart);
+      if (endIdx === -1) { searchFrom = dataStart; continue; }
+      
+      streamCount++;
+      
+      // Check header for FlateDecode
+      const headerStart = Math.max(0, streamIdx - 500);
+      const header = rawText.slice(headerStart, streamIdx);
+      
+      if (header.includes('FlateDecode')) {
+        const compressedBytes = bytes.slice(dataStart, endIdx);
+        console.log(`[PA PDF] Stream ${streamCount}: compressed ${compressedBytes.length} bytes, first 4: ${compressedBytes[0]?.toString(16)} ${compressedBytes[1]?.toString(16)}`);
+        try {
+          const decompressed = await decompressDeflate(compressedBytes);
+          const streamText = new TextDecoder('latin1').decode(decompressed);
+          
+          // Log first decompressed stream content for debugging
+          if (decompressedCount === 0) {
+            console.log(`[PA PDF] Stream ${streamCount} decompressed ${decompressed.length} bytes, first 500:`, streamText.slice(0, 500));
+          }
+          
+          // Extract text from BT...ET blocks  
+          const btRegex = /BT\s*([\s\S]*?)ET/g;
+          let btMatch;
+          while ((btMatch = btRegex.exec(streamText)) !== null) {
+            const block = btMatch[1];
+            // Tj operator
+            const tjRegex = /\(([^)]*)\)\s*Tj/g;
+            let tj;
+            while ((tj = tjRegex.exec(block)) !== null) {
+              const decoded = tj[1].replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\');
+              if (decoded.trim()) allTextParts.push(decoded.trim());
+            }
+            // TJ array operator
+            const tjArrRegex = /\[([^\]]*)\]\s*TJ/g;
+            let tja;
+            while ((tja = tjArrRegex.exec(block)) !== null) {
+              const innerRegex = /\(([^)]*)\)/g;
+              let inner;
+              let combined = '';
+              while ((inner = innerRegex.exec(tja[1])) !== null) {
+                combined += inner[1].replace(/\\\(/g, '(').replace(/\\\)/g, ')');
+              }
+              if (combined.trim()) allTextParts.push(combined.trim());
+            }
+          }
+          decompressedCount++;
+        } catch (e) {
+          console.log(`[PA PDF] Stream ${streamCount} decompress failed:`, e?.message || e);
+        }
+      }
+      
+      searchFrom = endIdx + 10;
+    }
+    
+    console.log(`[PA PDF] Found ${streamCount} streams, decompressed ${decompressedCount}, extracted ${allTextParts.length} text parts`);
+    if (allTextParts.length > 0) {
+      console.log('[PA PDF] Sample:', JSON.stringify(allTextParts.slice(0, 40)));
+    }
+    
+    // Parse line items from text parts
+    // Typical order: Item#, Description, Qty, Unit, Price, Extended
+    const items: any[] = [];
+    
+    for (let i = 0; i < allTextParts.length; i++) {
+      const part = allTextParts[i];
+      // Look for dollar amounts
+      if (/^\$[\d,]+\.\d{2}$/.test(part)) {
+        const price = parseFloat(part.replace(/[$,]/g, ''));
+        let name = '';
+        let qty = 0;
+        let unit = '';
+        
+        for (let j = i - 1; j >= Math.max(0, i - 8); j--) {
+          const prev = allTextParts[j];
+          if (/^\d+\.?\d*$/.test(prev) && !qty) {
+            qty = parseFloat(prev);
+          } else if (/^(cs|ea|lb|bg|ct|cn|bx|pk|dz|hd|bn|bh|fl|jg)$/i.test(prev) && !unit) {
+            unit = prev;
+          } else if (prev.length > 3 && !/^\$/.test(prev) && !/^\d+\.?\d*$/.test(prev) && !name) {
+            name = prev;
+          }
+        }
+        
+        if (name && (qty > 0 || price > 0)) {
+          if (!items.some(it => it.name === name && it.price === price)) {
+            items.push({ name, quantity: qty, unit: unit || 'cs', price });
+          }
+        }
+      }
+    }
+    
+    return items;
+  } catch (e) {
+    console.warn('[PA PDF] Parse error:', e);
+    return [];
+  }
+}
+
+async function decompressDeflate(data: Uint8Array): Promise<Uint8Array> {
+  // Try raw deflate first, then with zlib header
+  for (const format of ['raw' as const, 'deflate' as const]) {
+    try {
+      const ds = new DecompressionStream(format);
+      const writer = ds.writable.getWriter();
+      const reader = ds.readable.getReader();
+      
+      writer.write(data).catch(() => {});
+      writer.close().catch(() => {});
+      
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+      const result = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const chunk of chunks) {
+        result.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return result;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error('Decompression failed');
 }
 
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
