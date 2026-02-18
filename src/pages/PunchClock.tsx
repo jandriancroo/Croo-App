@@ -10,6 +10,7 @@ import crooLogo from '@/assets/croo-logo.webp';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
+import { getTodayInTimezone } from '@/utils/timezoneUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 import { QRTaskReportOverlay } from '@/components/punchclock/QRTaskReportOverlay';
@@ -485,17 +486,35 @@ export default function PunchClock() {
 
   const checkAllBirthdays = async () => {
     try {
+      if (!currentLocation?.id) return;
+
+      // Only fetch profiles assigned to this location
+      const { data: locationUsers, error: luError } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+
+      if (luError) throw luError;
+      const userIds = (locationUsers || []).map(u => u.user_id);
+      if (userIds.length === 0) {
+        setBirthdayEmployees([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, birthday')
         .eq('is_active', true)
-        .not('birthday', 'is', null);
+        .not('birthday', 'is', null)
+        .in('id', userIds);
 
       if (error) throw error;
 
-      const today = new Date();
-      const todayMonth = today.getMonth() + 1;
-      const todayDay = today.getDate();
+      // Use timezone-aware today to avoid date drift
+      const todayStr = getTodayInTimezone(timezone);
+      const [, todayMonthStr, todayDayStr] = todayStr.split('-');
+      const todayMonth = parseInt(todayMonthStr, 10);
+      const todayDay = parseInt(todayDayStr, 10);
 
       const employeesWithBirthdays = (data || []).filter(profile => {
         if (!profile.birthday) return false;
