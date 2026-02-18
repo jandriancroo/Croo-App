@@ -142,10 +142,10 @@ function mergeCookies(existing: string, newCookies: string): string {
 // ============================================================================
 
 async function fetchPAItems(session: PASession): Promise<any[]> {
-  console.log('[PA API] Fetching items, location:', session.locationId);
+  console.log('[PA API] Fetching Order Guide items, location:', session.locationId);
 
-  // Load ordering page first (establishes state)
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
+  // Load ordering page first to establish session state
+  const homeResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
     method: 'GET',
     headers: {
       'Cookie': session.cookies,
@@ -153,28 +153,104 @@ async function fetchPAItems(session: PASession): Promise<any[]> {
     },
     redirect: 'follow',
   });
-
-  const pageHtml = await pageResp.text();
-  if (pageHtml.includes('Login to get started')) {
+  const homeHtml = await homeResp.text();
+  if (homeHtml.includes('Login to get started')) {
     throw new Error('PA session expired');
   }
+  const updatedCookies = mergeCookies(session.cookies, extractCookies(homeResp.headers));
 
-  const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+  // Navigate to Order Guide Options page
+  const guideResp = await fetch(`${PA_BASE_URL}/Ordering/OrderGuideOptions?DDLLocationID=${session.locationId}`, {
+    method: 'GET',
+    headers: {
+      'Cookie': updatedCookies,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+    },
+    redirect: 'follow',
+  });
 
-  // Extract verification token
-  let verificationToken = '';
-  const tokenMatch = pageHtml.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/);
-  if (tokenMatch) verificationToken = tokenMatch[1];
+  if (!guideResp.ok) {
+    console.error('[PA API] Order Guide page failed:', guideResp.status);
+    return [];
+  }
 
+  const guideHtml = await guideResp.text();
+  console.log('[PA API] Order Guide page length:', guideHtml.length);
+
+  // Parse the HTML table rows
+  // Table structure: <tr><td>Seq</td><td>Display (checkbox)</td><td>PA Product ID</td><td>Description</td>...</tr>
+  const items: any[] = [];
+  
+  // Match table rows - each row has: seq, display checkbox, PA Product ID, Description, ...
+  // The "Display" column has a checked checkbox (checked="checked" or similar) for active items
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  let rowCount = 0;
+  
+  while ((rowMatch = rowRegex.exec(guideHtml)) !== null) {
+    const rowHtml = rowMatch[1];
+    
+    // Extract all <td> contents
+    const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    const cells: string[] = [];
+    let tdMatch;
+    while ((tdMatch = tdRegex.exec(rowHtml)) !== null) {
+      cells.push(tdMatch[1].trim());
+    }
+    
+    if (cells.length < 4) continue;
+    rowCount++;
+    
+    // cells[0] = Seq, cells[1] = Display (checkbox HTML), cells[2] = PA Product ID, cells[3] = Description
+    const displayHtml = cells[1];
+    const isDisplayed = /checked/i.test(displayHtml);
+    
+    // Extract PA Product ID - could be in an input or just text
+    let productId = cells[2].replace(/<[^>]*>/g, '').trim();
+    
+    // Extract Description
+    let description = cells[3].replace(/<[^>]*>/g, '').trim();
+    
+    // Skip header row or empty rows
+    if (!productId || !description || /^PA Product/i.test(productId) || /^Description$/i.test(description)) continue;
+    
+    // Only include items that are on the order guide (Display checked)
+    if (!isDisplayed) {
+      continue;
+    }
+    
+    items.push({
+      id: productId,
+      name: description,
+      unit: 'case', // Will be overridden by pricing merge
+      itemNumber: productId,
+    });
+  }
+  
+  console.log(`[PA API] Order Guide: ${rowCount} total rows, ${items.length} displayed items`);
+  
+  if (items.length === 0) {
+    // Log a snippet of the page for debugging
+    console.log('[PA API] Order Guide HTML sample:', guideHtml.slice(0, 2000).replace(/\s+/g, ' '));
+    
+    // Fallback: try the AJAX endpoint
+    console.log('[PA API] Falling back to AJAX catalog fetch');
+    return await fetchPAItemsAjax(session, updatedCookies);
+  }
+  
+  return items;
+}
+
+// Fallback AJAX catalog fetch (old method)
+async function fetchPAItemsAjax(session: PASession, cookies: string): Promise<any[]> {
   const baseHeaders: Record<string, string> = {
-    'Cookie': updatedCookies,
+    'Cookie': cookies,
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'X-Requested-With': 'XMLHttpRequest',
     'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
   };
-  if (verificationToken) baseHeaders['__RequestVerificationToken'] = verificationToken;
 
-  // Try GetInvoiceProducts with different content types
   const attempts = [
     { ct: 'application/json', body: JSON.stringify({ locationId: session.locationId, DDLLocationID: session.locationId }) },
     { ct: 'application/x-www-form-urlencoded', body: `DDLLocationID=${session.locationId}&page=1&pageSize=1000` },
@@ -189,63 +265,17 @@ async function fetchPAItems(session: PASession): Promise<any[]> {
         body,
         redirect: 'follow',
       });
-
       if (resp.ok) {
         const text = await resp.text();
         const result = tryParseItems(text, 'GetInvoiceProducts');
         if (result.length > 0) return result;
       } else {
-        console.log('[PA API] GetInvoiceProducts', ct, '→', resp.status);
         await resp.text().catch(() => '');
       }
     } catch (e) {
-      console.warn('[PA API] Error:', e);
+      console.warn('[PA API] AJAX fallback error:', e);
     }
   }
-
-  // Try VerifyOrderGuideByLocation
-  try {
-    const resp = await fetch(`${PA_BASE_URL}/Ordering/VerifyOrderGuideByLocation`, {
-      method: 'POST',
-      headers: { ...baseHeaders, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `DDLLocationID=${session.locationId}`,
-      redirect: 'follow',
-    });
-
-    if (resp.ok) {
-      const text = await resp.text();
-      console.log('[PA API] VerifyOrderGuide response (500 chars):', text.slice(0, 500));
-      const result = tryParseItems(text, 'VerifyOrderGuide');
-      if (result.length > 0) return result;
-    } else {
-      await resp.text().catch(() => '');
-    }
-  } catch (e) {
-    console.warn('[PA API] VerifyOrderGuide error:', e);
-  }
-
-  // Log order/invoice related JS
-  const orderJsRegex = /(?:order|invoice|GetOrder|GetInvoice|tblorder|tblinvoice)[^;]{0,300}/gi;
-  const orderMatches: string[] = [];
-  let m;
-  while ((m = orderJsRegex.exec(pageHtml)) !== null) {
-    orderMatches.push(m[0].replace(/\s+/g, ' ').trim());
-  }
-  console.log('[PA API] Order-related JS snippets:', JSON.stringify(orderMatches.slice(0, 20)));
-
-  // Also log the full page for order section
-  const orderSectionIdx = pageHtml.indexOf('storeHomeOrders');
-  if (orderSectionIdx > -1) {
-    const orderContext = pageHtml.slice(Math.max(0, orderSectionIdx - 500), orderSectionIdx + 3000).replace(/\s+/g, ' ');
-    console.log('[PA API] Order section context:', orderContext);
-  }
-  
-  const invoiceSectionIdx = pageHtml.indexOf('storeHomeInvoices');
-  if (invoiceSectionIdx > -1) {
-    const invoiceContext = pageHtml.slice(Math.max(0, invoiceSectionIdx - 500), invoiceSectionIdx + 3000).replace(/\s+/g, ' ');
-    console.log('[PA API] Invoice section context:', invoiceContext);
-  }
-
   return [];
 }
 
