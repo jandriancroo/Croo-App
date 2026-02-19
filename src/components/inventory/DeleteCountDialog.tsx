@@ -19,7 +19,7 @@ interface DeleteCountDialogProps {
   countPeriod: string;
 }
 
-const COOLDOWN_SECONDS = 10;
+const COOLDOWN_SECONDS = 5;
 
 const DeleteCountDialog = ({
   open,
