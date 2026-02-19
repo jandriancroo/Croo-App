@@ -990,7 +990,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
                   {/* Pan size rows */}
                   {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
-                    <div className="px-4 pb-4 border-t border-border/40 pt-3 space-y-2">
+                    <div className="p-4 border-t border-border/40 space-y-2">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
                         <ChefHat className="h-3 w-3" />
                         Pan / Cambro Sizes
