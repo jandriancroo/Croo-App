@@ -518,16 +518,30 @@ async function handleSaveToken(supabase: any, body: any): Promise<Response> {
     const tokenData = await tokenResp.json();
     const newRefreshToken = tokenData.refresh_token || refreshToken;
 
+    // Fetch existing credentials to preserve order guide IDs
+    const { data: existing } = await supabase
+      .from('location_integrations')
+      .select('credentials')
+      .eq('location_id', locationId)
+      .eq('integration_type', 'pfg')
+      .maybeSingle();
+
+    const existingCreds = (existing?.credentials as Record<string, unknown>) || {};
+
+    // Merge: preserve product_list_header_id, customer_id, etc.
+    const mergedCredentials = {
+      ...existingCreds,
+      refresh_token: newRefreshToken,
+      refresh_token_updated_at: new Date().toISOString(),
+    };
+
     // Upsert the integration
     const { error: upsertError } = await supabase
       .from('location_integrations')
       .upsert({
         location_id: locationId,
         integration_type: 'pfg',
-        credentials: {
-          refresh_token: newRefreshToken,
-          refresh_token_updated_at: new Date().toISOString(),
-        },
+        credentials: mergedCredentials,
         is_active: true,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'location_id,integration_type' });
