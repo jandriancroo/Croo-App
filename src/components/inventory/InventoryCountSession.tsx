@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock, ChefHat } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -992,7 +992,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
                     <div className="-mx-4 px-4 pt-3 pb-4 border-t border-border/40 space-y-2 mt-3">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
-                        <ChefHat className="h-3 w-3" />
                         Pan / Cambro Sizes
                       </p>
                       <div className="grid grid-cols-2 gap-3 items-end">
