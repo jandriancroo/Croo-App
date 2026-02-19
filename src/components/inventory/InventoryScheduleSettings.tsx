@@ -153,73 +153,103 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Calendar className="h-5 w-5" />
           Count Schedule
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Weekly */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Weekly Count</Label>
-              <p className="text-sm text-muted-foreground">Count inventory once a week</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {savingFrequency === "weekly" && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Switch
-                checked={weeklySetting.is_active}
-                onCheckedChange={(checked) => handleToggle("weekly", checked)}
-              />
-            </div>
+      <CardContent className="space-y-3">
+        {/* Weekly - compact row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Switch
+              checked={weeklySetting.is_active}
+              onCheckedChange={(checked) => handleToggle("weekly", checked)}
+            />
+            <span className="text-sm font-medium">Weekly</span>
+            {savingFrequency === "weekly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
           {weeklySetting.is_active && (
-            <div className="pl-4 border-l-2 border-primary/20">
-              <Label className="text-sm text-muted-foreground">Count Day</Label>
+            <Select
+              value={weeklySetting.day_of_week?.toString() ?? "0"}
+              onValueChange={(v) => handleDayChange("weekly", "day_of_week", parseInt(v))}
+            >
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS_OF_WEEK.map((day) => (
+                  <SelectItem key={day.value} value={day.value.toString()}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {/* Monthly - compact row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Switch
+              checked={monthlySetting.is_active}
+              onCheckedChange={(checked) => handleToggle("monthly", checked)}
+            />
+            <span className="text-sm font-medium">Monthly</span>
+            {savingFrequency === "monthly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+          {monthlySetting.is_active && (
+            <Select
+              value={monthlySetting.day_of_month?.toString() ?? "1"}
+              onValueChange={(v) => handleDayChange("monthly", "day_of_month", parseInt(v))}
+            >
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS_OF_MONTH.map((day) => (
+                  <SelectItem key={day.value} value={day.value.toString()}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {/* Yearly - compact row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Switch
+              checked={yearlySetting.is_active}
+              onCheckedChange={(checked) => handleToggle("yearly", checked)}
+            />
+            <span className="text-sm font-medium">Yearly</span>
+            {savingFrequency === "yearly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+          {yearlySetting.is_active && (
+            <div className="flex items-center gap-1.5">
               <Select
-                value={weeklySetting.day_of_week?.toString() ?? "0"}
-                onValueChange={(v) => handleDayChange("weekly", "day_of_week", parseInt(v))}
+                value={yearlySetting.month_of_year?.toString() ?? "1"}
+                onValueChange={(v) => handleDayChange("yearly", "month_of_year", parseInt(v))}
               >
-                <SelectTrigger className="w-full mt-1">
+                <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DAYS_OF_WEEK.map((day) => (
-                    <SelectItem key={day.value} value={day.value.toString()}>
-                      {day.label}
+                  {MONTHS.map((month) => (
+                    <SelectItem key={month.value} value={month.value.toString()}>
+                      {month.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
-        </div>
-
-        {/* Monthly */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Monthly Count</Label>
-              <p className="text-sm text-muted-foreground">Count inventory once a month</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {savingFrequency === "monthly" && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Switch
-                checked={monthlySetting.is_active}
-                onCheckedChange={(checked) => handleToggle("monthly", checked)}
-              />
-            </div>
-          </div>
-          {monthlySetting.is_active && (
-            <div className="pl-4 border-l-2 border-primary/20">
-              <Label className="text-sm text-muted-foreground">Day of Month</Label>
               <Select
-                value={monthlySetting.day_of_month?.toString() ?? "1"}
-                onValueChange={(v) => handleDayChange("monthly", "day_of_month", parseInt(v))}
+                value={yearlySetting.day_of_month?.toString() ?? "1"}
+                onValueChange={(v) => handleDayChange("yearly", "day_of_month", parseInt(v))}
               >
-                <SelectTrigger className="w-full mt-1">
+                <SelectTrigger className="w-20 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -230,63 +260,6 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          )}
-        </div>
-
-        {/* Yearly */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Yearly Count</Label>
-              <p className="text-sm text-muted-foreground">Count inventory once a year</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {savingFrequency === "yearly" && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Switch
-                checked={yearlySetting.is_active}
-                onCheckedChange={(checked) => handleToggle("yearly", checked)}
-              />
-            </div>
-          </div>
-          {yearlySetting.is_active && (
-            <div className="pl-4 border-l-2 border-primary/20 space-y-3">
-              <div>
-                <Label className="text-sm text-muted-foreground">Month</Label>
-                <Select
-                  value={yearlySetting.month_of_year?.toString() ?? "1"}
-                  onValueChange={(v) => handleDayChange("yearly", "month_of_year", parseInt(v))}
-                >
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTHS.map((month) => (
-                      <SelectItem key={month.value} value={month.value.toString()}>
-                        {month.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-sm text-muted-foreground">Day of Month</Label>
-                <Select
-                  value={yearlySetting.day_of_month?.toString() ?? "1"}
-                  onValueChange={(v) => handleDayChange("yearly", "day_of_month", parseInt(v))}
-                >
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DAYS_OF_MONTH.map((day) => (
-                      <SelectItem key={day.value} value={day.value.toString()}>
-                        {day.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           )}
         </div>

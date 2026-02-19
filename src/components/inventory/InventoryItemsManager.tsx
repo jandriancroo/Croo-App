@@ -513,81 +513,61 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       {/* Schedule Settings */}
       <InventoryScheduleSettings locationId={locationId} />
 
-      {/* PFG Sync Button */}
-      {pfgIntegration && (
-        <Card>
-          <CardContent className="pt-6">
-            <Button 
-              className="w-full" 
-              onClick={syncFromPFG}
-              disabled={isSyncing}
-            >
-              {isSyncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Sync with PFG
-            </Button>
-            
-            {/* Progress indicator */}
-            {progress && (
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{progress.phase}</span>
-                  <span className="text-muted-foreground">{progress.current}%</span>
-                </div>
-                <Progress value={progress.current} className="h-2" />
-                {progress.detail && (
-                  <p className="text-xs text-muted-foreground text-center">{progress.detail}</p>
+      {/* Sync Buttons - side by side */}
+      {(pfgIntegration || paIntegration) && (
+        <div className="grid grid-cols-2 gap-3">
+          {pfgIntegration && (
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <Button 
+                  className="w-full" 
+                  size="sm"
+                  onClick={syncFromPFG}
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1.5" />
+                  )}
+                  Sync PFG
+                </Button>
+                {progress && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground truncate">{progress.phase}</p>
+                    <Progress value={progress.current} className="h-1.5" />
+                  </div>
                 )}
-              </div>
-            )}
-            
-            {!progress && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Syncs storage locations and items from your PFG product list
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Produce Alliance Sync Button */}
-      {paIntegration && (
-        <Card>
-          <CardContent className="pt-6">
-            <Button 
-              className="w-full" 
-              variant="outline"
-              onClick={syncFromPA}
-              disabled={isPaSyncing}
-            >
-              {isPaSyncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Leaf className="h-4 w-4 mr-2" />
-              )}
-              Sync with Produce Alliance
-            </Button>
-            
-            {paProgress && (
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{paProgress.phase}</span>
-                  <span className="text-muted-foreground">{paProgress.current}%</span>
-                </div>
-                <Progress value={paProgress.current} className="h-2" />
-              </div>
-            )}
-            
-            {!paProgress && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Syncs produce items and order history from Produce Alliance
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+          {paIntegration && (
+            <Card>
+              <CardContent className="pt-4 pb-4">
+                <Button 
+                  className="w-full" 
+                  variant="outline"
+                  size="sm"
+                  onClick={syncFromPA}
+                  disabled={isPaSyncing}
+                >
+                  {isPaSyncing ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Leaf className="h-4 w-4 mr-1.5" />
+                  )}
+                  Sync PA
+                </Button>
+                {paProgress && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>
+                    <Progress value={paProgress.current} className="h-1.5" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Product Groups */}
