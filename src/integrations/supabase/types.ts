@@ -2056,6 +2056,7 @@ export type Database = {
           pack_quantity: number | null
           pack_quantity_override: number | null
           pack_size: string | null
+          pan_sizes: Json | null
           par_level: number | null
           qubeyond_item_id: string | null
           recipe_yield_qty: number | null
@@ -2087,6 +2088,7 @@ export type Database = {
           pack_quantity?: number | null
           pack_quantity_override?: number | null
           pack_size?: string | null
+          pan_sizes?: Json | null
           par_level?: number | null
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null
@@ -2118,6 +2120,7 @@ export type Database = {
           pack_quantity?: number | null
           pack_quantity_override?: number | null
           pack_size?: string | null
+          pan_sizes?: Json | null
           par_level?: number | null
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null

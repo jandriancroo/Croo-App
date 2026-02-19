@@ -19,6 +19,7 @@ import ProductGroupsManager from "./ProductGroupsManager";
 import UsageRateMapping from "./UsageRateMapping";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import RemapItemDialog from "./RemapItemDialog";
+import PanSizesSection, { PanSizesConfig } from "./PanSizesSection";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -62,6 +63,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [commonNameValue, setCommonNameValue] = useState("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   const [remapItem, setRemapItem] = useState<any>(null);
+  const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   
 
   // Check if PFG is configured
@@ -196,10 +198,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, common_name, storage_location_id }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null }) => {
+    mutationFn: async ({ itemId, override, category, common_name, storage_location_id, pan_sizes }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, common_name, storage_location_id } as any)
+        .update({ pack_quantity_override: override, category, common_name, storage_location_id, pan_sizes: pan_sizes as any } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -229,6 +231,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     setUseCommonName(!!item.common_name);
     setCommonNameValue(item.common_name || "");
     setStorageLocationValue(item.storage_location_id || "");
+    setPanSizesConfig(item.pan_sizes ? (item.pan_sizes as PanSizesConfig) : null);
   };
 
   const saveItem = () => {
@@ -237,7 +240,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     const category = categoryValue || null;
     const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
     const storage_location_id = storageLocationValue || null;
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id });
+    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig });
   };
 
 
@@ -935,7 +938,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">Edit Item</DialogTitle>
           </DialogHeader>
@@ -1010,6 +1013,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   </div>
                 )}
               </div>
+
+              {/* Pan Sizes */}
+              <PanSizesSection
+                value={panSizesConfig}
+                onChange={setPanSizesConfig}
+              />
 
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">
