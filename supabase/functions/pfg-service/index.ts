@@ -398,6 +398,65 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
   );
 }
 
+// Fetch delivery detail (line items) for a specific order
+async function fetchDeliveryDetail(
+  accessToken: string,
+  order: any,
+  customerId: string,
+): Promise<any[]> {
+  // Build DeliveryKey: {OpCoNumber}_{CustomerNumber}_{DeliveryDate YYYY-MM-DD}_{OrderKey}
+  const opCo = order.OrderOperationCompanyNumber || '428';
+  const custNum = order.DeliverToCustomerNumber || '';
+  const deliveryDateRaw = order.DeliveryDate;
+  const orderKey = order.OrderKey || order.OrderNumber;
+
+  if (!custNum || !deliveryDateRaw || !orderKey) {
+    console.warn('[PFG API] Cannot build DeliveryKey — missing fields');
+    return [];
+  }
+
+  const deliveryDateFormatted = parsePfgDate(deliveryDateRaw);
+  if (!deliveryDateFormatted) {
+    console.warn('[PFG API] Cannot parse delivery date for DeliveryKey:', deliveryDateRaw);
+    return [];
+  }
+
+  const deliveryKey = `${opCo}_${custNum}_${deliveryDateFormatted}_${orderKey}`;
+  console.log('[PFG API] Fetching delivery detail, key:', deliveryKey);
+
+  try {
+    const data = await fetchPfgJson(
+      '/Delivery/V1/GetDeliveryDetail',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          DeliveryBusinessUnitERPKey: order.OrderBusinessUnitERPKey || 0,
+          DeliveryKey: deliveryKey,
+          DeliveryOperationCompanyNumber: opCo,
+          CustomerId: customerId,
+        }),
+      },
+    );
+
+    const items = data?.ResultObject;
+    if (!Array.isArray(items)) {
+      console.warn('[PFG API] DeliveryDetail ResultObject is not an array');
+      return [];
+    }
+
+    console.log(`[PFG API] Got ${items.length} line items for order ${orderKey}`);
+    return items;
+  } catch (err) {
+    console.warn('[PFG API] DeliveryDetail failed for key', deliveryKey, ':', (err as Error).message?.slice(0, 200));
+    return [];
+  }
+}
+
 // Parse date from PFG format
 function parsePfgDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
@@ -1146,16 +1205,32 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 
         if (!orderDate) continue;
 
-        // Headers don't include line items — store total info
-        const items = (order.Items || order.OrderItems || order.LineItems || []).map((item: any) => ({
-          productId: item.ProductKey || item.ProductId || item.ItemNumber,
-          itemNumber: item.DisplayProductNumber || item.ProductNumber || item.ItemNumber,
-          name: item.ProductDescription || item.Description || item.Name,
-          quantity: item.Quantity || item.OrderQuantity || 0,
-          unit: item.UnitOfMeasure || item.UOM || 'CS',
-          price: item.Price || item.UnitPrice || 0,
-          total: item.ExtendedPrice || item.LineTotal || 0,
-        }));
+        // Fetch line items from GetDeliveryDetail
+        let items: any[] = [];
+        const customerIdForDetail = customerIdToUse || order.CustomerId;
+        if (customerIdForDetail) {
+          const detailItems = await fetchDeliveryDetail(accessToken, order, customerIdForDetail);
+          items = detailItems.map((item: any) => {
+            const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
+            return {
+              productId: item.ProductKey || item.DeliveryDetailProductKey,
+              itemNumber: uom.ProductNumber || item.ProductKey,
+              name: item.ProductDescription || 'Unknown',
+              brand: item.ProductBrand || null,
+              quantity: uom.QuantityOrdered || 0,
+              quantityShipped: uom.QuantityShipped || 0,
+              unit: 'CS',
+              packSize: uom.ProductPackSize || null,
+              price: uom.UnitPrice || 0,
+              total: item.ExtendedPrice || 0,
+              isCatchWeight: uom.IsCatchWeight || false,
+              isShorted: item.IsProductShorted || false,
+            };
+          });
+          console.log(`[PFG Sync] Order ${pfgOrderId}: ${items.length} line items fetched`);
+        } else {
+          console.warn(`[PFG Sync] No customerId for delivery detail on order ${pfgOrderId}`);
+        }
 
         const { error: upsertError } = await supabase
           .from('pfg_orders')
