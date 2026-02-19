@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.produce-alliance-service]
 verify_jwt = false
+
+[functions.delete-time-punches]
+verify_jwt = false
