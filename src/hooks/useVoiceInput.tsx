@@ -55,10 +55,10 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  // Use an independent ref (NOT synced to state) so onend can reliably check intent
   const isListeningRef = useRef(false);
   const onTranscriptRef = useRef(onTranscript);
 
-  isListeningRef.current = isListening;
   onTranscriptRef.current = onTranscript;
 
   useEffect(() => {
@@ -131,11 +131,13 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
+      isListeningRef.current = true; // Set ref BEFORE starting so onend can restart
       recognitionRef.current.start();
       setIsListening(true);
       console.log('[Voice Native] Started listening');
     } catch (error) {
       console.error('[Voice Native] Failed to start:', error);
+      isListeningRef.current = false;
       setIsListening(false);
     }
   }, []);
@@ -144,6 +146,7 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
     if (!recognitionRef.current) return;
 
     try {
+      isListeningRef.current = false; // Clear ref BEFORE stopping so onend doesn't restart
       setIsListening(false);
       recognitionRef.current.stop();
       console.log('[Voice Native] Stopped listening');
