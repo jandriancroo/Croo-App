@@ -232,7 +232,7 @@ const InventoryCount = () => {
           {(isCounting || isEditing) && (
             <Button
               size="icon"
-              className="bg-amber-500 hover:bg-amber-600 text-white h-10 w-10 rounded-xl flex-shrink-0"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 w-10 rounded-xl flex-shrink-0"
               onClick={() => saveRef.current?.save()}
               disabled={saveRef.current?.isSaving}
             >
