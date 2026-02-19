@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw } from "lucide-react";
+import pfgLogo from "@/assets/pfg-logo.png";
+import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface QuBeyondCredentials {
@@ -625,11 +627,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             {/* PFG Section */}
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">PFG (Performance Food Group)</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Connect to PFG ordering system
-                  </p>
+                <div className="flex items-center gap-3">
+                  <img src={pfgLogo} alt="PFG" className="h-8 w-auto" />
+                  <div>
+                    <h4 className="font-medium">PFG (Performance Food Group)</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Connect to PFG ordering system
+                    </p>
+                  </div>
                 </div>
                 <Switch
                   checked={pfgIsActive}
@@ -801,11 +806,14 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             {/* Produce Alliance Section */}
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Produce Alliance</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Sync produce orders & pricing into inventory
-                  </p>
+                <div className="flex items-center gap-3">
+                  <img src={paLogo} alt="Produce Alliance" className="h-8 w-auto" />
+                  <div>
+                    <h4 className="font-medium">Produce Alliance</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Sync produce orders & pricing into inventory
+                    </p>
+                  </div>
                 </div>
                 <Switch
                   checked={paIsActive}

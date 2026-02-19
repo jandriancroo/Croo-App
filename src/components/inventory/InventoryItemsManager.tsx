@@ -8,7 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, MapPin, Package, Loader2, Pencil, FlaskConical, Leaf, EyeOff } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff } from "lucide-react";
+import pfgLogo from "@/assets/pfg-logo.png";
+import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -528,7 +530,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   {isSyncing ? (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   ) : (
-                    <RefreshCw className="h-4 w-4 mr-1.5" />
+                    <img src={pfgLogo} alt="PFG" className="h-5 w-auto mr-1.5" />
                   )}
                   Sync PFG
                 </Button>
@@ -554,7 +556,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   {isPaSyncing ? (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   ) : (
-                    <Leaf className="h-4 w-4 mr-1.5" />
+                    <img src={paLogo} alt="PA" className="h-5 w-auto mr-1.5" />
                   )}
                   Sync PA
                 </Button>
