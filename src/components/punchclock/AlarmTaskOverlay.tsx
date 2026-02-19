@@ -52,6 +52,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   // Avoid stale-closure bugs inside realtime/poll handlers
   const activeAlarmRef = useRef<AlarmTask | null>(null);
   const isVisibleRef = useRef(false);
+  // Track whether employee picker is open so polling won't reset it
+  const showEmployeePickerRef = useRef(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const minimizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -65,6 +67,10 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   useEffect(() => {
     isVisibleRef.current = isVisible;
   }, [isVisible]);
+
+  useEffect(() => {
+    showEmployeePickerRef.current = showEmployeePicker;
+  }, [showEmployeePicker]);
 
   const getAudioContext = () => {
     if (!audioCtxRef.current) {
@@ -287,6 +293,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
           isVisibleRef.current
         ) return;
 
+        // Don't reset while the employee picker is open — the user is actively completing it
+        if (showEmployeePickerRef.current && activeAlarmRef.current?.id === task.id) return;
+
         // Check if already completed
         const { data: completions } = await supabase
           .from('alarm_task_completions')
@@ -332,6 +341,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 activeAlarmRef.current?.interval_key === intervalKey &&
                 isVisibleRef.current
               ) return;
+
+              // Don't reset while employee picker is open
+              if (showEmployeePickerRef.current && activeAlarmRef.current?.id === task.id) return;
 
               // Check completion
               const { data: completions } = await supabase
