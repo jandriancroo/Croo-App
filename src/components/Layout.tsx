@@ -106,7 +106,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
             {/* Exit/Cancel button */}
             <button
               onClick={dockContent.onExit}
-              className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
             >
               <X className="h-6 w-6" />
             </button>
@@ -115,19 +115,19 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
             <div className="flex-1 flex items-center justify-center gap-3">
               {/* Items counted */}
               <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Items</p>
-                <p className="text-base font-bold leading-tight">
-                  {dockContent.countedItems}<span className="text-muted-foreground font-normal">/{dockContent.totalItems}</span>
+                <p className="text-[10px] text-white/60 uppercase tracking-wide">Items</p>
+                <p className="text-base font-bold leading-tight text-white">
+                  {dockContent.countedItems}<span className="text-white/60 font-normal">/{dockContent.totalItems}</span>
                 </p>
               </div>
               
               {/* Divider */}
-              <div className="h-8 w-px bg-border/50" />
+              <div className="h-8 w-px bg-white/20" />
               
               {/* Total value */}
               <div className="text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Value</p>
-                <p className="text-base font-bold text-primary leading-tight flex items-center justify-center gap-0.5">
+                <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
+                <p className="text-base font-bold text-white leading-tight flex items-center justify-center gap-0.5">
                   <DollarSign className="h-3.5 w-3.5" />
                   {formatCurrency(dockContent.totalValue).replace('$', '')}
                 </p>
@@ -141,7 +141,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative ${
                   dockContent.isListening 
                     ? 'bg-destructive text-destructive-foreground' 
-                    : 'text-orange-500 hover:text-orange-600 hover:bg-orange-500/10'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {dockContent.isListening ? (
@@ -162,7 +162,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
               className={`h-12 px-4 flex-shrink-0 flex items-center justify-center gap-2 rounded-xl font-medium transition-colors ${
                 dockContent.isEditing 
                   ? 'bg-amber-600 text-white hover:bg-amber-700' 
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-white/20 text-white hover:bg-white/30'
               } disabled:opacity-50`}
             >
               <Save className="h-5 w-5" />
