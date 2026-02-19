@@ -118,18 +118,18 @@ const CardOptionD = () => (
 
 // Option E: Pill stepper — ultra-clean with pill-shaped controls
 const CardOptionE = () => (
-  <div className="bg-card rounded-xl shadow-sm border border-border p-4">
-    <div className="flex items-start justify-between mb-4">
+  <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+    <div className="flex items-start justify-between bg-primary/10 border-b border-primary/20 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-sm text-foreground">{mockItem.name}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{mockItem.packSize} · ${mockItem.costPerCase}/case</p>
+        <p className="font-semibold text-sm text-primary">{mockItem.name}</p>
+        <p className="text-xs text-primary/70 mt-0.5">{mockItem.packSize} · ${mockItem.costPerCase}/case</p>
       </div>
       <div className="text-right flex-shrink-0 ml-3">
-        <p className="text-lg font-bold text-foreground">${mockItem.totalCost.toFixed(2)}</p>
+        <p className="text-2xl font-bold text-foreground">${mockItem.totalCost.toFixed(2)}</p>
         <p className="text-[11px] text-muted-foreground">{mockItem.totalUnits} units</p>
       </div>
     </div>
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 p-4">
       <PillStepper label="Cases" value={mockItem.cases} />
       <PillStepper label="Units" value={mockItem.units} />
     </div>
@@ -193,7 +193,7 @@ const PillStepper = ({ label, value }: { label: string; value: number }) => (
   <div className="flex-1">
     <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">{label}</span>
     <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
-      <button className="h-11 w-11 flex items-center justify-center text-muted-foreground hover:bg-muted active:scale-95 transition-all rounded-full flex-shrink-0">
+      <button className="h-11 w-11 flex items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all rounded-full flex-shrink-0">
         <Minus className="h-4 w-4" strokeWidth={2} />
       </button>
       <span className="flex-1 text-center text-xl font-bold text-foreground tabular-nums">{value}</span>
