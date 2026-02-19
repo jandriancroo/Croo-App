@@ -631,7 +631,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="h-6 w-px bg-border" />
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}</span>
+                <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
               {isSupported && !isEditing && (
                 <>
