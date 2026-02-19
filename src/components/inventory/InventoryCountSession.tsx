@@ -17,6 +17,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTrian
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useInventoryVoiceFeedback } from "@/hooks/useInventoryVoiceFeedback";
 import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -64,11 +65,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const { setDockContent } = useDockToast();
+  const { playSuccess, playError } = useInventoryVoiceFeedback();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
@@ -489,6 +492,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           if (cases === 0 && units === 0) {
             console.warn('[Voice] Skipping zero-count command for item:', cmd.item_name);
             toast.warning(`Skipped "${cmd.item_name}" — heard 0 cases & 0 units`);
+            playError();
             continue;
           }
 
@@ -506,13 +510,21 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           successCount++;
 
           const matchedItem = items.find(i => i.item_id === itemId);
+          // Play success chime + spoken confirmation
+          if (matchedItem) {
+            playSuccess(matchedItem.item_name, cases, units);
+          }
           toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
         } else if (cmd.item_name) {
           toast.warning(`Couldn't match "${cmd.item_name}" to an item`);
+          playError();
+          // Flash error highlight briefly
+          setErrorHighlightedItemId("__unmatched__");
+          setTimeout(() => setErrorHighlightedItemId(null), 2000);
         }
       }
 
-      // Highlight the last matched item
+      // Highlight the last matched item (success)
       if (lastMatchedId) {
         setHighlightedItemId(lastMatchedId);
         setTimeout(() => setHighlightedItemId(null), 2000);
@@ -520,12 +532,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       if (successCount === 0 && commands.length === 0) {
         toast.warning(`Couldn't understand: "${transcript}"`);
+        playError();
       }
     } catch (error) {
       console.error('[Voice] Parse error:', error);
       toast.error('Failed to process voice command');
+      playError();
     }
-  }, [items]);
+  }, [items, playSuccess, playError]);
 
   const { isListening, isSupported, toggleListening } = useVoiceInput({
     onTranscript: handleVoiceTranscript,
@@ -753,13 +767,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const packQty = item.pack_quantity || 1;
           const costPerUnit = (item.cost_per_unit || 0) / packQty;
           const isHighlighted = highlightedItemId === item.item_id;
+          const isErrorHighlighted = errorHighlightedItemId === item.item_id;
           
           return (
             <Card 
               key={item.item_id} 
               className={cn(
                 "overflow-hidden transition-all duration-300",
-                isHighlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02] shadow-lg"
+                isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
+                isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
               <CardContent className="p-0">
