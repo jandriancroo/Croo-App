@@ -242,6 +242,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   // Sync everything from PFG (locations + items)
   const syncFromPFG = async () => {
     setIsSyncing(true);
+    const syncStartedAt = new Date().toISOString();
     setProgress({ phase: "Connecting to PFG...", current: 0, total: 100 });
     
     try {
@@ -483,6 +484,19 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       }
 
       setProgress({ phase: "Complete!", current: 100, total: 100 });
+
+      // Write sync log
+      await supabase.from("inventory_sync_logs").insert({
+        location_id: locationId,
+        sync_source: "pfg",
+        sync_type: "manual",
+        started_at: syncStartedAt,
+        completed_at: new Date().toISOString(),
+        status: "completed",
+        items_synced: itemsAdded + itemsUpdated,
+        orders_processed: 0,
+        triggered_by: (await supabase.auth.getUser()).data.user?.id || null,
+      });
 
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
