@@ -225,36 +225,21 @@ const InventoryCount = () => {
           </div>
         </div>
 
-        {/* Location & Period Info */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-            <MapPin className="h-4 w-4" />
-            <span className="font-medium text-foreground">
-              {location?.name || "Loading..."}
-            </span>
-            {location?.store_number && (
-              <Badge variant="outline" className="text-xs">
-                #{location.store_number}
-              </Badge>
-            )}
-          </div>
-          
-          <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
-        </div>
+        {/* Period Info */}
+        <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
 
         {/* Count Session, View, or Review */}
         {isViewOnly ? (
           <>
-            {/* Edit button for completed counts */}
-            <div className="flex justify-between">
+            {/* Actions for completed counts */}
+            <div className="flex gap-2 justify-end">
               <Button 
                 variant="ghost" 
-                size="sm"
+                size="icon"
                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={() => setShowDeleteDialog(true)}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                <Trash2 className="h-4 w-4" />
               </Button>
               <Button 
                 variant="outline" 
@@ -273,32 +258,33 @@ const InventoryCount = () => {
         ) : isReviewMode ? (
           <>
             {/* Review mode: show items + Continue, Delete, and Submit buttons */}
-            <div className="flex gap-2 justify-between">
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex gap-2 flex-1">
                 <Button 
                   variant="outline" 
+                  className="flex-1 sm:flex-none"
                   onClick={() => navigate(`/inventory/${locationId}/count/${countId}?continue=true`)}
                 >
                   <Play className="h-4 w-4 mr-2" />
                   Continue Counting
                 </Button>
                 <Button 
+                  className="flex-1 sm:flex-none"
                   onClick={() => submitCountMutation.mutate()}
                   disabled={submitCountMutation.isPending}
                 >
                   <Check className="h-4 w-4 mr-2" />
-                  {submitCountMutation.isPending ? "Submitting..." : "Submit Count"}
+                  {submitCountMutation.isPending ? "Submitting..." : "Submit"}
                 </Button>
               </div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 self-end sm:self-auto"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
             <InventoryCountView 
               countId={countId!} 
