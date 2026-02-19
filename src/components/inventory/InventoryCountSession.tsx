@@ -28,6 +28,7 @@ interface InventoryCountSessionProps {
   onClose: () => void;
   isEditing?: boolean; // True if reopening a completed count for editing
   isViewOnly?: boolean; // True if just viewing a completed count (no editing)
+  saveRef?: React.MutableRefObject<{ save: () => void; isSaving: boolean } | null>;
 }
 
 interface CountItem {
@@ -58,7 +59,7 @@ interface PendingEdit {
   newQuantity: number;
 }
 
-const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false }: InventoryCountSessionProps) => {
+const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -545,6 +546,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     toggleListeningRef.current = toggleListening;
   });
 
+  // Expose save to parent via ref
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = {
+        save: () => isEditing ? handleSaveEditsRef.current() : handleSaveRef.current(),
+        isSaving,
+      };
+    }
+    return () => {
+      if (saveRef) saveRef.current = null;
+    };
+  }, [saveRef, isEditing, isSaving]);
+
   // Timer for elapsed counting time
   useEffect(() => {
     if (!isViewOnly && !isEditing) {
@@ -570,7 +584,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isVoiceSupported: isSupported,
         isEditing,
         elapsedSeconds,
-        onSave: () => isEditing ? handleSaveEditsRef.current() : handleSaveRef.current(),
+        onSave: () => {}, // Save moved to page header
         onToggleVoice: () => toggleListeningRef.current(),
       });
     } else {

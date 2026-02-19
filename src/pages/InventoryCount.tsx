@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 
 const InventoryCount = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const saveRef = useRef<{ save: () => void; isSaving: boolean } | null>(null);
   const { locationId, countId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -226,7 +227,19 @@ const InventoryCount = () => {
         </div>
 
         {/* Period Info */}
-        <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
+          {(isCounting || isEditing) && (
+            <Button
+              size="icon"
+              className="bg-amber-500 hover:bg-amber-600 text-white h-10 w-10 rounded-xl flex-shrink-0"
+              onClick={() => saveRef.current?.save()}
+              disabled={saveRef.current?.isSaving}
+            >
+              <Save className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
 
         {/* Count Session, View, or Review */}
         {isViewOnly ? (
@@ -280,6 +293,7 @@ const InventoryCount = () => {
             isEditing={isEditing}
             isViewOnly={false}
             onClose={handleClose}
+            saveRef={saveRef}
           />
         ) : null}
 
