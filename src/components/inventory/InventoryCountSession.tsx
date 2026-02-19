@@ -731,7 +731,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-muted-foreground text-background hover:bg-muted-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, -1)}
                         >
                           <Minus className="h-5 w-5" strokeWidth={2.5} />
@@ -752,7 +752,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-muted-foreground text-background hover:bg-muted-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, 1)}
                         >
                           <Plus className="h-5 w-5" strokeWidth={2.5} />
@@ -773,7 +773,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-muted-foreground text-background hover:bg-muted-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateUnits(item.item_id, -1)}
                         >
                           <Minus className="h-5 w-5" strokeWidth={2.5} />
@@ -794,7 +794,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-muted-foreground text-background hover:bg-muted-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateUnits(item.item_id, 1)}
                         >
                           <Plus className="h-5 w-5" strokeWidth={2.5} />
