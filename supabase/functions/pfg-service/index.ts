@@ -376,6 +376,7 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
   if (customerId) {
     requestBody.CustomerId = customerId;
   }
+  console.log('[PFG API] Order request body:', JSON.stringify(requestBody));
 
   return fetchPfgJson(
     '/SubmittedOrder/V1/GetSubmittedOrderHeaders',
@@ -1089,7 +1090,19 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       const customerIdToUse = credentials.customer_id;
       const orderData = await fetchOrderHistory(accessToken, customerIdToUse);
       
-      // Response can be an array (GetSubmittedOrderHeaders) or single object (ResultObject)
+      console.log('[PFG Sync] Raw response keys:', JSON.stringify(Object.keys(orderData || {})));
+      console.log('[PFG Sync] IsSuccess:', orderData?.IsSuccess);
+      console.log('[PFG Sync] ErrorMessages:', JSON.stringify(orderData?.ErrorMessages));
+      console.log('[PFG Sync] ResultObject type:', typeof orderData?.ResultObject, Array.isArray(orderData?.ResultObject) ? 'array' : '', 'length:', Array.isArray(orderData?.ResultObject) ? orderData.ResultObject.length : 'n/a');
+      if (orderData?.ResultObject && !Array.isArray(orderData.ResultObject)) {
+        console.log('[PFG Sync] ResultObject keys:', JSON.stringify(Object.keys(orderData.ResultObject)).slice(0, 500));
+      }
+      console.log('[PFG Sync] CustomerId used:', customerIdToUse);
+      
+      // Response can be: 
+      // 1. { ResultObject: [...orders...], IsSuccess: true } — array of orders
+      // 2. { ResultObject: { OrderKey: "...", ... }, IsSuccess: true } — single order
+      // 3. { ResultObject: { SubmittedOrderHeaders: [...] }, IsSuccess: true } — nested array
       let rawOrders: any[];
       const resultObj = orderData?.ResultObject;
       if (Array.isArray(resultObj)) {
@@ -1097,9 +1110,15 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       } else if (resultObj && typeof resultObj === 'object' && resultObj.OrderKey) {
         // Single order wrapped in ResultObject
         rawOrders = [resultObj];
+      } else if (resultObj && typeof resultObj === 'object') {
+        // Try nested patterns
+        rawOrders = resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || [];
+        // If still empty but has order-like fields, treat as single order
+        if (rawOrders.length === 0 && (resultObj.OrderNumber || resultObj.DeliveryDate)) {
+          rawOrders = [resultObj];
+        }
       } else {
-        // Try other common patterns
-        rawOrders = orderData?.ResultObject?.SubmittedOrderHeaders || orderData?.ResultObject?.Orders || [];
+        rawOrders = [];
       }
       
       console.log(`[PFG Sync] Found ${rawOrders.length} orders for location ${integration.location_id}`);
