@@ -119,14 +119,14 @@ const CardOptionD = () => (
 // Option E: Pill stepper — ultra-clean with pill-shaped controls
 const CardOptionE = () => (
   <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-    <div className="flex items-start justify-between bg-primary/10 border-b border-primary/20 px-4 py-3">
+    <div className="flex items-start justify-between bg-primary px-4 py-3">
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-sm text-primary">{mockItem.name}</p>
-        <p className="text-xs text-primary/70 mt-0.5">{mockItem.packSize} · ${mockItem.costPerCase}/case</p>
+        <p className="font-semibold text-sm text-primary-foreground">{mockItem.name}</p>
+        <p className="text-xs text-primary-foreground/70 mt-0.5">{mockItem.packSize} · ${mockItem.costPerCase}/case</p>
       </div>
       <div className="text-right flex-shrink-0 ml-3">
-        <p className="text-2xl font-bold text-foreground">${mockItem.totalCost.toFixed(2)}</p>
-        <p className="text-[11px] text-muted-foreground">{mockItem.totalUnits} units</p>
+        <p className="text-2xl font-bold text-primary-foreground">${mockItem.totalCost.toFixed(2)}</p>
+        <p className="text-[11px] text-primary-foreground/70">{mockItem.totalUnits} units</p>
       </div>
     </div>
     <div className="flex items-center gap-3 p-4">
@@ -196,7 +196,7 @@ const PillStepper = ({ label, value }: { label: string; value: number }) => (
       <button className="h-11 w-11 flex items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all rounded-full flex-shrink-0">
         <Minus className="h-4 w-4" strokeWidth={2} />
       </button>
-      <span className="flex-1 text-center text-xl font-bold text-foreground tabular-nums">{value}</span>
+      <input type="number" defaultValue={value} className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
       <button className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0">
         <Plus className="h-4 w-4" strokeWidth={2} />
       </button>
