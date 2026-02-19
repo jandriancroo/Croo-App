@@ -124,22 +124,22 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 
                 <div className="h-8 w-px bg-white/20" />
                 
-                {/* Total value */}
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
-                  <p className="text-base font-bold text-white leading-tight flex items-center justify-center gap-0.5">
-                    <DollarSign className="h-3.5 w-3.5" />
-                    {formatCurrency(dockContent.totalValue).replace('$', '')}
-                  </p>
-                </div>
-                
-                <div className="h-8 w-px bg-white/20" />
-                
                 {/* Timer */}
                 <div className="text-center">
                   <p className="text-[10px] text-white/60 uppercase tracking-wide">Time</p>
                   <p className="text-base font-bold text-white leading-tight font-mono">
                     {Math.floor(dockContent.elapsedSeconds / 60)} min
+                  </p>
+                </div>
+                
+                <div className="h-8 w-px bg-white/20" />
+                
+                {/* Total value - prominent */}
+                <div className="text-center flex-1">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
+                  <p className="text-lg font-bold text-white leading-tight flex items-center justify-center gap-0.5">
+                    <DollarSign className="h-4 w-4" />
+                    {formatCurrency(dockContent.totalValue).replace('$', '')}
                   </p>
                 </div>
               </div>
@@ -165,18 +165,17 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 </button>
               )}
 
-              {/* Save button */}
+              {/* Save button - icon only */}
               <button
                 onClick={dockContent.onSave}
                 disabled={dockContent.isSaving}
-                className={`h-12 px-4 flex-shrink-0 flex items-center justify-center gap-2 rounded-xl font-medium transition-colors ${
+                className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl font-medium transition-colors ${
                   dockContent.isEditing 
                     ? 'bg-amber-600 text-white hover:bg-amber-700' 
                     : 'bg-white/20 text-white hover:bg-white/30'
                 } disabled:opacity-50`}
               >
                 <Save className="h-5 w-5" />
-                <span>{dockContent.isSaving ? "Saving..." : "Save"}</span>
               </button>
             </div>
           </div>
