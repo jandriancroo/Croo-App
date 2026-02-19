@@ -929,6 +929,13 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
+  if (action === 'customers') {
+    const customerData = await fetchCustomerInfo(accessToken);
+    return new Response(JSON.stringify({ authenticated: true, data: customerData }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   if (action === 'orders') {
     const customerIdToUse = customerId || credentials.customer_id;
     const orders = await fetchOrderHistory(accessToken, customerIdToUse);
