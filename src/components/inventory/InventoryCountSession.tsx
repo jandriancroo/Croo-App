@@ -456,8 +456,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       for (const cmd of commands) {
         if (cmd.matched_item_id && cmd.confidence !== 'low') {
           const itemId = cmd.matched_item_id;
-          const cases = cmd.cases || 0;
-          const units = cmd.units || 0;
+          const cases = cmd.cases ?? 0;
+          const units = cmd.units ?? 0;
+
+          // Safety: skip if AI returned zero for both - likely a mis-parse, don't wipe existing data
+          if (cases === 0 && units === 0) {
+            console.warn('[Voice] Skipping zero-count command for item:', cmd.item_name);
+            toast.warning(`Skipped "${cmd.item_name}" — heard 0 cases & 0 units`);
+            continue;
+          }
 
           // Update counts
           setCounts(prev => ({
