@@ -686,6 +686,21 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         </div>
       )}
 
+      {/* Progress bar with percentage */}
+      {!isViewOnly && (
+        <div className="flex items-center gap-3">
+          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+            <div 
+              className="bg-primary h-full rounded-full transition-all duration-300"
+              style={{ width: `${totalItems > 0 ? (countedItems / totalItems) * 100 : 0}%` }}
+            />
+          </div>
+          <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
+            {totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0}%
+          </span>
+        </div>
+      )}
+
       {/* Location navigation */}
       {locationKeys.length > 1 && (
         <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-lg p-2">
