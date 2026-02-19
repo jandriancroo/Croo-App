@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -68,6 +68,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Edit tracking
   const [showEditConfirm, setShowEditConfirm] = useState(false);
@@ -151,6 +153,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
+  // Fetch existing duration for resumed counts
+  const { data: countRecord } = useQuery({
+    queryKey: ["inventory-count-duration", countId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_counts")
+        .select("duration_seconds")
+        .eq("id", countId)
+        .single();
+      if (error) throw error;
+      return data;
+    }
+  });
+
   // Initialize counts from items (convert flat quantity to cases + units)
   useEffect(() => {
     if (items) {
@@ -176,6 +192,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }
     }
   }, [items, isEditing]);
+
+  // Initialize timer from existing duration (for resumed counts)
+  useEffect(() => {
+    if (countRecord?.duration_seconds != null) {
+      setElapsedSeconds(countRecord.duration_seconds);
+    }
+  }, [countRecord]);
 
   // Group items by storage location
   const itemsByLocation = items?.reduce((acc, item) => {
@@ -328,6 +351,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     try {
       await saveCountMutation.mutateAsync(itemCounts);
+      
+      // Save elapsed duration
+      await supabase
+        .from("inventory_counts")
+        .update({ duration_seconds: elapsedSeconds })
+        .eq("id", countId);
+      
       toast.success("Progress saved");
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
@@ -338,11 +368,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     } finally {
       setIsSaving(false);
     }
-  };
-
-  // Handle exit without saving
-  const handleExit = () => {
-    onClose();
   };
 
   const updateCases = (itemId: string, delta: number) => {
@@ -509,7 +534,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Refs for stable callback references
   const handleSaveRef = useRef(handleSave);
   const handleSaveEditsRef = useRef(handleSaveEdits);
-  const handleExitRef = useRef(handleExit);
   const onCloseRef = useRef(onClose);
   const toggleListeningRef = useRef(toggleListening);
   
@@ -517,10 +541,21 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => {
     handleSaveRef.current = handleSave;
     handleSaveEditsRef.current = handleSaveEdits;
-    handleExitRef.current = handleExit;
     onCloseRef.current = onClose;
     toggleListeningRef.current = toggleListening;
   });
+
+  // Timer for elapsed counting time
+  useEffect(() => {
+    if (!isViewOnly && !isEditing) {
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isViewOnly, isEditing]);
 
   // Set up smart dock on mobile
   useEffect(() => {
@@ -534,8 +569,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isListening,
         isVoiceSupported: isSupported,
         isEditing,
+        elapsedSeconds,
         onSave: () => isEditing ? handleSaveEditsRef.current() : handleSaveRef.current(),
-        onExit: () => isEditing ? onCloseRef.current() : handleExitRef.current(),
         onToggleVoice: () => toggleListeningRef.current(),
       });
     } else {
@@ -546,7 +581,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return () => {
       setDockContent(null);
     };
-  }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, setDockContent]);
+  }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, elapsedSeconds, setDockContent]);
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -574,7 +609,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     <div className={cn("space-y-3", isMobile && !isViewOnly ? "pb-32" : "pb-6")}>
       {/* Desktop: Stats bar at top */}
       {!isMobile && !isViewOnly && (
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3 space-y-2">
+          {/* Progress bar */}
+          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-primary h-full rounded-full transition-all duration-300"
+              style={{ width: `${totalItems > 0 ? (countedItems / totalItems) * 100 : 0}%` }}
+            />
+          </div>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
@@ -585,6 +627,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
+              </div>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}</span>
               </div>
               {isSupported && !isEditing && (
                 <>
@@ -611,9 +658,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={isEditing ? onClose : handleExit}>
+              <Button variant="outline" onClick={onClose}>
                 <X className="h-4 w-4 mr-2" />
-                {isEditing ? "Cancel" : "Exit"}
+                {isEditing ? "Cancel" : "Back"}
               </Button>
               <Button 
                 onClick={isEditing ? handleSaveEdits : handleSave} 

@@ -102,72 +102,83 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
-          <div className="flex items-center justify-between w-full gap-2">
-            {/* Exit/Cancel button */}
-            <button
-              onClick={dockContent.onExit}
-              className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="h-6 w-6" />
-            </button>
-
-            {/* Stats in center */}
-            <div className="flex-1 flex items-center justify-center gap-3">
-              {/* Items counted */}
-              <div className="text-center">
-                <p className="text-[10px] text-white/60 uppercase tracking-wide">Items</p>
-                <p className="text-base font-bold leading-tight text-white">
-                  {dockContent.countedItems}<span className="text-white/60 font-normal">/{dockContent.totalItems}</span>
-                </p>
-              </div>
-              
-              {/* Divider */}
-              <div className="h-8 w-px bg-white/20" />
-              
-              {/* Total value */}
-              <div className="text-center">
-                <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
-                <p className="text-base font-bold text-white leading-tight flex items-center justify-center gap-0.5">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  {formatCurrency(dockContent.totalValue).replace('$', '')}
-                </p>
-              </div>
+          <div className="flex flex-col w-full gap-1.5">
+            {/* Progress bar */}
+            <div className="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className="bg-white h-full rounded-full transition-all duration-300"
+                style={{ width: `${dockContent.totalItems > 0 ? (dockContent.countedItems / dockContent.totalItems) * 100 : 0}%` }}
+              />
             </div>
+            
+            <div className="flex items-center justify-between w-full gap-2">
+              {/* Stats */}
+              <div className="flex-1 flex items-center gap-3">
+                {/* Items counted */}
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Items</p>
+                  <p className="text-base font-bold leading-tight text-white">
+                    {dockContent.countedItems}<span className="text-white/60 font-normal">/{dockContent.totalItems}</span>
+                  </p>
+                </div>
+                
+                <div className="h-8 w-px bg-white/20" />
+                
+                {/* Total value */}
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
+                  <p className="text-base font-bold text-white leading-tight flex items-center justify-center gap-0.5">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    {formatCurrency(dockContent.totalValue).replace('$', '')}
+                  </p>
+                </div>
+                
+                <div className="h-8 w-px bg-white/20" />
+                
+                {/* Timer */}
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Time</p>
+                  <p className="text-base font-bold text-white leading-tight font-mono">
+                    {Math.floor(dockContent.elapsedSeconds / 60)}:{String(dockContent.elapsedSeconds % 60).padStart(2, '0')}
+                  </p>
+                </div>
+              </div>
 
-            {/* Voice button (only for non-edit mode) */}
-            {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
+              {/* Voice button (only for non-edit mode) */}
+              {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
+                <button
+                  onClick={dockContent.onToggleVoice}
+                  className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative ${
+                    dockContent.isListening 
+                      ? 'bg-destructive text-destructive-foreground' 
+                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {dockContent.isListening ? (
+                    <MicOff className="h-6 w-6" />
+                  ) : (
+                    <Mic className="h-6 w-6" />
+                  )}
+                  {dockContent.isListening && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                  )}
+                </button>
+              )}
+
+              {/* Save button */}
               <button
-                onClick={dockContent.onToggleVoice}
-                className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative ${
-                  dockContent.isListening 
-                    ? 'bg-destructive text-destructive-foreground' 
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
+                onClick={dockContent.onSave}
+                disabled={dockContent.isSaving}
+                className={`h-12 px-4 flex-shrink-0 flex items-center justify-center gap-2 rounded-xl font-medium transition-colors ${
+                  dockContent.isEditing 
+                    ? 'bg-amber-600 text-white hover:bg-amber-700' 
+                    : 'bg-white/20 text-white hover:bg-white/30'
+                } disabled:opacity-50`}
               >
-                {dockContent.isListening ? (
-                  <MicOff className="h-6 w-6" />
-                ) : (
-                  <Mic className="h-6 w-6" />
-                )}
-                {dockContent.isListening && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
-                )}
+                <Save className="h-5 w-5" />
+                <span>{dockContent.isSaving ? "Saving..." : "Save"}</span>
               </button>
-            )}
-
-            {/* Save button */}
-            <button
-              onClick={dockContent.onSave}
-              disabled={dockContent.isSaving}
-              className={`h-12 px-4 flex-shrink-0 flex items-center justify-center gap-2 rounded-xl font-medium transition-colors ${
-                dockContent.isEditing 
-                  ? 'bg-amber-600 text-white hover:bg-amber-700' 
-                  : 'bg-white/20 text-white hover:bg-white/30'
-              } disabled:opacity-50`}
-            >
-              <Save className="h-5 w-5" />
-              <span>{dockContent.isSaving ? "Saving..." : "Save"}</span>
-            </button>
+            </div>
           </div>
         )}
         

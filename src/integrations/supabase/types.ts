@@ -1980,6 +1980,7 @@ export type Database = {
           count_date: string
           counted_by: string | null
           created_at: string
+          duration_seconds: number | null
           id: string
           location_id: string | null
           notes: string | null
@@ -1993,6 +1994,7 @@ export type Database = {
           count_date?: string
           counted_by?: string | null
           created_at?: string
+          duration_seconds?: number | null
           id?: string
           location_id?: string | null
           notes?: string | null
@@ -2006,6 +2008,7 @@ export type Database = {
           count_date?: string
           counted_by?: string | null
           created_at?: string
+          duration_seconds?: number | null
           id?: string
           location_id?: string | null
           notes?: string | null

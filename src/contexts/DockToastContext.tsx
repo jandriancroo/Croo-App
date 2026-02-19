@@ -9,8 +9,8 @@ interface DockContentState {
   isListening: boolean;
   isVoiceSupported: boolean;
   isEditing: boolean;
+  elapsedSeconds: number;
   onSave: () => void;
-  onExit: () => void;
   onToggleVoice?: () => void;
 }
 
