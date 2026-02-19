@@ -238,12 +238,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [panCounts]);
 
   // Calculate total quantity for an item (cases * pack_quantity + units + pan units)
+  // Uses rawInputs if available (live typing), falls back to committed counts
   const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null) => {
-    const count = counts[itemId] || { cases: 0, units: 0 };
     const packQty = packQuantity || 1;
+    // Prefer live rawInputs so cost updates while the user is typing
+    const rawCases = parseFloat(rawInputs[itemId]?.cases ?? '');
+    const rawUnits = parseFloat(rawInputs[itemId]?.units ?? '');
+    const committed = counts[itemId] || { cases: 0, units: 0 };
+    const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
+    const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
-    return count.cases * packQty + count.units + panUnits;
-  }, [counts, getPanUnitsTotal]);
+    return casesVal * packQty + unitsVal + panUnits;
+  }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item
   const getItemCost = useCallback((item: CountItem) => {
@@ -251,10 +257,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const packQty = item.pack_quantity || 1;
     const costPerUnit = costPerCase / packQty;
     const totalUnits = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
-    const cases = Math.floor(totalUnits / packQty);
-    const units = totalUnits - cases * packQty;
-    return cases * costPerCase + units * costPerUnit;
-  }, [counts, getTotalQuantity]);
+    return totalUnits * costPerUnit;
+  }, [counts, rawInputs, getTotalQuantity]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
