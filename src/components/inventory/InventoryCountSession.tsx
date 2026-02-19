@@ -980,54 +980,52 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <ChefHat className="h-3 w-3" />
                         Pan / Cambro Sizes
                       </p>
-                      {item.pan_sizes.enabled_keys.map(panKey => {
-                        const container = ALL_CONTAINERS.find(c => c.key === panKey);
-                        if (!container) return null;
-                        const unitsEach = getPanUnits(item.pan_sizes!, panKey);
-                        const panQty = panCounts[item.item_id]?.[panKey] || 0;
-                        return (
-                          <div key={panKey} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <p className="text-xs font-medium text-foreground leading-none mb-1">
+                      <div className="grid grid-cols-2 gap-3">
+                        {item.pan_sizes.enabled_keys.map(panKey => {
+                          const container = ALL_CONTAINERS.find(c => c.key === panKey);
+                          if (!container) return null;
+                          const unitsEach = getPanUnits(item.pan_sizes!, panKey);
+                          const panQty = panCounts[item.item_id]?.[panKey] || 0;
+                          return (
+                            <div key={panKey} className="flex-1">
+                              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium truncate">
                                 {container.label}
                                 {unitsEach != null && (
-                                  <span className="text-muted-foreground font-normal ml-1">({unitsEach} units ea.)</span>
+                                  <span className="normal-case tracking-normal ml-1">({unitsEach}/ea)</span>
                                 )}
                               </p>
-                              <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50 h-9">
+                              <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-9 w-9 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
                                     onClick={() => updatePanCount(item.item_id, panKey, -1)}
                                   >
-                                    <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                                    <Minus className="h-4 w-4" strokeWidth={2} />
                                   </button>
                                 )}
-                                <span className="flex-1 text-center text-base font-bold text-foreground tabular-nums">
+                                <span className="flex-1 text-center text-xl font-bold text-foreground tabular-nums">
                                   {panQty}
                                 </span>
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-9 w-9 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
                                     onClick={() => updatePanCount(item.item_id, panKey, 1)}
                                   >
-                                    <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                                    <Plus className="h-4 w-4" strokeWidth={2} />
                                   </button>
                                 )}
                               </div>
-                            </div>
-                            {unitsEach != null && panQty > 0 && (
-                              <div className="text-right flex-shrink-0">
-                                <p className="text-xs font-mono font-semibold text-primary">
+                              {unitsEach != null && panQty > 0 && (
+                                <p className="text-xs font-mono font-semibold text-primary mt-1 text-center">
                                   +{Math.round(unitsEach * panQty * 2) / 2} units
                                 </p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
