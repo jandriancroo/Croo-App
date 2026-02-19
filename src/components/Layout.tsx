@@ -134,11 +134,10 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 
                 <div className="h-8 w-px bg-white/20" />
                 
-                {/* Total value - prominent */}
+                {/* Total value - prominent, no label */}
                 <div className="text-center flex-1">
-                  <p className="text-[10px] text-white/60 uppercase tracking-wide">Value</p>
-                  <p className="text-lg font-bold text-white leading-tight flex items-center justify-center gap-0.5">
-                    <DollarSign className="h-4 w-4" />
+                  <p className="text-xl font-bold text-white leading-tight flex items-center justify-center gap-0.5">
+                    <DollarSign className="h-5 w-5" />
                     {formatCurrency(dockContent.totalValue).replace('$', '')}
                   </p>
                 </div>
