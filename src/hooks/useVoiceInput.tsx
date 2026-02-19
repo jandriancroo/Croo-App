@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface UseVoiceInputOptions {
   onTranscript: (transcript: string) => void;
   continuous?: boolean;
+  silenceTimeoutMs?: number; // Auto-deactivate after this many ms of silence (default 8000)
 }
 
 // Type definitions for Web Speech API
@@ -50,16 +51,59 @@ const hasNativeSpeechAPI = () => {
   );
 };
 
+// Plays a soft descending two-note chime to signal mic auto-deactivation
+const playTimeoutChime = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(440, ctx.currentTime);       // A4
+    osc.frequency.setValueAtTime(330, ctx.currentTime + 0.12); // E4 (descending = "off")
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+    setTimeout(() => ctx.close(), 500);
+  } catch (e) {
+    // Ignore
+  }
+};
+
 // Hook that uses native Web Speech API
-const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoiceInputOptions) => {
+const useNativeSpeechRecognition = ({ onTranscript, continuous = true, silenceTimeoutMs = 8000 }: UseVoiceInputOptions) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  // Use an independent ref (NOT synced to state) so onend can reliably check intent
+  // Independent ref — NOT synced to state — so async handlers read correct intent
   const isListeningRef = useRef(false);
   const onTranscriptRef = useRef(onTranscript);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   onTranscriptRef.current = onTranscript;
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const startSilenceTimer = useCallback(() => {
+    clearSilenceTimer();
+    silenceTimerRef.current = setTimeout(() => {
+      // Silence timeout — deactivate mic and notify user
+      if (isListeningRef.current) {
+        console.log('[Voice Native] Silence timeout — auto-deactivating mic');
+        isListeningRef.current = false;
+        setIsListening(false);
+        try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
+        playTimeoutChime();
+      }
+    }, silenceTimeoutMs);
+  }, [clearSilenceTimer, silenceTimeoutMs]);
 
   useEffect(() => {
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -72,12 +116,13 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: SpeechRecognitionEventType) => {
-        console.log('[Voice Native] Got result event');
         const lastResult = event.results[event.results.length - 1];
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript.trim();
           console.log('[Voice Native] Final transcript:', transcript);
           if (transcript) {
+            // Reset silence timer every time something is said
+            startSilenceTimer();
             onTranscriptRef.current(transcript);
           }
         }
@@ -85,44 +130,39 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
         console.error('[Voice Native] Error:', event.error);
-        // 'not-allowed' = mic denied → must stop
-        // 'aborted' and 'no-speech' are normal timeouts → onend will restart automatically
+        // Only stop on explicit mic denial
         if (event.error === 'not-allowed') {
+          clearSilenceTimer();
           isListeningRef.current = false;
           setIsListening(false);
         }
-        // Do NOT stop for 'aborted', 'no-speech', or 'network' — onend handles restart
+        // 'aborted', 'no-speech', 'network' are all normal — onend will restart
       };
 
       recognition.onend = () => {
         console.log('[Voice Native] Recognition ended, shouldContinue:', isListeningRef.current);
+        // Restart the browser session so silence timer stays in control
         if (isListeningRef.current && continuous) {
           setTimeout(() => {
             if (!isListeningRef.current || !recognitionRef.current) return;
             try {
               recognitionRef.current.start();
-              console.log('[Voice Native] Restarted successfully');
             } catch (e: any) {
-              // 'already started' is harmless — recognition is already running
-              if (e?.message?.includes('already started') || e?.name === 'InvalidStateError') {
-                console.log('[Voice Native] Already started, skipping restart');
-                return;
-              }
-              // Any other error — retry once more after a longer delay
-              console.error('[Voice Native] Restart failed, retrying in 500ms:', e);
+              if (e?.name === 'InvalidStateError') return; // already running
+              console.error('[Voice Native] Restart failed:', e);
+              // Retry once
               setTimeout(() => {
                 if (!isListeningRef.current || !recognitionRef.current) return;
-                try {
-                  recognitionRef.current.start();
-                } catch (e2) {
-                  console.error('[Voice Native] Retry also failed, giving up:', e2);
+                try { recognitionRef.current.start(); } catch (e2) {
+                  console.error('[Voice Native] Retry also failed:', e2);
+                  clearSilenceTimer();
                   isListeningRef.current = false;
                   setIsListening(false);
                 }
               }, 500);
             }
           }, 250);
-        } else {
+        } else if (!isListeningRef.current) {
           setIsListening(false);
         }
       };
@@ -131,15 +171,10 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
     }
 
     return () => {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch (e) {
-          // Ignore
-        }
-      }
+      clearSilenceTimer();
+      try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
     };
-  }, [continuous]);
+  }, [continuous, startSilenceTimer, clearSilenceTimer]);
 
   const startListening = useCallback(async () => {
     if (!recognitionRef.current) {
@@ -149,29 +184,26 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      isListeningRef.current = true; // Set ref BEFORE starting so onend can restart
+      isListeningRef.current = true;
       recognitionRef.current.start();
       setIsListening(true);
+      startSilenceTimer(); // Start silence countdown immediately
       console.log('[Voice Native] Started listening');
     } catch (error) {
       console.error('[Voice Native] Failed to start:', error);
       isListeningRef.current = false;
       setIsListening(false);
     }
-  }, []);
+  }, [startSilenceTimer]);
 
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
-
-    try {
-      isListeningRef.current = false; // Clear ref BEFORE stopping so onend doesn't restart
-      setIsListening(false);
-      recognitionRef.current.stop();
-      console.log('[Voice Native] Stopped listening');
-    } catch (error) {
-      console.error('[Voice Native] Failed to stop:', error);
-    }
-  }, []);
+    clearSilenceTimer();
+    isListeningRef.current = false;
+    setIsListening(false);
+    try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
+    console.log('[Voice Native] Stopped listening');
+  }, [clearSilenceTimer]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
