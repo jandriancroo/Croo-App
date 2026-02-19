@@ -566,6 +566,11 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 <p className="text-white font-black text-xl tracking-tight">
                   {activeAlarm.title}
                 </p>
+                {activeAlarm.description && (
+                  <p className="text-white/70 text-sm mt-0.5 leading-snug">
+                    {activeAlarm.description}
+                  </p>
+                )}
                 <p className="text-white/80 text-sm font-medium">
                   Tap to complete
                 </p>
@@ -657,6 +662,11 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                       <p className="text-white/60 mt-1 text-lg">
                         {activeAlarm.title}
                       </p>
+                      {activeAlarm.description && (
+                        <p className="text-white/40 mt-0.5 text-sm">
+                          {activeAlarm.description}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
