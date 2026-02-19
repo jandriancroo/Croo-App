@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock, ChefHat } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -23,13 +23,14 @@ import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { fuzzyMatchVoiceCommand } from "@/utils/voiceFuzzyMatch";
+import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 
 interface InventoryCountSessionProps {
   countId: string;
   locationId: string;
   onClose: () => void;
-  isEditing?: boolean; // True if reopening a completed count for editing
-  isViewOnly?: boolean; // True if just viewing a completed count (no editing)
+  isEditing?: boolean;
+  isViewOnly?: boolean;
   saveRef?: React.MutableRefObject<{ save: () => void; isSaving: boolean } | null>;
 }
 
@@ -46,6 +47,7 @@ interface CountItem {
   item_number: string | null;
   brand: string | null;
   image_url: string | null;
+  pan_sizes: PanSizesConfig | null;
 }
 
 // Count state: cases + individual units (supports decimals for partial cases)
@@ -70,6 +72,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
+  // panCounts: itemId -> { panKey -> count of that pan }
+  const [panCounts, setPanCounts] = useState<Record<string, Record<string, number>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
@@ -116,6 +120,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_number,
           brand,
           image_url,
+          pan_sizes,
           storage_location_id,
           storage_location:inventory_locations(name)
         `)
@@ -151,6 +156,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_number: item.item_number,
           brand: item.brand,
           image_url: item.image_url,
+          pan_sizes: (item as any).pan_sizes ?? null,
           _existingQuantity: countData?.quantity ?? 0,
           _countItemId: countData?.countItemId || null
         };
@@ -222,22 +228,33 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const currentLocation = locationKeys[currentLocationIndex];
   const currentItems = currentLocation ? itemsByLocation[currentLocation].items : [];
 
-  // Calculate total quantity for an item (cases * pack_quantity + units)
-  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null) => {
+  // Calculate total units from pan counts for an item
+  const getPanUnitsTotal = useCallback((itemId: string, panSizes: PanSizesConfig | null): number => {
+    if (!panSizes?.enabled || !panCounts[itemId]) return 0;
+    return Object.entries(panCounts[itemId]).reduce((sum, [key, qty]) => {
+      const unitsPer = getPanUnits(panSizes, key);
+      return sum + (unitsPer ?? 0) * qty;
+    }, 0);
+  }, [panCounts]);
+
+  // Calculate total quantity for an item (cases * pack_quantity + units + pan units)
+  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null, panSizes?: PanSizesConfig | null) => {
     const count = counts[itemId] || { cases: 0, units: 0 };
     const packQty = packQuantity || 1;
-    return count.cases * packQty + count.units;
-  }, [counts]);
+    const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
+    return count.cases * packQty + count.units + panUnits;
+  }, [counts, getPanUnitsTotal]);
 
   // Calculate cost for a single item
   const getItemCost = useCallback((item: CountItem) => {
-    const count = counts[item.item_id] || { cases: 0, units: 0 };
     const costPerCase = item.cost_per_unit || 0;
     const packQty = item.pack_quantity || 1;
     const costPerUnit = costPerCase / packQty;
-    
-    return count.cases * costPerCase + count.units * costPerUnit;
-  }, [counts]);
+    const totalUnits = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
+    const cases = Math.floor(totalUnits / packQty);
+    const units = totalUnits - cases * packQty;
+    return cases * costPerCase + units * costPerUnit;
+  }, [counts, getTotalQuantity]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
@@ -311,7 +328,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     for (const item of items) {
       const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null };
-      const newQuantity = getTotalQuantity(item.item_id, item.pack_quantity);
+      const newQuantity = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
       const originalQuantity = originalCounts.current[item.item_id] ?? 0;
       
       if (newQuantity !== originalQuantity && extendedItem._countItemId) {
@@ -357,7 +374,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     autosaveRef.current = setTimeout(async () => {
       const itemCounts = items.map(item => ({
         item_id: item.item_id,
-        quantity: getTotalQuantity(item.item_id, item.pack_quantity)
+        quantity: getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)
       }));
 
       // Skip if nothing changed since last autosave
@@ -392,7 +409,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return () => {
       if (autosaveRef.current) clearTimeout(autosaveRef.current);
     };
-  }, [counts, items, isViewOnly, isEditing, countId, elapsedSeconds, getTotalQuantity]);
+  }, [counts, panCounts, items, isViewOnly, isEditing, countId, elapsedSeconds, getTotalQuantity]);
 
   // Save current progress (manual save — used by Save & Exit)
   const handleSave = async () => {
@@ -401,7 +418,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     setIsSaving(true);
     const itemCounts = items.map(item => ({
       item_id: item.item_id,
-      quantity: getTotalQuantity(item.item_id, item.pack_quantity)
+      quantity: getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)
     }));
     
     try {
@@ -440,6 +457,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           units: prev[itemId]?.units || 0
         }
       };
+    });
+  };
+
+  const updatePanCount = (itemId: string, panKey: string, delta: number) => {
+    setPanCounts(prev => {
+      const itemPans = prev[itemId] || {};
+      const newVal = Math.max(0, (itemPans[panKey] || 0) + delta);
+      return { ...prev, [itemId]: { ...itemPans, [panKey]: newVal } };
     });
   };
 
@@ -859,7 +884,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     <div className="text-right flex-shrink-0">
                         <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
                         <p className="text-xs text-primary-foreground/70">
-                          {getTotalQuantity(item.item_id, item.pack_quantity)} units
+                          {getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)} units
                         </p>
                     </div>
                   </div>
@@ -943,8 +968,66 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   </div>
+
+                  {/* Pan size rows */}
+                  {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
+                    <div className="px-4 pb-4 border-t border-border/40 pt-3 space-y-2">
+                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
+                        <ChefHat className="h-3 w-3" />
+                        Pan / Cambro Sizes
+                      </p>
+                      {item.pan_sizes.enabled_keys.map(panKey => {
+                        const container = ALL_CONTAINERS.find(c => c.key === panKey);
+                        if (!container) return null;
+                        const unitsEach = getPanUnits(item.pan_sizes!, panKey);
+                        const panQty = panCounts[item.item_id]?.[panKey] || 0;
+                        return (
+                          <div key={panKey} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-foreground leading-none mb-1">
+                                {container.label}
+                                {unitsEach != null && (
+                                  <span className="text-muted-foreground font-normal ml-1">({unitsEach} units ea.)</span>
+                                )}
+                              </p>
+                              <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50 h-9">
+                                {!isViewOnly && (
+                                  <button
+                                    type="button"
+                                    className="h-9 w-9 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    onClick={() => updatePanCount(item.item_id, panKey, -1)}
+                                  >
+                                    <Minus className="h-3.5 w-3.5" strokeWidth={2} />
+                                  </button>
+                                )}
+                                <span className="flex-1 text-center text-base font-bold text-foreground tabular-nums">
+                                  {panQty}
+                                </span>
+                                {!isViewOnly && (
+                                  <button
+                                    type="button"
+                                    className="h-9 w-9 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    onClick={() => updatePanCount(item.item_id, panKey, 1)}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {unitsEach != null && panQty > 0 && (
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-xs font-mono font-semibold text-primary">
+                                  +{Math.round(unitsEach * panQty * 2) / 2} units
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </CardContent>
+                </CardContent>
             </Card>
           );
         })}
