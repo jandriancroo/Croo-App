@@ -116,7 +116,25 @@ const Inventory = () => {
   // Delete count mutation
   const deleteCountMutation = useMutation({
     mutationFn: async (countId: string) => {
-      // First delete related count items
+      // First get all count item IDs for this count
+      const { data: countItems } = await supabase
+        .from("inventory_count_items")
+        .select("id")
+        .eq("count_id", countId);
+      
+      const itemIds = countItems?.map(i => i.id) || [];
+      
+      // Delete edits referencing those count items
+      if (itemIds.length > 0) {
+        const { error: editsError } = await supabase
+          .from("inventory_count_edits")
+          .delete()
+          .in("count_item_id", itemIds);
+        
+        if (editsError) throw editsError;
+      }
+      
+      // Delete count items
       const { error: itemsError } = await supabase
         .from("inventory_count_items")
         .delete()
@@ -124,7 +142,7 @@ const Inventory = () => {
       
       if (itemsError) throw itemsError;
       
-      // Then delete the count itself
+      // Delete the count itself
       const { error: countError } = await supabase
         .from("inventory_counts")
         .delete()
