@@ -463,8 +463,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   // Voice input handler - supports multiple items in one transcript
+  // Only matches items in the currently visible storage location tab
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
-    if (!items || items.length === 0) return;
+    if (!currentItems || currentItems.length === 0) return;
 
     toast.info(`Processing: "${transcript}"`);
 
@@ -472,7 +473,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=parse-inventory-voice', {
         body: {
           transcript,
-          items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name }))
+          items: currentItems.map(i => ({ item_id: i.item_id, item_name: i.item_name }))
         }
       });
 
@@ -509,7 +510,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           lastMatchedId = itemId;
           successCount++;
 
-          const matchedItem = items.find(i => i.item_id === itemId);
+          const matchedItem = currentItems.find(i => i.item_id === itemId);
           // Play success chime + spoken confirmation
           if (matchedItem) {
             playSuccess(matchedItem.item_name, cases, units);
@@ -539,7 +540,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       toast.error('Failed to process voice command');
       playError();
     }
-  }, [items, playSuccess, playError]);
+  }, [currentItems, playSuccess, playError]);
 
   const { isListening, isSupported, toggleListening } = useVoiceInput({
     onTranscript: handleVoiceTranscript,
