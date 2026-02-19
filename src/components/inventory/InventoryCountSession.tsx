@@ -343,7 +343,57 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     setShowEditConfirm(false);
   };
 
-  // Save current progress (doesn't complete, just saves)
+  // Silent autosave - saves progress in background without UI feedback
+  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutosavedRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!items || Object.keys(counts).length === 0 || isViewOnly || isEditing) return;
+
+    // Debounce: save 3 seconds after last change
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+
+    autosaveRef.current = setTimeout(async () => {
+      const itemCounts = items.map(item => ({
+        item_id: item.item_id,
+        quantity: getTotalQuantity(item.item_id, item.pack_quantity)
+      }));
+
+      // Skip if nothing changed since last autosave
+      const snapshot = JSON.stringify(itemCounts);
+      if (snapshot === lastAutosavedRef.current) return;
+
+      try {
+        await supabase
+          .from("inventory_count_items")
+          .upsert(
+            itemCounts.map(ic => ({
+              count_id: countId,
+              item_id: ic.item_id,
+              quantity: ic.quantity
+            })),
+            { onConflict: "count_id,item_id" }
+          );
+
+        // Save elapsed duration too
+        await supabase
+          .from("inventory_counts")
+          .update({ duration_seconds: elapsedSeconds })
+          .eq("id", countId);
+
+        lastAutosavedRef.current = snapshot;
+        console.log("[Inventory] Autosaved");
+      } catch (e) {
+        console.warn("[Inventory] Autosave failed:", e);
+      }
+    }, 3000);
+
+    return () => {
+      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+    };
+  }, [counts, items, isViewOnly, isEditing, countId, elapsedSeconds, getTotalQuantity]);
+
+  // Save current progress (manual save — used by Save & Exit)
   const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
     
