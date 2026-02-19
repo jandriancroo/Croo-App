@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,7 @@ import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
 import UsageRateMapping from "./UsageRateMapping";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
+import RemapItemDialog from "./RemapItemDialog";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -60,6 +61,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [useCommonName, setUseCommonName] = useState(false);
   const [commonNameValue, setCommonNameValue] = useState("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
+  const [remapItem, setRemapItem] = useState<any>(null);
   
 
   // Check if PFG is configured
@@ -483,6 +485,35 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         console.log(`Generated ${imagesGenerated} AI images for items without PFG images`);
       }
 
+      setProgress({ phase: "Checking for dropped items...", current: 97, total: 100 });
+
+      // Auto-flag items that were in inventory but NOT in the order guide response
+      const syncedProductIds = new Set<string>();
+      for (const cat of categories) {
+        for (const p of cat.products || []) {
+          if (p.id) syncedProductIds.add(String(p.id));
+        }
+      }
+
+      // Find active PFG items in this location that weren't in the sync
+      const { data: allPfgItems } = await supabase
+        .from("inventory_items")
+        .select("id, qubeyond_item_id, remap_status")
+        .eq("location_id", locationId)
+        .eq("is_active", true)
+        .not("qubeyond_item_id", "is", null);
+
+      let flaggedCount = 0;
+      for (const item of (allPfgItems || [])) {
+        if (item.qubeyond_item_id && !syncedProductIds.has(String(item.qubeyond_item_id)) && (item as any).remap_status !== 'needs_remap') {
+          await supabase
+            .from("inventory_items")
+            .update({ remap_status: "needs_remap" } as any)
+            .eq("id", item.id);
+          flaggedCount++;
+        }
+      }
+
       setProgress({ phase: "Complete!", current: 100, total: 100 });
 
       // Write sync log
@@ -506,6 +537,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       if (locationsAdded > 0) messages.push(`${locationsAdded} locations`);
       if (itemsAdded > 0) messages.push(`${itemsAdded} items`);
       if (itemsUpdated > 0) messages.push(`${itemsUpdated} updated`);
+      if (flaggedCount > 0) messages.push(`${flaggedCount} flagged for remap`);
       
       if (messages.length > 0) {
         toast.success(`Synced: ${messages.join(", ")}`);
@@ -692,7 +724,56 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         <CardContent>
           {items && items.length > 0 ? (
             <div className="space-y-4 max-h-[400px] overflow-y-auto">
-              {/* Recipe items first */}
+              {/* Items needing remap */}
+              {(() => {
+                const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap' && !i.is_recipe);
+                if (remapItems.length === 0) return null;
+                const bidGuideId = (pfgIntegration?.credentials as any)?.bid_guide_header_id;
+                const custId = (pfgIntegration?.credentials as any)?.customer_id;
+                return (
+                  <div>
+                    <h4 className="text-sm font-medium text-destructive mb-2 flex items-center gap-1">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Needs Remap ({remapItems.length})
+                    </h4>
+                    <div className="grid gap-1">
+                      {remapItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-destructive/10 border border-destructive/20 rounded text-sm group">
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <span className="truncate">{(item as any).common_name || item.name}</span>
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                              Remap
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {bidGuideId && custId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                onClick={() => setRemapItem(item)}
+                              >
+                                <ArrowRightLeft className="h-3 w-3 mr-1" />
+                                Find Replacement
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Recipe items */}
               {(() => {
                 const recipeItems = items.filter(i => i.is_recipe);
                 if (recipeItems.length === 0) return null;
@@ -753,6 +834,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                               <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={item.name}>
                                 ({item.name})
                               </span>
+                            )}
+                            {(item as any).remap_status === 'needs_remap' && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                                Remap
+                              </Badge>
                             )}
                             {item.category && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
@@ -940,6 +1026,28 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   </p>
                 </div>
               </div>
+
+              {/* Flag for Remap */}
+              {pfgIntegration && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
+                  onClick={async () => {
+                    if (!editingItem) return;
+                    await supabase
+                      .from("inventory_items")
+                      .update({ remap_status: "needs_remap" } as any)
+                      .eq("id", editingItem.id);
+                    toast.success("Item flagged for remap");
+                    queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                    setEditingItem(null);
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Flag for Remap
+                </Button>
+              )}
               
               <Button
                 variant="destructive"
@@ -983,6 +1091,16 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         onOpenChange={setShowRecipeDialog}
         locationId={locationId}
         editRecipeId={editRecipeId}
+      />
+
+      {/* Remap Item Dialog */}
+      <RemapItemDialog
+        open={!!remapItem}
+        onOpenChange={(open) => !open && setRemapItem(null)}
+        item={remapItem}
+        locationId={locationId}
+        bidGuideHeaderId={(pfgIntegration?.credentials as any)?.bid_guide_header_id || ""}
+        customerId={(pfgIntegration?.credentials as any)?.customer_id || ""}
       />
     </>
   );
