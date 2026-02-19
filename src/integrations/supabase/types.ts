@@ -3730,6 +3730,59 @@ export type Database = {
           },
         ]
       }
+      pa_orders: {
+        Row: {
+          created_at: string
+          delivery_date: string | null
+          id: string
+          items: Json | null
+          location_id: string
+          order_date: string
+          order_number: string | null
+          pa_order_id: string
+          raw_data: Json | null
+          status: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          items?: Json | null
+          location_id: string
+          order_date: string
+          order_number?: string | null
+          pa_order_id: string
+          raw_data?: Json | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          items?: Json | null
+          location_id?: string
+          order_date?: string
+          order_number?: string | null
+          pa_order_id?: string
+          raw_data?: Json | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pa_orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pay_periods: {
         Row: {
           closed_at: string | null
