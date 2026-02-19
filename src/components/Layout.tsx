@@ -164,18 +164,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 </button>
               )}
 
-              {/* Save button - icon only */}
-              <button
-                onClick={dockContent.onSave}
-                disabled={dockContent.isSaving}
-                className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl font-medium transition-colors ${
-                  dockContent.isEditing 
-                    ? 'bg-amber-600 text-white hover:bg-amber-700' 
-                    : 'bg-white/20 text-white hover:bg-white/30'
-                } disabled:opacity-50`}
-              >
-                <Save className="h-5 w-5" />
-              </button>
             </div>
           </div>
         )}
