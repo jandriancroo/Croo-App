@@ -103,14 +103,6 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
           <div className="flex flex-col w-full gap-1.5">
-            {/* Progress bar */}
-            <div className="w-full bg-white/20 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="bg-white h-full rounded-full transition-all duration-300"
-                style={{ width: `${dockContent.totalItems > 0 ? (dockContent.countedItems / dockContent.totalItems) * 100 : 0}%` }}
-              />
-            </div>
-            
             <div className="flex items-center justify-between w-full gap-2">
               {/* Stats */}
               <div className="flex-1 flex items-center gap-3">
