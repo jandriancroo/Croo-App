@@ -19,7 +19,8 @@ import ProductGroupsManager from "./ProductGroupsManager";
 import UsageRateMapping from "./UsageRateMapping";
 import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import RemapItemDialog from "./RemapItemDialog";
-import PanSizesSection, { PanSizesConfig } from "./PanSizesSection";
+import PanSizesSection from "./PanSizesSection";
+import type { PanSizesConfig } from "./PanSizesSection";
 
 interface InventoryItemsManagerProps {
   locationId: string;
