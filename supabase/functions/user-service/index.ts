@@ -443,6 +443,17 @@ serve(async (req) => {
       case 'set-password':
         return await handleSetPassword(req, supabaseAdmin, requestingUserId);
       
+      case 'delete-auth-user': {
+        await verifyAdminRole(supabaseAdmin, requestingUserId);
+        const { userId } = await req.json();
+        if (!userId) throw new Error("userId is required");
+        const { error: authDelErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (authDelErr && !authDelErr.message.includes('not found')) throw authDelErr;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
