@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
+import { fuzzyMatchVoiceCommand } from "@/utils/voiceFuzzyMatch";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -512,85 +513,87 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }));
   };
 
-  // Voice input handler - supports multiple items in one transcript
-  // Only matches items in the currently visible storage location tab
+  // Apply parsed voice commands to state (shared by local + AI paths)
+  const applyVoiceCommands = useCallback((commands: any[], transcript: string) => {
+    let successCount = 0;
+    let lastMatchedId: string | null = null;
+
+    for (const cmd of commands) {
+      if (cmd.matched_item_id && cmd.confidence !== 'low') {
+        const itemId = cmd.matched_item_id;
+        const cases = cmd.cases ?? 0;
+        const units = cmd.units ?? 0;
+
+        // Safety: skip if zero for both - don't wipe existing data
+        if (cases === 0 && units === 0) {
+          console.warn('[Voice] Skipping zero-count command for item:', cmd.item_name);
+          toast.warning(`Skipped "${cmd.item_name}" — heard 0 cases & 0 units`);
+          playError();
+          continue;
+        }
+
+        setCounts(prev => ({ ...prev, [itemId]: { cases, units } }));
+        setRawInputs(prev => ({ ...prev, [itemId]: { cases: String(cases), units: String(units) } }));
+
+        lastMatchedId = itemId;
+        successCount++;
+
+        const matchedItem = currentItems?.find(i => i.item_id === itemId);
+        if (matchedItem) {
+          playSuccess(matchedItem.item_name, cases, units);
+        }
+        toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
+      } else if (cmd.item_name) {
+        toast.warning(`Couldn't match "${cmd.item_name}" to an item`);
+        playError();
+        setErrorHighlightedItemId("__unmatched__");
+        setTimeout(() => setErrorHighlightedItemId(null), 2000);
+      }
+    }
+
+    if (lastMatchedId) {
+      setHighlightedItemId(lastMatchedId);
+      setTimeout(() => setHighlightedItemId(null), 2000);
+    }
+
+    if (successCount === 0 && commands.length === 0) {
+      toast.warning(`Couldn't understand: "${transcript}"`);
+      playError();
+    }
+  }, [currentItems, playSuccess, playError]);
+
+  // Voice input handler — local fuzzy match first, AI fallback for ambiguous input
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
     if (!currentItems || currentItems.length === 0) return;
 
+    const itemList = currentItems.map(i => ({ item_id: i.item_id, item_name: i.item_name }));
+
+    // Try fast local fuzzy match first (<1ms)
+    const localResult = fuzzyMatchVoiceCommand(transcript, itemList);
+
+    if (localResult) {
+      console.log('[Voice] Local fuzzy match hit:', localResult.commands);
+      applyVoiceCommands(localResult.commands, transcript);
+      return;
+    }
+
+    // Fallback to AI for complex/ambiguous commands
+    console.log('[Voice] Local miss, falling back to AI for:', transcript);
     toast.info(`Processing: "${transcript}"`);
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=parse-inventory-voice', {
-        body: {
-          transcript,
-          items: currentItems.map(i => ({ item_id: i.item_id, item_name: i.item_name }))
-        }
+        body: { transcript, items: itemList }
       });
 
       if (error) throw error;
-
-      const commands = data.commands || [];
-      let successCount = 0;
-      let lastMatchedId: string | null = null;
-
-      for (const cmd of commands) {
-        if (cmd.matched_item_id && cmd.confidence !== 'low') {
-          const itemId = cmd.matched_item_id;
-          const cases = cmd.cases ?? 0;
-          const units = cmd.units ?? 0;
-
-          // Safety: skip if AI returned zero for both - likely a mis-parse, don't wipe existing data
-          if (cases === 0 && units === 0) {
-            console.warn('[Voice] Skipping zero-count command for item:', cmd.item_name);
-            toast.warning(`Skipped "${cmd.item_name}" — heard 0 cases & 0 units`);
-            playError();
-            continue;
-          }
-
-          // Update counts
-          setCounts(prev => ({
-            ...prev,
-            [itemId]: { cases, units }
-          }));
-          setRawInputs(prev => ({
-            ...prev,
-            [itemId]: { cases: String(cases), units: String(units) }
-          }));
-
-          lastMatchedId = itemId;
-          successCount++;
-
-          const matchedItem = currentItems.find(i => i.item_id === itemId);
-          // Play success chime + spoken confirmation
-          if (matchedItem) {
-            playSuccess(matchedItem.item_name, cases, units);
-          }
-          toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
-        } else if (cmd.item_name) {
-          toast.warning(`Couldn't match "${cmd.item_name}" to an item`);
-          playError();
-          // Flash error highlight briefly
-          setErrorHighlightedItemId("__unmatched__");
-          setTimeout(() => setErrorHighlightedItemId(null), 2000);
-        }
-      }
-
-      // Highlight the last matched item (success)
-      if (lastMatchedId) {
-        setHighlightedItemId(lastMatchedId);
-        setTimeout(() => setHighlightedItemId(null), 2000);
-      }
-
-      if (successCount === 0 && commands.length === 0) {
-        toast.warning(`Couldn't understand: "${transcript}"`);
-        playError();
-      }
+      applyVoiceCommands(data.commands || [], transcript);
     } catch (error) {
-      console.error('[Voice] Parse error:', error);
+      console.error('[Voice] AI parse error:', error);
       toast.error('Failed to process voice command');
       playError();
     }
-  }, [currentItems, playSuccess, playError]);
+  }, [currentItems, applyVoiceCommands, playError]);
 
   const { isListening, isSupported, toggleListening } = useVoiceInput({
     onTranscript: handleVoiceTranscript,
