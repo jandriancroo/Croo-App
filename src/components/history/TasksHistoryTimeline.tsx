@@ -178,6 +178,7 @@ export function TasksHistoryTimeline({
         accentColor: event.accent_color || undefined,
         completedAt: event.completed_at,
         displayTime,
+        onClick: () => onTaskClick(event as any),
       });
     });
 
@@ -193,6 +194,7 @@ export function TasksHistoryTimeline({
         contributors: entry.completerName ? [{ name: entry.completerName, photo: entry.completerPhoto }] : [],
         completedAt: entry.completed_at,
         displayTime,
+        onClick: () => onTaskClick(entry as any),
       });
     });
 
@@ -305,11 +307,13 @@ export function TasksHistoryTimeline({
             const bgColor = item.type === 'event' ? 'bg-blue-500/15 border-blue-500/30' : 'bg-green-500/15 border-green-500/30';
             const textColor = item.type === 'event' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400';
             const Icon = item.type === 'event' ? Calendar : BookOpen;
+            const contributor = item.contributors[0];
             
             return (
               <div 
                 key={item.id} 
-                className="relative flex items-center mb-1 pl-4 sm:pl-8"
+                className="relative flex items-center mb-1 pl-4 sm:pl-8 cursor-pointer"
+                onClick={item.onClick}
               >
                 {/* Timeline dot */}
                 <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -324,6 +328,18 @@ export function TasksHistoryTimeline({
                   )}
                   <span className="text-foreground font-medium">{item.title}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                  {contributor && (
+                    <>
+                      <span className="text-muted-foreground mx-0.5">·</span>
+                      <Avatar className="h-4 w-4 shrink-0">
+                        {contributor.photo && <AvatarImage src={contributor.photo} />}
+                        <AvatarFallback className="text-[8px] font-medium bg-primary/20 text-primary">
+                          {contributor.name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-muted-foreground font-medium hidden sm:inline">{contributor.name}</span>
+                    </>
+                  )}
                 </div>
               </div>
             );
