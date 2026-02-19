@@ -305,16 +305,17 @@ const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
 
 // Main hook that chooses the best available speech recognition
 export const useVoiceInput = (options: UseVoiceInputOptions) => {
+  // Capture once at mount so the hook order never changes between renders
+  const useNativeRef = useRef(hasNativeSpeechAPI());
+
   const nativeHook = useNativeSpeechRecognition(options);
   const elevenLabsHook = useElevenLabsScribe(options);
 
   // Prefer native Web Speech API when available (faster, no API costs)
   // Fall back to ElevenLabs for iOS and unsupported browsers
-  if (hasNativeSpeechAPI()) {
-    console.log('[Voice] Using native Web Speech API');
+  if (useNativeRef.current) {
     return nativeHook;
   } else {
-    console.log('[Voice] Using ElevenLabs Scribe (fallback for iOS)');
     return elevenLabsHook;
   }
 };
