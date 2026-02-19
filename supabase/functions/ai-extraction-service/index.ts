@@ -583,48 +583,103 @@ async function handleParseInventoryVoice(payload: any) {
 
   const itemNames = items.map((i: any) => i.item_name).join(', ');
 
-  const systemPrompt = `You are an inventory voice command parser. Parse the user's spoken command to extract ONE OR MORE items with their quantities.
+  const systemPrompt = `You are an inventory voice command parser for a restaurant. Your job is to extract item counts from spoken commands.
 
 Available inventory items: ${itemNames}
 
-Common patterns:
-- "Cookies 5 cases" → item: Cookies, cases: 5, units: 0
-- "Ranch 2 cases 3 units" → item: Ranch, cases: 2, units: 3
-- "Chicken half a case" → item: Chicken, cases: 0.5, units: 0
-- "5 cookies" → item: Cookies, cases: 5, units: 0
+Rules:
+- Match spoken item names to the closest available item (fuzzy match ok)
+- "cases" / "cs" / "boxes" = cases field
+- "units" / "ea" / "each" / "pieces" = units field
+- A plain number with no unit keyword = cases (default)
+- "half" = 0.5, "a" = 1
+- Extract ALL items mentioned in one command
+- Use the EXACT item_name from the list above`;
 
-IMPORTANT: Users may say multiple items in one command. Extract ALL of them.
+  // Use tool calling for structured output — faster and more reliable than JSON parsing
+  const data = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: transcript }
+      ],
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'record_inventory_counts',
+          description: 'Record inventory counts parsed from voice command',
+          parameters: {
+            type: 'object',
+            properties: {
+              commands: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    item_name: { type: 'string', description: 'Exact item name from the available list' },
+                    cases: { type: 'number', description: 'Number of cases (default 0)' },
+                    units: { type: 'number', description: 'Number of units (default 0)' },
+                  },
+                  required: ['item_name', 'cases', 'units'],
+                  additionalProperties: false,
+                }
+              }
+            },
+            required: ['commands'],
+            additionalProperties: false,
+          }
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'record_inventory_counts' } },
+    }),
+  });
 
-Respond ONLY with valid JSON:
-{
-  "commands": [
-    {"item_name": "matched item name", "cases": 0, "units": 0, "confidence": "high|medium|low"}
-  ]
-}`;
-
-  const data = await callAI([
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: transcript }
-  ]);
-
-  const content = data.choices?.[0]?.message?.content || '';
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return errorResponse('No JSON found in response', 400);
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const commands = parsed.commands || [parsed];
-
-    const results = commands.map((cmd: any) => {
-      const matchedItem = items.find((i: any) => i.item_name.toLowerCase() === cmd.item_name.toLowerCase());
-      return { ...cmd, matched_item_id: matchedItem?.item_id };
-    });
-
-    return jsonResponse({ commands: results });
-  } catch (e) {
-    console.error('[parse-inventory-voice] Parse error:', e);
-    return errorResponse('Failed to parse AI response', 400);
+  if (!data.ok) {
+    const errText = await data.text();
+    console.error('[parse-inventory-voice] AI error:', data.status, errText);
+    return errorResponse('AI service error', 500);
   }
+
+  const json = await data.json();
+  const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) {
+    return errorResponse('No tool call in AI response', 500);
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(toolCall.function.arguments);
+  } catch (e) {
+    console.error('[parse-inventory-voice] JSON parse error:', e);
+    return errorResponse('Failed to parse AI response', 500);
+  }
+
+  // Match AI-returned item names back to item IDs using fuzzy search
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const results = (parsed.commands || []).map((cmd: any) => {
+    const normCmd = normalize(cmd.item_name);
+    // Exact match first
+    let matchedItem = items.find((i: any) => normalize(i.item_name) === normCmd);
+    // Substring match fallback
+    if (!matchedItem) {
+      matchedItem = items.find((i: any) => normalize(i.item_name).includes(normCmd) || normCmd.includes(normalize(i.item_name)));
+    }
+    return {
+      item_name: matchedItem?.item_name || cmd.item_name,
+      matched_item_id: matchedItem?.item_id || null,
+      cases: cmd.cases || 0,
+      units: cmd.units || 0,
+      confidence: matchedItem ? 'high' : 'low',
+    };
+  }).filter((cmd: any) => cmd.matched_item_id); // Drop unmatched items
+
+  return jsonResponse({ commands: results });
 }
 
 // ============================================================================

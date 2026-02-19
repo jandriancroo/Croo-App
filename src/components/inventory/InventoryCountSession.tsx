@@ -22,7 +22,6 @@ import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
-import { fuzzyMatchVoiceCommand } from "@/utils/voiceFuzzyMatch";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 
 interface InventoryCountSessionProps {
@@ -606,24 +605,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [currentItems, playSuccess, playError]);
 
-  // Voice input handler — local fuzzy match first, AI fallback for ambiguous input
+  // Voice input handler — always uses AI for maximum accuracy
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
     if (!currentItems || currentItems.length === 0) return;
 
     const itemList = currentItems.map(i => ({ item_id: i.item_id, item_name: i.item_name }));
 
-    // Try fast local fuzzy match first (<1ms)
-    const localResult = fuzzyMatchVoiceCommand(transcript, itemList);
-
-    if (localResult) {
-      console.log('[Voice] Local fuzzy match hit:', localResult.commands);
-      applyVoiceCommands(localResult.commands, transcript);
-      return;
-    }
-
-    // Fallback to AI for complex/ambiguous commands
-    console.log('[Voice] Local miss, falling back to AI for:', transcript);
-    toast.info(`Processing: "${transcript}"`);
+    // Show what was heard immediately (feels responsive)
+    toast.info(`"${transcript}"`, { duration: 3000 });
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=parse-inventory-voice', {
