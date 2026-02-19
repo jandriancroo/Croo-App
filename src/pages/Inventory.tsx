@@ -146,12 +146,7 @@ const Inventory = () => {
   });
 
   const handleStartCount = () => {
-    if (inProgressCount) {
-      // Resume existing count
-      navigate(`/inventory/${locationId}/count/${inProgressCount.id}`);
-    } else {
-      setShowStartDialog(true);
-    }
+    setShowStartDialog(true);
   };
 
   const handleConfirmStart = (periodType: string | null, periodEndDate: string | null) => {
@@ -250,9 +245,7 @@ const Inventory = () => {
                   <div>
                     <h3 className="font-semibold text-lg">Start Inventory Count</h3>
                     <p className="text-muted-foreground text-sm">
-                      {inProgressCount 
-                        ? "Resume your in-progress count" 
-                        : "Select a period and begin counting"}
+                      Select a period and begin counting
                     </p>
                   </div>
                   <Button 
@@ -261,7 +254,7 @@ const Inventory = () => {
                     className="w-full sm:w-auto"
                   >
                     <Plus className="h-5 w-5 mr-2" />
-                    {inProgressCount ? "Resume Count" : "Start Count"}
+                    Start Count
                   </Button>
                 </div>
               </CardContent>
@@ -284,10 +277,10 @@ const Inventory = () => {
                           onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium">
-                                {formatPeriodLabel(count)}
-                              </p>
+                            <p className="font-medium">
+                              {formatPeriodLabel(count)}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
                               <Badge variant="outline" className="text-xs capitalize">
                                 {count.period_type || "Quick"}
                               </Badge>
@@ -295,7 +288,7 @@ const Inventory = () => {
                                 {count.status === "completed" ? "Complete" : "In Progress"}
                               </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mt-0.5">
                               {count.counted_by_profile?.full_name || "Unknown"}
                             </p>
                           </div>
