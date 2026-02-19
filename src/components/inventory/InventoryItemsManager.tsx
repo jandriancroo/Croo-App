@@ -532,6 +532,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["last-pfg-sync", locationId] });
+
+      // Also sync PFG orders in background (for COGS)
+      supabase.functions.invoke("pfg-service?action=sync_orders", {
+        body: { locationId }
+      }).catch(console.warn);
       
       const messages = [];
       if (locationsAdded > 0) messages.push(`${locationsAdded} locations`);
