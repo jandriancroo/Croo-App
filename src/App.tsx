@@ -70,6 +70,7 @@ const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
+const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
 const Games = lazyWithRetry(() => import("./pages/Games"));
 const SnakeGame = lazyWithRetry(() => import("./pages/SnakeGame"));
 const MinesweeperGame = lazyWithRetry(() => import("./pages/MinesweeperGame"));
@@ -198,6 +199,7 @@ const AppContent = () => {
         <Route path="/org-dash" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
+        <Route path="/inventory/:locationId/cogs" element={<ProtectedRoute><COGSReport /></ProtectedRoute>} />
         <Route path="/games" element={<ProtectedRoute><Games /></ProtectedRoute>} />
         <Route path="/games/snake" element={<ProtectedRoute><SnakeGame /></ProtectedRoute>} />
         <Route path="/games/minesweeper" element={<ProtectedRoute><MinesweeperGame /></ProtectedRoute>} />

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2 } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -238,7 +238,7 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Count</span>
@@ -246,6 +246,10 @@ const Inventory = () => {
             <TabsTrigger value="variance" className="flex items-center gap-2">
               <TrendingDown className="h-4 w-4" />
               <span className="hidden sm:inline">Variance</span>
+            </TabsTrigger>
+            <TabsTrigger value="cogs" className="flex items-center gap-2" onClick={() => navigate(`/inventory/${locationId}/cogs`)}>
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">COGS</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
