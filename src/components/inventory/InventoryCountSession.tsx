@@ -668,7 +668,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       )}
 
       {/* Item list with dual counting */}
-      <div className="space-y-3">
+      <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
           const count = counts[item.item_id] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
@@ -731,10 +731,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, -1)}
                         >
-                          <Minus className="h-6 w-6" strokeWidth={3} />
+                          <Minus className="h-5 w-5" strokeWidth={2.5} />
                         </button>
                       )}
                       <input
@@ -752,10 +752,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, 1)}
                         >
-                          <Plus className="h-6 w-6" strokeWidth={3} />
+                          <Plus className="h-5 w-5" strokeWidth={2.5} />
                         </button>
                       )}
                     </div>
@@ -773,10 +773,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateUnits(item.item_id, -1)}
                         >
-                          <Minus className="h-6 w-6" strokeWidth={3} />
+                          <Minus className="h-5 w-5" strokeWidth={2.5} />
                         </button>
                       )}
                       <input
@@ -794,10 +794,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded-md bg-foreground text-background hover:bg-foreground/80 active:scale-95 transition-all"
                           onClick={() => updateUnits(item.item_id, 1)}
                         >
-                          <Plus className="h-6 w-6" strokeWidth={3} />
+                          <Plus className="h-5 w-5" strokeWidth={2.5} />
                         </button>
                       )}
                     </div>
