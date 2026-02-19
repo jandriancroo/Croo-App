@@ -92,6 +92,52 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
+  // Fetch last sync times for PFG and PA
+  const { data: lastPfgSync } = useQuery({
+    queryKey: ["last-pfg-sync", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_sync_logs")
+        .select("completed_at")
+        .eq("location_id", locationId)
+        .eq("sync_source", "pfg")
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!pfgIntegration
+  });
+
+  const { data: lastPaSync } = useQuery({
+    queryKey: ["last-pa-sync", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("inventory_sync_logs")
+        .select("completed_at")
+        .eq("location_id", locationId)
+        .eq("sync_source", "produce_alliance")
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!paIntegration
+  });
+
+  const formatSyncTime = (isoDate: string | null | undefined) => {
+    if (!isoDate) return null;
+    const d = new Date(isoDate);
+    return d.toLocaleString('en-US', { 
+      timeZone: 'America/Los_Angeles',
+      month: 'short', day: 'numeric', 
+      hour: 'numeric', minute: '2-digit',
+      hour12: true
+    });
+  };
+
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
     queryKey: ["inventory-storage-locations", locationId],
@@ -440,6 +486,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["last-pfg-sync", locationId] });
       
       const messages = [];
       if (locationsAdded > 0) messages.push(`${locationsAdded} locations`);
@@ -488,6 +535,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["last-pa-sync", locationId] });
 
       const itemCount = data?.itemsSynced || data?.items_synced || 0;
       if (itemCount > 0) {
@@ -540,6 +588,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     <Progress value={progress.current} className="h-1.5" />
                   </div>
                 )}
+                {!progress && lastPfgSync?.completed_at && (
+                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                    Last synced {formatSyncTime(lastPfgSync.completed_at)}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -565,6 +618,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>
                     <Progress value={paProgress.current} className="h-1.5" />
                   </div>
+                )}
+                {!paProgress && lastPaSync?.completed_at && (
+                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
+                    Last synced {formatSyncTime(lastPaSync.completed_at)}
+                  </p>
                 )}
               </CardContent>
             </Card>
