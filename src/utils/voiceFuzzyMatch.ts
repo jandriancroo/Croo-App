@@ -116,19 +116,44 @@ const matchItem = (
 
 // ── Multi-item splitter ───────────────────────────────────────────
 
+const NUM_WORDS = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|half|a|an';
+const NUM_PATTERN_STR = `(?:\\d+(?:\\.\\d+)?|${NUM_WORDS})`;
+const UNIT_KW_STR = '(?:cases?|cs|units?|ea|each|pieces?|bags?|boxes?|containers?|packs?|cans?|jars?|bottles?|gallons?|pounds?|lbs?)';
+
 /**
  * Split a continuous transcript into individual command segments.
- * Splits on boundaries where a new number+unit keyword appears.
+ * Detects both "<number> <unit> <item>" and "<item> <number> <unit>" boundaries.
  * e.g. "two cases brownies one case chicken" → ["two cases brownies", "one case chicken"]
+ * e.g. "chicken two boxes brownies one unit" → ["chicken two boxes", "brownies one unit"]
  */
 const splitIntoSegments = (text: string): string[] => {
-  // Pattern: a number (digit or word) followed by case/unit keyword
-  // We split BEFORE each such occurrence (except the first)
-  const numPattern = '(?:\\d+(?:\\.\\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|half|a|an)';
-  const unitKeyword = '(?:cases?|cs|units?|ea|each|pieces?|bags?|boxes?|containers?|packs?|cans?|jars?|bottles?|gallons?|pounds?|lbs?)';
-  const segmentBoundary = new RegExp(`(?=\\b${numPattern}\\s+${unitKeyword}\\b)`, 'gi');
+  // Strategy: find all positions where a <number> <unit> pattern starts,
+  // then look backwards to see if the preceding word(s) are an item name
+  // (i.e., not a number or unit keyword). If so, split before the item name.
 
-  const segments = text.split(segmentBoundary).map(s => s.trim()).filter(Boolean);
+  // First, try splitting on "<number> <unit>" boundaries
+  const numUnitBoundary = new RegExp(`(?=\\b${NUM_PATTERN_STR}\\s+${UNIT_KW_STR}\\b)`, 'gi');
+  let segments = text.split(numUnitBoundary).map(s => s.trim()).filter(Boolean);
+
+  // If that produced segments, check if any segment starts with an item name
+  // followed by a number+unit (reverse order). These are already correctly split.
+  if (segments.length > 1) return segments;
+
+  // Also try splitting where an item name precedes a number+unit from a NEW item.
+  // Look for patterns where non-number non-unit words precede a number+unit.
+  // This handles: "chicken two boxes brownies one unit sausage"
+  // We need to find word(s) that are NOT numbers/units, followed by number+unit
+  const reversePattern = new RegExp(
+    `(\\b(?!${NUM_PATTERN_STR}\\b)(?!${UNIT_KW_STR}\\b)[a-z]+(?:\\s+(?!${NUM_PATTERN_STR}\\b)(?!${UNIT_KW_STR}\\b)[a-z]+)*` +
+    `\\s+${NUM_PATTERN_STR}\\s+${UNIT_KW_STR}(?:\\s+(?!${NUM_PATTERN_STR}\\b)(?!${UNIT_KW_STR}\\b)[a-z]*)*)`,
+    'gi'
+  );
+
+  const reverseMatches = text.match(reversePattern);
+  if (reverseMatches && reverseMatches.length > 1) {
+    return reverseMatches.map(s => s.trim()).filter(Boolean);
+  }
+
   return segments.length > 0 ? segments : [text];
 };
 
@@ -149,6 +174,8 @@ const parseSegment = (
   let units = 0;
   let itemQuery = '';
 
+  // ── Forward patterns: <num> <unit> <item> ──
+
   // Pattern: "<num> cases [and] <num> units [of] <item>"
   const fullRe = new RegExp(`${NUM}\\s*${CASE_KW}\\s*(?:and\\s*)?${NUM}\\s*${UNIT_KW}\\s*(?:of\\s*)?(.+)`);
   // Pattern: "<num> units [and] <num> cases [of] <item>"
@@ -157,7 +184,16 @@ const parseSegment = (
   const casesRe = new RegExp(`${NUM}\\s*${CASE_KW}\\s*(?:of\\s*)?(.+)`);
   // Pattern: "<num> units [of] <item>"
   const unitsRe = new RegExp(`${NUM}\\s*${UNIT_KW}\\s*(?:of\\s*)?(.+)`);
-  // Pattern: "<num> <item>" (default to cases)
+
+  // ── Reverse patterns: <item> <num> <unit> ──
+
+  // Pattern: "<item> <num> cases [and] <num> units"
+  const revFullRe = new RegExp(`(.+?)\\s+${NUM}\\s*${CASE_KW}\\s*(?:and\\s*)?${NUM}\\s*${UNIT_KW}\\s*$`);
+  // Pattern: "<item> <num> cases"
+  const revCasesRe = new RegExp(`(.+?)\\s+${NUM}\\s*${CASE_KW}\\s*$`);
+  // Pattern: "<item> <num> units"
+  const revUnitsRe = new RegExp(`(.+?)\\s+${NUM}\\s*${UNIT_KW}\\s*$`);
+  // Pattern: "<num> <item>" (default to cases, no unit keyword)
   const simpleRe = new RegExp(`^${NUM}\\s+(.+)`);
 
   let match = text.match(fullRe);
@@ -165,37 +201,35 @@ const parseSegment = (
     cases = parseFloat(match[1]);
     units = parseFloat(match[2]);
     itemQuery = match[3].trim();
-  } else {
-    match = text.match(fullRevRe);
-    if (match) {
-      units = parseFloat(match[1]);
-      cases = parseFloat(match[2]);
-      itemQuery = match[3].trim();
-    } else {
-      match = text.match(casesRe);
-      if (match) {
-        cases = parseFloat(match[1]);
-        itemQuery = match[2].trim();
-      } else {
-        match = text.match(unitsRe);
-        if (match) {
-          units = parseFloat(match[1]);
-          itemQuery = match[2].trim();
-        } else {
-          match = text.match(simpleRe);
-          if (match) {
-            cases = parseFloat(match[1]);
-            itemQuery = match[2].trim();
-          }
-        }
-      }
-    }
+  } else if ((match = text.match(fullRevRe))) {
+    itemQuery = match[1].trim();
+    cases = parseFloat(match[2]);
+    units = parseFloat(match[3]);
+  } else if ((match = text.match(casesRe))) {
+    cases = parseFloat(match[1]);
+    itemQuery = match[2].trim();
+  } else if ((match = text.match(unitsRe))) {
+    units = parseFloat(match[1]);
+    itemQuery = match[2].trim();
+  } else if ((match = text.match(revFullRe))) {
+    itemQuery = match[1].trim();
+    cases = parseFloat(match[2]);
+    units = parseFloat(match[3]);
+  } else if ((match = text.match(revCasesRe))) {
+    itemQuery = match[1].trim();
+    cases = parseFloat(match[2]);
+  } else if ((match = text.match(revUnitsRe))) {
+    itemQuery = match[1].trim();
+    units = parseFloat(match[2]);
+  } else if ((match = text.match(simpleRe))) {
+    cases = parseFloat(match[1]);
+    itemQuery = match[2].trim();
   }
 
   if (!itemQuery || (cases === 0 && units === 0)) return null;
 
-  // Strip trailing filler words that speech recognition adds
-  itemQuery = itemQuery.replace(/\s+(and|then|next|also|uh|um)$/g, '').trim();
+  // Strip trailing/leading filler words that speech recognition adds
+  itemQuery = itemQuery.replace(/\b(and|then|next|also|uh|um)\b/g, '').replace(/\s+/g, ' ').trim();
 
   const result = matchItem(itemQuery, items);
   if (!result) return null;
@@ -208,7 +242,6 @@ const parseSegment = (
     confidence: result.score >= 0.7 ? 'high' : 'medium',
   };
 };
-
 // ── Main export ───────────────────────────────────────────────────
 
 /**
