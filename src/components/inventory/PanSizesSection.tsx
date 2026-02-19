@@ -42,7 +42,7 @@ const ALL_CONTAINERS: ContainerDef[] = [
   // 22 qt cambro filled to 16 pts (as specified by user).
   // 16 pints = 8 quarts. Relative to full pan (approx 20 qt for 6" deep full pan):
   // 8 qt / 20 qt ≈ 0.40
-  { key: "cambro_22qt", label: "22 qt Cambro (to 16 pts)", ratio: 0.40, blazeDefault: true, category: "cambro", description: "22 qt cambro filled to 16 pints (8 qt)" },
+  { key: "cambro_22qt", label: "22 qt Cambro (to 16 qt)", ratio: 0.80, blazeDefault: true, category: "cambro", description: "22 qt cambro filled to 16 quarts" },
   { key: "cambro_12qt", label: "12 qt Cambro",   ratio: 0.60,    blazeDefault: false, category: "cambro", description: "12 qt cambro (full)" },
   { key: "cambro_8qt",  label: "8 qt Cambro",    ratio: 0.40,    blazeDefault: false, category: "cambro", description: "8 qt cambro (full)" },
   { key: "cambro_4qt",  label: "4 qt Cambro",    ratio: 0.20,    blazeDefault: false, category: "cambro", description: "4 qt cambro (full)" },
