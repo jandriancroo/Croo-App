@@ -106,6 +106,7 @@ export function TasksHistoryTimeline({
       id: string;
       type: 'checklist' | 'task' | 'alarm' | 'alarm-missed' | 'event' | 'logbook';
       title: string;
+      description?: string | null;
       completionLevel: number;
       contributors: Contributor[];
       totalItems?: number;
@@ -156,6 +157,7 @@ export function TasksHistoryTimeline({
         id: `task-${task.id}`,
         type: isMissedAlarm ? 'alarm-missed' : isAlarm ? 'alarm' : 'task',
         title: task.title,
+        description: task.description,
         completionLevel: 100,
         contributors: task.completerName ? [{ name: task.completerName, photo: task.completerPhoto }] : [],
         accentColor: task.accent_color || undefined,
@@ -272,6 +274,9 @@ export function TasksHistoryTimeline({
                     <span className="text-amber-700 dark:text-amber-400 font-medium shrink-0">{item.displayTime}</span>
                   )}
                   <span className="text-foreground font-medium">{item.title}</span>
+                  {item.description && (
+                    <span className="text-muted-foreground hidden sm:inline">· {item.description}</span>
+                  )}
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
                   {contributor && (
                     <>
