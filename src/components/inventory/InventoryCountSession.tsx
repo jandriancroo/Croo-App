@@ -809,7 +809,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, -1)}
                         >
                           <Minus className="h-5 w-5" strokeWidth={2.5} />
@@ -823,14 +823,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         onBlur={() => handleCasesBlur(item.item_id)}
                         disabled={isViewOnly}
                         className={cn(
-                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
+                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
                           isViewOnly && "w-20 cursor-default"
                         )}
                       />
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/80 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-95 transition-all"
                           onClick={() => updateCases(item.item_id, 1)}
                         >
                           <Plus className="h-5 w-5" strokeWidth={2.5} />
@@ -851,7 +851,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       {!isViewOnly && (
                         <button
                           type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
+                          className="h-12 w-12 flex items-center justify-center rounded bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
                           onClick={() => updateUnits(item.item_id, -1)}
                         >
                           <Minus className="h-5 w-5" strokeWidth={2.5} />
@@ -865,7 +865,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         onBlur={() => handleUnitsBlur(item.item_id)}
                         disabled={isViewOnly}
                         className={cn(
-                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
+                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
                           isViewOnly && "w-20 cursor-default"
                         )}
                       />
