@@ -274,9 +274,6 @@ export function TasksHistoryTimeline({
                     <span className="text-amber-700 dark:text-amber-400 font-medium shrink-0">{item.displayTime}</span>
                   )}
                   <span className="text-foreground font-medium">{item.title}</span>
-                  {item.description && (
-                    <span className="text-muted-foreground hidden sm:inline">· {item.description}</span>
-                  )}
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
                   {contributor && (
                     <>
