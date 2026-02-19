@@ -787,7 +787,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                     {/* Item value */}
                     <div className="text-right flex-shrink-0">
-                        <p className="font-semibold text-primary-foreground">{formatCurrency(itemCost)}</p>
+                        <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
                         <p className="text-xs text-primary-foreground/70">
                           {getTotalQuantity(item.item_id, item.pack_quantity)} units
                         </p>
@@ -795,95 +795,83 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   </div>
                 </div>
                 
-                {/* Dual count controls - Mobile optimized */}
-                <div className="grid grid-cols-2 divide-x divide-border">
-                  {/* Cases counter */}
-                  <div className="p-3">
-                    <p className="text-xs text-center text-muted-foreground mb-2 uppercase tracking-wide font-medium">
-                      Cases
-                      {item.cost_per_unit && (
-                        <span className="ml-1 text-primary">@ {formatCurrency(item.cost_per_unit)}</span>
-                      )}
-                    </p>
-                    <div className="flex items-center justify-center gap-2">
-                      {!isViewOnly && (
-                        <button
-                          type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
-                          onClick={() => updateCases(item.item_id, -1)}
-                        >
-                          <Minus className="h-5 w-5" strokeWidth={2.5} />
-                        </button>
-                      )}
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={rawInputs[item.item_id]?.cases ?? count.cases}
-                        onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
-                        onBlur={() => handleCasesBlur(item.item_id)}
-                        disabled={isViewOnly}
-                        className={cn(
-                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
-                          isViewOnly && "w-20 cursor-default"
-                        )}
-                      />
-                      {!isViewOnly && (
-                        <button
-                          type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-95 transition-all"
-                          onClick={() => updateCases(item.item_id, 1)}
-                        >
-                          <Plus className="h-5 w-5" strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Units counter */}
-                  <div className="p-3">
-                    <p className="text-xs text-center text-muted-foreground mb-2 uppercase tracking-wide font-medium">
-                      Units
-                      {costPerUnit > 0 && (
-                        <span className="ml-1 text-primary">@ {formatCurrency(costPerUnit)}</span>
-                      )}
-                    </p>
-                    <div className="flex items-center justify-center gap-2">
-                      {!isViewOnly && (
-                        <button
-                          type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded bg-destructive/30 text-destructive hover:bg-destructive/40 active:scale-95 transition-all"
-                          onClick={() => updateUnits(item.item_id, -1)}
-                        >
-                          <Minus className="h-5 w-5" strokeWidth={2.5} />
-                        </button>
-                      )}
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={rawInputs[item.item_id]?.units ?? count.units}
-                        onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
-                        onBlur={() => handleUnitsBlur(item.item_id)}
-                        disabled={isViewOnly}
-                        className={cn(
-                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
-                          isViewOnly && "w-20 cursor-default"
-                        )}
-                      />
-                      {!isViewOnly && (
-                        <button
-                          type="button"
-                          className="h-12 w-12 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/80 active:scale-95 transition-all"
-                          onClick={() => updateUnits(item.item_id, 1)}
-                        >
-                          <Plus className="h-5 w-5" strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                    {packQty > 1 && (
-                      <p className="text-[10px] text-center text-muted-foreground mt-1">
-                        {packQty} per case
+                {/* Dual count controls - Pill Stepper style */}
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    {/* Cases pill stepper */}
+                    <div className="flex-1">
+                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                        Cases
                       </p>
-                    )}
+                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateCases(item.item_id, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[item.item_id]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
+                          onBlur={() => handleCasesBlur(item.item_id)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateCases(item.item_id, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Units pill stepper */}
+                    <div className="flex-1">
+                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                        Units
+                        {packQty > 1 && (
+                          <span className="ml-1 normal-case tracking-normal">({packQty}/case)</span>
+                        )}
+                      </p>
+                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateUnits(item.item_id, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[item.item_id]?.units ?? count.units}
+                          onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
+                          onBlur={() => handleUnitsBlur(item.item_id)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateUnits(item.item_id, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
