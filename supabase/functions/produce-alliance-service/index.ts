@@ -590,6 +590,46 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
   return jsonResponse({ success: true, data: { items, count: items.length } });
 }
 
+// Helper: persist PA orders to pa_orders table
+async function persistPAOrders(supabase: any, locationId: string, rawOrders: any[], parseMSDate: (d: string | null) => string | null) {
+  let persisted = 0;
+  for (const order of rawOrders) {
+    const orderId = order.OrderID;
+    if (!orderId) continue;
+
+    const orderDate = parseMSDate(order.DateCreated);
+    if (!orderDate) continue;
+
+    const deliveryDate = parseMSDate(order.DeliveryDate);
+    const lineItems = (order.OrderDetails || []).map((item: any) => ({
+      name: item.ProductName || item.Name || item.Description,
+      quantity: item.Quantity || item.Qty || 0,
+      unit: item.UOM || item.Unit || 'CS',
+      price: item.Price || item.UnitPrice || 0,
+      total: item.ExtendedPrice || item.Total || item.Amount || 0,
+    }));
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: String(orderId),
+        order_number: order.OrderNumber || String(orderId),
+        order_date: orderDate.split('T')[0],
+        delivery_date: deliveryDate ? deliveryDate.split('T')[0] : null,
+        status: order.Status || 'delivered',
+        total_amount: order.OrderTotal || null,
+        items: lineItems,
+        raw_data: order,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (!error) persisted++;
+  }
+  console.log(`[PA Orders] Persisted ${persisted} of ${rawOrders.length} orders for location ${locationId}`);
+  return persisted;
+}
+
 async function handleOrders(supabase: any, body: any): Promise<Response> {
   const { locationId, fetchDetails } = body;
   const credentials = await getCredentials(supabase, locationId);
@@ -606,6 +646,9 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
     const match = d.match(/\/Date\((\d+)\)\//);
     return match ? new Date(parseInt(match[1])).toISOString() : null;
   };
+
+  // Persist orders to pa_orders table
+  const persistedCount = await persistPAOrders(supabase, locationId, rawOrders, parseMSDate);
 
   const orders = rawOrders.map((o: any) => ({
     orderId: o.OrderID,
@@ -689,7 +732,7 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
     }
   }
 
-  return jsonResponse({ success: true, data: { orders, count: orders.length } });
+  return jsonResponse({ success: true, data: { orders, count: orders.length, persisted: persistedCount } });
 }
 
 function parseOrderDetailHtml(html: string): any[] {
@@ -1494,12 +1537,20 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
     return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
   }
 
-  // Step 1: Get orders
+  // Step 1: Get orders and persist to pa_orders
   const rawOrders = await fetchPAOrders(session);
   if (rawOrders.length === 0) {
     await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No orders found' });
     return jsonResponse({ success: true, synced: 0, message: 'No orders found' });
   }
+
+  // Persist all fetched orders
+  const parseMSDate = (d: string | null) => {
+    if (!d) return null;
+    const match = d.match(/\/Date\((\d+)\)\//);
+    return match ? new Date(parseInt(match[1])).toISOString() : null;
+  };
+  await persistPAOrders(supabase, locationId, rawOrders, parseMSDate);
 
   const ordersToProcess = rawOrders.slice(0, maxOrders);
   console.log(`[PA Sync] Processing ${ordersToProcess.length} of ${rawOrders.length} orders`);
