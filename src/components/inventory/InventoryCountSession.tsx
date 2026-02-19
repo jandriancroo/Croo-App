@@ -74,6 +74,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   // panCounts: itemId -> { panKey -> count of that pan }
   const [panCounts, setPanCounts] = useState<Record<string, Record<string, number>>>({});
+  // rawPanInputs: itemId -> { panKey -> raw string while typing }
+  const [rawPanInputs, setRawPanInputs] = useState<Record<string, Record<string, string>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
   const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
@@ -467,9 +469,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const updatePanCount = (itemId: string, panKey: string, delta: number) => {
     setPanCounts(prev => {
       const itemPans = prev[itemId] || {};
-      const newVal = Math.max(0, (itemPans[panKey] || 0) + delta);
+      const newVal = Math.max(0, Math.round(((itemPans[panKey] || 0) + delta) * 2) / 2);
+      setRawPanInputs(p => ({ ...p, [itemId]: { ...p[itemId], [panKey]: String(newVal) } }));
       return { ...prev, [itemId]: { ...itemPans, [panKey]: newVal } };
     });
+  };
+
+  const handlePanInput = (itemId: string, panKey: string, value: string) => {
+    setRawPanInputs(prev => ({ ...prev, [itemId]: { ...prev[itemId], [panKey]: value } }));
+  };
+
+  const handlePanBlur = (itemId: string, panKey: string) => {
+    const raw = rawPanInputs[itemId]?.[panKey] ?? '';
+    const parsed = parseFloat(raw);
+    const finalVal = isNaN(parsed) ? 0 : Math.max(0, Math.round(parsed * 2) / 2);
+    setPanCounts(prev => ({ ...prev, [itemId]: { ...prev[itemId], [panKey]: finalVal } }));
+    setRawPanInputs(prev => ({ ...prev, [itemId]: { ...prev[itemId], [panKey]: String(finalVal) } }));
   };
 
   const updateUnits = (itemId: string, delta: number) => {
@@ -999,19 +1014,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   <button
                                     type="button"
                                     className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                                    onClick={() => updatePanCount(item.item_id, panKey, -1)}
+                                    onClick={() => updatePanCount(item.item_id, panKey, -0.5)}
                                   >
                                     <Minus className="h-4 w-4" strokeWidth={2} />
                                   </button>
                                 )}
-                                <span className="flex-1 text-center text-xl font-bold text-foreground tabular-nums">
-                                  {panQty}
-                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={rawPanInputs[item.item_id]?.[panKey] ?? panQty}
+                                  onChange={(e) => handlePanInput(item.item_id, panKey, e.target.value)}
+                                  onBlur={() => handlePanBlur(item.item_id, panKey)}
+                                  disabled={isViewOnly}
+                                  className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                                />
                                 {!isViewOnly && (
                                   <button
                                     type="button"
                                     className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                                    onClick={() => updatePanCount(item.item_id, panKey, 1)}
+                                    onClick={() => updatePanCount(item.item_id, panKey, 0.5)}
                                   >
                                     <Plus className="h-4 w-4" strokeWidth={2} />
                                   </button>
