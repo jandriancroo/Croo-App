@@ -2060,6 +2060,7 @@ export type Database = {
           qubeyond_item_id: string | null
           recipe_yield_qty: number | null
           recipe_yield_unit: string | null
+          remap_status: string | null
           storage_location_id: string | null
           unit: string
           updated_at: string
@@ -2090,6 +2091,7 @@ export type Database = {
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
+          remap_status?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
@@ -2120,6 +2122,7 @@ export type Database = {
           qubeyond_item_id?: string | null
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
+          remap_status?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string

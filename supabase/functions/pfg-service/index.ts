@@ -930,6 +930,79 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
     });
   }
 
+  if (action === 'search_bid_guide') {
+    const bidGuideId = body.bidGuideHeaderId;
+    const searchQuery = body.searchQuery || '';
+    const customerIdToUse = customerId || credentials.customer_id;
+    
+    if (!bidGuideId || !customerIdToUse) {
+      return new Response(JSON.stringify({ 
+        error: 'bidGuideHeaderId and customerId are required',
+        authenticated: true
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Search the All Bids guide with a query filter
+    const requestBody: any = {
+      CustomerId: customerIdToUse,
+      ProductListHeaderId: bidGuideId,
+      QueryText: searchQuery,
+      SortByType: 0,
+      IncludeRecipeItems: true
+    };
+
+    const data = await fetchPfgJson(
+      '/ProductListSearch/V1/SearchProductList',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      },
+    );
+
+    const rawCategories = data?.ResultObject?.ProductListCategories || [];
+    
+    // Flatten all products from all categories for search results
+    const allProducts: any[] = [];
+    for (const cat of rawCategories) {
+      for (const p of (cat.Products || [])) {
+        const product = p.Product || {};
+        const uomList = product.UnitOfMeasureOrderQuantities || [];
+        const uom = uomList[0] || {};
+        const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
+        const packSize = uom.PackSize || product.ProductPackSizes?.[0];
+        
+        allProducts.push({
+          id: product.ProductKey || product.Id,
+          itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
+          name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
+          fullDescription: product.ProductDescription,
+          brand: product.ProductBrand,
+          packSize: packSize,
+          packQuantity: parsePackQuantity(packSize),
+          unit: uom.UnitOfMeasureAbbreviation || 'CS',
+          imageUrl: product.ProductImageUrlThumbnail,
+          price: price,
+          categoryName: cat.CategoryTitle || cat.Name || 'Uncategorized',
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ 
+      authenticated: true,
+      data: { products: allProducts, totalFound: allProducts.length }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   if (action === 'list_guides') {
     const customerIdToUse = customerId || credentials.customer_id;
     const result = await fetchProductListHeaders(accessToken, customerIdToUse);
