@@ -102,7 +102,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
         {/* Smart dock content (e.g., inventory counting) */}
         {dockContent && (
-          <div className="flex flex-col w-full gap-1.5">
+          <div className="flex flex-col w-full gap-1.5 px-2">
             <div className="flex items-center justify-between w-full gap-2">
               {/* Stats */}
               <div className="flex-1 flex items-center gap-3">
