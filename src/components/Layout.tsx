@@ -139,7 +139,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 <div className="text-center">
                   <p className="text-[10px] text-white/60 uppercase tracking-wide">Time</p>
                   <p className="text-base font-bold text-white leading-tight font-mono">
-                    {Math.floor(dockContent.elapsedSeconds / 60)}:{String(dockContent.elapsedSeconds % 60).padStart(2, '0')}
+                    {Math.floor(dockContent.elapsedSeconds / 60)} min
                   </p>
                 </div>
               </div>
