@@ -686,7 +686,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             >
               <CardContent className="p-0">
                 {/* Item header with details */}
-                <div className="p-3 border-b border-border bg-muted/60">
+                <div className="p-3 border-b border-border bg-muted">
                   <div className="flex items-start gap-3">
                     {item.image_url && (
                       <img 
