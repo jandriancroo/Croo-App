@@ -980,7 +980,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <ChefHat className="h-3 w-3" />
                         Pan / Cambro Sizes
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3 items-end">
                         {item.pan_sizes.enabled_keys.map(panKey => {
                           const container = ALL_CONTAINERS.find(c => c.key === panKey);
                           if (!container) return null;
@@ -1017,11 +1017,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   </button>
                                 )}
                               </div>
-                              {unitsEach != null && panQty > 0 && (
-                                <p className="text-xs font-mono font-semibold text-primary mt-1 text-center">
-                                  +{Math.round(unitsEach * panQty * 2) / 2} units
-                                </p>
-                              )}
                             </div>
                           );
                         })}
