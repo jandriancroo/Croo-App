@@ -193,7 +193,7 @@ const PillStepper = ({ label, value }: { label: string; value: number }) => (
   <div className="flex-1">
     <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">{label}</span>
     <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
-      <button className="h-11 w-11 flex items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all rounded-full flex-shrink-0">
+      <button className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0">
         <Minus className="h-4 w-4" strokeWidth={2} />
       </button>
       <input type="number" defaultValue={value} className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
