@@ -13,9 +13,20 @@ import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const InventoryCount = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
   const saveRef = useRef<{ save: () => void; isSaving: boolean } | null>(null);
   const { locationId, countId } = useParams();
   const [searchParams] = useSearchParams();
@@ -144,6 +155,29 @@ const InventoryCount = () => {
     navigate(`/inventory/${locationId}`);
   };
 
+  const handleSaveAndExit = () => {
+    saveRef.current?.save();
+    setShowSaveExitDialog(false);
+    // Small delay to let save complete before navigating
+    setTimeout(() => {
+      handleClose();
+    }, 500);
+  };
+
+  const handleBackClick = () => {
+    if (isCounting || isEditing) {
+      setShowSaveExitDialog(true);
+    } else {
+      handleClose();
+    }
+  };
+
+  const handleSaveClick = () => {
+    if (isCounting || isEditing) {
+      setShowSaveExitDialog(true);
+    }
+  };
+
   // Helper to get period icon
   const getPeriodIcon = (periodType: string | null) => {
     switch (periodType) {
@@ -208,7 +242,7 @@ const InventoryCount = () => {
       <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={handleClose}>
+          <Button variant="ghost" size="sm" onClick={handleBackClick}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -233,7 +267,7 @@ const InventoryCount = () => {
             <Button
               size="icon"
               className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 w-10 rounded-xl flex-shrink-0"
-              onClick={() => saveRef.current?.save()}
+              onClick={handleSaveClick}
               disabled={saveRef.current?.isSaving}
             >
               <Save className="h-5 w-5" />
@@ -304,6 +338,23 @@ const InventoryCount = () => {
           isDeleting={deleteCountMutation.isPending}
           countPeriod={formatPeriodLabel(countData)}
         />
+
+        <AlertDialog open={showSaveExitDialog} onOpenChange={setShowSaveExitDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Save & exit?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your count progress will be saved. You can continue counting later from the recent counts list.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSaveAndExit}>
+                Save & Exit
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
