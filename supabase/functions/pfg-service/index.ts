@@ -368,13 +368,19 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
 async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
   console.log('[PFG API] Fetching order history (submitted orders)');
 
-  // The correct PFG endpoint is POST /SubmittedOrder/V1/GetSubmittedOrderHeaders
+  // PFG expects CustomerIds as an array, plus a date window
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - 30); // 30 days back
+  const endDate = new Date(now);
+  endDate.setDate(endDate.getDate() + 30); // 30 days forward
+
   const requestBody: any = {
-    PageNumber: 1,
-    PageSize: 100,
+    StartDate: startDate.toISOString(),
+    EndDate: endDate.toISOString(),
   };
   if (customerId) {
-    requestBody.CustomerId = customerId;
+    requestBody.CustomerIds = [customerId];
   }
   console.log('[PFG API] Order request body:', JSON.stringify(requestBody));
 
