@@ -365,17 +365,28 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
 }
 
 // Fetch order history from PFG
-async function fetchOrderHistory(accessToken: string): Promise<any> {
-  console.log('[PFG API] Fetching order history');
+async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
+  console.log('[PFG API] Fetching order history (submitted orders)');
+
+  // The correct PFG endpoint is POST /SubmittedOrder/V1/GetSubmittedOrderHeaders
+  const requestBody: any = {
+    PageNumber: 1,
+    PageSize: 100,
+  };
+  if (customerId) {
+    requestBody.CustomerId = customerId;
+  }
 
   return fetchPfgJson(
-    '/OrderHistory/V1/GetOrderHistory',
+    '/SubmittedOrder/V1/GetSubmittedOrderHeaders',
     {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
+      body: JSON.stringify(requestBody),
     },
   );
 }
@@ -853,7 +864,8 @@ async function handleFetchAction(supabase: any, body: any): Promise<Response> {
   }
 
   if (action === 'orders') {
-    const orders = await fetchOrderHistory(accessToken);
+    const customerIdToUse = customerId || credentials.customer_id;
+    const orders = await fetchOrderHistory(accessToken, customerIdToUse);
     return new Response(JSON.stringify({ authenticated: true, data: orders }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -1074,8 +1086,9 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 
       const { accessToken } = tokenResult;
 
-      const orderData = await fetchOrderHistory(accessToken);
-      const rawOrders = orderData?.ResultObject?.Orders || orderData?.Orders || orderData?.ResultObject || [];
+      const customerIdToUse = credentials.customer_id;
+      const orderData = await fetchOrderHistory(accessToken, customerIdToUse);
+      const rawOrders = orderData?.ResultObject?.Orders || orderData?.ResultObject?.SubmittedOrderHeaders || orderData?.Orders || orderData?.SubmittedOrderHeaders || orderData?.ResultObject || [];
       const orders = Array.isArray(rawOrders) ? rawOrders : [];
       
       console.log(`[PFG Sync] Found ${orders.length} orders for location ${integration.location_id}`);
@@ -1083,11 +1096,11 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       let importedCount = 0;
 
       for (const order of orders) {
-        const pfgOrderId = order.OrderId || order.OrderNumber || order.Id || order.ConfirmationNumber;
+        const pfgOrderId = order.OrderId || order.SubmittedOrderId || order.OrderNumber || order.Id || order.ConfirmationNumber;
         if (!pfgOrderId) continue;
 
-        const orderDate = parsePfgDate(order.OrderDate || order.CreatedDate || order.SubmittedDate);
-        const deliveryDate = parsePfgDate(order.DeliveryDate || order.RequestedDeliveryDate);
+        const orderDate = parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
+        const deliveryDate = parsePfgDate(order.DeliveryDate || order.RequestedDeliveryDate || order.ExpectedDeliveryDate);
 
         if (!orderDate) continue;
 
