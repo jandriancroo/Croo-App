@@ -253,6 +253,7 @@ export function TasksHistoryTimeline({
         {timelineItems.map((item) => {
           // Mini inline row for alarm tasks
           if (item.type === 'alarm') {
+            const contributor = item.contributors[0];
             return (
               <div 
                 key={item.id} 
@@ -272,6 +273,18 @@ export function TasksHistoryTimeline({
                   )}
                   <span className="text-foreground font-medium">{item.title}</span>
                   <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                  {contributor && (
+                    <>
+                      <span className="text-muted-foreground mx-0.5">·</span>
+                      <Avatar className="h-4 w-4 shrink-0">
+                        {contributor.photo && <AvatarImage src={contributor.photo} />}
+                        <AvatarFallback className="text-[8px] font-medium bg-primary/20 text-primary">
+                          {contributor.name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-muted-foreground font-medium hidden sm:inline">{contributor.name}</span>
+                    </>
+                  )}
                 </div>
               </div>
             );
