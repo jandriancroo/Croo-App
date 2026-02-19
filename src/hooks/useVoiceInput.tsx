@@ -85,25 +85,43 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoic
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
         console.error('[Voice Native] Error:', event.error);
-        if (event.error === 'not-allowed' || event.error === 'aborted') {
+        // 'not-allowed' = mic denied → must stop
+        // 'aborted' and 'no-speech' are normal timeouts → onend will restart automatically
+        if (event.error === 'not-allowed') {
+          isListeningRef.current = false;
           setIsListening(false);
         }
+        // Do NOT stop for 'aborted', 'no-speech', or 'network' — onend handles restart
       };
 
       recognition.onend = () => {
         console.log('[Voice Native] Recognition ended, shouldContinue:', isListeningRef.current);
         if (isListeningRef.current && continuous) {
           setTimeout(() => {
-            if (isListeningRef.current && recognitionRef.current) {
-              try {
-                console.log('[Voice Native] Restarting...');
-                recognitionRef.current.start();
-              } catch (e) {
-                console.error('[Voice Native] Restart failed:', e);
-                setIsListening(false);
+            if (!isListeningRef.current || !recognitionRef.current) return;
+            try {
+              recognitionRef.current.start();
+              console.log('[Voice Native] Restarted successfully');
+            } catch (e: any) {
+              // 'already started' is harmless — recognition is already running
+              if (e?.message?.includes('already started') || e?.name === 'InvalidStateError') {
+                console.log('[Voice Native] Already started, skipping restart');
+                return;
               }
+              // Any other error — retry once more after a longer delay
+              console.error('[Voice Native] Restart failed, retrying in 500ms:', e);
+              setTimeout(() => {
+                if (!isListeningRef.current || !recognitionRef.current) return;
+                try {
+                  recognitionRef.current.start();
+                } catch (e2) {
+                  console.error('[Voice Native] Retry also failed, giving up:', e2);
+                  isListeningRef.current = false;
+                  setIsListening(false);
+                }
+              }, 500);
             }
-          }, 100);
+          }, 250);
         } else {
           setIsListening(false);
         }
