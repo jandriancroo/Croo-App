@@ -139,10 +139,10 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
               {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
                 <button
                   onClick={dockContent.onToggleVoice}
-                  className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative ${
+                  className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative border ${
                     dockContent.isListening 
-                      ? 'bg-destructive text-destructive-foreground' 
-                      : 'text-white/80 hover:text-white hover:bg-white/10'
+                      ? 'bg-destructive text-destructive-foreground border-destructive' 
+                      : 'bg-white/20 text-white border-white/30 hover:bg-white/30'
                   }`}
                 >
                   {dockContent.isListening ? (
