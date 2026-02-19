@@ -686,7 +686,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             >
               <CardContent className="p-0">
                 {/* Item header with details */}
-                <div className="p-3 border-b border-border bg-muted">
+                <div className="p-3 border-b border-border bg-primary text-primary-foreground">
                   <div className="flex items-start gap-3">
                     {item.image_url && (
                       <img 
@@ -697,22 +697,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.item_name}</p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-                        {item.item_number && <span>#{item.item_number}</span>}
-                        <span>{item.pack_size || item.unit || 'ea'}</span>
-                        {item.cost_per_unit && (
-                          <span className="text-primary font-medium">
-                            {formatCurrency(item.cost_per_unit)}/case
-                          </span>
-                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-primary-foreground/70 mt-1">
+                          {item.item_number && <span>#{item.item_number}</span>}
+                          <span>{item.pack_size || item.unit || 'ea'}</span>
+                          {item.cost_per_unit && (
+                            <span className="text-primary-foreground font-medium">
+                              {formatCurrency(item.cost_per_unit)}/case
+                            </span>
+                          )}
                       </div>
                     </div>
                     {/* Item value */}
                     <div className="text-right flex-shrink-0">
-                      <p className="font-semibold text-primary">{formatCurrency(itemCost)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {getTotalQuantity(item.item_id, item.pack_quantity)} units
-                      </p>
+                        <p className="font-semibold text-primary-foreground">{formatCurrency(itemCost)}</p>
+                        <p className="text-xs text-primary-foreground/70">
+                          {getTotalQuantity(item.item_id, item.pack_quantity)} units
+                        </p>
                     </div>
                   </div>
                 </div>
