@@ -1193,9 +1193,19 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         rawOrders = [];
       }
       
-      console.log(`[PFG Sync] Found ${rawOrders.length} orders for location ${integration.location_id}`);
+      console.log(`[PFG Sync] Found ${rawOrders.length} total orders for location ${integration.location_id}`);
       if (rawOrders.length > 0) {
         console.log('[PFG Sync] Sample order keys:', JSON.stringify(Object.keys(rawOrders[0])).slice(0, 500));
+      }
+
+      // Filter orders by DeliverToCustomerNumber if configured
+      const deliverToFilter = (credentials as any).deliver_to_customer_number;
+      if (deliverToFilter) {
+        const beforeCount = rawOrders.length;
+        rawOrders = rawOrders.filter((o: any) => String(o.DeliverToCustomerNumber) === String(deliverToFilter));
+        console.log(`[PFG Sync] Filtered by DeliverToCustomerNumber ${deliverToFilter}: ${beforeCount} → ${rawOrders.length} orders`);
+      } else {
+        console.log('[PFG Sync] No deliver_to_customer_number filter set — importing all orders');
       }
 
       let importedCount = 0;
@@ -1282,6 +1292,174 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 }
 
 // ============================================================================
+// DELIVERY LOCATION DISCOVERY & ASSIGNMENT
+// ============================================================================
+
+async function handleListDeliveryLocations(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  if (!locationId) {
+    return new Response(JSON.stringify({ error: 'locationId required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration, error } = await supabase
+    .from('location_integrations')
+    .select('id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .single();
+
+  if (error || !integration) {
+    return new Response(JSON.stringify({ error: 'No active PFG integration found' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const credentials = integration.credentials as unknown as PFGCredentials;
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  if (!tokenResult) {
+    return new Response(JSON.stringify({ error: 'Auth failed — re-login needed' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { accessToken } = tokenResult;
+  const orderData = await fetchOrderHistory(accessToken, credentials.customer_id);
+  
+  let rawOrders: any[];
+  const resultObj = orderData?.ResultObject;
+  if (Array.isArray(resultObj)) {
+    rawOrders = resultObj;
+  } else if (resultObj && typeof resultObj === 'object') {
+    rawOrders = resultObj.SubmittedOrderHeaders || resultObj.Orders || resultObj.Items || [];
+    if (rawOrders.length === 0 && (resultObj.OrderNumber || resultObj.DeliveryDate)) {
+      rawOrders = [resultObj];
+    }
+  } else {
+    rawOrders = [];
+  }
+
+  // Extract unique delivery locations
+  const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
+  for (const order of rawOrders) {
+    const num = order.DeliverToCustomerNumber;
+    const name = order.DeliverToCustomerName || 'Unknown';
+    if (num) {
+      const existing = deliveryLocations.get(num);
+      if (existing) {
+        existing.orderCount++;
+      } else {
+        deliveryLocations.set(num, { number: num, name: name.trim(), orderCount: 1 });
+      }
+    }
+  }
+
+  const currentDeliverTo = (credentials as any).deliver_to_customer_number || null;
+
+  return new Response(JSON.stringify({
+    success: true,
+    deliveryLocations: Array.from(deliveryLocations.values()),
+    currentDeliverTo,
+    totalOrders: rawOrders.length,
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleSetDeliveryLocation(supabase: any, body: any): Promise<Response> {
+  const { locationId, deliverToCustomerNumber } = body || {};
+  if (!locationId || !deliverToCustomerNumber) {
+    return new Response(JSON.stringify({ error: 'locationId and deliverToCustomerNumber required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration, error } = await supabase
+    .from('location_integrations')
+    .select('id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .single();
+
+  if (error || !integration) {
+    return new Response(JSON.stringify({ error: 'No active PFG integration found' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const updatedCredentials = {
+    ...integration.credentials,
+    deliver_to_customer_number: deliverToCustomerNumber,
+  };
+
+  const { error: updateError } = await supabase
+    .from('location_integrations')
+    .update({ credentials: updatedCredentials })
+    .eq('id', integration.id);
+
+  if (updateError) {
+    return new Response(JSON.stringify({ error: updateError.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true, deliverToCustomerNumber }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleCustomerInfo(supabase: any, body: any): Promise<Response> {
+  const locationId = body?.locationId;
+  if (!locationId) {
+    return new Response(JSON.stringify({ error: 'locationId required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { data: integration, error } = await supabase
+    .from('location_integrations')
+    .select('id, credentials')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'pfg')
+    .eq('is_active', true)
+    .single();
+
+  if (error || !integration) {
+    return new Response(JSON.stringify({ error: 'No active PFG integration found' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const credentials = integration.credentials as unknown as PFGCredentials;
+  const tokenResult = await getValidAccessToken(supabase, credentials, integration.id);
+  if (!tokenResult) {
+    return new Response(JSON.stringify({ error: 'Auth failed' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const customerInfo = await fetchCustomerInfo(tokenResult.accessToken);
+  const productListHeaders = await fetchProductListHeaders(tokenResult.accessToken, credentials.customer_id);
+
+  return new Response(JSON.stringify({
+    success: true,
+    customerInfo,
+    productListHeaders: productListHeaders.guides?.map((g: any) => ({
+      id: g.ProductListHeaderId || g.Id,
+      name: g.ProductListName || g.Name || g.Title,
+      customerId: g.CustomerId,
+      customerName: g.CustomerName,
+      customerNumber: g.CustomerNumber,
+    })),
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -1322,6 +1500,15 @@ serve(async (req) => {
       
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
+      
+      case 'list_delivery_locations':
+        return await handleListDeliveryLocations(supabase, body);
+      
+      case 'set_delivery_location':
+        return await handleSetDeliveryLocation(supabase, body);
+      
+      case 'customer_info':
+        return await handleCustomerInfo(supabase, body);
       
       case 'fetch':
       default:
