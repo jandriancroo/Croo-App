@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,22 +155,43 @@ const InventoryCount = () => {
     navigate(`/inventory/${locationId}`);
   };
 
-  const handleSaveAndExit = () => {
+  const handleSaveAndExit = useCallback((redirectTo?: string) => {
     saveRef.current?.save();
     setShowSaveExitDialog(false);
     // Small delay to let save complete before navigating
     setTimeout(() => {
-      handleClose();
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      navigate(redirectTo || `/inventory/${locationId}`);
     }, 500);
-  };
+  }, [queryClient, locationId, navigate]);
+
+  // Pending redirect target when guard is triggered
+  const pendingRedirectRef = useRef<string | null>(null);
 
   const handleBackClick = () => {
+    pendingRedirectRef.current = null;
     if (isCounting || isEditing) {
       setShowSaveExitDialog(true);
     } else {
       handleClose();
     }
   };
+
+  // Register global navigation guard when actively counting
+  useEffect(() => {
+    if (isCounting || isEditing) {
+      (window as any).__navigationGuard = (targetPath: string) => {
+        pendingRedirectRef.current = targetPath;
+        setShowSaveExitDialog(true);
+      };
+      return () => {
+        delete (window as any).__navigationGuard;
+      };
+    } else {
+      delete (window as any).__navigationGuard;
+    }
+  }, [isCounting, isEditing]);
 
   const handleSaveClick = () => {
     if (isCounting || isEditing) {
@@ -349,7 +370,7 @@ const InventoryCount = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleSaveAndExit}>
+              <AlertDialogAction onClick={() => handleSaveAndExit(pendingRedirectRef.current || undefined)}>
                 Save & Exit
               </AlertDialogAction>
             </AlertDialogFooter>

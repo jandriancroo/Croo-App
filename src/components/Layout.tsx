@@ -679,7 +679,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
-            <button onClick={() => navigate('/dashboard')} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
+            <button onClick={() => {
+              // Check if a navigation guard is active (e.g., inventory counting session)
+              const guard = (window as any).__navigationGuard;
+              if (guard && typeof guard === 'function') {
+                guard('/dashboard');
+              } else {
+                navigate('/dashboard');
+              }
+            }} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
               {headerLogo ? (
                 <img 
                   src={headerLogo} 
@@ -835,7 +843,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <header className={`sticky top-0 z-50 bg-background border-b border-border/20 ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <button onClick={() => {
+              const guard = (window as any).__navigationGuard;
+              if (guard && typeof guard === 'function') {
+                guard('/dashboard');
+              } else {
+                navigate('/dashboard');
+              }
+            }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               {headerLogo ? (
                 <img 
                   src={headerLogo} 
