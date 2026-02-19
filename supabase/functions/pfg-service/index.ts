@@ -1088,22 +1088,40 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 
       const customerIdToUse = credentials.customer_id;
       const orderData = await fetchOrderHistory(accessToken, customerIdToUse);
-      const rawOrders = orderData?.ResultObject?.Orders || orderData?.ResultObject?.SubmittedOrderHeaders || orderData?.Orders || orderData?.SubmittedOrderHeaders || orderData?.ResultObject || [];
-      const orders = Array.isArray(rawOrders) ? rawOrders : [];
       
-      console.log(`[PFG Sync] Found ${orders.length} orders for location ${integration.location_id}`);
+      // Response can be an array (GetSubmittedOrderHeaders) or single object (ResultObject)
+      let rawOrders: any[];
+      const resultObj = orderData?.ResultObject;
+      if (Array.isArray(resultObj)) {
+        rawOrders = resultObj;
+      } else if (resultObj && typeof resultObj === 'object' && resultObj.OrderKey) {
+        // Single order wrapped in ResultObject
+        rawOrders = [resultObj];
+      } else {
+        // Try other common patterns
+        rawOrders = orderData?.ResultObject?.SubmittedOrderHeaders || orderData?.ResultObject?.Orders || [];
+      }
+      
+      console.log(`[PFG Sync] Found ${rawOrders.length} orders for location ${integration.location_id}`);
+      if (rawOrders.length > 0) {
+        console.log('[PFG Sync] Sample order keys:', JSON.stringify(Object.keys(rawOrders[0])).slice(0, 500));
+      }
 
       let importedCount = 0;
 
-      for (const order of orders) {
-        const pfgOrderId = order.OrderId || order.SubmittedOrderId || order.OrderNumber || order.Id || order.ConfirmationNumber;
+      for (const order of rawOrders) {
+        // Map PFG SubmittedOrder fields
+        const pfgOrderId = order.OrderKey || order.OrderNumber || order.OrderId || order.SubmittedOrderId;
         if (!pfgOrderId) continue;
 
-        const orderDate = parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
-        const deliveryDate = parsePfgDate(order.DeliveryDate || order.RequestedDeliveryDate || order.ExpectedDeliveryDate);
+        // DeliveryDate is the primary date for these orders
+        const deliveryDate = parsePfgDate(order.DeliveryDate);
+        // Use DeliveryDate as order_date too since headers don't have a separate "ordered on" date
+        const orderDate = deliveryDate || parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
 
         if (!orderDate) continue;
 
+        // Headers don't include line items — store total info
         const items = (order.Items || order.OrderItems || order.LineItems || []).map((item: any) => ({
           productId: item.ProductKey || item.ProductId || item.ItemNumber,
           itemNumber: item.DisplayProductNumber || item.ProductNumber || item.ItemNumber,
@@ -1119,17 +1137,21 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           .upsert({
             location_id: integration.location_id,
             pfg_order_id: String(pfgOrderId),
-            order_number: order.OrderNumber || order.ConfirmationNumber,
+            order_number: order.OrderNumber || order.PurchaseOrderNumber || String(pfgOrderId),
             order_date: orderDate,
             delivery_date: deliveryDate,
-            status: order.Status || order.OrderStatus,
-            total_amount: order.TotalAmount || order.OrderTotal || order.Total,
-            items: items,
+            status: String(order.OrderStatus ?? order.Status ?? ''),
+            total_amount: order.OrderTotalSales || order.TotalAmount || order.OrderTotal || order.Total,
+            items: items.length > 0 ? items : null,
             raw_data: order,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'location_id,pfg_order_id' });
 
-        if (!upsertError) importedCount++;
+        if (upsertError) {
+          console.warn(`[PFG Sync] Upsert error for order ${pfgOrderId}:`, upsertError.message);
+        } else {
+          importedCount++;
+        }
       }
 
       results.push({ locationId: integration.location_id, success: true, ordersImported: importedCount });
