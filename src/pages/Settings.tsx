@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,15 +36,17 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications'];
+const LOCATION_SECTIONS = ['location-settings', 'theme', 'notifications'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['brands', 'organizations', 'maintenance'];
+const ORG_SECTIONS = ['org-settings', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  'location-settings': { title: 'Location Settings', icon: <SettingsIcon className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+  'org-settings': { title: 'Organization Settings', icon: <Building2 className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
-  organizations: { title: 'Organizations', icon: <Building2 className="h-4 w-4" /> },
+  organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
 };
 
@@ -59,8 +61,10 @@ export default function Settings() {
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org'>('location');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    theme: true,
+    'location-settings': true,
+    theme: false,
     notifications: false,
+    'org-settings': true,
     brands: false,
     organizations: false,
     maintenance: false,
@@ -135,6 +139,51 @@ export default function Settings() {
 
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
+      case 'location-settings':
+        if (!currentLocation) return null;
+        return (
+          <div className="space-y-3">
+            <CardDescription className="text-xs">
+              Manage hours, labor rules, integrations, and more for {currentLocation.name}
+            </CardDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-between"
+              onClick={() => navigate(`/location/${currentLocation.id}`)}
+            >
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3 w-3" />
+                <span>{currentLocation.name} Settings</span>
+              </div>
+              <ExternalLinkIcon className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+
+      case 'org-settings': {
+        if (!currentOrgId) return null;
+        return (
+          <div className="space-y-3">
+            <CardDescription className="text-xs">
+              Manage members, roles, positions, and details for {orgLabel}
+            </CardDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-between"
+              onClick={() => navigate(`/organization/${currentOrgId}`)}
+            >
+              <div className="flex items-center gap-2">
+                <Building2 className="h-3 w-3" />
+                <span>{orgLabel} Settings</span>
+              </div>
+              <ExternalLinkIcon className="h-3 w-3" />
+            </Button>
+          </div>
+        );
+      }
+
       case 'theme':
         return (
           <div className="space-y-4">
@@ -303,6 +352,8 @@ export default function Settings() {
     const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
 
     return pool.filter(id => {
+      if (id === 'location-settings') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'org-settings') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (isChecklistOnlyLocation) {
         if (id === 'theme') return true;
         if (id === 'notifications') return true;
@@ -311,7 +362,7 @@ export default function Settings() {
         return false;
       }
       if (id === 'brands') return isSuperAdmin;
-      if (id === 'organizations') return isAdmin || isOrgAdmin;
+      if (id === 'organizations') return isSuperAdmin; // only super_admin needs the full org list
       if (id === 'maintenance') return isAdmin;
       return true;
     });

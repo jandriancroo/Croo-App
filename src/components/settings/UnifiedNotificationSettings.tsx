@@ -9,20 +9,8 @@ import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-
-interface UserLocation {
-  location_id: string;
-  location_name: string;
-}
 
 interface NotificationSetting {
   notification_type: string;
@@ -46,19 +34,12 @@ const NOTIFICATION_TYPES = [
   { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
 ] as const;
 
-// Helper to detect if running as installed PWA
-const isInstalledPWA = () => {
-  return window.matchMedia('(display-mode: standalone)').matches || 
-         (window.navigator as any).standalone === true;
-};
 
 export const UnifiedNotificationSettings = () => {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
-  const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
@@ -67,6 +48,9 @@ export const UnifiedNotificationSettings = () => {
   const isNative = Capacitor.isNativePlatform();
   const needsPermission = !isNative && notificationPermission !== 'granted';
 
+  // Always use currentLocation — no multi-location selector needed
+  const selectedLocationId = currentLocation?.id ?? null;
+
   useEffect(() => {
     if ('Notification' in window) {
       setNotificationPermission(Notification.permission);
@@ -74,64 +58,36 @@ export const UnifiedNotificationSettings = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !selectedLocationId) {
       setLoading(false);
       return;
     }
     fetchData();
-  }, [user]);
+  }, [user, selectedLocationId]);
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!user || !selectedLocationId) return;
     
     try {
-      // Fetch user's locations
-      const { data: locationsData } = await supabase
-        .from('user_locations')
-        .select('location_id, locations(id, name)')
-        .eq('user_id', user.id);
-
-      const locs: UserLocation[] = (locationsData || []).map((ul: any) => ({
-        location_id: ul.location_id,
-        location_name: ul.locations?.name || 'Unknown',
-      }));
-      setUserLocations(locs);
-      
-      // Auto-select: use current location context if available, otherwise first location
-      if (locs.length > 0 && !selectedLocationId) {
-        const defaultLoc = currentLocation 
-          ? locs.find(l => l.location_id === currentLocation.id)
-          : null;
-        setSelectedLocationId(defaultLoc?.location_id || locs[0].location_id);
-      }
-
-      // Fetch existing notification settings
+      // Fetch existing notification settings for this location only
       const { data: existingSettings } = await supabase
         .from('user_notification_settings')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('location_id', selectedLocationId);
 
-      // Build settings with defaults for all locations
-      const allSettings: NotificationSetting[] = [];
-
-      locs.forEach(loc => {
-        NOTIFICATION_TYPES.forEach(nt => {
-          const existing = existingSettings?.find(
-            s => s.notification_type === nt.key && s.location_id === loc.location_id
-          );
-          
-          // For cash handling notifications, default email to true for managers/admins
-          const isCashNotification = nt.category === 'cash';
-          const defaultEmailEnabled = isCashNotification && isManagerOrAbove;
-          
-          allSettings.push({
-            notification_type: nt.key,
-            location_id: loc.location_id,
-            alert_enabled: existing?.alert_enabled ?? true,
-            push_enabled: existing?.push_enabled ?? true,
-            email_enabled: existing?.email_enabled ?? defaultEmailEnabled,
-          });
-        });
+      // Build settings with defaults for this location
+      const allSettings: NotificationSetting[] = NOTIFICATION_TYPES.map(nt => {
+        const existing = existingSettings?.find(s => s.notification_type === nt.key);
+        const isCashNotification = nt.category === 'cash';
+        const defaultEmailEnabled = isCashNotification && isManagerOrAbove;
+        return {
+          notification_type: nt.key,
+          location_id: selectedLocationId,
+          alert_enabled: existing?.alert_enabled ?? true,
+          push_enabled: existing?.push_enabled ?? true,
+          email_enabled: existing?.email_enabled ?? defaultEmailEnabled,
+        };
       });
 
       setSettings(allSettings);
@@ -360,82 +316,107 @@ export const UnifiedNotificationSettings = () => {
           </div>
         )}
 
-        {/* No locations message */}
-        {userLocations.length === 0 ? (
+        {/* No location selected */}
+        {!selectedLocationId ? (
           <div className="text-center py-6 text-muted-foreground">
             <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No locations assigned</p>
-            <p className="text-xs">Contact your manager to be added to a location</p>
+            <p className="text-sm">No location selected</p>
           </div>
         ) : (
           <>
-            {/* Location selector */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Select location</span>
-              </div>
-              <Select
-                value={selectedLocationId || ''}
-                onValueChange={(value) => setSelectedLocationId(value)}
-              >
-                <SelectTrigger className="w-full bg-background">
-                  <SelectValue placeholder="Select a location" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userLocations.map((loc) => (
-                    <SelectItem key={loc.location_id} value={loc.location_id}>
-                      {loc.location_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Location label */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              <span>{currentLocation?.name}</span>
             </div>
 
-            {/* Notification settings for selected location */}
-            {selectedLocationId && (
+            {/* Select All / Deselect All buttons */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => handleBulkUpdate(true)}
+              >
+                Select All
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-xs"
+                onClick={() => handleBulkUpdate(false)}
+              >
+                Deselect All
+              </Button>
+            </div>
+
+            {/* Channel headers */}
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
+              <span></span>
+              <div className="w-10 text-center" title="In-app alerts">
+                <AlertCircle className="h-3.5 w-3.5 mx-auto" />
+              </div>
+              <div className="w-10 text-center" title="Push notifications">
+                <BellRing className="h-3.5 w-3.5 mx-auto" />
+              </div>
+              <div className="w-10 text-center" title="Email">
+                <Mail className="h-3.5 w-3.5 mx-auto" />
+              </div>
+            </div>
+
+            {/* General notification type rows */}
+            <div className="space-y-1">
+              {NOTIFICATION_TYPES.filter(nt => nt.category === 'general').map(nt => {
+                const setting = getSetting(nt.key, selectedLocationId);
+                return (
+                  <div
+                    key={nt.key}
+                    className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                  >
+                    <div>
+                      <span className="text-sm">{nt.label}</span>
+                    </div>
+                    <div className="w-10 flex justify-center">
+                      <Checkbox
+                        checked={setting?.alert_enabled ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                        }
+                      />
+                    </div>
+                    <div className="w-10 flex justify-center">
+                      <Checkbox
+                        checked={setting?.push_enabled ?? true}
+                        onCheckedChange={(checked) =>
+                          updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                        }
+                        disabled={needsPermission}
+                      />
+                    </div>
+                    <div className="w-10 flex justify-center">
+                      <Checkbox
+                        checked={setting?.email_enabled ?? false}
+                        onCheckedChange={(checked) =>
+                          updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                        }
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Cash Handling section - only for managers and above */}
+            {isManagerOrAbove && (
               <>
-                {/* Select All / Deselect All buttons */}
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs"
-                    onClick={() => handleBulkUpdate(true)}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs"
-                    onClick={() => handleBulkUpdate(false)}
-                  >
-                    Deselect All
-                  </Button>
-                </div>
-
-                {/* Channel headers */}
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
-                  <span></span>
-                  <div className="w-10 text-center" title="In-app alerts">
-                    <AlertCircle className="h-3.5 w-3.5 mx-auto" />
-                  </div>
-                  <div className="w-10 text-center" title="Push notifications">
-                    <BellRing className="h-3.5 w-3.5 mx-auto" />
-                  </div>
-                  <div className="w-10 text-center" title="Email">
-                    <Mail className="h-3.5 w-3.5 mx-auto" />
-                  </div>
-                </div>
-
-                {/* General notification type rows */}
+                <Separator className="my-4" />
+                <div className="text-sm font-medium text-muted-foreground mb-2">Cash Handling</div>
                 <div className="space-y-1">
-                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'general').map(nt => {
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'cash').map(nt => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
-                      <div 
-                        key={nt.key} 
+                      <div
+                        key={nt.key}
                         className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
                       >
                         <div>
@@ -444,7 +425,7 @@ export const UnifiedNotificationSettings = () => {
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.alert_enabled ?? true}
-                            onCheckedChange={(checked) => 
+                            onCheckedChange={(checked) =>
                               updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                             }
                           />
@@ -452,7 +433,7 @@ export const UnifiedNotificationSettings = () => {
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.push_enabled ?? true}
-                            onCheckedChange={(checked) => 
+                            onCheckedChange={(checked) =>
                               updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                             }
                             disabled={needsPermission}
@@ -460,8 +441,8 @@ export const UnifiedNotificationSettings = () => {
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
-                            checked={setting?.email_enabled ?? false}
-                            onCheckedChange={(checked) => 
+                            checked={setting?.email_enabled ?? true}
+                            onCheckedChange={(checked) =>
                               updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
                             }
                           />
@@ -470,54 +451,6 @@ export const UnifiedNotificationSettings = () => {
                     );
                   })}
                 </div>
-
-                {/* Cash Handling section - only for managers and above */}
-                {isManagerOrAbove && (
-                  <>
-                    <Separator className="my-4" />
-                    <div className="text-sm font-medium text-muted-foreground mb-2">Cash Handling</div>
-                    <div className="space-y-1">
-                      {NOTIFICATION_TYPES.filter(nt => nt.category === 'cash').map(nt => {
-                        const setting = getSetting(nt.key, selectedLocationId);
-                        return (
-                          <div 
-                            key={nt.key} 
-                            className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
-                          >
-                            <div>
-                              <span className="text-sm">{nt.label}</span>
-                            </div>
-                            <div className="w-10 flex justify-center">
-                              <Checkbox
-                                checked={setting?.alert_enabled ?? true}
-                                onCheckedChange={(checked) => 
-                                  updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
-                                }
-                              />
-                            </div>
-                            <div className="w-10 flex justify-center">
-                              <Checkbox
-                                checked={setting?.push_enabled ?? true}
-                                onCheckedChange={(checked) => 
-                                  updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
-                                }
-                                disabled={needsPermission}
-                              />
-                            </div>
-                            <div className="w-10 flex justify-center">
-                              <Checkbox
-                                checked={setting?.email_enabled ?? true}
-                                onCheckedChange={(checked) => 
-                                  updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
-                                }
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
               </>
             )}
           </>
