@@ -903,7 +903,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </div>
           
           {/* Mobile Location Picker - centered */}
-          {currentLocation && (
+          {(currentLocation || isOnOrgDash) && (
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
@@ -911,7 +911,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-[160px]">{currentLocation.name}</span>
+                <span className="truncate max-w-[160px]">
+                  {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                </span>
                 <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
               </Button>
             </div>
