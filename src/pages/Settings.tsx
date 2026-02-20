@@ -431,8 +431,8 @@ export default function Settings() {
               return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
             }
 
-            // Audit Results — collapsible but content renders flush (no extra card nesting)
-            const isFlushSection = sectionId === 'food-safety-audits';
+            // Sections that have their own internal cards — render flush to avoid nesting
+            const isFlushSection = ['food-safety-audits', 'notifications'].includes(sectionId);
 
             return (
               <Collapsible
