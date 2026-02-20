@@ -174,11 +174,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     // Navigate to dashboard (the "front door" for every location)
     navigate('/dashboard');
 
-    // Dismiss overlay after progress bar completes — 3.8s gives dashboard data time to load
+    // Dismiss overlay after progress bar completes — 3.2s gives dashboard data time to load
     setTimeout(() => {
       setIsSwitching(false);
       setSwitchingTo(null);
-    }, 3800);
+    }, 3200);
   }, [queryClient, navigate, currentLocation?.id]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
