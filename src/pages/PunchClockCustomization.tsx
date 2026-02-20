@@ -580,7 +580,7 @@ export default function PunchClockCustomization() {
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => navigate(`/location/${locationId}`)} 
+            onClick={() => navigate('/settings')} 
             className="mt-1 flex-shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
