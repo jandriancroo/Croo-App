@@ -848,7 +848,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                           Live Alerts
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                      <DropdownMenuItem onClick={() => {
+                        if (location.pathname === '/org-dash') {
+                          setPendingNavPath('/users');
+                          setLocationDialogOpen(true);
+                        } else {
+                          navigate('/users');
+                        }
+                      }} className="gap-2 cursor-pointer">
                         <Users className="h-4 w-4" />
                         User Management
                       </DropdownMenuItem>
@@ -1034,7 +1041,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       key={item.path} 
                       variant={isActive ? 'secondary' : 'outline'} 
                       onClick={() => {
-                        if (location.pathname === '/org-dash') {
+                        // Org-level pages (Hiring, My Team) don't need picker — navigate directly
+                        const orgLevelPaths = ['/hiring', '/my-team'];
+                        if (location.pathname === '/org-dash' && !orgLevelPaths.includes(item.path)) {
                           setPendingNavPath(item.path);
                           setLocationDialogOpen(true);
                           setMenuOpen(false);
