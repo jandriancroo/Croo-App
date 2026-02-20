@@ -146,9 +146,9 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="h-4 w-4 flex-shrink-0" />
             <CardTitle className="text-base">Organization Members</CardTitle>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -240,25 +240,23 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
             return (
               <div
                 key={member.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                className="flex items-center gap-2 p-3 rounded-lg border bg-card overflow-hidden"
               >
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={profile?.profile_photo_url || ''} />
-                    <AvatarFallback className="text-xs">
-                      {getInitials(profile?.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="text-sm font-medium">
-                      {profile?.full_name || 'Unknown'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {profile?.email}
-                    </div>
+                <Avatar className="h-9 w-9 flex-shrink-0">
+                  <AvatarImage src={profile?.profile_photo_url || ''} />
+                  <AvatarFallback className="text-xs">
+                    {getInitials(profile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {profile?.full_name || 'Unknown'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {profile?.email}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <Select
                     value={member.org_role}
                     onValueChange={(value) => handleRoleChange(member.id, value)}
