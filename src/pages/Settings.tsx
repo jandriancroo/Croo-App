@@ -425,14 +425,8 @@ export default function Settings() {
             const content = renderSectionContent(sectionId);
             if (!content) return null;
 
-            // Org management sections render self-contained (they have own Card wrappers)
-            const isRawSection = ['org-members', 'org-roles', 'org-positions'].includes(sectionId);
-            if (isRawSection) {
-              return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
-            }
-
             // Sections that have their own internal cards — render flush to avoid nesting
-            const isFlushSection = ['food-safety-audits', 'notifications'].includes(sectionId);
+            const isFlushSection = ['food-safety-audits', 'notifications', 'org-members', 'org-roles', 'org-positions'].includes(sectionId);
 
             return (
               <Collapsible
