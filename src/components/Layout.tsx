@@ -711,10 +711,19 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 const showBadge = item.path === '/messages' && unreadCount > 0;
+                const isOnOrgDash = location.pathname === '/org-dash';
+                const isLocationSpecific = item.path !== '/dashboard';
                 return (
                   <button 
                     key={item.path} 
-                    onClick={() => navigate(item.path)} 
+                    onClick={() => {
+                      // When on org-dash, location-specific nav items open the location picker
+                      if (isOnOrgDash && isLocationSpecific) {
+                        setLocationDialogOpen(true);
+                        return;
+                      }
+                      navigate(item.path);
+                    }}
                     className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                       isActive 
                         ? 'bg-white/25 text-primary-foreground font-medium' 
@@ -770,13 +779,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             <div className="flex items-center gap-1 px-2">
 
               {/* Location Selector */}
-              {currentLocation && (
+              {(currentLocation || location.pathname === '/org-dash') && (
                 <button 
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground"
                   onClick={() => setLocationDialogOpen(true)}
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="max-w-[120px] truncate text-sm">{currentLocation.name}</span>
+                  <span className="max-w-[120px] truncate text-sm">
+                    {location.pathname === '/org-dash' ? 'Select Location' : currentLocation?.name}
+                  </span>
                 </button>
               )}
 
