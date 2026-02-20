@@ -319,7 +319,9 @@ export default function Settings() {
 
   // Pill label helpers
   const locationLabel = currentLocation?.name ? `${currentLocation.name} Settings` : 'Location Settings';
-  const currentOrg = organizations.find(o => o.id === organizationId) ?? organizations[0];
+  // Use currentLocation's org ID first, fall back to context organizationId
+  const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
+  const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
   const orgLabel = currentOrg ? `${currentOrg.name} Settings` : 'Org Settings';
 
   const visibleSections = getSectionsForTab(activeTab);
