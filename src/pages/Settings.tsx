@@ -10,14 +10,11 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon, Package, Sparkles, MapPin } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, MapPin } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
-import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
-import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
-import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
@@ -40,18 +37,15 @@ const textSizes = [
   { value: 'extra-large', label: 'Extra Large' },
 ];
 
-// Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations', 'quick-links'];
+// Sections that belong to the location tab (personal + location link only)
+const LOCATION_SECTIONS = ['theme', 'notifications', 'location-link'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
-  'location-settings': { title: 'Location Settings', icon: <SettingsIcon className="h-4 w-4" /> },
-  'labor-rules': { title: 'Labor Rules', icon: <SettingsIcon className="h-4 w-4" /> },
-  'integrations': { title: 'Integrations', icon: <SettingsIcon className="h-4 w-4" /> },
-  'quick-links': { title: 'Quick Links', icon: <SettingsIcon className="h-4 w-4" /> },
+  'location-link': { title: 'Location', icon: <MapPin className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
@@ -72,9 +66,6 @@ export default function Settings() {
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    'location-settings': true,
-    'labor-rules': false,
-    integrations: false,
     theme: false,
     notifications: false,
     'org-members': true,
@@ -160,61 +151,21 @@ export default function Settings() {
 
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
-      case 'quick-links':
+      case 'location-link':
         if (!currentLocation) return null;
         return (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto py-3"
-              onClick={() => navigate(`/location/${currentLocation.id}`)}
-            >
-              <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
-              <div className="text-left">
-                <div className="font-medium text-sm">Location Info</div>
-                <div className="text-xs text-muted-foreground">Address, map & location code</div>
-              </div>
-            </Button>
-            {!isChecklistOnlyLocation && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 h-auto py-3"
-                onClick={() => navigate(`/inventory/${currentLocation.id}`)}
-              >
-                <Package className="h-5 w-5 text-primary flex-shrink-0" />
-                <div className="text-left">
-                  <div className="font-medium text-sm">Inventory</div>
-                  <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
-                </div>
-              </Button>
-            )}
-            {!isChecklistOnlyLocation && (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 h-auto py-3"
-                onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
-              >
-                <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
-                <div className="text-left">
-                  <div className="font-medium text-sm">Punch Clock</div>
-                  <div className="text-xs text-muted-foreground">Customize themes & backgrounds</div>
-                </div>
-              </Button>
-            )}
-          </div>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-auto py-3"
+            onClick={() => navigate(`/location/${currentLocation.id}`)}
+          >
+            <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
+            <div className="text-left">
+              <div className="font-medium text-sm">{currentLocation.name}</div>
+              <div className="text-xs text-muted-foreground">Hours, integrations, labor rules & more</div>
+            </div>
+          </Button>
         );
-
-      case 'location-settings':
-        if (!currentLocation) return null;
-        return <LocationSettingsSection locationId={currentLocation.id} />;
-
-      case 'labor-rules':
-        if (!currentLocation) return null;
-        return <LaborRulesSection locationId={currentLocation.id} />;
-
-      case 'integrations':
-        if (!currentLocation) return null;
-        return <IntegrationsSection locationId={currentLocation.id} />;
 
       case 'org-members':
         if (!currentOrgId) return null;
@@ -394,17 +345,10 @@ export default function Settings() {
     const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
 
     return pool.filter(id => {
-      if (id === 'location-settings') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
-      if (id === 'labor-rules') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
-      if (id === 'integrations') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'location-link') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-roles') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-positions') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
-      if (isChecklistOnlyLocation) {
-        if (id === 'theme') return true;
-        if (id === 'notifications') return true;
-        return false;
-      }
       return true;
     });
   };
@@ -438,7 +382,7 @@ export default function Settings() {
             const sectionInfo = SECTION_TITLES[sectionId];
 
             // These sections render self-contained components with their own Card/Collapsible
-        const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions', 'notifications', 'quick-links'].includes(sectionId);
+        const isRawSection = ['org-members', 'org-roles', 'org-positions', 'notifications', 'location-link'].includes(sectionId);
 
             if (isRawSection) {
               return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
