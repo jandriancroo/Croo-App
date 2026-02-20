@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface UseVoiceInputOptions {
   onTranscript: (transcript: string) => void;
   continuous?: boolean;
-  silenceTimeoutMs?: number; // Auto-deactivate after this many ms of silence (default 8000)
+  silenceTimeoutMs?: number;
 }
 
 // Type definitions for Web Speech API
@@ -13,25 +13,20 @@ interface SpeechRecognitionResult {
   isFinal: boolean;
   [index: number]: SpeechRecognitionAlternative;
 }
-
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
 }
-
 interface SpeechRecognitionResultList {
   length: number;
   [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechRecognitionEventType extends Event {
   results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionErrorEventType extends Event {
   error: string;
 }
-
 interface SpeechRecognitionInstance extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -43,10 +38,9 @@ interface SpeechRecognitionInstance extends EventTarget {
   onend: (() => void) | null;
 }
 
-// Check if native Web Speech API is available
 const hasNativeSpeechAPI = () => {
   return !!(
-    (window as any).SpeechRecognition || 
+    (window as any).SpeechRecognition ||
     (window as any).webkitSpeechRecognition
   );
 };
@@ -60,29 +54,41 @@ const playTimeoutChime = () => {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = "sine";
-    osc.frequency.setValueAtTime(440, ctx.currentTime);       // A4
-    osc.frequency.setValueAtTime(330, ctx.currentTime + 0.12); // E4 (descending = "off")
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.setValueAtTime(330, ctx.currentTime + 0.12);
     gain.gain.setValueAtTime(0.25, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.35);
     setTimeout(() => ctx.close(), 500);
   } catch (e) {
-    // Ignore
+    // ignore
   }
 };
 
 // Hook that uses native Web Speech API
-const useNativeSpeechRecognition = ({ onTranscript, continuous = true, silenceTimeoutMs = 8000 }: UseVoiceInputOptions) => {
+const useNativeSpeechRecognition = ({
+  onTranscript,
+  continuous = true,
+  silenceTimeoutMs = 8000,
+}: UseVoiceInputOptions) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+
+  // All mutable state in refs so handlers never go stale
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  // Independent ref — NOT synced to state — so async handlers read correct intent
   const isListeningRef = useRef(false);
   const onTranscriptRef = useRef(onTranscript);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimeoutMsRef = useRef(silenceTimeoutMs);
+  const continuousRef = useRef(continuous);
+  const restartAttemptsRef = useRef(0);
+  const MAX_RESTART_ATTEMPTS = 10;
 
+  // Keep refs in sync with latest props each render — no effect needed
   onTranscriptRef.current = onTranscript;
+  silenceTimeoutMsRef.current = silenceTimeoutMs;
+  continuousRef.current = continuous;
 
   const clearSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -92,120 +98,168 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true, silenceTi
   }, []);
 
   const startSilenceTimer = useCallback(() => {
-    clearSilenceTimer();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     silenceTimerRef.current = setTimeout(() => {
-      // Silence timeout — deactivate mic and notify user
       if (isListeningRef.current) {
-        console.log('[Voice Native] Silence timeout — auto-deactivating mic');
+        console.log("[Voice Native] Silence timeout — auto-deactivating mic");
         isListeningRef.current = false;
         setIsListening(false);
         try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
         playTimeoutChime();
       }
-    }, silenceTimeoutMs);
-  }, [clearSilenceTimer, silenceTimeoutMs]);
+    }, silenceTimeoutMsRef.current);
+  }, []);
 
+  // Initialize recognition ONCE on mount — stable effect, no changing deps
   useEffect(() => {
-    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionClass =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
     setIsSupported(!!SpeechRecognitionClass);
+    if (!SpeechRecognitionClass) return;
 
-    if (SpeechRecognitionClass) {
-      const recognition = new SpeechRecognitionClass() as SpeechRecognitionInstance;
-      recognition.continuous = continuous;
-      recognition.interimResults = true; // Must be true so interim speech resets the silence timer
-      recognition.lang = 'en-US';
+    const recognition = new SpeechRecognitionClass() as SpeechRecognitionInstance;
+    recognition.continuous = true; // Always true; we manage restarts manually
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
 
-      recognition.onresult = (event: SpeechRecognitionEventType) => {
-        const lastResult = event.results[event.results.length - 1];
+    recognition.onresult = (event: SpeechRecognitionEventType) => {
+      // Reset silence timer on ANY speech (interim or final) — prevents mid-sentence timeout
+      startSilenceTimer();
+      restartAttemptsRef.current = 0; // Successful speech resets the attempt counter
 
-        // Reset silence timer on ANY speech activity (interim or final)
-        // This prevents the timer from killing the session mid-sentence
-        startSilenceTimer();
+      const lastResult = event.results[event.results.length - 1];
+      if (lastResult.isFinal) {
+        const transcript = lastResult[0].transcript.trim();
+        console.log("[Voice Native] Final transcript:", transcript);
+        if (transcript) {
+          onTranscriptRef.current(transcript);
+        }
+      }
+    };
 
-        if (lastResult.isFinal) {
-          const transcript = lastResult[0].transcript.trim();
-          console.log('[Voice Native] Final transcript:', transcript);
-          if (transcript) {
-            onTranscriptRef.current(transcript);
+    recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
+      console.error("[Voice Native] Error:", event.error);
+      if (event.error === "not-allowed") {
+        clearSilenceTimer();
+        isListeningRef.current = false;
+        setIsListening(false);
+        restartAttemptsRef.current = 0;
+      }
+      // 'aborted', 'no-speech', 'network' are normal — onend handles restart
+    };
+
+    recognition.onend = () => {
+      console.log(
+        "[Voice Native] onend, shouldContinue:",
+        isListeningRef.current,
+        "attempts:",
+        restartAttemptsRef.current
+      );
+
+      if (!isListeningRef.current || !continuousRef.current) {
+        setIsListening(false);
+        return;
+      }
+
+      // Guard: too many failed restarts → give up
+      if (restartAttemptsRef.current >= MAX_RESTART_ATTEMPTS) {
+        console.warn("[Voice Native] Max restart attempts reached — stopping");
+        isListeningRef.current = false;
+        setIsListening(false);
+        restartAttemptsRef.current = 0;
+        clearSilenceTimer();
+        playTimeoutChime();
+        return;
+      }
+
+      restartAttemptsRef.current += 1;
+
+      // Short delay then restart so the browser releases the mic handle
+      setTimeout(() => {
+        if (!isListeningRef.current || !recognitionRef.current) return;
+        try {
+          recognitionRef.current.start();
+          console.log(
+            "[Voice Native] Restarted (attempt",
+            restartAttemptsRef.current,
+            ")"
+          );
+        } catch (e: any) {
+          if (e?.name === "InvalidStateError") {
+            // Already running — this is fine
+            restartAttemptsRef.current = Math.max(0, restartAttemptsRef.current - 1);
+            return;
           }
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
-        console.error('[Voice Native] Error:', event.error);
-        // Only stop on explicit mic denial
-        if (event.error === 'not-allowed') {
-          clearSilenceTimer();
-          isListeningRef.current = false;
-          setIsListening(false);
-        }
-        // 'aborted', 'no-speech', 'network' are all normal — onend will restart
-      };
-
-      recognition.onend = () => {
-        console.log('[Voice Native] Recognition ended, shouldContinue:', isListeningRef.current);
-        // Restart the browser session so silence timer stays in control
-        if (isListeningRef.current && continuous) {
+          console.error("[Voice Native] Restart failed:", e);
+          // One more retry after a longer pause
           setTimeout(() => {
             if (!isListeningRef.current || !recognitionRef.current) return;
             try {
               recognitionRef.current.start();
-            } catch (e: any) {
-              if (e?.name === 'InvalidStateError') return; // already running
-              console.error('[Voice Native] Restart failed:', e);
-              // Retry once
-              setTimeout(() => {
-                if (!isListeningRef.current || !recognitionRef.current) return;
-                try { recognitionRef.current.start(); } catch (e2) {
-                  console.error('[Voice Native] Retry also failed:', e2);
-                  clearSilenceTimer();
-                  isListeningRef.current = false;
-                  setIsListening(false);
-                }
-              }, 500);
+            } catch (e2) {
+              console.error("[Voice Native] Retry also failed — stopping:", e2);
+              clearSilenceTimer();
+              isListeningRef.current = false;
+              setIsListening(false);
+              restartAttemptsRef.current = 0;
             }
-          }, 250);
-        } else if (!isListeningRef.current) {
-          setIsListening(false);
+          }, 600);
         }
-      };
+      }, 200);
+    };
 
-      recognitionRef.current = recognition;
-    }
+    recognitionRef.current = recognition;
 
     return () => {
       clearSilenceTimer();
-      try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
+      isListeningRef.current = false;
+      try { recognition.stop(); } catch (e) { /* ignore */ }
     };
-  }, [continuous, startSilenceTimer, clearSilenceTimer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps — recognition is stable for the component lifetime
 
   const startListening = useCallback(async () => {
     if (!recognitionRef.current) {
-      console.error('[Voice Native] Recognition not available');
+      console.error("[Voice Native] Recognition not available");
       return;
     }
+    if (isListeningRef.current) return; // Already listening
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Stop any browser TTS that might compete with the microphone
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      restartAttemptsRef.current = 0;
       isListeningRef.current = true;
-      recognitionRef.current.start();
       setIsListening(true);
-      startSilenceTimer(); // Start silence countdown immediately
-      console.log('[Voice Native] Started listening');
+      recognitionRef.current.start();
+      startSilenceTimer();
+      console.log("[Voice Native] Started listening");
     } catch (error) {
-      console.error('[Voice Native] Failed to start:', error);
+      console.error("[Voice Native] Failed to start:", error);
       isListeningRef.current = false;
       setIsListening(false);
     }
   }, [startSilenceTimer]);
 
   const stopListening = useCallback(() => {
-    if (!recognitionRef.current) return;
     clearSilenceTimer();
+    restartAttemptsRef.current = MAX_RESTART_ATTEMPTS; // Prevent onend from restarting
     isListeningRef.current = false;
     setIsListening(false);
-    try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
-    console.log('[Voice Native] Stopped listening');
+    try { recognitionRef.current?.stop(); } catch (e) { /* ignore */ }
+    // Reset after a tick so future starts work
+    setTimeout(() => { restartAttemptsRef.current = 0; }, 300);
+    console.log("[Voice Native] Stopped listening");
   }, [clearSilenceTimer]);
 
   const toggleListening = useCallback(() => {
@@ -216,13 +270,7 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true, silenceTi
     }
   }, [isListening, startListening, stopListening]);
 
-  return {
-    isListening,
-    isSupported,
-    startListening,
-    stopListening,
-    toggleListening,
-  };
+  return { isListening, isSupported, startListening, stopListening, toggleListening };
 };
 
 // Hook that uses ElevenLabs Scribe API (works on iOS)
@@ -230,48 +278,41 @@ const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const onTranscriptRef = useRef(onTranscript);
-
   onTranscriptRef.current = onTranscript;
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
     commitStrategy: CommitStrategy.VAD,
     onCommittedTranscript: (data) => {
-      console.log('[Voice ElevenLabs] Committed transcript:', data.text);
+      console.log("[Voice ElevenLabs] Committed transcript:", data.text);
       if (data.text?.trim()) {
         onTranscriptRef.current(data.text.trim());
       }
     },
     onPartialTranscript: (data) => {
-      console.log('[Voice ElevenLabs] Partial:', data.text);
+      console.log("[Voice ElevenLabs] Partial:", data.text);
     },
   });
 
   const startListening = useCallback(async () => {
     if (isConnecting || scribe.isConnected) return;
-
     setIsConnecting(true);
-    console.log('[Voice ElevenLabs] Getting scribe token...');
-
+    console.log("[Voice ElevenLabs] Getting scribe token...");
     try {
-      const { data, error } = await supabase.functions.invoke("elevenlabs-service?action=scribe-token");
-
+      const { data, error } = await supabase.functions.invoke(
+        "elevenlabs-service?action=scribe-token"
+      );
       if (error) throw error;
       if (!data?.token) throw new Error("No token received");
-
-      console.log('[Voice ElevenLabs] Connecting with token...');
+      console.log("[Voice ElevenLabs] Connecting with token...");
       await scribe.connect({
         token: data.token,
-        microphone: {
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
+        microphone: { echoCancellation: true, noiseSuppression: true },
       });
-
       setIsConnected(true);
-      console.log('[Voice ElevenLabs] Connected and listening');
+      console.log("[Voice ElevenLabs] Connected and listening");
     } catch (error) {
-      console.error('[Voice ElevenLabs] Failed to start:', error);
+      console.error("[Voice ElevenLabs] Failed to start:", error);
       setIsConnected(false);
     } finally {
       setIsConnecting(false);
@@ -279,7 +320,7 @@ const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
   }, [isConnecting, scribe]);
 
   const stopListening = useCallback(() => {
-    console.log('[Voice ElevenLabs] Stopping...');
+    console.log("[Voice ElevenLabs] Stopping...");
     scribe.disconnect();
     setIsConnected(false);
   }, [scribe]);
@@ -292,30 +333,25 @@ const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
     }
   }, [isConnected, scribe.isConnected, startListening, stopListening]);
 
-  // Sync state with scribe.isConnected
   useEffect(() => {
     setIsConnected(scribe.isConnected);
   }, [scribe.isConnected]);
 
   return {
     isListening: isConnected || scribe.isConnected,
-    isSupported: true, // ElevenLabs works everywhere with microphone access
+    isSupported: true,
     startListening,
     stopListening,
     toggleListening,
   };
 };
 
-// Main hook that chooses the best available speech recognition
+// Main hook — picks the best available engine
 export const useVoiceInput = (options: UseVoiceInputOptions) => {
-  // Capture once at mount so the hook order never changes between renders
   const useNativeRef = useRef(hasNativeSpeechAPI());
-
   const nativeHook = useNativeSpeechRecognition(options);
   const elevenLabsHook = useElevenLabsScribe(options);
 
-  // Prefer native Web Speech API when available (faster, no API costs)
-  // Fall back to ElevenLabs for iOS and unsupported browsers
   if (useNativeRef.current) {
     return nativeHook;
   } else {
