@@ -40,9 +40,10 @@ interface DockContentProps {
   unreadCount: number;
   onSwipeUp: () => void;
   canViewSalesAndLabor: boolean;
+  onOpenLocationPicker: () => void;
 }
 
-const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp, canViewSalesAndLabor }: DockContentProps) => {
+const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp, canViewSalesAndLabor, onOpenLocationPicker }: DockContentProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { message, isVisible, dockContent } = useDockToast();
@@ -203,6 +204,11 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   key={item.path}
                   onClick={() => {
                     if (showOrgBubble) setShowOrgBubble(false);
+                    // When on org-dash and tapping a location-specific nav item, open location picker
+                    if (isOnOrgDash && !isDashItem) {
+                      onOpenLocationPicker();
+                      return;
+                    }
                     // Trigger bounce animation
                     setBouncingItem(item.path);
                     setTimeout(() => setBouncingItem(null), 300);
@@ -1077,6 +1083,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             unreadCount={unreadCount}
             onSwipeUp={() => setShowCompactDashboard(true)}
             canViewSalesAndLabor={canViewSalesAndLabor}
+            onOpenLocationPicker={() => setLocationDialogOpen(true)}
           />
         </nav>
       )}
