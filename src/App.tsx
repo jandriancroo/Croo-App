@@ -92,6 +92,7 @@ const SalesPreviewVariations = lazyWithRetry(() => import("./pages/SalesPreviewV
 const TabStylePreview = lazyWithRetry(() => import("./pages/TabStylePreview"));
 const ChatListPreview = lazyWithRetry(() => import("./pages/ChatListPreview"));
 const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPreview"));
+const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
 
 const queryClient = new QueryClient();
 
@@ -220,6 +221,7 @@ const AppContent = () => {
         <Route path="/tab-style-preview" element={<ProtectedRoute><TabStylePreview /></ProtectedRoute>} />
         <Route path="/chat-list-preview" element={<ProtectedRoute><ChatListPreview /></ProtectedRoute>} />
         <Route path="/inventory-card-preview" element={<ProtectedRoute><InventoryCardPreview /></ProtectedRoute>} />
+        <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
