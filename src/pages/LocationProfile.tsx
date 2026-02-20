@@ -10,12 +10,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, Sparkles, ChevronRight, Package } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
-import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -423,61 +422,9 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
 
-          {/* Quick Links - only for existing standard locations */}
-          {!isNew && location?.location_type !== 'checklist_only' && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Card 
-                className="cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => navigate(`/inventory/${locationId}`)}
-              >
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Package className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Inventory</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Fast mobile counting & variance
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </CardContent>
-              </Card>
-              
-              <Card 
-                className="cursor-pointer hover:border-primary/50 transition-colors"
-                onClick={() => navigate(`/location/${locationId}/punch-clock`)}
-              >
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Sparkles className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium">Punch Clock</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Customize themes & backgrounds
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
             <LaborRulesSection locationId={locationId} />
-          )}
-
-          {/* Food Safety Audits - only for existing locations */}
-          {!isNew && (
-            <div id="audits">
-              <LocationAuditsSection locationId={locationId} locationName={location?.name} />
-            </div>
           )}
 
           {/* Integrations - at bottom, for all existing locations */}

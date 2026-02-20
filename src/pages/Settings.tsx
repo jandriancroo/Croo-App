@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, MapPin } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, MapPin, Package, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +18,7 @@ import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotifi
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
+import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -65,6 +66,7 @@ export default function Settings() {
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
+  const [showAudits, setShowAudits] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     theme: false,
     notifications: false,
@@ -154,17 +156,62 @@ export default function Settings() {
       case 'location-link':
         if (!currentLocation) return null;
         return (
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3"
-            onClick={() => navigate(`/location/${currentLocation.id}`)}
-          >
-            <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
-            <div className="text-left">
-              <div className="font-medium text-sm">{currentLocation.name}</div>
-              <div className="text-xs text-muted-foreground">Hours, integrations, labor rules & more</div>
-            </div>
-          </Button>
+          <div className="space-y-2">
+            {!isChecklistOnlyLocation && (
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/50 transition-colors text-left"
+                onClick={() => navigate(`/inventory/${currentLocation.id}`)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Package className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm">Inventory</div>
+                    <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+            )}
+            {!isChecklistOnlyLocation && (
+              <button
+                className="w-full flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/50 transition-colors text-left"
+                onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-sm">Customize Punch Clock</div>
+                    <div className="text-xs text-muted-foreground">Themes & backgrounds</div>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </button>
+            )}
+            <button
+              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${showAudits ? 'border-primary bg-primary/5' : 'bg-card hover:border-primary/50'}`}
+              onClick={() => setShowAudits(v => !v)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm">Food Safety Audits</div>
+                  <div className="text-xs text-muted-foreground">Audit templates & history</div>
+                </div>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${showAudits ? 'rotate-180' : ''}`} />
+            </button>
+            {showAudits && (
+              <div className="pt-1">
+                <LocationAuditsSection locationId={currentLocation.id} locationName={currentLocation.name} />
+              </div>
+            )}
+          </div>
         );
 
       case 'org-members':
