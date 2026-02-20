@@ -28,11 +28,15 @@ Deno.serve(async (req) => {
 
   try {
     // Fetch pending emails (oldest first, max 20 per run to stay within limits)
+    // Exclude orchestration wrapper rows: those have empty html/to_addresses and are
+    // managed by email-batch-sender. Only pick up rows with actual content to deliver.
     const { data: queue, error: queueError } = await supabase
       .from('email_queue')
       .select('*')
       .eq('status', 'pending')
       .lt('retry_count', 3)
+      .neq('html', '')
+      .not('to_addresses', 'eq', '{}')
       .order('created_at', { ascending: true })
       .limit(20)
 
