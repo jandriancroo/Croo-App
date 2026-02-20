@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -144,88 +144,86 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
   };
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Users className="h-4 w-4 flex-shrink-0" />
-            <CardTitle className="text-base truncate">Organization Members</CardTitle>
-          </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="flex-shrink-0">
-                <Plus className="h-4 w-4 mr-1" />
-                Add Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Organization Member</DialogTitle>
-                <DialogDescription>
-                  Select a user to add to this organization and assign their role.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">User</label>
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{user.full_name || user.email}</span>
-                            {user.full_name && (
-                              <span className="text-muted-foreground text-xs">({user.email})</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                      {availableUsers.length === 0 && (
-                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                          No available users to add
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Organization Role</label>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Admins can manage all locations within this organization
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddMember} disabled={isAdding || !selectedUserId}>
-                    {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Add Member
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+    <div className="overflow-hidden">
+      <div className="flex items-center justify-between gap-2 pb-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Users className="h-4 w-4 flex-shrink-0" />
+          <span className="text-base font-semibold truncate">Organization Members</span>
         </div>
-        <CardDescription className="text-xs">
-          {members.length} member{members.length !== 1 ? 's' : ''} in this organization
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-2">
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="flex-shrink-0">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Organization Member</DialogTitle>
+              <DialogDescription>
+                Select a user to add to this organization and assign their role.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">User</label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{user.full_name || user.email}</span>
+                          {user.full_name && (
+                            <span className="text-muted-foreground text-xs">({user.email})</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                    {availableUsers.length === 0 && (
+                      <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                        No available users to add
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Organization Role</label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Admins can manage all locations within this organization
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddMember} disabled={isAdding || !selectedUserId}>
+                  {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Add Member
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {members.length} member{members.length !== 1 ? 's' : ''} in this organization
+      </p>
+      <div className="space-y-2">
         {membersLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -287,7 +285,8 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
             );
           })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
+
