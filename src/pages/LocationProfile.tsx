@@ -260,7 +260,7 @@ export default function LocationProfile() {
               <span className="truncate">{isNew ? 'New Location' : location?.name}</span>
             </h1>
             <p className="text-sm text-muted-foreground">
-              {isNew ? 'Create a new location' : 'Manage location details and settings'}
+              {isNew ? 'Create a new location' : 'Manage location settings'}
             </p>
           </div>
         </div>
