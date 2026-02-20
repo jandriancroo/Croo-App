@@ -251,25 +251,6 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       </CardHeader>
       <CardContent className="space-y-6">
 
-        <div className="space-y-2">
-          <Label htmlFor="timezone">Timezone</Label>
-          <Select value={timezone} onValueChange={setTimezone}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select timezone" />
-            </SelectTrigger>
-            <SelectContent>
-              {TIMEZONES.map((tz) => (
-                <SelectItem key={tz.value} value={tz.value}>
-                  {tz.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Used for all time-based alerts and notifications
-          </p>
-        </div>
-
         {/* Business Hours */}
         <div className="space-y-3">
           <Label>Business Hours</Label>
