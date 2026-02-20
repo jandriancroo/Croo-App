@@ -419,17 +419,18 @@ export default function Settings() {
                 key={sectionId}
                 open={openSections[sectionId]}
                 onOpenChange={() => toggleSection(sectionId)}
+                className="w-full min-w-0"
               >
-                <Card className="w-full min-w-0">
+                <Card className="w-full min-w-0 overflow-hidden">
                   <CollapsibleTrigger asChild>
                     <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {sectionInfo.icon}
-                          <CardTitle className="text-base">{sectionInfo.title}</CardTitle>
+                          <CardTitle className="text-base truncate">{sectionInfo.title}</CardTitle>
                         </div>
                         <ChevronDown
-                          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0 ${
                             openSections[sectionId] ? 'rotate-180' : ''
                           }`}
                         />
@@ -438,9 +439,9 @@ export default function Settings() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     {isFlushSection ? (
-                      <div className="px-4 pb-4 pt-0">{content}</div>
+                      <div className="px-4 pb-4 pt-0 min-w-0 overflow-hidden">{content}</div>
                     ) : (
-                      <CardContent className="pt-0">{content}</CardContent>
+                      <CardContent className="pt-0 min-w-0 overflow-hidden">{content}</CardContent>
                     )}
                   </CollapsibleContent>
                 </Card>
