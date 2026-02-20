@@ -48,7 +48,7 @@ const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-  'food-safety-audits': { title: 'Food Safety Audits', icon: <ShieldCheck className="h-4 w-4" /> },
+  'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
   inventory: { title: 'Inventory', icon: <Package className="h-4 w-4" /> },
   'punch-clock': { title: 'Customize Punch Clock', icon: <Sparkles className="h-4 w-4" /> },
   'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
@@ -155,35 +155,17 @@ export default function Settings() {
   const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
   const orgLabel = currentOrg?.name || 'Organization';
 
-  const renderSectionContent = (sectionId: string) => {
+  const renderSectionContent = (sectionId: string): React.ReactNode => {
     switch (sectionId) {
       case 'food-safety-audits':
         if (!currentLocation) return null;
         return <LocationAuditsSection locationId={currentLocation.id} locationName={currentLocation.name} />;
 
       case 'inventory':
-        if (!currentLocation || isChecklistOnlyLocation) return null;
-        return (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Manage counts, variance reports, and inventory items.</p>
-            <Button variant="outline" className="w-full justify-between" onClick={() => navigate(`/inventory/${currentLocation.id}`)}>
-              Go to Inventory
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        );
+        return null; // rendered directly in the map as a button card
 
       case 'punch-clock':
-        if (!currentLocation || isChecklistOnlyLocation) return null;
-        return (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Customize punch clock themes and background images.</p>
-            <Button variant="outline" className="w-full justify-between" onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}>
-              Customize Punch Clock
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        );
+        return null; // rendered directly in the map as a button card
 
       case 'org-members':
         if (!currentOrgId) return null;
@@ -397,16 +379,60 @@ export default function Settings() {
 
         <div className="grid gap-3 w-full overflow-hidden">
           {visibleSections.map((sectionId) => {
-            const content = renderSectionContent(sectionId);
-            if (!content) return null;
             const sectionInfo = SECTION_TITLES[sectionId];
 
-            // Only org management sections render self-contained (they have own Card wrappers)
-            const isRawSection = ['org-members', 'org-roles', 'org-positions'].includes(sectionId);
+            // Plain button rows — no collapsible, no card nesting
+            if (sectionId === 'inventory' && currentLocation && !isChecklistOnlyLocation) {
+              return (
+                <Card key={sectionId}>
+                  <CardHeader className="pb-3">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between h-auto p-0 hover:bg-transparent font-semibold text-base"
+                      onClick={() => navigate(`/inventory/${currentLocation.id}`)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        <span>Inventory</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </CardHeader>
+                </Card>
+              );
+            }
 
+            if (sectionId === 'punch-clock' && currentLocation && !isChecklistOnlyLocation) {
+              return (
+                <Card key={sectionId}>
+                  <CardHeader className="pb-3">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between h-auto p-0 hover:bg-transparent font-semibold text-base"
+                      onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        <span>Customize Punch Clock</span>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </CardHeader>
+                </Card>
+              );
+            }
+
+            const content = renderSectionContent(sectionId);
+            if (!content) return null;
+
+            // Org management sections render self-contained (they have own Card wrappers)
+            const isRawSection = ['org-members', 'org-roles', 'org-positions'].includes(sectionId);
             if (isRawSection) {
               return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
             }
+
+            // Audit Results — collapsible but content renders flush (no extra card nesting)
+            const isFlushSection = sectionId === 'food-safety-audits';
 
             return (
               <Collapsible
@@ -414,7 +440,7 @@ export default function Settings() {
                 open={openSections[sectionId]}
                 onOpenChange={() => toggleSection(sectionId)}
               >
-                <Card>
+                <Card className={isFlushSection && openSections[sectionId] ? 'overflow-hidden' : ''}>
                   <CollapsibleTrigger asChild>
                     <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
                       <div className="flex items-center justify-between">
@@ -431,9 +457,11 @@ export default function Settings() {
                     </CardHeader>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <CardContent className="pt-0">
-                      {content}
-                    </CardContent>
+                    {isFlushSection ? (
+                      <div className="px-4 pb-4 pt-0">{content}</div>
+                    ) : (
+                      <CardContent className="pt-0">{content}</CardContent>
+                    )}
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
