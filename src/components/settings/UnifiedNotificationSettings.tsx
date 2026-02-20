@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -271,28 +271,17 @@ export const UnifiedNotificationSettings = () => {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
-          <Skeleton className="h-5 w-40" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-8 w-full" />
-        </CardContent>
-      </Card>
+      <div className="space-y-4 p-1">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          {allDisabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-          <CardTitle className="text-base">Notifications</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-4">
         {/* Enable push notifications button */}
         {needsPermission && (
           <div className="p-3 bg-muted rounded-lg space-y-2">
@@ -455,7 +444,7 @@ export const UnifiedNotificationSettings = () => {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
