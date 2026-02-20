@@ -489,12 +489,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       if (!orgIdFromUrl) return null;
       const { data } = await supabase
         .from('organizations')
-        .select('name, brand_name, brand_id, brands(name)')
+        .select('name')
         .eq('id', orgIdFromUrl)
         .single();
       if (!data) return null;
-      const brand = (data as any).brands;
-      return (data as any).brand_name || brand?.name || data.name;
+      return data.name;
     },
     enabled: isOnOrgDash && !!orgIdFromUrl,
     staleTime: 5 * 60 * 1000,
