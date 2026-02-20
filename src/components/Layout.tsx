@@ -783,7 +783,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     {timeMenuItems.map(item => {
                       const Icon = item.icon;
                       return (
-                        <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
+                        <DropdownMenuItem key={item.path} onClick={() => {
+                          if (isOnOrgDash) {
+                            setPendingNavPath(item.path);
+                            setLocationDialogOpen(true);
+                          } else {
+                            navigate(item.path);
+                          }
+                        }} className="gap-2 cursor-pointer">
                           <Icon className="h-4 w-4" />
                           {item.label}
                         </DropdownMenuItem>
@@ -997,9 +1004,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                               key={item.path} 
                               variant={isActive ? 'secondary' : 'ghost'} 
                               onClick={() => {
-                                navigate(item.path);
-                                setMenuOpen(false);
-                              }} 
+                                if (isOnOrgDash) {
+                                  setPendingNavPath(item.path);
+                                  setLocationDialogOpen(true);
+                                  setMenuOpen(false);
+                                } else {
+                                  navigate(item.path);
+                                  setMenuOpen(false);
+                                }
+                              }}
                               className="justify-start gap-3 h-10 w-full"
                             >
                               <Icon className="h-4 w-4" />
@@ -1021,9 +1034,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       key={item.path} 
                       variant={isActive ? 'secondary' : 'outline'} 
                       onClick={() => {
-                        navigate(item.path);
-                        setMenuOpen(false);
-                      }} 
+                        if (location.pathname === '/org-dash') {
+                          setPendingNavPath(item.path);
+                          setLocationDialogOpen(true);
+                          setMenuOpen(false);
+                        } else {
+                          navigate(item.path);
+                          setMenuOpen(false);
+                        }
+                      }}
                       className="justify-start gap-3 h-11 relative"
                     >
                       <Icon className="h-5 w-5" />
