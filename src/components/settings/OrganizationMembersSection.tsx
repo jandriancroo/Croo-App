@@ -144,16 +144,16 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
   };
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <Users className="h-4 w-4 flex-shrink-0" />
-            <CardTitle className="text-base">Organization Members</CardTitle>
+            <CardTitle className="text-base truncate">Organization Members</CardTitle>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="flex-shrink-0">
                 <Plus className="h-4 w-4 mr-1" />
                 Add Member
               </Button>
