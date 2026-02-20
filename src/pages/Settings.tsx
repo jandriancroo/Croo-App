@@ -39,7 +39,7 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock'];
+const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'location-profile', 'inventory', 'punch-clock'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['org-members', 'org-roles'];
 // Sections only super admins see
@@ -49,6 +49,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
+  'location-profile': { title: 'Edit Location Settings', icon: <Building2 className="h-4 w-4" /> },
   inventory: { title: 'Inventory', icon: <Package className="h-4 w-4" /> },
   'punch-clock': { title: 'Customize Punch Clock', icon: <Sparkles className="h-4 w-4" /> },
   'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
@@ -346,6 +347,7 @@ export default function Settings() {
 
     return pool.filter(id => {
       if (id === 'food-safety-audits') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'punch-clock') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
@@ -381,46 +383,30 @@ export default function Settings() {
           {visibleSections.map((sectionId) => {
             const sectionInfo = SECTION_TITLES[sectionId];
 
-            // Plain button rows — no collapsible, no card nesting
-            if (sectionId === 'inventory' && currentLocation && !isChecklistOnlyLocation) {
+            // Nav-link rows — same card style as collapsibles but navigate on click
+            const navLinks: Record<string, () => void> = {
+              'location-profile': () => navigate(`/location/${currentLocation?.id}`),
+              'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
+              'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
+            };
+
+            if (navLinks[sectionId]) {
               return (
-                <Card key={sectionId}>
+                <Card key={sectionId} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={navLinks[sectionId]}>
                   <CardHeader className="pb-3">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-between h-auto p-0 hover:bg-transparent font-semibold text-base"
-                      onClick={() => navigate(`/inventory/${currentLocation.id}`)}
-                    >
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        <span>Inventory</span>
+                        {sectionInfo.icon}
+                        <CardTitle className="text-base">{sectionInfo.title}</CardTitle>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+                    </div>
                   </CardHeader>
                 </Card>
               );
             }
 
-            if (sectionId === 'punch-clock' && currentLocation && !isChecklistOnlyLocation) {
-              return (
-                <Card key={sectionId}>
-                  <CardHeader className="pb-3">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-between h-auto p-0 hover:bg-transparent font-semibold text-base"
-                      onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        <span>Customize Punch Clock</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </CardHeader>
-                </Card>
-              );
-            }
+
 
             const content = renderSectionContent(sectionId);
             if (!content) return null;
