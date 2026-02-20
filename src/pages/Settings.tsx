@@ -14,6 +14,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 
 const themes = [
@@ -333,28 +334,12 @@ export default function Settings() {
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
-          <div className="flex gap-1 p-1 bg-muted rounded-xl w-full">
-            <button
-              onClick={() => setActiveTab('location')}
-              className={`flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-all duration-200 ${
-                activeTab === 'location'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {locationLabel}
-            </button>
-            <button
-              onClick={() => setActiveTab('org')}
-              className={`flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-all duration-200 ${
-                activeTab === 'org'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {orgLabel}
-            </button>
-          </div>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org')} className="w-full">
+            <TabsList className="w-full grid grid-cols-2">
+              <TabsTrigger value="location">{locationLabel}</TabsTrigger>
+              <TabsTrigger value="org">{orgLabel}</TabsTrigger>
+            </TabsList>
+          </Tabs>
         )}
 
         <div className="grid gap-3">
