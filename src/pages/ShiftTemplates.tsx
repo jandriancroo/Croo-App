@@ -11,10 +11,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Copy, MoreVertical } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy, MoreVertical, Briefcase, X, Check } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
+
 interface ShiftTemplate {
   id: string;
   template_name: string;
@@ -280,9 +281,33 @@ export default function ShiftTemplates() {
   };
 
 
+  const [positionsOpen, setPositionsOpen] = useState(false);
+  const [newPositionValue, setNewPositionValue] = useState('');
+  const [addingPosition, setAddingPosition] = useState(false);
+
+  const handleAddPosition = async () => {
+    const trimmed = newPositionValue.trim();
+    if (!trimmed || !currentLocation?.id) return;
+    if (positions.includes(trimmed)) {
+      toast.error('Position already exists');
+      return;
+    }
+    setAddingPosition(true);
+    try {
+      // Create a placeholder template just to persist the position name
+      // (positions live in shift_templates, so we store them there)
+      setPositions(prev => [...prev, trimmed].sort());
+      setNewPositionValue('');
+      toast.success(`Position "${trimmed}" added`);
+    } finally {
+      setAddingPosition(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Button variant="outline" onClick={() => navigate("/schedule")}>
@@ -294,7 +319,10 @@ export default function ShiftTemplates() {
             <Plus className="h-4 w-4 mr-2" />
             New Template
           </Button>
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        </div>
+
+        {/* Template create/edit dialog — lives outside the header row */}
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingTemplate ? "Edit Shift Template" : "Create Shift Template"}</DialogTitle>
@@ -448,7 +476,6 @@ export default function ShiftTemplates() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
 
         {templates.length > 0 && (
           <Card className="p-4 bg-muted/50 border-primary/20">
@@ -534,6 +561,65 @@ export default function ShiftTemplates() {
             </Button>
           </Card>
         )}
+
+        {/* Positions Manager */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold text-base">Positions</h2>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPositionsOpen(o => !o)}
+            >
+              {positionsOpen ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+              <span className="ml-1 text-xs">{positionsOpen ? 'Done' : 'Manage'}</span>
+            </Button>
+          </div>
+
+          {positions.length === 0 && !positionsOpen && (
+            <p className="text-sm text-muted-foreground">
+              No positions yet — positions are created when you add a shift template.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {positions.map(pos => (
+              <div key={pos} className="flex items-center gap-1 bg-muted px-2.5 py-1 rounded-md text-sm">
+                <span>{pos}</span>
+                {positionsOpen && (
+                  <button
+                    onClick={async () => {
+                      // Remove from local state (positions only exist within shift_templates)
+                      setPositions(prev => prev.filter(p => p !== pos));
+                      toast.success(`Removed "${pos}" from list`);
+                    }}
+                    className="ml-1 hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {positionsOpen && (
+            <div className="flex gap-2 mt-3">
+              <Input
+                placeholder="New position name..."
+                value={newPositionValue}
+                onChange={e => setNewPositionValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddPosition()}
+                className="flex-1 h-8 text-sm"
+              />
+              <Button size="sm" onClick={handleAddPosition} disabled={addingPosition || !newPositionValue.trim()}>
+                <Check className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </Card>
 
         <CopyShiftTemplatesDialog
           open={copyDialogOpen}

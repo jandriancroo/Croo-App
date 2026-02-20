@@ -43,7 +43,7 @@ const textSizes = [
 // Sections that belong to the location tab
 const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['org-members', 'org-roles', 'org-positions'];
+const ORG_SECTIONS = ['org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
