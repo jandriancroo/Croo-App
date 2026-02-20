@@ -152,9 +152,8 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="flex-shrink-0">
-              <Plus className="h-4 w-4 mr-1" />
-              Add Member
+            <Button size="icon" className="flex-shrink-0 h-8 w-8">
+              <Plus className="h-4 w-4" />
             </Button>
           </DialogTrigger>
           <DialogContent>
