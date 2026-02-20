@@ -7,15 +7,20 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
+import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
+import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
+import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
+import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
+import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
+import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -36,15 +41,19 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['location-settings', 'theme', 'notifications'];
+const LOCATION_SECTIONS = ['location-settings', 'labor-rules', 'integrations', 'theme', 'notifications'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['org-settings', 'brands', 'organizations', 'maintenance'];
+const ORG_SECTIONS = ['org-members', 'org-roles', 'org-positions', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   'location-settings': { title: 'Location Settings', icon: <SettingsIcon className="h-4 w-4" /> },
+  'labor-rules': { title: 'Labor Rules', icon: <SettingsIcon className="h-4 w-4" /> },
+  'integrations': { title: 'Integrations', icon: <SettingsIcon className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-  'org-settings': { title: 'Organization Settings', icon: <Building2 className="h-4 w-4" /> },
+  'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
+  'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
+  'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'All Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
@@ -52,7 +61,6 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin } = useUserRole();
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
@@ -62,9 +70,13 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<'location' | 'org'>('location');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'location-settings': true,
+    'labor-rules': false,
+    integrations: false,
     theme: false,
     notifications: false,
-    'org-settings': true,
+    'org-members': true,
+    'org-roles': false,
+    'org-positions': false,
     brands: false,
     organizations: false,
     maintenance: false,
@@ -137,52 +149,37 @@ export default function Settings() {
     toast('Text size updated');
   };
 
+  // Pill label helpers
+  const locationLabel = currentLocation?.name || 'Location';
+  const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
+  const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
+  const orgLabel = currentOrg?.name || 'Organization';
+
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
       case 'location-settings':
         if (!currentLocation) return null;
-        return (
-          <div className="space-y-3">
-            <CardDescription className="text-xs">
-              Manage hours, labor rules, integrations, and more for {currentLocation.name}
-            </CardDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-              onClick={() => navigate(`/location/${currentLocation.id}`)}
-            >
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3 w-3" />
-                <span>{currentLocation.name} Settings</span>
-              </div>
-              <ExternalLinkIcon className="h-3 w-3" />
-            </Button>
-          </div>
-        );
+        return <LocationSettingsSection locationId={currentLocation.id} />;
 
-      case 'org-settings': {
+      case 'labor-rules':
+        if (!currentLocation) return null;
+        return <LaborRulesSection locationId={currentLocation.id} />;
+
+      case 'integrations':
+        if (!currentLocation) return null;
+        return <IntegrationsSection locationId={currentLocation.id} />;
+
+      case 'org-members':
         if (!currentOrgId) return null;
-        return (
-          <div className="space-y-3">
-            <CardDescription className="text-xs">
-              Manage members, roles, positions, and details for {orgLabel}
-            </CardDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-between"
-              onClick={() => navigate(`/organization/${currentOrgId}`)}
-            >
-              <div className="flex items-center gap-2">
-                <Building2 className="h-3 w-3" />
-                <span>{orgLabel} Settings</span>
-              </div>
-              <ExternalLinkIcon className="h-3 w-3" />
-            </Button>
-          </div>
-        );
-      }
+        return <OrganizationMembersSection organizationId={currentOrgId} />;
+
+      case 'org-roles':
+        if (!currentOrgId) return null;
+        return <RoleManagementSection organizationId={currentOrgId} />;
+
+      case 'org-positions':
+        if (!currentOrgId) return null;
+        return <PositionManagementInline organizationId={currentOrgId} />;
 
       case 'theme':
         return (
@@ -233,7 +230,7 @@ export default function Settings() {
         );
 
       case 'organizations':
-        if (!isAdmin && !isOrgAdmin) return null;
+        if (!isSuperAdmin) return null;
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -263,7 +260,6 @@ export default function Settings() {
                         )}
                         {org.name}
                       </div>
-                      <ExternalLinkIcon className="h-3 w-3" />
                     </Button>
                     <div className="space-y-1">
                       {orgLocations.map((location) => (
@@ -274,11 +270,7 @@ export default function Settings() {
                           className="w-full justify-between h-auto py-2"
                           onClick={() => navigate(`/location/${location.id}`)}
                         >
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3" />
-                            <span className="text-xs">{location.name}</span>
-                          </div>
-                          <ExternalLinkIcon className="h-3 w-3" />
+                          <span className="text-xs">{location.name}</span>
                         </Button>
                       ))}
                       {orgLocations.length === 0 && (
@@ -353,7 +345,11 @@ export default function Settings() {
 
     return pool.filter(id => {
       if (id === 'location-settings') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
-      if (id === 'org-settings') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'labor-rules') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'integrations') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'org-roles') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'org-positions') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (isChecklistOnlyLocation) {
         if (id === 'theme') return true;
         if (id === 'notifications') return true;
@@ -362,18 +358,13 @@ export default function Settings() {
         return false;
       }
       if (id === 'brands') return isSuperAdmin;
-      if (id === 'organizations') return isSuperAdmin; // only super_admin needs the full org list
+      if (id === 'organizations') return isSuperAdmin;
       if (id === 'maintenance') return isAdmin;
       return true;
     });
   };
 
-  // Pill label helpers
-  const locationLabel = currentLocation?.name || 'Location';
-  // Use currentLocation's org ID first, fall back to context organizationId
-  const currentOrgId = (currentLocation as any)?.organization_id || organizationId;
-  const currentOrg = organizations.find(o => o.id === currentOrgId) ?? organizations.find(o => o.id === organizationId);
-  const orgLabel = currentOrg?.name || 'Organization';
+
 
   const visibleSections = getSectionsForTab(activeTab);
 
