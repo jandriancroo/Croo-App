@@ -1118,6 +1118,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         locationName={switchingTo?.name ?? ''}
         storeNumber={switchingTo?.store_number}
         logoUrl={orgLogo?.logo_url}
+        brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
     </div>;
 };

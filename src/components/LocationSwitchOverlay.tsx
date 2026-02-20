@@ -6,9 +6,10 @@ interface LocationSwitchOverlayProps {
   locationName: string;
   storeNumber?: string | null;
   logoUrl?: string | null;
+  brandName?: string | null;
 }
 
-export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl }: LocationSwitchOverlayProps) {
+export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl, brandName }: LocationSwitchOverlayProps) {
   return (
     <AnimatePresence>
       {visible && (
@@ -58,13 +59,26 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
                 )}
               </motion.div>
 
+              {/* Brand name */}
+              {brandName && (
+                <motion.p
+                  className="text-base font-semibold mb-1"
+                  style={{ color: "hsl(var(--primary))" }}
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.45 }}
+                >
+                  {brandName}
+                </motion.p>
+              )}
+
               {/* Label */}
               <motion.p
                 className="text-xs font-medium tracking-widest uppercase mb-1.5"
                 style={{ color: "hsl(var(--muted-foreground))" }}
                 initial={{ y: 12, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.24, duration: 0.5 }}
+                transition={{ delay: 0.28, duration: 0.5 }}
               >
                 Switching to
               </motion.p>
