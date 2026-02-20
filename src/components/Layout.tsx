@@ -1,5 +1,5 @@
 import { ReactNode, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, Wallet, MapPin, Briefcase, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette } from 'lucide-react';
@@ -249,6 +249,7 @@ export const Layout = ({
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const {
     isAdmin,
     isShiftManager,
@@ -478,6 +479,26 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const headerLogo = orgLogo?.logo_url || cachedLogoUrl || (orgLogoLoading ? null : crooLogo);
   const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
   const headerLogoAlt = (orgLogo?.logo_url || cachedLogoUrl) ? (orgDisplayName || 'Organization') : 'Croo';
+
+  // Fetch org name for org-dash header label
+  const isOnOrgDash = location.pathname === '/org-dash';
+  const orgIdFromUrl = searchParams.get('org');
+  const { data: orgDashName } = useQuery({
+    queryKey: ['org-dash-name', orgIdFromUrl],
+    queryFn: async () => {
+      if (!orgIdFromUrl) return null;
+      const { data } = await supabase
+        .from('organizations')
+        .select('name, brand_name, brand_id, brands(name)')
+        .eq('id', orgIdFromUrl)
+        .single();
+      if (!data) return null;
+      const brand = (data as any).brands;
+      return (data as any).brand_name || brand?.name || data.name;
+    },
+    enabled: isOnOrgDash && !!orgIdFromUrl,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
@@ -786,7 +807,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
                   <span className="max-w-[120px] truncate text-sm">
-                    {location.pathname === '/org-dash' ? 'Select Location' : currentLocation?.name}
+                    {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
                   </span>
                 </button>
               )}
