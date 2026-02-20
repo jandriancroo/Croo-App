@@ -11,10 +11,9 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 
 const themes = [
@@ -35,7 +34,10 @@ const textSizes = [
   { value: 'extra-large', label: 'Extra Large' },
 ];
 
-const SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
+// Sections that belong to the location tab
+const LOCATION_SECTIONS = ['theme', 'notifications'];
+// Sections that belong to the org tab
+const ORG_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
@@ -48,12 +50,13 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin, isSuperAdmin, isOrgAdmin } = useUserRole();
-  const { isChecklistOnlyLocation } = useAppLocation();
+  const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin } = useUserRole();
+  const { isChecklistOnlyLocation, currentLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'location' | 'org'>('location');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     theme: true,
     notifications: false,
@@ -61,6 +64,9 @@ export default function Settings() {
     organizations: false,
     maintenance: false,
   });
+
+  // Who sees the pill selector: org_admin, brand_admin, super_admin
+  const showPillSelector = isOrgAdmin || isBrandAdmin || isSuperAdmin;
 
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
@@ -87,7 +93,6 @@ export default function Settings() {
         .from('locations')
         .select('id, name, organization_id')
         .order('created_at', { ascending: true });
-
       if (error) throw error;
       setLocations(data || []);
     } catch (error: any) {
@@ -102,9 +107,7 @@ export default function Settings() {
         .select('*, brands(name, logo_url)')
         .eq('is_active', true)
         .order('name', { ascending: true });
-
       if (error) throw error;
-      // Map to include brand fallback for logo
       const orgsWithLogos = (data || []).map((org: any) => ({
         ...org,
         display_logo: org.logo_url || org.brands?.logo_url || null,
@@ -142,9 +145,7 @@ export default function Settings() {
                 </SelectTrigger>
                 <SelectContent>
                   {themes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -157,9 +158,7 @@ export default function Settings() {
                 </SelectTrigger>
                 <SelectContent>
                   {textSizes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -172,18 +171,11 @@ export default function Settings() {
         return <UnifiedNotificationSettings />;
 
       case 'brands':
-        // Only super admins can see brands
         if (!isSuperAdmin) return null;
         return (
           <div className="space-y-3">
-            <CardDescription className="text-xs">
-              Create and manage franchise brands
-            </CardDescription>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/brands')}
-            >
+            <CardDescription className="text-xs">Create and manage franchise brands</CardDescription>
+            <Button variant="outline" size="sm" onClick={() => navigate('/brands')}>
               <Tag className="h-3 w-3 mr-1" />
               Manage Brands
             </Button>
@@ -191,27 +183,18 @@ export default function Settings() {
         );
 
       case 'organizations':
-        // Both admin and org_admin can see organizations section
         if (!isAdmin && !isOrgAdmin) return null;
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <CardDescription className="text-xs">
-                Manage organizations and their locations
-              </CardDescription>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/organization/new')}
-              >
+              <CardDescription className="text-xs">Manage organizations and their locations</CardDescription>
+              <Button variant="outline" size="sm" onClick={() => navigate('/organization/new')}>
                 <Building2 className="h-3 w-3 mr-1" />
                 Add Org
               </Button>
             </div>
             {organizations.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-2">
-                No organizations yet
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-2">No organizations yet</p>
             ) : (
               organizations.map((org) => {
                 const orgLocations = locations.filter(l => l.organization_id === org.id);
@@ -263,9 +246,7 @@ export default function Settings() {
         if (!isAdmin) return null;
         return (
           <div className="space-y-3">
-            <CardDescription className="text-xs">
-              Admin tools and data management
-            </CardDescription>
+            <CardDescription className="text-xs">Admin tools and data management</CardDescription>
             <Button
               variant="outline"
               size="sm"
@@ -275,7 +256,6 @@ export default function Settings() {
               <Thermometer className="w-4 h-4 mr-2" />
               Temperature Validation
             </Button>
-            
             <Button
               variant="outline"
               size="sm"
@@ -284,9 +264,7 @@ export default function Settings() {
                 try {
                   toast.info('Rescanning temperatures...');
                   const { data, error } = await supabase.functions.invoke('ai-extraction-service?action=rescan-temperatures');
-                  
                   if (error) throw error;
-                  
                   if (data.success) {
                     toast.success(`Rescan complete: ${data.updated} temperatures extracted`);
                   } else {
@@ -300,7 +278,6 @@ export default function Settings() {
             >
               Rescan Temperatures
             </Button>
-
             {isSuperAdmin && (
               <Button
                 variant="outline"
@@ -320,27 +297,30 @@ export default function Settings() {
     }
   };
 
-  // Filter visible sections based on role and location type
-  const visibleSections = SECTION_ORDER.filter(id => {
-    // For checklist-only locations, show limited settings
-    if (isChecklistOnlyLocation) {
-      if (id === 'theme') return true;
-      if (id === 'notifications') return true;
-      if (id === 'organizations' && isAdmin) return true;
-      if (id === 'locations' && isAdmin) return true;
-      if (id === 'maintenance' && isAdmin) return true;
-      return false;
-    }
-    
-    // Standard filtering for normal locations
-    if (id === 'organizations') {
-      return isAdmin || isOrgAdmin;
-    }
-    if (['roles', 'maintenance'].includes(id)) {
-      return isAdmin;
-    }
-    return true;
-  });
+  // Determine which sections are visible based on role, location type, and active tab
+  const getSectionsForTab = (tab: 'location' | 'org') => {
+    const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
+
+    return pool.filter(id => {
+      if (isChecklistOnlyLocation) {
+        if (id === 'theme') return true;
+        if (id === 'notifications') return true;
+        if (id === 'organizations' && isAdmin) return true;
+        if (id === 'maintenance' && isAdmin) return true;
+        return false;
+      }
+      if (id === 'brands') return isSuperAdmin;
+      if (id === 'organizations') return isAdmin || isOrgAdmin;
+      if (id === 'maintenance') return isAdmin;
+      return true;
+    });
+  };
+
+  // Pill label helpers
+  const locationLabel = currentLocation?.name ? `${currentLocation.name} Settings` : 'Location Settings';
+  const orgLabel = organizations.length === 1 ? `${organizations[0].name} Settings` : 'Org Settings';
+
+  const visibleSections = getSectionsForTab(activeTab);
 
   return (
     <Layout>
@@ -351,12 +331,38 @@ export default function Settings() {
           <PageHeaderDivider />
         </div>
 
+        {/* Pill selector — only for org_admin and above */}
+        {showPillSelector && (
+          <div className="flex gap-1 p-1 bg-muted rounded-xl w-full">
+            <button
+              onClick={() => setActiveTab('location')}
+              className={`flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-all duration-200 ${
+                activeTab === 'location'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {locationLabel}
+            </button>
+            <button
+              onClick={() => setActiveTab('org')}
+              className={`flex-1 text-sm font-medium py-2 px-3 rounded-lg transition-all duration-200 ${
+                activeTab === 'org'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {orgLabel}
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-3">
           {visibleSections.map((sectionId) => {
             const content = renderSectionContent(sectionId);
             if (!content) return null;
             const sectionInfo = SECTION_TITLES[sectionId];
-            
+
             return (
               <Collapsible
                 key={sectionId}
@@ -371,10 +377,10 @@ export default function Settings() {
                           {sectionInfo.icon}
                           <CardTitle className="text-base">{sectionInfo.title}</CardTitle>
                         </div>
-                        <ChevronDown 
+                        <ChevronDown
                           className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
                             openSections[sectionId] ? 'rotate-180' : ''
-                          }`} 
+                          }`}
                         />
                       </div>
                     </CardHeader>
