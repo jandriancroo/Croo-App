@@ -41,7 +41,7 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['location-settings', 'labor-rules', 'integrations', 'theme', 'notifications'];
+const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['org-members', 'org-roles', 'org-positions', 'brands', 'organizations', 'maintenance'];
 
