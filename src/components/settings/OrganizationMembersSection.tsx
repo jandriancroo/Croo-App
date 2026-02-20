@@ -237,15 +237,15 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
             return (
               <div
                 key={member.id}
-                className="flex items-center gap-2 p-3 rounded-lg border bg-card min-w-0"
+                className="flex items-center gap-2 p-2 rounded-lg border bg-card w-full overflow-hidden"
               >
-                <Avatar className="h-9 w-9 flex-shrink-0">
+                <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarImage src={profile?.profile_photo_url || ''} />
                   <AvatarFallback className="text-xs">
                     {getInitials(profile?.full_name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="text-sm font-medium truncate">
                     {profile?.full_name || 'Unknown'}
                   </div>
@@ -253,12 +253,12 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                     {profile?.email}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <Select
                     value={member.org_role}
                     onValueChange={(value) => handleRoleChange(member.id, value)}
                   >
-                    <SelectTrigger className="w-20 h-8 text-xs">
+                    <SelectTrigger className="w-[70px] h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -269,14 +269,14 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive flex-shrink-0"
+                    className="h-7 w-7 text-destructive hover:text-destructive flex-shrink-0"
                     onClick={() => handleRemoveMember(member.id)}
                     disabled={removingId === member.id}
                   >
                     {removingId === member.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     )}
                   </Button>
                 </div>
