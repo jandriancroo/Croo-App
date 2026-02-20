@@ -392,17 +392,17 @@ export default function Settings() {
 
             if (navLinks[sectionId]) {
               return (
-                <Card key={sectionId} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={navLinks[sectionId]}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {sectionInfo.icon}
-                        <CardTitle className="text-base">{sectionInfo.title}</CardTitle>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </CardHeader>
-                </Card>
+                <button
+                  key={sectionId}
+                  onClick={navLinks[sectionId]}
+                  className="w-full flex items-center justify-between px-4 py-4 rounded-xl bg-primary text-primary-foreground active:scale-[0.98] transition-all duration-150 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="opacity-80">{sectionInfo.icon}</span>
+                    <span className="font-semibold text-base">{sectionInfo.title}</span>
+                  </div>
+                  <ChevronRight className="h-4 w-4 opacity-60" />
+                </button>
               );
             }
 
