@@ -112,17 +112,20 @@ const useNativeSpeechRecognition = ({ onTranscript, continuous = true, silenceTi
     if (SpeechRecognitionClass) {
       const recognition = new SpeechRecognitionClass() as SpeechRecognitionInstance;
       recognition.continuous = continuous;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // Must be true so interim speech resets the silence timer
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: SpeechRecognitionEventType) => {
         const lastResult = event.results[event.results.length - 1];
+
+        // Reset silence timer on ANY speech activity (interim or final)
+        // This prevents the timer from killing the session mid-sentence
+        startSilenceTimer();
+
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript.trim();
           console.log('[Voice Native] Final transcript:', transcript);
           if (transcript) {
-            // Reset silence timer every time something is said
-            startSilenceTimer();
             onTranscriptRef.current(transcript);
           }
         }
