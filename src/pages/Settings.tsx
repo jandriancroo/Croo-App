@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon, Package, Sparkles } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon, Package, Sparkles, MapPin } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -161,31 +161,46 @@ export default function Settings() {
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
       case 'quick-links':
-        if (!currentLocation || isChecklistOnlyLocation) return null;
+        if (!currentLocation) return null;
         return (
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               variant="outline"
               className="w-full justify-start gap-3 h-auto py-3"
-              onClick={() => navigate(`/inventory/${currentLocation.id}`)}
+              onClick={() => navigate(`/location/${currentLocation.id}`)}
             >
-              <Package className="h-5 w-5 text-primary flex-shrink-0" />
+              <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
               <div className="text-left">
-                <div className="font-medium text-sm">Inventory</div>
-                <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
+                <div className="font-medium text-sm">Location Info</div>
+                <div className="text-xs text-muted-foreground">Address, map & location code</div>
               </div>
             </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto py-3"
-              onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
-            >
-              <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
-              <div className="text-left">
-                <div className="font-medium text-sm">Punch Clock</div>
-                <div className="text-xs text-muted-foreground">Customize themes & backgrounds</div>
-              </div>
-            </Button>
+            {!isChecklistOnlyLocation && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-3"
+                onClick={() => navigate(`/inventory/${currentLocation.id}`)}
+              >
+                <Package className="h-5 w-5 text-primary flex-shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium text-sm">Inventory</div>
+                  <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
+                </div>
+              </Button>
+            )}
+            {!isChecklistOnlyLocation && (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 h-auto py-3"
+                onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
+              >
+                <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
+                <div className="text-left">
+                  <div className="font-medium text-sm">Punch Clock</div>
+                  <div className="text-xs text-muted-foreground">Customize themes & backgrounds</div>
+                </div>
+              </Button>
+            )}
           </div>
         );
 
