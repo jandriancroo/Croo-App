@@ -1143,7 +1143,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         onOpenChange={setLocationDialogOpen}
         currentLocationId={currentLocation?.id}
         onSelectLocation={(loc) => {
-          const destination = pendingNavPath || '/dashboard';
+          const destination = '/dashboard'; // Always go to dashboard (front door) when switching locations
           setPendingNavPath(null);
           setCurrentLocation({
             id: loc.id,
