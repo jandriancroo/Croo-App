@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -643,38 +643,35 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Loading audits...
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center text-muted-foreground text-sm">
+        Loading audits...
+      </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader className="py-3 px-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle className="text-base">Food Safety Audits</CardTitle>
-                <CardDescription className="text-xs">
-                  Location-level audit documents{locationName ? ` for ${locationName}` : ''}
-                </CardDescription>
-              </div>
+      <div className="py-3 px-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Food Safety Audits</p>
+              <p className="text-xs text-muted-foreground">
+                Location-level audit documents{locationName ? ` for ${locationName}` : ''}
+              </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setAuditUploadDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Audit
-            </Button>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0 px-4 pb-3">
+          <Button
+            size="sm"
+            onClick={() => setAuditUploadDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Audit
+          </Button>
+        </div>
+      </div>
+      <div className="pt-0 px-0 pb-1">
           {audits.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No audits uploaded yet
@@ -872,8 +869,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Audit Upload Dialog */}
       <Dialog open={auditUploadDialogOpen} onOpenChange={(open) => {
