@@ -40,7 +40,7 @@ interface DockContentProps {
   unreadCount: number;
   onSwipeUp: () => void;
   canViewSalesAndLabor: boolean;
-  onOpenLocationPicker: () => void;
+  onOpenLocationPicker: (pendingPath?: string) => void;
 }
 
 const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount, onSwipeUp, canViewSalesAndLabor, onOpenLocationPicker }: DockContentProps) => {
@@ -206,7 +206,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                     if (showOrgBubble) setShowOrgBubble(false);
                     // When on org-dash and tapping a location-specific nav item, open location picker
                     if (isOnOrgDash && !isDashItem) {
-                      onOpenLocationPicker();
+                      onOpenLocationPicker(item.path);
                       return;
                     }
                     // Trigger bounce animation
@@ -263,6 +263,7 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
@@ -739,6 +740,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     onClick={() => {
                       // When on org-dash, location-specific nav items open the location picker
                       if (isOnOrgDash && isLocationSpecific) {
+                        setPendingNavPath(item.path);
                         setLocationDialogOpen(true);
                         return;
                       }
@@ -1116,7 +1118,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             unreadCount={unreadCount}
             onSwipeUp={() => setShowCompactDashboard(true)}
             canViewSalesAndLabor={canViewSalesAndLabor}
-            onOpenLocationPicker={() => setLocationDialogOpen(true)}
+            onOpenLocationPicker={(path) => { setPendingNavPath(path || null); setLocationDialogOpen(true); }}
           />
         </nav>
       )}
@@ -1141,12 +1143,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         onOpenChange={setLocationDialogOpen}
         currentLocationId={currentLocation?.id}
         onSelectLocation={(loc) => {
+          const destination = pendingNavPath || '/dashboard';
+          setPendingNavPath(null);
           setCurrentLocation({
             id: loc.id,
             name: loc.name,
             location_type: loc.location_type,
             store_number: loc.store_number,
-          });
+          }, destination);
           const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
           toast.success(`Switched to ${displayName}`);
         }}

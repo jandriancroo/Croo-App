@@ -15,7 +15,7 @@ interface Location {
 interface LocationContextType {
   currentLocation: Location | null;
   locations: Location[];
-  setCurrentLocation: (location: Location) => void;
+  setCurrentLocation: (location: Location, destination?: string) => void;
   loading: boolean;
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
@@ -134,7 +134,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     fetchLocations();
   }, [user]);
 
-  const setCurrentLocation = useCallback((location: Location) => {
+  const setCurrentLocation = useCallback((location: Location, destination?: string) => {
     const previousId = currentLocation?.id;
     if (previousId === location.id) return; // No-op if same location
 
@@ -164,15 +164,13 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     };
 
     // Step 1: Cancel any in-flight requests for the old location
-    // so they can't resolve and pollute the new location's cache
     queryClient.cancelQueries({ predicate: locationPredicate });
 
-    // Step 2: Remove (not just invalidate) all old location data from cache
-    // Components will fetch fresh data when overlay dismisses — no stale flash
+    // Step 2: Remove all old location data from cache
     queryClient.removeQueries({ predicate: locationPredicate });
 
-    // Navigate to dashboard (the "front door" for every location)
-    navigate('/dashboard');
+    // Navigate to destination (default: dashboard as "front door")
+    navigate(destination || '/dashboard');
 
     // Dismiss overlay after progress bar completes — 3.2s gives dashboard data time to load
     setTimeout(() => {
