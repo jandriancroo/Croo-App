@@ -280,8 +280,8 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
             {DAYS_OF_WEEK.map((day) => {
               const dayHours = businessHours.find(d => d.day_of_week === day.value);
               return (
-                <div key={day.value} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <span className="w-10 text-sm font-medium">{day.short}</span>
+                <div key={day.value} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                  <span className="w-9 shrink-0 text-sm font-medium">{day.short}</span>
                   <Switch
                     checked={!dayHours?.is_closed}
                     onCheckedChange={(checked) => updateDayHours(day.value, 'is_closed', !checked)}
@@ -289,19 +289,19 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
                   {dayHours?.is_closed ? (
                     <span className="text-xs text-muted-foreground">Closed</span>
                   ) : (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 min-w-0 flex-1">
                       <Input
                         type="time"
                         value={dayHours?.open_time || "11:00"}
                         onChange={(e) => updateDayHours(day.value, 'open_time', e.target.value)}
-                        className="w-[100px] h-8 text-sm"
+                        className="flex-1 min-w-0 h-8 text-sm"
                       />
-                      <span className="text-muted-foreground text-xs">-</span>
+                      <span className="text-muted-foreground text-xs shrink-0">-</span>
                       <Input
                         type="time"
                         value={dayHours?.close_time || "22:00"}
                         onChange={(e) => updateDayHours(day.value, 'close_time', e.target.value)}
-                        className="w-[100px] h-8 text-sm"
+                        className="flex-1 min-w-0 h-8 text-sm"
                       />
                     </div>
                   )}
