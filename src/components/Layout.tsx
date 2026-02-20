@@ -204,9 +204,9 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   key={item.path}
                   onClick={() => {
                     if (showOrgBubble) setShowOrgBubble(false);
-                    // When on org-dash and tapping a location-specific nav item, open location picker
-                    if (isOnOrgDash && !isDashItem) {
-                      onOpenLocationPicker(item.path);
+                    // When on org-dash, ALL nav items (including Dash) open the location picker
+                    if (isOnOrgDash) {
+                      onOpenLocationPicker(isDashItem ? '/dashboard' : item.path);
                       return;
                     }
                     // Trigger bounce animation
@@ -738,8 +738,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <button 
                     key={item.path} 
                     onClick={() => {
-                      // When on org-dash, location-specific nav items open the location picker
-                      if (isOnOrgDash && isLocationSpecific) {
+                      // When on org-dash, ALL nav items open the location picker
+                      if (isOnOrgDash) {
                         setPendingNavPath(item.path);
                         setLocationDialogOpen(true);
                         return;
