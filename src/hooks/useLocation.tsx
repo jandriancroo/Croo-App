@@ -146,24 +146,30 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
 
-    // Invalidate ALL location-scoped queries so every page gets fresh data
-    queryClient.invalidateQueries({
-      predicate: (query) => {
-        const key = query.queryKey;
-        if (previousId && key.some(k => k === previousId)) return true;
-        const locationScopedKeys = [
-          'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
-          'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
-          'sales-cache-wtd', 'location-hours-today', 'org-logo', 'time-tracking',
-          'time-punches', 'payroll', 'temporary-tasks', 'logbook', 'catering',
-          'certifications', 'holidays', 'events', 'availability', 'user-checklists',
-          'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
-          'completion-history', 'submission-stats', 'completed-temp-tasks',
-          'location-timezone',
-        ];
-        return locationScopedKeys.some(prefix => key[0] === prefix);
-      },
-    });
+    const locationScopedKeys = [
+      'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
+      'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
+      'sales-cache-wtd', 'location-hours-today', 'org-logo', 'time-tracking',
+      'time-punches', 'payroll', 'temporary-tasks', 'logbook', 'catering',
+      'certifications', 'holidays', 'events', 'availability', 'user-checklists',
+      'checklist-submissions', 'labor-cache', 'shift-templates', 'hiring',
+      'completion-history', 'submission-stats', 'completed-temp-tasks',
+      'location-timezone',
+    ];
+
+    const locationPredicate = (query: { queryKey: readonly unknown[] }) => {
+      const key = query.queryKey;
+      if (previousId && key.some(k => k === previousId)) return true;
+      return locationScopedKeys.some(prefix => key[0] === prefix);
+    };
+
+    // Step 1: Cancel any in-flight requests for the old location
+    // so they can't resolve and pollute the new location's cache
+    queryClient.cancelQueries({ predicate: locationPredicate });
+
+    // Step 2: Remove (not just invalidate) all old location data from cache
+    // Components will fetch fresh data when overlay dismisses — no stale flash
+    queryClient.removeQueries({ predicate: locationPredicate });
 
     // Navigate to dashboard (the "front door" for every location)
     navigate('/dashboard');
