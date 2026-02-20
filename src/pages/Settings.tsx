@@ -370,7 +370,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="space-y-4 w-full overflow-hidden">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your preferences</p>
@@ -387,7 +387,7 @@ export default function Settings() {
           </Tabs>
         )}
 
-        <div className="grid gap-3">
+        <div className="grid gap-3 w-full overflow-hidden">
           {visibleSections.map((sectionId) => {
             const content = renderSectionContent(sectionId);
             if (!content) return null;
@@ -397,7 +397,7 @@ export default function Settings() {
             const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions', 'notifications'].includes(sectionId);
 
             if (isRawSection) {
-              return <div key={sectionId}>{content}</div>;
+              return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
             }
 
             return (
