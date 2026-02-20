@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, MapPin, Package, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,17 +38,19 @@ const textSizes = [
   { value: 'extra-large', label: 'Extra Large' },
 ];
 
-// Sections that belong to the location tab (personal + location link only)
-const LOCATION_SECTIONS = ['theme', 'notifications', 'location-link'];
+// Sections that belong to the location tab
+const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
-  'location-link': { title: 'Location', icon: <MapPin className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+  'food-safety-audits': { title: 'Food Safety Audits', icon: <ShieldCheck className="h-4 w-4" /> },
+  inventory: { title: 'Inventory', icon: <Package className="h-4 w-4" /> },
+  'punch-clock': { title: 'Customize Punch Clock', icon: <Sparkles className="h-4 w-4" /> },
   'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
   'org-roles': { title: 'Roles & Permissions', icon: <Building2 className="h-4 w-4" /> },
   'org-positions': { title: 'Positions', icon: <Building2 className="h-4 w-4" /> },
@@ -66,10 +68,12 @@ export default function Settings() {
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
-  const [showAudits, setShowAudits] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     theme: false,
     notifications: false,
+    'food-safety-audits': false,
+    inventory: false,
+    'punch-clock': false,
     'org-members': true,
     'org-roles': false,
     'org-positions': false,
@@ -153,64 +157,31 @@ export default function Settings() {
 
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
-      case 'location-link':
+      case 'food-safety-audits':
         if (!currentLocation) return null;
+        return <LocationAuditsSection locationId={currentLocation.id} locationName={currentLocation.name} />;
+
+      case 'inventory':
+        if (!currentLocation || isChecklistOnlyLocation) return null;
         return (
           <div className="space-y-2">
-            {!isChecklistOnlyLocation && (
-              <button
-                className="w-full flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/50 transition-colors text-left"
-                onClick={() => navigate(`/inventory/${currentLocation.id}`)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Package className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm">Inventory</div>
-                    <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </button>
-            )}
-            {!isChecklistOnlyLocation && (
-              <button
-                className="w-full flex items-center justify-between p-3 rounded-lg border bg-card hover:border-primary/50 transition-colors text-left"
-                onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-sm">Customize Punch Clock</div>
-                    <div className="text-xs text-muted-foreground">Themes & backgrounds</div>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              </button>
-            )}
-            <button
-              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${showAudits ? 'border-primary bg-primary/5' : 'bg-card hover:border-primary/50'}`}
-              onClick={() => setShowAudits(v => !v)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <div className="font-medium text-sm">Food Safety Audits</div>
-                  <div className="text-xs text-muted-foreground">Audit templates & history</div>
-                </div>
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${showAudits ? 'rotate-180' : ''}`} />
-            </button>
-            {showAudits && (
-              <div className="pt-1">
-                <LocationAuditsSection locationId={currentLocation.id} locationName={currentLocation.name} />
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">Manage counts, variance reports, and inventory items.</p>
+            <Button variant="outline" className="w-full justify-between" onClick={() => navigate(`/inventory/${currentLocation.id}`)}>
+              Go to Inventory
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+
+      case 'punch-clock':
+        if (!currentLocation || isChecklistOnlyLocation) return null;
+        return (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Customize punch clock themes and background images.</p>
+            <Button variant="outline" className="w-full justify-between" onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}>
+              Customize Punch Clock
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         );
 
@@ -392,7 +363,9 @@ export default function Settings() {
     const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
 
     return pool.filter(id => {
-      if (id === 'location-link') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'food-safety-audits') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'punch-clock') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-roles') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-positions') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
@@ -428,8 +401,8 @@ export default function Settings() {
             if (!content) return null;
             const sectionInfo = SECTION_TITLES[sectionId];
 
-            // These sections render self-contained components with their own Card/Collapsible
-        const isRawSection = ['org-members', 'org-roles', 'org-positions', 'notifications', 'location-link'].includes(sectionId);
+            // Only org management sections render self-contained (they have own Card wrappers)
+            const isRawSection = ['org-members', 'org-roles', 'org-positions'].includes(sectionId);
 
             if (isRawSection) {
               return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
