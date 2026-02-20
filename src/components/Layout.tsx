@@ -1143,16 +1143,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         onOpenChange={setLocationDialogOpen}
         currentLocationId={currentLocation?.id}
         onSelectLocation={(loc) => {
-          const destination = '/dashboard'; // Always go to dashboard (front door) when switching locations
           setPendingNavPath(null);
+          // Always force navigate when coming from org dash (even if same location)
           setCurrentLocation({
             id: loc.id,
             name: loc.name,
             location_type: loc.location_type,
             store_number: loc.store_number,
-          }, destination);
-          const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
-          toast.success(`Switched to ${displayName}`);
+          }, '/dashboard', true);
         }}
       />
 

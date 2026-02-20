@@ -15,7 +15,7 @@ interface Location {
 interface LocationContextType {
   currentLocation: Location | null;
   locations: Location[];
-  setCurrentLocation: (location: Location, destination?: string) => void;
+  setCurrentLocation: (location: Location, destination?: string, forceNavigate?: boolean) => void;
   loading: boolean;
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
@@ -134,9 +134,9 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     fetchLocations();
   }, [user]);
 
-  const setCurrentLocation = useCallback((location: Location, destination?: string) => {
+  const setCurrentLocation = useCallback((location: Location, destination?: string, forceNavigate?: boolean) => {
     const previousId = currentLocation?.id;
-    if (previousId === location.id) return; // No-op if same location
+    if (previousId === location.id && !forceNavigate) return; // No-op if same location (unless forced)
 
     // Show the overlay immediately
     setSwitchingTo(location);
