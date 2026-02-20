@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.webp';
+import { LocationSwitchOverlay } from './LocationSwitchOverlay';
 import { LocationPickerDialog } from './LocationPickerDialog';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -255,7 +256,7 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
   const { canViewWallet } = useRolePermissions();
@@ -1094,7 +1095,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         />
       )}
 
-      {/* Location Picker Dialog */}
+      {/* Location Picker Dialog (opened from mobile nav) */}
       <LocationPickerDialog
         open={locationDialogOpen}
         onOpenChange={setLocationDialogOpen}
@@ -1106,27 +1107,16 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             location_type: loc.location_type,
             store_number: loc.store_number,
           });
-          
-          // Page-aware navigation on location switch
-          const currentPath = window.location.pathname;
-          const fallbackPages: Record<string, string> = {
-            '/time-tracking': '/time-tracking', // stays but payroll selector resets
-            '/week-template': '/schedule-templates?tab=weeks',
-          };
-          
-          // Check for prefix-based fallbacks
-          const fallbackPath = Object.entries(fallbackPages).find(([prefix]) => 
-            currentPath.startsWith(prefix)
-          )?.[1];
-          
-          if (fallbackPath && fallbackPath !== currentPath) {
-            navigate(fallbackPath);
-          }
-          
-          // Visual confirmation of switch
           const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
           toast.success(`Switched to ${displayName}`);
         }}
+      />
+
+      {/* Location switch overlay — shown globally whenever a location is switching */}
+      <LocationSwitchOverlay
+        visible={isSwitching}
+        locationName={switchingTo?.name ?? ''}
+        storeNumber={switchingTo?.store_number}
       />
     </div>;
 };
