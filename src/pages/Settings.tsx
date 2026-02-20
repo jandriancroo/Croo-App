@@ -361,7 +361,7 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-4 w-full overflow-hidden">
+      <div className="space-y-4 w-full">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your preferences</p>
@@ -379,7 +379,7 @@ export default function Settings() {
           </Tabs>
         )}
 
-        <div className="grid gap-3 w-full overflow-hidden">
+        <div className="grid gap-3 w-full">
           {visibleSections.map((sectionId) => {
             const sectionInfo = SECTION_TITLES[sectionId];
 
