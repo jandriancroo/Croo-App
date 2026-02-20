@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Settings as SettingsIcon, Package, Sparkles } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,7 +41,7 @@ const textSizes = [
 ];
 
 // Sections that belong to the location tab
-const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations'];
+const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations', 'quick-links'];
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['org-members', 'org-roles'];
 // Sections only super admins see
@@ -51,6 +51,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
   'location-settings': { title: 'Location Settings', icon: <SettingsIcon className="h-4 w-4" /> },
   'labor-rules': { title: 'Labor Rules', icon: <SettingsIcon className="h-4 w-4" /> },
   'integrations': { title: 'Integrations', icon: <SettingsIcon className="h-4 w-4" /> },
+  'quick-links': { title: 'Quick Links', icon: <SettingsIcon className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'org-members': { title: 'Members', icon: <Building2 className="h-4 w-4" /> },
@@ -159,6 +160,35 @@ export default function Settings() {
 
   const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
+      case 'quick-links':
+        if (!currentLocation || isChecklistOnlyLocation) return null;
+        return (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-3"
+              onClick={() => navigate(`/inventory/${currentLocation.id}`)}
+            >
+              <Package className="h-5 w-5 text-primary flex-shrink-0" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Inventory</div>
+                <div className="text-xs text-muted-foreground">Fast mobile counting & variance</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-3"
+              onClick={() => navigate(`/location/${currentLocation.id}/punch-clock`)}
+            >
+              <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Punch Clock</div>
+                <div className="text-xs text-muted-foreground">Customize themes & backgrounds</div>
+              </div>
+            </Button>
+          </div>
+        );
+
       case 'location-settings':
         if (!currentLocation) return null;
         return <LocationSettingsSection locationId={currentLocation.id} />;
@@ -393,7 +423,7 @@ export default function Settings() {
             const sectionInfo = SECTION_TITLES[sectionId];
 
             // These sections render self-contained components with their own Card/Collapsible
-            const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions', 'notifications'].includes(sectionId);
+        const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions', 'notifications', 'quick-links'].includes(sectionId);
 
             if (isRawSection) {
               return <div key={sectionId} className="w-full overflow-hidden">{content}</div>;
