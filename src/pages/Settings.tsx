@@ -420,7 +420,7 @@ export default function Settings() {
                 open={openSections[sectionId]}
                 onOpenChange={() => toggleSection(sectionId)}
               >
-                <Card className={isFlushSection && openSections[sectionId] ? 'overflow-hidden' : ''}>
+                <Card className="w-full min-w-0">
                   <CollapsibleTrigger asChild>
                     <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
                       <div className="flex items-center justify-between">

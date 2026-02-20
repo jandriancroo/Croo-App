@@ -238,7 +238,7 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
             return (
               <div
                 key={member.id}
-                className="flex items-center gap-2 p-3 rounded-lg border bg-card overflow-hidden"
+                className="flex items-center gap-2 p-3 rounded-lg border bg-card min-w-0"
               >
                 <Avatar className="h-9 w-9 flex-shrink-0">
                   <AvatarImage src={profile?.profile_photo_url || ''} />
@@ -254,12 +254,12 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                     {profile?.email}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                   <Select
                     value={member.org_role}
                     onValueChange={(value) => handleRoleChange(member.id, value)}
                   >
-                    <SelectTrigger className="w-24 h-8">
+                    <SelectTrigger className="w-20 h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -270,7 +270,7 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8 text-destructive hover:text-destructive flex-shrink-0"
                     onClick={() => handleRemoveMember(member.id)}
                     disabled={removingId === member.id}
                   >
