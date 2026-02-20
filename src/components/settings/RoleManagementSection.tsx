@@ -187,7 +187,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       )}
 
       {/* Two column layout for Permissions and Notifications */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         {/* Permissions Column */}
         <div className="border rounded-lg p-4 bg-muted/50">
           <h4 className="font-semibold mb-3 flex items-center gap-2">
