@@ -394,7 +394,7 @@ export default function Settings() {
             const sectionInfo = SECTION_TITLES[sectionId];
 
             // These sections render self-contained components with their own Card/Collapsible
-            const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions'].includes(sectionId);
+            const isRawSection = ['location-settings', 'labor-rules', 'integrations', 'org-members', 'org-roles', 'org-positions', 'notifications'].includes(sectionId);
 
             if (isRawSection) {
               return <div key={sectionId}>{content}</div>;
