@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -135,150 +135,128 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Roles & Permissions
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Loading...</p>
-        </CardContent>
-      </Card>
+      <p className="text-muted-foreground text-sm py-2">Loading...</p>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Roles & Permissions
-        </CardTitle>
-        <CardDescription>
-          Configure permissions and notification access for each role
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {/* Role selector buttons */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={selectedRole === 'admin' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedRole('admin')}
-            >
-              Admin
-            </Button>
-            <Button
-              variant={selectedRole === 'manager' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedRole('manager')}
-            >
-              Manager
-            </Button>
-            <Button
-              variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedRole('shift_manager')}
-            >
-              Shift Manager
-            </Button>
-            <Button
-              variant={selectedRole === 'team_member' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedRole('team_member')}
-            >
-              Team Member
-            </Button>
-          </div>
+    <div className="space-y-4">
+      {/* Role selector buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={selectedRole === 'admin' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedRole('admin')}
+        >
+          Admin
+        </Button>
+        <Button
+          variant={selectedRole === 'manager' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedRole('manager')}
+        >
+          Manager
+        </Button>
+        <Button
+          variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedRole('shift_manager')}
+        >
+          Shift Manager
+        </Button>
+        <Button
+          variant={selectedRole === 'team_member' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedRole('team_member')}
+        >
+          Team Member
+        </Button>
+      </div>
 
-          {/* Dashboard Configuration Button */}
-          {canConfigureDashboard && organizationId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => navigate(`/organization/${organizationId}/role-dashboard?role=${selectedRole}`)}
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Configure {getRoleLabel(selectedRole)} Dashboard
-            </Button>
-          )}
+      {/* Dashboard Configuration Button */}
+      {canConfigureDashboard && organizationId && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => navigate(`/organization/${organizationId}/role-dashboard?role=${selectedRole}`)}
+        >
+          <LayoutGrid className="h-4 w-4 mr-2" />
+          Configure {getRoleLabel(selectedRole)} Dashboard
+        </Button>
+      )}
 
-          {/* Two column layout for Permissions and Notifications */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Permissions Column */}
-            <div className="border rounded-lg p-4 bg-muted/50">
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <User className="h-4 w-4" />
-                {getRoleLabel(selectedRole)} Permissions
-              </h4>
-              <div className="space-y-3">
-                {rolePermissions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No permissions configured</p>
-                ) : (
-                  rolePermissions.map((permission) => (
-                    <div key={permission.id} className="flex items-center gap-3">
-                      <Checkbox
-                        id={permission.id}
-                        checked={permission.enabled}
-                        disabled={savingId === permission.id}
-                        onCheckedChange={() =>
-                          handlePermissionToggle(permission.id, permission.enabled)
-                        }
-                      />
-                      <label
-                        htmlFor={permission.id}
-                        className={`text-sm cursor-pointer ${
-                          permission.enabled ? 'text-foreground' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {permission.permission_label}
-                      </label>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Notifications Column */}
-            <div className="border rounded-lg p-4 bg-muted/50">
-              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                <Bell className="h-4 w-4" />
-                {getRoleLabel(selectedRole)} Notifications
-              </h4>
-              <div className="space-y-3">
-                {roleNotifications.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No notification settings configured</p>
-                ) : (
-                  roleNotifications.map((notification) => (
-                    <div key={notification.id} className="flex items-center gap-3">
-                      <Checkbox
-                        id={notification.id}
-                        checked={notification.enabled}
-                        disabled={savingId === notification.id}
-                        onCheckedChange={() =>
-                          handleNotificationToggle(notification.id, notification.enabled)
-                        }
-                      />
-                      <label
-                        htmlFor={notification.id}
-                        className={`text-sm cursor-pointer ${
-                          notification.enabled ? 'text-foreground' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {notification.notification_label}
-                      </label>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+      {/* Two column layout for Permissions and Notifications */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Permissions Column */}
+        <div className="border rounded-lg p-4 bg-muted/50">
+          <h4 className="font-semibold mb-3 flex items-center gap-2">
+            <User className="h-4 w-4" />
+            {getRoleLabel(selectedRole)} Permissions
+          </h4>
+          <div className="space-y-3">
+            {rolePermissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No permissions configured</p>
+            ) : (
+              rolePermissions.map((permission) => (
+                <div key={permission.id} className="flex items-center gap-3">
+                  <Checkbox
+                    id={permission.id}
+                    checked={permission.enabled}
+                    disabled={savingId === permission.id}
+                    onCheckedChange={() =>
+                      handlePermissionToggle(permission.id, permission.enabled)
+                    }
+                  />
+                  <label
+                    htmlFor={permission.id}
+                    className={`text-sm cursor-pointer ${
+                      permission.enabled ? 'text-foreground' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {permission.permission_label}
+                  </label>
+                </div>
+              ))
+            )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Notifications Column */}
+        <div className="border rounded-lg p-4 bg-muted/50">
+          <h4 className="font-semibold mb-3 flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            {getRoleLabel(selectedRole)} Notifications
+          </h4>
+          <div className="space-y-3">
+            {roleNotifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notification settings configured</p>
+            ) : (
+              roleNotifications.map((notification) => (
+                <div key={notification.id} className="flex items-center gap-3">
+                  <Checkbox
+                    id={notification.id}
+                    checked={notification.enabled}
+                    disabled={savingId === notification.id}
+                    onCheckedChange={() =>
+                      handleNotificationToggle(notification.id, notification.enabled)
+                    }
+                  />
+                  <label
+                    htmlFor={notification.id}
+                    className={`text-sm cursor-pointer ${
+                      notification.enabled ? 'text-foreground' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {notification.notification_label}
+                  </label>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
+
