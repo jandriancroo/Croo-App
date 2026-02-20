@@ -43,7 +43,9 @@ const textSizes = [
 // Sections that belong to the location tab
 const LOCATION_SECTIONS = ['theme', 'notifications', 'location-settings', 'labor-rules', 'integrations'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['org-members', 'org-roles', 'org-positions', 'brands', 'organizations', 'maintenance'];
+const ORG_SECTIONS = ['org-members', 'org-roles', 'org-positions'];
+// Sections only super admins see
+const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   'location-settings': { title: 'Location Settings', icon: <SettingsIcon className="h-4 w-4" /> },
@@ -67,7 +69,7 @@ export default function Settings() {
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'location' | 'org'>('location');
+  const [activeTab, setActiveTab] = useState<'location' | 'org' | 'super'>('location');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     'location-settings': true,
     'labor-rules': false,
@@ -340,7 +342,10 @@ export default function Settings() {
   };
 
   // Determine which sections are visible based on role, location type, and active tab
-  const getSectionsForTab = (tab: 'location' | 'org') => {
+  const getSectionsForTab = (tab: 'location' | 'org' | 'super') => {
+    if (tab === 'super') {
+      return SUPER_ADMIN_SECTIONS.filter(() => isSuperAdmin);
+    }
     const pool = tab === 'location' ? LOCATION_SECTIONS : ORG_SECTIONS;
 
     return pool.filter(id => {
@@ -353,18 +358,11 @@ export default function Settings() {
       if (isChecklistOnlyLocation) {
         if (id === 'theme') return true;
         if (id === 'notifications') return true;
-        if (id === 'organizations' && isAdmin) return true;
-        if (id === 'maintenance' && isAdmin) return true;
         return false;
       }
-      if (id === 'brands') return isSuperAdmin;
-      if (id === 'organizations') return isSuperAdmin;
-      if (id === 'maintenance') return isAdmin;
       return true;
     });
   };
-
-
 
   const visibleSections = getSectionsForTab(activeTab);
 
@@ -379,10 +377,11 @@ export default function Settings() {
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org')} className="w-full">
-            <TabsList className="w-full grid grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org' | 'super')} className="w-full">
+            <TabsList className={`w-full grid ${isSuperAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="location">{locationLabel}</TabsTrigger>
               <TabsTrigger value="org">{orgLabel}</TabsTrigger>
+              {isSuperAdmin && <TabsTrigger value="super">Super Admin</TabsTrigger>}
             </TabsList>
           </Tabs>
         )}
