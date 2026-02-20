@@ -707,24 +707,16 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
-            <button onClick={() => {
-              // Check if a navigation guard is active (e.g., inventory counting session)
-              const guard = (window as any).__navigationGuard;
-              if (guard && typeof guard === 'function') {
-                guard('/dashboard');
-              } else {
-                navigate('/dashboard');
-              }
-            }} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
+            <div className="nav-logo-inline mr-2">
               {headerLogo ? (
                 <img 
                   src={headerLogo} 
                   alt={headerLogoAlt} 
                 />
               ) : (
-                <div className="h-8 w-20 bg-white/20 rounded animate-pulse" />
+                <div className="h-8 w-8 rounded-lg bg-white/20" />
               )}
-            </button>
+            </div>
             
             {/* Nav items */}
             <div className="flex items-center gap-0.5">
@@ -897,14 +889,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <header className={`sticky top-0 z-50 bg-background border-b border-border/20 ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => {
-              const guard = (window as any).__navigationGuard;
-              if (guard && typeof guard === 'function') {
-                guard('/dashboard');
-              } else {
-                navigate('/dashboard');
-              }
-            }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div className="flex items-center gap-2">
               {headerLogo ? (
                 <img 
                   src={headerLogo} 
@@ -913,9 +898,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   style={{ background: 'transparent' }}
                 />
               ) : (
-                <div className="h-10 w-24 bg-muted rounded-lg animate-pulse" />
+                <div className="h-10 w-10 rounded-xl bg-white/20" />
               )}
-            </button>
+            </div>
           </div>
           
           {/* Mobile Location Picker - centered */}
