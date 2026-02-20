@@ -52,7 +52,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin } = useUserRole();
-  const { isChecklistOnlyLocation, currentLocation } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
@@ -82,11 +82,11 @@ export default function Settings() {
   }, [textSize]);
 
   useEffect(() => {
-    if (isAdmin || isOrgAdmin) {
+    if (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin) {
       fetchLocations();
       fetchOrganizations();
     }
-  }, [isAdmin, isOrgAdmin]);
+  }, [isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin]);
 
   const fetchLocations = async () => {
     try {
@@ -319,7 +319,8 @@ export default function Settings() {
 
   // Pill label helpers
   const locationLabel = currentLocation?.name ? `${currentLocation.name} Settings` : 'Location Settings';
-  const orgLabel = organizations.length === 1 ? `${organizations[0].name} Settings` : 'Org Settings';
+  const currentOrg = organizations.find(o => o.id === organizationId) ?? organizations[0];
+  const orgLabel = currentOrg ? `${currentOrg.name} Settings` : 'Org Settings';
 
   const visibleSections = getSectionsForTab(activeTab);
 
