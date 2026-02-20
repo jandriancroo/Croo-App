@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { MapPin } from "lucide-react";
@@ -8,7 +7,6 @@ import { formatLocationName } from "@/utils/locationUtils";
 import { toast } from "sonner";
 
 export const LocationSelector = () => {
-  const navigate = useNavigate();
   const { currentLocation, setCurrentLocation } = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -38,12 +36,6 @@ export const LocationSelector = () => {
             location_type: loc.location_type,
             store_number: loc.store_number,
           });
-          const currentPath = window.location.pathname;
-          if (currentPath.startsWith('/week-template/')) {
-            navigate('/schedule-templates?tab=weeks');
-          } else {
-            navigate('/dashboard');
-          }
           const displayName = loc.store_number ? `#${loc.store_number} ${loc.name}` : loc.name;
           toast.success(`Switched to ${displayName}`);
         }}

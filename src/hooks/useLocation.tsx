@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -19,6 +20,8 @@ interface LocationContextType {
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
   organizationId: string | null;
+  isSwitching: boolean;
+  switchingTo: Location | null;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -26,10 +29,13 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [switchingTo, setSwitchingTo] = useState<Location | null>(null);
 
   const fetchLocations = useCallback(async () => {
     if (!user) {
@@ -131,19 +137,20 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const setCurrentLocation = useCallback((location: Location) => {
     const previousId = currentLocation?.id;
     if (previousId === location.id) return; // No-op if same location
-    
-    // Update location immediately for instant UI feedback
+
+    // Show the overlay immediately
+    setSwitchingTo(location);
+    setIsSwitching(true);
+
+    // Update location state + localStorage
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
-    
+
     // Invalidate ALL location-scoped queries so every page gets fresh data
-    // Using predicate to catch any query key containing the old location ID
     queryClient.invalidateQueries({
       predicate: (query) => {
         const key = query.queryKey;
-        // Invalidate any query whose key array contains the previous location ID
         if (previousId && key.some(k => k === previousId)) return true;
-        // Also invalidate known location-scoped prefixes
         const locationScopedKeys = [
           'schedule', 'schedule-stable', 'users', 'shifts', 'sales', 'labor',
           'checklists', 'inventory', 'user-data-cubes', 'sales-cache-today',
@@ -157,7 +164,16 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         return locationScopedKeys.some(prefix => key[0] === prefix);
       },
     });
-  }, [queryClient, currentLocation?.id]);
+
+    // Navigate to dashboard (the "front door" for every location)
+    navigate('/dashboard');
+
+    // Dismiss overlay after the progress bar animation completes (~1.7s)
+    setTimeout(() => {
+      setIsSwitching(false);
+      setSwitchingTo(null);
+    }, 1700);
+  }, [queryClient, navigate, currentLocation?.id]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
@@ -171,6 +187,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         refetchLocations: fetchLocations,
         isChecklistOnlyLocation,
         organizationId,
+        isSwitching,
+        switchingTo,
       }}
     >
       {children}
