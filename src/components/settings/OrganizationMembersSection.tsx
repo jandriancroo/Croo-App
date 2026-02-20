@@ -249,16 +249,13 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                   <div className="text-sm font-medium truncate">
                     {profile?.full_name || 'Unknown'}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {profile?.email}
-                  </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <Select
                     value={member.org_role}
                     onValueChange={(value) => handleRoleChange(member.id, value)}
                   >
-                    <SelectTrigger className="w-[70px] h-7 text-xs">
+                    <SelectTrigger className="w-[90px] h-7 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
