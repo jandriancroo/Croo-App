@@ -484,7 +484,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const isOnOrgDash = location.pathname === '/org-dash';
   const orgIdFromUrl = searchParams.get('org');
   const { data: orgDashName } = useQuery({
-    queryKey: ['org-dash-name', orgIdFromUrl],
+    queryKey: ['org-dash-name-v2', orgIdFromUrl],
     queryFn: async () => {
       if (!orgIdFromUrl) return null;
       const { data } = await supabase
