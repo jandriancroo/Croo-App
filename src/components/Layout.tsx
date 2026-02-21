@@ -891,7 +891,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
       {/* Mobile Header — Full Bleed + Bottom Curve */}
       <header className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 12px hsl(0 0% 0% / 0.15)' }}>
-        <div className="flex items-center relative h-14 px-4">
+        <div className="flex items-center relative h-11 px-4">
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="nav-logo-inline">
               {headerLogo ? (
