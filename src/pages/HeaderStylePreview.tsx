@@ -75,11 +75,12 @@ function PullRefreshIndicator({ animating = false }: { animating?: boolean }) {
   return (
     <div className="flex items-center justify-center py-4">
       <div className="flex items-center gap-[5px]">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--primary))'].map((color, i) => (
           <div
             key={i}
-            className="h-2 w-2 rounded-full bg-primary"
+            className="h-2 w-2 rounded-full"
             style={{
+              backgroundColor: color,
               animation: animating
                 ? `ptr-dot-wave 1s ease-in-out ${i * 0.12}s infinite`
                 : 'none',
