@@ -98,14 +98,14 @@ const COGSReport = () => {
           .from("pfg_orders")
           .select("*")
           .eq("location_id", locationId)
-          .gte("order_date", weekStartStr)
-          .lte("order_date", weekEndStr),
+          .gte("delivery_date", weekStartStr)
+          .lte("delivery_date", weekEndStr),
         supabase
           .from("pa_orders")
           .select("*")
           .eq("location_id", locationId)
-          .gte("order_date", weekStartStr)
-          .lte("order_date", weekEndStr),
+          .gte("delivery_date", weekStartStr)
+          .lte("delivery_date", weekEndStr),
       ]);
 
       const pfg = pfgResult.data || [];
@@ -458,7 +458,7 @@ const COGSReport = () => {
                             <div key={o.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                               <div>
                                 <p className="text-sm font-medium">PFG #{o.order_number || o.pfg_order_id}</p>
-                                <p className="text-xs text-muted-foreground">{o.order_date}</p>
+                                <p className="text-xs text-muted-foreground">Delivered {o.delivery_date || o.order_date}</p>
                               </div>
                               <p className="text-sm font-semibold">${Number(o.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                             </div>
@@ -467,7 +467,7 @@ const COGSReport = () => {
                             <div key={o.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                               <div>
                                 <p className="text-sm font-medium">PA #{o.order_number || o.pa_order_id}</p>
-                                <p className="text-xs text-muted-foreground">{o.order_date}</p>
+                                <p className="text-xs text-muted-foreground">Delivered {o.delivery_date || o.order_date}</p>
                               </div>
                               <p className="text-sm font-semibold">${Number(o.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                             </div>
