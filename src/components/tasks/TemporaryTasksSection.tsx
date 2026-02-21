@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
@@ -47,7 +48,10 @@ export function TemporaryTasksSection() {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { canCreateTasks } = useUserRole();
+  const { canCreateTasks, role, isShiftManager } = useUserRole();
+  const { hasPermission } = useRolePermissions();
+  // Admins/managers always can; shift managers need the toggle enabled
+  const effectiveCanCreateTasks = canCreateTasks || (role === 'shift_manager' && hasPermission('create_tasks'));
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editTask, setEditTask] = useState<any>(null);
@@ -209,7 +213,7 @@ export function TemporaryTasksSection() {
         {/* Header with actions */}
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">Quick Tasks</h3>
-          {canCreateTasks && (
+          {effectiveCanCreateTasks && (
             <div className="flex items-center gap-1">
               <Button
                 size="icon"
@@ -338,6 +342,7 @@ export function TemporaryTasksSection() {
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
+                        {effectiveCanCreateTasks && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -371,6 +376,7 @@ export function TemporaryTasksSection() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        )}
                       </div>
                     </div>
                   </div>
