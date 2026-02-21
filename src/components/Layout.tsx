@@ -890,7 +890,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
 
       {/* Mobile Header */}
-      <header className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className={`sticky top-0 z-50 bg-primary shadow-neumorphic ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)', boxShadow: '0 4px 20px hsl(var(--primary) / 0.25), inset 0 -1px 0 hsl(0 0% 100% / 0.18)' }}>
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="nav-logo-inline">

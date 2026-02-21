@@ -235,11 +235,11 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="pl-4">Item</TableHead>
-                            <TableHead className="text-right">Cases</TableHead>
-                            <TableHead className="text-right">Units</TableHead>
-                            <TableHead className="text-right">Total Qty</TableHead>
-                            <TableHead className="text-right pr-4">Value</TableHead>
+                            <TableHead className="pl-4 min-w-[140px]">Item</TableHead>
+                            <TableHead className="text-right w-16">Cases</TableHead>
+                            <TableHead className="text-right w-16">Units</TableHead>
+                            <TableHead className="text-right w-20">Total Qty</TableHead>
+                            <TableHead className="text-right pr-4 w-20">Value</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
