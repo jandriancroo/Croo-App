@@ -231,15 +231,15 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-0">
-                    <div className="overflow-x-auto">
-                      <Table>
+                    <div className="w-full">
+                      <Table className="table-fixed w-full">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="pl-4 min-w-[140px]">Item</TableHead>
-                            <TableHead className="text-right w-16">Cases</TableHead>
-                            <TableHead className="text-right w-16">Units</TableHead>
-                            <TableHead className="text-right w-20">Total Qty</TableHead>
-                            <TableHead className="text-right pr-4 w-20">Value</TableHead>
+                            <TableHead className="pl-4 w-[40%]">Item</TableHead>
+                            <TableHead className="text-right w-[14%] px-1">Cases</TableHead>
+                            <TableHead className="text-right w-[14%] px-1">Units</TableHead>
+                            <TableHead className="text-right w-[16%] px-1">Qty</TableHead>
+                            <TableHead className="text-right pr-4 w-[16%] px-1">Value</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -264,27 +264,27 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                                             </button>
                                           </CollapsibleTrigger>
                                         )}
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <p className="font-medium">{item.item?.name}</p>
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-1">
+                                            <p className="font-medium truncate text-sm">{item.item?.name}</p>
                                             {hasEdits && (
-                                              <Badge variant="outline" className="text-xs py-0 px-1.5">
-                                                <History className="h-3 w-3 mr-1" />
+                                              <Badge variant="outline" className="text-xs py-0 px-1 flex-shrink-0">
+                                                <History className="h-3 w-3" />
                                                 {itemEdits.length}
                                               </Badge>
                                             )}
                                           </div>
-                                          <p className="text-xs text-muted-foreground">
+                                          <p className="text-xs text-muted-foreground truncate">
                                             {item.item?.item_number && `#${item.item.item_number} · `}
                                             {item.item?.pack_size}
                                           </p>
                                         </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-mono">{cases}</TableCell>
-                                    <TableCell className="text-right font-mono">{units}</TableCell>
-                                    <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                                    <TableCell className="text-right pr-4 font-medium text-primary">
+                                    <TableCell className="text-right font-mono text-sm px-1">{cases}</TableCell>
+                                    <TableCell className="text-right font-mono text-sm px-1">{units}</TableCell>
+                                    <TableCell className="text-right font-mono text-sm px-1">{item.quantity}</TableCell>
+                                    <TableCell className="text-right pr-3 font-medium text-primary text-sm px-1 truncate">
                                       {formatCurrency(value)}
                                     </TableCell>
                                   </TableRow>
