@@ -6477,6 +6477,7 @@ export type Database = {
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
+      refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       revise_read_and_sign_document: {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
