@@ -438,7 +438,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       if (!user?.id) return null;
       const { data } = await supabase
         .from('profiles')
-        .select('full_name, profile_photo_url')
+        .select('full_name, profile_photo_url, nickname')
         .eq('id', user.id)
         .single();
       return data;
@@ -528,8 +528,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     staleTime: 5 * 60 * 1000,
   });
 
-  const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
-  const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+  const displayFullName = (userProfile as any)?.nickname
+    ? [(userProfile as any).nickname, ...(userProfile?.full_name?.split(' ').slice(1) || [])].join(' ')
+    : userProfile?.full_name;
+  const firstName = (userProfile as any)?.nickname || userProfile?.full_name?.split(' ')[0] || 'User';
+  const initials = displayFullName?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
   // Force refresh PWA - clears all caches, storage, and reloads (complete reset)
   const handleRefreshApp = async () => {
@@ -983,7 +986,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
+                    <p className="font-medium truncate">{displayFullName || 'User'}</p>
                     <p className="text-xs text-muted-foreground">Tap to edit profile</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />

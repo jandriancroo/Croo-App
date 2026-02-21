@@ -33,6 +33,7 @@ const MyProfile = () => {
 
   // Form state (initialized from query data)
   const [fullName, setFullName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [birthday, setBirthday] = useState<Date | undefined>(undefined);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
@@ -49,7 +50,7 @@ const MyProfile = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, phone_number, birthday, profile_photo_url, croo_cash_balance')
+        .select('full_name, email, phone_number, birthday, profile_photo_url, croo_cash_balance, nickname')
         .eq('id', user!.id)
         .single();
 
@@ -64,6 +65,7 @@ const MyProfile = () => {
   // Initialize form when profile loads (only once)
   if (profile && !formInitialized) {
     setFullName(profile.full_name || '');
+    setNickname((profile as any).nickname || '');
     setPhoneNumber(profile.phone_number || '');
     setBirthday(profile.birthday ? parseDateOnlyToLocalDate(profile.birthday) : undefined);
     setProfilePhotoUrl(profile.profile_photo_url);
@@ -128,6 +130,7 @@ const MyProfile = () => {
     try {
       const updatePayload: Record<string, any> = {
         full_name: fullName.trim() || null,
+        nickname: nickname.trim() || null,
         phone_number: phoneNumber.trim() || null,
         birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
       };
@@ -228,6 +231,20 @@ const MyProfile = () => {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Your full name"
               />
+            </div>
+
+            {/* Nickname */}
+            <div className="space-y-2">
+              <Label htmlFor="nickname">Nickname</Label>
+              <Input
+                id="nickname"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Optional — replaces your first name for display"
+              />
+              <p className="text-xs text-muted-foreground">
+                If set, your nickname will be shown instead of your first name across the app
+              </p>
             </div>
 
             {/* Email (read-only) */}
