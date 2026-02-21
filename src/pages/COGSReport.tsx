@@ -353,12 +353,12 @@ const COGSReport = () => {
                     <div className="p-3 rounded-lg bg-muted/50">
                       <div className="flex items-center gap-2">
                         <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">Purchases (PFG + PA)</p>
+                        <p className="text-xs text-muted-foreground">Purchases (PFG + Produce Alliance)</p>
                       </div>
                       <p className="text-lg font-semibold">${cogs.purchasesCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       <div className="flex gap-2 mt-1">
                         <Badge variant="secondary" className="text-xs">{purchases?.pfg?.length || 0} PFG orders</Badge>
-                        <Badge variant="secondary" className="text-xs">{purchases?.pa?.length || 0} PA orders</Badge>
+                        <Badge variant="secondary" className="text-xs">{purchases?.pa?.length || 0} Produce Alliance orders</Badge>
                       </div>
                     </div>
 
@@ -466,7 +466,7 @@ const COGSReport = () => {
                           {purchases?.pa?.map((o: any) => (
                             <div key={o.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                               <div>
-                                <p className="text-sm font-medium">PA #{o.order_number || o.pa_order_id}</p>
+                                <p className="text-sm font-medium">Produce Alliance #{o.order_number || o.pa_order_id}</p>
                                 <p className="text-xs text-muted-foreground">Delivered {o.delivery_date || o.order_date}</p>
                               </div>
                               <p className="text-sm font-semibold">${Number(o.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
