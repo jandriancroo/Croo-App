@@ -37,6 +37,19 @@
 
   <body>
     <div id="root"></div>
+    <script>
+      // Catch stale main-bundle failures (e.g. after a deploy changes chunk hashes).
+      // If the module script fails to load, force-reload once to fetch fresh assets.
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.indexOf('module script failed') !== -1) {
+          var key = 'main_chunk_reload';
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, '1');
+            window.location.reload();
+          }
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
