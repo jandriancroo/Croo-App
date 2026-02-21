@@ -18,7 +18,8 @@ interface NotificationSetting {
 }
 
 const roleConfig: { role: AppRole; label: string; icon: React.ReactNode; description: string }[] = [
-  { role: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, description: 'Full access to all notifications' },
+  { role: 'org_admin', label: 'Org Admin', icon: <Shield className="h-4 w-4" />, description: 'Organization-wide oversight' },
+  { role: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, description: 'Full location access' },
   { role: 'manager', label: 'Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Management notifications' },
   { role: 'shift_manager', label: 'Shift Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Shift supervisory notifications' },
   { role: 'team_member', label: 'Team Member', icon: <Users className="h-4 w-4" />, description: 'Basic notifications' },

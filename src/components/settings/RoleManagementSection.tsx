@@ -35,7 +35,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRole, setSelectedRole] = useState<AppRole>('admin');
+  const [selectedRole, setSelectedRole] = useState<AppRole>('org_admin');
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       case 'super_admin': return 'Super Admin';
       case 'brand_admin': return 'Brand Admin';
       case 'org_admin': return 'Org Admin';
-      case 'admin': return 'Admin';
+      case 'admin': return 'Admin (Location)';
       case 'manager': return 'Manager';
       case 'shift_manager': return 'Shift Manager';
       default: return 'Team Member';
@@ -143,6 +143,13 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
     <div className="space-y-4">
       {/* Role selector buttons */}
       <div className="flex flex-wrap gap-2">
+        <Button
+          variant={selectedRole === 'org_admin' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSelectedRole('org_admin')}
+        >
+          Org Admin
+        </Button>
         <Button
           variant={selectedRole === 'admin' ? 'default' : 'outline'}
           size="sm"
