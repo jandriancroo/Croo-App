@@ -31,11 +31,6 @@ const Inventory = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
 
-  if (!canAccessInventory) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
-
   // Fetch location details
   const { data: location } = useQuery({
     queryKey: ["location-details", locationId],
@@ -223,6 +218,11 @@ const Inventory = () => {
         return format(new Date(count.count_date), "MMM d, yyyy");
     }
   };
+
+  if (!canAccessInventory) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
 
   return (
     <Layout>
