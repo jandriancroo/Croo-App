@@ -48,11 +48,10 @@ export const PullToRefresh = ({
   }, [cooldownKeys, queryKeys]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    const container = containerRef.current;
-    if (!container || isRefreshing) return;
+    if (isRefreshing) return;
     
-    // Only allow pull-to-refresh when scrolled to top
-    if (container.scrollTop === 0) {
+    // Only allow pull-to-refresh when page is scrolled to top
+    if (window.scrollY <= 0) {
       startY.current = e.touches[0].clientY;
       isPulling.current = true;
     }
@@ -150,20 +149,17 @@ export const PullToRefresh = ({
     <PullToRefreshContext.Provider value={{ isRefreshing }}>
       <div
         ref={containerRef}
-        className="h-full overflow-auto"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Pull indicator — animated dot wave, tucked under sticky header */}
+        {/* Pull indicator — animated dot wave */}
         <div 
           className="flex items-center justify-center overflow-hidden"
           style={{ 
             height: pullDistance > 0 ? pullDistance : 0,
-            marginTop: pullDistance > 0 || isRefreshing ? -20 : 0,
-            paddingTop: pullDistance > 0 || isRefreshing ? 20 : 0,
             opacity: Math.max(progress * 1.2, isRefreshing ? 1 : 0),
-            transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease, padding-top 0.3s ease',
+            transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease',
           }}
         >
           <div className="flex items-center gap-[5px] py-2">
