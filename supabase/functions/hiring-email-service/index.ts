@@ -405,23 +405,53 @@ async function sendInviteEmail(payload: any): Promise<Response> {
 }
 
 async function resendInviteEmail(payload: any): Promise<Response> {
-  const { userId, newEmail } = payload;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { to, fullName, resetLink, locationId } = payload;
 
-  if (!userId) throw new Error("User ID required");
-
-  const { data: profile } = await supabase.from('profiles').select('email').eq('id', userId).single();
-  if (!profile) throw new Error("User not found");
-
-  const emailToUse = newEmail || profile.email;
-  if (newEmail && newEmail !== profile.email) {
-    await supabase.auth.admin.updateUserById(userId, { email: newEmail });
-    await supabase.from('profiles').update({ email: newEmail }).eq('id', userId);
+  if (!to || !fullName || !resetLink) {
+    return new Response(JSON.stringify({ error: "to, fullName, resetLink required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
-  const { data: resetData } = await supabase.auth.admin.generateLink({ type: 'recovery', email: emailToUse, options: { redirectTo: `${supabaseUrl}/reset-password` } });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-  return new Response(JSON.stringify({ success: true, message: `Invitation ${newEmail ? 'sent to new email' : 'resent'}`, resetLink: resetData?.properties.action_link }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
+  let orgName = "your team", locName = "", logoUrl = "", brandName = "";
+  if (locationId) {
+    const { data: loc } = await supabase.from('locations').select('name, organization_id').eq('id', locationId).single();
+    if (loc) {
+      locName = loc.name;
+      if (loc.organization_id) {
+        const { data: org } = await supabase.from('organizations').select('name, logo_url, brand_name').eq('id', loc.organization_id).single();
+        if (org) { orgName = org.name; logoUrl = org.logo_url || ""; brandName = org.brand_name || org.name; }
+      }
+    }
+  }
+
+  const firstName = fullName.split(' ')[0];
+  const displayName = brandName || orgName;
+
+  await queueEmail({
+    from: "CrooHQ <hiring@croohq.email>",
+    to: [to],
+    subject: `Your CrooHQ Invite - ${displayName}`,
+    html: wrapEmail(`
+      <tr><td style="background-color:${primaryColor};padding:20px 32px;">
+        <table style="width:100%;border-collapse:collapse;"><tr>
+          <td style="vertical-align:middle;text-align:left;width:180px;"><img src="https://croohq.com/assets/croo-logo-eWOfbANR.png" alt="Croo" style="max-height:40px;max-width:120px;filter:brightness(0) invert(1);" /></td>
+          <td style="vertical-align:middle;text-align:center;"><h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${systemFontStack};">Set Your Password</h1></td>
+          <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;"><p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${systemFontStack};">${displayName}</p>${locName ? `<p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${systemFontStack};">${locName}</p>` : ''}</td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:28px 32px;">
+        <p style="color:${textColor};font-size:18px;margin:0 0 20px;">Hey ${firstName}!</p>
+        <p style="color:${textColor};font-size:15px;line-height:1.7;margin:0 0 24px;">Your manager has re-sent your invite to <strong style="color:${primaryColor};">${displayName}</strong>. Click below to set your password and get started.</p>
+        <div style="text-align:center;margin:28px 0;"><a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,${accentColor} 0%,#e06b10 100%);color:#fff;text-decoration:none;padding:14px 36px;border-radius:10px;font-weight:600;font-size:15px;">Set Your Password</a></div>
+        <p style="color:#999;font-size:12px;text-align:center;">This link expires in 24 hours.</p>
+      </td></tr>
+      ${getEmailFooter()}`),
+    source: 'resend_invite',
+    dedupKey: `resend_invite_${to}_${Date.now()}`,
+  });
+
+  return new Response(JSON.stringify({ success: true }), { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } });
 }
 
 async function sendRejectionEmail(payload: any): Promise<Response> {

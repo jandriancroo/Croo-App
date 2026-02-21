@@ -251,7 +251,19 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
 
   const resetLink = resetData.properties.action_link;
 
-  // Send resend email via hiring-email-service
+  // Get user's location for branding
+  let locationId: string | null = null;
+  try {
+    const { data: userLoc } = await supabaseAdmin
+      .from('user_locations')
+      .select('location_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+    locationId = userLoc?.location_id || null;
+  } catch (_) {}
+
+  // Send resend email via hiring-email-service (through Resend)
   try {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     await fetch(`${supabaseUrl}/functions/v1/hiring-email-service`, {
@@ -262,7 +274,7 @@ async function handleResendInvite(req: Request, supabaseAdmin: any, requestingUs
       },
       body: JSON.stringify({
         action: 'resend_invite',
-        payload: { to: emailToUse, fullName: profile.full_name, resetLink },
+        payload: { to: emailToUse, fullName: profile.full_name, resetLink, locationId },
       }),
     });
   } catch (emailError) {
