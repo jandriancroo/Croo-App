@@ -1408,6 +1408,45 @@ export type Database = {
           },
         ]
       }
+      employee_writeup_audit: {
+        Row: {
+          action: string
+          created_at: string
+          employee_id: string
+          employee_name: string | null
+          id: string
+          location_id: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+          reason: string | null
+          writeup_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          employee_id: string
+          employee_name?: string | null
+          id?: string
+          location_id?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          reason?: string | null
+          writeup_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          employee_id?: string
+          employee_name?: string | null
+          id?: string
+          location_id?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          reason?: string | null
+          writeup_id?: string
+        }
+        Relationships: []
+      }
       employee_writeup_reasons: {
         Row: {
           created_at: string
