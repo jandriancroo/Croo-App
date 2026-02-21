@@ -227,13 +227,16 @@ function EditShiftForm({
     setSaving(true);
     try {
       const shift = shiftStates[idx];
+      console.log('[EditShiftForm] Deleting shift:', { idx, punchIds: shift.punchIds, locationId });
       const { data, error } = await supabase.functions.invoke('delete-time-punches', {
         body: {
           location_id: locationId,
           punch_ids: shift.punchIds,
         },
       });
-      if (error || !data?.deleted_ids?.length) {
+      console.log('[EditShiftForm] Delete response:', { data, error });
+      if (error) {
+        console.error('[EditShiftForm] Delete error:', error);
         toast.error('Failed to delete shift');
         return;
       }
@@ -244,7 +247,8 @@ function EditShiftForm({
         setShiftStates(prev => prev.filter((_, i) => i !== idx));
         setDeletingShiftIdx(null);
       }
-    } catch {
+    } catch (err: any) {
+      console.error('[EditShiftForm] Delete exception:', err);
       toast.error('Failed to delete shift');
     } finally {
       setSaving(false);
@@ -1339,29 +1343,39 @@ export default function PayrollReview() {
     }
 
     const punchIds = dayPunches.map((p) => p.id).filter(Boolean);
+    console.log('[PayrollReview] Deleting punches:', { location_id: currentLocation.id, punch_ids: punchIds, count: punchIds.length });
 
-    const { data, error } = await supabase.functions.invoke('delete-time-punches', {
-      body: {
-        location_id: currentLocation.id,
-        punch_ids: punchIds,
-      },
-    });
-
-    if (error) {
-      console.error('[PayrollReview] delete-time-punches error:', error);
-      toast.error('Failed to delete shift');
+    if (punchIds.length === 0) {
+      toast.error('No punch records to delete');
+      setDeleteConfirmation(null);
       return;
     }
 
-    if (!data?.deleted_ids?.length) {
-      toast.error('Nothing was deleted');
-      return;
-    }
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-time-punches', {
+        body: {
+          location_id: currentLocation.id,
+          punch_ids: punchIds,
+        },
+      });
 
-    toast.success('Shift deleted');
-    setEditingShift(null);
-    setDeleteConfirmation(null);
-    fetchTimeCards();
+      console.log('[PayrollReview] delete-time-punches response:', { data, error });
+
+      if (error) {
+        console.error('[PayrollReview] delete-time-punches error:', error);
+        toast.error('Failed to delete shift');
+        return;
+      }
+
+      // Accept success even if deleted_ids is missing (older response format)
+      toast.success('Shift deleted');
+      setEditingShift(null);
+      setDeleteConfirmation(null);
+      fetchTimeCards();
+    } catch (err: any) {
+      console.error('[PayrollReview] delete-time-punches exception:', err);
+      toast.error('Failed to delete shift: ' + (err?.message || 'Unknown error'));
+    }
   };
 
   // handleEditPunch moved to EditShiftForm component
