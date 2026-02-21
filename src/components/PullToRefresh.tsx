@@ -156,7 +156,13 @@ export const PullToRefresh = ({
           }}
         >
           <div className="flex items-center gap-[5px] py-2">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {[
+              'hsl(var(--primary))',
+              'hsl(var(--accent))',
+              'hsl(var(--primary))',
+              'hsl(var(--accent))',
+              'hsl(var(--primary))',
+            ].map((color, i) => (
               <div
                 key={i}
                 className="rounded-full transition-all"
@@ -164,7 +170,7 @@ export const PullToRefresh = ({
                   width: isRefreshing ? 8 : 6 + progress * 2,
                   height: isRefreshing ? 8 : 6 + progress * 2,
                   backgroundColor: isReady || isRefreshing
-                    ? `hsl(var(--primary))`
+                    ? color
                     : `hsl(var(--muted-foreground) / ${0.25 + progress * 0.4})`,
                   animation: isRefreshing
                     ? `ptr-dot-wave 1s ease-in-out ${i * 0.12}s infinite`
