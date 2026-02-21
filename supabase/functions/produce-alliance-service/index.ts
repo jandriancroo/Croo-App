@@ -1656,6 +1656,84 @@ async function handleSyncInventory(supabase: any, body: any): Promise<Response> 
 }
 
 // ============================================================================
+// DISCOVER LOCATIONS — find available PA location IDs for an account
+// ============================================================================
+
+async function handleDiscoverLocations(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Fetch the ordering home page WITHOUT specifying DDLLocationID to see the default
+  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home`, {
+    method: 'GET',
+    headers: {
+      'Cookie': session.cookies,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    },
+    redirect: 'follow',
+  });
+  const pageHtml = await pageResp.text();
+
+  // Look for DDLLocationID dropdown or select elements
+  const selectRegex = /<select[^>]*id=["']?DDLLocationID["']?[^>]*>([\s\S]*?)<\/select>/i;
+  const selectMatch = pageHtml.match(selectRegex);
+  
+  // Also look for any location-related dropdowns
+  const allSelectRegex = /<select[^>]*(?:location|DDL)[^>]*>([\s\S]*?)<\/select>/gi;
+  const allSelects: string[] = [];
+  let sm;
+  while ((sm = allSelectRegex.exec(pageHtml)) !== null) {
+    allSelects.push(sm[0].slice(0, 500));
+  }
+
+  // Extract option values from any location select
+  const optionRegex = /<option[^>]*value=["']?(\d+)["']?[^>]*>(.*?)<\/option>/gi;
+  const locations: { id: string; name: string; selected: boolean }[] = [];
+  const selectHtml = selectMatch ? selectMatch[0] : allSelects.join('');
+  let om;
+  while ((om = optionRegex.exec(selectHtml)) !== null) {
+    locations.push({
+      id: om[1],
+      name: om[2].replace(/<[^>]+>/g, '').trim(),
+      selected: om[0].includes('selected'),
+    });
+  }
+
+  // Also search for locationID assignments in JS
+  const jsLocationRegex = /locationID\s*[:=]\s*["']?(\d+)["']?/gi;
+  const jsLocations: string[] = [];
+  let jm;
+  while ((jm = jsLocationRegex.exec(pageHtml)) !== null) {
+    jsLocations.push(jm[1]);
+  }
+
+  // Look for the current URL's DDLLocationID
+  const urlLocationMatch = pageResp.url.match(/DDLLocationID=(\d+)/i);
+
+  console.log('[PA Discover] URL:', pageResp.url);
+  console.log('[PA Discover] Found locations:', JSON.stringify(locations));
+  console.log('[PA Discover] JS locationIDs:', JSON.stringify([...new Set(jsLocations)]));
+  console.log('[PA Discover] URL location:', urlLocationMatch?.[1]);
+  console.log('[PA Discover] Select elements found:', allSelects.length);
+
+  return jsonResponse({
+    success: true,
+    data: {
+      currentUrl: pageResp.url,
+      urlLocationId: urlLocationMatch?.[1] || null,
+      dropdownLocations: locations,
+      jsLocationIds: [...new Set(jsLocations)],
+      selectCount: allSelects.length,
+      defaultLocationId: session.locationId,
+    }
+  });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -1685,6 +1763,7 @@ serve(async (req) => {
       case 'pricing': return await handlePricing(supabase, body);
       case 'test_vision': return await handleTestVision(supabase, body);
       case 'sync_inventory': return await handleSyncInventory(supabase, body);
+      case 'discover_locations': return await handleDiscoverLocations(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
