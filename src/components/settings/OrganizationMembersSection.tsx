@@ -3,10 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Users, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Shield, Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -16,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface OrganizationMembersSectionProps {
   organizationId: string;
@@ -25,11 +24,10 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedRole, setSelectedRole] = useState('member');
   const [isAdding, setIsAdding] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  // Fetch existing organization members
+  // Fetch existing org admins
   const { data: members = [], isLoading: membersLoading } = useQuery({
     queryKey: ['organization-members', organizationId],
     queryFn: async () => {
@@ -52,26 +50,60 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
     },
   });
 
-  // Fetch all users who are NOT already members of this organization
+  // Fetch eligible users: admins (or higher) assigned to any location in this org, not already org admins
   const { data: availableUsers = [] } = useQuery({
-    queryKey: ['available-users-for-org', organizationId],
+    queryKey: ['available-org-admins', organizationId, members.length],
     queryFn: async () => {
-      // Get all profiles
-      const { data: profiles, error: profilesError } = await supabase
+      // Get all locations in this org
+      const { data: orgLocations, error: locErr } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', organizationId);
+      if (locErr) throw locErr;
+      if (!orgLocations?.length) return [];
+
+      const locationIds = orgLocations.map(l => l.id);
+
+      // Get users assigned to any of these locations
+      const { data: userLocs, error: ulErr } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .in('location_id', locationIds);
+      if (ulErr) throw ulErr;
+
+      const uniqueUserIds = [...new Set(userLocs?.map(ul => ul.user_id) || [])];
+      if (!uniqueUserIds.length) return [];
+
+      // Get users who have admin-level roles
+      const { data: adminRoles, error: roleErr } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('user_id', uniqueUserIds)
+        .in('role', ['admin', 'org_admin', 'brand_admin', 'super_admin']);
+      if (roleErr) throw roleErr;
+
+      const adminUserIds = [...new Set(adminRoles?.map(r => r.user_id) || [])];
+      if (!adminUserIds.length) return [];
+
+      // Filter out already-added org admins
+      const existingIds = members.map(m => m.user_id);
+      const eligibleIds = adminUserIds.filter(id => !existingIds.includes(id));
+      if (!eligibleIds.length) return [];
+
+      // Fetch profiles
+      const { data: profiles, error: profErr } = await supabase
         .from('profiles')
         .select('id, full_name, email, profile_photo_url')
+        .in('id', eligibleIds)
         .eq('is_active', true)
         .order('full_name');
-      if (profilesError) throw profilesError;
+      if (profErr) throw profErr;
 
-      // Filter out users who are already members
-      const memberUserIds = members.map(m => m.user_id);
-      return profiles.filter(p => !memberUserIds.includes(p.id));
+      return profiles || [];
     },
-    enabled: members.length >= 0, // Re-run when members change
   });
 
-  const handleAddMember = async () => {
+  const handleAddOrgAdmin = async () => {
     if (!selectedUserId) {
       toast.error('Please select a user');
       return;
@@ -79,24 +111,60 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
 
     setIsAdding(true);
     try {
-      const { error } = await supabase
+      // 1. Add to organization_members as admin
+      const { error: insertErr } = await supabase
         .from('organization_members')
         .insert({
           organization_id: organizationId,
           user_id: selectedUserId,
-          org_role: selectedRole,
+          org_role: 'admin',
         });
+      if (insertErr) throw insertErr;
 
-      if (error) throw error;
+      // 2. Auto-assign to ALL org locations with show_on_schedule = false
+      const { data: orgLocations } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', organizationId);
 
-      toast.success('Member added to organization');
+      if (orgLocations?.length) {
+        const assignments = orgLocations.map(loc => ({
+          user_id: selectedUserId,
+          location_id: loc.id,
+          show_on_schedule: false,
+        }));
+
+        // Use upsert to skip locations they're already assigned to
+        const { error: locErr } = await supabase
+          .from('user_locations')
+          .upsert(assignments, { onConflict: 'user_id,location_id', ignoreDuplicates: true });
+        if (locErr) {
+          console.warn('Some location assignments may have failed:', locErr);
+        }
+      }
+
+      // 3. Update their app role to org_admin if not already higher
+      const { data: currentRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', selectedUserId)
+        .single();
+
+      const higherRoles = ['org_admin', 'brand_admin', 'super_admin'];
+      if (currentRole && !higherRoles.includes(currentRole.role)) {
+        await supabase
+          .from('user_roles')
+          .update({ role: 'org_admin' })
+          .eq('user_id', selectedUserId);
+      }
+
+      toast.success('Org Admin added — assigned to all locations');
       queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['available-users-for-org', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['available-org-admins', organizationId] });
       setIsAddDialogOpen(false);
       setSelectedUserId('');
-      setSelectedRole('member');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to add member');
+      toast.error(error.message || 'Failed to add org admin');
     } finally {
       setIsAdding(false);
     }
@@ -112,29 +180,13 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
 
       if (error) throw error;
 
-      toast.success('Member removed from organization');
+      toast.success('Org Admin removed');
       queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] });
-      queryClient.invalidateQueries({ queryKey: ['available-users-for-org', organizationId] });
+      queryClient.invalidateQueries({ queryKey: ['available-org-admins', organizationId] });
     } catch (error: any) {
-      toast.error(error.message || 'Failed to remove member');
+      toast.error(error.message || 'Failed to remove org admin');
     } finally {
       setRemovingId(null);
-    }
-  };
-
-  const handleRoleChange = async (memberId: string, newRole: string) => {
-    try {
-      const { error } = await supabase
-        .from('organization_members')
-        .update({ org_role: newRole })
-        .eq('id', memberId);
-
-      if (error) throw error;
-
-      toast.success('Role updated');
-      queryClient.invalidateQueries({ queryKey: ['organization-members', organizationId] });
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to update role');
     }
   };
 
@@ -147,8 +199,8 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
     <div className="w-full min-w-0 overflow-hidden">
       <div className="flex items-center justify-between gap-2 pb-3 flex-wrap">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <Users className="h-4 w-4 flex-shrink-0" />
-          <span className="text-base font-semibold truncate">Organization Members</span>
+          <Shield className="h-4 w-4 flex-shrink-0" />
+          <span className="text-base font-semibold truncate">Org Admins</span>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -158,51 +210,35 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Organization Member</DialogTitle>
+              <DialogTitle>Add Org Admin</DialogTitle>
               <DialogDescription>
-                Select a user to add to this organization and assign their role.
+                Select from existing Admins across this organization's locations. They'll automatically get access to all locations (hidden from schedules by default).
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">User</label>
+                <label className="text-sm font-medium">Admin</label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a user" />
+                    <SelectValue placeholder="Select an admin" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableUsers.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         <div className="flex items-center gap-2">
                           <span>{user.full_name || user.email}</span>
-                          {user.full_name && (
-                            <span className="text-muted-foreground text-xs">({user.email})</span>
-                          )}
                         </div>
                       </SelectItem>
                     ))}
                     {availableUsers.length === 0 && (
                       <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                        No available users to add
+                        No eligible admins found
                       </div>
                     )}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Organization Role</label>
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Member</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
                 <p className="text-xs text-muted-foreground">
-                  Admins can manage all locations within this organization
+                  Only users with Admin role or higher at an org location are shown
                 </p>
               </div>
 
@@ -210,9 +246,9 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddMember} disabled={isAdding || !selectedUserId}>
+                <Button onClick={handleAddOrgAdmin} disabled={isAdding || !selectedUserId}>
                   {isAdding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Add Member
+                  Add Org Admin
                 </Button>
               </div>
             </div>
@@ -220,7 +256,7 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
         </Dialog>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        {members.length} member{members.length !== 1 ? 's' : ''} in this organization
+        {members.length} org admin{members.length !== 1 ? 's' : ''}
       </p>
       <div className="space-y-2">
         {membersLoading ? (
@@ -229,7 +265,7 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
           </div>
         ) : members.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No members yet. Add users to give them access to this organization.
+            No org admins yet. Promote existing Admins to give them org-wide access.
           </p>
         ) : (
           members.map((member) => {
@@ -251,18 +287,7 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <Select
-                    value={member.org_role}
-                    onValueChange={(value) => handleRoleChange(member.id, value)}
-                  >
-                    <SelectTrigger className="w-[90px] h-7 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <span className="text-xs text-muted-foreground px-2">Org Admin</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -285,4 +310,3 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
     </div>
   );
 }
-
