@@ -147,6 +147,7 @@ export function EmployeeProfileDialog({
 
   // Form state
   const [fullName, setFullName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [birthday, setBirthday] = useState<Date | undefined>();
   const [employeePin, setEmployeePin] = useState('');
@@ -174,6 +175,7 @@ export function EmployeeProfileDialog({
   useEffect(() => {
     if (user && open) {
       setFullName(user.full_name || '');
+      setNickname((user as any).nickname || '');
       setPhoneNumber(user.phone_number || '');
       setBirthday(user.birthday ? parseDateOnlyToLocalDate(user.birthday) : undefined);
       setEmployeePin(user.employee_pin || '');
@@ -401,6 +403,7 @@ export function EmployeeProfileDialog({
         .from('profiles')
         .update({
           full_name: fullName.trim(),
+          nickname: nickname.trim() || null,
           profile_photo_url: profilePhotoUrl,
           phone_number: phoneNumber.trim() || null,
           birthday: birthday ? format(birthday, 'yyyy-MM-dd') : null,
@@ -509,6 +512,19 @@ export function EmployeeProfileDialog({
                   disabled={!canEdit}
                   className="bg-background"
                 />
+              </div>
+
+              {/* Nickname */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Nickname</Label>
+                <Input
+                  value={nickname}
+                  onChange={(e) => { setNickname(e.target.value); setHasChanges(true); }}
+                  disabled={!canEdit}
+                  placeholder="Preferred first name (optional)"
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground">If set, replaces first name in display</p>
               </div>
 
               {/* Phone & Birthday Row */}
