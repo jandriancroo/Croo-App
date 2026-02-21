@@ -1,4 +1,4 @@
-import { useState, useRef, ReactNode, useCallback, createContext, useContext } from 'react';
+import { useState, useRef, useEffect, ReactNode, useCallback, createContext, useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Context to expose refreshing state to children
@@ -47,112 +47,115 @@ export const PullToRefresh = ({
     return keys.map(k => k.join('-')).join('|');
   }, [cooldownKeys, queryKeys]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isRefreshing) return;
-    
-    // Only allow pull-to-refresh when page is scrolled to top
-    if (window.scrollY <= 0) {
-      startY.current = e.touches[0].clientY;
-      isPulling.current = true;
-    }
-  };
+  // Use native event listeners with { passive: false } so preventDefault works on iOS
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPulling.current || isRefreshing) return;
-    
-    const currentY = e.touches[0].clientY;
-    const diff = currentY - startY.current;
-    
-    if (diff > 0) {
-      // Apply resistance to make it feel natural
-      const resistance = 0.4;
-      setPullDistance(Math.min(diff * resistance, threshold * 1.5));
-    }
-  };
-
-  const handleTouchEnd = async () => {
-    if (!isPulling.current) return;
-    isPulling.current = false;
-
-    if (pullDistance >= threshold && !isRefreshing) {
-      setIsRefreshing(true);
-      setPullDistance(threshold * 0.6);
-      
-      const cacheKey = getCacheKey();
-      const lastSync = lastSyncTimes[cacheKey] || 0;
-      const timeSinceSync = Date.now() - lastSync;
-      const isWithinCooldown = timeSinceSync < cooldownMs;
-      
-      // If using split keys pattern
-      if (alwaysRefreshKeys || cooldownKeys) {
-        const promises: Promise<any>[] = [];
-        
-        // Always refetch cheap DB reads
-        if (alwaysRefreshKeys && alwaysRefreshKeys.length > 0) {
-          promises.push(...alwaysRefreshKeys.map(key => 
-            queryClient.invalidateQueries({ queryKey: key })
-          ));
-        }
-        
-        // Only refetch expensive API calls outside cooldown
-        if (!isWithinCooldown && cooldownKeys && cooldownKeys.length > 0) {
-          promises.push(...cooldownKeys.map(key => 
-            queryClient.invalidateQueries({ queryKey: key })
-          ));
-        }
-        
-        // Always play full animation (min 1.5s) regardless of cooldown
-        const minAnimationPromise = new Promise(resolve => setTimeout(resolve, 1500));
-        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
-        await Promise.all([
-          minAnimationPromise,
-          Promise.race([Promise.all(promises), timeoutPromise]),
-        ]);
-        
-        if (!isWithinCooldown) {
-          lastSyncTimes[cacheKey] = Date.now();
-        }
-        
-        onRefresh?.(new Date(), !isWithinCooldown);
-      } else {
-        // Legacy behavior: single queryKeys array with full cooldown
-        const refreshPromise = isWithinCooldown
-          ? Promise.resolve()
-          : (queryKeys && queryKeys.length > 0
-            ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
-            : queryClient.invalidateQueries());
-        
-        // Always play full animation (min 1.5s)
-        const minAnimationPromise = new Promise(resolve => setTimeout(resolve, 1500));
-        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
-        await Promise.all([
-          minAnimationPromise,
-          Promise.race([refreshPromise, timeoutPromise]),
-        ]);
-        
-        if (!isWithinCooldown) {
-          lastSyncTimes[cacheKey] = Date.now();
-        }
-        onRefresh?.(new Date(), !isWithinCooldown);
+    const onTouchStart = (e: TouchEvent) => {
+      if (isRefreshing) return;
+      if (window.scrollY <= 0) {
+        startY.current = e.touches[0].clientY;
+        isPulling.current = true;
       }
-      
-      setIsRefreshing(false);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isPulling.current || isRefreshing) return;
+      const diff = e.touches[0].clientY - startY.current;
+      if (diff > 0) {
+        e.preventDefault(); // Block native pull-to-refresh on iOS
+        const resistance = 0.4;
+        setPullDistance(Math.min(diff * resistance, threshold * 1.5));
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (!isPulling.current) return;
+      isPulling.current = false;
+
+      const currentPull = pullDistanceRef.current;
+      if (currentPull >= threshold && !isRefreshing) {
+        triggerRefresh();
+      } else {
+        setPullDistance(0);
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isRefreshing, threshold]);
+
+  // Keep a ref in sync with pullDistance so the touchend handler can read it
+  const pullDistanceRef = useRef(0);
+  useEffect(() => { pullDistanceRef.current = pullDistance; }, [pullDistance]);
+
+  const triggerRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setPullDistance(threshold * 0.6);
+    
+    const cacheKey = getCacheKey();
+    const lastSync = lastSyncTimes[cacheKey] || 0;
+    const timeSinceSync = Date.now() - lastSync;
+    const isWithinCooldown = timeSinceSync < cooldownMs;
+    
+    if (alwaysRefreshKeys || cooldownKeys) {
+      const promises: Promise<any>[] = [];
+      if (alwaysRefreshKeys && alwaysRefreshKeys.length > 0) {
+        promises.push(...alwaysRefreshKeys.map(key => 
+          queryClient.invalidateQueries({ queryKey: key })
+        ));
+      }
+      if (!isWithinCooldown && cooldownKeys && cooldownKeys.length > 0) {
+        promises.push(...cooldownKeys.map(key => 
+          queryClient.invalidateQueries({ queryKey: key })
+        ));
+      }
+      const minAnimationPromise = new Promise(resolve => setTimeout(resolve, 1500));
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+      await Promise.all([
+        minAnimationPromise,
+        Promise.race([Promise.all(promises), timeoutPromise]),
+      ]);
+      if (!isWithinCooldown) {
+        lastSyncTimes[cacheKey] = Date.now();
+      }
+      onRefresh?.(new Date(), !isWithinCooldown);
+    } else {
+      const refreshPromise = isWithinCooldown
+        ? Promise.resolve()
+        : (queryKeys && queryKeys.length > 0
+          ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
+          : queryClient.invalidateQueries());
+      const minAnimationPromise = new Promise(resolve => setTimeout(resolve, 1500));
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+      await Promise.all([
+        minAnimationPromise,
+        Promise.race([refreshPromise, timeoutPromise]),
+      ]);
+      if (!isWithinCooldown) {
+        lastSyncTimes[cacheKey] = Date.now();
+      }
+      onRefresh?.(new Date(), !isWithinCooldown);
     }
     
+    setIsRefreshing(false);
     setPullDistance(0);
-  };
+  }, [getCacheKey, cooldownMs, alwaysRefreshKeys, cooldownKeys, queryKeys, queryClient, onRefresh, threshold]);
 
   const progress = Math.min(pullDistance / threshold, 1);
   const isReady = progress >= 1;
 
   return (
     <PullToRefreshContext.Provider value={{ isRefreshing }}>
-      <div
-        ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div ref={containerRef}>
         {/* Pull indicator — animated dot wave */}
         <div 
           className="flex items-center justify-center overflow-hidden"
