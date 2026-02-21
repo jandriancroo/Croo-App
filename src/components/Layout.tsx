@@ -406,29 +406,30 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     checkExtras();
   }, [user?.id, isSuperAdmin, isBrandAdmin]);
 
-  // Block native overscroll when touching the mobile header (prevents header pull-down)
-  // Unconditionally prevent vertical drag on the header — it should never scroll or rubber-band
+  // Block ALL native iOS overscroll/rubber-banding when at top of page pulling down.
+  // This prevents the viewport from separating from the sticky header on any swipe,
+  // whether it starts on the header or content area. The custom PullToRefresh component
+  // handles the actual refresh UX within its own container.
   useEffect(() => {
-    const header = mobileHeaderRef.current;
-    if (!header) return;
+    if (!isMobile) return;
     let startY = 0;
     const onTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY;
     };
     const onTouchMove = (e: TouchEvent) => {
       const dy = e.touches[0].clientY - startY;
-      // Block downward drags (pull-to-refresh direction)
-      if (dy > 0) {
+      // Only block downward pulls when already at top of page
+      if (dy > 0 && window.scrollY <= 0) {
         e.preventDefault();
       }
     };
-    header.addEventListener('touchstart', onTouchStart, { passive: true });
-    header.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchstart', onTouchStart, { passive: true });
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
     return () => {
-      header.removeEventListener('touchstart', onTouchStart);
-      header.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
     };
-  }, []);
+  }, [isMobile]);
 
   // Fetch user profile for avatar
   const { data: userProfile } = useQuery({
