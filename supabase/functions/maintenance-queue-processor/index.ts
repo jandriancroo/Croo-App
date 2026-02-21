@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
         // If PFG token refresh permanently failed, auto-create a support ticket
         if (task.task_type === "refresh_pfg_token" && newRetry >= MAX_RETRIES) {
-          await createSystemSupportTicket(supabase, task.location_id, errorMsg);
+          await createSystemSupportTicket(supabase, supabaseUrl, supabaseKey, task.location_id, errorMsg);
         }
       }
     }
@@ -222,6 +222,8 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
 // ============================================================================
 async function createSystemSupportTicket(
   supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  supabaseKey: string,
   locationId: string,
   errorMsg: string
 ) {
@@ -248,19 +250,35 @@ async function createSystemSupportTicket(
       return;
     }
 
-    const { error: ticketError } = await supabase
+    const { data: ticket, error: ticketError } = await supabase
       .from("support_tickets")
       .insert({
         user_id: superAdmin.user_id,
         category: "data_sync_issues",
         description: `${locationName} - System Alert: PFG integration token has expired and could not be refreshed after ${MAX_RETRIES} attempts. A manager needs to re-authenticate PFG in Settings → Integrations.\n\nError: ${errorMsg}`,
         occurrence_time: new Date().toISOString(),
-      });
+      })
+      .select("id, ticket_number")
+      .single();
 
     if (ticketError) {
       console.error(`[QUEUE] Failed to create support ticket:`, ticketError.message);
     } else {
-      console.log(`[QUEUE] ⚠️ Auto-created support ticket for PFG failure at ${locationName}`);
+      console.log(`[QUEUE] ⚠️ Auto-created support ticket #SUP-${String(ticket.ticket_number).padStart(3, "0")} for PFG failure at ${locationName}`);
+
+      // Send email notification about the new ticket
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/support-email-service`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+          body: JSON.stringify({
+            action: "support_ticket",
+            payload: { ticket_id: ticket.id, event_type: "new_ticket" },
+          }),
+        });
+      } catch (emailErr) {
+        console.error(`[QUEUE] Failed to send ticket email notification:`, emailErr);
+      }
     }
   } catch (err) {
     console.error(`[QUEUE] Error creating support ticket:`, err);
