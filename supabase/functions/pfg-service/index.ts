@@ -281,6 +281,39 @@ async function fetchCustomerInfo(accessToken: string): Promise<any> {
   return null;
 }
 
+// Set selected customer context (needed for TRACS Direct accounts)
+async function setSelectedCustomer(accessToken: string, customerId: string): Promise<boolean> {
+  console.log('[PFG API] Setting selected customer:', customerId);
+  
+  const endpoints = [
+    { path: '/Customer/V1/SetSelectedCustomer', body: { CustomerId: customerId } },
+    { path: '/Customer/V1/SelectCustomer', body: { CustomerId: customerId } },
+    { path: '/Customer/V1/SwitchCustomer', body: { CustomerId: customerId } },
+  ];
+  
+  for (const ep of endpoints) {
+    try {
+      const data = await fetchPfgJson(ep.path, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(ep.body),
+      });
+      console.log('[PFG API] SetCustomer response from', ep.path, '→', JSON.stringify(data).slice(0, 500));
+      if (data?.IsSuccess !== false) {
+        console.log('[PFG API] Successfully set customer context via', ep.path);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[PFG API] SetCustomer failed:', ep.path, (err as Error).message?.slice(0, 100));
+    }
+  }
+  return false;
+}
+
 // Fetch available order guides / product list headers
 async function fetchProductListHeaders(accessToken: string, customerId?: string): Promise<{ guides: any[]; customerId?: string }> {
   console.log('[PFG API] Fetching product list headers');
@@ -371,7 +404,7 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
   // PFG expects CustomerIds as an array, plus a date window
   const now = new Date();
   const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 30); // 30 days back
+  startDate.setDate(startDate.getDate() - 60); // 60 days back
   const endDate = new Date(now);
   endDate.setDate(endDate.getDate() + 30); // 30 days forward
 
@@ -384,7 +417,8 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
   }
   console.log('[PFG API] Order request body:', JSON.stringify(requestBody));
 
-  return fetchPfgJson(
+  // Try primary endpoint first
+  const primaryResult = await fetchPfgJson(
     '/SubmittedOrder/V1/GetSubmittedOrderHeaders',
     {
       method: 'POST',
@@ -396,6 +430,101 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
       body: JSON.stringify(requestBody),
     },
   );
+
+  // Check if we got results
+  const primaryOrders = primaryResult?.ResultObject;
+  const hasOrders = Array.isArray(primaryOrders) ? primaryOrders.length > 0 : 
+    (primaryOrders && typeof primaryOrders === 'object' && Object.keys(primaryOrders).length > 0);
+  
+  if (hasOrders) {
+    console.log('[PFG API] Got orders from GetSubmittedOrderHeaders');
+    return primaryResult;
+  }
+
+  // Fallback: try delivery headers endpoint (for TRACS Direct accounts)
+  console.log('[PFG API] No orders from GetSubmittedOrderHeaders, trying GetDeliveryHeaders fallback...');
+  
+  const deliveryEndpoints = [
+    '/Delivery/V1/GetDeliveryHeaders',
+    '/OrderHistory/V1/GetOrderHistory',
+    '/Invoice/V1/GetInvoiceHeaders',
+  ];
+
+  for (const path of deliveryEndpoints) {
+    try {
+      // Try with CustomerId in request body
+      const deliveryBody: any = {
+        StartDate: startDate.toISOString(),
+        EndDate: endDate.toISOString(),
+      };
+      if (customerId) {
+        deliveryBody.CustomerId = customerId;
+        deliveryBody.CustomerIds = [customerId];
+      }
+      
+      console.log('[PFG API] Trying fallback endpoint:', path);
+      const data = await fetchPfgJson(path, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(deliveryBody),
+      });
+      
+      console.log('[PFG API] Fallback response from', path, '→ IsSuccess:', data?.IsSuccess, 
+        'ResultObject type:', typeof data?.ResultObject, 
+        'length:', Array.isArray(data?.ResultObject) ? data.ResultObject.length : 'n/a');
+      
+      if (data?.ResultObject) {
+        const result = data.ResultObject;
+        const items = Array.isArray(result) ? result : (result.Orders || result.Deliveries || result.Invoices || result.Items || []);
+        if (items.length > 0) {
+          console.log(`[PFG API] Got ${items.length} orders from fallback ${path}`);
+          // Return in same format as primary endpoint
+          return { ...data, ResultObject: items };
+        }
+      }
+    } catch (err) {
+      console.warn('[PFG API] Fallback endpoint failed:', path, (err as Error).message?.slice(0, 200));
+    }
+  }
+
+  // Also try GET-based order history endpoints
+  const getEndpoints = [
+    `/Delivery/V1/GetDeliveryHeaders?CustomerId=${customerId || ''}`,
+    `/OrderHistory/V1/GetOrderHeaders?CustomerId=${customerId || ''}`,
+  ];
+
+  for (const path of getEndpoints) {
+    try {
+      console.log('[PFG API] Trying GET fallback:', path);
+      const data = await fetchPfgJson(path, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      console.log('[PFG API] GET fallback response keys:', JSON.stringify(Object.keys(data || {})).slice(0, 300));
+      
+      if (data?.ResultObject) {
+        const result = data.ResultObject;
+        const items = Array.isArray(result) ? result : [];
+        if (items.length > 0) {
+          console.log(`[PFG API] Got ${items.length} orders from GET ${path}`);
+          return { ...data, ResultObject: items };
+        }
+      }
+    } catch (err) {
+      console.warn('[PFG API] GET fallback failed:', path.split('?')[0], (err as Error).message?.slice(0, 200));
+    }
+  }
+
+  console.log('[PFG API] All order history endpoints returned empty');
+  return primaryResult;
 }
 
 // Fetch delivery detail (line items) for a specific order
