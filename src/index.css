@@ -1299,3 +1299,9 @@ All colors MUST be HSL.
       inset 0 1px 0 hsl(0 0% 100% / 0.08);
   }
 }
+
+/* Pull-to-refresh dot wave */
+@keyframes ptr-dot-wave {
+  0%, 100% { transform: scale(0.6); opacity: 0.3; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
