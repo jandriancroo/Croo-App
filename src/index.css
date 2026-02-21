@@ -406,7 +406,7 @@ All colors MUST be HSL.
     overflow-x: clip;
     width: 100%;
     position: relative;
-    overscroll-behavior-x: none;
+    overscroll-behavior: none;
   }
 
   #root {
