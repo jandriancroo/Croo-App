@@ -1277,7 +1277,7 @@ export default function UserManagement() {
               )}
           </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-6">
             {/* Active/Inactive Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => {
               setActiveTab(v as 'active' | 'inactive');
@@ -1298,7 +1298,7 @@ export default function UserManagement() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <Table>
+              <Table className="w-full table-fixed md:table-auto">
                 <TableHeader>
                   <TableRow>
                     {isAdmin && (
@@ -1334,28 +1334,28 @@ export default function UserManagement() {
                       </TableCell>
                       )}
                       <TableCell
-                        className="cursor-pointer"
+                        className="cursor-pointer w-full"
                         onClick={() => {
                           setViewingUser(user);
                           setIsProfileDialogOpen(true);
                         }}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 w-full">
                           <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarImage src={user.profile_photo_url || undefined} />
                             <AvatarFallback>
                               {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             {/* Desktop view - stacked vertically */}
                             <div className="hidden md:block">
-                              <div className="font-medium">{user.full_name || 'No name'}</div>
-                              <div className="text-sm text-muted-foreground">{user.email}</div>
+                              <div className="font-medium truncate">{user.full_name || 'No name'}</div>
+                              <div className="text-sm text-muted-foreground truncate">{user.email}</div>
                             </div>
                             {/* Mobile view - name on top, status + role + croo cash below */}
                             <div className="md:hidden">
-                              <div className="font-medium">{user.full_name || 'No name'}</div>
+                              <div className="font-medium truncate">{user.full_name || 'No name'}</div>
                               <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
                                 <Badge variant={getUserStatusDisplay(user).variant} className="text-[10px] px-1.5 py-0">
                                   {getUserStatusDisplay(user).label}
