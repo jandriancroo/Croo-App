@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, X, Plus, Trash2, Edit, Image, Cake, Sparkles, ArrowLeft, Eye, Calendar, Check, Crop } from "lucide-react";
@@ -67,6 +68,14 @@ export default function PunchClockCustomization() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+
+  // Redirect non-admins away
+  useEffect(() => {
+    if (!roleLoading && !isAdmin) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [roleLoading, isAdmin, navigate]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const [locationName, setLocationName] = useState("");
