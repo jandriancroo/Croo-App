@@ -79,54 +79,35 @@ export const PullToRefresh = ({
       setIsRefreshing(true);
       setPullDistance(threshold * 0.6);
       
-      const cacheKey = getCacheKey();
-      const lastSync = lastSyncTimes[cacheKey] || 0;
-      const timeSinceSync = Date.now() - lastSync;
-      const isWithinCooldown = timeSinceSync < cooldownMs;
+      // Always do a full refresh — no cooldown gating
+      const promises: Promise<any>[] = [];
       
-      // If using split keys pattern
-      if (alwaysRefreshKeys || cooldownKeys) {
-        const promises: Promise<any>[] = [];
-        
-        // Always refetch cheap DB reads
-        if (alwaysRefreshKeys && alwaysRefreshKeys.length > 0) {
-          promises.push(...alwaysRefreshKeys.map(key => 
-            queryClient.invalidateQueries({ queryKey: key })
-          ));
-        }
-        
-        // Only refetch expensive API calls outside cooldown
-        if (!isWithinCooldown && cooldownKeys && cooldownKeys.length > 0) {
-          promises.push(...cooldownKeys.map(key => 
-            queryClient.invalidateQueries({ queryKey: key })
-          ));
-        }
-        
-        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1500));
-        await Promise.race([Promise.all(promises), timeoutPromise]);
-        
-        if (!isWithinCooldown) {
-          lastSyncTimes[cacheKey] = Date.now();
-        }
-        
-        onRefresh?.(new Date(), !isWithinCooldown);
-      } else {
-        // Legacy behavior: single queryKeys array with full cooldown
-        if (isWithinCooldown) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-          onRefresh?.(new Date(), false);
-        } else {
-          const refreshPromise = queryKeys && queryKeys.length > 0
-            ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
-            : queryClient.invalidateQueries();
-          
-          const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
-          await Promise.race([refreshPromise, timeoutPromise]);
-          
-          lastSyncTimes[cacheKey] = Date.now();
-          onRefresh?.(new Date(), true);
-        }
+      if (alwaysRefreshKeys && alwaysRefreshKeys.length > 0) {
+        promises.push(...alwaysRefreshKeys.map(key => 
+          queryClient.invalidateQueries({ queryKey: key })
+        ));
       }
+      
+      if (cooldownKeys && cooldownKeys.length > 0) {
+        promises.push(...cooldownKeys.map(key => 
+          queryClient.invalidateQueries({ queryKey: key })
+        ));
+      }
+      
+      // Fallback: if no split keys, use queryKeys or invalidate all
+      if (!alwaysRefreshKeys && !cooldownKeys) {
+        const refreshPromise = queryKeys && queryKeys.length > 0
+          ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
+          : queryClient.invalidateQueries();
+        promises.push(refreshPromise);
+      }
+      
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+      await Promise.race([Promise.all(promises), timeoutPromise]);
+      
+      const cacheKey = getCacheKey();
+      lastSyncTimes[cacheKey] = Date.now();
+      onRefresh?.(new Date(), true);
       
       setIsRefreshing(false);
     }
