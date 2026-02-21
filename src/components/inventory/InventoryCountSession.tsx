@@ -17,6 +17,7 @@ import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTrian
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useAudioVoiceInput } from "@/hooks/useAudioVoiceInput";
 import { useInventoryVoiceFeedback } from "@/hooks/useInventoryVoiceFeedback";
 import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
@@ -77,6 +78,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [rawPanInputs, setRawPanInputs] = useState<Record<string, Record<string, string>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  const [pendingVoiceText, setPendingVoiceText] = useState<string | null>(null);
   const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -605,7 +607,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [currentItems, playSuccess, playError]);
 
-  // Voice input handler — always uses AI for maximum accuracy
+  // Voice input handler — text-based path (Chrome/Android native speech)
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
     if (!currentItems || currentItems.length === 0) return;
 
@@ -628,10 +630,46 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   }, [currentItems, applyVoiceCommands, playError]);
 
-  const { isListening, isSupported, toggleListening } = useVoiceInput({
+  // Native speech (Chrome/Android) — returns isSupported=false on iOS
+  const nativeVoice = useVoiceInput({
     onTranscript: handleVoiceTranscript,
     continuous: true
   });
+
+  // Audio-based voice input (iOS) — records audio → sends to Gemini for transcription + matching
+  const audioItemList = useMemo(
+    () => (currentItems || []).map(i => ({ item_id: i.item_id, item_name: i.item_name })),
+    [currentItems]
+  );
+
+  const handleAudioResult = useCallback((commands: any[], transcript: string) => {
+    setPendingVoiceText(null);
+    toast.info(`"${transcript}"`, { duration: 3000 });
+    applyVoiceCommands(commands, transcript);
+  }, [applyVoiceCommands]);
+
+  const handleAudioPending = useCallback((text: string) => {
+    setPendingVoiceText(text);
+  }, []);
+
+  const handleAudioError = useCallback((message: string) => {
+    setPendingVoiceText(null);
+    toast.error(message);
+    playError();
+  }, [playError]);
+
+  const audioVoice = useAudioVoiceInput({
+    onResult: handleAudioResult,
+    onPending: handleAudioPending,
+    onError: handleAudioError,
+    items: audioItemList,
+  });
+
+  // Pick the right voice engine — audio for iOS, native for everything else
+  const useAudioPath = !nativeVoice.isSupported && audioVoice.isSupported;
+  const isListening = useAudioPath ? audioVoice.isListening : nativeVoice.isListening;
+  const isSupported = useAudioPath ? audioVoice.isSupported : nativeVoice.isSupported;
+  const toggleListening = useAudioPath ? audioVoice.toggleListening : nativeVoice.toggleListening;
 
   // Refs for stable callback references
   const handleSaveRef = useRef(handleSave);
@@ -813,6 +851,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
             {totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0}%
           </span>
+        </div>
+      )}
+
+      {/* Pending voice processing indicator */}
+      {pendingVoiceText && isListening && (
+        <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 animate-pulse">
+          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+          <span className="text-sm text-muted-foreground italic">{pendingVoiceText}</span>
         </div>
       )}
 
