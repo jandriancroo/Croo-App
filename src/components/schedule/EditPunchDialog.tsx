@@ -211,7 +211,7 @@ export function EditPunchDialog({
     const nowInTimezone = formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm');
     const [nowDate, nowTime] = nowInTimezone.split(' ');
     
-    // If the punch date is in the future, allow any time
+    // If the punch date is in the future, ALL times are in the future
     if (punchDate > nowDate) return true;
     // If the punch date is in the past, no time is "in the future"
     if (punchDate < nowDate) return false;
