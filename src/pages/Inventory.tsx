@@ -226,7 +226,7 @@ const Inventory = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6">
         {/* Location Header */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
           <MapPin className="h-4 w-4" />
