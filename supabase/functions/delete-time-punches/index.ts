@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req: Request): Promise<Response> => {
@@ -13,26 +13,37 @@ serve(async (req: Request): Promise<Response> => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: { user }, error: userErr } = await userClient.auth.getUser();
+    // Use getClaims for signing-keys compatibility
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    if (userErr || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsErr } = await userClient.auth.getClaims(token);
+
+    if (claimsErr || !claimsData?.claims?.sub) {
+      console.error("Auth error:", claimsErr);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const userId = claimsData.claims.sub;
 
     const body = await req.json();
     const locationId = body.location_id;
@@ -47,14 +58,14 @@ serve(async (req: Request): Promise<Response> => {
 
     // Check role
     const { data: hasRole, error: roleErr } = await supabaseAdmin.rpc("has_role_or_higher", {
-      _user_id: user.id,
+      _user_id: userId,
       _minimum_role: "manager",
     });
     if (roleErr) throw roleErr;
 
     // Check location access
     const { data: hasLocationAccess, error: accessErr } = await supabaseAdmin.rpc("has_location_access", {
-      _user_id: user.id,
+      _user_id: userId,
       _location_id: locationId,
     });
     if (accessErr) throw accessErr;
