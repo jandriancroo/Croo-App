@@ -1131,7 +1131,7 @@ export default function UserManagement() {
           <h1 className="text-3xl font-bold">User Management</h1>
           <PageHeaderDivider />
         </div>
-        {isAdmin && <InviteLinkCard />}
+        {/* Quick Invite Link removed - signup tab no longer exists */}
         <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -1326,13 +1326,13 @@ export default function UserManagement() {
                     </TableHead>
                     )}
                     <TableHead>User</TableHead>
-                    <TableHead className="hidden md:table-cell">Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Role</TableHead>
+                    <TableHead className="hidden md:table-cell w-[90px]">Status</TableHead>
+                    <TableHead className="hidden md:table-cell w-[120px]">Role</TableHead>
                     {isSuperAdmin && (
-                      <TableHead className="hidden md:table-cell">Version</TableHead>
+                      <TableHead className="hidden md:table-cell w-[130px]">Version</TableHead>
                     )}
-                    <TableHead className="hidden md:table-cell">Last Login</TableHead>
-                    <TableHead className="hidden md:table-cell">Cert</TableHead>
+                    <TableHead className="hidden md:table-cell w-[100px] whitespace-nowrap">Last Login</TableHead>
+                    <TableHead className="hidden md:table-cell w-[40px]">Cert</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1428,12 +1428,10 @@ export default function UserManagement() {
                           })()}
                         </TableCell>
                       )}
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap">
                         {user.last_login_at ? (
                           <span className="text-xs text-muted-foreground">
-                            {new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            <br />
-                            {new Date(user.last_login_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' })}
+                            {new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">Never</span>
