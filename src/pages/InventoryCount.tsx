@@ -260,7 +260,7 @@ const InventoryCount = () => {
 
   return (
     <Layout>
-      <div className="space-y-4 md:max-w-4xl md:mx-auto md:p-6">
+      <div className="px-3 space-y-4 md:max-w-4xl md:mx-auto md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
           <Button variant="ghost" size="sm" onClick={handleBackClick}>
