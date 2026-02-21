@@ -227,18 +227,24 @@ function EditShiftForm({
     setSaving(true);
     try {
       const shift = shiftStates[idx];
-      for (const id of shift.punchIds) {
-        await supabase.from('time_punches').delete().eq('id', id);
+      const { data, error } = await supabase.functions.invoke('delete-time-punches', {
+        body: {
+          location_id: locationId,
+          punch_ids: shift.punchIds,
+        },
+      });
+      if (error || !data?.deleted_ids?.length) {
+        toast.error('Failed to delete shift');
+        return;
       }
       toast.success(`Shift #${idx + 1} deleted`);
       if (shiftStates.length === 1) {
-        // Last shift deleted, close dialog
         onSave();
       } else {
         setShiftStates(prev => prev.filter((_, i) => i !== idx));
         setDeletingShiftIdx(null);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete shift');
     } finally {
       setSaving(false);
