@@ -58,7 +58,7 @@ function EditShiftForm({
   onCancel: () => void;
   onDelete: () => void;
 }) {
-  // Sort punches chronologically to identify first clock_in and last clock_out
+  // Sort punches chronologically
   const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
     new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
   );
@@ -76,42 +76,23 @@ function EditShiftForm({
       shiftStartClockIns.push(punch);
     }
   });
-  
-  // For single-shift editing: use the FIRST shift-starting clock_in
-  const clockIn = shiftStartClockIns[0] || null;
-  
-  // Find the LAST clock_out of the day (for the shift that started with clockIn)
-  const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
-  // If there are multiple shifts, get the clock_out that belongs to the first shift
-  // (the one before the next shift-starting clock_in, or the last if only one shift)
-  let clockOut: any = null;
-  if (shiftStartClockIns.length === 1) {
-    // Single shift - use last clock_out
-    clockOut = clockOuts[clockOuts.length - 1] || null;
-  } else if (shiftStartClockIns.length > 1 && clockIn) {
-    // Multiple shifts - find clock_out between first and second shift
-    const firstShiftStart = new Date(clockIn.punch_time).getTime();
-    const secondShiftStart = new Date(shiftStartClockIns[1].punch_time).getTime();
-    clockOut = clockOuts.find((co: any) => {
-      const coTime = new Date(co.punch_time).getTime();
-      return coTime > firstShiftStart && coTime < secondShiftStart;
-    }) || null;
-  }
-  
-  // Support multiple breaks (paid + unpaid)
+
+  // Support multiple breaks
   interface BreakEntry {
-    id?: string; // existing punch ID for break_start
-    endId?: string; // existing punch ID for break_end OR legacy clock_in (return from break)
+    id?: string;
+    endId?: string;
     startTime: string;
     endTime: string;
     type: 'paid' | 'unpaid';
   }
 
-  const breakStarts = sortedPunches.filter((p: any) => p.punch_type === 'break_start');
-  const breakEnds = sortedPunches.filter((p: any) => p.punch_type === 'break_end');
-  const clockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
+  interface ShiftData {
+    clockIn: any;
+    clockOut: any | null;
+    breaks: BreakEntry[];
+    punchIds: string[]; // all punch IDs belonging to this shift
+  }
 
-  // Format times in the location's timezone for display/editing
   const formatTimeForEdit = (punch: any): string => {
     if (!punch) return '';
     return new Intl.DateTimeFormat('en-GB', {
@@ -122,61 +103,118 @@ function EditShiftForm({
     }).format(new Date(punch.punch_time));
   };
 
-  // Pair each break_start with a break_end OR a legacy clock_in return
-  const initialBreaks: BreakEntry[] = [];
-  const usedEndIds = new Set<string>();
+  // Build shifts array - each shift has its own clock_in, clock_out, breaks
+  const buildShifts = (): ShiftData[] => {
+    const allClockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
+    const allBreakStarts = sortedPunches.filter((p: any) => p.punch_type === 'break_start');
+    const allBreakEnds = sortedPunches.filter((p: any) => p.punch_type === 'break_end');
+    const allClockIns = sortedPunches.filter((p: any) => p.punch_type === 'clock_in');
 
-  for (let i = 0; i < breakStarts.length; i++) {
-    const start = breakStarts[i];
-    const startMs = new Date(start.punch_time).getTime();
+    const shifts: ShiftData[] = [];
 
-    const nextStart = breakStarts[i + 1];
-    const nextStartMs = nextStart ? new Date(nextStart.punch_time).getTime() : Infinity;
+    for (let s = 0; s < shiftStartClockIns.length; s++) {
+      const clockIn = shiftStartClockIns[s];
+      const clockInMs = new Date(clockIn.punch_time).getTime();
+      const nextShiftStart = shiftStartClockIns[s + 1];
+      const nextShiftMs = nextShiftStart ? new Date(nextShiftStart.punch_time).getTime() : Infinity;
 
-    // Prefer explicit break_end
-    let matchingEnd = breakEnds.find((end: any) => {
-      if (usedEndIds.has(end.id)) return false;
-      const endMs = new Date(end.punch_time).getTime();
-      return endMs > startMs && endMs < nextStartMs;
-    });
+      // Find clock_out for this shift
+      const clockOut = allClockOuts.find((co: any) => {
+        const coMs = new Date(co.punch_time).getTime();
+        return coMs > clockInMs && coMs <= nextShiftMs;
+      }) || null;
 
-    // Fallback: legacy behavior uses clock_in to end breaks
-    if (!matchingEnd) {
-      matchingEnd = clockIns.find((ci: any) => {
-        if (usedEndIds.has(ci.id)) return false;
-        if (shiftStartClockIns.includes(ci)) return false; // don't treat shift-start clock_ins as break ends
-        const endMs = new Date(ci.punch_time).getTime();
-        return endMs > startMs && endMs < nextStartMs;
+      // Find break_starts within this shift's time window
+      const shiftBreakStarts = allBreakStarts.filter((bs: any) => {
+        const bsMs = new Date(bs.punch_time).getTime();
+        return bsMs > clockInMs && bsMs < nextShiftMs;
       });
+
+      // Build break entries
+      const usedEndIds = new Set<string>();
+      const breakEntries: BreakEntry[] = [];
+
+      for (let i = 0; i < shiftBreakStarts.length; i++) {
+        const start = shiftBreakStarts[i];
+        const startMs = new Date(start.punch_time).getTime();
+        const nextBreakStart = shiftBreakStarts[i + 1];
+        const nextBreakMs = nextBreakStart ? new Date(nextBreakStart.punch_time).getTime() : nextShiftMs;
+
+        let matchingEnd = allBreakEnds.find((end: any) => {
+          if (usedEndIds.has(end.id)) return false;
+          const endMs = new Date(end.punch_time).getTime();
+          return endMs > startMs && endMs < nextBreakMs;
+        });
+
+        if (!matchingEnd) {
+          matchingEnd = allClockIns.find((ci: any) => {
+            if (usedEndIds.has(ci.id)) return false;
+            if (shiftStartClockIns.includes(ci)) return false;
+            const endMs = new Date(ci.punch_time).getTime();
+            return endMs > startMs && endMs < nextBreakMs;
+          });
+        }
+
+        if (matchingEnd) usedEndIds.add(matchingEnd.id);
+
+        const notes = (start.notes || '').toLowerCase();
+        const breakType: BreakEntry['type'] = notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid') ? 'unpaid' : 'paid';
+
+        breakEntries.push({
+          id: start.id,
+          endId: matchingEnd?.id,
+          startTime: formatTimeForEdit(start) || '12:00',
+          endTime: matchingEnd ? formatTimeForEdit(matchingEnd) : '',
+          type: breakType,
+        });
+      }
+
+      // Collect all punch IDs for this shift
+      const punchIds = [clockIn.id];
+      if (clockOut) punchIds.push(clockOut.id);
+      shiftBreakStarts.forEach((bs: any) => punchIds.push(bs.id));
+      [...usedEndIds].forEach(id => punchIds.push(id));
+
+      shifts.push({ clockIn, clockOut, breaks: breakEntries, punchIds });
     }
 
-    if (matchingEnd) usedEndIds.add(matchingEnd.id);
+    return shifts;
+  };
 
-    const notes = (start.notes || '').toLowerCase();
-    const breakType: BreakEntry['type'] = notes.includes('30 minute') || notes.includes('meal') || notes.includes('unpaid') ? 'unpaid' : 'paid';
+  const initialShifts = buildShifts();
 
-    initialBreaks.push({
-      id: start.id,
-      endId: matchingEnd?.id,
-      startTime: formatTimeForEdit(start) || '12:00',
-      endTime: matchingEnd ? formatTimeForEdit(matchingEnd) : '',
-      type: breakType,
-    });
+  // State: array of shift edit states
+  interface ShiftEditState {
+    clockInTime: string;
+    clockOutTime: string;
+    breaks: BreakEntry[];
+    clockInId?: string;
+    clockOutId?: string;
+    punchIds: string[];
   }
 
-  const [clockInTime, setClockInTime] = useState(formatTimeForEdit(clockIn) || '');
-  const [clockOutTime, setClockOutTime] = useState(formatTimeForEdit(clockOut) || '');
-  const [breaks, setBreaks] = useState<BreakEntry[]>(initialBreaks);
+  const [shiftStates, setShiftStates] = useState<ShiftEditState[]>(
+    initialShifts.map(s => ({
+      clockInTime: formatTimeForEdit(s.clockIn) || '',
+      clockOutTime: formatTimeForEdit(s.clockOut) || '',
+      breaks: s.breaks,
+      clockInId: s.clockIn?.id,
+      clockOutId: s.clockOut?.id,
+      punchIds: s.punchIds,
+    }))
+  );
   const [saving, setSaving] = useState(false);
+  const [deletingShiftIdx, setDeletingShiftIdx] = useState<number | null>(null);
 
-  // Midnight-crossing rule (Time Tracking): only CLOCK OUT can roll into the next day.
-  // Breaks and clock-in edits must stay on the shift start date.
+  const updateShift = (idx: number, update: Partial<ShiftEditState>) => {
+    setShiftStates(prev => prev.map((s, i) => i === idx ? { ...s, ...update } : s));
+  };
+
+  // Midnight-crossing rule: only CLOCK OUT can roll into the next day
   const getAdjustedDateForClockOut = (clockOutTime: string, clockInTime: string, baseDate: string): string => {
     const [outHour] = clockOutTime.split(':').map(Number);
     const [inHour] = clockInTime.split(':').map(Number);
     if (Number.isNaN(outHour) || Number.isNaN(inHour)) return baseDate;
-
-    // If clock-out hour is earlier than clock-in hour, it indicates an overnight shift.
     if (outHour < inHour) {
       const nextDay = new Date(baseDate);
       nextDay.setDate(nextDay.getDate() + 1);
@@ -185,111 +223,114 @@ function EditShiftForm({
     return baseDate;
   };
 
+  const handleDeleteSingleShift = async (idx: number) => {
+    setSaving(true);
+    try {
+      const shift = shiftStates[idx];
+      for (const id of shift.punchIds) {
+        await supabase.from('time_punches').delete().eq('id', id);
+      }
+      toast.success(`Shift #${idx + 1} deleted`);
+      if (shiftStates.length === 1) {
+        // Last shift deleted, close dialog
+        onSave();
+      } else {
+        setShiftStates(prev => prev.filter((_, i) => i !== idx));
+        setDeletingShiftIdx(null);
+      }
+    } catch (error) {
+      toast.error('Failed to delete shift');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Get current user for change tracking
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
       
-      // Update clock in - use timezone-aware conversion
-      // Note: Do NOT update created_by on edits - track edits via edited_by
-      if (clockIn && clockInTime) {
-        const newClockInTime = toISOStringInTimezone(shiftDate, clockInTime, timezone);
-        await supabase.from('time_punches').update({ 
-          punch_time: newClockInTime,
-          edited_by: currentUserId,
-          edited_at: now
-        }).eq('id', clockIn.id);
-      }
+      for (const shift of shiftStates) {
+        // Update clock in
+        if (shift.clockInId && shift.clockInTime) {
+          const newClockInTime = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
+          await supabase.from('time_punches').update({ 
+            punch_time: newClockInTime,
+            edited_by: currentUserId,
+            edited_at: now
+          }).eq('id', shift.clockInId);
+        }
 
-      // Update clock out - clear auto_punched flag when manager edits
-      // Handle midnight-crossing ONLY for clock_out
-      if (clockOut && clockOutTime) {
-        const clockOutDate = getAdjustedDateForClockOut(clockOutTime, clockInTime, shiftDate);
-        const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
-        await supabase.from('time_punches').update({ 
-          punch_time: newClockOutTime,
-          edited_by: currentUserId,
-          edited_at: now,
-          is_auto_punched_out: false // Clear flag when manager edits
-        }).eq('id', clockOut.id);
-      } else if (!clockOut && clockOutTime) {
-        // Add missing clock out - this IS an insert, so set created_by
-        const clockOutDate = getAdjustedDateForClockOut(clockOutTime, clockInTime, shiftDate);
-        const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
-        await supabase.from('time_punches').insert({
-          user_id: userId,
-          location_id: locationId,
-          punch_type: 'clock_out',
-          punch_time: newClockOutTime,
-          created_by: currentUserId
-        });
-      }
-
-      // Handle breaks (paid + unpaid)
-      for (const brk of breaks) {
-        if (!brk.startTime) continue;
-
-        const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
-
-        // Breaks always stay on the shift start date (no midnight-roll for breaks in Time Tracking editor)
-        const breakStartIso = toISOStringInTimezone(shiftDate, brk.startTime, timezone);
-
-        if (brk.id) {
-          await supabase.from('time_punches').update({
-            punch_time: breakStartIso,
-            notes: breakNotes,
+        // Update clock out
+        if (shift.clockOutId && shift.clockOutTime) {
+          const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
+          const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
+          await supabase.from('time_punches').update({ 
+            punch_time: newClockOutTime,
             edited_by: currentUserId,
             edited_at: now,
-          }).eq('id', brk.id);
-        } else {
+            is_auto_punched_out: false
+          }).eq('id', shift.clockOutId);
+        } else if (!shift.clockOutId && shift.clockOutTime) {
+          const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
+          const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
-            punch_type: 'break_start',
-            punch_time: breakStartIso,
-            notes: breakNotes,
-            created_by: currentUserId,
+            punch_type: 'clock_out',
+            punch_time: newClockOutTime,
+            created_by: currentUserId
           });
         }
 
-        if (brk.endTime) {
-          const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
+        // Handle breaks
+        for (const brk of shift.breaks) {
+          if (!brk.startTime) continue;
+          const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
+          const breakStartIso = toISOStringInTimezone(shiftDate, brk.startTime, timezone);
 
-          if (brk.endId) {
-            // endId may be a break_end OR a legacy clock_in (return from break)
+          if (brk.id) {
             await supabase.from('time_punches').update({
-              punch_time: breakEndIso,
-              notes: breakNotes,
-              edited_by: currentUserId,
-              edited_at: now,
-            }).eq('id', brk.endId);
+              punch_time: breakStartIso, notes: breakNotes,
+              edited_by: currentUserId, edited_at: now,
+            }).eq('id', brk.id);
           } else {
             await supabase.from('time_punches').insert({
-              user_id: userId,
-              location_id: locationId,
-              punch_type: 'break_end',
-              punch_time: breakEndIso,
-              notes: breakNotes,
-              created_by: currentUserId,
+              user_id: userId, location_id: locationId,
+              punch_type: 'break_start', punch_time: breakStartIso,
+              notes: breakNotes, created_by: currentUserId,
             });
+          }
+
+          if (brk.endTime) {
+            const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
+            if (brk.endId) {
+              await supabase.from('time_punches').update({
+                punch_time: breakEndIso, notes: breakNotes,
+                edited_by: currentUserId, edited_at: now,
+              }).eq('id', brk.endId);
+            } else {
+              await supabase.from('time_punches').insert({
+                user_id: userId, location_id: locationId,
+                punch_type: 'break_end', punch_time: breakEndIso,
+                notes: breakNotes, created_by: currentUserId,
+              });
+            }
           }
         }
       }
 
-      // Delete removed breaks (safe deletes: remove break_start and only explicit break_end)
-      const existingBreakStartIds = new Set(breaks.map(b => b.id).filter(Boolean) as string[]);
-      const existingBreakEndIds = new Set(breaks.map(b => b.endId).filter(Boolean) as string[]);
+      // Delete removed breaks
+      const existingBreakStartIds = new Set(shiftStates.flatMap(s => s.breaks.map(b => b.id).filter(Boolean) as string[]));
+      const existingBreakEndIds = new Set(shiftStates.flatMap(s => s.breaks.map(b => b.endId).filter(Boolean) as string[]));
 
       for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_start')) {
         if (!existingBreakStartIds.has(p.id)) {
           await supabase.from('time_punches').delete().eq('id', p.id);
         }
       }
-
-      // Only delete explicit break_end punches. If a break "end" is stored as clock_in, we leave it intact.
       for (const p of dayPunches.filter((p: any) => p.punch_type === 'break_end')) {
         if (!existingBreakEndIds.has(p.id)) {
           await supabase.from('time_punches').delete().eq('id', p.id);
@@ -316,124 +357,154 @@ function EditShiftForm({
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-green-500" />
-            Clock In
-          </label>
-          <Input
-            type="time"
-            value={clockInTime}
-            onChange={(e) => setClockInTime(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-red-500" />
-            Clock Out
-          </label>
-          <Input
-            type="time"
-            value={clockOutTime}
-            onChange={(e) => setClockOutTime(e.target.value)}
-          />
-        </div>
-      </div>
+      {shiftStates.map((shift, idx) => (
+        <div key={idx} className={`space-y-3 ${shiftStates.length > 1 ? 'p-3 border rounded-lg bg-muted/5' : ''}`}>
+          {shiftStates.length > 1 && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Shift #{idx + 1}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                onClick={() => setDeletingShiftIdx(idx)}
+                disabled={saving}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Delete
+              </Button>
+            </div>
+          )}
 
-      <div className="border-t pt-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-medium">Breaks</div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!clockInTime}
-            onClick={() => setBreaks(prev => ([...prev, { startTime: '', endTime: '', type: 'unpaid' }]))}
-            title={!clockInTime ? 'Enter clock-in time first' : undefined}
-          >
-            Add break
-          </Button>
-        </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Clock In
+              </label>
+              <Input
+                type="time"
+                value={shift.clockInTime}
+                onChange={(e) => updateShift(idx, { clockInTime: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                Clock Out
+              </label>
+              <Input
+                type="time"
+                value={shift.clockOutTime}
+                onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })}
+              />
+            </div>
+          </div>
 
-        {!clockInTime && (
-          <div className="text-xs text-muted-foreground">Enter clock-in time to add breaks</div>
-        )}
+          <div className="border-t pt-3 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-sm font-medium">Breaks</div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!shift.clockInTime}
+                onClick={() => updateShift(idx, { breaks: [...shift.breaks, { startTime: '', endTime: '', type: 'unpaid' }] })}
+              >
+                Add break
+              </Button>
+            </div>
 
-        {breaks.length === 0 ? (
-          <div className="text-xs text-muted-foreground">No breaks</div>
-        ) : (
-          <div className="space-y-3">
-            {breaks.map((brk, idx) => (
-              <div key={`${brk.id || 'new'}-${idx}`} className="rounded-lg border bg-muted/10 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Coffee className="h-4 w-4 text-muted-foreground" />
-                    <div className="text-sm font-medium">Break {idx + 1}</div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() => setBreaks(prev => prev.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </Button>
-                </div>
+            {shift.breaks.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No breaks</div>
+            ) : (
+              <div className="space-y-3">
+                {shift.breaks.map((brk, bIdx) => (
+                  <div key={`${brk.id || 'new'}-${bIdx}`} className="rounded-lg border bg-muted/10 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Coffee className="h-4 w-4 text-muted-foreground" />
+                        <div className="text-sm font-medium">Break {bIdx + 1}</div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={() => updateShift(idx, { breaks: shift.breaks.filter((_, i) => i !== bIdx) })}
+                      >
+                        Remove
+                      </Button>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Type</label>
-                    <Select
-                      value={brk.type}
-                      onValueChange={(v) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, type: v as 'paid' | 'unpaid' } : b))}
-                    >
-                      <SelectTrigger className="bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        <SelectItem value="unpaid">Unpaid (30m)</SelectItem>
-                        <SelectItem value="paid">Paid (10m)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Type</label>
+                        <Select
+                          value={brk.type}
+                          onValueChange={(v) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, type: v as 'paid' | 'unpaid' } : b) })}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            <SelectItem value="unpaid">Unpaid (30m)</SelectItem>
+                            <SelectItem value="paid">Paid (10m)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Break Start</label>
-                    <Input
-                      type="time"
-                      value={brk.startTime}
-                      onChange={(e) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, startTime: e.target.value } : b))}
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Break Start</label>
+                        <Input
+                          type="time"
+                          value={brk.startTime}
+                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, startTime: e.target.value } : b) })}
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">Break End</label>
-                    <Input
-                      type="time"
-                      value={brk.endTime}
-                      onChange={(e) => setBreaks(prev => prev.map((b, i) => i === idx ? { ...b, endTime: e.target.value } : b))}
-                    />
-                  </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">Break End</label>
+                        <Input
+                          type="time"
+                          value={brk.endTime}
+                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, endTime: e.target.value } : b) })}
+                        />
+                      </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground">  </label>
-                    <div className="text-xs text-muted-foreground flex items-center h-10">
-                      {brk.type === 'unpaid' ? 'Meal break' : 'Paid break'}
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">  </label>
+                        <div className="text-xs text-muted-foreground flex items-center h-10">
+                          {brk.type === 'unpaid' ? 'Meal break' : 'Paid break'}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      ))}
+
+      {/* Delete single shift confirmation */}
+      {deletingShiftIdx !== null && (
+        <div className="p-3 border border-destructive/30 rounded-lg bg-destructive/5 space-y-2">
+          <p className="text-sm font-medium text-destructive">Delete Shift #{deletingShiftIdx + 1}?</p>
+          <p className="text-xs text-muted-foreground">This will remove all punch records for this shift only.</p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setDeletingShiftIdx(null)} disabled={saving}>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={() => handleDeleteSingleShift(deletingShiftIdx)} disabled={saving}>
+              {saving ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between gap-2 pt-4 border-t">
         <Button variant="destructive" onClick={onDelete} disabled={saving} className="gap-2">
           <Trash2 className="h-4 w-4" />
-          Delete Shift
+          Delete All
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
