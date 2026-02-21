@@ -889,9 +889,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
 
-      {/* Mobile Header */}
-      <header className={`sticky top-0 z-50 bg-primary shadow-neumorphic ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)', boxShadow: '0 4px 20px hsl(var(--primary) / 0.25), inset 0 -1px 0 hsl(0 0% 100% / 0.18)' }}>
-        <div className="flex items-center relative h-14 px-2">
+      {/* Mobile Header — Floating Pill */}
+      <header className={`sticky top-0 z-50 bg-background ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="px-2 pt-1.5 pb-1">
+        <div className="flex items-center relative h-12 px-3 rounded-2xl bg-primary" style={{ boxShadow: '0 6px 24px hsl(var(--primary) / 0.35)' }}>
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="nav-logo-inline">
               {headerLogo ? (
@@ -1082,6 +1083,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               </div>
             </SheetContent>
           </Sheet>
+        </div>
         </div>
       </header>
       <main className={`container max-w-7xl mx-auto flex-1 px-safe py-3 relative ${isMobile ? 'pb-24' : 'py-8 pb-8'}`}>
