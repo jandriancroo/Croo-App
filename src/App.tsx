@@ -84,6 +84,7 @@ const ArchitectureMap = lazyWithRetry(() => import("./pages/ArchitectureMap"));
 const RoleDashboardCustomizer = lazyWithRetry(() => import("./pages/RoleDashboardCustomizer"));
 const DockStylePreview = lazyWithRetry(() => import("./pages/DockStylePreview"));
 const DesignStylePreview = lazyWithRetry(() => import("./pages/DesignStylePreview"));
+const HeaderStylePreview = lazyWithRetry(() => import("./pages/HeaderStylePreview"));
 const AvailabilityRequestPreview = lazyWithRetry(() => import("./pages/AvailabilityRequestPreview"));
 const VisionOSPreview = lazyWithRetry(() => import("./pages/VisionOSPreview"));
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
@@ -213,6 +214,7 @@ const AppContent = () => {
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         <Route path="/dock-style-preview" element={<ProtectedRoute><DockStylePreview /></ProtectedRoute>} />
         <Route path="/design-style-preview" element={<ProtectedRoute><DesignStylePreview /></ProtectedRoute>} />
+        <Route path="/header-style-preview" element={<ProtectedRoute><HeaderStylePreview /></ProtectedRoute>} />
         <Route path="/availability-request-preview" element={<AvailabilityRequestPreview />} />
         <Route path="/vision-preview" element={<ProtectedRoute><VisionOSPreview /></ProtectedRoute>} />
         <Route path="/email-preview" element={<ProtectedRoute><EmailPreview /></ProtectedRoute>} />
