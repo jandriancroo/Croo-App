@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { getDisplayName } from '@/utils/displayName';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -136,7 +137,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, profile_photo_url')
+        .select('full_name, nickname, profile_photo_url')
         .eq('id', user.id)
         .single();
       if (error) throw error;
@@ -148,8 +149,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   // Get first name for greeting
   const firstName = useMemo(() => {
     if (!userProfile?.full_name) return 'there';
+    const nick = (userProfile as any)?.nickname;
+    if (nick?.trim()) return nick.trim();
     return userProfile.full_name.split(' ')[0];
-  }, [userProfile?.full_name]);
+  }, [userProfile]);
   
   // Format time in location timezone (no seconds)
   const formattedTime = useMemo(() => {
@@ -281,7 +284,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       const userIds = activeUsers.map(u => u.userId);
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, full_name, profile_photo_url, hourly_wage')
+        .select('id, full_name, nickname, profile_photo_url, hourly_wage')
         .in('id', userIds);
 
       // Get today's shifts for end times
@@ -298,7 +301,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         const profile = profileMap.get(u.userId);
         return {
           userId: u.userId,
-          fullName: profile?.full_name || 'Unknown',
+          fullName: getDisplayName(profile?.full_name, (profile as any)?.nickname) || 'Unknown',
           profilePhoto: profile?.profile_photo_url || null,
           clockInTime: u.clockInTime,
           isOnBreak: u.isOnBreak,

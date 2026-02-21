@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { Card } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import { filterEventsByRole } from '@/utils/eventRoleFilter';
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
 }
 
@@ -238,10 +240,10 @@ export function MobileScheduleView({
       // Fetch profiles in parallel
       const [creatorRes, profilesRes] = await Promise.all([
         createdByIds.length > 0
-          ? supabase.from('profiles').select('id, full_name').in('id', createdByIds)
+          ? supabase.from('profiles').select('id, full_name, nickname').in('id', createdByIds)
           : Promise.resolve({ data: [] }),
         punchUserIds.length > 0
-          ? supabase.from('profiles').select('id, full_name, profile_photo_url').in('id', punchUserIds)
+          ? supabase.from('profiles').select('id, full_name, nickname, profile_photo_url').in('id', punchUserIds)
           : Promise.resolve({ data: [] })
       ]);
       
@@ -343,7 +345,7 @@ export function MobileScheduleView({
             breakType: breakStart?.notes || null,
             isActive: isClockedIn,
             isOnBreak,
-            profile: profile || { id: userId, full_name: 'Unknown', profile_photo_url: null },
+            profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
             hoursWorked,
             createdByName,
             scheduledShift: scheduledShift ? { 
@@ -570,7 +572,7 @@ export function MobileScheduleView({
             {dayPunches.map((punch) => (
               <MobileShiftCard
                 key={punch.id}
-                name={punch.profile.full_name}
+                name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
                 avatarUrl={punch.profile.profile_photo_url}
                 startTime={punch.scheduledShift?.start_time || '00:00'}
                 endTime={punch.scheduledShift?.end_time || '00:00'}
@@ -590,7 +592,7 @@ export function MobileScheduleView({
                   const today = getTodayInTimezone(timezone);
                   setSelectedPunch({
                     userId: punch.user_id,
-                    userName: punch.profile.full_name,
+                    userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
                     userPhoto: punch.profile.profile_photo_url,
                     punchDate: today
                   });
@@ -787,7 +789,7 @@ export function MobileScheduleView({
                 return (
                   <MobileShiftCard
                     key={shift.id}
-                    name={profile.full_name}
+                    name={getDisplayName(profile.full_name, (profile as any).nickname)}
                     avatarUrl={profile.profile_photo_url}
                     startTime={shift.start_time}
                     endTime={shift.end_time}

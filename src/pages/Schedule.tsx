@@ -65,6 +65,7 @@ interface WeeklyAvailability {
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
   role?: string;
   hourly_wage?: number;
@@ -259,7 +260,7 @@ export default function Schedule() {
           .eq("location_id", currentLocation.id),
         supabase
           .from("profiles")
-          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
+          .select(`id, full_name, nickname, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability`)
           .eq("is_active", true)
           .eq("appears_on_schedule", true),
         supabase.from("user_roles").select("user_id, role"),
@@ -494,7 +495,7 @@ export default function Schedule() {
         if (shiftUserIds.length > 0) {
           const { data: shiftProfiles } = await supabase
             .from('profiles')
-            .select('id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability')
+            .select('id, full_name, nickname, profile_photo_url, hourly_wage, display_order, appears_on_schedule, weekly_availability')
             .in('id', shiftUserIds);
           
           const { data: roles } = await supabase.from("user_roles").select("user_id, role");

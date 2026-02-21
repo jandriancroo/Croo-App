@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getDisplayName, getInitials } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
@@ -50,6 +51,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
+  nickname?: string | null;
   profile_photo_url: string | null;
   phone_number: string | null;
   birthday: string | null;
@@ -1358,18 +1360,18 @@ export default function UserManagement() {
                           <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarImage src={user.profile_photo_url || undefined} />
                             <AvatarFallback>
-                              {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                              {getInitials(getDisplayName(user.full_name, user.nickname))}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0 overflow-hidden">
                             {/* Desktop view - stacked vertically */}
                             <div className="hidden md:block">
-                              <div className="font-medium truncate">{user.full_name || 'No name'}</div>
+                              <div className="font-medium truncate">{getDisplayName(user.full_name, user.nickname) || 'No name'}</div>
                               <div className="text-sm text-muted-foreground truncate">{user.email}</div>
                             </div>
                             {/* Mobile view - name on top, status + role + croo cash below */}
                             <div className="md:hidden">
-                              <div className="font-medium truncate">{user.full_name || 'No name'}</div>
+                              <div className="font-medium truncate">{getDisplayName(user.full_name, user.nickname) || 'No name'}</div>
                               <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
                                 <Badge variant={getUserStatusDisplay(user).variant} className="text-[10px] px-1.5 py-0">
                                   {getUserStatusDisplay(user).label}
