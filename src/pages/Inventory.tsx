@@ -11,6 +11,8 @@ import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, E
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
@@ -21,10 +23,23 @@ const Inventory = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { isAdmin, role } = useUserRole();
+  const { hasPermission } = useRolePermissions();
+  const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
+
+  if (!canAccessInventory) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-muted-foreground">You don't have access to inventory management.</p>
+        </div>
+      </Layout>
+    );
+  }
 
   // Fetch location details
   const { data: location } = useQuery({
