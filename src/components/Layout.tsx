@@ -595,11 +595,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     icon: MessageSquare
   }];
   const timeMenuItems = [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
-      path: '/my-wallet',
-      label: 'My Wallet',
-      icon: Wallet
-    }] : []),
+    {
+      path: '/my-timecard',
+      label: 'My Timecard',
+      icon: Clock
+    },
     {
       path: '/availability',
       label: 'Availability',
@@ -653,11 +653,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   // Time-related items for mobile collapsible section
   const mobileTimeItems = isChecklistOnlyLocation ? [] : [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
-      path: '/my-wallet',
-      label: 'My Wallet',
-      icon: Wallet
-    }] : []),
+    {
+      path: '/my-timecard',
+      label: 'My Timecard',
+      icon: Clock
+    },
     {
       path: '/availability',
       label: 'Availability',
@@ -761,7 +761,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <DropdownMenuTrigger asChild>
                     <button 
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
-                        ['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
+                        ['/my-timecard', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
                           ? 'bg-white/25 text-primary-foreground font-medium' 
                           : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                       }`}

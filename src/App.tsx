@@ -54,7 +54,7 @@ const WelcomeProfile = lazyWithRetry(() => import("./pages/WelcomeProfile"));
 const InstallGuide = lazyWithRetry(() => import("./pages/InstallGuide"));
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
-const MyWallet = lazyWithRetry(() => import("./pages/MyWallet"));
+const MyTimecard = lazyWithRetry(() => import("./pages/MyTimecard"));
 const MyTeam = lazyWithRetry(() => import("./pages/MyTeam"));
 const CompletedStampPreview = lazyWithRetry(() => import("./pages/CompletedStampPreview"));
 const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProfile"));
@@ -192,7 +192,7 @@ const AppContent = () => {
         <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
         <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
         <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
-        <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
+        <Route path="/my-timecard" element={<ProtectedRoute><MyTimecard /></ProtectedRoute>} />
         <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
         <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
         <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
