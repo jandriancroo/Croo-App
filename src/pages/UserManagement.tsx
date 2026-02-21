@@ -137,6 +137,7 @@ export default function UserManagement() {
   const [wageHistory, setWageHistory] = useState<any[]>([]);
   const [wageNotes, setWageNotes] = useState<string>('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
   const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
@@ -1279,10 +1280,12 @@ export default function UserManagement() {
           </CardHeader>
           <CardContent className="px-2 sm:px-6">
             {/* Active/Inactive Tabs */}
+            <div className="flex items-center justify-between mb-4">
             <Tabs value={activeTab} onValueChange={(v) => {
               setActiveTab(v as 'active' | 'inactive');
               setSelectedUsers(new Set());
-            }} className="mb-4">
+              setBulkMode(false);
+            }}>
               <TabsList>
                 <TabsTrigger value="active">
                   Active ({users.filter(u => u.is_active).length})
@@ -1292,6 +1295,17 @@ export default function UserManagement() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
+            {isAdmin && !bulkMode && (
+              <Button variant="ghost" size="sm" onClick={() => setBulkMode(true)}>
+                Select
+              </Button>
+            )}
+            {isAdmin && bulkMode && selectedUsers.size === 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setBulkMode(false)}>
+                Cancel
+              </Button>
+            )}
+            </div>
             
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -1301,7 +1315,7 @@ export default function UserManagement() {
               <Table className="w-full table-fixed md:table-auto">
                 <TableHeader>
                   <TableRow>
-                    {isAdmin && (
+                    {isAdmin && bulkMode && (
                     <TableHead className="w-12">
                       <Checkbox
                         checked={selectedUsers.size === users.filter(u => u.is_active === (activeTab === 'active')).length && users.filter(u => u.is_active === (activeTab === 'active')).length > 0}
@@ -1325,7 +1339,7 @@ export default function UserManagement() {
                       key={user.id}
                       className="hover:bg-muted/50"
                     >
-                      {isAdmin && (
+                      {isAdmin && bulkMode && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedUsers.has(user.id)}
@@ -1718,7 +1732,7 @@ export default function UserManagement() {
           onDeactivate={() => setIsBulkDeactivateOpen(true)}
           onWageUpdate={() => setIsBulkWageOpen(true)}
           onForceUpdate={handleBulkForceUpdate}
-          onClearSelection={() => setSelectedUsers(new Set())}
+          onClearSelection={() => { setSelectedUsers(new Set()); setBulkMode(false); }}
           isUpdating={bulkUpdating}
         />
         )}
