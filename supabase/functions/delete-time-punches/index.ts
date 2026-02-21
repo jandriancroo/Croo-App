@@ -76,7 +76,7 @@ serve(async (req: Request): Promise<Response> => {
     if (deleteErr) throw deleteErr;
 
     return new Response(
-      JSON.stringify({ success: true, deleted: punchIds.length }),
+      JSON.stringify({ success: true, deleted: punchIds.length, deleted_ids: punchIds }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
