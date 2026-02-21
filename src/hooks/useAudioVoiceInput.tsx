@@ -34,9 +34,9 @@ const playTimeoutChime = () => {
  * transcription + item matching in a single round trip.
  * 
  * Features:
- * - 8kHz mono opus for tiny uploads (~5-15KB per chunk)
+ * - 16kHz mono opus for small uploads
  * - Silence detection via AudioAnalyser (auto-send after 1.5s silence)
- * - Overlapping processing (sends chunks while still recording)
+ * - Queued processing (chunks queue up and process sequentially, never dropped)
  * - Fallback to full clip on network error
  */
 export const useAudioVoiceInput = ({
@@ -56,12 +56,15 @@ export const useAudioVoiceInput = ({
   const overallSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fullChunksRef = useRef<Blob[]>([]); // Fallback: all audio since start
-  const isSendingRef = useRef(false);
   const rafRef = useRef<number | null>(null);
   const itemsRef = useRef(items);
   const onResultRef = useRef(onResult);
   const onPendingRef = useRef(onPending);
   const onErrorRef = useRef(onError);
+
+  // Queue for processing audio chunks sequentially
+  const sendQueueRef = useRef<Blob[]>([]);
+  const isProcessingQueueRef = useRef(false);
 
   // Keep refs in sync
   itemsRef.current = items;
@@ -75,14 +78,9 @@ export const useAudioVoiceInput = ({
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
   }, []);
 
-  // Send audio blob to edge function
-  const sendAudioChunk = useCallback(async (audioBlob: Blob) => {
-    if (audioBlob.size < 500) return; // Too small, skip
-    if (isSendingRef.current) return;
-    isSendingRef.current = true;
-
+  // Process a single audio blob
+  const processAudioBlob = useCallback(async (audioBlob: Blob) => {
     try {
-      // Convert to base64
       const arrayBuffer = await audioBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
       let binary = '';
@@ -111,17 +109,35 @@ export const useAudioVoiceInput = ({
         if (data.commands?.length > 0) {
           onResultRef.current(data.commands, data.transcript);
         } else if (data.transcript.trim()) {
-          // Transcript but no matched items
           onErrorRef.current?.(`Didn't catch that — try again`);
         }
       }
     } catch (err) {
       console.error('[AudioVoice] Send error:', err);
       onErrorRef.current?.(`Voice processing failed — try again`);
-    } finally {
-      isSendingRef.current = false;
     }
   }, []);
+
+  // Drain the queue sequentially
+  const drainQueue = useCallback(async () => {
+    if (isProcessingQueueRef.current) return;
+    isProcessingQueueRef.current = true;
+
+    while (sendQueueRef.current.length > 0) {
+      const blob = sendQueueRef.current.shift()!;
+      await processAudioBlob(blob);
+    }
+
+    isProcessingQueueRef.current = false;
+  }, [processAudioBlob]);
+
+  // Enqueue an audio chunk for processing (never drops)
+  const enqueueAudioChunk = useCallback((audioBlob: Blob) => {
+    if (audioBlob.size < 500) return;
+    sendQueueRef.current.push(audioBlob);
+    console.log(`[AudioVoice] Queued chunk (${sendQueueRef.current.length} in queue)`);
+    drainQueue();
+  }, [drainQueue]);
 
   // Monitor audio levels for silence detection
   const monitorSilence = useCallback(() => {
@@ -177,7 +193,7 @@ export const useAudioVoiceInput = ({
     };
 
     rafRef.current = requestAnimationFrame(check);
-  }, [silenceTimeoutMs, sendAudioChunk]);
+  }, [silenceTimeoutMs]);
 
   const startListening = useCallback(async () => {
     if (isListeningRef.current) return;
@@ -216,24 +232,25 @@ export const useAudioVoiceInput = ({
 
       const recorder = new MediaRecorder(stream, {
         mimeType: mimeType || undefined,
-        audioBitsPerSecond: 32000, // Low bitrate for tiny uploads
+        audioBitsPerSecond: 32000,
       });
 
       chunksRef.current = [];
       fullChunksRef.current = [];
+      sendQueueRef.current = [];
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           chunksRef.current.push(e.data);
           fullChunksRef.current.push(e.data);
 
-          // Auto-send accumulated chunks
+          // Build blob from accumulated chunks and enqueue
           const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
           chunksRef.current = []; // Reset for next chunk
 
           if (blob.size > 500) {
             onPendingRef.current?.("Processing...");
-            sendAudioChunk(blob);
+            enqueueAudioChunk(blob);
           }
         }
       };
@@ -263,7 +280,7 @@ export const useAudioVoiceInput = ({
       setIsListening(false);
       onErrorRef.current?.("Microphone access denied");
     }
-  }, [silenceTimeoutMs, monitorSilence, sendAudioChunk]);
+  }, [silenceTimeoutMs, monitorSilence, enqueueAudioChunk]);
 
   const stopListening = useCallback(() => {
     clearTimers();
@@ -288,19 +305,19 @@ export const useAudioVoiceInput = ({
     audioContextRef.current = null;
     analyserRef.current = null;
 
-    // Send any remaining audio as fallback
-    if (fullChunksRef.current.length > 0 && !isSendingRef.current) {
+    // Send any remaining audio as fallback (only if queue is empty)
+    if (fullChunksRef.current.length > 0 && sendQueueRef.current.length === 0 && !isProcessingQueueRef.current) {
       const blob = new Blob(fullChunksRef.current, { type: 'audio/webm' });
       if (blob.size > 1000) {
         console.log("[AudioVoice] Sending remaining audio on stop");
-        sendAudioChunk(blob);
+        enqueueAudioChunk(blob);
       }
     }
     fullChunksRef.current = [];
     chunksRef.current = [];
 
     console.log("[AudioVoice] Stopped listening");
-  }, [clearTimers, sendAudioChunk]);
+  }, [clearTimers, enqueueAudioChunk]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
