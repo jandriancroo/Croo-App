@@ -172,7 +172,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .from('messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
+          profiles!messages_sender_id_fkey(full_name, nickname, profile_photo_url)
         `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: false })
@@ -227,7 +227,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .from('messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
+          profiles!messages_sender_id_fkey(full_name, nickname, profile_photo_url)
         `)
         .eq('chat_id', chatId)
         .lt('created_at', oldestMessage.created_at)
@@ -470,7 +470,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             // Fetch profile in background and update
             supabase
               .from('profiles')
-              .select('full_name, profile_photo_url')
+              .select('full_name, nickname, profile_photo_url')
               .eq('id', newMsg.sender_id)
               .single()
               .then(({ data: profile }) => {

@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, File, Clock } from 'lucide-react';
@@ -95,7 +96,7 @@ export function MessageBubble({
           <Avatar className="h-8 w-8">
             <AvatarImage src={message.profiles?.profile_photo_url || undefined} />
             <AvatarFallback className="text-xs">
-              {message.profiles?.full_name?.charAt(0) || 'U'}
+              {getInitials(getDisplayName(message.profiles?.full_name, (message.profiles as any)?.nickname))}
             </AvatarFallback>
           </Avatar>
         )}
@@ -106,7 +107,7 @@ export function MessageBubble({
         {showName && isFirstInCluster && (
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-medium text-muted-foreground">
-              {isPending ? 'You' : message.profiles?.full_name || 'Unknown'}
+              {isPending ? 'You' : getDisplayName(message.profiles?.full_name, (message.profiles as any)?.nickname) || 'Unknown'}
             </span>
             <span className="text-[10px] text-muted-foreground/70">
               {isPending ? 'Sending...' : format(new Date(message.created_at), 'h:mm a')}
@@ -156,7 +157,7 @@ export function MessageBubble({
                     : 'bg-background/50 border-primary/50'
                 }`}>
                   <p className={`font-medium mb-0.5 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                    {parent.profiles?.full_name || 'Unknown'}
+                    {getDisplayName(parent.profiles?.full_name, (parent.profiles as any)?.nickname) || 'Unknown'}
                   </p>
                   <p className={`line-clamp-1 ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
                     {parent.content || 'Attachment'}

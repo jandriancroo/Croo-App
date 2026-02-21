@@ -1,4 +1,5 @@
 import { memo, useState, useMemo } from "react";
+import { getDisplayName } from "@/utils/displayName";
 import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -30,6 +31,7 @@ interface WeeklyAvailability {
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
   hourly_wage?: number;
   display_order?: number;
@@ -169,14 +171,15 @@ function EmployeeRowComponent({
             {!isCompactMode && (
               <Avatar className="flex-shrink-0 hidden lg:flex h-10 w-10">
                 <AvatarImage src={profile.profile_photo_url || undefined} />
-                <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-sm">{getDisplayName(profile.full_name, profile.nickname).charAt(0)}</AvatarFallback>
               </Avatar>
             )}
             {!isCompactMode && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
+                <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
                   {(() => {
-                    const parts = profile.full_name.split(' ');
+                    const displayName = getDisplayName(profile.full_name, profile.nickname);
+                    const parts = displayName.split(' ');
                     const firstName = parts[0];
                     const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
                     return `${firstName}${lastInitial}`;
@@ -188,9 +191,10 @@ function EmployeeRowComponent({
               </div>
             )}
             {isCompactMode && (
-              <p className="text-xs md:text-sm font-semibold leading-tight truncate" title={profile.full_name}>
+              <p className="text-xs md:text-sm font-semibold leading-tight truncate" title={getDisplayName(profile.full_name, profile.nickname)}>
                 {(() => {
-                  const parts = profile.full_name.split(' ');
+                  const displayName = getDisplayName(profile.full_name, profile.nickname);
+                  const parts = displayName.split(' ');
                   const firstName = parts[0];
                   const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
                   return `${firstName}${lastInitial}`;
@@ -237,7 +241,7 @@ function EmployeeRowComponent({
          isToday={isToday}
          isCompactMode={isCompactMode}
          hasBirthday={hasBirthday}
-         profileName={profile.full_name}
+         profileName={getDisplayName(profile.full_name, profile.nickname)}
          templates={templates}
          recentTemplateIds={recentTemplateIds}
          onSmartTap={onSmartTap}
