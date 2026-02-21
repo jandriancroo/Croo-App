@@ -1,6 +1,5 @@
 import { useState, useRef, ReactNode, useCallback, createContext, useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
 
 // Context to expose refreshing state to children
 const PullToRefreshContext = createContext<{ isRefreshing: boolean }>({ isRefreshing: false });
