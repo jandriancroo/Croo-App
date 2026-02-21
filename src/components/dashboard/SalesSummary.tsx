@@ -544,9 +544,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           }
 
           const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
-            // Only override past days (not today/future) to avoid breaking live pace.
-            if (d.date >= todayStr) return d;
+            // For today: only patch labor from labor_cache (keep live sales/pace intact)
+            if (d.date === todayStr) {
+              const labor = laborMap.get(d.date);
+              if (labor) {
+                const laborCost = labor.cost;
+                const laborPercent = laborCost > 0 && d.sales > 0 ? (laborCost / d.sales) * 100 : 0;
+                return { ...d, laborCost, laborPercent };
+              }
+              return d;
+            }
+            // Future days: no changes
+            if (d.date > todayStr) return d;
 
+            // Past days: override sales + labor from cache
             const cachedSales = salesMap.get(d.date);
             const sales = cachedSales?.sales ?? d.sales;
             const guestCount = cachedSales?.guests ?? (d.guestCount || 0);
@@ -584,6 +595,42 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         }
       } catch (e) {
         console.warn('[SalesOverview] Weekly repair failed:', e);
+      }
+    }
+
+    // ALWAYS re-read today's labor from labor_cache to reflect any punch edits
+    // The localStorage cache may contain stale labor data from the edge function response
+    if (isTodayCheck && currentLocation?.id && salesData) {
+      try {
+        const todayStr = getDateString(targetDate);
+        const { data: freshLabor } = await supabase
+          .from('labor_cache')
+          .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
+          .eq('location_id', currentLocation.id)
+          .eq('labor_date', todayStr);
+
+        if (freshLabor && freshLabor.length > 0) {
+          // Prefer punch_clock source
+          const punchRow = freshLabor.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+          const quRow = freshLabor.find((r: any) => r.source === 'qubeyond');
+          const bestRow = punchRow || quRow;
+
+          if (bestRow) {
+            const laborCost = Number(bestRow.labor_cost) || 0;
+            const hoursWorked = Number(bestRow.labor_hours) || 0;
+            const dailySales = salesData.daily || 0;
+            salesData.labor = {
+              laborPercent: dailySales > 0 ? (laborCost / dailySales) * 100 : 0,
+              laborCost,
+              hoursWorked,
+              regularHours: Number(bestRow.regular_hours) || hoursWorked,
+              overtimeHours: Number(bestRow.overtime_hours) || 0
+            };
+            console.log('[SalesOverview] Refreshed today labor from labor_cache:', salesData.labor);
+          }
+        }
+      } catch (e) {
+        console.warn('[SalesOverview] Today labor refresh failed:', e);
       }
     }
 
