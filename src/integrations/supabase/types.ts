@@ -4083,6 +4083,7 @@ export type Database = {
           last_login_at: string | null
           max_weekly_hours: number | null
           min_weekly_hours: number | null
+          nickname: string | null
           phone_number: string | null
           profile_photo_url: string | null
           role: string | null
@@ -4109,6 +4110,7 @@ export type Database = {
           last_login_at?: string | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
+          nickname?: string | null
           phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null
@@ -4135,6 +4137,7 @@ export type Database = {
           last_login_at?: string | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
+          nickname?: string | null
           phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null

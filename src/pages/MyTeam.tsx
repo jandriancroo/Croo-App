@@ -6,11 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Loader2, Users, Phone, Cake } from 'lucide-react';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
+import { getDisplayName, getInitials } from '@/utils/displayName';
 
 interface TeamMember {
   id: string;
   full_name: string | null;
+  nickname: string | null;
   profile_photo_url: string | null;
   phone_number: string | null;
   birthday: string | null;
@@ -43,7 +45,7 @@ export default function MyTeam() {
       // Fetch basic profile info only
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('id, full_name, profile_photo_url, phone_number, birthday')
+        .select('id, full_name, nickname, profile_photo_url, phone_number, birthday')
         .in('id', userIds)
         .eq('is_active', true)
         .order('full_name', { ascending: true });
@@ -102,19 +104,21 @@ export default function MyTeam() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {teamMembers.map((member) => (
+            {teamMembers.map((member) => {
+              const displayName = getDisplayName(member.full_name, (member as any).nickname);
+              return (
               <Card key={member.id} className="p-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={member.profile_photo_url || undefined} />
                     <AvatarFallback>
-                      {member.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                      {getInitials(displayName)}
                     </AvatarFallback>
                   </Avatar>
                   
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
-                      {member.full_name || 'Unknown'}
+                      {displayName}
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       {formatPhone(member.phone_number) && (
@@ -136,7 +140,8 @@ export default function MyTeam() {
                   </div>
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
