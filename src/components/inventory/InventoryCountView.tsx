@@ -239,7 +239,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                             <TableHead className="text-right w-[13%] px-1">Cases</TableHead>
                             <TableHead className="text-right w-[13%] px-1">Units</TableHead>
                             <TableHead className="text-right w-[13%] px-1">Qty</TableHead>
-                            <TableHead className="text-right pr-3 w-[23%] px-1">Value</TableHead>
+                            <TableHead className="text-right pr-4 w-[23%]">Value</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -284,7 +284,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                                     <TableCell className="text-right font-mono text-sm px-1">{cases}</TableCell>
                                     <TableCell className="text-right font-mono text-sm px-1">{units}</TableCell>
                                     <TableCell className="text-right font-mono text-sm px-1">{item.quantity}</TableCell>
-                                    <TableCell className="text-right pr-3 font-medium text-primary text-sm px-1 truncate">
+                                    <TableCell className="text-right pr-4 font-medium text-primary text-sm truncate">
                                       {formatCurrency(value)}
                                     </TableCell>
                                   </TableRow>
