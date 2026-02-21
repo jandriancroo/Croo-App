@@ -235,23 +235,23 @@ async function createSystemSupportTicket(
 
     const locationName = location?.name || "Unknown";
 
-    // Get first admin at this location to use as ticket owner
-    const { data: adminUser } = await supabase
-      .from("user_locations")
-      .select("user_id, profiles!inner(id)")
-      .eq("location_id", locationId)
+    // Find the super_admin to assign the ticket to
+    const { data: superAdmin } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "super_admin")
       .limit(1)
       .single();
 
-    if (!adminUser?.user_id) {
-      console.error(`[QUEUE] Cannot create support ticket - no users at location ${locationId}`);
+    if (!superAdmin?.user_id) {
+      console.error(`[QUEUE] Cannot create support ticket - no super_admin found`);
       return;
     }
 
     const { error: ticketError } = await supabase
       .from("support_tickets")
       .insert({
-        user_id: adminUser.user_id,
+        user_id: superAdmin.user_id,
         category: "data_sync_issues",
         description: `${locationName} - System Alert: PFG integration token has expired and could not be refreshed after ${MAX_RETRIES} attempts. A manager needs to re-authenticate PFG in Settings → Integrations.\n\nError: ${errorMsg}`,
         occurrence_time: new Date().toISOString(),
