@@ -267,7 +267,7 @@ export const Layout = ({
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
-  const { canViewWallet } = useRolePermissions();
+  useRolePermissions(); // Keep hook loaded for permission checks elsewhere
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
@@ -595,7 +595,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     icon: MessageSquare
   }];
   const timeMenuItems = [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && canViewWallet ? [{
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
       path: '/my-wallet',
       label: 'My Wallet',
       icon: Wallet
@@ -653,7 +653,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   // Time-related items for mobile collapsible section
   const mobileTimeItems = isChecklistOnlyLocation ? [] : [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && canViewWallet ? [{
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
       path: '/my-wallet',
       label: 'My Wallet',
       icon: Wallet
