@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -16,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { Loader2, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays, Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
@@ -41,7 +43,11 @@ const STATUS_COLORS: Record<ApplicationStatus, string> = {
 export default function Hiring() {
   const queryClient = useQueryClient();
   const { currentLocation } = useAppLocation();
-  const { isAdmin } = useUserRole();
+  const { isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
+  const { hasPermission } = useRolePermissions();
+  const navigate = useNavigate();
+  const canAccessHiring = isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring');
+  const isOrgLevelAccess = isOrgAdmin || isBrandAdmin || isSuperAdmin; // sees all locations
   const [activeTab, setActiveTab] = useState('applicants');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -60,6 +66,12 @@ export default function Hiring() {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [templatesSubTab, setTemplatesSubTab] = useState<'application' | 'rejection'>('application');
 
+  // Redirect if no access
+  useEffect(() => {
+    if (!canAccessHiring) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [canAccessHiring, navigate]);
   // Get organization for current location
   const { data: organization, isLoading: orgLoading } = useQuery({
     queryKey: ['location-org', currentLocation?.id],
@@ -85,19 +97,34 @@ export default function Hiring() {
     enabled: !!currentLocation?.id,
   });
 
-  // Fetch all locations for the organization (for filtering)
+  // Fetch locations for filtering - org-level sees all, others see only their assigned locations
   const { data: orgLocations } = useQuery({
-    queryKey: ['org-locations', organization?.id],
+    queryKey: ['org-locations-hiring', organization?.id, isOrgLevelAccess],
     queryFn: async () => {
       if (!organization?.id) return [];
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('organization_id', organization.id)
-        .eq('location_type', 'standard')
-        .order('name');
-      if (error) throw error;
-      return data;
+      
+      if (isOrgLevelAccess) {
+        // Org admin+ sees all locations
+        const { data, error } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('organization_id', organization.id)
+          .eq('location_type', 'standard')
+          .order('name');
+        if (error) throw error;
+        return data;
+      } else {
+        // Admin/manager/shift_manager sees only their assigned locations
+        const { data, error } = await supabase
+          .from('locations')
+          .select('id, name, user_locations!inner(user_id)')
+          .eq('organization_id', organization.id)
+          .eq('location_type', 'standard')
+          .eq('user_locations.user_id', (await supabase.auth.getUser()).data.user?.id)
+          .order('name');
+        if (error) throw error;
+        return data;
+      }
     },
     enabled: !!organization?.id,
   });
@@ -120,7 +147,7 @@ export default function Hiring() {
 
   // Fetch applications
   const { data: applications, isLoading: appsLoading } = useQuery({
-    queryKey: ['job-applications', organization?.id, currentLocation?.id, statusFilter, locationFilter, rejectionTemplateFilter],
+    queryKey: ['job-applications', organization?.id, statusFilter, locationFilter, rejectionTemplateFilter, isOrgLevelAccess],
     queryFn: async () => {
       if (!organization?.id) return [];
 
@@ -136,11 +163,13 @@ export default function Hiring() {
         .eq('organization_id', organization.id)
         .order('submitted_at', { ascending: false });
 
-      // Filter by location if not admin, or if location filter is set
+      // Location scoping
       if (locationFilter !== 'all') {
         query = query.eq('location_id', locationFilter);
-      } else if (currentLocation?.id && !isAdmin) {
-        query = query.eq('location_id', currentLocation.id);
+      } else if (!isOrgLevelAccess && orgLocations?.length) {
+        // Non-org-level users: scope to their assigned locations only
+        const assignedLocationIds = orgLocations.map((l: any) => l.id);
+        query = query.in('location_id', assignedLocationIds);
       }
 
       if (statusFilter !== 'all') {

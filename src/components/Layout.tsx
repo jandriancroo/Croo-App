@@ -252,6 +252,7 @@ export const Layout = ({
   const [searchParams] = useSearchParams();
   const {
     isAdmin,
+    isOrgAdmin,
     isShiftManager,
     canViewSalesAndLabor,
     canViewTimecards,
@@ -267,9 +268,10 @@ export const Layout = ({
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
-  useRolePermissions(); // Keep hook loaded for permission checks elsewhere
+  const { hasPermission } = useRolePermissions();
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
+  const canAccessHiring = !roleLoading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring'));
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
@@ -686,7 +688,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       label: 'My Team',
       icon: Users
     }]),
-    ...(!roleLoading && isAdmin ? [{
+    ...(canAccessHiring ? [{
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
@@ -851,10 +853,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         <Users className="h-4 w-4" />
                         User Management
                       </DropdownMenuItem>
+                      {canAccessHiring && (
                       <DropdownMenuItem onClick={() => navigate('/hiring')} className="gap-2 cursor-pointer">
                         <Briefcase className="h-4 w-4" />
                         Hiring
                       </DropdownMenuItem>
+                      )}
                     </>
                   )}
                   {!isAdmin && (
