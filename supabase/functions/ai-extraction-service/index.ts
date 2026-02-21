@@ -577,6 +577,119 @@ async function handleParseCateringOrder(payload: any) {
   return jsonResponse({ success: true, data: JSON.parse(toolCall.function.arguments) });
 }
 
+// Audio-based voice parsing: accepts base64 audio, transcribes + matches in one Gemini call
+async function handleParseInventoryAudio(payload: any) {
+  const { audioBase64, mimeType, items } = payload;
+  if (!audioBase64 || !items) return errorResponse('Missing audioBase64 or items', 400);
+
+  const itemNames = items.map((i: any) => i.item_name).join(', ');
+
+  const systemPrompt = `You are an inventory voice command parser for a restaurant. Listen to the audio and extract item counts.
+
+Available inventory items: ${itemNames}
+
+Rules:
+- Match spoken item names to the closest available item (fuzzy match ok)
+- "cases" / "cs" / "boxes" = cases field
+- "units" / "ea" / "each" / "pieces" = units field
+- A plain number with no unit keyword = cases (default)
+- "half" = 0.5, "a" = 1
+- Extract ALL items mentioned
+- Use the EXACT item_name from the list above
+- Also return the full transcript of what was said`;
+
+  const audioDataUrl = `data:${mimeType || 'audio/webm;codecs=opus'};base64,${audioBase64}`;
+
+  const data = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Listen to this audio and extract inventory counts. Return the transcript and parsed items.' },
+            { type: 'image_url', image_url: { url: audioDataUrl } }
+          ]
+        }
+      ],
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'record_inventory_from_audio',
+          description: 'Record inventory counts parsed from audio',
+          parameters: {
+            type: 'object',
+            properties: {
+              transcript: { type: 'string', description: 'Full text transcript of what was said' },
+              commands: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    item_name: { type: 'string', description: 'Exact item name from the available list' },
+                    cases: { type: 'number', description: 'Number of cases (default 0)' },
+                    units: { type: 'number', description: 'Number of units (default 0)' },
+                  },
+                  required: ['item_name', 'cases', 'units'],
+                  additionalProperties: false,
+                }
+              }
+            },
+            required: ['transcript', 'commands'],
+            additionalProperties: false,
+          }
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'record_inventory_from_audio' } },
+    }),
+  });
+
+  if (!data.ok) {
+    const errText = await data.text();
+    console.error('[parse-inventory-audio] AI error:', data.status, errText);
+    return errorResponse('AI service error', 500);
+  }
+
+  const json = await data.json();
+  const toolCall = json.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) {
+    return jsonResponse({ transcript: '', commands: [] });
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(toolCall.function.arguments);
+  } catch (e) {
+    console.error('[parse-inventory-audio] JSON parse error:', e);
+    return jsonResponse({ transcript: '', commands: [] });
+  }
+
+  // Match AI-returned item names back to item IDs
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const results = (parsed.commands || []).map((cmd: any) => {
+    const normCmd = normalize(cmd.item_name);
+    let matchedItem = items.find((i: any) => normalize(i.item_name) === normCmd);
+    if (!matchedItem) {
+      matchedItem = items.find((i: any) => normalize(i.item_name).includes(normCmd) || normCmd.includes(normalize(i.item_name)));
+    }
+    return {
+      item_name: matchedItem?.item_name || cmd.item_name,
+      matched_item_id: matchedItem?.item_id || null,
+      cases: cmd.cases || 0,
+      units: cmd.units || 0,
+      confidence: matchedItem ? 'high' : 'low',
+    };
+  }).filter((cmd: any) => cmd.matched_item_id);
+
+  return jsonResponse({ transcript: parsed.transcript || '', commands: results });
+}
+
 async function handleParseInventoryVoice(payload: any) {
   const { transcript, items } = payload;
   if (!transcript || !items) return errorResponse('Missing transcript or items', 400);
@@ -899,6 +1012,8 @@ serve(async (req) => {
         return await handleExtractCertificationDate(payload);
       case 'parse-catering-order':
         return await handleParseCateringOrder(payload);
+      case 'parse-inventory-audio':
+        return await handleParseInventoryAudio(payload);
       case 'parse-inventory-voice':
         return await handleParseInventoryVoice(payload);
       case 'rescan-temperatures':
