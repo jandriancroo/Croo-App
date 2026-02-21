@@ -1383,13 +1383,13 @@ export default function UserManagement() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={getUserStatusDisplay(user).variant}>
+                      <TableCell className="hidden md:table-cell whitespace-nowrap">
+                        <Badge variant={getUserStatusDisplay(user).variant} className="whitespace-nowrap">
                           {getUserStatusDisplay(user).label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1">
+                      <TableCell className="hidden md:table-cell whitespace-nowrap">
+                        <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1 whitespace-nowrap">
                           {getRoleIcon(user.role!)}
                           {getRoleDisplayName(user.role!)}
                         </Badge>
