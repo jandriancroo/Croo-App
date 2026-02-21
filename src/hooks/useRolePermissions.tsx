@@ -40,13 +40,11 @@ export const useRolePermissions = () => {
   const loading = roleLoading || permissionsLoading;
 
   // Shift managers and above always have access to these features
-  // Team members need explicit permission
-  const canViewWallet = isShiftManager || (permissions?.view_wallet ?? true);
+  // Team members need explicit permission from role_permissions table
   const canViewSickTime = isShiftManager || (permissions?.view_sick_time ?? true);
 
   return {
     loading,
-    canViewWallet,
     canViewSickTime,
     // Generic permission checker
     hasPermission: (key: string) => isShiftManager || (permissions?.[key] ?? false),
