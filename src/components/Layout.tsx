@@ -890,19 +890,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
 
       {/* Mobile Header */}
-      <header className={`sticky top-0 z-50 bg-background border-b border-border/20 ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="flex items-center gap-2">
+            <div className="nav-logo-inline">
               {headerLogo ? (
                 <img 
                   src={headerLogo} 
                   alt={headerLogoAlt} 
-                  className="h-10 w-auto max-w-[120px] object-contain rounded-lg"
-                  style={{ background: 'transparent' }}
                 />
               ) : (
-                <div className="h-10 w-10 rounded-xl bg-white/20" />
+                <div className="h-8 w-8 rounded-lg bg-white/20" />
               )}
             </div>
           </div>
@@ -912,7 +910,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
-                className="gap-1.5 h-10 text-base font-medium"
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
@@ -924,14 +922,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </div>
           )}
           
-          {/* Mobile More Menu Button */}
+          {/* Mobile Menu - Profile Avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="ml-auto p-2 rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors"
+                className="ml-auto p-1 rounded-full transition-colors"
                 title="More options"
               >
-                <Menu className="h-6 w-6" />
+                <Avatar className="h-9 w-9 ring-2 ring-white/30">
+                  <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                  <AvatarFallback className="text-xs bg-white/20 text-primary-foreground">{initials}</AvatarFallback>
+                </Avatar>
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
