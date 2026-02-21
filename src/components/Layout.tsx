@@ -407,16 +407,27 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, [user?.id, isSuperAdmin, isBrandAdmin]);
 
   // Block native overscroll when touching the mobile header (prevents header pull-down)
+  // Unconditionally prevent vertical drag on the header — it should never scroll or rubber-band
   useEffect(() => {
     const header = mobileHeaderRef.current;
     if (!header) return;
+    let startY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
     const onTouchMove = (e: TouchEvent) => {
-      if (window.scrollY <= 0) {
+      const dy = e.touches[0].clientY - startY;
+      // Block downward drags (pull-to-refresh direction)
+      if (dy > 0) {
         e.preventDefault();
       }
     };
+    header.addEventListener('touchstart', onTouchStart, { passive: true });
     header.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => header.removeEventListener('touchmove', onTouchMove);
+    return () => {
+      header.removeEventListener('touchstart', onTouchStart);
+      header.removeEventListener('touchmove', onTouchMove);
+    };
   }, []);
 
   // Fetch user profile for avatar
