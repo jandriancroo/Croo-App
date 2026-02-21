@@ -231,15 +231,15 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-0">
-                    <div className="w-full">
+                    <div className="w-full overflow-hidden">
                       <Table className="table-fixed w-full">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="pl-4 w-[40%]">Item</TableHead>
-                            <TableHead className="text-right w-[14%] px-1">Cases</TableHead>
-                            <TableHead className="text-right w-[14%] px-1">Units</TableHead>
-                            <TableHead className="text-right w-[16%] px-1">Qty</TableHead>
-                            <TableHead className="text-right pr-4 w-[16%] px-1">Value</TableHead>
+                            <TableHead className="pl-3 w-[38%]">Item</TableHead>
+                            <TableHead className="text-right w-[13%] px-1">Cases</TableHead>
+                            <TableHead className="text-right w-[13%] px-1">Units</TableHead>
+                            <TableHead className="text-right w-[13%] px-1">Qty</TableHead>
+                            <TableHead className="text-right pr-3 w-[23%] px-1">Value</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -255,7 +255,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                               <Collapsible key={item.id} asChild>
                                 <>
                                   <TableRow className={hasEdits ? "cursor-pointer hover:bg-muted/50" : ""}>
-                                    <TableCell className="pl-4">
+                                    <TableCell className="pl-3">
                                       <div className="flex items-center gap-2">
                                         {hasEdits && (
                                           <CollapsibleTrigger asChild>
