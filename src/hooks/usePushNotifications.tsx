@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -79,11 +79,7 @@ export const usePushNotifications = () => {
           // Only show toast once per session to avoid spam
           if (!sessionStorage.getItem('push_denied_toast_shown')) {
             sessionStorage.setItem('push_denied_toast_shown', 'true');
-            toast({
-              title: "Notifications Disabled",
-              description: "Go to iOS Settings → Safari → Notifications to enable",
-              variant: "destructive",
-            });
+            toast.error("Notifications Disabled — Go to iOS Settings → Safari → Notifications to enable");
           }
           return;
         }
@@ -200,10 +196,7 @@ export const usePushNotifications = () => {
         // Only show toast once per session
         if (!sessionStorage.getItem('push_notifications_toast_shown')) {
           sessionStorage.setItem('push_notifications_toast_shown', 'true');
-          toast({
-            title: "Notifications Enabled",
-            description: "You'll receive push notifications for important updates.",
-          });
+          toast.success("Notifications Enabled");
         }
 
         console.log('[Push Web] ✅ Web push setup complete!');
