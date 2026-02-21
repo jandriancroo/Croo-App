@@ -16,9 +16,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Check if this is the user's first login and update last_login_at
-const checkFirstLogin = async (userId: string) => {
+// Returns true if this is the user's first login
+const checkFirstLogin = async (userId: string): Promise<boolean> => {
   try {
-    // Check if first_login_at is already set
     const { data: profile } = await supabase
       .from('profiles')
       .select('first_login_at')
@@ -27,7 +27,6 @@ const checkFirstLogin = async (userId: string) => {
 
     const isFirstLogin = profile && !profile.first_login_at;
 
-    // Always update last_login_at; also set first_login_at if first time
     const updatePayload: Record<string, string> = {
       last_login_at: new Date().toISOString(),
     };
@@ -42,13 +41,15 @@ const checkFirstLogin = async (userId: string) => {
       .eq('id', userId);
 
     if (isFirstLogin) {
-      // Also try to notify managers (non-blocking)
       supabase.functions.invoke('hiring-email-service', {
         body: { action: 'employee_joined', userId }
       }).catch(err => console.warn('employee-joined notification failed:', err));
     }
+
+    return !!isFirstLogin;
   } catch (error) {
     console.error('Error checking first login:', error);
+    return false;
   }
 };
 
@@ -73,8 +74,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const userId = session.user.id;
           if (!checkedFirstLoginRef.current.has(userId)) {
             checkedFirstLoginRef.current.add(userId);
-            setTimeout(() => {
-              checkFirstLogin(userId);
+            setTimeout(async () => {
+              const isFirst = await checkFirstLogin(userId);
+              if (isFirst) {
+                navigate('/welcome');
+              }
             }, 0);
           }
         }
