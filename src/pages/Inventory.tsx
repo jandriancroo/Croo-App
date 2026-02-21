@@ -32,13 +32,8 @@ const Inventory = () => {
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
 
   if (!canAccessInventory) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <p className="text-muted-foreground">You don't have access to inventory management.</p>
-        </div>
-      </Layout>
-    );
+    navigate('/dashboard', { replace: true });
+    return null;
   }
 
   // Fetch location details
