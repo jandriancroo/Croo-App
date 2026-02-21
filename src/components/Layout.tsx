@@ -261,6 +261,7 @@ export const Layout = ({
     loading: roleLoading
   } = useUserRole();
   const isMobile = useIsMobile();
+  const mobileHeaderRef = useRef<HTMLElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
@@ -404,6 +405,19 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     };
     checkExtras();
   }, [user?.id, isSuperAdmin, isBrandAdmin]);
+
+  // Block native overscroll when touching the mobile header (prevents header pull-down)
+  useEffect(() => {
+    const header = mobileHeaderRef.current;
+    if (!header) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (window.scrollY <= 0) {
+        e.preventDefault();
+      }
+    };
+    header.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => header.removeEventListener('touchmove', onTouchMove);
+  }, []);
 
   // Fetch user profile for avatar
   const { data: userProfile } = useQuery({
@@ -890,7 +904,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
 
       {/* Mobile Header — Full Bleed + Bottom Curve */}
-      <header className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`} style={{ paddingTop: 'calc(env(safe-area-inset-top) - 6px)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 12px hsl(0 0% 0% / 0.15)' }}>
+      <header
+        ref={mobileHeaderRef}
+        className={`sticky top-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) - 6px)', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 12px hsl(0 0% 0% / 0.15)' }}
+      >
         <div className="flex items-center relative h-14 px-4">
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="nav-logo-inline">
