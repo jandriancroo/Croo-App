@@ -399,14 +399,13 @@ async function fetchProductListHeaders(accessToken: string, customerId?: string)
 
 // Fetch order history from PFG
 async function fetchOrderHistory(accessToken: string, customerId?: string): Promise<any> {
-  console.log('[PFG API] Fetching order history (submitted orders)');
+  console.log('[PFG API] Fetching order history');
 
-  // PFG expects CustomerIds as an array, plus a date window
   const now = new Date();
   const startDate = new Date(now);
-  startDate.setDate(startDate.getDate() - 60); // 60 days back
+  startDate.setDate(startDate.getDate() - 60);
   const endDate = new Date(now);
-  endDate.setDate(endDate.getDate() + 30); // 30 days forward
+  endDate.setDate(endDate.getDate() + 30);
 
   const requestBody: any = {
     StartDate: startDate.toISOString(),
@@ -415,55 +414,46 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
   if (customerId) {
     requestBody.CustomerIds = [customerId];
   }
-  console.log('[PFG API] Order request body:', JSON.stringify(requestBody));
 
-  // Try primary endpoint first
-  const primaryResult = await fetchPfgJson(
-    '/SubmittedOrder/V1/GetSubmittedOrderHeaders',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+  // 1. Try GetSubmittedOrderHeaders (works for standard accounts)
+  try {
+    console.log('[PFG API] Trying GetSubmittedOrderHeaders');
+    const primaryResult = await fetchPfgJson(
+      '/SubmittedOrder/V1/GetSubmittedOrderHeaders',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    },
-  );
+    );
 
-  // Check if we got results
-  const primaryOrders = primaryResult?.ResultObject;
-  const hasOrders = Array.isArray(primaryOrders) ? primaryOrders.length > 0 : 
-    (primaryOrders && typeof primaryOrders === 'object' && Object.keys(primaryOrders).length > 0);
-  
-  if (hasOrders) {
-    console.log('[PFG API] Got orders from GetSubmittedOrderHeaders');
-    return primaryResult;
+    const primaryOrders = primaryResult?.ResultObject;
+    if (Array.isArray(primaryOrders) && primaryOrders.length > 0) {
+      console.log(`[PFG API] Got ${primaryOrders.length} orders from GetSubmittedOrderHeaders`);
+      return primaryResult;
+    }
+  } catch (err) {
+    console.warn('[PFG API] GetSubmittedOrderHeaders failed:', (err as Error).message?.slice(0, 200));
   }
 
-  // Fallback: try delivery headers endpoint (for TRACS Direct accounts)
-  console.log('[PFG API] No orders from GetSubmittedOrderHeaders, trying GetDeliveryHeaders fallback...');
-  
-  const deliveryEndpoints = [
-    '/Delivery/V1/GetDeliveryHeaders',
-    '/OrderHistory/V1/GetOrderHistory',
-    '/Invoice/V1/GetInvoiceHeaders',
-  ];
+  // 2. Try GetDeliveries (works for TRACS Direct / CFS accounts)
+  try {
+    console.log('[PFG API] Trying GetDeliveries (TRACS Direct endpoint)');
+    const deliveryBody: any = {
+      StartDate: startDate.toISOString(),
+      EndDate: endDate.toISOString(),
+    };
+    if (customerId) {
+      deliveryBody.CustomerIds = [customerId];
+    }
 
-  for (const path of deliveryEndpoints) {
-    try {
-      // Try with CustomerId in request body
-      const deliveryBody: any = {
-        StartDate: startDate.toISOString(),
-        EndDate: endDate.toISOString(),
-      };
-      if (customerId) {
-        deliveryBody.CustomerId = customerId;
-        deliveryBody.CustomerIds = [customerId];
-      }
-      
-      console.log('[PFG API] Trying fallback endpoint:', path);
-      const data = await fetchPfgJson(path, {
+    const deliveryResult = await fetchPfgJson(
+      '/Delivery/V1/GetDeliveries',
+      {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -471,60 +461,21 @@ async function fetchOrderHistory(accessToken: string, customerId?: string): Prom
           'Accept': 'application/json',
         },
         body: JSON.stringify(deliveryBody),
-      });
-      
-      console.log('[PFG API] Fallback response from', path, '→ IsSuccess:', data?.IsSuccess, 
-        'ResultObject type:', typeof data?.ResultObject, 
-        'length:', Array.isArray(data?.ResultObject) ? data.ResultObject.length : 'n/a');
-      
-      if (data?.ResultObject) {
-        const result = data.ResultObject;
-        const items = Array.isArray(result) ? result : (result.Orders || result.Deliveries || result.Invoices || result.Items || []);
-        if (items.length > 0) {
-          console.log(`[PFG API] Got ${items.length} orders from fallback ${path}`);
-          // Return in same format as primary endpoint
-          return { ...data, ResultObject: items };
-        }
-      }
-    } catch (err) {
-      console.warn('[PFG API] Fallback endpoint failed:', path, (err as Error).message?.slice(0, 200));
+      },
+    );
+
+    const deliveries = deliveryResult?.ResultObject;
+    if (Array.isArray(deliveries) && deliveries.length > 0) {
+      console.log(`[PFG API] Got ${deliveries.length} deliveries from GetDeliveries`);
+      // Mark as delivery-sourced so sync handler knows the field mapping
+      return { ...deliveryResult, _source: 'GetDeliveries' };
     }
-  }
-
-  // Also try GET-based order history endpoints
-  const getEndpoints = [
-    `/Delivery/V1/GetDeliveryHeaders?CustomerId=${customerId || ''}`,
-    `/OrderHistory/V1/GetOrderHeaders?CustomerId=${customerId || ''}`,
-  ];
-
-  for (const path of getEndpoints) {
-    try {
-      console.log('[PFG API] Trying GET fallback:', path);
-      const data = await fetchPfgJson(path, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      console.log('[PFG API] GET fallback response keys:', JSON.stringify(Object.keys(data || {})).slice(0, 300));
-      
-      if (data?.ResultObject) {
-        const result = data.ResultObject;
-        const items = Array.isArray(result) ? result : [];
-        if (items.length > 0) {
-          console.log(`[PFG API] Got ${items.length} orders from GET ${path}`);
-          return { ...data, ResultObject: items };
-        }
-      }
-    } catch (err) {
-      console.warn('[PFG API] GET fallback failed:', path.split('?')[0], (err as Error).message?.slice(0, 200));
-    }
+  } catch (err) {
+    console.warn('[PFG API] GetDeliveries failed:', (err as Error).message?.slice(0, 200));
   }
 
   console.log('[PFG API] All order history endpoints returned empty');
-  return primaryResult;
+  return { ResultObject: [], IsSuccess: true };
 }
 
 // Fetch delivery detail (line items) for a specific order
@@ -1327,12 +1278,20 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
         console.log('[PFG Sync] Sample order keys:', JSON.stringify(Object.keys(rawOrders[0])).slice(0, 500));
       }
 
-      // Filter orders by DeliverToCustomerNumber if configured
+      // Detect if data came from GetDeliveries (TRACS Direct) vs GetSubmittedOrderHeaders
+      const isDeliveriesSource = orderData?._source === 'GetDeliveries';
+      console.log(`[PFG Sync] Data source: ${isDeliveriesSource ? 'GetDeliveries' : 'GetSubmittedOrderHeaders'}`);
+
+      // Filter orders by delivery customer number if configured
       const deliverToFilter = (credentials as any).deliver_to_customer_number;
       if (deliverToFilter) {
         const beforeCount = rawOrders.length;
-        rawOrders = rawOrders.filter((o: any) => String(o.DeliverToCustomerNumber) === String(deliverToFilter));
-        console.log(`[PFG Sync] Filtered by DeliverToCustomerNumber ${deliverToFilter}: ${beforeCount} → ${rawOrders.length} orders`);
+        rawOrders = rawOrders.filter((o: any) => {
+          // GetDeliveries uses CustomerNumber, GetSubmittedOrderHeaders uses DeliverToCustomerNumber
+          const orderCustNum = String(o.CustomerNumber || o.DeliverToCustomerNumber || '');
+          return orderCustNum === String(deliverToFilter);
+        });
+        console.log(`[PFG Sync] Filtered by delivery number ${deliverToFilter}: ${beforeCount} → ${rawOrders.length} orders`);
       } else {
         console.log('[PFG Sync] No deliver_to_customer_number filter set — importing all orders');
       }
@@ -1340,22 +1299,44 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
       let importedCount = 0;
 
       for (const order of rawOrders) {
-        // Map PFG SubmittedOrder fields
-        const pfgOrderId = order.OrderKey || order.OrderNumber || order.OrderId || order.SubmittedOrderId;
-        if (!pfgOrderId) continue;
+        let pfgOrderId: string;
+        let orderDate: string | null;
+        let deliveryDate: string | null;
+        let orderNumber: string;
+        let totalAmount: number | null;
 
-        // DeliveryDate is the primary date for these orders
-        const deliveryDate = parsePfgDate(order.DeliveryDate);
-        // Use DeliveryDate as order_date too since headers don't have a separate "ordered on" date
-        const orderDate = deliveryDate || parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
+        if (isDeliveriesSource) {
+          // GetDeliveries format: DeliveryKey is the unique ID, Invoices array has invoice numbers
+          pfgOrderId = order.DeliveryKey || order.Invoices?.[0]?.InvoiceNumber || '';
+          deliveryDate = parsePfgDate(order.DeliveryDate);
+          orderDate = parsePfgDate(order.ShippedDate) || deliveryDate;
+          orderNumber = order.Invoices?.[0]?.InvoiceNumber || order.DeliveryKey || '';
+          totalAmount = order.TotalDollars ?? null;
+        } else {
+          // GetSubmittedOrderHeaders format
+          pfgOrderId = order.OrderKey || order.OrderNumber || order.OrderId || order.SubmittedOrderId || '';
+          deliveryDate = parsePfgDate(order.DeliveryDate);
+          orderDate = deliveryDate || parsePfgDate(order.OrderDate || order.SubmittedDate || order.CreatedDate);
+          orderNumber = order.OrderNumber || order.PurchaseOrderNumber || String(pfgOrderId);
+          totalAmount = order.OrderTotalSales || order.TotalAmount || order.OrderTotal || order.Total || null;
+        }
 
-        if (!orderDate) continue;
+        if (!pfgOrderId || !orderDate) continue;
 
         // Fetch line items from GetDeliveryDetail
         let items: any[] = [];
         const customerIdForDetail = customerIdToUse || order.CustomerId;
         if (customerIdForDetail) {
-          const detailItems = await fetchDeliveryDetail(accessToken, order, customerIdForDetail);
+          // For GetDeliveries source, we need to build the order object with the right fields for fetchDeliveryDetail
+          const orderForDetail = isDeliveriesSource ? {
+            OrderOperationCompanyNumber: order.DeliveryOperationCompanyNumber,
+            DeliverToCustomerNumber: order.CustomerNumber,
+            DeliveryDate: order.DeliveryDate,
+            OrderKey: order.Invoices?.[0]?.InvoiceHeaderKey || order.Invoices?.[0]?.InvoiceNumber,
+            OrderBusinessUnitERPKey: order.DeliveryBusinessUnitERPKey || 0,
+          } : order;
+          
+          const detailItems = await fetchDeliveryDetail(accessToken, orderForDetail, customerIdForDetail);
           items = detailItems.map((item: any) => {
             const uom = item.DeliveryDetailUnitOfMeasures?.[0] || {};
             return {
@@ -1383,11 +1364,11 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
           .upsert({
             location_id: integration.location_id,
             pfg_order_id: String(pfgOrderId),
-            order_number: order.OrderNumber || order.PurchaseOrderNumber || String(pfgOrderId),
+            order_number: orderNumber,
             order_date: orderDate,
             delivery_date: deliveryDate,
-            status: String(order.OrderStatus ?? order.Status ?? ''),
-            total_amount: order.OrderTotalSales || order.TotalAmount || order.OrderTotal || order.Total,
+            status: String(order.DeliveryStatus ?? order.OrderStatus ?? order.Status ?? ''),
+            total_amount: totalAmount,
             items: items.length > 0 ? items : null,
             raw_data: order,
             updated_at: new Date().toISOString(),
@@ -1470,17 +1451,17 @@ async function handleListDeliveryLocations(supabase: any, body: any): Promise<Re
     rawOrders = [];
   }
 
-  // Extract unique delivery locations
+  // Extract unique delivery locations (handle both GetSubmittedOrderHeaders and GetDeliveries field names)
   const deliveryLocations = new Map<string, { number: string; name: string; orderCount: number }>();
   for (const order of rawOrders) {
-    const num = order.DeliverToCustomerNumber;
-    const name = order.DeliverToCustomerName || 'Unknown';
+    const num = order.DeliverToCustomerNumber || order.CustomerNumber;
+    const name = order.DeliverToCustomerName || order.CustomerName || 'Unknown';
     if (num) {
-      const existing = deliveryLocations.get(num);
+      const existing = deliveryLocations.get(String(num));
       if (existing) {
         existing.orderCount++;
       } else {
-        deliveryLocations.set(num, { number: num, name: name.trim(), orderCount: 1 });
+        deliveryLocations.set(String(num), { number: String(num), name: name.trim(), orderCount: 1 });
       }
     }
   }
