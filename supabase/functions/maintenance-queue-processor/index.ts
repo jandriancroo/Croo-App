@@ -72,6 +72,11 @@ Deno.serve(async (req) => {
 
         results.push({ id: task.id, task_type: task.task_type, status: "error", error: errorMsg });
         console.error(`[QUEUE] ✗ ${task.task_type} for location ${task.location_id}: ${errorMsg}`);
+
+        // If PFG token refresh permanently failed, auto-create a support ticket
+        if (task.task_type === "refresh_pfg_token" && newRetry >= MAX_RETRIES) {
+          await createSystemSupportTicket(supabase, task.location_id, errorMsg);
+        }
       }
     }
 
@@ -210,4 +215,54 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
   }
 
   return await response.json();
+}
+
+// ============================================================================
+// AUTO-CREATE SUPPORT TICKET ON PERMANENT PFG FAILURE
+// ============================================================================
+async function createSystemSupportTicket(
+  supabase: ReturnType<typeof createClient>,
+  locationId: string,
+  errorMsg: string
+) {
+  try {
+    // Get location name
+    const { data: location } = await supabase
+      .from("locations")
+      .select("name")
+      .eq("id", locationId)
+      .single();
+
+    const locationName = location?.name || "Unknown";
+
+    // Get first admin at this location to use as ticket owner
+    const { data: adminUser } = await supabase
+      .from("user_locations")
+      .select("user_id, profiles!inner(id)")
+      .eq("location_id", locationId)
+      .limit(1)
+      .single();
+
+    if (!adminUser?.user_id) {
+      console.error(`[QUEUE] Cannot create support ticket - no users at location ${locationId}`);
+      return;
+    }
+
+    const { error: ticketError } = await supabase
+      .from("support_tickets")
+      .insert({
+        user_id: adminUser.user_id,
+        category: "data_sync_issues",
+        description: `${locationName} - System Alert: PFG integration token has expired and could not be refreshed after ${MAX_RETRIES} attempts. A manager needs to re-authenticate PFG in Settings → Integrations.\n\nError: ${errorMsg}`,
+        occurrence_time: new Date().toISOString(),
+      });
+
+    if (ticketError) {
+      console.error(`[QUEUE] Failed to create support ticket:`, ticketError.message);
+    } else {
+      console.log(`[QUEUE] ⚠️ Auto-created support ticket for PFG failure at ${locationName}`);
+    }
+  } catch (err) {
+    console.error(`[QUEUE] Error creating support ticket:`, err);
+  }
 }
