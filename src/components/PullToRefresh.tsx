@@ -155,13 +155,15 @@ export const PullToRefresh = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Pull indicator — animated dot wave */}
+        {/* Pull indicator — animated dot wave, tucked under sticky header */}
         <div 
           className="flex items-center justify-center overflow-hidden"
           style={{ 
             height: pullDistance > 0 ? pullDistance : 0,
+            marginTop: pullDistance > 0 || isRefreshing ? -20 : 0,
+            paddingTop: pullDistance > 0 || isRefreshing ? 20 : 0,
             opacity: Math.max(progress * 1.2, isRefreshing ? 1 : 0),
-            transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease',
+            transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease, margin-top 0.3s ease, padding-top 0.3s ease',
           }}
         >
           <div className="flex items-center gap-[5px] py-2">
