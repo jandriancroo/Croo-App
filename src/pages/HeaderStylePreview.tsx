@@ -1,4 +1,4 @@
-import { MapPin, ChevronDown, LayoutDashboard, CheckSquare, Calendar, MessageSquare, Users, RefreshCw } from "lucide-react";
+import { MapPin, ChevronDown, LayoutDashboard, CheckSquare, Calendar, MessageSquare, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -71,11 +71,24 @@ function MockContent() {
   );
 }
 
-function PullRefreshIndicator() {
+function PullRefreshIndicator({ animating = false }: { animating?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center py-4">
-      <RefreshCw className="h-6 w-6 text-primary animate-spin" />
-      <span className="text-xs text-primary mt-1 font-medium">Release to refresh</span>
+    <div className="flex items-center justify-center py-4">
+      <div className="flex items-center gap-[5px]">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-2 w-2 rounded-full bg-primary"
+            style={{
+              animation: animating
+                ? `ptr-dot-wave 1s ease-in-out ${i * 0.12}s infinite`
+                : 'none',
+              opacity: animating ? undefined : 0.5 + i * 0.12,
+              transform: animating ? undefined : `scale(${0.7 + i * 0.08})`,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -92,7 +105,7 @@ function PhoneMockup({ label, pulled, children, headerTopPx = 56 }: { label: str
           style={{ top: `${headerTopPx}px` }}
         >
           {/* Pull gap area */}
-          {pulled && <PullRefreshIndicator />}
+          {pulled && <PullRefreshIndicator animating />}
           <div style={{ transform: pulled ? `translateY(0px)` : undefined }}>
             <MockContent />
           </div>

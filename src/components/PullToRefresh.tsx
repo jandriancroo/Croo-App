@@ -146,56 +146,33 @@ export const PullToRefresh = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Pull indicator */}
+        {/* Pull indicator — animated dot wave */}
         <div 
-          className="flex flex-col items-center justify-center overflow-hidden"
+          className="flex items-center justify-center overflow-hidden"
           style={{ 
             height: pullDistance > 0 ? pullDistance : 0,
             opacity: Math.max(progress * 1.2, isRefreshing ? 1 : 0),
             transition: isPulling.current ? 'none' : 'height 0.3s ease, opacity 0.3s ease',
           }}
         >
-          <div className="flex flex-col items-center gap-1.5 py-1">
-            {/* Icon */}
-            <div 
-              className={`rounded-full p-2 transition-all duration-200 ${
-                isRefreshing 
-                  ? 'bg-primary/15 scale-110' 
-                  : isReady 
-                    ? 'bg-primary/10 scale-105' 
-                    : 'bg-muted/50'
-              }`}
-            >
-              <RefreshCw 
-                className={`h-5 w-5 transition-all duration-200 ${
-                  isRefreshing 
-                    ? 'text-primary animate-spin' 
-                    : isReady 
-                      ? 'text-primary' 
-                      : 'text-muted-foreground'
-                }`}
-                style={{ 
-                  transform: isRefreshing ? undefined : `rotate(${progress * 360}deg)`,
-                  animationDuration: '0.7s',
+          <div className="flex items-center gap-[5px] py-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-full transition-all"
+                style={{
+                  width: isRefreshing ? 8 : 6 + progress * 2,
+                  height: isRefreshing ? 8 : 6 + progress * 2,
+                  backgroundColor: isReady || isRefreshing
+                    ? `hsl(var(--primary))`
+                    : `hsl(var(--muted-foreground) / ${0.25 + progress * 0.4})`,
+                  animation: isRefreshing
+                    ? `ptr-dot-wave 1s ease-in-out ${i * 0.12}s infinite`
+                    : 'none',
+                  transform: !isRefreshing && isReady ? `scale(${1 + Math.sin((progress * Math.PI) + i * 0.5) * 0.2})` : undefined,
                 }}
-                strokeWidth={isReady || isRefreshing ? 2.5 : 2}
               />
-            </div>
-            
-            {/* Status text */}
-            <span className={`text-[11px] font-medium transition-colors duration-200 ${
-              isRefreshing 
-                ? 'text-primary' 
-                : isReady 
-                  ? 'text-primary' 
-                  : 'text-muted-foreground'
-            }`}>
-              {isRefreshing 
-                ? 'Updating…' 
-                : isReady 
-                  ? 'Release to refresh' 
-                  : 'Pull to refresh'}
-            </span>
+            ))}
           </div>
         </div>
         {children}
