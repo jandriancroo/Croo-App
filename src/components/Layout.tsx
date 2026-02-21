@@ -1085,13 +1085,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         </div>
       </header>
       <main className={`container max-w-7xl mx-auto flex-1 px-safe py-3 relative ${isMobile ? 'pb-24' : 'py-8 pb-8'}`}>
-        {isMobile ? (
-          <PullToRefresh cooldownMs={2 * 60 * 1000}>
-            {children}
-          </PullToRefresh>
-        ) : (
-          children
-        )}
+        {children}
       </main>
       
       {/* Footer - desktop only */}
