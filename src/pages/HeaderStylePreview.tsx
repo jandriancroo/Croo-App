@@ -82,11 +82,10 @@ function PullRefreshIndicator() {
 
 // headerTopPx = how much space the header takes from top
 function PhoneMockup({ label, pulled, children, headerTopPx = 56 }: { label: string; pulled?: boolean; children: React.ReactNode; headerTopPx?: number }) {
-  const pullGap = pulled ? 80 : 0;
   return (
     <div className="space-y-1">
-      <p className="text-sm font-semibold text-muted-foreground">{label}{pulled ? " — pulled" : ""}</p>
-      <div className="relative mx-auto w-full max-w-[375px] h-[520px] rounded-3xl border-4 border-foreground/20 bg-background overflow-hidden shadow-xl">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <div className="relative mx-auto w-full h-[420px] rounded-2xl border-3 border-foreground/20 bg-background overflow-hidden shadow-lg">
         {children}
         <div
           className="absolute left-0 right-0 bottom-[72px] overflow-hidden"
@@ -167,26 +166,32 @@ export default function HeaderStylePreview() {
         <p className="text-xs text-muted-foreground mt-1 italic">✅ Gap blends naturally — background matches page</p>
       </div>
 
-      {/* Option 2: Full Bleed + Bottom Curve */}
+      {/* Option 2: Full Bleed + Bottom Curve + Accent Line */}
       <div>
-        <p className="text-sm font-bold mb-2">Option 2 — Full Bleed + Bottom Curve</p>
+        <p className="text-sm font-bold mb-2">Option 2 — Full Bleed + Curve + Accent Line</p>
         <div className="grid grid-cols-2 gap-3">
-          <PhoneMockup label="Normal" headerTopPx={56}>
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-center h-14 px-4 bg-primary rounded-b-3xl" style={{ boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)' }}>
-              <LogoIcon />
-              <div className="flex-1 flex justify-center"><LocationButton /></div>
-              <ProfileAvatar />
+          <PhoneMockup label="Normal" headerTopPx={59}>
+            <div className="absolute top-0 left-0 right-0 z-10">
+              <div className="flex items-center h-14 px-4 bg-primary rounded-b-3xl" style={{ boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)' }}>
+                <LogoIcon />
+                <div className="flex-1 flex justify-center"><LocationButton /></div>
+                <ProfileAvatar />
+              </div>
+              <div className="h-[3px] bg-accent mx-4 rounded-full mt-[-1px]" />
             </div>
           </PhoneMockup>
-          <PhoneMockup label="Pulled" pulled headerTopPx={56}>
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-center h-14 px-4 bg-primary rounded-b-3xl" style={{ boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)' }}>
-              <LogoIcon />
-              <div className="flex-1 flex justify-center"><LocationButton /></div>
-              <ProfileAvatar />
+          <PhoneMockup label="Pulled" pulled headerTopPx={59}>
+            <div className="absolute top-0 left-0 right-0 z-10">
+              <div className="flex items-center h-14 px-4 bg-primary rounded-b-3xl" style={{ boxShadow: '0 8px 24px hsl(var(--primary) / 0.3)' }}>
+                <LogoIcon />
+                <div className="flex-1 flex justify-center"><LocationButton /></div>
+                <ProfileAvatar />
+              </div>
+              <div className="h-[3px] bg-accent mx-4 rounded-full mt-[-1px]" />
             </div>
           </PhoneMockup>
         </div>
-        <p className="text-xs text-muted-foreground mt-1 italic">⚠️ Beige gap appears between teal header and content</p>
+        <p className="text-xs text-muted-foreground mt-1 italic">⚠️ Beige gap still visible during pull, but accent line adds visual anchor</p>
       </div>
 
       {/* Option 3: Neumorphic Inset */}
