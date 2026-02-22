@@ -6,7 +6,7 @@
  * All results are rounded to the nearest 0.5 increment.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +106,21 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
   );
   const [overrides, setOverrides] = useState<Record<string, number>>(value?.overrides ?? {});
   const [editingKey, setEditingKey] = useState<string | null>(null);
+
+  // Sync internal state when the value prop changes (e.g. switching items in a dialog)
+  const prevValueRef = useRef(value);
+  useEffect(() => {
+    if (prevValueRef.current === value) return;
+    prevValueRef.current = value;
+    setEnabled(value?.enabled ?? false);
+    setBaselineKey(value?.baseline_key ?? "third_pan");
+    setBaselineUnits(value?.baseline_units ? String(value.baseline_units) : "");
+    const keys = new Set(value?.enabled_keys ?? ALL_CONTAINERS.filter(c => c.blazeDefault).map(c => c.key));
+    if (value?.baseline_key) keys.add(value.baseline_key);
+    setEnabledKeys(keys);
+    setOverrides(value?.overrides ?? {});
+    setEditingKey(null);
+  }, [value]);
 
   const baseline = ALL_CONTAINERS.find(c => c.key === baselineKey)!;
   const parsedBaselineUnits = parseFloat(baselineUnits) || 0;
