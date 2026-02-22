@@ -240,7 +240,12 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
                       <p className="text-xs font-medium truncate">
                         {item.common_name || item.name}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {item.category && (
+                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">
+                            {item.category}
+                          </Badge>
+                        )}
                         {weightBased ? (
                           <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
                             {perUnitWeight ? `${perUnitWeight} lb/unit` : "weight"}
