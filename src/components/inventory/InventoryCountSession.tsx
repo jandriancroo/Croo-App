@@ -270,7 +270,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const casesVal = isNaN(rawCases) ? committed.cases : Math.max(0, rawCases);
     const unitsVal = isNaN(rawUnits) ? committed.units : Math.max(0, rawUnits);
     const panUnits = panSizes !== undefined ? getPanUnitsTotal(itemId, panSizes) : 0;
-    return casesVal * packQty + unitsVal + panUnits;
+    return Math.round((casesVal * packQty + unitsVal + panUnits) * 100) / 100;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
