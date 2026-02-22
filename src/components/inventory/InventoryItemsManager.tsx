@@ -21,6 +21,8 @@ import RecipeBuilderDialog from "./RecipeBuilderDialog";
 import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
+import ExportToMasterDialog from "./ExportToMasterDialog";
+import DeployToLocationDialog from "./DeployToLocationDialog";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -67,6 +69,22 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
+  const [showExportMaster, setShowExportMaster] = useState(false);
+  const [showDeployDialog, setShowDeployDialog] = useState(false);
+
+  // Get brand ID for this location
+  const { data: brandInfo } = useQuery({
+    queryKey: ["location-brand", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("organization_id, organizations(brand_id)")
+        .eq("id", locationId)
+        .single();
+      if (error) throw error;
+      return (data?.organizations as any)?.brand_id as string | null;
+    },
+  });
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -780,6 +798,31 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       {/* Usage Rate Mappings */}
       <UsageRateMapping locationId={locationId} />
 
+      {/* Brand Master Catalog */}
+      {brandInfo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Brand Master Catalog
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Export pan sizes & common names to the brand catalog, or deploy from it to other locations.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowExportMaster(true)}>
+                Export to Master
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDeployDialog(true)}>
+                Deploy to Location
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Storage Locations */}
       <Card>
         <CardHeader>
@@ -1307,6 +1350,24 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         bidGuideHeaderId={(pfgIntegration?.credentials as any)?.bid_guide_header_id || ""}
         customerId={(pfgIntegration?.credentials as any)?.customer_id || ""}
       />
+
+      {/* Brand Master Catalog Dialogs */}
+      {brandInfo && (
+        <>
+          <ExportToMasterDialog
+            open={showExportMaster}
+            onOpenChange={setShowExportMaster}
+            locationId={locationId}
+            brandId={brandInfo}
+          />
+          <DeployToLocationDialog
+            open={showDeployDialog}
+            onOpenChange={setShowDeployDialog}
+            brandId={brandInfo}
+            sourceLocationId={locationId}
+          />
+        </>
+      )}
     </>
   );
 };
