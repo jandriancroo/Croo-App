@@ -44,6 +44,7 @@ interface TargetItem {
   pack_quantity: number | null;
   pan_sizes: any;
   vendor_source: string | null;
+  item_number: string | null;
 }
 
 interface MatchResult {
@@ -69,6 +70,14 @@ function parsePerUnitWeight(packSize: string | null): number | null {
 
 /** Score how well a template matches a target item (0-100) */
 function matchScore(template: Template, item: TargetItem): number {
+  // Boost: if item_number matches a keyword exactly, strong signal
+  if (item.item_number) {
+    const cleanNum = item.item_number.trim().toLowerCase();
+    if (cleanNum.length > 0 && template.match_keywords.includes(cleanNum)) {
+      return 95; // Near-perfect match via vendor item code
+    }
+  }
+
   const itemWords = (item.name + " " + (item.common_name || ""))
     .toLowerCase()
     .replace(/[^a-z\s]/g, " ")
@@ -129,7 +138,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source")
+        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number")
         .eq("location_id", targetLocationId)
         .eq("is_active", true)
         .order("name");
