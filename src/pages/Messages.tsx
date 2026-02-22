@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getDisplayName } from '@/utils/displayName';
 import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
@@ -154,7 +155,7 @@ export default function Messages() {
             user_id,
             is_pinned,
             last_read_at,
-            profiles(id, full_name, profile_photo_url)
+            profiles(id, full_name, nickname, profile_photo_url)
           )
         `)
         .order('updated_at', { ascending: false });
@@ -212,11 +213,11 @@ export default function Messages() {
           if (isUnread) unreadCount = 1;
         }
 
-        // For DMs, set title to the other person's name
+        // For DMs, set title to the other person's display name (nickname if set)
         let title = chat.title;
         if (!chat.is_group && !title) {
           const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
-          title = otherMember?.profiles?.full_name || 'Direct Message';
+          title = otherMember?.profiles ? getDisplayName(otherMember.profiles.full_name, otherMember.profiles.nickname) : 'Direct Message';
         }
 
         const isPinned = currentMember?.is_pinned || false;
