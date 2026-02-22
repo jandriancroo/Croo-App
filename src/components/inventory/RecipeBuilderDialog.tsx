@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, Eye, EyeOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 interface RecipeBuilderDialogProps {
@@ -90,6 +91,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   const [selectedIngredientId, setSelectedIngredientId] = useState("");
   const [ingredientQty, setIngredientQty] = useState("");
   const [ingredientUnit, setIngredientUnit] = useState("oz");
+  const [countable, setCountable] = useState(true);
 
   // Fetch available inventory items (raw items + other recipes)
   const { data: availableItems } = useQuery({
@@ -121,7 +123,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       if (!editRecipeId) return null;
       const { data: item } = await supabase
         .from("inventory_items")
-        .select("id, name, recipe_yield_qty, recipe_yield_unit")
+        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable")
         .eq("id", editRecipeId)
         .single();
 
@@ -179,6 +181,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       setYieldQty(existingRecipe.item.recipe_yield_qty?.toString() || "");
       setYieldUnit(existingRecipe.item.recipe_yield_unit || "oz");
       setYieldManuallyEdited(true);
+      setCountable((existingRecipe.item as any).countable !== false);
       setIngredients(existingRecipe.ingredients.map(i => ({
         ingredient_item_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
@@ -278,7 +281,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             count_unit: yieldUnit,
             count_units_per_case: parseFloat(yieldQty),
             cost_per_unit: costPerCase,
-          })
+            countable,
+          } as any)
           .eq("id", editRecipeId);
         if (itemErr) throw itemErr;
 
@@ -313,7 +317,8 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             count_units_per_case: parseFloat(yieldQty),
             cost_per_unit: costPerCase,
             display_order: 0,
-          })
+            countable,
+          } as any)
           .select("id")
           .single();
         if (itemErr || !newItem) throw itemErr || new Error("Failed to create recipe");
@@ -353,6 +358,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     setSelectedIngredientId("");
     setIngredientQty("");
     setIngredientUnit("oz");
+    setCountable(true);
   };
 
   const addIngredient = () => {
@@ -695,6 +701,17 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
               )}
             </div>
           )}
+
+          {/* Countable toggle */}
+          <div className="flex items-center justify-between py-2">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Show in inventory count</Label>
+              <p className="text-xs text-muted-foreground">
+                {countable ? "This recipe will appear as a countable item" : "Hidden from counting (used as ingredient only)"}
+              </p>
+            </div>
+            <Switch checked={countable} onCheckedChange={setCountable} />
+          </div>
 
           {/* Actions */}
           <div className="flex gap-2">
