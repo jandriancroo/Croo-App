@@ -410,7 +410,14 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                         className="h-3.5 w-3.5"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{tmpl.product_name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium">{tmpl.product_name}</p>
+                          {tmpl.category && (
+                            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">
+                              {tmpl.category}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1 mt-0.5">
                           <ArrowRight className="h-2.5 w-2.5 text-muted-foreground" />
                           {targetItem ? (
