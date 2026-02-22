@@ -78,17 +78,19 @@ export interface PanSizesConfig {
 interface PanSizesSectionProps {
   value: PanSizesConfig | null;
   onChange: (cfg: PanSizesConfig | null) => void;
-  /** Optional: cost per unit (e.g. per case) for price display */
+  /** Cost per case/unit from vendor */
   costPerUnit?: number | null;
-  /** Optional: unit label like "case", "bag", "lb" */
+  /** Unit label like "case", "bag", "lb" */
   unitLabel?: string | null;
-  /** Optional: pack size label like "6/2.5 LB" */
+  /** Pack size label like "6/5 LB" */
   packSize?: string | null;
+  /** How many individual units per case (to derive per-unit price) */
+  packQuantity?: number | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function PanSizesSection({ value, onChange, costPerUnit, unitLabel, packSize }: PanSizesSectionProps) {
+export default function PanSizesSection({ value, onChange, costPerUnit, unitLabel, packSize, packQuantity }: PanSizesSectionProps) {
   const [enabled, setEnabled] = useState(value?.enabled ?? false);
   const [baselineKey, setBaselineKey] = useState(value?.baseline_key ?? "third_pan");
   const [baselineUnits, setBaselineUnits] = useState<string>(
@@ -189,19 +191,28 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
       {enabled && (
         <div className="space-y-4 border border-border rounded-lg p-3 bg-muted/30">
           {/* Pricing info banner */}
-          {costPerUnit != null && costPerUnit > 0 && (
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-primary/5 border border-primary/20">
-              <DollarSign className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-                <span className="font-medium text-foreground">
-                  ${costPerUnit.toFixed(2)}/{unitLabel || 'unit'}
-                </span>
-                {packSize && (
-                  <span className="text-muted-foreground">Pack: {packSize}</span>
-                )}
+          {costPerUnit != null && costPerUnit > 0 && (() => {
+            const perUnit = (packQuantity && packQuantity > 1) ? costPerUnit / packQuantity : costPerUnit;
+            const isCase = packQuantity != null && packQuantity > 1;
+            return (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-primary/5 border border-primary/20">
+                <DollarSign className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                  {isCase && (
+                    <span className="text-muted-foreground">
+                      ${costPerUnit.toFixed(2)}/{unitLabel || 'cs'}
+                    </span>
+                  )}
+                  <span className="font-medium text-foreground">
+                    ${perUnit.toFixed(2)}/unit
+                  </span>
+                  {packSize && (
+                    <span className="text-muted-foreground">({packSize})</span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           {/* Baseline picker */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -331,11 +342,15 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
                               e.stopPropagation();
                               if (isEnabled && !isBaseline) setEditingKey(c.key);
                             }}>
-                              {costPerUnit != null && costPerUnit > 0 && isEnabled && displayUnits > 0 && (
-                                <span className="text-[10px] text-primary/70 font-mono">
-                                  ${(costPerUnit / displayUnits).toFixed(2)}
-                                </span>
-                              )}
+                              {costPerUnit != null && costPerUnit > 0 && isEnabled && displayUnits > 0 && (() => {
+                                const perUnit = (packQuantity && packQuantity > 1) ? costPerUnit / packQuantity : costPerUnit;
+                                const panCost = perUnit * displayUnits;
+                                return (
+                                  <span className="text-[10px] text-primary/70 font-mono">
+                                    ${panCost.toFixed(2)}
+                                  </span>
+                                );
+                              })()}
                               <span
                                 className={`text-xs font-mono font-semibold cursor-pointer hover:underline ${
                                   isEnabled ? (hasOverride ? "text-primary" : "text-foreground") : "text-muted-foreground"
