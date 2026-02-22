@@ -183,7 +183,11 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
   const allValidated = slots.every((s) => s.validated || !s.file?.type.startsWith("image/"));
 
   const handleSubmit = async () => {
-    if (!user?.id || !allFilled) return;
+    console.log("[I9-UPLOAD] Submit triggered", { userId: user?.id, allFilled, slotsCount: slots.length });
+    if (!user?.id || !allFilled) {
+      console.warn("[I9-UPLOAD] Blocked: userId=", user?.id, "allFilled=", allFilled);
+      return;
+    }
     setSubmitting(true);
     setProgress(0);
 
@@ -196,12 +200,17 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
 
         const ext = slot.file.name.split(".").pop() || "jpg";
         const storagePath = `${user.id}/${request.id}/${slot.type}.${ext}`;
+        console.log("[I9-UPLOAD] Uploading to storage:", storagePath, "fileSize:", slot.file.size, "fileType:", slot.file.type);
 
         const { error: uploadError } = await supabase.storage
           .from("i9-documents")
           .upload(storagePath, slot.file, { upsert: true });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("[I9-UPLOAD] Storage upload FAILED:", JSON.stringify(uploadError));
+          throw uploadError;
+        }
+        console.log("[I9-UPLOAD] Storage upload SUCCESS for", slot.type);
 
         const { error: docError } = await supabase.from("i9_documents").insert({
           request_id: request.id,
@@ -211,7 +220,11 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
           file_name: slot.file.name,
         });
 
-        if (docError) throw docError;
+        if (docError) {
+          console.error("[I9-UPLOAD] DB insert FAILED:", JSON.stringify(docError));
+          throw docError;
+        }
+        console.log("[I9-UPLOAD] DB insert SUCCESS for", slot.type);
 
         completed++;
         setProgress(Math.round((completed / total) * 100));
@@ -284,9 +297,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
       queryClient.invalidateQueries({ queryKey: ["i9-requests"] });
       queryClient.invalidateQueries({ queryKey: ["i9-documents"] });
       onOpenChange(false);
-    } catch (err) {
-      console.error("Error uploading hiring documents:", err);
-      toast.error("Upload failed — please try again");
+    } catch (err: any) {
+      console.error("[I9-UPLOAD] FULL ERROR:", err, "message:", err?.message, "statusCode:", err?.statusCode);
+      toast.error(`Upload failed: ${err?.message || "please try again"}`);
     } finally {
       setSubmitting(false);
     }
