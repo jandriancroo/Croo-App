@@ -235,16 +235,48 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
           .eq("id", user.id)
           .single();
 
+        const empName = profile?.full_name || "Employee";
+
         await supabase.from("i9_audit_log").insert({
           request_id: request.id,
           employee_id: user.id,
           location_id: reqData.location_id,
           action: "uploaded",
           performed_by: user.id,
-          performed_by_name: profile?.full_name || "",
-          employee_name: profile?.full_name || "",
+          performed_by_name: empName,
+          employee_name: empName,
           metadata: { document_types: request.document_types },
         });
+
+        // Send push notification to the requesting manager
+        const { data: reqFull } = await supabase
+          .from("i9_document_requests")
+          .select("requested_by")
+          .eq("id", request.id)
+          .single();
+
+        if (reqFull?.requested_by) {
+          const docLabels = (request.document_types || [])
+            .map((t) => DOC_TYPE_LABELS[t]?.label || t)
+            .join(", ");
+
+          await supabase.from("alert_queue").insert({
+            alert_type: "hiring_doc_uploaded",
+            dedup_key: `hiring_doc_uploaded_${request.id}`,
+            location_id: reqData.location_id,
+            payload: {
+              user_ids: [reqFull.requested_by],
+              title: "Hiring Documents Uploaded",
+              body: `${empName} uploaded: ${docLabels}`,
+              notification_type: "hiring_doc_uploaded",
+              data: {
+                type: "hiring_doc_uploaded",
+                employee_id: user.id,
+                location_id: reqData.location_id,
+              },
+            },
+          });
+        }
       }
 
       toast.success("Documents uploaded securely");
