@@ -160,7 +160,7 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
       queryClient.invalidateQueries({ queryKey: ["i9-documents"] });
       onOpenChange(false);
     } catch (err) {
-      console.error("Error uploading I-9 documents:", err);
+      console.error("Error uploading hiring documents:", err);
       toast.error("Upload failed — please try again");
     } finally {
       setSubmitting(false);
