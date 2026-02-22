@@ -357,33 +357,18 @@ const StartCountDialog = ({
         totalProducts += (cat.products || []).length;
       }
 
-      setSyncProgress({ phase: "Updating storage locations...", current: 25, total: 100 });
+      setSyncProgress({ phase: "Mapping storage locations...", current: 25, total: 100 });
 
-      // Upsert storage locations
+      // Map PFG categories to existing storage locations (don't auto-create)
       const locationMap = new Map<string, string>();
       
-      for (let i = 0; i < categories.length; i++) {
-        const cat = categories[i];
-        const { data: existing } = await supabase
-          .from("inventory_locations")
-          .select("id")
-          .eq("location_id", locationId)
-          .ilike("name", cat.name)
-          .maybeSingle();
-        
-        if (existing) {
-          locationMap.set(cat.name.toLowerCase(), existing.id);
-        } else {
-          const { data: inserted } = await supabase
-            .from("inventory_locations")
-            .insert({ location_id: locationId, name: cat.name, display_order: i })
-            .select("id")
-            .single();
-          
-          if (inserted) {
-            locationMap.set(cat.name.toLowerCase(), inserted.id);
-          }
-        }
+      const { data: existingLocations } = await supabase
+        .from("inventory_locations")
+        .select("id, name")
+        .eq("location_id", locationId);
+      
+      for (const loc of existingLocations || []) {
+        locationMap.set(loc.name.toLowerCase(), loc.id);
       }
 
       setSyncProgress({ phase: "Updating items & prices...", current: 35, total: 100, detail: `0 / ${totalProducts}` });
@@ -392,8 +377,7 @@ const StartCountDialog = ({
       let processedItems = 0;
       
       for (const cat of categories) {
-        const storageLocationId = locationMap.get(cat.name.toLowerCase());
-        if (!storageLocationId) continue;
+        const storageLocationId = locationMap.get(cat.name.toLowerCase()) || null;
 
         for (const product of cat.products || []) {
           processedItems++;
@@ -410,7 +394,7 @@ const StartCountDialog = ({
           
           const { data: existing } = await supabase
             .from("inventory_items")
-            .select("id, image_url")
+            .select("id, image_url, storage_location_id")
             .eq("location_id", locationId)
             .eq("qubeyond_item_id", product.id)
             .maybeSingle();
@@ -437,7 +421,7 @@ const StartCountDialog = ({
           const itemData = {
             name: product.name,
             unit: product.unit?.toLowerCase() || "case",
-            storage_location_id: storageLocationId,
+            storage_location_id: existing?.storage_location_id || storageLocationId,
             cost_per_unit: price,
             pack_size: product.packSize || null,
             pack_quantity: packQuantity,

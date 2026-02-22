@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2 } from "lucide-react";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +24,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 import ExportToMasterDialog from "./ExportToMasterDialog";
 import DeployToLocationDialog from "./DeployToLocationDialog";
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
+import StorageLocationManager from "./StorageLocationManager";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface InventoryItemsManagerProps {
@@ -79,6 +80,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [showBulkPanDialog, setShowBulkPanDialog] = useState(false);
+  const [showStorageManager, setShowStorageManager] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Get brand ID for this location
@@ -373,38 +375,23 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         totalProducts += (cat.products || []).length;
       }
 
-      setProgress({ phase: "Creating storage locations...", current: 20, total: 100, detail: `${categories.length} locations` });
-
-      // Step 1: Upsert storage locations
-      let locationsAdded = 0;
+      // Step 1: Map PFG categories to existing storage locations (don't auto-create)
       const locationMap = new Map<string, string>();
       
-      for (let i = 0; i < categories.length; i++) {
-        const cat = categories[i];
-        const { data: existing } = await supabase
-          .from("inventory_locations")
-          .select("id")
-          .eq("location_id", locationId)
-          .ilike("name", cat.name)
-          .maybeSingle();
-        
-        if (existing) {
-          locationMap.set(cat.name.toLowerCase(), existing.id);
-        } else {
-          const { data: inserted, error: insertError } = await supabase
-            .from("inventory_locations")
-            .insert({
-              location_id: locationId,
-              name: cat.name,
-              display_order: i
-            })
-            .select("id")
-            .single();
-          
-          if (!insertError && inserted) {
-            locationMap.set(cat.name.toLowerCase(), inserted.id);
-            locationsAdded++;
-          }
+      const { data: existingLocations } = await supabase
+        .from("inventory_locations")
+        .select("id, name")
+        .eq("location_id", locationId);
+      
+      for (const loc of existingLocations || []) {
+        locationMap.set(loc.name.toLowerCase(), loc.id);
+      }
+      
+      // Also try to match PFG categories to existing locations by name
+      for (const cat of categories) {
+        const key = cat.name.toLowerCase();
+        if (!locationMap.has(key)) {
+          // No matching location — items will go to Unassigned
         }
       }
 
@@ -419,8 +406,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       const itemsNeedingImages: { itemId: string; productName: string; brand?: string }[] = [];
       
       for (const cat of categories) {
-        const storageLocationId = locationMap.get(cat.name.toLowerCase());
-        if (!storageLocationId) continue;
+        const storageLocationId = locationMap.get(cat.name.toLowerCase()) || null;
 
         for (const product of cat.products || []) {
           processedItems++;
@@ -473,7 +459,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           const itemData = {
             name: product.name,
             unit: product.unit?.toLowerCase() || "case",
-            storage_location_id: storageLocationId,
+            storage_location_id: existing?.storage_location_id || storageLocationId,
             cost_per_unit: price,
             pack_size: product.packSize || null,
             pack_quantity: packQuantity,
@@ -669,7 +655,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       }).catch(console.warn);
       
       const messages = [];
-      if (locationsAdded > 0) messages.push(`${locationsAdded} locations`);
       if (itemsAdded > 0) messages.push(`${itemsAdded} items`);
       if (itemsUpdated > 0) messages.push(`${itemsUpdated} updated`);
       if (flaggedCount > 0) messages.push(`${flaggedCount} flagged for remap`);
@@ -881,6 +866,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   Pan Sizes ({selectedItemIds.size})
                 </Button>
               )}
+              <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
+                <Settings2 className="h-4 w-4 mr-1" />
+                Locations
+              </Button>
               <Button size="sm" variant="outline" onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}>
                 <FlaskConical className="h-4 w-4 mr-1" />
                 Recipe
@@ -1535,6 +1524,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             setIsBulkUpdating(false);
           }
         }}
+      />
+
+      <StorageLocationManager
+        open={showStorageManager}
+        onOpenChange={setShowStorageManager}
+        locationId={locationId}
       />
     </>
   );
