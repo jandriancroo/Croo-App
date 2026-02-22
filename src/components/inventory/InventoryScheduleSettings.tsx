@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Loader2 } from "lucide-react";
@@ -22,33 +21,7 @@ const DAYS_OF_WEEK = [
   { value: 6, label: "Saturday" },
 ];
 
-const DAYS_OF_MONTH = Array.from({ length: 31 }, (_, i) => ({
-  value: i + 1,
-  label: `${i + 1}${getOrdinalSuffix(i + 1)}`,
-}));
-
-const MONTHS = [
-  { value: 1, label: "January" },
-  { value: 2, label: "February" },
-  { value: 3, label: "March" },
-  { value: 4, label: "April" },
-  { value: 5, label: "May" },
-  { value: 6, label: "June" },
-  { value: 7, label: "July" },
-  { value: 8, label: "August" },
-  { value: 9, label: "September" },
-  { value: 10, label: "October" },
-  { value: 11, label: "November" },
-  { value: 12, label: "December" },
-];
-
-function getOrdinalSuffix(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
-}
-
-type FrequencyType = "weekly" | "monthly" | "yearly";
+type FrequencyType = "weekly" | "monthly";
 
 interface ScheduleSetting {
   id?: string;
@@ -62,7 +35,6 @@ interface ScheduleSetting {
 const DEFAULT_SETTINGS: Record<FrequencyType, ScheduleSetting> = {
   weekly: { frequency: "weekly", day_of_week: 0, day_of_month: null, month_of_year: null, is_active: false },
   monthly: { frequency: "monthly", day_of_week: null, day_of_month: 1, month_of_year: null, is_active: false },
-  yearly: { frequency: "yearly", day_of_week: null, day_of_month: 1, month_of_year: 1, is_active: false },
 };
 
 const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProps) => {
@@ -149,7 +121,6 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
 
   const weeklySetting = getSetting("weekly");
   const monthlySetting = getSetting("monthly");
-  const yearlySetting = getSetting("yearly");
 
   return (
     <Card>
@@ -203,23 +174,6 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
               )}
             </div>
             {savingFrequency === "monthly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-          </div>
-        </div>
-
-        {/* Yearly - compact row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <Switch
-              checked={yearlySetting.is_active}
-              onCheckedChange={(checked) => handleToggle("yearly", checked)}
-            />
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">Yearly</span>
-              {yearlySetting.is_active && (
-                <span className="text-[10px] text-muted-foreground leading-tight">Dec 31st</span>
-              )}
-            </div>
-            {savingFrequency === "yearly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
         </div>
       </CardContent>
