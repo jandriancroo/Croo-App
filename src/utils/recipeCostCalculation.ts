@@ -66,20 +66,25 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
     const item = itemMap.get(itemId);
     if (!item) return 0;
 
-    // If it's not a recipe, return its direct cost
+    // Non-recipe items: return direct cost
     if (!item.is_recipe) {
       const cost = item.blended_price ?? item.cost_per_unit ?? 0;
       costCache.set(itemId, cost);
       return cost;
     }
 
-    // It's a recipe - calculate from ingredients
+    // Recipe items: if they already have a stored cost_per_unit (set by the recipe editor),
+    // use it directly as the batch cost — this is the most accurate source of truth.
+    if (item.cost_per_unit && item.cost_per_unit > 0) {
+      costCache.set(itemId, item.cost_per_unit);
+      return item.cost_per_unit;
+    }
+
+    // Recipe with no stored cost — calculate from ingredients
     const ingredients = ingredientsByRecipe.get(itemId) || [];
     if (ingredients.length === 0) {
-      // Recipe with no ingredients - fall back to stored cost
-      const fallback = item.cost_per_unit ?? 0;
-      costCache.set(itemId, fallback);
-      return fallback;
+      costCache.set(itemId, 0);
+      return 0;
     }
 
     let totalBatchCost = 0;
@@ -98,10 +103,6 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
         const caseCost = ingItem.blended_price ?? ingItem.cost_per_unit ?? 0;
         const packQty = ingItem.pack_quantity || 1;
         const costPerSingleUnit = caseCost / packQty;
-        
-        // The ingredient quantity is in whatever unit the recipe specifies
-        // For simplicity, we assume the recipe ingredient quantity is in the same
-        // base unit as the item's pack units (this matches how recipes are built)
         totalBatchCost += costPerSingleUnit * ing.quantity;
       }
     }
@@ -114,12 +115,9 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   const recipeCosts = new Map<string, number>();
   for (const recipeId of recipeItemIds) {
     const batchCost = calculateBatchCost(recipeId);
-    const itemName = itemMap.get(recipeId);
-    console.log(`[RecipeCost] ${itemName?.id || recipeId}: batchCost=${batchCost}`);
     recipeCosts.set(recipeId, batchCost);
   }
 
-  console.log(`[RecipeCost] Total recipes calculated: ${recipeCosts.size}`);
   return recipeCosts;
 }
 
