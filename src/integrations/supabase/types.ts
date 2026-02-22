@@ -525,6 +525,160 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_inventory_deployments: {
+        Row: {
+          calculated_baseline: number | null
+          deployed_at: string
+          deployed_by: string | null
+          id: string
+          inventory_item_id: string
+          location_id: string
+          needs_review: boolean
+          review_reason: string | null
+          template_id: string
+          weight_per_unit: number | null
+        }
+        Insert: {
+          calculated_baseline?: number | null
+          deployed_at?: string
+          deployed_by?: string | null
+          id?: string
+          inventory_item_id: string
+          location_id: string
+          needs_review?: boolean
+          review_reason?: string | null
+          template_id: string
+          weight_per_unit?: number | null
+        }
+        Update: {
+          calculated_baseline?: number | null
+          deployed_at?: string
+          deployed_by?: string | null
+          id?: string
+          inventory_item_id?: string
+          location_id?: string
+          needs_review?: boolean
+          review_reason?: string | null
+          template_id?: string
+          weight_per_unit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_inventory_deployments_deployed_by_fkey"
+            columns: ["deployed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_deployments_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_deployments_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_deployments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_inventory_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_inventory_templates: {
+        Row: {
+          brand_id: string
+          category: string | null
+          common_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_weight_based: boolean
+          match_keywords: string[]
+          pan_baseline_key: string
+          pan_enabled_keys: string[]
+          pan_units_per_lb: number | null
+          pan_units_per_unit: number | null
+          product_name: string
+          source_item_id: string | null
+          source_location_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          category?: string | null
+          common_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_weight_based?: boolean
+          match_keywords?: string[]
+          pan_baseline_key?: string
+          pan_enabled_keys?: string[]
+          pan_units_per_lb?: number | null
+          pan_units_per_unit?: number | null
+          product_name: string
+          source_item_id?: string | null
+          source_location_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          category?: string | null
+          common_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_weight_based?: boolean
+          match_keywords?: string[]
+          pan_baseline_key?: string
+          pan_enabled_keys?: string[]
+          pan_units_per_lb?: number | null
+          pan_units_per_unit?: number | null
+          product_name?: string
+          source_item_id?: string | null
+          source_location_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_inventory_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_templates_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_inventory_templates_source_location_id_fkey"
+            columns: ["source_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
