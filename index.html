@@ -38,17 +38,39 @@
   <body>
     <div id="root"></div>
     <script>
-      // Catch stale main-bundle failures (e.g. after a deploy changes chunk hashes).
-      // If the module script fails to load, force-reload once to fetch fresh assets.
-      window.addEventListener('error', function(e) {
-        if (e.message && e.message.indexOf('module script failed') !== -1) {
-          var key = 'main_chunk_reload';
+      // Catch stale chunk failures after deploys change chunk hashes.
+      // Force-reload once to fetch fresh assets. Guard prevents infinite loops.
+      (function() {
+        var key = 'main_chunk_reload';
+        function isChunkError(msg) {
+          return msg && (
+            msg.indexOf('module script failed') !== -1 ||
+            msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+            msg.indexOf('Loading module') !== -1 ||
+            msg.indexOf('Loading chunk') !== -1
+          );
+        }
+        function tryReload() {
           if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, '1');
+            sessionStorage.setItem(key, Date.now().toString());
             window.location.reload();
           }
         }
-      });
+        // Capture phase catches module script errors that don't bubble
+        window.addEventListener('error', function(e) {
+          var msg = (e.message || '') + ' ' + ((e.error && e.error.message) || '');
+          if (isChunkError(msg)) tryReload();
+        }, true);
+        // Dynamic imports reject as unhandled promises
+        window.addEventListener('unhandledrejection', function(e) {
+          var msg = (e.reason && (e.reason.message || String(e.reason))) || '';
+          if (isChunkError(msg)) tryReload();
+        });
+        // Clear flag after successful load so next deploy can retry
+        window.addEventListener('load', function() {
+          sessionStorage.removeItem(key);
+        });
+      })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
