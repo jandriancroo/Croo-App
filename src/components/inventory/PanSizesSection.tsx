@@ -23,7 +23,7 @@ export interface ContainerDef {
   ratio: number;
   /** True = commonly used at Blaze */
   blazeDefault: boolean;
-  category: "hotel_pan" | "cambro";
+  category: "hotel_pan" | "cambro" | "dough_tray";
   description: string;
 }
 
@@ -46,6 +46,11 @@ const ALL_CONTAINERS: ContainerDef[] = [
   { key: "cambro_12qt", label: "12 qt Cambro",   ratio: 0.60,    blazeDefault: false, category: "cambro", description: "12 qt cambro (full)" },
   { key: "cambro_8qt",  label: "8 qt Cambro",    ratio: 0.40,    blazeDefault: false, category: "cambro", description: "8 qt cambro (full)" },
   { key: "cambro_4qt",  label: "4 qt Cambro",    ratio: 0.20,    blazeDefault: false, category: "cambro", description: "4 qt cambro (full)" },
+  // ── Dough Trays / Sheet Pans ──────────────────────────────────────────
+  // Dough trays vary per store — baseline is set per-item
+  { key: "dough_tray_full",  label: "Full Dough Tray",    ratio: 1.0,   blazeDefault: false, category: "dough_tray", description: "Full-size 18x26 dough proofing tray" },
+  { key: "dough_tray_half",  label: "Half Dough Tray",    ratio: 0.5,   blazeDefault: false, category: "dough_tray", description: "Half-size dough tray" },
+  { key: "dough_box",        label: "Dough Box",          ratio: 1.2,   blazeDefault: false, category: "dough_tray", description: "Deep 18x26x6 dough proofing box" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -139,6 +144,7 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
 
   const hotelPans = ALL_CONTAINERS.filter(c => c.category === "hotel_pan");
   const cambros = ALL_CONTAINERS.filter(c => c.category === "cambro");
+  const doughTrays = ALL_CONTAINERS.filter(c => c.category === "dough_tray");
 
   return (
     <div className="space-y-3">
@@ -175,6 +181,11 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
               </optgroup>
               <optgroup label="Cambros">
                 {cambros.map(c => (
+                  <option key={c.key} value={c.key}>{c.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Dough Trays">
+                {doughTrays.map(c => (
                   <option key={c.key} value={c.key}>{c.label}</option>
                 ))}
               </optgroup>
@@ -251,6 +262,48 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Cambros</p>
               <div className="grid gap-1">
                 {cambros.map(c => {
+                  const isBaseline = c.key === baselineKey;
+                  const isEnabled = enabledKeys.has(c.key) || isBaseline;
+                  const units = calcUnits(c, baseline, parsedBaselineUnits);
+                  return (
+                    <div
+                      key={c.key}
+                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer select-none ${
+                        isBaseline
+                          ? "border-primary/40 bg-primary/10"
+                          : isEnabled
+                          ? "border-border bg-muted/50"
+                          : "border-dashed border-border/50 opacity-50"
+                      }`}
+                      onClick={() => toggleKey(c.key)}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox
+                          checked={isEnabled}
+                          onCheckedChange={() => toggleKey(c.key)}
+                          disabled={isBaseline}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="text-xs font-medium">{c.label}</span>
+                        {c.blazeDefault && (
+                          <Star className="h-2.5 w-2.5 fill-primary text-primary" />
+                        )}
+                        {isBaseline && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">baseline</Badge>
+                        )}
+                      </div>
+                      <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
+                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Dough Trays */}
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Dough Trays</p>
+              <div className="grid gap-1">
+                {doughTrays.map(c => {
                   const isBaseline = c.key === baselineKey;
                   const isEnabled = enabledKeys.has(c.key) || isBaseline;
                   const units = calcUnits(c, baseline, parsedBaselineUnits);
