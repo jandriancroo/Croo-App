@@ -2258,6 +2258,7 @@ export type Database = {
           storage_location_id: string | null
           unit: string
           updated_at: string
+          user_hidden: boolean
           vendor_source: string | null
         }
         Insert: {
@@ -2290,6 +2291,7 @@ export type Database = {
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
+          user_hidden?: boolean
           vendor_source?: string | null
         }
         Update: {
@@ -2322,6 +2324,7 @@ export type Database = {
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
+          user_hidden?: boolean
           vendor_source?: string | null
         }
         Relationships: [

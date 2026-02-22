@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown } from "lucide-react";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,7 +65,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
-  
+  const [showInactive, setShowInactive] = useState(false);
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -158,7 +158,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
-  // Fetch items
+  // Fetch active items
   const { data: items } = useQuery({
     queryKey: ["inventory-items", locationId],
     queryFn: async () => {
@@ -170,6 +170,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         `)
         .eq("location_id", locationId)
         .eq("is_active", true)
+        .eq("user_hidden", false)
         .order("display_order");
       
       if (error) throw error;
@@ -177,23 +178,62 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
+  // Fetch hidden items
+  const { data: hiddenItems } = useQuery({
+    queryKey: ["inventory-items-hidden", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select(`
+          *,
+          storage_location:inventory_locations(name)
+        `)
+        .eq("location_id", locationId)
+        .eq("user_hidden", true)
+        .order("name");
+      
+      if (error) throw error;
+      return data;
+    }
+  });
 
-  // Deactivate item mutation
-  const deactivateItemMutation = useMutation({
+
+  // Hide item mutation (user_hidden = true)
+  const hideItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ is_active: false })
+        .update({ user_hidden: true, is_active: false } as any)
         .eq("id", itemId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Item deactivated");
+      toast.success("Item hidden — it won't come back on sync");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
       setEditingItem(null);
     },
     onError: () => {
-      toast.error("Failed to deactivate item");
+      toast.error("Failed to hide item");
+    }
+  });
+
+  // Unhide item mutation
+  const unhideItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ user_hidden: false, is_active: true } as any)
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Item restored");
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
+    },
+    onError: () => {
+      toast.error("Failed to restore item");
     }
   });
 
@@ -351,7 +391,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           
           const { data: existing } = await supabase
             .from("inventory_items")
-            .select("id, name, unit, storage_location_id, cost_per_unit, image_url")
+            .select("id, name, unit, storage_location_id, cost_per_unit, image_url, user_hidden")
             .eq("location_id", locationId)
             .eq("qubeyond_item_id", product.id)
             .maybeSingle();
@@ -393,7 +433,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             brand: product.brand || null,
             item_number: product.itemNumber || null,
             image_url: imageUrl,
-            is_active: true,
+            is_active: (existing as any)?.user_hidden ? false : true,
             last_synced_at: new Date().toISOString()
           };
           
@@ -935,6 +975,51 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Hidden / Inactive Items */}
+      {hiddenItems && hiddenItems.length > 0 && (
+        <Card>
+          <CardHeader className="cursor-pointer py-3" onClick={() => setShowInactive(!showInactive)}>
+            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
+              <EyeOff className="h-4 w-4" />
+              Hidden Items ({hiddenItems.length})
+              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showInactive ? 'rotate-180' : ''}`} />
+            </CardTitle>
+          </CardHeader>
+          {showInactive && (
+            <CardContent className="pt-0">
+              <p className="text-xs text-muted-foreground mb-3">
+                These items are hidden from counts and won't reappear after syncing. Tap restore to bring them back.
+              </p>
+              <div className="grid gap-1 max-h-[300px] overflow-y-auto">
+                {hiddenItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
+                    <div className="flex items-center gap-2 truncate flex-1">
+                      <EyeOff className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate text-muted-foreground">{(item as any).common_name || item.name}</span>
+                      {item.vendor_source && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                          {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source === 'pfg' ? 'PFG' : item.vendor_source}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2 text-primary"
+                      onClick={() => unhideItemMutation.mutate(item.id)}
+                      disabled={unhideItemMutation.isPending}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Restore
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </div>
 
       {/* Edit Item Dialog */}
@@ -1068,12 +1153,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 variant="destructive"
                 size="sm"
                 className="w-full"
-                onClick={() => editingItem && deactivateItemMutation.mutate(editingItem.id)}
-                disabled={deactivateItemMutation.isPending}
+                onClick={() => editingItem && hideItemMutation.mutate(editingItem.id)}
+                disabled={hideItemMutation.isPending}
               >
                 <EyeOff className="h-4 w-4 mr-1" />
-                {deactivateItemMutation.isPending ? "Deactivating..." : "Deactivate Item"}
+                {hideItemMutation.isPending ? "Hiding..." : "Hide Item"}
               </Button>
+              <p className="text-[10px] text-muted-foreground text-center -mt-1">
+                Hidden items won't reappear after syncing
+              </p>
 
               <div className="flex gap-2">
                 <Button
