@@ -17,6 +17,7 @@ import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
+import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -686,6 +687,9 @@ export default function Dashboard() {
       
       {/* Pending Read & Sign Documents */}
       <PendingDocumentsCard />
+
+      {/* I-9 Secure Document Requests */}
+      <I9UploadCard />
       
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks />
