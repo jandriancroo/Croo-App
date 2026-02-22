@@ -196,26 +196,14 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
               checked={monthlySetting.is_active}
               onCheckedChange={(checked) => handleToggle("monthly", checked)}
             />
-            <span className="text-sm font-medium">Monthly</span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Monthly</span>
+              {monthlySetting.is_active && (
+                <span className="text-[10px] text-muted-foreground leading-tight">Last day of month</span>
+              )}
+            </div>
             {savingFrequency === "monthly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
-          {monthlySetting.is_active && (
-            <Select
-              value={monthlySetting.day_of_month?.toString() ?? "1"}
-              onValueChange={(v) => handleDayChange("monthly", "day_of_month", parseInt(v))}
-            >
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DAYS_OF_MONTH.map((day) => (
-                  <SelectItem key={day.value} value={day.value.toString()}>
-                    {day.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </div>
 
         {/* Yearly - compact row */}
