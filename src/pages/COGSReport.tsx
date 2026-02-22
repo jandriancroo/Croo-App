@@ -79,7 +79,7 @@ const COGSReport = () => {
       if (!locationId) return [];
       const { data } = await supabase
         .from("inventory_items")
-        .select("id, name, cost_per_unit, unit, vendor_source, category")
+        .select("id, name, cost_per_unit, pack_quantity, pack_quantity_override, unit, vendor_source, category, is_recipe")
         .eq("location_id", locationId)
         .eq("is_active", true);
       return data || [];
@@ -176,7 +176,11 @@ const COGSReport = () => {
   const cogs = useMemo(() => {
     if (!inventoryItems?.length) return null;
 
-    const itemCostMap = new Map(inventoryItems.map(i => [i.id, { cost: Number(i.cost_per_unit) || 0, name: i.name, vendor: i.vendor_source, category: i.category }]));
+    const itemCostMap = new Map(inventoryItems.map(i => {
+      const packQty = (i as any).pack_quantity_override ?? (i as any).pack_quantity ?? 1;
+      const perUnitCost = (Number(i.cost_per_unit) || 0) / (packQty || 1);
+      return [i.id, { cost: perUnitCost, name: i.name, vendor: i.vendor_source, category: i.category }];
+    }));
 
     // Beginning inventory value
     let beginValue = 0;
