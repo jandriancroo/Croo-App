@@ -50,8 +50,8 @@ const ALL_CONTAINERS: ContainerDef[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Round to nearest 0.25 */
-const roundHalf = (v: number): number => Math.round(v * 4) / 4;
+/** Round to 3 decimal places (no artificial snapping) */
+const roundHalf = (v: number): number => Math.round(v * 1000) / 1000;
 
 /** Calculate units for a container given the baseline container's units */
 const calcUnits = (container: ContainerDef, baseline: ContainerDef, baselineUnits: number): number => {
@@ -240,7 +240,7 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
                         )}
                       </div>
                       <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
-                        {units % 1 === 0 ? units : units.toFixed(1)} units
+                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
                       </span>
                     </div>
                   );
@@ -282,7 +282,7 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
                         )}
                       </div>
                       <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
-                        {units % 1 === 0 ? units : units.toFixed(1)} units
+                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
                       </span>
                     </div>
                   );
