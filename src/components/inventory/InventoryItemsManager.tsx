@@ -23,6 +23,7 @@ import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 import ExportToMasterDialog from "./ExportToMasterDialog";
 import DeployToLocationDialog from "./DeployToLocationDialog";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -217,7 +218,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   });
 
 
-  // Hide item mutation (user_hidden = true), optionally with a linked_item_id
+  // Fetch recipe costs for items without stored cost_per_unit
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+
   const hideItemMutation = useMutation({
     mutationFn: async ({ itemId, linkedItemId }: { itemId: string; linkedItemId?: string }) => {
       const updateData: any = { user_hidden: true, is_active: false };
@@ -940,9 +948,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                 yields {item.recipe_yield_qty} {item.recipe_yield_unit}
                               </span>
                             )}
-                            {item.cost_per_unit && (
-                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}/batch</span>
-                            )}
+                            {(() => {
+                              const displayCost = item.cost_per_unit ? Number(item.cost_per_unit) : recipeCosts?.get(item.id) ?? null;
+                              return displayCost != null && displayCost > 0 ? (
+                                <span className="text-xs text-primary">${displayCost.toFixed(2)}/batch</span>
+                              ) : null;
+                            })()}
                             <Button
                               variant="ghost"
                               size="icon"
