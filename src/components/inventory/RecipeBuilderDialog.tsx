@@ -673,12 +673,16 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           {ingredients.length > 0 && (
             <div className="border rounded-md p-3 bg-muted/30 space-y-1">
               <p className="text-xs font-medium">Recipe Cost</p>
-              {recipeCost !== null ? (
+               {recipeCost !== null ? (
                 <>
                   <p className="text-sm font-mono">
-                    Batch cost: <span className="font-semibold">${recipeCost.toFixed(2)}</span>
+                    {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost ? (
+                      <>Batch cost: <span className="font-semibold">${recipeCost.toFixed(2)}</span></>
+                    ) : (
+                      <>Cost per unit: <span className="font-semibold">${recipeCost.toFixed(2)}</span></>
+                    )}
                   </p>
-                  {costPerYieldUnit !== null && (
+                  {costPerYieldUnit !== null && costPerYieldUnit !== recipeCost && (
                     <p className="text-xs text-muted-foreground font-mono">
                       = ${costPerYieldUnit.toFixed(4)}/{yieldUnit}
                     </p>
