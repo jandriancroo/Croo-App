@@ -138,11 +138,19 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
   });
 
   // Fetch recipe costs for on-the-fly calculation
-  const { data: recipeCosts } = useQuery({
+  const { data: recipeCosts, error: recipeCostError } = useQuery({
     queryKey: ["recipe-costs", locationId],
     queryFn: () => fetchRecipeCosts(locationId),
     staleTime: 5 * 60 * 1000,
   });
+
+  // Debug: log recipe costs when they load
+  if (recipeCostError) {
+    console.error("[InventoryCountView] Recipe cost error:", recipeCostError);
+  }
+  if (recipeCosts && recipeCosts.size > 0) {
+    console.log("[InventoryCountView] Recipe costs loaded:", Object.fromEntries(recipeCosts));
+  }
 
   // Helper to get item value considering recipe costs
   const getItemValue = (item: CountItem) => {
