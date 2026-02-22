@@ -278,6 +278,35 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     mutationFn: async () => {
       if (!templates || !user) throw new Error("Missing data");
 
+      // Step 1: Deploy storage locations from source to target
+      const { data: sourceLocations } = await supabase
+        .from("inventory_locations")
+        .select("name, display_order")
+        .eq("location_id", sourceLocationId)
+        .order("display_order");
+
+      if (sourceLocations && sourceLocations.length > 0) {
+        const { data: existingTargetLocs } = await supabase
+          .from("inventory_locations")
+          .select("name")
+          .eq("location_id", targetLocationId);
+        
+        const existingNames = new Set((existingTargetLocs || []).map(l => l.name.toLowerCase()));
+        
+        const newLocs = sourceLocations
+          .filter(l => !existingNames.has(l.name.toLowerCase()))
+          .map((l, i) => ({
+            location_id: targetLocationId,
+            name: l.name,
+            display_order: (existingTargetLocs?.length || 0) + i,
+          }));
+
+        if (newLocs.length > 0) {
+          await supabase.from("inventory_locations").insert(newLocs);
+        }
+      }
+
+      // Step 2: Deploy inventory item configurations
       const updates: { itemId: string; panSizes: any; commonName: string | null; category: string | null }[] = [];
       const deploymentRecords: any[] = [];
 
