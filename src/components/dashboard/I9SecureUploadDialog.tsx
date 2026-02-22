@@ -1,13 +1,14 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Shield, Lock, Upload, CheckCircle2, FileImage, X, Loader2 } from "lucide-react";
+import { Shield, Lock, Upload, CheckCircle2, FileImage, X, Loader2, ScanLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { DocumentScanOverlay, type DocumentValidationResult } from "./DocumentScanOverlay";
 
 const DOC_TYPE_LABELS: Record<string, { label: string; hint: string }> = {
   photo_id: { label: "Photo ID", hint: "Driver's license or state-issued ID (front)" },
@@ -33,6 +34,8 @@ interface FileSlot {
   file: File | null;
   preview: string | null;
   uploaded: boolean;
+  validationResult: DocumentValidationResult | null;
+  validated: boolean;
 }
 
 export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUploadDialogProps) {
@@ -42,6 +45,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
   const [activeSlot, setActiveSlot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [scanningSlot, setScanningSlot] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [employeeName, setEmployeeName] = useState<string>("");
 
   const [slots, setSlots] = useState<FileSlot[]>(() =>
     (request.document_types || []).map((t) => ({
@@ -49,41 +55,132 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
       file: null,
       preview: null,
       uploaded: false,
+      validationResult: null,
+      validated: false,
     }))
   );
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fetch employee name for validation
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) setEmployeeName(data.full_name);
+        });
+    }
+  }, [user?.id]);
+
+  const fileToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const validateDocument = useCallback(
+    async (file: File, slotType: string) => {
+      setScanningSlot(slotType);
+      setScanError(null);
+
+      try {
+        const base64 = await fileToBase64(file);
+        const docLabel = DOC_TYPE_LABELS[slotType]?.label || slotType;
+
+        const { data, error } = await supabase.functions.invoke(
+          "document-validation",
+          {
+            body: {
+              imageBase64: base64,
+              employeeName: employeeName || "Unknown",
+              documentType: docLabel,
+            },
+          }
+        );
+
+        if (error) throw error;
+
+        if (data?.error) {
+          setScanError(data.error);
+          return;
+        }
+
+        setSlots((prev) =>
+          prev.map((s) =>
+            s.type === slotType
+              ? { ...s, validationResult: data as DocumentValidationResult }
+              : s
+          )
+        );
+      } catch (err: any) {
+        console.error("Validation error:", err);
+        setScanError(err?.message || "Validation failed — you can still upload manually");
+      } finally {
+        setScanningSlot(null);
+      }
+    },
+    [employeeName, fileToBase64]
+  );
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !activeSlot) return;
 
-    // Max 10MB
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File too large — max 10MB");
       return;
     }
 
     const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    const currentSlot = activeSlot;
 
     setSlots((prev) =>
-      prev.map((s) => (s.type === activeSlot ? { ...s, file, preview } : s))
+      prev.map((s) => (s.type === currentSlot ? { ...s, file, preview, validationResult: null, validated: false } : s))
     );
     setActiveSlot(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    // Auto-trigger scan for image files
+    if (file.type.startsWith("image/")) {
+      await validateDocument(file, currentSlot);
+    }
   };
 
-  const removeFile = (type: string) => {
+  const handleRetake = (type: string) => {
     setSlots((prev) =>
       prev.map((s) => {
         if (s.type === type) {
           if (s.preview) URL.revokeObjectURL(s.preview);
-          return { ...s, file: null, preview: null };
+          return { ...s, file: null, preview: null, validationResult: null, validated: false };
         }
         return s;
       })
     );
+    setScanError(null);
+  };
+
+  const handleAcceptValidation = (type: string) => {
+    setSlots((prev) =>
+      prev.map((s) => (s.type === type ? { ...s, validated: true } : s))
+    );
+  };
+
+  const removeFile = (type: string) => {
+    handleRetake(type);
   };
 
   const allFilled = slots.every((s) => s.file !== null);
+  const allValidated = slots.every((s) => s.validated || !s.file?.type.startsWith("image/"));
 
   const handleSubmit = async () => {
     if (!user?.id || !allFilled) return;
@@ -100,14 +197,12 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
         const ext = slot.file.name.split(".").pop() || "jpg";
         const storagePath = `${user.id}/${request.id}/${slot.type}.${ext}`;
 
-        // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from("i9-documents")
           .upload(storagePath, slot.file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
-        // Create document record
         const { error: docError } = await supabase.from("i9_documents").insert({
           request_id: request.id,
           employee_id: user.id,
@@ -122,13 +217,11 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
         setProgress(Math.round((completed / total) * 100));
       }
 
-      // Update request status to uploaded
       await supabase
         .from("i9_document_requests")
         .update({ status: "uploaded" as any })
         .eq("id", request.id);
 
-      // Log audit
       const { data: reqData } = await supabase
         .from("i9_document_requests")
         .select("location_id")
@@ -169,16 +262,16 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*,.pdf"
+          capture="environment"
           className="hidden"
           onChange={handleFileSelect}
         />
 
-        {/* Secure header */}
         <DialogHeader>
           <div className="flex items-center justify-center pb-2">
             <div className="relative">
@@ -193,6 +286,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
           <DialogTitle className="text-center">Secure Document Upload</DialogTitle>
           <DialogDescription className="text-center space-y-1">
             <p>Your documents are encrypted and will be auto-deleted after admin review.</p>
+            <p className="text-[10px] text-muted-foreground italic">
+              These documents are collected for onboarding purposes only and are not a substitute for Form I-9 verification.
+            </p>
             {request.notes && (
               <p className="text-xs italic">Note: {request.notes}</p>
             )}
@@ -205,6 +301,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
             <Lock className="h-2.5 w-2.5" /> Encrypted at rest
           </Badge>
           <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+            <ScanLine className="h-2.5 w-2.5" /> AI Verified
+          </Badge>
+          <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
             <Shield className="h-2.5 w-2.5" /> Auto-deleted
           </Badge>
         </div>
@@ -213,57 +312,105 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
         <div className="space-y-3">
           {slots.map((slot) => {
             const info = DOC_TYPE_LABELS[slot.type] || { label: slot.type, hint: "" };
+            const isScanning = scanningSlot === slot.type;
+            const showScanOverlay = slot.file && slot.preview && (isScanning || slot.validationResult) && !slot.validated;
+
             return (
-              <div
-                key={slot.type}
-                className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
-                  slot.file
-                    ? "border-primary/50 bg-primary/5"
-                    : "border-border hover:border-primary/30"
-                }`}
-              >
-                {slot.file ? (
-                  <div className="flex items-center gap-3">
-                    {slot.preview ? (
-                      <img
-                        src={slot.preview}
-                        alt={info.label}
-                        className="w-12 h-12 rounded object-cover border border-border"
-                      />
-                    ) : (
+              <div key={slot.type} className="space-y-1">
+                {/* Label */}
+                <p className="text-xs font-medium text-foreground pl-1">{info.label}</p>
+
+                {showScanOverlay ? (
+                  /* Scan overlay with validation */
+                  <DocumentScanOverlay
+                    imageUrl={slot.preview!}
+                    scanning={isScanning}
+                    result={slot.validationResult}
+                    error={isScanning ? null : scanError}
+                    onRetake={() => handleRetake(slot.type)}
+                    onAccept={() => handleAcceptValidation(slot.type)}
+                  />
+                ) : slot.file && slot.validated ? (
+                  /* Validated & accepted */
+                  <div
+                    className="rounded-lg border-2 border-green-500/50 bg-green-500/5 p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      {slot.preview ? (
+                        <img
+                          src={slot.preview}
+                          alt={info.label}
+                          className="w-12 h-12 rounded object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                          <FileImage className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                          Verified
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{slot.file.name}</p>
+                        {slot.validationResult?.name && (
+                          <p className="text-[10px] text-green-600 dark:text-green-400">
+                            Name: {slot.validationResult.name.extracted_name}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => removeFile(slot.type)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : slot.file && !slot.preview ? (
+                  /* Non-image file (PDF) — no scan */
+                  <div className="rounded-lg border-2 border-primary/50 bg-primary/5 p-3">
+                    <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
                         <FileImage className="h-5 w-5 text-muted-foreground" />
                       </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                        {info.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">{slot.file.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                          {info.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{slot.file.name}</p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => removeFile(slot.type)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8"
-                      onClick={() => removeFile(slot.type)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="w-full text-center space-y-1"
-                    onClick={() => {
-                      setActiveSlot(slot.type);
-                      fileInputRef.current?.click();
-                    }}
+                  /* Empty slot — upload prompt */
+                  <div
+                    className="rounded-lg border-2 border-dashed border-border hover:border-primary/30 p-4 transition-colors"
                   >
-                    <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
-                    <p className="text-sm font-medium">{info.label}</p>
-                    <p className="text-xs text-muted-foreground">{info.hint}</p>
-                  </button>
+                    <button
+                      type="button"
+                      className="w-full text-center space-y-1"
+                      onClick={() => {
+                        setActiveSlot(slot.type);
+                        fileInputRef.current?.click();
+                      }}
+                    >
+                      <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
+                      <p className="text-sm font-medium">Take Photo or Upload</p>
+                      <p className="text-xs text-muted-foreground">{info.hint}</p>
+                    </button>
+                  </div>
                 )}
               </div>
             );
