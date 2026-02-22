@@ -6,8 +6,7 @@
  * All results are rounded to the nearest 0.5 increment.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +71,8 @@ export interface PanSizesConfig {
   baseline_units: number;
   /** Which container keys are shown/enabled for this item */
   enabled_keys: string[];
+  /** Manual overrides: container_key → units (overrides auto-calc) */
+  overrides?: Record<string, number>;
 }
 
 interface PanSizesSectionProps {
@@ -90,6 +91,8 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
   const [enabledKeys, setEnabledKeys] = useState<Set<string>>(
     () => new Set(value?.enabled_keys ?? ALL_CONTAINERS.filter(c => c.blazeDefault).map(c => c.key))
   );
+  const [overrides, setOverrides] = useState<Record<string, number>>(value?.overrides ?? {});
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
   const baseline = ALL_CONTAINERS.find(c => c.key === baselineKey)!;
   const parsedBaselineUnits = parseFloat(baselineUnits) || 0;
@@ -100,18 +103,23 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
       en: boolean,
       bk: string,
       bu: string,
-      ek: Set<string>
+      ek: Set<string>,
+      ov: Record<string, number>
     ) => {
       if (!en) {
         onChange(null);
         return;
       }
       const parsed = parseFloat(bu) || 0;
+      const cleanOverrides = Object.fromEntries(
+        Object.entries(ov).filter(([k]) => ek.has(k) && k !== bk)
+      );
       onChange({
         enabled: true,
         baseline_key: bk,
         baseline_units: parsed,
         enabled_keys: Array.from(ek),
+        overrides: Object.keys(cleanOverrides).length > 0 ? cleanOverrides : undefined,
       });
     },
     [onChange]
@@ -119,17 +127,17 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
 
   const handleEnable = (checked: boolean) => {
     setEnabled(checked);
-    emitChange(checked, baselineKey, baselineUnits, enabledKeys);
+    emitChange(checked, baselineKey, baselineUnits, enabledKeys, overrides);
   };
 
   const handleBaselineKey = (key: string) => {
     setBaselineKey(key);
-    emitChange(enabled, key, baselineUnits, enabledKeys);
+    emitChange(enabled, key, baselineUnits, enabledKeys, overrides);
   };
 
   const handleBaselineUnits = (v: string) => {
     setBaselineUnits(v);
-    emitChange(enabled, baselineKey, v, enabledKeys);
+    emitChange(enabled, baselineKey, v, enabledKeys, overrides);
   };
 
   const toggleKey = (key: string) => {
@@ -139,7 +147,18 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
     if (next.has(key)) next.delete(key);
     else next.add(key);
     setEnabledKeys(next);
-    emitChange(enabled, baselineKey, baselineUnits, next);
+    emitChange(enabled, baselineKey, baselineUnits, next, overrides);
+  };
+
+  const handleOverride = (key: string, val: number | null) => {
+    const next = { ...overrides };
+    if (val === null) {
+      delete next[key];
+    } else {
+      next[key] = val;
+    }
+    setOverrides(next);
+    emitChange(enabled, baselineKey, baselineUnits, enabledKeys, next);
   };
 
   const hotelPans = ALL_CONTAINERS.filter(c => c.category === "hotel_pan");
@@ -212,135 +231,100 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
           {parsedBaselineUnits > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground">
-                Select which sizes apply to this item. 
+                Select which sizes apply to this item. Tap a unit value to override it.
                 <span className="text-primary font-medium"> ⭐ = commonly used at Blaze</span>
               </p>
 
-              {/* Hotel pans */}
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Hotel Pans (6" deep)</p>
-              <div className="grid gap-1">
-                {hotelPans.map(c => {
-                  const isBaseline = c.key === baselineKey;
-                  const isEnabled = enabledKeys.has(c.key) || isBaseline;
-                  const units = calcUnits(c, baseline, parsedBaselineUnits);
-                  return (
-                    <div
-                      key={c.key}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer select-none ${
-                        isBaseline
-                          ? "border-primary/40 bg-primary/10"
-                          : isEnabled
-                          ? "border-border bg-muted/50"
-                          : "border-dashed border-border/50 opacity-50"
-                      }`}
-                      onClick={() => toggleKey(c.key)}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Checkbox
-                          checked={isEnabled}
-                          onCheckedChange={() => toggleKey(c.key)}
-                          disabled={isBaseline}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="text-xs font-medium">{c.label}</span>
-                        {c.blazeDefault && (
-                          <Star className="h-2.5 w-2.5 fill-primary text-primary" />
-                        )}
-                        {isBaseline && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">baseline</Badge>
-                        )}
-                      </div>
-                      <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
-                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Cambros */}
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Cambros</p>
-              <div className="grid gap-1">
-                {cambros.map(c => {
-                  const isBaseline = c.key === baselineKey;
-                  const isEnabled = enabledKeys.has(c.key) || isBaseline;
-                  const units = calcUnits(c, baseline, parsedBaselineUnits);
-                  return (
-                    <div
-                      key={c.key}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer select-none ${
-                        isBaseline
-                          ? "border-primary/40 bg-primary/10"
-                          : isEnabled
-                          ? "border-border bg-muted/50"
-                          : "border-dashed border-border/50 opacity-50"
-                      }`}
-                      onClick={() => toggleKey(c.key)}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Checkbox
-                          checked={isEnabled}
-                          onCheckedChange={() => toggleKey(c.key)}
-                          disabled={isBaseline}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="text-xs font-medium">{c.label}</span>
-                        {c.blazeDefault && (
-                          <Star className="h-2.5 w-2.5 fill-primary text-primary" />
-                        )}
-                        {isBaseline && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">baseline</Badge>
-                        )}
-                      </div>
-                      <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
-                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Dough Trays */}
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">Dough Trays</p>
-              <div className="grid gap-1">
-                {doughTrays.map(c => {
-                  const isBaseline = c.key === baselineKey;
-                  const isEnabled = enabledKeys.has(c.key) || isBaseline;
-                  const units = calcUnits(c, baseline, parsedBaselineUnits);
-                  return (
-                    <div
-                      key={c.key}
-                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer select-none ${
-                        isBaseline
-                          ? "border-primary/40 bg-primary/10"
-                          : isEnabled
-                          ? "border-border bg-muted/50"
-                          : "border-dashed border-border/50 opacity-50"
-                      }`}
-                      onClick={() => toggleKey(c.key)}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Checkbox
-                          checked={isEnabled}
-                          onCheckedChange={() => toggleKey(c.key)}
-                          disabled={isBaseline}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="text-xs font-medium">{c.label}</span>
-                        {c.blazeDefault && (
-                          <Star className="h-2.5 w-2.5 fill-primary text-primary" />
-                        )}
-                        {isBaseline && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">baseline</Badge>
-                        )}
-                      </div>
-                      <span className={`text-xs font-mono font-semibold ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
-                        {units % 1 === 0 ? units : parseFloat(units.toFixed(3))} units
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              {[
+                { title: 'Hotel Pans (6" deep)', items: hotelPans },
+                { title: "Cambros", items: cambros },
+                { title: "Dough Trays", items: doughTrays },
+              ].map(({ title, items }) => (
+                <div key={title}>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mt-2">{title}</p>
+                  <div className="grid gap-1 mt-1">
+                    {items.map(c => {
+                      const isBaseline = c.key === baselineKey;
+                      const isEnabled = enabledKeys.has(c.key) || isBaseline;
+                      const autoUnits = calcUnits(c, baseline, parsedBaselineUnits);
+                      const hasOverride = c.key in overrides;
+                      const displayUnits = hasOverride ? overrides[c.key] : autoUnits;
+                      const isEditing = editingKey === c.key && isEnabled && !isBaseline;
+                      return (
+                        <div
+                          key={c.key}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border transition-colors select-none ${
+                            isBaseline
+                              ? "border-primary/40 bg-primary/10"
+                              : isEnabled
+                              ? "border-border bg-muted/50"
+                              : "border-dashed border-border/50 opacity-50 cursor-pointer"
+                          }`}
+                          onClick={() => { if (!isEnabled || isBaseline) toggleKey(c.key); }}
+                        >
+                          <div className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleKey(c.key); }}>
+                            <Checkbox
+                              checked={isEnabled}
+                              onCheckedChange={() => toggleKey(c.key)}
+                              disabled={isBaseline}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-xs font-medium">{c.label}</span>
+                            {c.blazeDefault && (
+                              <Star className="h-2.5 w-2.5 fill-primary text-primary" />
+                            )}
+                            {isBaseline && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">baseline</Badge>
+                            )}
+                            {hasOverride && !isBaseline && (
+                              <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">custom</Badge>
+                            )}
+                          </div>
+                          {isEditing ? (
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                className="h-6 w-16 text-xs font-mono text-right px-1"
+                                defaultValue={displayUnits}
+                                autoFocus
+                                onBlur={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  if (!isNaN(val) && val > 0) {
+                                    // If same as auto-calc, remove override
+                                    if (Math.abs(val - autoUnits) < 0.001) {
+                                      handleOverride(c.key, null);
+                                    } else {
+                                      handleOverride(c.key, roundHalf(val));
+                                    }
+                                  }
+                                  setEditingKey(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                }}
+                              />
+                              <span className="text-[10px] text-muted-foreground">units</span>
+                            </div>
+                          ) : (
+                            <span
+                              className={`text-xs font-mono font-semibold cursor-pointer hover:underline ${
+                                isEnabled ? (hasOverride ? "text-primary" : "text-foreground") : "text-muted-foreground"
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isEnabled && !isBaseline) setEditingKey(c.key);
+                              }}
+                            >
+                              {displayUnits % 1 === 0 ? displayUnits : parseFloat(displayUnits.toFixed(3))} units
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -358,10 +342,14 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
 // ── Utility export — get unit count for a pan key given stored config ──────────
 export function getPanUnits(config: PanSizesConfig, containerKey: string): number | null {
   if (!config.enabled || config.baseline_units <= 0) return null;
+  if (!config.enabled_keys.includes(containerKey)) return null;
+  // Check for manual override first
+  if (config.overrides?.[containerKey] != null) {
+    return config.overrides[containerKey];
+  }
   const baseline = ALL_CONTAINERS.find(c => c.key === config.baseline_key);
   const target = ALL_CONTAINERS.find(c => c.key === containerKey);
   if (!baseline || !target) return null;
-  if (!config.enabled_keys.includes(containerKey)) return null;
   return roundHalf((target.ratio / baseline.ratio) * config.baseline_units);
 }
 
