@@ -1068,6 +1068,48 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
   }
 
+  // ---- Blended price calculation for linked items ----
+  // Find hidden items that have a linked_item_id pointing to an active item
+  const { data: linkedItems } = await supabase
+    .from('inventory_items')
+    .select('id, linked_item_id, cost_per_unit')
+    .eq('location_id', locationId)
+    .eq('user_hidden', true)
+    .not('linked_item_id', 'is', null);
+
+  if (linkedItems && linkedItems.length > 0) {
+    // Group by linked_item_id (primary item)
+    const linkMap = new Map<string, number[]>();
+    for (const li of linkedItems) {
+      if (!li.linked_item_id || li.cost_per_unit == null) continue;
+      const existing = linkMap.get(li.linked_item_id) || [];
+      existing.push(Number(li.cost_per_unit));
+      linkMap.set(li.linked_item_id, existing);
+    }
+
+    for (const [primaryId, hiddenPrices] of linkMap.entries()) {
+      // Get the primary item's cost
+      const { data: primary } = await supabase
+        .from('inventory_items')
+        .select('cost_per_unit')
+        .eq('id', primaryId)
+        .single();
+
+      if (!primary?.cost_per_unit) continue;
+
+      const allPrices = [Number(primary.cost_per_unit), ...hiddenPrices];
+      const avg = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
+      const blended = Math.round(avg * 100) / 100;
+
+      await supabase
+        .from('inventory_items')
+        .update({ blended_price: blended })
+        .eq('id', primaryId);
+
+      console.log(`[PA Sync] Blended price for ${primaryId}: $${blended} (from ${allPrices.length} prices: ${allPrices.map(p => '$' + p.toFixed(2)).join(', ')})`);
+    }
+  }
+
   await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, []);
   return jsonResponse({ success: true, synced });
 }

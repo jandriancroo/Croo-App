@@ -2229,6 +2229,7 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          blended_price: number | null
           brand: string | null
           category: string | null
           common_name: string | null
@@ -2243,6 +2244,7 @@ export type Database = {
           is_recipe: boolean
           item_number: string | null
           last_synced_at: string | null
+          linked_item_id: string | null
           location_id: string | null
           name: string
           pa_item_id: string | null
@@ -2262,6 +2264,7 @@ export type Database = {
           vendor_source: string | null
         }
         Insert: {
+          blended_price?: number | null
           brand?: string | null
           category?: string | null
           common_name?: string | null
@@ -2276,6 +2279,7 @@ export type Database = {
           is_recipe?: boolean
           item_number?: string | null
           last_synced_at?: string | null
+          linked_item_id?: string | null
           location_id?: string | null
           name: string
           pa_item_id?: string | null
@@ -2295,6 +2299,7 @@ export type Database = {
           vendor_source?: string | null
         }
         Update: {
+          blended_price?: number | null
           brand?: string | null
           category?: string | null
           common_name?: string | null
@@ -2309,6 +2314,7 @@ export type Database = {
           is_recipe?: boolean
           item_number?: string | null
           last_synced_at?: string | null
+          linked_item_id?: string | null
           location_id?: string | null
           name?: string
           pa_item_id?: string | null
@@ -2328,6 +2334,13 @@ export type Database = {
           vendor_source?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inventory_items_linked_item_id_fkey"
+            columns: ["linked_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inventory_items_location_id_fkey"
             columns: ["location_id"]

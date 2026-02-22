@@ -66,6 +66,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -198,32 +199,40 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   });
 
 
-  // Hide item mutation (user_hidden = true)
+  // Hide item mutation (user_hidden = true), optionally with a linked_item_id
   const hideItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
+    mutationFn: async ({ itemId, linkedItemId }: { itemId: string; linkedItemId?: string }) => {
+      const updateData: any = { user_hidden: true, is_active: false };
+      if (linkedItemId) {
+        updateData.linked_item_id = linkedItemId;
+      }
       const { error } = await supabase
         .from("inventory_items")
-        .update({ user_hidden: true, is_active: false } as any)
+        .update(updateData)
         .eq("id", itemId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Item hidden — it won't come back on sync");
+    onSuccess: (_, { linkedItemId }) => {
+      toast.success(linkedItemId 
+        ? "Item hidden & linked — prices will be blended on next sync" 
+        : "Item hidden — it won't come back on sync"
+      );
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-hidden", locationId] });
       setEditingItem(null);
+      setLinkTargetItemId("");
     },
     onError: () => {
       toast.error("Failed to hide item");
     }
   });
 
-  // Unhide item mutation
+  // Unhide item mutation (also clears linked_item_id and blended_price)
   const unhideItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ user_hidden: false, is_active: true } as any)
+        .update({ user_hidden: false, is_active: true, linked_item_id: null, blended_price: null } as any)
         .eq("id", itemId);
       if (error) throw error;
     },
@@ -258,6 +267,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   });
 
   const openEditDialog = (item: any) => {
+    setLinkTargetItemId("");
     setEditingItem({
       id: item.id,
       name: item.name,
@@ -572,6 +582,45 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         orders_processed: 0,
         triggered_by: (await supabase.auth.getUser()).data.user?.id || null,
       });
+
+      // ---- Blended price calculation for linked items ----
+      const { data: linkedItems } = await supabase
+        .from("inventory_items")
+        .select("id, linked_item_id, cost_per_unit")
+        .eq("location_id", locationId)
+        .eq("user_hidden", true)
+        .not("linked_item_id", "is", "null");
+
+      if (linkedItems && linkedItems.length > 0) {
+        const linkMap = new Map<string, number[]>();
+        for (const li of linkedItems) {
+          if (!(li as any).linked_item_id || li.cost_per_unit == null) continue;
+          const existing = linkMap.get((li as any).linked_item_id) || [];
+          existing.push(Number(li.cost_per_unit));
+          linkMap.set((li as any).linked_item_id, existing);
+        }
+
+        for (const [primaryId, hiddenPrices] of linkMap.entries()) {
+          const { data: primary } = await supabase
+            .from("inventory_items")
+            .select("cost_per_unit")
+            .eq("id", primaryId)
+            .single();
+
+          if (!primary?.cost_per_unit) continue;
+
+          const allPrices = [Number(primary.cost_per_unit), ...hiddenPrices];
+          const avg = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
+          const blended = Math.round(avg * 100) / 100;
+
+          await supabase
+            .from("inventory_items")
+            .update({ blended_price: blended } as any)
+            .eq("id", primaryId);
+
+          console.log(`Blended price for ${primaryId}: $${blended}`);
+        }
+      }
 
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
@@ -1153,7 +1202,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 variant="destructive"
                 size="sm"
                 className="w-full"
-                onClick={() => editingItem && hideItemMutation.mutate(editingItem.id)}
+                onClick={() => editingItem && hideItemMutation.mutate({ itemId: editingItem.id })}
                 disabled={hideItemMutation.isPending}
               >
                 <EyeOff className="h-4 w-4 mr-1" />
@@ -1162,6 +1211,38 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               <p className="text-[10px] text-muted-foreground text-center -mt-1">
                 Hidden items won't reappear after syncing
               </p>
+
+              {/* Link to primary item for price blending */}
+              {items && items.length > 1 && (
+                <div className="space-y-2 border-t pt-3">
+                  <Label className="text-xs font-medium">Link to another item (for price blending)</Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={linkTargetItemId}
+                    onChange={(e) => setLinkTargetItemId(e.target.value)}
+                  >
+                    <option value="">No link</option>
+                    {items.filter(i => i.id !== editingItem?.id).map(i => (
+                      <option key={i.id} value={i.id}>{(i as any).common_name || i.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted-foreground">
+                    If this is a duplicate (e.g., case vs. single), link it to the primary item. Prices will be averaged during sync.
+                  </p>
+                  {linkTargetItemId && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => editingItem && hideItemMutation.mutate({ itemId: editingItem.id, linkedItemId: linkTargetItemId })}
+                      disabled={hideItemMutation.isPending}
+                    >
+                      <EyeOff className="h-4 w-4 mr-1" />
+                      {hideItemMutation.isPending ? "Hiding..." : "Hide & Link"}
+                    </Button>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <Button
