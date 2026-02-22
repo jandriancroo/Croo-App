@@ -1881,6 +1881,199 @@ export type Database = {
           },
         ]
       }
+      i9_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          document_type: Database["public"]["Enums"]["i9_document_type"] | null
+          employee_id: string
+          employee_name: string | null
+          id: string
+          location_id: string
+          metadata: Json | null
+          performed_by: string
+          performed_by_name: string | null
+          request_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["i9_document_type"] | null
+          employee_id: string
+          employee_name?: string | null
+          id?: string
+          location_id: string
+          metadata?: Json | null
+          performed_by: string
+          performed_by_name?: string | null
+          request_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["i9_document_type"] | null
+          employee_id?: string
+          employee_name?: string | null
+          id?: string
+          location_id?: string
+          metadata?: Json | null
+          performed_by?: string
+          performed_by_name?: string | null
+          request_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "i9_audit_log_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_audit_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_audit_log_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_audit_log_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "i9_document_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      i9_document_requests: {
+        Row: {
+          created_at: string
+          document_types: Database["public"]["Enums"]["i9_document_type"][]
+          employee_id: string
+          expires_at: string | null
+          id: string
+          location_id: string
+          notes: string | null
+          requested_by: string
+          status: Database["public"]["Enums"]["i9_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_types: Database["public"]["Enums"]["i9_document_type"][]
+          employee_id: string
+          expires_at?: string | null
+          id?: string
+          location_id: string
+          notes?: string | null
+          requested_by: string
+          status?: Database["public"]["Enums"]["i9_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_types?: Database["public"]["Enums"]["i9_document_type"][]
+          employee_id?: string
+          expires_at?: string | null
+          id?: string
+          location_id?: string
+          notes?: string | null
+          requested_by?: string
+          status?: Database["public"]["Enums"]["i9_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "i9_document_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_document_requests_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_document_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      i9_documents: {
+        Row: {
+          deleted_at: string | null
+          document_type: Database["public"]["Enums"]["i9_document_type"]
+          employee_id: string
+          file_name: string
+          id: string
+          request_id: string
+          retrieved_at: string | null
+          retrieved_by: string | null
+          storage_path: string
+          uploaded_at: string
+        }
+        Insert: {
+          deleted_at?: string | null
+          document_type: Database["public"]["Enums"]["i9_document_type"]
+          employee_id: string
+          file_name: string
+          id?: string
+          request_id: string
+          retrieved_at?: string | null
+          retrieved_by?: string | null
+          storage_path: string
+          uploaded_at?: string
+        }
+        Update: {
+          deleted_at?: string | null
+          document_type?: Database["public"]["Enums"]["i9_document_type"]
+          employee_id?: string
+          file_name?: string
+          id?: string
+          request_id?: string
+          retrieved_at?: string | null
+          retrieved_by?: string | null
+          storage_path?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "i9_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_documents_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "i9_document_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "i9_documents_retrieved_by_fkey"
+            columns: ["retrieved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_count_edits: {
         Row: {
           count_item_id: string
@@ -6560,6 +6753,12 @@ export type Database = {
         | "interviewing"
         | "hired"
         | "rejected"
+      i9_document_type:
+        | "photo_id"
+        | "ssn_card"
+        | "work_authorization"
+        | "passport"
+      i9_request_status: "pending" | "uploaded" | "retrieved" | "expired"
       support_ticket_category:
         | "ui_glitch"
         | "broken_feature"
@@ -6715,6 +6914,13 @@ export const Constants = {
         "hired",
         "rejected",
       ],
+      i9_document_type: [
+        "photo_id",
+        "ssn_card",
+        "work_authorization",
+        "passport",
+      ],
+      i9_request_status: ["pending", "uploaded", "retrieved", "expired"],
       support_ticket_category: [
         "ui_glitch",
         "broken_feature",
