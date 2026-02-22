@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, CheckSquare, X } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, CheckSquare, X, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -886,10 +886,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 <Settings2 className="h-4 w-4 mr-1" />
                 Locations
               </Button>
-              <Button size="sm" variant="outline" onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}>
-                <FlaskConical className="h-4 w-4 mr-1" />
-                Recipe
-              </Button>
             </div>
           </div>
           {bulkMode && items && items.length > 0 && (
@@ -972,9 +968,17 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 if (recipeItems.length === 0) return null;
                 return (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                       <FlaskConical className="h-3.5 w-3.5" />
                       Prep Recipes
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-1"
+                        onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
                     </h4>
                     <div className="grid gap-1">
                       {recipeItems.map((item) => (
