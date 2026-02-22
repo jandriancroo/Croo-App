@@ -32,7 +32,7 @@ const COGSReport = () => {
       // Beginning: most recent completed count on or before week start
       const { data: beginCounts } = await supabase
         .from("inventory_counts")
-        .select("id, count_date, completed_at, period_type")
+        .select("id, count_date, completed_at, period_type, counted_at")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .lte("count_date", weekStartStr)
@@ -42,7 +42,7 @@ const COGSReport = () => {
       // Ending: first completed count on or after week end
       const { data: endCounts } = await supabase
         .from("inventory_counts")
-        .select("id, count_date, completed_at, period_type")
+        .select("id, count_date, completed_at, period_type, counted_at")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .gte("count_date", weekEndStr)

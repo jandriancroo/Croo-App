@@ -2074,6 +2074,47 @@ export type Database = {
           },
         ]
       }
+      inventory_count_deliveries: {
+        Row: {
+          count_id: string
+          created_at: string
+          id: string
+          order_id: string
+          order_type: string
+          reconciled: boolean
+          reconciled_at: string | null
+          reconciled_by: string | null
+        }
+        Insert: {
+          count_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          order_type: string
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+        }
+        Update: {
+          count_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          order_type?: string
+          reconciled?: boolean
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_deliveries_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_count_edits: {
         Row: {
           count_item_id: string
@@ -2171,6 +2212,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           count_date: string
+          counted_at: string | null
           counted_by: string | null
           created_at: string
           duration_seconds: number | null
@@ -2185,6 +2227,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           count_date?: string
+          counted_at?: string | null
           counted_by?: string | null
           created_at?: string
           duration_seconds?: number | null
@@ -2199,6 +2242,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           count_date?: string
+          counted_at?: string | null
           counted_by?: string | null
           created_at?: string
           duration_seconds?: number | null

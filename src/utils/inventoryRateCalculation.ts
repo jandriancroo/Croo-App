@@ -18,7 +18,7 @@ export async function calculateUsageRates(
     // 1. Get current count details
     const { data: currentCount, error: countErr } = await supabase
       .from("inventory_counts")
-      .select("id, count_date, period_end_date")
+      .select("id, count_date, period_end_date, counted_at")
       .eq("id", countId)
       .single();
     
@@ -30,7 +30,7 @@ export async function calculateUsageRates(
     // 2. Find previous completed count for this location
     const { data: previousCount } = await supabase
       .from("inventory_counts")
-      .select("id, count_date, period_end_date")
+      .select("id, count_date, period_end_date, counted_at")
       .eq("location_id", locationId)
       .eq("status", "completed")
       .neq("id", countId)
@@ -43,8 +43,13 @@ export async function calculateUsageRates(
       return { calculated: 0, skipped: 0 };
     }
 
-    const periodStart = previousCount.count_date;
-    const periodEnd = currentCount.count_date;
+    // Use counted_at for precise sales cutoff, fallback to count_date
+    const periodStart = previousCount.counted_at 
+      ? previousCount.counted_at.split('T')[0] 
+      : previousCount.count_date;
+    const periodEnd = currentCount.counted_at 
+      ? currentCount.counted_at.split('T')[0] 
+      : currentCount.count_date;
 
     // 3. Get closing count items (current count)
     const { data: closingItems } = await supabase
@@ -74,15 +79,13 @@ export async function calculateUsageRates(
       closingMap.set(item.item_id, Number(item.quantity));
     }
 
-    // 5. Get PFG deliveries between count dates
-    const { data: pfgOrders } = await supabase
-      .from("pfg_orders")
-      .select("items")
-      .eq("location_id", locationId)
-      .gte("delivery_date", periodStart)
-      .lte("delivery_date", periodEnd);
+    // 5. Get reconciled deliveries for this count (instead of date-range filtering)
+    const { data: reconciledDeliveries } = await supabase
+      .from("inventory_count_deliveries")
+      .select("order_id, order_type")
+      .eq("count_id", countId)
+      .eq("reconciled", true);
 
-    // Build delivery map: inventory_item qubeyond_item_id -> total delivered quantity
     // First get item mappings (qubeyond_item_id -> inventory item id)
     const { data: inventoryItems } = await supabase
       .from("inventory_items")
@@ -99,14 +102,73 @@ export async function calculateUsageRates(
     }
 
     const deliveryMap = new Map<string, number>();
-    for (const order of pfgOrders || []) {
-      const items = order.items as any[];
-      if (!Array.isArray(items)) continue;
-      for (const orderItem of items) {
-        const itemId = qubeyondToItemId.get(orderItem.productId || orderItem.id);
-        if (itemId) {
-          const qty = Number(orderItem.quantityShipped || orderItem.quantity || 0);
-          deliveryMap.set(itemId, (deliveryMap.get(itemId) || 0) + qty);
+
+    if (reconciledDeliveries && reconciledDeliveries.length > 0) {
+      // Get PFG orders that were reconciled
+      const pfgOrderIds = reconciledDeliveries
+        .filter(d => d.order_type === "pfg")
+        .map(d => d.order_id);
+
+      if (pfgOrderIds.length > 0) {
+        const { data: pfgOrders } = await supabase
+          .from("pfg_orders")
+          .select("items")
+          .in("id", pfgOrderIds);
+
+        for (const order of pfgOrders || []) {
+          const items = order.items as any[];
+          if (!Array.isArray(items)) continue;
+          for (const orderItem of items) {
+            const itemId = qubeyondToItemId.get(orderItem.productId || orderItem.id);
+            if (itemId) {
+              const qty = Number(orderItem.quantityShipped || orderItem.quantity || 0);
+              deliveryMap.set(itemId, (deliveryMap.get(itemId) || 0) + qty);
+            }
+          }
+        }
+      }
+
+      // Get PA orders that were reconciled
+      const paOrderIds = reconciledDeliveries
+        .filter(d => d.order_type === "produce_alliance")
+        .map(d => d.order_id);
+
+      if (paOrderIds.length > 0) {
+        const { data: paOrders } = await supabase
+          .from("pa_orders")
+          .select("items")
+          .in("id", paOrderIds);
+
+        for (const order of paOrders || []) {
+          const items = order.items as any[];
+          if (!Array.isArray(items)) continue;
+          for (const orderItem of items) {
+            const itemId = qubeyondToItemId.get(orderItem.productId || orderItem.id);
+            if (itemId) {
+              const qty = Number(orderItem.quantityShipped || orderItem.quantity || 0);
+              deliveryMap.set(itemId, (deliveryMap.get(itemId) || 0) + qty);
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback: no reconciliation records, use date-range (backwards compat)
+      const { data: pfgOrders } = await supabase
+        .from("pfg_orders")
+        .select("items")
+        .eq("location_id", locationId)
+        .gte("delivery_date", periodStart)
+        .lte("delivery_date", periodEnd);
+
+      for (const order of pfgOrders || []) {
+        const items = order.items as any[];
+        if (!Array.isArray(items)) continue;
+        for (const orderItem of items) {
+          const itemId = qubeyondToItemId.get(orderItem.productId || orderItem.id);
+          if (itemId) {
+            const qty = Number(orderItem.quantityShipped || orderItem.quantity || 0);
+            deliveryMap.set(itemId, (deliveryMap.get(itemId) || 0) + qty);
+          }
         }
       }
     }

@@ -13,6 +13,7 @@ import { calculateUsageRates } from "@/utils/inventoryRateCalculation";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
+import DeliveryReconciliation from "@/components/inventory/DeliveryReconciliation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,7 @@ import {
 const InventoryCount = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
+  const [reconciliationComplete, setReconciliationComplete] = useState(false);
   const saveRef = useRef<{ save: () => void; isSaving: boolean } | null>(null);
   const { locationId, countId } = useParams();
   const [searchParams] = useSearchParams();
@@ -80,7 +82,8 @@ const InventoryCount = () => {
         .from("inventory_counts")
         .update({ 
           status: "completed",
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          counted_at: new Date().toISOString()
         })
         .eq("id", countId);
       
@@ -148,6 +151,7 @@ const InventoryCount = () => {
   const isViewOnly = isCompleted && !editMode;
   const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
+  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
@@ -341,6 +345,12 @@ const InventoryCount = () => {
               locationId={locationId!}
             />
           </>
+        ) : needsReconciliation ? (
+          <DeliveryReconciliation
+            countId={countId!}
+            locationId={locationId!}
+            onComplete={() => setReconciliationComplete(true)}
+          />
         ) : isCounting || isEditing ? (
           <InventoryCountSession 
             countId={countId!} 
