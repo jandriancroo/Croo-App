@@ -2434,6 +2434,7 @@ export type Database = {
           cost_per_unit: number | null
           count_unit: string | null
           count_units_per_case: number | null
+          countable: boolean
           created_at: string
           display_order: number | null
           id: string
@@ -2469,6 +2470,7 @@ export type Database = {
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null
+          countable?: boolean
           created_at?: string
           display_order?: number | null
           id?: string
@@ -2504,6 +2506,7 @@ export type Database = {
           cost_per_unit?: number | null
           count_unit?: string | null
           count_units_per_case?: number | null
+          countable?: boolean
           created_at?: string
           display_order?: number | null
           id?: string

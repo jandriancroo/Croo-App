@@ -129,6 +129,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           pan_sizes,
           storage_location_id,
           is_recipe,
+          countable,
           recipe_yield_unit,
           storage_location:inventory_locations(name)
         `)
@@ -149,7 +150,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Map items with their counts and count_item_id
       const countMap = new Map(countItems?.map(ci => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
       
-      return itemsData?.map(item => {
+      return itemsData?.filter(item => {
+        // Exclude non-countable recipe items (e.g., batch recipes like House Made Dough)
+        if ((item as any).is_recipe && (item as any).countable === false) return false;
+        return true;
+      }).map(item => {
         const countData = countMap.get(item.id);
         const isRecipe = (item as any).is_recipe === true;
         return {

@@ -941,6 +941,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                               <FlaskConical className="h-2.5 w-2.5 mr-0.5" />
                               Recipe
                             </Badge>
+                            {(item as any).countable === false && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                                <EyeOff className="h-2.5 w-2.5 mr-0.5" />
+                                Hidden from count
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-muted-foreground">
                             {item.recipe_yield_qty && item.recipe_yield_unit && (
@@ -954,6 +960,19 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                 <span className="text-xs text-primary">${displayCost.toFixed(2)}/batch</span>
                               ) : null;
                             })()}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title={(item as any).countable === false ? "Show in count" : "Hide from count"}
+                              onClick={async () => {
+                                const newVal = (item as any).countable === false ? true : false;
+                                await supabase.from("inventory_items").update({ countable: newVal } as any).eq("id", item.id);
+                                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                              }}
+                            >
+                              {(item as any).countable === false ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
