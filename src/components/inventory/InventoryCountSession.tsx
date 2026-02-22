@@ -161,8 +161,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           item_id: item.id,
           item_name: (item as any).common_name || item.name,
           unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
-          storage_location: isRecipe ? "Recipes" : ((item.storage_location as any)?.name || "Uncategorized"),
-          storage_location_id: isRecipe ? "recipes" : (item.storage_location_id || "uncategorized"),
+          storage_location: isRecipe 
+            ? ((item.storage_location as any)?.name || "Recipes") 
+            : ((item.storage_location as any)?.name || "Uncategorized"),
+          storage_location_id: isRecipe 
+            ? (item.storage_location_id || "recipes") 
+            : (item.storage_location_id || "uncategorized"),
           par_level: item.par_level,
           cost_per_unit: item.cost_per_unit,
           pack_size: item.pack_size,
