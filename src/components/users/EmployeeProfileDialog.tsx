@@ -14,6 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { EmployeeRecordsSection } from '@/components/users/EmployeeRecordsSection';
+import { I9DocumentsSection } from '@/components/users/I9DocumentsSection';
+import { I9RequestDialog } from '@/components/users/I9RequestDialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -170,6 +172,7 @@ export function EmployeeProfileDialog({
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [i9RequestOpen, setI9RequestOpen] = useState(false);
 
   // Initialize form when user changes
   useEffect(() => {
@@ -798,6 +801,24 @@ export function EmployeeProfileDialog({
 
               {/* Employee Records (Write-Ups + Signed Documents) */}
               {user && <EmployeeRecordsSection userId={user.id} employeeName={user.full_name || user.email} />}
+
+              {/* I-9 Documents Section */}
+              {user && canEdit && (
+                <>
+                  <I9DocumentsSection userId={user.id} employeeName={user.full_name || user.email} />
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => setI9RequestOpen(true)}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Request I-9 Documents
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -829,6 +850,14 @@ export function EmployeeProfileDialog({
         imageSrc={tempImageSrc}
         onCropComplete={handleCropComplete}
       />
+
+      {user && (
+        <I9RequestDialog
+          open={i9RequestOpen}
+          onOpenChange={setI9RequestOpen}
+          employee={{ id: user.id, full_name: user.full_name || user.email }}
+        />
+      )}
     </>
   );
 }

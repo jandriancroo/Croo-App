@@ -26,6 +26,7 @@ import { Copy } from 'lucide-react';
 import { BulkActionsBar } from '@/components/users/BulkActionsBar';
 import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
 import { EmployeeProfileDialog } from '@/components/users/EmployeeProfileDialog';
+import { I9RequestDialog } from '@/components/users/I9RequestDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -142,6 +143,7 @@ export default function UserManagement() {
   const [bulkMode, setBulkMode] = useState(false);
   const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
+  const [isBulkI9Open, setIsBulkI9Open] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [updatingOutdated, setUpdatingOutdated] = useState(false);
@@ -1731,6 +1733,7 @@ export default function UserManagement() {
           selectedCount={selectedUsers.size}
           onDeactivate={() => setIsBulkDeactivateOpen(true)}
           onWageUpdate={() => setIsBulkWageOpen(true)}
+          onRequestI9={() => setIsBulkI9Open(true)}
           onForceUpdate={handleBulkForceUpdate}
           onClearSelection={() => { setSelectedUsers(new Set()); setBulkMode(false); }}
           isUpdating={bulkUpdating}
@@ -1811,6 +1814,14 @@ export default function UserManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      <I9RequestDialog
+        open={isBulkI9Open}
+        onOpenChange={setIsBulkI9Open}
+        employees={Array.from(selectedUsers).map(id => {
+          const u = users.find((usr: any) => usr.id === id);
+          return { id, full_name: u?.full_name || u?.email || 'Unknown' };
+        })}
+      />
       </div>
     </Layout>
   );

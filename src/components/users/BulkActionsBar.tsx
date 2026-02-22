@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { X, UserX, DollarSign, RefreshCw } from 'lucide-react';
+import { X, UserX, DollarSign, RefreshCw, Shield } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedCount: number;
   onDeactivate: () => void;
   onWageUpdate: () => void;
   onForceUpdate?: () => void;
+  onRequestI9?: () => void;
   onClearSelection: () => void;
   isUpdating?: boolean;
 }
@@ -15,6 +16,7 @@ export function BulkActionsBar({
   onDeactivate,
   onWageUpdate,
   onForceUpdate,
+  onRequestI9,
   onClearSelection,
   isUpdating = false
 }: BulkActionsBarProps) {
@@ -44,6 +46,17 @@ export function BulkActionsBar({
             <DollarSign className="h-4 w-4" />
             Update Wages
           </Button>
+          {onRequestI9 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onRequestI9}
+              className="gap-2"
+            >
+              <Shield className="h-4 w-4" />
+              Request I-9
+            </Button>
+          )}
           {onForceUpdate && (
             <Button
               size="sm"
