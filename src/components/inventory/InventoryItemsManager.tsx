@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2 } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -82,6 +83,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [showBulkPanDialog, setShowBulkPanDialog] = useState(false);
   const [showStorageManager, setShowStorageManager] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
+  const [bulkMoveTarget, setBulkMoveTarget] = useState<string>("");
 
   // Get brand ID for this location
   const { data: brandInfo } = useQuery({
@@ -862,9 +865,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             </CardTitle>
             <div className="flex items-center gap-2">
               {selectedItemIds.size > 0 && (
-                <Button size="sm" variant="default" onClick={() => setShowBulkPanDialog(true)}>
-                  Pan Sizes ({selectedItemIds.size})
-                </Button>
+                <>
+                  <Button size="sm" variant="default" onClick={() => setShowBulkPanDialog(true)}>
+                    Pan Sizes ({selectedItemIds.size})
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setBulkMoveTarget(""); setShowBulkMoveDialog(true); }}>
+                    <MoveRight className="h-3.5 w-3.5 mr-1" />
+                    Move ({selectedItemIds.size})
+                  </Button>
+                </>
               )}
               <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
                 <Settings2 className="h-4 w-4 mr-1" />
@@ -1531,6 +1540,52 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         onOpenChange={setShowStorageManager}
         locationId={locationId}
       />
+
+      {/* Bulk Move Dialog */}
+      <Dialog open={showBulkMoveDialog} onOpenChange={setShowBulkMoveDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">Move {selectedItemIds.size} items</DialogTitle>
+          </DialogHeader>
+          <Select value={bulkMoveTarget} onValueChange={setBulkMoveTarget}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select location..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__unassigned__">Unassigned</SelectItem>
+              {storageLocations?.map(loc => (
+                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            disabled={!bulkMoveTarget || isBulkUpdating}
+            onClick={async () => {
+              setIsBulkUpdating(true);
+              try {
+                const targetId = bulkMoveTarget === "__unassigned__" ? null : bulkMoveTarget;
+                const ids = Array.from(selectedItemIds);
+                const { error } = await supabase
+                  .from("inventory_items")
+                  .update({ storage_location_id: targetId } as any)
+                  .in("id", ids);
+                if (error) throw error;
+                toast.success(`Moved ${ids.length} items`);
+                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                setSelectedItemIds(new Set());
+                setShowBulkMoveDialog(false);
+              } catch {
+                toast.error("Failed to move items");
+              } finally {
+                setIsBulkUpdating(false);
+              }
+            }}
+          >
+            {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Move Items
+          </Button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
