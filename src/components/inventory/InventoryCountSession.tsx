@@ -49,6 +49,7 @@ interface CountItem {
   brand: string | null;
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
+  is_recipe: boolean;
 }
 
 // Count state: cases + individual units (supports decimals for partial cases)
@@ -165,6 +166,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           brand: item.brand,
           image_url: item.image_url,
           pan_sizes: (item as any).pan_sizes ?? null,
+          is_recipe: isRecipe,
           _existingQuantity: countData?.quantity ?? 0,
           _countItemId: countData?.countItemId || null
         };
@@ -953,7 +955,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                             <span className="text-primary-foreground font-medium">
                               {item.cost_per_unit 
                                 ? `${formatCurrency(item.cost_per_unit)}/case`
-                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/batch`
+                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
                               }
                             </span>
                           )}
@@ -969,8 +971,45 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   </div>
                 </div>
                 
-                {/* Dual count controls - Pill Stepper style */}
+                {/* Count controls */}
                 <div className="p-4">
+                  {item.is_recipe ? (
+                    /* Single count stepper for recipe items */
+                    <div className="max-w-xs mx-auto">
+                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium text-center">
+                        Count ({item.unit || 'ea'})
+                      </p>
+                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateCases(item.item_id, -1)}
+                          >
+                            <Minus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rawInputs[item.item_id]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
+                          onBlur={() => handleCasesBlur(item.item_id)}
+                          disabled={isViewOnly}
+                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                        />
+                        {!isViewOnly && (
+                          <button
+                            type="button"
+                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            onClick={() => updateCases(item.item_id, 1)}
+                          >
+                            <Plus className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
                   <div className="flex items-center gap-3">
                     {/* Cases pill stepper */}
                     <div className="flex-1">
@@ -1047,6 +1086,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   </div>
+                  )}
 
                   {/* Pan size rows */}
                   {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
