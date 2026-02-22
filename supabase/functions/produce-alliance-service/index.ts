@@ -995,7 +995,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     if (item.id) {
       const { data } = await supabase
         .from('inventory_items')
-        .select('id')
+        .select('id, user_hidden')
         .eq('location_id', locationId)
         .eq('pa_item_id', String(item.id))
         .maybeSingle();
@@ -1004,7 +1004,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     if (!existingItem && item.name) {
       const { data } = await supabase
         .from('inventory_items')
-        .select('id')
+        .select('id, user_hidden')
         .eq('location_id', locationId)
         .ilike('name', item.name)
         .maybeSingle();
@@ -1028,7 +1028,12 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
     if (existingItem) {
       // Don't overwrite storage_location_id if user already assigned one
-      await supabase.from('inventory_items').update(itemData).eq('id', existingItem.id);
+      // Don't re-activate items the user has manually hidden
+      const updateData = { ...itemData };
+      if (existingItem.user_hidden) {
+        delete (updateData as any).is_active; // preserve hidden state
+      }
+      await supabase.from('inventory_items').update(updateData).eq('id', existingItem.id);
     } else {
       await supabase.from('inventory_items').insert({
         location_id: locationId,
@@ -1045,7 +1050,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   if (syncedPaIds.length > 0) {
     const { data: allPaItems } = await supabase
       .from('inventory_items')
-      .select('id, pa_item_id')
+      .select('id, pa_item_id, user_hidden')
       .eq('location_id', locationId)
       .eq('vendor_source', 'produce_alliance')
       .eq('is_active', true);
