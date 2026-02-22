@@ -61,16 +61,16 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
     }))
   );
 
-  // Fetch employee name for validation (use nickname if set)
+  // Fetch employee name for validation (legal name for ID matching)
   useEffect(() => {
     if (user?.id) {
       supabase
         .from("profiles")
-        .select("full_name, nickname")
+        .select("full_name")
         .eq("id", user.id)
         .single()
         .then(({ data }) => {
-          if (data) setEmployeeName(getDisplayName(data.full_name, data.nickname));
+          if (data?.full_name) setEmployeeName(data.full_name);
         });
     }
   }, [user?.id]);
