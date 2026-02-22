@@ -831,30 +831,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         </Card>
       )}
 
-      {/* Storage Locations */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Storage Locations ({storageLocations?.length || 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {storageLocations && storageLocations.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {storageLocations.map((loc) => (
-                <div key={loc.id} className="px-3 py-1.5 bg-muted rounded-full text-sm">
-                  {loc.name}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-4">
-              No storage locations yet. Click "Sync with PFG" to import.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+
 
       {/* Inventory Items */}
       <Card>
