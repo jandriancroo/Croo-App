@@ -23,6 +23,7 @@ import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 import ExportToMasterDialog from "./ExportToMasterDialog";
 import DeployToLocationDialog from "./DeployToLocationDialog";
+import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface InventoryItemsManagerProps {
@@ -72,6 +73,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [linkTargetItemId, setLinkTargetItemId] = useState<string>("");
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [showBulkPanDialog, setShowBulkPanDialog] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Get brand ID for this location
   const { data: brandInfo } = useQuery({
@@ -864,15 +869,44 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               <Package className="h-5 w-5" />
               Items ({items?.length || 0})
             </CardTitle>
-            <Button size="sm" variant="outline" onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}>
-              <FlaskConical className="h-4 w-4 mr-1" />
-              Create Recipe
-            </Button>
+            <div className="flex items-center gap-2">
+              {selectedItemIds.size > 0 && (
+                <Button size="sm" variant="default" onClick={() => setShowBulkPanDialog(true)}>
+                  Pan Sizes ({selectedItemIds.size})
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => { setEditRecipeId(null); setShowRecipeDialog(true); }}>
+                <FlaskConical className="h-4 w-4 mr-1" />
+                Recipe
+              </Button>
+            </div>
           </div>
+          {/* Select all / clear */}
+          {items && items.length > 0 && (
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                className="text-xs text-primary hover:underline"
+                onClick={() => {
+                  const allNonRecipe = items.filter(i => !i.is_recipe).map(i => i.id);
+                  setSelectedItemIds(new Set(allNonRecipe));
+                }}
+              >
+                Select all
+              </button>
+              {selectedItemIds.size > 0 && (
+                <button
+                  className="text-xs text-muted-foreground hover:underline"
+                  onClick={() => setSelectedItemIds(new Set())}
+                >
+                  Clear ({selectedItemIds.size})
+                </button>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {items && items.length > 0 ? (
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {/* Items needing remap */}
               {(() => {
                 const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap' && !i.is_recipe);
@@ -958,7 +992,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                               if (displayCost == null || displayCost <= 0) return null;
                               const yieldQty = item.recipe_yield_qty || 0;
                               const yieldUnit = item.recipe_yield_unit || "ea";
-                              // If yield > 1, show per-unit cost with /unit label; otherwise cost IS per-unit
                               if (yieldQty > 1) {
                                 const perUnit = displayCost / yieldQty;
                                 return <span className="text-xs text-primary">${perUnit.toFixed(2)}/{yieldUnit}</span>;
@@ -981,103 +1014,178 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 );
               })()}
 
-              {/* Regular items grouped by storage location */}
+              {/* Regular items grouped by storage location — collapsible */}
               {storageLocations?.map((loc) => {
                 const locItems = items.filter(i => i.storage_location_id === loc.id && !i.is_recipe);
                 if (locItems.length === 0) return null;
+                const isCollapsed = collapsedSections.has(loc.id);
+                const allSelected = locItems.every(i => selectedItemIds.has(i.id));
+                const someSelected = locItems.some(i => selectedItemIds.has(i.id));
+                const panCount = locItems.filter(i => (i as any).pan_sizes?.enabled).length;
                 return (
-                  <div key={loc.id}>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">{loc.name}</h4>
-                    <div className="grid gap-1">
-                      {locItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
-                          <div className="flex items-center gap-2 truncate flex-1">
-                            <span className="truncate">{(item as any).common_name || item.name}</span>
-                            {(item as any).common_name && (
-                              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={item.name}>
-                                ({item.name})
-                              </span>
-                            )}
-                            {(item as any).remap_status === 'needs_remap' && (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                                Remap
-                              </Badge>
-                            )}
-                            {item.category && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                                {item.category}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            {item.pack_quantity_override && (
-                              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">
-                                {item.pack_quantity_override}/case
-                              </span>
-                            )}
-                            <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
-                            {item.cost_per_unit && (
-                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => openEditDialog(item)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div key={loc.id} className="border border-border rounded-lg overflow-hidden">
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2.5 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+                      onClick={() => {
+                        const next = new Set(collapsedSections);
+                        if (isCollapsed) next.delete(loc.id); else next.add(loc.id);
+                        setCollapsedSections(next);
+                      }}
+                    >
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(selectedItemIds);
+                            if (checked) {
+                              locItems.forEach(i => next.add(i.id));
+                            } else {
+                              locItems.forEach(i => next.delete(i.id));
+                            }
+                            setSelectedItemIds(next);
+                          }}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                      <span className="text-sm font-medium flex-1">{loc.name}</span>
+                      <span className="text-xs text-muted-foreground">{locItems.length} items</span>
+                      {panCount > 0 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {panCount} pans
+                        </Badge>
+                      )}
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid gap-0.5 p-1">
+                        {locItems.map((item) => {
+                          const isSelected = selectedItemIds.has(item.id);
+                          return (
+                            <div key={item.id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group ${isSelected ? 'bg-primary/10' : 'bg-background hover:bg-muted/30'}`}>
+                              <div className="flex items-center gap-2 truncate flex-1">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedItemIds);
+                                    if (checked) next.add(item.id); else next.delete(item.id);
+                                    setSelectedItemIds(next);
+                                  }}
+                                  className="h-3.5 w-3.5 flex-shrink-0"
+                                />
+                                <span className="truncate">{(item as any).common_name || item.name}</span>
+                                {(item as any).common_name && (
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
+                                    ({item.name})
+                                  </span>
+                                )}
+                                {(item as any).pan_sizes?.enabled && (
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 flex-shrink-0">
+                                    Pans
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
+                                {item.cost_per_unit && (
+                                  <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => openEditDialog(item)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
 
-              {/* Unassigned items (no storage location) */}
+              {/* Unassigned items */}
               {(() => {
                 const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe);
                 if (unassigned.length === 0) return null;
+                const isCollapsed = collapsedSections.has("__unassigned__");
+                const allSelected = unassigned.every(i => selectedItemIds.has(i.id));
+                const someSelected = unassigned.some(i => selectedItemIds.has(i.id));
                 return (
-                  <div>
-                    <h4 className="text-sm font-medium text-amber-500 mb-2 flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      Unassigned ({unassigned.length})
-                    </h4>
-                    <div className="grid gap-1">
-                      {unassigned.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-amber-500/10 border border-amber-500/20 rounded text-sm group">
-                          <div className="flex items-center gap-2 truncate flex-1">
-                            <span className="truncate">{(item as any).common_name || item.name}</span>
-                            {(item as any).common_name && (
-                              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={item.name}>
-                                ({item.name})
-                              </span>
-                            )}
-                            {item.vendor_source && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                                {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
-                            {item.cost_per_unit && (
-                              <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => openEditDialog(item)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="border border-amber-500/30 rounded-lg overflow-hidden">
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-left"
+                      onClick={() => {
+                        const next = new Set(collapsedSections);
+                        if (isCollapsed) next.delete("__unassigned__"); else next.add("__unassigned__");
+                        setCollapsedSections(next);
+                      }}
+                    >
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(selectedItemIds);
+                            if (checked) {
+                              unassigned.forEach(i => next.add(i.id));
+                            } else {
+                              unassigned.forEach(i => next.delete(i.id));
+                            }
+                            setSelectedItemIds(next);
+                          }}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                      <MapPin className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-sm font-medium flex-1">Unassigned</span>
+                      <span className="text-xs text-muted-foreground">{unassigned.length} items</span>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid gap-0.5 p-1">
+                        {unassigned.map((item) => {
+                          const isSelected = selectedItemIds.has(item.id);
+                          return (
+                            <div key={item.id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group ${isSelected ? 'bg-primary/10' : 'bg-background hover:bg-muted/30'}`}>
+                              <div className="flex items-center gap-2 truncate flex-1">
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    const next = new Set(selectedItemIds);
+                                    if (checked) next.add(item.id); else next.delete(item.id);
+                                    setSelectedItemIds(next);
+                                  }}
+                                  className="h-3.5 w-3.5 flex-shrink-0"
+                                />
+                                <span className="truncate">{(item as any).common_name || item.name}</span>
+                                {item.vendor_source && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
+                                    {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
+                                {item.cost_per_unit && (
+                                  <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => openEditDialog(item)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1390,6 +1498,34 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           />
         </>
       )}
+
+      {/* Bulk Pan Size Dialog */}
+      <BulkPanSizeDialog
+        open={showBulkPanDialog}
+        onOpenChange={setShowBulkPanDialog}
+        selectedCount={selectedItemIds.size}
+        isPending={isBulkUpdating}
+        onApply={async (config) => {
+          setIsBulkUpdating(true);
+          try {
+            const ids = Array.from(selectedItemIds);
+            for (const id of ids) {
+              await supabase
+                .from("inventory_items")
+                .update({ pan_sizes: config as any } as any)
+                .eq("id", id);
+            }
+            toast.success(`Pan sizes applied to ${ids.length} items`);
+            queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+            setSelectedItemIds(new Set());
+            setShowBulkPanDialog(false);
+          } catch {
+            toast.error("Failed to apply pan sizes");
+          } finally {
+            setIsBulkUpdating(false);
+          }
+        }}
+      />
     </>
   );
 };
