@@ -114,9 +114,12 @@ export async function fetchRecipeCosts(locationId: string): Promise<Map<string, 
   const recipeCosts = new Map<string, number>();
   for (const recipeId of recipeItemIds) {
     const batchCost = calculateBatchCost(recipeId);
+    const itemName = itemMap.get(recipeId);
+    console.log(`[RecipeCost] ${itemName?.id || recipeId}: batchCost=${batchCost}`);
     recipeCosts.set(recipeId, batchCost);
   }
 
+  console.log(`[RecipeCost] Total recipes calculated: ${recipeCosts.size}`);
   return recipeCosts;
 }
 
