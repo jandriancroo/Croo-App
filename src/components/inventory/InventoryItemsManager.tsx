@@ -955,9 +955,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             )}
                             {(() => {
                               const displayCost = item.cost_per_unit ? Number(item.cost_per_unit) : recipeCosts?.get(item.id) ?? null;
-                              return displayCost != null && displayCost > 0 ? (
-                                <span className="text-xs text-primary">${displayCost.toFixed(2)}/batch</span>
-                              ) : null;
+                              if (displayCost == null || displayCost <= 0) return null;
+                              const yieldQty = item.recipe_yield_qty || 0;
+                              const yieldUnit = item.recipe_yield_unit || "ea";
+                              // If yield > 1, show per-unit cost with /unit label; otherwise cost IS per-unit
+                              if (yieldQty > 1) {
+                                const perUnit = displayCost / yieldQty;
+                                return <span className="text-xs text-primary">${perUnit.toFixed(2)}/{yieldUnit}</span>;
+                              }
+                              return <span className="text-xs text-primary">${displayCost.toFixed(2)}/ea</span>;
                             })()}
                             <Button
                               variant="ghost"
