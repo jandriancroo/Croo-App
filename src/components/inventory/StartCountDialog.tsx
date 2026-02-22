@@ -17,7 +17,6 @@ import { Progress } from "@/components/ui/progress";
 import { 
   CalendarDays, 
   Calendar, 
-  CalendarRange, 
   Loader2, 
   Check, 
   RefreshCw, 
@@ -28,7 +27,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays, formatDistanceToNow } from "date-fns";
+import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface StartCountDialogProps {
@@ -301,24 +300,7 @@ const StartCountDialog = ({
       }
     }
 
-    // Yearly period
-    const yearlySetting = scheduleSettings?.find((s) => s.frequency === "yearly");
-    if (yearlySetting) {
-      const yearEnd = endOfYear(today);
-      const yearEndStr = format(yearEnd, "yyyy-MM-dd");
-      
-      if (!isPeriodCounted("yearly", yearEndStr)) {
-        options.push({
-          id: `yearly-current`,
-          type: "yearly",
-          label: `${format(today, "yyyy")} Year End`,
-          description: `${format(startOfYear(today), "MMM d")} - ${format(yearEnd, "MMM d, yyyy")}`,
-          periodEndDate: yearEndStr,
-          icon: <CalendarRange className="h-5 w-5" />,
-          isConfigured: true,
-        });
-      }
-    }
+    // Yearly periods removed - redundant when monthly is enabled
 
     // Always show ad-hoc option
     options.push({
