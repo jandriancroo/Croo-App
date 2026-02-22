@@ -50,8 +50,8 @@ const ALL_CONTAINERS: ContainerDef[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Round to 3 decimal places (no artificial snapping) */
-const roundHalf = (v: number): number => Math.round(v * 1000) / 1000;
+/** Round to 2 decimal places for clean display */
+const roundHalf = (v: number): number => Math.round(v * 100) / 100;
 
 /** Calculate units for a container given the baseline container's units */
 const calcUnits = (container: ContainerDef, baseline: ContainerDef, baselineUnits: number): number => {
