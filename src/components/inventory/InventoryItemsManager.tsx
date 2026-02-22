@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, CheckSquare, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -85,6 +85,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
   const [bulkMoveTarget, setBulkMoveTarget] = useState<string>("");
+  const [bulkMode, setBulkMode] = useState(false);
 
   // Get brand ID for this location
   const { data: brandInfo } = useQuery({
@@ -864,16 +865,22 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               Items ({items?.length || 0})
             </CardTitle>
             <div className="flex items-center gap-2">
-              {selectedItemIds.size > 0 && (
-                <>
-                  <Button size="sm" variant="default" onClick={() => setShowBulkPanDialog(true)}>
-                    Pan Sizes ({selectedItemIds.size})
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => { setBulkMoveTarget(""); setShowBulkMoveDialog(true); }}>
-                    <MoveRight className="h-3.5 w-3.5 mr-1" />
-                    Move ({selectedItemIds.size})
-                  </Button>
-                </>
+              {items && items.length > 0 && (
+                <Button
+                  size="sm"
+                  variant={bulkMode ? "default" : "outline"}
+                  onClick={() => {
+                    if (bulkMode) {
+                      setBulkMode(false);
+                      setSelectedItemIds(new Set());
+                    } else {
+                      setBulkMode(true);
+                    }
+                  }}
+                >
+                  <CheckSquare className="h-4 w-4 mr-1" />
+                  {bulkMode ? "Done" : "Select"}
+                </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
                 <Settings2 className="h-4 w-4 mr-1" />
@@ -885,8 +892,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               </Button>
             </div>
           </div>
-          {/* Select all / clear */}
-          {items && items.length > 0 && (
+          {bulkMode && items && items.length > 0 && (
             <div className="flex items-center gap-3 mt-2">
               <button
                 className="text-xs text-primary hover:underline"
@@ -1036,21 +1042,23 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                         setCollapsedSections(next);
                       }}
                     >
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                          onCheckedChange={(checked) => {
-                            const next = new Set(selectedItemIds);
-                            if (checked) {
-                              locItems.forEach(i => next.add(i.id));
-                            } else {
-                              locItems.forEach(i => next.delete(i.id));
-                            }
-                            setSelectedItemIds(next);
-                          }}
-                          className="h-4 w-4"
-                        />
-                      </div>
+                      {bulkMode && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedItemIds);
+                              if (checked) {
+                                locItems.forEach(i => next.add(i.id));
+                              } else {
+                                locItems.forEach(i => next.delete(i.id));
+                              }
+                              setSelectedItemIds(next);
+                            }}
+                            className="h-4 w-4"
+                          />
+                        </div>
+                      )}
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                       <span className="text-sm font-medium flex-1">{loc.name}</span>
                       <span className="text-xs text-muted-foreground">{locItems.length} items</span>
@@ -1067,15 +1075,17 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                           return (
                             <div key={item.id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group ${isSelected ? 'bg-primary/10' : 'bg-background hover:bg-muted/30'}`}>
                               <div className="flex items-center gap-2 truncate flex-1">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) => {
-                                    const next = new Set(selectedItemIds);
-                                    if (checked) next.add(item.id); else next.delete(item.id);
-                                    setSelectedItemIds(next);
-                                  }}
-                                  className="h-3.5 w-3.5 flex-shrink-0"
-                                />
+                                {bulkMode && (
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => {
+                                      const next = new Set(selectedItemIds);
+                                      if (checked) next.add(item.id); else next.delete(item.id);
+                                      setSelectedItemIds(next);
+                                    }}
+                                    className="h-3.5 w-3.5 flex-shrink-0"
+                                  />
+                                )}
                                 <span className="truncate">{(item as any).common_name || item.name}</span>
                                 {(item as any).common_name && (
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
@@ -1128,21 +1138,23 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                         setCollapsedSections(next);
                       }}
                     >
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                          onCheckedChange={(checked) => {
-                            const next = new Set(selectedItemIds);
-                            if (checked) {
-                              unassigned.forEach(i => next.add(i.id));
-                            } else {
-                              unassigned.forEach(i => next.delete(i.id));
-                            }
-                            setSelectedItemIds(next);
-                          }}
-                          className="h-4 w-4"
-                        />
-                      </div>
+                      {bulkMode && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedItemIds);
+                              if (checked) {
+                                unassigned.forEach(i => next.add(i.id));
+                              } else {
+                                unassigned.forEach(i => next.delete(i.id));
+                              }
+                              setSelectedItemIds(next);
+                            }}
+                            className="h-4 w-4"
+                          />
+                        </div>
+                      )}
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                       <MapPin className="h-3.5 w-3.5 text-amber-500" />
                       <span className="text-sm font-medium flex-1">Unassigned</span>
@@ -1155,15 +1167,17 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                           return (
                             <div key={item.id} className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group ${isSelected ? 'bg-primary/10' : 'bg-background hover:bg-muted/30'}`}>
                               <div className="flex items-center gap-2 truncate flex-1">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) => {
-                                    const next = new Set(selectedItemIds);
-                                    if (checked) next.add(item.id); else next.delete(item.id);
-                                    setSelectedItemIds(next);
-                                  }}
-                                  className="h-3.5 w-3.5 flex-shrink-0"
-                                />
+                                {bulkMode && (
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={(checked) => {
+                                      const next = new Set(selectedItemIds);
+                                      if (checked) next.add(item.id); else next.delete(item.id);
+                                      setSelectedItemIds(next);
+                                    }}
+                                    className="h-3.5 w-3.5 flex-shrink-0"
+                                  />
+                                )}
                                 <span className="truncate">{(item as any).common_name || item.name}</span>
                                 {item.vendor_source && (
                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
@@ -1586,6 +1600,44 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Bulk Action Bar */}
+      {bulkMode && selectedItemIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-6 py-3 flex items-center gap-4 border-2 border-primary-foreground/20">
+            <span className="font-semibold whitespace-nowrap">{selectedItemIds.size} selected</span>
+            <div className="h-6 w-px bg-primary-foreground/20" />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setBulkMoveTarget(""); setShowBulkMoveDialog(true); }}
+                className="gap-1.5"
+              >
+                <MoveRight className="h-4 w-4" />
+                Move
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowBulkPanDialog(true)}
+                className="gap-1.5"
+              >
+                Pan Sizes
+              </Button>
+            </div>
+            <div className="h-6 w-px bg-primary-foreground/20" />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setSelectedItemIds(new Set()); setBulkMode(false); }}
+              className="hover:bg-primary-foreground/10"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 };
