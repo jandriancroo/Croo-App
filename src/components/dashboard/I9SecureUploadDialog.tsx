@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { DocumentScanOverlay, type DocumentValidationResult } from "./DocumentScanOverlay";
+import { getDisplayName } from "@/utils/displayName";
 
 const DOC_TYPE_LABELS: Record<string, { label: string; hint: string }> = {
   photo_id: { label: "Photo ID", hint: "Driver's license or state-issued ID (front)" },
@@ -60,16 +61,16 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
     }))
   );
 
-  // Fetch employee name for validation
+  // Fetch employee name for validation (use nickname if set)
   useEffect(() => {
     if (user?.id) {
       supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, nickname")
         .eq("id", user.id)
         .single()
         .then(({ data }) => {
-          if (data?.full_name) setEmployeeName(data.full_name);
+          if (data) setEmployeeName(getDisplayName(data.full_name, data.nickname));
         });
     }
   }, [user?.id]);
@@ -244,11 +245,11 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
       if (reqData) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, nickname")
           .eq("id", user.id)
           .single();
 
-        const empName = profile?.full_name || "Employee";
+        const empName = profile ? getDisplayName(profile.full_name, profile.nickname) : "Employee";
 
         await supabase.from("i9_audit_log").insert({
           request_id: request.id,
