@@ -38,6 +38,9 @@ interface EditingItem {
   category: string | null;
   common_name: string | null;
   storage_location_id: string | null;
+  cost_per_unit: number | null;
+  unit: string | null;
+  pack_size: string | null;
 }
 
 const INVENTORY_CATEGORIES = [
@@ -306,7 +309,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       pack_quantity_override: item.pack_quantity_override,
       category: item.category,
       common_name: item.common_name || null,
-      storage_location_id: item.storage_location_id || null
+      storage_location_id: item.storage_location_id || null,
+      cost_per_unit: item.cost_per_unit ? Number(item.cost_per_unit) : null,
+      unit: item.unit || null,
+      pack_size: item.pack_size || null,
     });
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
@@ -1326,6 +1332,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               <PanSizesSection
                 value={panSizesConfig}
                 onChange={setPanSizesConfig}
+                costPerUnit={editingItem.cost_per_unit ? Number(editingItem.cost_per_unit) : null}
+                unitLabel={editingItem.unit || 'case'}
+                packSize={editingItem.pack_size || null}
               />
 
               <div className="space-y-2">

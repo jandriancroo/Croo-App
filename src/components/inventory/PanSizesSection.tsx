@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChefHat, Calculator, Star } from "lucide-react";
+import { ChefHat, Calculator, Star, DollarSign } from "lucide-react";
 
 // ── Container registry ────────────────────────────────────────────────────────
 
@@ -78,11 +78,17 @@ export interface PanSizesConfig {
 interface PanSizesSectionProps {
   value: PanSizesConfig | null;
   onChange: (cfg: PanSizesConfig | null) => void;
+  /** Optional: cost per unit (e.g. per case) for price display */
+  costPerUnit?: number | null;
+  /** Optional: unit label like "case", "bag", "lb" */
+  unitLabel?: string | null;
+  /** Optional: pack size label like "6/2.5 LB" */
+  packSize?: string | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function PanSizesSection({ value, onChange }: PanSizesSectionProps) {
+export default function PanSizesSection({ value, onChange, costPerUnit, unitLabel, packSize }: PanSizesSectionProps) {
   const [enabled, setEnabled] = useState(value?.enabled ?? false);
   const [baselineKey, setBaselineKey] = useState(value?.baseline_key ?? "third_pan");
   const [baselineUnits, setBaselineUnits] = useState<string>(
@@ -182,6 +188,20 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
 
       {enabled && (
         <div className="space-y-4 border border-border rounded-lg p-3 bg-muted/30">
+          {/* Pricing info banner */}
+          {costPerUnit != null && costPerUnit > 0 && (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-primary/5 border border-primary/20">
+              <DollarSign className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                <span className="font-medium text-foreground">
+                  ${costPerUnit.toFixed(2)}/{unitLabel || 'unit'}
+                </span>
+                {packSize && (
+                  <span className="text-muted-foreground">Pack: {packSize}</span>
+                )}
+              </div>
+            </div>
+          )}
           {/* Baseline picker */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
@@ -307,17 +327,23 @@ export default function PanSizesSection({ value, onChange }: PanSizesSectionProp
                               <span className="text-[10px] text-muted-foreground">units</span>
                             </div>
                           ) : (
-                            <span
-                              className={`text-xs font-mono font-semibold cursor-pointer hover:underline ${
-                                isEnabled ? (hasOverride ? "text-primary" : "text-foreground") : "text-muted-foreground"
-                              }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isEnabled && !isBaseline) setEditingKey(c.key);
-                              }}
-                            >
-                              {displayUnits % 1 === 0 ? displayUnits : parseFloat(displayUnits.toFixed(3))} units
-                            </span>
+                            <div className="flex items-center gap-1.5" onClick={(e) => {
+                              e.stopPropagation();
+                              if (isEnabled && !isBaseline) setEditingKey(c.key);
+                            }}>
+                              {costPerUnit != null && costPerUnit > 0 && isEnabled && displayUnits > 0 && (
+                                <span className="text-[10px] text-primary/70 font-mono">
+                                  ${(costPerUnit / displayUnits).toFixed(2)}
+                                </span>
+                              )}
+                              <span
+                                className={`text-xs font-mono font-semibold cursor-pointer hover:underline ${
+                                  isEnabled ? (hasOverride ? "text-primary" : "text-foreground") : "text-muted-foreground"
+                                }`}
+                              >
+                                {displayUnits % 1 === 0 ? displayUnits : parseFloat(displayUnits.toFixed(3))} units
+                              </span>
+                            </div>
                           )}
                         </div>
                       );
