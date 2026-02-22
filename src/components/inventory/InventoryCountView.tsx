@@ -72,6 +72,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
             unit,
             cost_per_unit,
             pack_quantity,
+            pack_quantity_override,
             pack_size,
             item_number,
             display_order,
@@ -149,7 +150,8 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
     if ((item.item as any)?.is_recipe && batchCost && batchCost > 0) {
       return item.quantity * batchCost;
     }
-    return item.quantity * ((item.item?.cost_per_unit || 0) / (item.item?.pack_quantity || 1));
+    const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || 1);
+    return item.quantity * ((item.item?.cost_per_unit || 0) / packQty);
   };
 
   // Group items by storage location, maintaining display_order
@@ -262,7 +264,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                         </TableHeader>
                         <TableBody>
                           {items.map((item) => {
-                            const packQty = item.item?.pack_quantity || 1;
+                            const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || 1);
                             const cases = Math.floor(item.quantity / packQty);
                             const units = item.quantity % packQty;
                             const value = getItemValue(item);
