@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, X, Loader2, Search, FlaskConical, Eye, EyeOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import PanSizesSection from "./PanSizesSection";
+import type { PanSizesConfig } from "./PanSizesSection";
 
 interface RecipeBuilderDialogProps {
   open: boolean;
@@ -92,6 +94,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   const [ingredientQty, setIngredientQty] = useState("");
   const [ingredientUnit, setIngredientUnit] = useState("oz");
   const [countable, setCountable] = useState(true);
+  const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
 
   // Fetch available inventory items (raw items + other recipes)
   const { data: availableItems } = useQuery({
@@ -123,7 +126,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       if (!editRecipeId) return null;
       const { data: item } = await supabase
         .from("inventory_items")
-        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable")
+        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable, pan_sizes")
         .eq("id", editRecipeId)
         .single();
 
@@ -182,6 +185,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       setYieldUnit(existingRecipe.item.recipe_yield_unit || "oz");
       setYieldManuallyEdited(true);
       setCountable((existingRecipe.item as any).countable !== false);
+      setPanSizesConfig(existingRecipe.item.pan_sizes ? (existingRecipe.item.pan_sizes as unknown as PanSizesConfig) : null);
       setIngredients(existingRecipe.ingredients.map(i => ({
         ingredient_item_id: i.ingredient_item_id,
         quantity: Number(i.quantity),
@@ -282,6 +286,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             count_units_per_case: parseFloat(yieldQty),
             cost_per_unit: costPerCase,
             countable,
+            pan_sizes: panSizesConfig as any,
           } as any)
           .eq("id", editRecipeId);
         if (itemErr) throw itemErr;
@@ -318,6 +323,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             cost_per_unit: costPerCase,
             display_order: 0,
             countable,
+            pan_sizes: panSizesConfig as any,
           } as any)
           .select("id")
           .single();
@@ -359,6 +365,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
     setIngredientQty("");
     setIngredientUnit("oz");
     setCountable(true);
+    setPanSizesConfig(null);
   };
 
   const addIngredient = () => {
@@ -712,6 +719,14 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
             </div>
             <Switch checked={countable} onCheckedChange={setCountable} />
           </div>
+
+          {/* Pan Sizes */}
+          {countable && (
+            <PanSizesSection
+              value={panSizesConfig}
+              onChange={setPanSizesConfig}
+            />
+          )}
 
           {/* Actions */}
           <div className="flex gap-2">
