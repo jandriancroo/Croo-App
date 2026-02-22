@@ -400,7 +400,7 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
                   >
                     <button
                       type="button"
-                      className="w-full text-center space-y-1"
+                      className="w-full text-center space-y-2"
                       onClick={() => {
                         setActiveSlot(slot.type);
                         fileInputRef.current?.click();
@@ -409,6 +409,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
                       <Upload className="h-5 w-5 mx-auto text-muted-foreground" />
                       <p className="text-sm font-medium">Take Photo or Upload</p>
                       <p className="text-xs text-muted-foreground">{info.hint}</p>
+                      <p className="text-[10px] text-muted-foreground/70 italic">
+                        📋 Place document flat on a dark surface • Good lighting • No glare
+                      </p>
                     </button>
                   </div>
                 )}

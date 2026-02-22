@@ -166,7 +166,7 @@ export function DocumentScanOverlay({
                     detail={
                       flatSurface
                         ? "Flat surface detected"
-                        : result.quality.issues.join(", ") || "Poor surface"
+                        : "Place document flat on a dark, even surface and retake"
                     }
                     icon={<Shield className="h-3.5 w-3.5" />}
                   />
