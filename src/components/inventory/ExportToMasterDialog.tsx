@@ -60,6 +60,8 @@ interface ItemForExport {
   pan_sizes: any;
   category: string | null;
   vendor_source: string | null;
+  item_number: string | null;
+  brand: string | null;
 }
 
 export default function ExportToMasterDialog({ open, onOpenChange, locationId, brandId }: ExportToMasterDialogProps) {
@@ -73,7 +75,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source")
+        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, brand")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .not("pan_sizes", "is", null)
@@ -127,7 +129,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         }
 
         const productName = item.common_name || item.name;
-        const keywords = generateKeywords(item.name, item.common_name);
+        const keywords = generateKeywords(item.name, item.common_name, item.item_number, item.brand);
 
         return {
           brand_id: brandId,
@@ -291,8 +293,8 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   );
 }
 
-/** Generate match keywords from item name and common name */
-function generateKeywords(name: string, commonName: string | null): string[] {
+/** Generate match keywords from item name, common name, item number, and brand */
+function generateKeywords(name: string, commonName: string | null, itemNumber: string | null, brand: string | null): string[] {
   const words = new Set<string>();
   const addWords = (s: string) => {
     s.toLowerCase()
@@ -305,5 +307,13 @@ function generateKeywords(name: string, commonName: string | null): string[] {
 
   addWords(name);
   if (commonName) addWords(commonName);
+  if (brand) addWords(brand);
+  
+  // Add item number as-is (exact match identifier, e.g. PFG item codes)
+  if (itemNumber) {
+    const cleanNum = itemNumber.trim().toLowerCase();
+    if (cleanNum.length > 0) words.add(cleanNum);
+  }
+  
   return Array.from(words);
 }
