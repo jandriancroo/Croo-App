@@ -97,7 +97,12 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
     value?.baseline_units ? String(value.baseline_units) : ""
   );
   const [enabledKeys, setEnabledKeys] = useState<Set<string>>(
-    () => new Set(value?.enabled_keys ?? ALL_CONTAINERS.filter(c => c.blazeDefault).map(c => c.key))
+    () => {
+      const keys = new Set(value?.enabled_keys ?? ALL_CONTAINERS.filter(c => c.blazeDefault).map(c => c.key));
+      // Always include the baseline key
+      if (value?.baseline_key) keys.add(value.baseline_key);
+      return keys;
+    }
   );
   const [overrides, setOverrides] = useState<Record<string, number>>(value?.overrides ?? {});
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -122,11 +127,14 @@ export default function PanSizesSection({ value, onChange, costPerUnit, unitLabe
       const cleanOverrides = Object.fromEntries(
         Object.entries(ov).filter(([k]) => ek.has(k) && k !== bk)
       );
+      // Always include the baseline key in enabled_keys
+      const finalKeys = new Set(ek);
+      finalKeys.add(bk);
       onChange({
         enabled: true,
         baseline_key: bk,
         baseline_units: parsed,
-        enabled_keys: Array.from(ek),
+        enabled_keys: Array.from(finalKeys),
         overrides: Object.keys(cleanOverrides).length > 0 ? cleanOverrides : undefined,
       });
     },
