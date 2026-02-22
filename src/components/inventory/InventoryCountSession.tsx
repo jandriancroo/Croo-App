@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -171,6 +172,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
+  // Fetch recipe costs for on-the-fly calculation
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
   // Fetch existing duration for resumed counts
   const { data: countRecord } = useQuery({
     queryKey: ["inventory-count-duration", countId],
@@ -258,14 +266,24 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return casesVal * packQty + unitsVal + panUnits;
   }, [counts, rawInputs, getPanUnitsTotal]);
 
-  // Calculate cost for a single item
+  // Calculate cost for a single item (supports recipe cost trickle-down)
   const getItemCost = useCallback((item: CountItem) => {
+    const totalUnits = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
+    
+    // Check if this is a recipe item with a calculated batch cost
+    const batchCost = recipeCosts?.get(item.item_id);
+    if (batchCost !== undefined && batchCost > 0) {
+      // Recipe items: cost per counted unit = batchCost (for the whole recipe)
+      // Each counted unit IS one batch, so cost = batchCost * totalUnits
+      return totalUnits * batchCost;
+    }
+    
+    // Standard items: cost_per_unit is per case
     const costPerCase = item.cost_per_unit || 0;
     const packQty = item.pack_quantity || 1;
     const costPerUnit = costPerCase / packQty;
-    const totalUnits = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
     return totalUnits * costPerUnit;
-  }, [counts, rawInputs, getTotalQuantity]);
+  }, [counts, rawInputs, getTotalQuantity, recipeCosts]);
 
   // Calculate total running cost
   const totalCost = useMemo(() => {
@@ -931,9 +949,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-primary-foreground/70 mt-1">
                           {item.item_number && <span>#{item.item_number}</span>}
                           <span>{item.pack_size || item.unit || 'ea'}</span>
-                          {item.cost_per_unit && (
+                          {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
                             <span className="text-primary-foreground font-medium">
-                              {formatCurrency(item.cost_per_unit)}/case
+                              {item.cost_per_unit 
+                                ? `${formatCurrency(item.cost_per_unit)}/case`
+                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/batch`
+                              }
                             </span>
                           )}
                       </div>

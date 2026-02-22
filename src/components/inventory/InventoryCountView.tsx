@@ -3,11 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DollarSign, Package, History, User, Clock, FileText, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
+import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 
 interface InventoryCountViewProps {
   countId: string;
@@ -75,6 +75,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
             pack_size,
             item_number,
             display_order,
+            is_recipe,
             storage_location_id,
             storage_location:inventory_locations(name, display_order)
           )
@@ -135,6 +136,22 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
     }
   });
 
+  // Fetch recipe costs for on-the-fly calculation
+  const { data: recipeCosts } = useQuery({
+    queryKey: ["recipe-costs", locationId],
+    queryFn: () => fetchRecipeCosts(locationId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Helper to get item value considering recipe costs
+  const getItemValue = (item: CountItem) => {
+    const batchCost = recipeCosts?.get(item.item_id);
+    if ((item.item as any)?.is_recipe && batchCost && batchCost > 0) {
+      return item.quantity * batchCost;
+    }
+    return item.quantity * ((item.item?.cost_per_unit || 0) / (item.item?.pack_quantity || 1));
+  };
+
   // Group items by storage location, maintaining display_order
   const itemsByLocation = countItems?.reduce((acc, item) => {
     const locationName = item.item?.storage_location?.name || "Uncategorized";
@@ -156,7 +173,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
 
   // Calculate totals
   const totalValue = countItems?.reduce((sum, item) => {
-    return sum + (item.quantity * ((item.item?.cost_per_unit || 0) / (item.item?.pack_quantity || 1)));
+    return sum + getItemValue(item);
   }, 0) || 0;
 
   const totalItems = countItems?.length || 0;
@@ -217,7 +234,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           <Accordion type="multiple" defaultValue={sortedLocations.map(l => l.name)} className="w-full">
             {sortedLocations.map(({ name: locationName, items }) => {
               const locationTotal = items.reduce((sum, item) => {
-                return sum + (item.quantity * ((item.item?.cost_per_unit || 0) / (item.item?.pack_quantity || 1)));
+                return sum + getItemValue(item);
               }, 0);
               
               return (
@@ -248,7 +265,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                             const packQty = item.item?.pack_quantity || 1;
                             const cases = Math.floor(item.quantity / packQty);
                             const units = item.quantity % packQty;
-                            const value = item.quantity * ((item.item?.cost_per_unit || 0) / packQty);
+                            const value = getItemValue(item);
                             const itemEdits = editHistory?.get(item.id) || [];
                             const hasEdits = itemEdits.length > 0;
                             
