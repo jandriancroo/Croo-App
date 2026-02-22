@@ -50,8 +50,8 @@ const ALL_CONTAINERS: ContainerDef[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Round to nearest 0.5 */
-const roundHalf = (v: number): number => Math.round(v * 2) / 2;
+/** Round to nearest 0.25 */
+const roundHalf = (v: number): number => Math.round(v * 4) / 4;
 
 /** Calculate units for a container given the baseline container's units */
 const calcUnits = (container: ContainerDef, baseline: ContainerDef, baselineUnits: number): number => {
