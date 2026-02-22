@@ -408,16 +408,40 @@ export default function Tasks() {
         // Find completions for this task
         const taskCompletions = alarmCompletions.filter(c => c.task_id === task.id);
         
-        // Map completions by interval_key hour to match expected times
-        const completedIntervalHours = new Set<string>();
+        // Parse completion interval keys into minutes for fuzzy matching
+        const completionMinutesList: { minutes: number; completion: any }[] = [];
         taskCompletions.forEach(c => {
-          // interval_key format: YYYY-MM-DD_HHMM
           const keyParts = c.interval_key?.split('_');
           if (keyParts && keyParts[1]) {
             const hhmm = keyParts[1];
-            const h = hhmm.slice(0, 2);
-            const m = hhmm.slice(2, 4);
-            completedIntervalHours.add(`${h}:${m}`);
+            const h = parseInt(hhmm.slice(0, 2), 10);
+            const m = parseInt(hhmm.slice(2, 4), 10);
+            completionMinutesList.push({ minutes: h * 60 + m, completion: c });
+          }
+        });
+        
+        // Helper: find the nearest completion within ±5 min of a slot
+        const TOLERANCE = 5; // minutes
+        const findCompletionForSlot = (slotTime: string) => {
+          const [sh, sm] = slotTime.split(':').map(Number);
+          const slotMin = sh * 60 + sm;
+          let best: any = null;
+          let bestDist = Infinity;
+          for (const entry of completionMinutesList) {
+            const dist = Math.abs(entry.minutes - slotMin);
+            if (dist <= TOLERANCE && dist < bestDist) {
+              bestDist = dist;
+              best = entry.completion;
+            }
+          }
+          return best;
+        };
+        
+        // Track which slots are completed (via fuzzy match)
+        const completedSlots = new Set<string>();
+        expectedTimes.forEach(timeSlot => {
+          if (findCompletionForSlot(timeSlot)) {
+            completedSlots.add(timeSlot);
           }
         });
         
@@ -439,20 +463,9 @@ export default function Tasks() {
           // Build a fake UTC timestamp for sorting (using the date being viewed)
           const slotUtcIso = `${historyDateStr}T${timeSlot}:00-08:00`;
           
-          // Check if this slot was completed
-          const wasCompleted = completedIntervalHours.has(timeSlot);
-          
-          // Find the matching completion for completed slots
-          const matchingCompletion = wasCompleted 
-            ? taskCompletions.find(c => {
-                const keyParts = c.interval_key?.split('_');
-                if (keyParts && keyParts[1]) {
-                  const hhmm = keyParts[1];
-                  return `${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}` === timeSlot;
-                }
-                return false;
-              })
-            : null;
+          // Check if this slot was completed (fuzzy ±5 min match)
+          const matchingCompletion = findCompletionForSlot(timeSlot);
+          const wasCompleted = !!matchingCompletion;
           
           alarmTaskItems.push({
             id: matchingCompletion?.id || `missed-${task.id}-${timeSlot}`,
