@@ -213,43 +213,14 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
               checked={yearlySetting.is_active}
               onCheckedChange={(checked) => handleToggle("yearly", checked)}
             />
-            <span className="text-sm font-medium">Yearly</span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium">Yearly</span>
+              {yearlySetting.is_active && (
+                <span className="text-[10px] text-muted-foreground leading-tight">Dec 31st</span>
+              )}
+            </div>
             {savingFrequency === "yearly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
-          {yearlySetting.is_active && (
-            <div className="flex items-center gap-1.5">
-              <Select
-                value={yearlySetting.month_of_year?.toString() ?? "1"}
-                onValueChange={(v) => handleDayChange("yearly", "month_of_year", parseInt(v))}
-              >
-                <SelectTrigger className="w-28 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((month) => (
-                    <SelectItem key={month.value} value={month.value.toString()}>
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={yearlySetting.day_of_month?.toString() ?? "1"}
-                onValueChange={(v) => handleDayChange("yearly", "day_of_month", parseInt(v))}
-              >
-                <SelectTrigger className="w-20 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAYS_OF_MONTH.map((day) => (
-                    <SelectItem key={day.value} value={day.value.toString()}>
-                      {day.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
