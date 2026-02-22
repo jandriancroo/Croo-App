@@ -68,6 +68,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           quantity,
           item:inventory_items(
             name,
+            common_name,
             unit,
             cost_per_unit,
             pack_quantity,
@@ -92,7 +93,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
       // First get the count item IDs for this count
       const { data: countItemIds, error: itemError } = await supabase
         .from("inventory_count_items")
-        .select("id, item:inventory_items(name)")
+        .select("id, item:inventory_items(name, common_name)")
         .eq("count_id", countId);
       
       if (itemError) throw itemError;
@@ -117,7 +118,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
       if (error) throw error;
       
       // Map item names to edits
-      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.name || "Unknown"]) || []);
+      const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.common_name || (ci.item as any)?.name || "Unknown"]) || []);
       
       // Group edits by count_item_id for inline display
       const editsByItem = new Map<string, EditRecord[]>();
@@ -266,7 +267,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                                         )}
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-1">
-                                            <p className="font-medium truncate text-sm">{item.item?.name}</p>
+                                            <p className="font-medium truncate text-sm">{(item.item as any)?.common_name || item.item?.name}</p>
                                             {hasEdits && (
                                               <Badge variant="outline" className="text-xs py-0 px-1 flex-shrink-0">
                                                 <History className="h-3 w-3" />

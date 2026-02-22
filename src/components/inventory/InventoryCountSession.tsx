@@ -114,6 +114,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         .select(`
           id,
           name,
+          common_name,
           unit,
           par_level,
           cost_per_unit,
@@ -151,7 +152,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const isRecipe = (item as any).is_recipe === true;
         return {
           item_id: item.id,
-          item_name: item.name,
+          item_name: (item as any).common_name || item.name,
           unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
           storage_location: isRecipe ? "Recipes" : ((item.storage_location as any)?.name || "Uncategorized"),
           storage_location_id: isRecipe ? "recipes" : (item.storage_location_id || "uncategorized"),
