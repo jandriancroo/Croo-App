@@ -688,7 +688,7 @@ export default function Dashboard() {
       {/* Pending Read & Sign Documents */}
       <PendingDocumentsCard />
 
-      {/* I-9 Secure Document Requests */}
+      {/* Hiring Documents - Secure Document Requests */}
       <I9UploadCard />
       
       {/* Assigned Temporary Tasks */}

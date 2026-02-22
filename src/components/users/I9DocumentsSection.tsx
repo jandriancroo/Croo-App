@@ -153,7 +153,7 @@ export function I9DocumentsSection({ userId, employeeName = "Employee" }: I9Docu
       toast.success("Document downloaded — it will be auto-deleted from server");
       queryClient.invalidateQueries({ queryKey: ["i9-documents", userId] });
     } catch (err) {
-      console.error("Error retrieving I-9 doc:", err);
+      console.error("Error retrieving hiring doc:", err);
       toast.error("Failed to download document");
     } finally {
       setRetrieving(null);
@@ -167,7 +167,7 @@ export function I9DocumentsSection({ userId, employeeName = "Employee" }: I9Docu
       <div className="space-y-3 pt-4 border-t border-border">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">I-9 Documents</span>
+          <span className="text-sm font-medium text-foreground">Hiring Documents</span>
           <Badge variant="secondary" className="text-xs">{requests.length}</Badge>
         </div>
 

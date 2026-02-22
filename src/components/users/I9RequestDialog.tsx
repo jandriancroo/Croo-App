@@ -62,14 +62,14 @@ export function I9RequestDialog({ open, onOpenChange, employee, employees }: I9R
       const { error } = await supabase.from("i9_document_requests").insert(inserts);
       if (error) throw error;
 
-      toast.success(`I-9 request sent to ${targets.length} employee${targets.length > 1 ? "s" : ""}`);
+      toast.success(`Document request sent to ${targets.length} employee${targets.length > 1 ? "s" : ""}`);
       queryClient.invalidateQueries({ queryKey: ["i9-requests"] });
       queryClient.invalidateQueries({ queryKey: ["i9-pending-upload"] });
       onOpenChange(false);
       setSelectedTypes([]);
       setNotes("");
     } catch (err) {
-      console.error("Error creating I-9 request:", err);
+      console.error("Error creating hiring doc request:", err);
       toast.error("Failed to send request");
     } finally {
       setSending(false);
@@ -82,7 +82,7 @@ export function I9RequestDialog({ open, onOpenChange, employee, employees }: I9R
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            Request I-9 Documents
+            Request Hiring Documents
           </DialogTitle>
           <DialogDescription>
             {targets.length === 1

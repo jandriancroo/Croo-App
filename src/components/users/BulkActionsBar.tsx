@@ -54,7 +54,7 @@ export function BulkActionsBar({
               className="gap-2"
             >
               <Shield className="h-4 w-4" />
-              Request I-9
+              Request Docs
             </Button>
           )}
           {onForceUpdate && (

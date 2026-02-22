@@ -802,7 +802,7 @@ export function EmployeeProfileDialog({
               {/* Employee Records (Write-Ups + Signed Documents) */}
               {user && <EmployeeRecordsSection userId={user.id} employeeName={user.full_name || user.email} />}
 
-              {/* I-9 Documents Section */}
+              {/* Hiring Documents Section */}
               {user && canEdit && (
                 <>
                   <I9DocumentsSection userId={user.id} employeeName={user.full_name || user.email} />
@@ -814,7 +814,7 @@ export function EmployeeProfileDialog({
                       onClick={() => setI9RequestOpen(true)}
                     >
                       <Shield className="h-4 w-4" />
-                      Request I-9 Documents
+                      Request Hiring Documents
                     </Button>
                   </div>
                 </>
