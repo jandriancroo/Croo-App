@@ -125,6 +125,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           image_url,
           pan_sizes,
           storage_location_id,
+          is_recipe,
+          recipe_yield_unit,
           storage_location:inventory_locations(name)
         `)
         .eq("location_id", locationId)
@@ -146,12 +148,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       
       return itemsData?.map(item => {
         const countData = countMap.get(item.id);
+        const isRecipe = (item as any).is_recipe === true;
         return {
           item_id: item.id,
           item_name: item.name,
-          unit: item.unit,
-          storage_location: (item.storage_location as any)?.name || "Uncategorized",
-          storage_location_id: item.storage_location_id || "uncategorized",
+          unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
+          storage_location: isRecipe ? "Recipes" : ((item.storage_location as any)?.name || "Uncategorized"),
+          storage_location_id: isRecipe ? "recipes" : (item.storage_location_id || "uncategorized"),
           par_level: item.par_level,
           cost_per_unit: item.cost_per_unit,
           pack_size: item.pack_size,
