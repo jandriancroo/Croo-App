@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -39,6 +40,7 @@ interface ParentMessageData {
   content: string | null;
   profiles: {
     full_name: string;
+    nickname?: string | null;
   } | null;
 }
 
@@ -53,6 +55,7 @@ interface Message {
   parent_message_id: string | null;
   profiles?: {
     full_name: string;
+    nickname?: string | null;
     profile_photo_url: string | null;
   };
   parent_message?: ParentMessageData[] | ParentMessageData | null;
@@ -189,7 +192,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       if (parentIds.length > 0) {
         const { data: parentRows } = await supabase
           .from('messages')
-          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
+          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name, nickname)')
           .in('id', parentIds);
 
         for (const p of parentRows || []) parentMap.set(p.id, p);
@@ -254,7 +257,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       if (parentIds.length > 0) {
         const { data: parentRows } = await supabase
           .from('messages')
-          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
+          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name, nickname)')
           .in('id', parentIds);
 
         for (const p of parentRows || []) parentMap.set(p.id, p);
@@ -344,7 +347,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     if (processedSmackTalks.has(message.id)) return;
     
     const smackText = message.content.replace('SMACK_TALK:', '');
-    const senderName = message.profiles?.full_name || 'Someone';
+    const senderName = getDisplayName(message.profiles?.full_name, message.profiles?.nickname) || 'Someone';
     
     setProcessedSmackTalks(prev => new Set([...prev, message.id]));
     setSmackTalkPopup({ text: smackText, senderName });
@@ -532,10 +535,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       parent_message_id: replyTo?.id || null,
       parent_message: replyTo ? { 
         content: replyTo.content, 
-        profiles: replyTo.profiles ? { full_name: replyTo.profiles.full_name } : null 
+        profiles: replyTo.profiles ? { full_name: replyTo.profiles.full_name, nickname: replyTo.profiles.nickname } : null 
       } : null,
       profiles: {
         full_name: userFullName,
+        nickname: user?.user_metadata?.nickname || null,
         profile_photo_url: null,
       },
       isPending: true,
@@ -594,7 +598,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             if (members && members.length > 0) {
               const { data: senderProfile } = await supabase
                 .from('profiles')
-                .select('full_name')
+                .select('full_name, nickname')
                 .eq('id', currentUserId)
                 .single();
 
@@ -602,7 +606,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 body: {
                   user_ids: members.map(m => m.user_id),
                   sender_id: currentUserId,
-                  title: senderProfile?.full_name || 'New Message',
+                  title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
                   body: messageContent.substring(0, 100),
                   notification_type: 'chat_messages',
                   data: { chat_id: chatId, type: 'message' }
@@ -693,7 +697,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('full_name, nickname')
             .eq('id', currentUserId)
             .single();
 
@@ -701,7 +705,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             body: {
               user_ids: members.map(m => m.user_id),
               sender_id: currentUserId, // Ensure sender doesn't receive their own notification
-              title: senderProfile?.full_name || 'New Message',
+              title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
               body: 'Sent a GIF',
               notification_type: 'chat_messages',
               data: { chat_id: chatId, type: 'message' }
@@ -749,7 +753,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('full_name, nickname')
             .eq('id', currentUserId)
             .single();
 
@@ -757,7 +761,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             body: {
               user_ids: members.map(m => m.user_id),
               sender_id: currentUserId, // Ensure sender doesn't receive their own notification
-              title: `⚡ ${senderProfile?.full_name || 'Someone'} says:`,
+              title: `⚡ ${getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'Someone'} says:`,
               body: smackText,
               notification_type: 'chat_messages',
               data: { chat_id: chatId, type: 'smack_talk' }
@@ -836,7 +840,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('full_name, nickname')
             .eq('id', currentUserId)
             .single();
 
@@ -844,7 +848,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             body: {
               user_ids: members.map(m => m.user_id),
               sender_id: currentUserId, // Ensure sender doesn't receive their own notification
-              title: senderProfile?.full_name || 'New Message',
+              title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
               body: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`,
               notification_type: 'chat_messages',
               data: {
@@ -969,7 +973,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               const smacks = smackTalkMap.get(msg.parent_message_id) || [];
               smacks.push({
                 text: msg.content.replace('SMACK_TALK:', ''),
-                senderName: msg.profiles?.full_name || 'Someone'
+                senderName: getDisplayName(msg.profiles?.full_name, msg.profiles?.nickname) || 'Someone'
               });
               smackTalkMap.set(msg.parent_message_id, smacks);
             }
