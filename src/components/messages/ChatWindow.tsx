@@ -933,7 +933,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized for performance */}
-      <div className="flex-1 overflow-hidden overflow-x-hidden relative">
+      <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden relative">
         {/* New Message Bubble */}
         {showNewMessageBubble && (
           <button
