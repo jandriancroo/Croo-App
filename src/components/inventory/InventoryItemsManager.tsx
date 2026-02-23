@@ -1101,7 +1101,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               {/* Regular items grouped by storage location — collapsible */}
               {storageLocations?.map((loc) => {
                 const locItems = items.filter(i => i.storage_location_id === loc.id && !i.is_recipe);
-                if (locItems.length === 0) return null;
                 const isCollapsed = collapsedSections.has(loc.id);
                 const allSelected = locItems.every(i => selectedItemIds.has(i.id));
                 const someSelected = locItems.some(i => selectedItemIds.has(i.id));
@@ -1144,6 +1143,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     </button>
                     {!isCollapsed && (
                       <div className="grid gap-0.5 p-1">
+                        {locItems.length === 0 && (
+                          <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
+                        )}
                         {locItems.map((item) => {
                           const isSelected = selectedItemIds.has(item.id);
                           return (
