@@ -426,8 +426,20 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     mutationFn: async () => {
       if (!templates || !user) throw new Error("Missing data");
 
-      // Step 0: Clean Slate — wipe target location's recipes, usage rates, groups
+      // Step 0: Clean Slate — wipe target location's recipes, usage rates, groups, shortcuts
       if (cleanSlate) {
+        // Delete all shortcuts at target location
+        const { data: targetItemIds } = await supabase
+          .from("inventory_items")
+          .select("id")
+          .eq("location_id", targetLocationId);
+        if (targetItemIds?.length) {
+          for (let i = 0; i < targetItemIds.length; i += 50) {
+            const chunk = targetItemIds.slice(i, i + 50).map(r => r.id);
+            await supabase.from("inventory_item_locations").delete().in("item_id", chunk);
+          }
+        }
+
         // Get all recipe item IDs at target
         const { data: targetRecipes } = await supabase
           .from("inventory_items")
@@ -920,7 +932,13 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-colors cursor-pointer ${
                 cleanSlate ? "border-destructive/60 bg-destructive/5" : "border-border"
               }`}
-              onClick={() => setCleanSlate(!cleanSlate)}
+              onClick={() => {
+                const next = !cleanSlate;
+                setCleanSlate(next);
+                if (next) {
+                  setSelectedFeatures(prev => { const s = new Set(prev); s.delete('shortcuts'); return s; });
+                }
+              }}
             >
               <Trash2 className={`h-4 w-4 ${cleanSlate ? "text-destructive" : "text-muted-foreground"}`} />
               <div className="flex-1">
@@ -963,12 +981,12 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                     key={f}
                     className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md border transition-colors cursor-pointer ${
                       selectedFeatures.has(f) ? "border-primary/40 bg-primary/5" : "border-border"
-                    } ${!hasData ? "opacity-40" : ""}`}
-                    onClick={() => hasData && toggleFeature(f)}
+                    } ${!hasData || (cleanSlate && f === 'shortcuts') ? "opacity-40" : ""}`}
+                    onClick={() => hasData && !(cleanSlate && f === 'shortcuts') && toggleFeature(f)}
                   >
                     <Checkbox
                       checked={selectedFeatures.has(f)}
-                      disabled={!hasData}
+                      disabled={!hasData || (cleanSlate && f === 'shortcuts')}
                       className="h-3.5 w-3.5"
                     />
                     <div className="flex-1 min-w-0">
