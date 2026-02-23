@@ -601,8 +601,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_recipe: boolean
           is_weight_based: boolean
+          item_number: string | null
           match_keywords: string[]
+          pa_item_id: string | null
           pan_baseline_key: string
           pan_enabled_keys: string[]
           pan_overrides: Json | null
@@ -612,6 +615,9 @@ export type Database = {
           product_group_pos_categories: string[] | null
           product_group_pos_items: string[] | null
           product_name: string
+          recipe_ingredients: Json | null
+          recipe_yield_qty: number | null
+          recipe_yield_unit: string | null
           shortcut_location_names: string[] | null
           source_item_id: string | null
           source_location_id: string | null
@@ -620,6 +626,7 @@ export type Database = {
           usage_rate: number | null
           usage_rate_manual_override: boolean | null
           usage_rate_unit: string | null
+          vendor_source: string | null
         }
         Insert: {
           brand_id: string
@@ -628,8 +635,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_recipe?: boolean
           is_weight_based?: boolean
+          item_number?: string | null
           match_keywords?: string[]
+          pa_item_id?: string | null
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
           pan_overrides?: Json | null
@@ -639,6 +649,9 @@ export type Database = {
           product_group_pos_categories?: string[] | null
           product_group_pos_items?: string[] | null
           product_name: string
+          recipe_ingredients?: Json | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
@@ -647,6 +660,7 @@ export type Database = {
           usage_rate?: number | null
           usage_rate_manual_override?: boolean | null
           usage_rate_unit?: string | null
+          vendor_source?: string | null
         }
         Update: {
           brand_id?: string
@@ -655,8 +669,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_recipe?: boolean
           is_weight_based?: boolean
+          item_number?: string | null
           match_keywords?: string[]
+          pa_item_id?: string | null
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
           pan_overrides?: Json | null
@@ -666,6 +683,9 @@ export type Database = {
           product_group_pos_categories?: string[] | null
           product_group_pos_items?: string[] | null
           product_name?: string
+          recipe_ingredients?: Json | null
+          recipe_yield_qty?: number | null
+          recipe_yield_unit?: string | null
           shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
@@ -674,6 +694,7 @@ export type Database = {
           usage_rate?: number | null
           usage_rate_manual_override?: boolean | null
           usage_rate_unit?: string | null
+          vendor_source?: string | null
         }
         Relationships: [
           {
@@ -7081,6 +7102,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      is_brand_or_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_chat_member: {
         Args: { _chat_id: string; _user_id: string }
         Returns: boolean

@@ -2,6 +2,11 @@
  * DeployToLocationDialog — two-step wizard to deploy brand master templates to a target location.
  * Step 1: Pick target location + select which features to deploy
  * Step 2: Review matched items + deploy
+ *
+ * Three-tier matching:
+ *   Tier 1: Vendor code match (PFG item_number or PA pa_item_id)
+ *   Tier 2: Exact product name match (recipes, manual items)
+ *   Tier 3: No match → auto-create in "Unassigned" with needs_review flag
  */
 
 import { useState, useMemo } from "react";
@@ -13,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, AlertTriangle, ArrowRight, X, Flame, ChevronLeft } from "lucide-react";
+import { Loader2, Download, AlertTriangle, ArrowRight, X, Flame, ChevronLeft, Plus, FlaskConical } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
@@ -44,6 +49,14 @@ interface Template {
   product_group_pos_categories: string[] | null;
   product_group_pos_items: string[] | null;
   pan_overrides: any;
+  // New fields
+  is_recipe: boolean;
+  recipe_yield_qty: number | null;
+  recipe_yield_unit: string | null;
+  recipe_ingredients: any[];
+  vendor_source: string | null;
+  item_number: string | null;
+  pa_item_id: string | null;
 }
 
 interface TargetItem {
@@ -55,7 +68,11 @@ interface TargetItem {
   pan_sizes: any;
   vendor_source: string | null;
   item_number: string | null;
+  pa_item_id: string | null;
+  is_recipe: boolean;
 }
+
+type MatchTier = 1 | 2 | 3;
 
 interface MatchResult {
   templateId: string;
@@ -65,9 +82,11 @@ interface MatchResult {
   needsReview: boolean;
   reviewReason: string | null;
   autoMatched: boolean;
+  matchTier: MatchTier;
+  autoCreate: boolean;
 }
 
-type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'usage_rates' | 'product_groups';
+type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'usage_rates' | 'product_groups' | 'recipes';
 
 const FEATURE_LABELS: Record<DeployFeature, string> = {
   pan_sizes: "Pan Sizes",
@@ -77,6 +96,7 @@ const FEATURE_LABELS: Record<DeployFeature, string> = {
   shortcuts: "Shortcuts",
   usage_rates: "Usage Rates",
   product_groups: "Product Groups",
+  recipes: "Recipes",
 };
 
 const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
@@ -87,9 +107,10 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   shortcuts: "Secondary storage locations (auto-creates missing)",
   usage_rates: "Consumption rates per product group",
   product_groups: "Product groupings & POS category mappings",
+  recipes: "Recipe definitions with ingredients & yields",
 };
 
-const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'usage_rates', 'product_groups'];
+const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'usage_rates', 'product_groups', 'recipes'];
 
 /** Parse per-unit weight from pack_size */
 function parsePerUnitWeight(packSize: string | null): number | null {
@@ -102,22 +123,42 @@ function parsePerUnitWeight(packSize: string | null): number | null {
   return null;
 }
 
-/** Score how well a template matches a target item (0-100) */
-function matchScore(template: Template, item: TargetItem): number {
-  if (item.item_number) {
-    const cleanNum = item.item_number.trim().toLowerCase();
-    if (cleanNum.length > 0 && template.match_keywords.includes(cleanNum)) {
-      return 95;
-    }
+/**
+ * Three-tier matching:
+ * Tier 1: Vendor code match (item_number for PFG, pa_item_id for PA)
+ * Tier 2: Exact product name match
+ * Tier 3: No match (will auto-create)
+ */
+function findBestMatch(template: Template, items: TargetItem[], usedIds: Set<string>): { item: TargetItem | null; tier: MatchTier } {
+  // Tier 1: Vendor code match
+  if (template.item_number) {
+    const vendorMatch = items.find(i =>
+      !usedIds.has(i.id) &&
+      i.item_number &&
+      i.item_number.trim().toLowerCase() === template.item_number!.trim().toLowerCase()
+    );
+    if (vendorMatch) return { item: vendorMatch, tier: 1 };
   }
-  const itemWords = (item.name + " " + (item.common_name || ""))
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
-    .split(/\s+/)
-    .filter(w => w.length > 2);
-  const matched = template.match_keywords.filter(kw => itemWords.includes(kw));
-  if (matched.length === 0) return 0;
-  return Math.round((matched.length / template.match_keywords.length) * 100);
+  if (template.pa_item_id) {
+    const paMatch = items.find(i =>
+      !usedIds.has(i.id) &&
+      i.pa_item_id &&
+      i.pa_item_id.trim().toLowerCase() === template.pa_item_id!.trim().toLowerCase()
+    );
+    if (paMatch) return { item: paMatch, tier: 1 };
+  }
+
+  // Tier 2: Exact product name match
+  const nameMatch = items.find(i =>
+    !usedIds.has(i.id) && (
+      (i.common_name || i.name).toLowerCase() === template.product_name.toLowerCase() ||
+      i.name.toLowerCase() === template.product_name.toLowerCase()
+    )
+  );
+  if (nameMatch) return { item: nameMatch, tier: 2 };
+
+  // Tier 3: No match
+  return { item: null, tier: 3 };
 }
 
 export default function DeployToLocationDialog({ open, onOpenChange, brandId, sourceLocationId }: DeployToLocationDialogProps) {
@@ -148,7 +189,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     });
   };
 
-  // Reset state when dialog closes
   const handleOpenChange = (o: boolean) => {
     if (!o) {
       setStep(1);
@@ -190,7 +230,16 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         .eq("brand_id", brandId)
         .order("product_name");
       if (error) throw error;
-      return data as Template[];
+      return (data || []).map((t: any) => ({
+        ...t,
+        is_recipe: t.is_recipe || false,
+        recipe_yield_qty: t.recipe_yield_qty || null,
+        recipe_yield_unit: t.recipe_yield_unit || null,
+        recipe_ingredients: t.recipe_ingredients || [],
+        vendor_source: t.vendor_source || null,
+        item_number: t.item_number || null,
+        pa_item_id: t.pa_item_id || null,
+      })) as Template[];
     },
     enabled: open,
   });
@@ -201,17 +250,17 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number")
+        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, vendor_source, item_number, pa_item_id, is_recipe")
         .eq("location_id", targetLocationId)
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
-      return data as TargetItem[];
+      return (data || []).map((i: any) => ({ ...i, pa_item_id: i.pa_item_id || null, is_recipe: i.is_recipe || false })) as TargetItem[];
     },
     enabled: step === 2 && !!targetLocationId,
   });
 
-  // Auto-match when target items load
+  // Auto-match when target items load — 3-tier matching
   useMemo(() => {
     if (!templates || !targetItems || step !== 2) return;
 
@@ -220,73 +269,66 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
     // Filter templates to only those that have data for selected features
     const relevantTemplates = templates.filter(tmpl => {
-      if (selectedFeatures.has('pan_sizes') && tmpl.pan_units_per_lb != null) return true;
-      if (selectedFeatures.has('pan_sizes') && tmpl.pan_units_per_unit != null) return true;
+      if (selectedFeatures.has('pan_sizes') && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) return true;
       if (selectedFeatures.has('common_names') && tmpl.common_name) return true;
       if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) return true;
       if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) return true;
       if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) return true;
       if (selectedFeatures.has('product_groups') && tmpl.product_group_name) return true;
+      if (selectedFeatures.has('recipes') && tmpl.is_recipe) return true;
       return false;
     });
 
     for (const tmpl of relevantTemplates) {
-      let bestItem: TargetItem | null = null;
-      let bestScore = 0;
+      const { item: bestItem, tier } = findBestMatch(tmpl, targetItems, usedTargetIds);
 
-      for (const item of targetItems) {
-        if (usedTargetIds.has(item.id)) continue;
-        const score = matchScore(tmpl, item);
-        if (score > bestScore) {
-          bestScore = score;
-          bestItem = item;
-        }
-      }
-
-      if (bestItem && bestScore >= 40) {
+      if (bestItem) {
         usedTargetIds.add(bestItem.id);
-
-        const packQty = bestItem.pack_quantity || 1;
-        const targetWeight = parsePerUnitWeight(bestItem.pack_size);
-
-        let calculatedBaseline: number | null = null;
-        let needsReview = false;
-        let reviewReason: string | null = null;
-
-        if (selectedFeatures.has('pan_sizes')) {
-          if (tmpl.is_weight_based && tmpl.pan_units_per_lb != null) {
-            if (targetWeight && targetWeight > 0) {
-              const perUnit = tmpl.pan_units_per_lb * targetWeight;
-              calculatedBaseline = Math.round((perUnit / packQty) * 100) / 100;
-            } else {
-              needsReview = true;
-              reviewReason = "Can't parse weight from pack size: " + (bestItem.pack_size || "unknown");
-            }
-          } else if (!tmpl.is_weight_based && tmpl.pan_units_per_unit != null) {
-            calculatedBaseline = Math.round((tmpl.pan_units_per_unit / packQty) * 100) / 100;
-            needsReview = true;
-            reviewReason = "Count-based item — verify conversion";
-          }
-        }
-
-        newMatches.set(tmpl.id, {
-          templateId: tmpl.id,
-          targetItemId: bestItem.id,
-          calculatedBaseline,
-          weightPerUnit: targetWeight,
-          needsReview,
-          reviewReason,
-          autoMatched: true,
-        });
       }
+
+      const packQty = bestItem?.pack_quantity || 1;
+      const targetWeight = bestItem ? parsePerUnitWeight(bestItem.pack_size) : null;
+
+      let calculatedBaseline: number | null = null;
+      let needsReview = tier === 3;
+      let reviewReason: string | null = tier === 3 ? "Will be auto-created at target" : null;
+
+      if (bestItem && selectedFeatures.has('pan_sizes')) {
+        if (tmpl.is_weight_based && tmpl.pan_units_per_lb != null) {
+          if (targetWeight && targetWeight > 0) {
+            const perUnit = tmpl.pan_units_per_lb * targetWeight;
+            calculatedBaseline = Math.round((perUnit / packQty) * 100) / 100;
+          } else {
+            needsReview = true;
+            reviewReason = "Can't parse weight from pack size: " + (bestItem.pack_size || "unknown");
+          }
+        } else if (!tmpl.is_weight_based && tmpl.pan_units_per_unit != null) {
+          calculatedBaseline = Math.round((tmpl.pan_units_per_unit / packQty) * 100) / 100;
+          needsReview = true;
+          reviewReason = "Count-based item — verify conversion";
+        }
+      }
+
+      newMatches.set(tmpl.id, {
+        templateId: tmpl.id,
+        targetItemId: bestItem?.id || null,
+        calculatedBaseline,
+        weightPerUnit: targetWeight,
+        needsReview,
+        reviewReason,
+        autoMatched: true,
+        matchTier: tier,
+        autoCreate: tier === 3,
+      });
     }
 
     setMatches(newMatches);
+    // Auto-select all matched items (Tier 1 & 2) + auto-create items (Tier 3)
     setSelectedTemplateIds(new Set(
       Array.from(newMatches.entries())
-        .filter(([_, m]) => m.targetItemId)
-        .filter(([_, m]) => !selectedFeatures.has('pan_sizes') || (m.calculatedBaseline && !m.needsReview))
+        .filter(([_, m]) => m.targetItemId || m.autoCreate)
+        .filter(([_, m]) => !selectedFeatures.has('pan_sizes') || m.autoCreate || (m.calculatedBaseline && !m.needsReview))
         .map(([id]) => id)
     ));
   }, [templates, targetItems, step]);
@@ -314,7 +356,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
     setMatches(prev => {
       const next = new Map(prev);
-      next.set(templateId, { templateId, targetItemId, calculatedBaseline, weightPerUnit: targetWeight, needsReview, reviewReason, autoMatched: false });
+      next.set(templateId, { templateId, targetItemId, calculatedBaseline, weightPerUnit: targetWeight, needsReview, reviewReason, autoMatched: false, matchTier: 2, autoCreate: false });
       return next;
     });
   };
@@ -328,7 +370,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     setSelectedTemplateIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   };
 
-  /** Count what data each template will push */
   const getFeatureIndicators = (tmpl: Template) => {
     const indicators: string[] = [];
     if (selectedFeatures.has('pan_sizes') && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) indicators.push("Pan");
@@ -338,10 +379,11 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) indicators.push(`${tmpl.shortcut_location_names.length} SC`);
     if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) indicators.push("Rate");
     if (selectedFeatures.has('product_groups') && tmpl.product_group_name) indicators.push("Grp");
+    if (selectedFeatures.has('recipes') && tmpl.is_recipe) indicators.push("Recipe");
     return indicators;
   };
 
-  // Count new storage locations that will be created (from primary + shortcuts)
+  // Count new storage locations
   const newStorageLocations = useMemo(() => {
     if (!templates) return [];
     const needsStorageLocs = selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts');
@@ -359,29 +401,53 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     return Array.from(names);
   }, [selectedTemplateIds, templates, selectedFeatures]);
 
+  // Summary counts
+  const tier1Count = Array.from(matches.values()).filter(m => m.matchTier === 1 && selectedTemplateIds.has(m.templateId)).length;
+  const tier2Count = Array.from(matches.values()).filter(m => m.matchTier === 2 && selectedTemplateIds.has(m.templateId)).length;
+  const tier3Count = Array.from(matches.values()).filter(m => m.matchTier === 3 && selectedTemplateIds.has(m.templateId)).length;
+  const recipeCount = templates?.filter(t => t.is_recipe && selectedTemplateIds.has(t.id)).length || 0;
+
   const deployMutation = useMutation({
     mutationFn: async () => {
       if (!templates || !user) throw new Error("Missing data");
 
-      // Step 1: Auto-create missing storage locations (for primary + shortcuts)
+      // Step 1: Auto-create missing storage locations
       const needsStorageCreation = (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && newStorageLocations.length > 0;
       if (needsStorageCreation) {
         const { data: existingLocs } = await supabase
           .from("inventory_locations")
           .select("name")
           .eq("location_id", targetLocationId);
-
         const existingNames = new Set((existingLocs || []).map(l => l.name.toLowerCase()));
-        const locsToCreate = newStorageLocations
+        
+        // Always ensure "Unassigned" exists for Tier 3 items
+        const allNames = [...newStorageLocations, 'Unassigned'];
+        const locsToCreate = allNames
           .filter(n => !existingNames.has(n.toLowerCase()))
+          .filter((v, i, a) => a.findIndex(x => x.toLowerCase() === v.toLowerCase()) === i) // dedupe
           .map((name, i) => ({
             location_id: targetLocationId,
             name,
             display_order: (existingLocs?.length || 0) + i,
           }));
-
         if (locsToCreate.length > 0) {
           await supabase.from("inventory_locations").insert(locsToCreate);
+        }
+      }
+
+      // Ensure "Unassigned" exists for Tier 3 auto-creates even if no storage feature selected
+      if (tier3Count > 0) {
+        const { data: existingLocs } = await supabase
+          .from("inventory_locations")
+          .select("name")
+          .eq("location_id", targetLocationId);
+        const existingNames = new Set((existingLocs || []).map(l => l.name.toLowerCase()));
+        if (!existingNames.has('unassigned')) {
+          await supabase.from("inventory_locations").insert({
+            location_id: targetLocationId,
+            name: 'Unassigned',
+            display_order: (existingLocs?.length || 0),
+          });
         }
       }
 
@@ -392,8 +458,8 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         .eq("location_id", targetLocationId);
       const targetStorageMap = new Map((targetStorageLocs || []).map(l => [l.name.toLowerCase(), l.id]));
 
-      // Step 2: Create/find product groups at target
-      let targetGroupMap = new Map<string, string>(); // group name → group id
+      // Create/find product groups at target
+      let targetGroupMap = new Map<string, string>();
       if (selectedFeatures.has('product_groups')) {
         const { data: existingGroups } = await supabase
           .from("inventory_product_groups")
@@ -401,7 +467,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           .eq("location_id", targetLocationId);
         targetGroupMap = new Map((existingGroups || []).map(g => [g.name.toLowerCase(), g.id]));
 
-        // Create missing product groups
         const groupsToCreate: { name: string; pos_categories: string[] | null; pos_items: string[] | null }[] = [];
         for (const tid of selectedTemplateIds) {
           const tmpl = templates.find(t => t.id === tid);
@@ -433,16 +498,50 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
       // Step 3: Deploy item configurations
       const deploymentRecords: any[] = [];
+      // Track auto-created item IDs for recipe ingredient resolution
+      const autoCreatedItemMap = new Map<string, string>(); // template product_name → new item id
 
       for (const templateId of selectedTemplateIds) {
         const match = matches.get(templateId);
         const tmpl = templates.find(t => t.id === templateId);
-        if (!match?.targetItemId || !tmpl) continue;
+        if (!tmpl) continue;
+
+        let targetItemId = match?.targetItemId || null;
+
+        // Tier 3: Auto-create item at target location
+        if (match?.autoCreate && !targetItemId) {
+          const unassignedId = targetStorageMap.get('unassigned') || null;
+          const { data: newItem, error: createErr } = await supabase
+            .from("inventory_items")
+            .insert({
+              location_id: targetLocationId,
+              name: tmpl.product_name,
+              common_name: tmpl.common_name,
+              category: tmpl.category,
+              storage_location_id: unassignedId,
+              is_active: true,
+              is_recipe: tmpl.is_recipe,
+              recipe_yield_qty: tmpl.recipe_yield_qty,
+              recipe_yield_unit: tmpl.recipe_yield_unit,
+              vendor_source: tmpl.vendor_source as any,
+            } as any)
+            .select("id")
+            .single();
+
+          if (createErr) {
+            console.error('Failed to auto-create item:', tmpl.product_name, createErr);
+            continue;
+          }
+          targetItemId = newItem.id;
+          autoCreatedItemMap.set(tmpl.product_name.toLowerCase(), targetItemId);
+        }
+
+        if (!targetItemId) continue;
 
         const updateData: any = {};
 
         // Pan sizes
-        if (selectedFeatures.has('pan_sizes') && match.calculatedBaseline && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) {
+        if (selectedFeatures.has('pan_sizes') && match?.calculatedBaseline && (tmpl.pan_units_per_lb != null || tmpl.pan_units_per_unit != null)) {
           updateData.pan_sizes = {
             enabled: true,
             baseline_key: tmpl.pan_baseline_key,
@@ -471,14 +570,10 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         }
 
         if (Object.keys(updateData).length > 0) {
-          const { error } = await supabase
-            .from("inventory_items")
-            .update(updateData)
-            .eq("id", match.targetItemId);
-          if (error) throw error;
+          await supabase.from("inventory_items").update(updateData).eq("id", targetItemId);
         }
 
-        // Shortcuts (junction table entries)
+        // Shortcuts
         if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) {
           for (const scName of tmpl.shortcut_location_names) {
             const scId = targetStorageMap.get(scName.toLowerCase());
@@ -486,7 +581,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               await supabase
                 .from("inventory_item_locations" as any)
                 .upsert({
-                  item_id: match.targetItemId,
+                  item_id: targetItemId,
                   storage_location_id: scId,
                   location_id: targetLocationId,
                 } as any, { onConflict: "item_id,storage_location_id" });
@@ -494,14 +589,14 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           }
         }
 
-        // Usage rates (separate table)
+        // Usage rates
         if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null && tmpl.product_group_name) {
           const groupId = targetGroupMap.get(tmpl.product_group_name.toLowerCase());
           if (groupId && groupId !== '__pending__') {
             await supabase
               .from("inventory_usage_rates")
               .upsert({
-                inventory_item_id: match.targetItemId,
+                inventory_item_id: targetItemId,
                 location_id: targetLocationId,
                 product_group_id: groupId,
                 usage_rate: tmpl.usage_rate,
@@ -513,14 +608,101 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
         deploymentRecords.push({
           template_id: tmpl.id,
-          inventory_item_id: match.targetItemId,
+          inventory_item_id: targetItemId,
           location_id: targetLocationId,
-          weight_per_unit: match.weightPerUnit,
-          calculated_baseline: match.calculatedBaseline,
-          needs_review: match.needsReview,
-          review_reason: match.reviewReason,
+          weight_per_unit: match?.weightPerUnit,
+          calculated_baseline: match?.calculatedBaseline,
+          needs_review: match?.autoCreate || match?.needsReview || false,
+          review_reason: match?.autoCreate ? 'Auto-created (no match at target)' : match?.reviewReason,
           deployed_by: user.id,
         });
+      }
+
+      // Step 4: Deploy recipe ingredients
+      if (selectedFeatures.has('recipes')) {
+        // Fetch ALL target items (including newly created) for ingredient matching
+        const { data: allTargetItems } = await supabase
+          .from("inventory_items")
+          .select("id, name, common_name, item_number, pa_item_id, vendor_source, is_recipe")
+          .eq("location_id", targetLocationId)
+          .eq("is_active", true);
+
+        const targetItemsList = allTargetItems || [];
+
+        for (const templateId of selectedTemplateIds) {
+          const tmpl = templates.find(t => t.id === templateId);
+          if (!tmpl?.is_recipe || !tmpl.recipe_ingredients?.length) continue;
+
+          const recipeMatch = matches.get(templateId);
+          const recipeTargetId = recipeMatch?.targetItemId ||
+            autoCreatedItemMap.get(tmpl.product_name.toLowerCase());
+          if (!recipeTargetId) continue;
+
+          // Clear existing recipe ingredients at target
+          await supabase
+            .from("inventory_recipe_ingredients")
+            .delete()
+            .eq("recipe_item_id", recipeTargetId);
+
+          // Match each ingredient to target items
+          const ingredientInserts: any[] = [];
+          for (const ing of tmpl.recipe_ingredients) {
+            let ingredientItemId: string | null = null;
+
+            // Tier 1: vendor code match
+            if (ing.ingredient_item_number) {
+              const match = targetItemsList.find(i =>
+                i.item_number?.trim().toLowerCase() === ing.ingredient_item_number.trim().toLowerCase()
+              );
+              if (match) ingredientItemId = match.id;
+            }
+            if (!ingredientItemId && ing.ingredient_pa_item_id) {
+              const match = targetItemsList.find(i =>
+                i.pa_item_id?.trim().toLowerCase() === ing.ingredient_pa_item_id.trim().toLowerCase()
+              );
+              if (match) ingredientItemId = match.id;
+            }
+
+            // Tier 2: name match
+            if (!ingredientItemId && ing.ingredient_name) {
+              const match = targetItemsList.find(i =>
+                (i.common_name || i.name).toLowerCase() === ing.ingredient_name.toLowerCase() ||
+                i.name.toLowerCase() === ing.ingredient_name.toLowerCase()
+              );
+              if (match) ingredientItemId = match.id;
+            }
+
+            // Tier 3: auto-create the ingredient
+            if (!ingredientItemId) {
+              const unassignedId = targetStorageMap.get('unassigned') || null;
+              const { data: newIng } = await supabase
+                .from("inventory_items")
+                .insert({
+                  location_id: targetLocationId,
+                  name: ing.ingredient_name || 'Unknown Ingredient',
+                  storage_location_id: unassignedId,
+                  is_active: true,
+                  vendor_source: ing.ingredient_vendor_source as any,
+                } as any)
+                .select("id")
+                .single();
+              if (newIng) ingredientItemId = newIng.id;
+            }
+
+            if (ingredientItemId) {
+              ingredientInserts.push({
+                recipe_item_id: recipeTargetId,
+                ingredient_item_id: ingredientItemId,
+                quantity: ing.quantity,
+                unit: ing.unit,
+              });
+            }
+          }
+
+          if (ingredientInserts.length > 0) {
+            await supabase.from("inventory_recipe_ingredients").insert(ingredientInserts);
+          }
+        }
       }
 
       // Record deployments
@@ -542,7 +724,10 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     },
   });
 
-  const matchedCount = Array.from(selectedTemplateIds).filter(id => matches.get(id)?.targetItemId).length;
+  const matchedCount = Array.from(selectedTemplateIds).filter(id => {
+    const m = matches.get(id);
+    return m?.targetItemId || m?.autoCreate;
+  }).length;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -556,7 +741,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
         {step === 1 && (
           <div className="space-y-4">
-            {/* Location picker */}
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Target Location</label>
               <Select value={targetLocationId} onValueChange={setTargetLocationId}>
@@ -571,7 +755,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               </Select>
             </div>
 
-            {/* Deploy All toggle */}
             <div
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-colors cursor-pointer ${
                 isDeployAll ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30" : "border-border"
@@ -586,7 +769,6 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               <Switch checked={isDeployAll} onCheckedChange={toggleDeployAll} />
             </div>
 
-            {/* Individual feature toggles */}
             <div className="space-y-1">
               <p className="text-xs text-muted-foreground font-medium mb-1.5">Or select individually:</p>
               {ALL_FEATURES.map(f => {
@@ -598,6 +780,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
                   if (f === 'usage_rates') return t.usage_rate != null;
                   if (f === 'product_groups') return !!t.product_group_name;
+                  if (f === 'recipes') return t.is_recipe;
                   return false;
                 });
                 const count = templates?.filter(t => {
@@ -608,6 +791,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
                   if (f === 'usage_rates') return t.usage_rate != null;
                   if (f === 'product_groups') return !!t.product_group_name;
+                  if (f === 'recipes') return t.is_recipe;
                   return false;
                 }).length ?? 0;
 
@@ -671,16 +855,36 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
               </div>
             ) : targetItems && templates ? (
               <>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-xs text-muted-foreground">
-                    {matches.size} of {templates.length} matched
-                  </span>
-                  {newStorageLocations.length > 0 && (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && (
-                    <span className="text-[10px] text-blue-500">
-                      +{newStorageLocations.length} new storage loc{newStorageLocations.length !== 1 ? 's' : ''}
+                {/* Match summary */}
+                <div className="flex items-center gap-3 py-1.5 flex-wrap">
+                  {tier1Count > 0 && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      ✅ {tier1Count} vendor match
+                    </span>
+                  )}
+                  {tier2Count > 0 && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                      📝 {tier2Count} name match
+                    </span>
+                  )}
+                  {tier3Count > 0 && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                      🆕 {tier3Count} auto-create
+                    </span>
+                  )}
+                  {recipeCount > 0 && selectedFeatures.has('recipes') && (
+                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                      <FlaskConical className="h-2.5 w-2.5 inline mr-0.5" />
+                      {recipeCount} recipes
                     </span>
                   )}
                 </div>
+
+                {newStorageLocations.length > 0 && (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && (
+                  <span className="text-[10px] text-blue-500 block mb-1">
+                    +{newStorageLocations.length} new storage loc{newStorageLocations.length !== 1 ? 's' : ''}
+                  </span>
+                )}
 
                 <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
                   {templates.map(tmpl => {
@@ -693,33 +897,47 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
                     if (!match && indicators.length === 0) return null;
 
+                    const tierBadge = match?.matchTier === 1 ? "Vendor" : match?.matchTier === 2 ? "Name" : match?.autoCreate ? "New" : null;
+                    const tierColor = match?.matchTier === 1 ? "text-emerald-600" : match?.matchTier === 2 ? "text-blue-600" : "text-amber-600";
+
                     return (
                       <div
                         key={tmpl.id}
                         className={`px-2.5 py-2 rounded-md border transition-colors ${
-                          match?.needsReview
+                          match?.autoCreate
                             ? "border-amber-300/60 bg-amber-50/30 dark:bg-amber-950/20"
-                            : isSelected
-                              ? "border-primary/40 bg-primary/5"
-                              : "border-border"
+                            : match?.needsReview
+                              ? "border-amber-300/60 bg-amber-50/30 dark:bg-amber-950/20"
+                              : isSelected
+                                ? "border-primary/40 bg-primary/5"
+                                : "border-border"
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={() => toggleSelected(tmpl.id)}
-                            disabled={!match?.targetItemId}
                             className="h-3.5 w-3.5"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <p className="text-xs font-medium truncate">{tmpl.product_name}</p>
+                              {tmpl.is_recipe && <FlaskConical className="h-2.5 w-2.5 text-purple-500 shrink-0" />}
+                              {tierBadge && (
+                                <span className={`text-[8px] font-semibold ${tierColor}`}>
+                                  {tierBadge}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 mt-0.5">
                               <ArrowRight className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
                               {targetItem ? (
                                 <span className="text-[10px] text-muted-foreground truncate">
                                   {targetItem.name}
+                                </span>
+                              ) : match?.autoCreate ? (
+                                <span className="text-[10px] text-amber-600 italic flex items-center gap-0.5">
+                                  <Plus className="h-2 w-2" /> Auto-create in Unassigned
                                 </span>
                               ) : (
                                 <span className="text-[10px] text-muted-foreground italic">No match</span>
@@ -741,8 +959,8 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                                 {match.calculatedBaseline}
                               </Badge>
                             )}
-                            {match?.needsReview && <AlertTriangle className="h-3 w-3 text-amber-500" />}
-                            {match && (
+                            {match?.needsReview && !match.autoCreate && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                            {match && !match.autoCreate && (
                               <button onClick={() => clearMatch(tmpl.id)} className="p-0.5">
                                 <X className="h-3 w-3 text-muted-foreground" />
                               </button>
@@ -750,7 +968,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                           </div>
                         </div>
 
-                        {!match?.targetItemId && (
+                        {!match?.targetItemId && !match?.autoCreate && (
                           <Select onValueChange={(v) => updateMatch(tmpl.id, v)}>
                             <SelectTrigger className="h-6 text-[10px] mt-1.5">
                               <SelectValue placeholder="Pick item manually..." />
@@ -765,7 +983,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                           </Select>
                         )}
 
-                        {match?.needsReview && match.reviewReason && (
+                        {match?.needsReview && match.reviewReason && !match.autoCreate && (
                           <p className="text-[9px] text-amber-600 mt-1">{match.reviewReason}</p>
                         )}
                       </div>
@@ -784,6 +1002,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                     <Download className="h-4 w-4 mr-2" />
                   )}
                   Deploy {matchedCount} Item{matchedCount !== 1 ? "s" : ""}
+                  {tier3Count > 0 && ` (${tier3Count} new)`}
                 </Button>
               </>
             ) : null}
