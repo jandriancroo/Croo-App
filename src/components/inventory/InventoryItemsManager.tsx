@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,26 @@ import RemapItemDialog from "./RemapItemDialog";
 import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 
-
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import StorageLocationManager from "./StorageLocationManager";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { SortableInventoryItem, ItemDragOverlay } from "./SortableInventoryItem";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -89,6 +105,40 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [bulkMoveTargets, setBulkMoveTargets] = useState<Set<string>>(new Set());
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
+  const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const reorderItemsMutation = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const updates = orderedIds.map((id, index) =>
+        supabase.from("inventory_items").update({ display_order: index } as any).eq("id", id)
+      );
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+    },
+    onError: () => toast.error("Failed to reorder items"),
+  });
+
+  const handleItemDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragItemId(event.active.id as string);
+  }, []);
+
+  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[]) => {
+    setActiveDragItemId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = groupItems.findIndex(i => i.id === active.id);
+    const newIndex = groupItems.findIndex(i => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(groupItems, oldIndex, newIndex);
+    reorderItemsMutation.mutate(reordered.map(i => i.id));
+  }, [reorderItemsMutation]);
 
 
 
@@ -1087,86 +1137,63 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       )}
                     </button>
                     {!isCollapsed && (
-                      <div className="grid gap-0.5 p-1">
-                        {allLocItems.length === 0 && (
-                          <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
-                        )}
-                        {allLocItems.map((item) => {
-                          const isShortcut = shortcutItems.includes(item);
-                          const isSelected = selectedItemIds.has(item.id);
-                          return (
-                            <div
-                              key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
-                              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group cursor-pointer ${
-                                isSelected ? 'bg-primary/10 ring-1 ring-primary/30' 
-                                : isShortcut ? 'bg-accent/30 border border-dashed border-accent/50' 
-                                : 'bg-background hover:bg-muted/30'
-                              }`}
-                              onClick={() => {
-                                if (isSelectingThisGroup) {
-                                  const next = new Set(selectedItemIds);
-                                  if (isSelected) next.delete(item.id); else next.add(item.id);
-                                  setSelectedItemIds(next);
-                                } else {
-                                  openEditDialog(item);
-                                }
-                              }}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                setActiveSelectGroup(loc.id);
-                                setSelectedItemIds(new Set([item.id]));
-                              }}
-                            >
-                              <div className="flex items-center gap-2 truncate flex-1">
-                                {isSelectingThisGroup && (
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() => {}}
-                                    className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
-                                  />
-                                )}
-                                {!isShortcut && (
-                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0" />
-                                )}
-                                {isShortcut && (
-                                  <Link2 className="h-3.5 w-3.5 text-accent-foreground/60 flex-shrink-0" />
-                                )}
-                                <span className={`truncate ${isShortcut ? 'text-muted-foreground' : ''}`}>
-                                  {(item as any).common_name || item.name}
-                                </span>
-                                {(item as any).common_name && !isShortcut && (
-                                  <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
-                                    ({item.name})
-                                  </span>
-                                )}
-                                {isShortcut && (
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 flex-shrink-0 gap-0.5 border-accent/50 text-accent-foreground/60">
-                                    Shortcut
-                                  </Badge>
-                                )}
-                                {(item as any).pan_sizes?.enabled && !isShortcut && (
-                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 flex-shrink-0">
-                                    Pans
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
-                                {item.cost_per_unit && !isShortcut && (
-                                  <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <DndContext
+                        sensors={dndSensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleItemDragStart}
+                        onDragEnd={(event) => handleItemDragEnd(event, primaryItems)}
+                      >
+                        <SortableContext
+                          items={primaryItems.map(i => i.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="grid gap-0.5 p-1">
+                            {allLocItems.length === 0 && (
+                              <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
+                            )}
+                            {allLocItems.map((item) => {
+                              const isShortcut = shortcutItems.includes(item);
+                              return (
+                                <SortableInventoryItem
+                                  key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
+                                  item={item}
+                                  isShortcut={isShortcut}
+                                  isSelected={selectedItemIds.has(item.id)}
+                                  isSelectingThisGroup={isSelectingThisGroup}
+                                  isDragDisabled={isSelectingThisGroup}
+                                  onClick={() => {
+                                    if (isSelectingThisGroup) {
+                                      const next = new Set(selectedItemIds);
+                                      if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                      setSelectedItemIds(next);
+                                    } else {
+                                      openEditDialog(item);
+                                    }
+                                  }}
+                                  onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    setActiveSelectGroup(loc.id);
+                                    setSelectedItemIds(new Set([item.id]));
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </SortableContext>
+                        <DragOverlay>
+                          {activeDragItemId ? (
+                            <ItemDragOverlay item={items?.find(i => i.id === activeDragItemId) || { name: '' }} />
+                          ) : null}
+                        </DragOverlay>
+                      </DndContext>
                     )}
                   </div>
                 );
               })}
               {/* Unassigned items */}
               {(() => {
-                const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe);
+                const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe)
+                  .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                 if (unassigned.length === 0) return null;
                 const isCollapsed = collapsedSections.has("__unassigned__");
                 const isSelectingThisGroup = activeSelectGroup === "__unassigned__";
@@ -1186,54 +1213,49 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       <span className="text-xs text-muted-foreground">{unassigned.length} items</span>
                     </button>
                     {!isCollapsed && (
-                      <div className="grid gap-0.5 p-1">
-                        {unassigned.map((item) => {
-                          const isSelected = selectedItemIds.has(item.id);
-                          return (
-                            <div
-                              key={item.id}
-                              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group cursor-pointer ${isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-background hover:bg-muted/30'}`}
-                              onClick={() => {
-                                if (isSelectingThisGroup) {
-                                  const next = new Set(selectedItemIds);
-                                  if (isSelected) next.delete(item.id); else next.add(item.id);
-                                  setSelectedItemIds(next);
-                                } else {
-                                  openEditDialog(item);
-                                }
-                              }}
-                              onContextMenu={(e) => {
-                                e.preventDefault();
-                                setActiveSelectGroup("__unassigned__");
-                                setSelectedItemIds(new Set([item.id]));
-                              }}
-                            >
-                              <div className="flex items-center gap-2 truncate flex-1">
-                                {isSelectingThisGroup && (
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() => {}}
-                                    className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
-                                  />
-                                )}
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0" />
-                                <span className="truncate">{(item as any).common_name || item.name}</span>
-                                {item.vendor_source && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">
-                                    {item.vendor_source === 'produce_alliance' ? 'PA' : item.vendor_source}
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
-                                {item.cost_per_unit && (
-                                  <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <DndContext
+                        sensors={dndSensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleItemDragStart}
+                        onDragEnd={(event) => handleItemDragEnd(event, unassigned)}
+                      >
+                        <SortableContext
+                          items={unassigned.map(i => i.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="grid gap-0.5 p-1">
+                            {unassigned.map((item) => (
+                              <SortableInventoryItem
+                                key={item.id}
+                                item={item}
+                                isShortcut={false}
+                                isSelected={selectedItemIds.has(item.id)}
+                                isSelectingThisGroup={isSelectingThisGroup}
+                                isDragDisabled={isSelectingThisGroup}
+                                onClick={() => {
+                                  if (isSelectingThisGroup) {
+                                    const next = new Set(selectedItemIds);
+                                    if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
+                                    setSelectedItemIds(next);
+                                  } else {
+                                    openEditDialog(item);
+                                  }
+                                }}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  setActiveSelectGroup("__unassigned__");
+                                  setSelectedItemIds(new Set([item.id]));
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                        <DragOverlay>
+                          {activeDragItemId ? (
+                            <ItemDragOverlay item={items?.find(i => i.id === activeDragItemId) || { name: '' }} />
+                          ) : null}
+                        </DragOverlay>
+                      </DndContext>
                     )}
                   </div>
                 );
