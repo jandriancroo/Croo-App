@@ -1177,9 +1177,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rawInputs[item.item_id]?.units ?? count.units}
-                          onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
-                          onBlur={() => handleUnitsBlur(item.item_id)}
+                          value={rawInputs[splitKey]?.units ?? count.units}
+                          onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
+                          onBlur={() => handleUnitsBlur(splitKey)}
                           disabled={isViewOnly}
                           className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                         />
