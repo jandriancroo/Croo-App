@@ -269,26 +269,20 @@ const Inventory = () => {
 
           <TabsContent value="count" className="mt-4 space-y-4">
             <Card>
-              <CardContent className="p-6">
-                <div className="text-center space-y-4">
-                  <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Package className="h-8 w-8 text-primary" />
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Package className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">Start Inventory Count</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Select a period and begin counting
-                    </p>
+                    <h3 className="font-semibold text-sm">Start Inventory Count</h3>
+                    <p className="text-muted-foreground text-xs">Select a period and begin counting</p>
                   </div>
-                  <Button 
-                    size="lg" 
-                    onClick={handleStartCount}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Start Count
-                  </Button>
                 </div>
+                <Button size="sm" onClick={handleStartCount}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Start Count
+                </Button>
               </CardContent>
             </Card>
 
