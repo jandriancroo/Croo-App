@@ -153,6 +153,12 @@ const InventoryCount = () => {
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
   const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
+  // Block browser back / swipe-back when actively counting or editing
+  const blocker = useBlocker(isCounting || isEditing);
+
+  // Pending redirect target when guard is triggered
+  const pendingRedirectRef = useRef<string | null>(null);
+
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
     queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
@@ -162,11 +168,9 @@ const InventoryCount = () => {
   const handleSaveAndExit = useCallback((redirectTo?: string) => {
     saveRef.current?.save();
     setShowSaveExitDialog(false);
-    // Small delay to let save complete before navigating
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      // If blocker triggered the dialog, proceed through the blocker
       if (blocker.state === "blocked") {
         blocker.proceed();
       } else {
@@ -175,8 +179,12 @@ const InventoryCount = () => {
     }, 500);
   }, [queryClient, locationId, navigate, blocker]);
 
-  // Pending redirect target when guard is triggered
-  const pendingRedirectRef = useRef<string | null>(null);
+  const handleSaveExitCancel = useCallback(() => {
+    setShowSaveExitDialog(false);
+    if (blocker.state === "blocked") {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   const handleBackClick = () => {
     pendingRedirectRef.current = null;
@@ -202,12 +210,9 @@ const InventoryCount = () => {
     }
   }, [isCounting, isEditing]);
 
-  // Block browser back / swipe-back when actively counting or editing
-  const blocker = useBlocker(isCounting || isEditing);
-
+  // Show save dialog when blocker triggers (swipe-back / browser back)
   useEffect(() => {
     if (blocker.state === "blocked") {
-      // Show our save dialog instead of navigating away
       pendingRedirectRef.current = blocker.location.pathname;
       setShowSaveExitDialog(true);
     }
