@@ -13,9 +13,11 @@ export const VirtuosoPanYScroller = forwardRef<HTMLDivElement, DivProps>(
       <div
         ref={ref}
         {...props}
+        data-scroll-lock-scrollable=""
         style={{
           ...style,
           overflowX: 'hidden',
+          overflowY: 'auto',
           touchAction: 'pan-y',
           overscrollBehaviorX: 'none',
           WebkitOverflowScrolling: 'touch',
