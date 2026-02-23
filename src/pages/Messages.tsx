@@ -712,7 +712,8 @@ export default function Messages() {
       
       {/* Mobile Slide-Over Chat Window */}
       <Sheet 
-        open={isMobile && !!selectedChatId} 
+        modal={false}
+        open={isMobile && !!selectedChatId}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedChatId(null);
