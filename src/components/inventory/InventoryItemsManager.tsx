@@ -1069,7 +1069,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {/* Items needing remap */}
               {(() => {
-                const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap' && !i.is_recipe);
+                const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap');
                 if (remapItems.length === 0) return null;
                 const bidGuideId = (pfgIntegration?.credentials as any)?.bid_guide_header_id;
                 const custId = (pfgIntegration?.credentials as any)?.customer_id;
@@ -1114,14 +1114,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               {storageLocations?.map((loc) => {
                 // Primary items (home location)
                 const primaryItems = items
-                  .filter(i => i.storage_location_id === loc.id && !i.is_recipe)
+                  .filter(i => i.storage_location_id === loc.id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                 // Shortcut items (items whose primary is elsewhere but have a junction entry here)
                 const shortcutItemIds = (itemLocationShortcuts || [])
                   .filter(s => s.storage_location_id === loc.id)
                   .map(s => s.item_id);
                 const shortcutItems = items
-                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id && !i.is_recipe);
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id);
                 const allLocItems = [...primaryItems, ...shortcutItems];
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
@@ -1211,7 +1211,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               })}
               {/* Unassigned items */}
               {(() => {
-                const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe)
+                const unassigned = items.filter(i => !i.storage_location_id)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
                 if (unassigned.length === 0) return null;
                 const isCollapsed = collapsedSections.has("__unassigned__");
