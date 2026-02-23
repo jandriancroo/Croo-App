@@ -872,7 +872,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       {chatDetails && (
         <div className="border-b border-border p-4 space-y-3">
