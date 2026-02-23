@@ -1208,7 +1208,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           const container = ALL_CONTAINERS.find(c => c.key === panKey);
                           if (!container) return null;
                           const unitsEach = getPanUnits(item.pan_sizes!, panKey);
-                          const panQty = panCounts[item.item_id]?.[panKey] || 0;
+                          const panQty = panCounts[splitKey]?.[panKey] || 0;
                           return (
                             <div key={panKey} className="flex-1">
                               <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium truncate">
