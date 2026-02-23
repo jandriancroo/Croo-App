@@ -88,7 +88,7 @@ const Inventory = () => {
     enabled: !!locationId
   });
 
-  // Fetch recent counts
+  // Fetch recent counts with stats
   const { data: recentCounts } = useQuery({
     queryKey: ["inventory-counts", locationId],
     queryFn: async () => {
@@ -103,7 +103,38 @@ const Inventory = () => {
         .limit(10);
       
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) return [];
+
+      // Fetch stats for all counts in parallel
+      const countIds = data.map(c => c.id);
+      const { data: countItems } = await supabase
+        .from("inventory_count_items")
+        .select("count_id, quantity, item_id")
+        .in("count_id", countIds);
+
+      // Get unique item IDs for cost lookup
+      const itemIds = [...new Set((countItems || []).map(ci => ci.item_id))];
+      let costMap: Record<string, number> = {};
+      if (itemIds.length > 0) {
+        const { data: items } = await supabase
+          .from("inventory_items")
+          .select("id, cost_per_unit")
+          .in("id", itemIds);
+        costMap = Object.fromEntries((items || []).map(i => [i.id, i.cost_per_unit || 0]));
+      }
+
+      // Aggregate stats per count
+      const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
+      for (const ci of (countItems || [])) {
+        if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
+        statsMap[ci.count_id].totalItems++;
+        if (ci.quantity > 0) {
+          statsMap[ci.count_id].countedItems++;
+          statsMap[ci.count_id].totalCost += ci.quantity * (costMap[ci.item_id] || 0);
+        }
+      }
+
+      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 } }));
     },
     enabled: !!locationId
   });
