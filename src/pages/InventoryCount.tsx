@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2, Save } from "lucide-react";
+import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
