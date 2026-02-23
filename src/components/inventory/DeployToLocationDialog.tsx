@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Download, AlertTriangle, ArrowRight, X, Flame, ChevronLeft, Plus, FlaskConical } from "lucide-react";
+import { Loader2, Download, AlertTriangle, ArrowRight, X, Flame, ChevronLeft, Plus, FlaskConical, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
@@ -180,6 +180,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
   const [selectedFeatures, setSelectedFeatures] = useState<Set<DeployFeature>>(new Set(DEFAULT_FEATURES));
   const [matches, setMatches] = useState<Map<string, MatchResult>>(new Map());
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
+  const [cleanSlate, setCleanSlate] = useState(false);
 
   const isDeployAll = selectedFeatures.size === ALL_FEATURES.length;
 
@@ -207,6 +208,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
       setSelectedFeatures(new Set(DEFAULT_FEATURES));
       setMatches(new Map());
       setSelectedTemplateIds(new Set());
+      setCleanSlate(false);
     }
     onOpenChange(o);
   };
@@ -423,6 +425,82 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
   const deployMutation = useMutation({
     mutationFn: async () => {
       if (!templates || !user) throw new Error("Missing data");
+
+      // Step 0: Clean Slate — wipe target location's recipes, usage rates, groups
+      if (cleanSlate) {
+        // Get all recipe item IDs at target
+        const { data: targetRecipes } = await supabase
+          .from("inventory_items")
+          .select("id")
+          .eq("location_id", targetLocationId)
+          .eq("is_recipe", true)
+          .eq("is_active", true);
+        const recipeIds = (targetRecipes || []).map(r => r.id);
+
+        // Delete recipe ingredients
+        if (recipeIds.length > 0) {
+          await supabase.from("inventory_recipe_ingredients").delete().in("recipe_item_id", recipeIds);
+        }
+
+        // Reset recipe flags on items
+        if (recipeIds.length > 0) {
+          await supabase.from("inventory_items").update({
+            is_recipe: false, recipe_yield_qty: null, recipe_yield_unit: null, cost_per_unit: null
+          } as any).in("id", recipeIds);
+        }
+
+        // Delete usage rates and product groups
+        await supabase.from("inventory_usage_rates").delete().eq("location_id", targetLocationId);
+        await supabase.from("inventory_product_groups").delete().eq("location_id", targetLocationId);
+
+        // Ensure "Unassigned" storage location exists
+        const { data: existingLocs } = await supabase
+          .from("inventory_locations")
+          .select("id, name")
+          .eq("location_id", targetLocationId);
+        let unassignedId = existingLocs?.find(l => l.name.toLowerCase() === 'unassigned')?.id;
+        if (!unassignedId) {
+          const { data: newLoc } = await supabase
+            .from("inventory_locations")
+            .insert({ location_id: targetLocationId, name: 'Unassigned', display_order: (existingLocs?.length || 0) })
+            .select("id")
+            .single();
+          unassignedId = newLoc?.id;
+        }
+
+        // Move non-master items to Unassigned
+        if (unassignedId) {
+          const masterNames = new Set(templates.map(t => t.product_name.toLowerCase()));
+          const masterItemNumbers = new Set(templates.filter(t => t.item_number).map(t => t.item_number!.toLowerCase()));
+          const masterPaIds = new Set(templates.filter(t => t.pa_item_id).map(t => t.pa_item_id!.toLowerCase()));
+
+          const { data: allTargetItems } = await supabase
+            .from("inventory_items")
+            .select("id, name, item_number, pa_item_id")
+            .eq("location_id", targetLocationId)
+            .eq("is_active", true);
+
+          const nonMasterIds = (allTargetItems || [])
+            .filter(i => {
+              // Check if item matches any master template
+              if (i.item_number && masterItemNumbers.has(i.item_number.toLowerCase())) return false;
+              if (i.pa_item_id && masterPaIds.has(i.pa_item_id.toLowerCase())) return false;
+              if (masterNames.has(i.name.toLowerCase())) return false;
+              return true;
+            })
+            .map(i => i.id);
+
+          if (nonMasterIds.length > 0) {
+            // Batch update in chunks of 50
+            for (let i = 0; i < nonMasterIds.length; i += 50) {
+              const chunk = nonMasterIds.slice(i, i + 50);
+              await supabase.from("inventory_items")
+                .update({ storage_location_id: unassignedId })
+                .in("id", chunk);
+            }
+          }
+        }
+      }
 
       // Step 1: Auto-create missing storage locations
       const needsStorageCreation = (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && newStorageLocations.length > 0;
@@ -835,6 +913,23 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                 <p className="text-[10px] text-muted-foreground">Push all features at once</p>
               </div>
               <Switch checked={isDeployAll} onCheckedChange={toggleDeployAll} />
+            </div>
+
+            {/* Clean Slate Option */}
+            <div
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-colors cursor-pointer ${
+                cleanSlate ? "border-destructive/60 bg-destructive/5" : "border-border"
+              }`}
+              onClick={() => setCleanSlate(!cleanSlate)}
+            >
+              <Trash2 className={`h-4 w-4 ${cleanSlate ? "text-destructive" : "text-muted-foreground"}`} />
+              <div className="flex-1">
+                <p className="text-xs font-semibold">Clean Slate</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Wipe recipes, usage rates & groups first. Non-master items → Unassigned.
+                </p>
+              </div>
+              <Switch checked={cleanSlate} onCheckedChange={setCleanSlate} />
             </div>
 
             <div className="space-y-1">
