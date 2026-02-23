@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, CheckSquare, X, Plus } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, CheckSquare, X, Plus, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -758,75 +758,80 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   return (
     <>
     <div className="space-y-6">
-      {/* Schedule Settings */}
-      <InventoryScheduleSettings locationId={locationId} />
+      {/* Schedule + Sync side by side */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <InventoryScheduleSettings locationId={locationId} />
 
-      {/* Sync Buttons - side by side */}
-      {(pfgIntegration || paIntegration) && (
-        <div className="grid grid-cols-2 gap-3">
-          {pfgIntegration && (
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <Button 
-                  className="w-full" 
-                  size="sm"
-                  onClick={syncFromPFG}
-                  disabled={isSyncing}
-                >
-                  {isSyncing ? (
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  ) : (
-                    <img src={pfgLogo} alt="PFG" className="h-5 w-auto mr-1.5" />
+        {(pfgIntegration || paIntegration) && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Vendor Sync
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pfgIntegration && (
+                <div>
+                  <Button 
+                    className="w-full" 
+                    size="sm"
+                    onClick={syncFromPFG}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <img src={pfgLogo} alt="PFG" className="h-5 w-auto mr-1.5" />
+                    )}
+                    Sync PFG
+                  </Button>
+                  {progress && (
+                    <div className="mt-1.5 space-y-1">
+                      <p className="text-xs text-muted-foreground truncate">{progress.phase}</p>
+                      <Progress value={progress.current} className="h-1.5" />
+                    </div>
                   )}
-                  Sync PFG
-                </Button>
-                {progress && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-muted-foreground truncate">{progress.phase}</p>
-                    <Progress value={progress.current} className="h-1.5" />
-                  </div>
-                )}
-                {!progress && lastPfgSync?.completed_at && (
-                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-                    Last synced {formatSyncTime(lastPfgSync.completed_at)}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          {paIntegration && (
-            <Card>
-              <CardContent className="pt-4 pb-4">
-                <Button 
-                  className="w-full" 
-                  variant="outline"
-                  size="sm"
-                  onClick={syncFromPA}
-                  disabled={isPaSyncing}
-                >
-                  {isPaSyncing ? (
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  ) : (
-                    <img src={paLogo} alt="PA" className="h-5 w-auto mr-1.5" />
+                  {!progress && lastPfgSync?.completed_at && (
+                    <p className="text-[10px] text-muted-foreground text-center mt-1">
+                      Last synced {formatSyncTime(lastPfgSync.completed_at)}
+                    </p>
                   )}
-                  Sync PA
-                </Button>
-                {paProgress && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>
-                    <Progress value={paProgress.current} className="h-1.5" />
-                  </div>
-                )}
-                {!paProgress && lastPaSync?.completed_at && (
-                  <p className="text-[10px] text-muted-foreground text-center mt-1.5">
-                    Last synced {formatSyncTime(lastPaSync.completed_at)}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+                </div>
+              )}
+              {paIntegration && (
+                <div>
+                  <Button 
+                    className="w-full" 
+                    variant="outline"
+                    size="sm"
+                    onClick={syncFromPA}
+                    disabled={isPaSyncing}
+                  >
+                    {isPaSyncing ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <img src={paLogo} alt="PA" className="h-5 w-auto mr-1.5" />
+                    )}
+                    Sync PA
+                  </Button>
+                  {paProgress && (
+                    <div className="mt-1.5 space-y-1">
+                      <p className="text-xs text-muted-foreground truncate">{paProgress.phase}</p>
+                      <Progress value={paProgress.current} className="h-1.5" />
+                    </div>
+                  )}
+                  {!paProgress && lastPaSync?.completed_at && (
+                    <p className="text-[10px] text-muted-foreground text-center mt-1">
+                      Last synced {formatSyncTime(lastPaSync.completed_at)}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Product Groups */}
       <ProductGroupsManager locationId={locationId} />
