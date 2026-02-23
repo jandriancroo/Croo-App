@@ -1222,7 +1222,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   <button
                                     type="button"
                                     className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                                    onClick={() => updatePanCount(item.item_id, panKey, -0.5)}
+                                    onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-4 w-4" strokeWidth={2} />
                                   </button>
