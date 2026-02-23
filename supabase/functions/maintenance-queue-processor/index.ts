@@ -209,12 +209,29 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
     body: JSON.stringify({ locationId: task.location_id }),
   });
 
+  const text = await response.text();
   if (!response.ok) {
-    const text = await response.text();
     throw new Error(`HTTP ${response.status}: ${text}`);
   }
 
-  return await response.json();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`);
+  }
+
+  // Check response body for silent failures
+  if (result.success === false || (result.failed && result.failed > 0)) {
+    const detail = result.error || result.message || JSON.stringify(result).slice(0, 300);
+    console.error(`[QUEUE] PFG refresh returned success:false for location ${task.location_id}: ${detail}`);
+    throw new Error(`PFG refresh failed (response body): ${detail}`);
+  }
+
+  console.log(`[QUEUE] PFG refresh OK for location ${task.location_id}:`, 
+    result.grantIssued ? `grant issued=${result.grantIssued}, expires=${result.grantExpiration}` : 'token refreshed');
+
+  return result;
 }
 
 // ============================================================================
