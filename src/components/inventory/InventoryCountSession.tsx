@@ -1074,7 +1074,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     <div className="text-right flex-shrink-0">
                         <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
                         <p className="text-xs text-primary-foreground/70">
-                          {getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)} units
+                          {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
                         </p>
                     </div>
                   </div>
