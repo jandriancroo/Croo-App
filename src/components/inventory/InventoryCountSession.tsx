@@ -500,7 +500,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         for (const ic of itemCounts) {
           const { data: existing } = await supabase
             .from("inventory_count_items")
-            .select("id")
+            .select("id, storage_location_id")
             .eq("count_id", countId)
             .eq("item_id", ic.item_id) as any;
           
