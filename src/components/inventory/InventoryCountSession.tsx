@@ -1230,9 +1230,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 <input
                                   type="text"
                                   inputMode="decimal"
-                                  value={rawPanInputs[item.item_id]?.[panKey] ?? panQty}
-                                  onChange={(e) => handlePanInput(item.item_id, panKey, e.target.value)}
-                                  onBlur={() => handlePanBlur(item.item_id, panKey)}
+                                  value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
+                                  onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
+                                  onBlur={() => handlePanBlur(splitKey, panKey)}
                                   disabled={isViewOnly}
                                   className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                                 />
