@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2, DollarSign } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -17,6 +17,8 @@ import InventoryItemsManager from "@/components/inventory/InventoryItemsManager"
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
+import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
+import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -30,6 +32,8 @@ const Inventory = () => {
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
+  const [showExportMaster, setShowExportMaster] = useState(false);
+  const [showDeployDialog, setShowDeployDialog] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -45,6 +49,21 @@ const Inventory = () => {
       return data;
     },
     enabled: !!locationId
+  });
+
+  // Get brand ID for this location
+  const { data: brandInfo } = useQuery({
+    queryKey: ["location-brand", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("organization_id, organizations(brand_id)")
+        .eq("id", locationId)
+        .single();
+      if (error) throw error;
+      return (data?.organizations as any)?.brand_id as string | null;
+    },
+    enabled: !!locationId,
   });
 
   // Check for in-progress count
@@ -245,6 +264,18 @@ const Inventory = () => {
             <h1 className="text-2xl font-bold">Inventory</h1>
             <p className="text-muted-foreground">Fast mobile counting</p>
           </div>
+          {brandInfo && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowExportMaster(true)}>
+                <Upload className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDeployDialog(true)}>
+                <Rocket className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Deploy</span>
+              </Button>
+            </div>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -391,6 +422,23 @@ const Inventory = () => {
         isDeleting={deleteCountMutation.isPending}
         countPeriod={countToDelete?.period || ""}
       />
+
+      {brandInfo && (
+        <>
+          <ExportToMasterDialog
+            open={showExportMaster}
+            onOpenChange={setShowExportMaster}
+            locationId={locationId!}
+            brandId={brandInfo}
+          />
+          <DeployToLocationDialog
+            open={showDeployDialog}
+            onOpenChange={setShowDeployDialog}
+            brandId={brandInfo}
+            sourceLocationId={locationId!}
+          />
+        </>
+      )}
     </Layout>
   );
 };
