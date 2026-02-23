@@ -197,6 +197,17 @@ const InventoryCount = () => {
     }
   }, [isCounting, isEditing]);
 
+  // Block browser back / swipe-back when actively counting or editing
+  const blocker = useBlocker(isCounting || isEditing);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      // Show our save dialog instead of navigating away
+      pendingRedirectRef.current = blocker.location.pathname;
+      setShowSaveExitDialog(true);
+    }
+  }, [blocker.state, blocker.location?.pathname]);
+
   const handleSaveClick = () => {
     if (isCounting || isEditing) {
       setShowSaveExitDialog(true);
