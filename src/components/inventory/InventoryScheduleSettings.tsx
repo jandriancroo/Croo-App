@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Loader2 } from "lucide-react";
@@ -124,13 +124,11 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
 
   return (
     <Card>
-      <CardHeader className="pb-2 pt-4 px-4">
-        <CardTitle className="text-base flex items-center gap-2">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 font-semibold text-sm">
           <Calendar className="h-4 w-4" />
           Count Schedule
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 px-4 pb-4">
+        </div>
         {/* Weekly - compact row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
