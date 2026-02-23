@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
@@ -28,6 +29,7 @@ const Inventory = () => {
   const { user } = useAuth();
   const { isAdmin, role } = useUserRole();
   const { hasPermission } = useRolePermissions();
+  const { canDeploy, isBrandLevel } = useInventoryPermissions();
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
@@ -265,7 +267,7 @@ const Inventory = () => {
             <h1 className="text-2xl font-bold">Inventory</h1>
             <p className="text-muted-foreground">Fast mobile counting</p>
           </div>
-          {brandInfo && (
+          {brandInfo && isBrandLevel && (
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowExportMaster(true)}>
                 <Upload className="h-4 w-4 mr-1.5" />
