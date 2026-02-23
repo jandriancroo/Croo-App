@@ -391,7 +391,7 @@ const InventoryCount = () => {
           countPeriod={formatPeriodLabel(countData)}
         />
 
-        <AlertDialog open={showSaveExitDialog} onOpenChange={setShowSaveExitDialog}>
+        <AlertDialog open={showSaveExitDialog} onOpenChange={(open) => { if (!open) handleSaveExitCancel(); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Save & exit?</AlertDialogTitle>
@@ -400,7 +400,7 @@ const InventoryCount = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={handleSaveExitCancel}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => handleSaveAndExit(pendingRedirectRef.current || undefined)}>
                 Save & Exit
               </AlertDialogAction>
