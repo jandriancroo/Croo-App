@@ -124,13 +124,13 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
+      <CardHeader className="pb-2 pt-4 px-4">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
           Count Schedule
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 px-4 pb-4">
         {/* Weekly - compact row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
