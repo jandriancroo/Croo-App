@@ -842,9 +842,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         const recipeItems = items.filter(i => i.is_recipe);
         if (recipeItems.length === 0 && !showRecipeDialog) return (
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FlaskConical className="h-5 w-5" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 font-semibold text-sm mb-2">
+                <FlaskConical className="h-4 w-4" />
                 Prep Recipes
                 <Button
                   variant="ghost"
@@ -854,9 +854,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </div>
               <p className="text-sm text-muted-foreground">No recipes yet. Tap + to create one.</p>
             </CardContent>
           </Card>
@@ -943,9 +941,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
         return (
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FlaskConical className="h-5 w-5" />
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2 font-semibold text-sm">
+                <FlaskConical className="h-4 w-4" />
                 Prep Recipes
                 <Badge variant="secondary" className="text-xs">{recipeItems.length}</Badge>
                 <Button
@@ -956,9 +954,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              </div>
               {/* Recipes in storage locations */}
               {storageLocations?.map(loc => {
                 const locRecipes = recipesByLocation.get(loc.id);
@@ -999,10 +995,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
       {/* Inventory Items */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2 pt-4 px-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Package className="h-5 w-5" />
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Package className="h-4 w-4" />
               Items ({items?.length || 0})
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -1051,7 +1047,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             </div>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4">
           {items && items.length > 0 ? (
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {/* Items needing remap */}
@@ -1300,11 +1296,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       {/* Hidden / Inactive Items */}
       {hiddenItems && hiddenItems.length > 0 && (
         <Card>
-          <CardHeader className="cursor-pointer py-3" onClick={() => setShowInactive(!showInactive)}>
-            <CardTitle className="text-sm flex items-center gap-2 text-muted-foreground">
-              <EyeOff className="h-4 w-4" />
+          <CardHeader className="cursor-pointer py-2 px-4" onClick={() => setShowInactive(!showInactive)}>
+            <CardTitle className="text-xs flex items-center gap-2 text-muted-foreground">
+              <EyeOff className="h-3.5 w-3.5" />
               Hidden Items ({hiddenItems.length})
-              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showInactive ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3.5 w-3.5 ml-auto transition-transform ${showInactive ? 'rotate-180' : ''}`} />
             </CardTitle>
           </CardHeader>
           {showInactive && (
