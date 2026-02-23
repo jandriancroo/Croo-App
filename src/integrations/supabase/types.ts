@@ -625,6 +625,7 @@ export type Database = {
           updated_at: string
           usage_rate: number | null
           usage_rate_manual_override: boolean | null
+          usage_rate_mappings: Json | null
           usage_rate_unit: string | null
           vendor_source: string | null
         }
@@ -659,6 +660,7 @@ export type Database = {
           updated_at?: string
           usage_rate?: number | null
           usage_rate_manual_override?: boolean | null
+          usage_rate_mappings?: Json | null
           usage_rate_unit?: string | null
           vendor_source?: string | null
         }
@@ -693,6 +695,7 @@ export type Database = {
           updated_at?: string
           usage_rate?: number | null
           usage_rate_manual_override?: boolean | null
+          usage_rate_mappings?: Json | null
           usage_rate_unit?: string | null
           vendor_source?: string | null
         }

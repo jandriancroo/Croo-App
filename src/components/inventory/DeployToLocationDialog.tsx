@@ -42,14 +42,23 @@ interface Template {
   category: string | null;
   storage_location_name: string | null;
   shortcut_location_names: string[] | null;
+  // Legacy single-rate (backward compat)
   usage_rate: number | null;
   usage_rate_unit: string | null;
   usage_rate_manual_override: boolean | null;
   product_group_name: string | null;
   product_group_pos_categories: string[] | null;
   product_group_pos_items: string[] | null;
+  // NEW: multi-group mappings
+  usage_rate_mappings: Array<{
+    group_name: string | null;
+    pos_categories: string[] | null;
+    pos_items: string[] | null;
+    usage_rate: number;
+    rate_unit: string | null;
+    manual_override: boolean;
+  }>;
   pan_overrides: any;
-  // New fields
   is_recipe: boolean;
   recipe_yield_qty: number | null;
   recipe_yield_unit: string | null;
@@ -110,6 +119,7 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   recipes: "Recipe definitions with ingredients & yields",
 };
 
+const DEFAULT_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'usage_rates', 'product_groups', 'recipes'];
 const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'usage_rates', 'product_groups', 'recipes'];
 
 /** Parse per-unit weight from pack_size */
@@ -166,7 +176,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
   const queryClient = useQueryClient();
   const [step, setStep] = useState<1 | 2>(1);
   const [targetLocationId, setTargetLocationId] = useState<string>("");
-  const [selectedFeatures, setSelectedFeatures] = useState<Set<DeployFeature>>(new Set(ALL_FEATURES));
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<DeployFeature>>(new Set(DEFAULT_FEATURES));
   const [matches, setMatches] = useState<Map<string, MatchResult>>(new Map());
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<Set<string>>(new Set());
 
@@ -193,7 +203,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     if (!o) {
       setStep(1);
       setTargetLocationId("");
-      setSelectedFeatures(new Set(ALL_FEATURES));
+      setSelectedFeatures(new Set(DEFAULT_FEATURES));
       setMatches(new Map());
       setSelectedTemplateIds(new Set());
     }
@@ -239,6 +249,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         vendor_source: t.vendor_source || null,
         item_number: t.item_number || null,
         pa_item_id: t.pa_item_id || null,
+        usage_rate_mappings: t.usage_rate_mappings || [],
       })) as Template[];
     },
     enabled: open,
@@ -274,8 +285,8 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
       if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) return true;
       if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) return true;
-      if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) return true;
-      if (selectedFeatures.has('product_groups') && tmpl.product_group_name) return true;
+      if (selectedFeatures.has('usage_rates') && (tmpl.usage_rate_mappings?.length > 0 || tmpl.usage_rate != null)) return true;
+      if (selectedFeatures.has('product_groups') && (tmpl.usage_rate_mappings?.some(m => m.group_name) || tmpl.product_group_name)) return true;
       if (selectedFeatures.has('recipes') && tmpl.is_recipe) return true;
       return false;
     });
@@ -377,8 +388,9 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     if (selectedFeatures.has('categories') && tmpl.category) indicators.push("Cat");
     if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) indicators.push("Stor");
     if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) indicators.push(`${tmpl.shortcut_location_names.length} SC`);
-    if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) indicators.push("Rate");
-    if (selectedFeatures.has('product_groups') && tmpl.product_group_name) indicators.push("Grp");
+    const mappings = tmpl.usage_rate_mappings || [];
+    if (selectedFeatures.has('usage_rates') && mappings.length > 0) indicators.push(`${mappings.length} Rate${mappings.length > 1 ? 's' : ''}`);
+    if (selectedFeatures.has('product_groups') && mappings.some(m => m.group_name)) indicators.push("Grp");
     if (selectedFeatures.has('recipes') && tmpl.is_recipe) indicators.push("Recipe");
     return indicators;
   };
@@ -458,25 +470,34 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
         .eq("location_id", targetLocationId);
       const targetStorageMap = new Map((targetStorageLocs || []).map(l => [l.name.toLowerCase(), l.id]));
 
-      // Create/find product groups at target
+      // Create/find product groups at target (collect from ALL usage_rate_mappings)
       let targetGroupMap = new Map<string, string>();
-      if (selectedFeatures.has('product_groups')) {
+      if (selectedFeatures.has('product_groups') || selectedFeatures.has('usage_rates')) {
         const { data: existingGroups } = await supabase
           .from("inventory_product_groups")
           .select("id, name")
           .eq("location_id", targetLocationId);
         targetGroupMap = new Map((existingGroups || []).map(g => [g.name.toLowerCase(), g.id]));
 
+        // Collect all unique group names from usage_rate_mappings
         const groupsToCreate: { name: string; pos_categories: string[] | null; pos_items: string[] | null }[] = [];
+        const seenGroupNames = new Set<string>();
         for (const tid of selectedTemplateIds) {
           const tmpl = templates.find(t => t.id === tid);
-          if (tmpl?.product_group_name && !targetGroupMap.has(tmpl.product_group_name.toLowerCase())) {
-            groupsToCreate.push({
-              name: tmpl.product_group_name,
-              pos_categories: tmpl.product_group_pos_categories,
-              pos_items: tmpl.product_group_pos_items,
-            });
-            targetGroupMap.set(tmpl.product_group_name.toLowerCase(), '__pending__');
+          if (!tmpl) continue;
+          const mappings = tmpl.usage_rate_mappings || [];
+          // Fallback to legacy single group
+          const allGroups = mappings.length > 0
+            ? mappings.filter(m => m.group_name).map(m => ({ name: m.group_name!, pos_categories: m.pos_categories, pos_items: m.pos_items }))
+            : (tmpl.product_group_name ? [{ name: tmpl.product_group_name, pos_categories: tmpl.product_group_pos_categories, pos_items: tmpl.product_group_pos_items }] : []);
+          
+          for (const g of allGroups) {
+            const key = g.name.toLowerCase();
+            if (!targetGroupMap.has(key) && !seenGroupNames.has(key)) {
+              groupsToCreate.push(g);
+              seenGroupNames.add(key);
+              targetGroupMap.set(key, '__pending__');
+            }
           }
         }
 
@@ -589,20 +610,31 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           }
         }
 
-        // Usage rates
-        if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null && tmpl.product_group_name) {
-          const groupId = targetGroupMap.get(tmpl.product_group_name.toLowerCase());
-          if (groupId && groupId !== '__pending__') {
-            await supabase
-              .from("inventory_usage_rates")
-              .upsert({
-                inventory_item_id: targetItemId,
-                location_id: targetLocationId,
-                product_group_id: groupId,
-                usage_rate: tmpl.usage_rate,
-                rate_unit: tmpl.usage_rate_unit,
-                manual_override: tmpl.usage_rate_manual_override ?? false,
-              } as any, { onConflict: "inventory_item_id,product_group_id" });
+        // Usage rates — deploy ALL mappings (multi-group support)
+        if (selectedFeatures.has('usage_rates')) {
+          const mappings = tmpl.usage_rate_mappings || [];
+          // If we have usage_rate_mappings, use them; otherwise fall back to legacy single rate
+          const ratesToDeploy = mappings.length > 0
+            ? mappings
+            : (tmpl.usage_rate != null && tmpl.product_group_name
+              ? [{ group_name: tmpl.product_group_name, usage_rate: tmpl.usage_rate, rate_unit: tmpl.usage_rate_unit, manual_override: tmpl.usage_rate_manual_override ?? false, pos_categories: null, pos_items: null }]
+              : []);
+
+          for (const rate of ratesToDeploy) {
+            if (!rate.group_name) continue;
+            const groupId = targetGroupMap.get(rate.group_name.toLowerCase());
+            if (groupId && groupId !== '__pending__') {
+              await supabase
+                .from("inventory_usage_rates")
+                .upsert({
+                  inventory_item_id: targetItemId,
+                  location_id: targetLocationId,
+                  product_group_id: groupId,
+                  usage_rate: rate.usage_rate,
+                  rate_unit: rate.rate_unit,
+                  manual_override: rate.manual_override ?? false,
+                } as any, { onConflict: "inventory_item_id,product_group_id" });
+            }
           }
         }
 
