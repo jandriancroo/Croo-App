@@ -133,12 +133,18 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
     onError: () => toast.error("Failed to reorder"),
   });
 
-  const handleDragStart = (id: string) => {
+  const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedId(id);
+    e.dataTransfer.effectAllowed = "move";
+    // Use a transparent drag image so we rely on CSS styling
+    const dragEl = e.currentTarget as HTMLElement;
+    const rect = dragEl.getBoundingClientRect();
+    e.dataTransfer.setDragImage(dragEl, rect.width / 2, rect.height / 2);
   };
 
   const handleDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
     if (id !== draggedId) setDragOverId(id);
   };
 
@@ -199,13 +205,16 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
                 <div
                   key={loc.id}
                   draggable={!isEditing}
-                  onDragStart={() => handleDragStart(loc.id)}
+                  onDragStart={(e) => handleDragStart(e, loc.id)}
                   onDragOver={(e) => handleDragOver(e, loc.id)}
                   onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
                   onDrop={() => handleDrop(loc.id)}
-                  className={`flex items-center gap-2 px-2 py-2 rounded-md border transition-colors ${
-                    isDragOver ? "border-primary bg-primary/5" : 
-                    draggedId === loc.id ? "opacity-50 border-border" : "border-border"
+                  className={`flex items-center gap-2 px-2 py-2 rounded-md border transition-all duration-200 ${
+                    draggedId === loc.id 
+                      ? "opacity-30 scale-95 border-dashed border-primary/40 bg-primary/5" 
+                      : isDragOver 
+                        ? "border-primary bg-primary/10 shadow-md scale-[1.02] ring-1 ring-primary/20" 
+                        : "border-border hover:bg-muted/30"
                   }`}
                 >
                   <GripVertical className="h-4 w-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
