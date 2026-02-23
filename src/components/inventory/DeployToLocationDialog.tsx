@@ -66,6 +66,7 @@ interface Template {
   vendor_source: string | null;
   item_number: string | null;
   pa_item_id: string | null;
+  source_item_id: string | null;
 }
 
 interface TargetItem {
@@ -733,6 +734,41 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
 
           if (ingredientInserts.length > 0) {
             await supabase.from("inventory_recipe_ingredients").insert(ingredientInserts);
+          }
+        }
+
+        // Step 4b: Copy recipe costs from source items to target recipes
+        const sourceItemIds = [...selectedTemplateIds]
+          .map(tid => templates.find(t => t.id === tid))
+          .filter(t => t?.is_recipe && t?.source_item_id)
+          .map(t => t!.source_item_id!);
+
+        if (sourceItemIds.length > 0) {
+          const { data: sourceItems } = await supabase
+            .from("inventory_items")
+            .select("id, cost_per_unit")
+            .in("id", sourceItemIds);
+
+          const sourceCostMap = new Map<string, number>();
+          for (const si of sourceItems || []) {
+            if (si.cost_per_unit != null) sourceCostMap.set(si.id, si.cost_per_unit);
+          }
+
+          for (const templateId of selectedTemplateIds) {
+            const tmpl = templates.find(t => t.id === templateId);
+            if (!tmpl?.is_recipe || !tmpl.source_item_id) continue;
+            const sourceCost = sourceCostMap.get(tmpl.source_item_id);
+            if (sourceCost == null) continue;
+
+            const recipeMatch = matches.get(templateId);
+            const recipeTargetId = recipeMatch?.targetItemId ||
+              autoCreatedItemMap.get(tmpl.product_name.toLowerCase());
+            if (!recipeTargetId) continue;
+
+            await supabase
+              .from("inventory_items")
+              .update({ cost_per_unit: sourceCost })
+              .eq("id", recipeTargetId);
           }
         }
       }
