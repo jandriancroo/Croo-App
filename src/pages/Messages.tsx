@@ -712,7 +712,8 @@ export default function Messages() {
       
       {/* Mobile Slide-Over Chat Window */}
       <Sheet 
-        open={isMobile && !!selectedChatId} 
+        modal={false}
+        open={isMobile && !!selectedChatId}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedChatId(null);
@@ -753,7 +754,8 @@ export default function Messages() {
 
       {/* Mobile Hiring Chat Sheet */}
       <Sheet 
-        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation} 
+        modal={false}
+        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedHiringConversation(null);
