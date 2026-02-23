@@ -719,9 +719,9 @@ export default function Messages() {
           }
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 p-4 border-b border-border">
+         <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
+          <div className="flex flex-col h-full min-h-0">
+            <div className="flex items-center gap-2 p-4 border-b border-border shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -734,7 +734,7 @@ export default function Messages() {
               </Button>
               <h2 className="text-lg font-semibold">Chat</h2>
             </div>
-            <div className="flex-1 overflow-hidden pb-4">
+            <div className="flex-1 min-h-0 overflow-hidden pb-4">
               {selectedChatId && (
                 <ChatWindow
                   chatId={selectedChatId}

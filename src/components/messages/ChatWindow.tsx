@@ -872,7 +872,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       {chatDetails && (
         <div className="border-b border-border p-4 space-y-3">
@@ -933,7 +933,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized for performance */}
-      <div className="flex-1 overflow-hidden overflow-x-hidden relative">
+      <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden relative">
         {/* New Message Bubble */}
         {showNewMessageBubble && (
           <button
