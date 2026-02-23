@@ -754,7 +754,8 @@ export default function Messages() {
 
       {/* Mobile Hiring Chat Sheet */}
       <Sheet 
-        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation} 
+        modal={false}
+        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedHiringConversation(null);
