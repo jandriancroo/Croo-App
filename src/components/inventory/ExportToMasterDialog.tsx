@@ -168,9 +168,13 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   const { data: recipeIngredients } = useQuery({
     queryKey: ["recipe-ingredients-export", locationId],
     queryFn: async () => {
+      // Only fetch recipe ingredients for items at this location
+      const recipeItemIds = items?.filter(i => i.is_recipe).map(i => i.id) || [];
+      if (recipeItemIds.length === 0) return [];
       const { data, error } = await supabase
         .from("inventory_recipe_ingredients")
-        .select("recipe_item_id, ingredient_item_id, quantity, unit");
+        .select("recipe_item_id, ingredient_item_id, quantity, unit")
+        .in("recipe_item_id", recipeItemIds);
       if (error) throw error;
       return data;
     },
