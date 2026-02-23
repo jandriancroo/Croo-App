@@ -203,12 +203,12 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
   return (
     <>
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
+        <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <div className="flex items-center gap-2 font-semibold text-sm">
               <Layers className="h-4 w-4" />
               Product Groups
-            </CardTitle>
+            </div>
             <Button size="sm" variant="outline" onClick={openAdd}>
               <Plus className="h-4 w-4 mr-1" />
               Add
@@ -217,8 +217,6 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
           <p className="text-xs text-muted-foreground">
             Define pizza size/type categories for usage rate tracking (e.g., Large, Regular, Specialty)
           </p>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
           ) : !groups || groups.length === 0 ? (
@@ -285,7 +283,7 @@ const ProductGroupsManager = ({ locationId }: ProductGroupsManagerProps) => {
               ))}
             </div>
           )}
-        </CardContent>
+        </div>
       </Card>
 
       <Dialog open={showDialog} onOpenChange={(open) => !open && closeDialog()}>

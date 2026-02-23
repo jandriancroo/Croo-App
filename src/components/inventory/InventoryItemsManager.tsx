@@ -993,14 +993,13 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
 
 
-      {/* Inventory Items */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
+        <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <div className="flex items-center gap-2 font-semibold text-sm">
               <Package className="h-4 w-4" />
               Items ({items?.length || 0})
-            </CardTitle>
+            </div>
             <div className="flex items-center gap-2">
               {items && items.length > 0 && (
                 <Button
@@ -1026,7 +1025,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             </div>
           </div>
           {bulkMode && items && items.length > 0 && (
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-3">
               <button
                 className="text-xs text-primary hover:underline"
                 onClick={() => {
@@ -1046,8 +1045,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               )}
             </div>
           )}
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
           {items && items.length > 0 ? (
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {/* Items needing remap */}
@@ -1290,7 +1287,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               No items yet. Click "Sync with PFG" to import.
             </p>
           )}
-        </CardContent>
+        </div>
       </Card>
 
       {/* Hidden / Inactive Items */}
