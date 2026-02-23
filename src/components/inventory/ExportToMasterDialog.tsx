@@ -103,6 +103,20 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     enabled: open,
   });
 
+  // Fetch shortcut assignments for all items at this location
+  const { data: itemShortcuts } = useQuery({
+    queryKey: ["export-shortcuts", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_item_locations" as any)
+        .select("item_id, storage_location_id")
+        .eq("location_id", locationId);
+      if (error) throw error;
+      return (data || []) as unknown as { item_id: string; storage_location_id: string }[];
+    },
+    enabled: open,
+  });
+
   // Fetch storage locations to resolve names
   const { data: storageLocations } = useQuery({
     queryKey: ["storage-locations-export", locationId],
@@ -165,6 +179,19 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   const usageMap = new Map(usageRates?.map(r => [r.inventory_item_id, r]) ?? []);
   const groupMap = new Map(productGroups?.map(g => [g.id, g]) ?? []);
 
+  // Build shortcut map: item_id → array of storage location names (excluding primary)
+  const shortcutMap = new Map<string, string[]>();
+  if (itemShortcuts && storageLocations) {
+    for (const s of itemShortcuts) {
+      const locName = storageMap.get(s.storage_location_id);
+      if (locName) {
+        const existing = shortcutMap.get(s.item_id) || [];
+        existing.push(locName);
+        shortcutMap.set(s.item_id, existing);
+      }
+    }
+  }
+
   const exportMutation = useMutation({
     mutationFn: async (itemIds: string[]) => {
       if (!items || !user) throw new Error("Missing data");
@@ -214,6 +241,9 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         const productGroupPosCategories = group?.pos_categories ?? null;
         const productGroupPosItems = group?.pos_items ?? null;
 
+        // Shortcut locations (secondary storage)
+        const shortcutLocationNames = shortcutMap.get(item.id) || [];
+
         return {
           brand_id: brandId,
           product_name: productName,
@@ -227,6 +257,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
           is_weight_based: weightBased,
           match_keywords: keywords,
           storage_location_name: storageLocationName,
+          shortcut_location_names: shortcutLocationNames,
           usage_rate: usageRate,
           usage_rate_unit: usageRateUnit,
           usage_rate_manual_override: usageRateManualOverride,
@@ -287,6 +318,8 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     if (item.common_name) badges.push("Common Name");
     if (item.category) badges.push("Category");
     if (item.storage_location_id && storageMap.has(item.storage_location_id)) badges.push("Storage");
+    const shortcuts = shortcutMap.get(item.id);
+    if (shortcuts && shortcuts.length > 0) badges.push(`${shortcuts.length} Shortcut${shortcuts.length > 1 ? 's' : ''}`);
     if (usageMap.has(item.id)) badges.push("Usage Rate");
     const rate = usageMap.get(item.id);
     if (rate?.product_group_id && groupMap.has(rate.product_group_id)) badges.push("Product Group");

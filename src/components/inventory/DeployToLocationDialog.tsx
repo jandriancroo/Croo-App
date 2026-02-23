@@ -36,6 +36,7 @@ interface Template {
   match_keywords: string[];
   category: string | null;
   storage_location_name: string | null;
+  shortcut_location_names: string[] | null;
   usage_rate: number | null;
   usage_rate_unit: string | null;
   usage_rate_manual_override: boolean | null;
@@ -66,13 +67,14 @@ interface MatchResult {
   autoMatched: boolean;
 }
 
-type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'usage_rates' | 'product_groups';
+type DeployFeature = 'pan_sizes' | 'common_names' | 'categories' | 'storage_locations' | 'shortcuts' | 'usage_rates' | 'product_groups';
 
 const FEATURE_LABELS: Record<DeployFeature, string> = {
   pan_sizes: "Pan Sizes",
   common_names: "Common Names",
   categories: "Categories",
   storage_locations: "Storage Locations",
+  shortcuts: "Shortcuts",
   usage_rates: "Usage Rates",
   product_groups: "Product Groups",
 };
@@ -82,11 +84,12 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   common_names: "Friendly display names for items",
   categories: "Item categories (Produce, Dairy, etc.)",
   storage_locations: "Where items are stored (auto-creates missing)",
+  shortcuts: "Secondary storage locations (auto-creates missing)",
   usage_rates: "Consumption rates per product group",
   product_groups: "Product groupings & POS category mappings",
 };
 
-const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'usage_rates', 'product_groups'];
+const ALL_FEATURES: DeployFeature[] = ['pan_sizes', 'common_names', 'categories', 'storage_locations', 'shortcuts', 'usage_rates', 'product_groups'];
 
 /** Parse per-unit weight from pack_size */
 function parsePerUnitWeight(packSize: string | null): number | null {
@@ -222,6 +225,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
       if (selectedFeatures.has('common_names') && tmpl.common_name) return true;
       if (selectedFeatures.has('categories') && tmpl.category) return true;
       if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) return true;
+      if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) return true;
       if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) return true;
       if (selectedFeatures.has('product_groups') && tmpl.product_group_name) return true;
       return false;
@@ -331,18 +335,26 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     if (selectedFeatures.has('common_names') && tmpl.common_name) indicators.push("Name");
     if (selectedFeatures.has('categories') && tmpl.category) indicators.push("Cat");
     if (selectedFeatures.has('storage_locations') && tmpl.storage_location_name) indicators.push("Stor");
+    if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) indicators.push(`${tmpl.shortcut_location_names.length} SC`);
     if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null) indicators.push("Rate");
     if (selectedFeatures.has('product_groups') && tmpl.product_group_name) indicators.push("Grp");
     return indicators;
   };
 
-  // Count new storage locations that will be created
+  // Count new storage locations that will be created (from primary + shortcuts)
   const newStorageLocations = useMemo(() => {
-    if (!selectedFeatures.has('storage_locations') || !templates) return [];
+    if (!templates) return [];
+    const needsStorageLocs = selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts');
+    if (!needsStorageLocs) return [];
     const names = new Set<string>();
     for (const tid of selectedTemplateIds) {
       const tmpl = templates.find(t => t.id === tid);
-      if (tmpl?.storage_location_name) names.add(tmpl.storage_location_name);
+      if (selectedFeatures.has('storage_locations') && tmpl?.storage_location_name) {
+        names.add(tmpl.storage_location_name);
+      }
+      if (selectedFeatures.has('shortcuts') && tmpl?.shortcut_location_names?.length) {
+        for (const n of tmpl.shortcut_location_names) names.add(n);
+      }
     }
     return Array.from(names);
   }, [selectedTemplateIds, templates, selectedFeatures]);
@@ -351,8 +363,9 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
     mutationFn: async () => {
       if (!templates || !user) throw new Error("Missing data");
 
-      // Step 1: Auto-create missing storage locations
-      if (selectedFeatures.has('storage_locations') && newStorageLocations.length > 0) {
+      // Step 1: Auto-create missing storage locations (for primary + shortcuts)
+      const needsStorageCreation = (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && newStorageLocations.length > 0;
+      if (needsStorageCreation) {
         const { data: existingLocs } = await supabase
           .from("inventory_locations")
           .select("name")
@@ -465,6 +478,22 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           if (error) throw error;
         }
 
+        // Shortcuts (junction table entries)
+        if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) {
+          for (const scName of tmpl.shortcut_location_names) {
+            const scId = targetStorageMap.get(scName.toLowerCase());
+            if (scId) {
+              await supabase
+                .from("inventory_item_locations" as any)
+                .upsert({
+                  item_id: match.targetItemId,
+                  storage_location_id: scId,
+                  location_id: targetLocationId,
+                } as any, { onConflict: "item_id,storage_location_id" });
+            }
+          }
+        }
+
         // Usage rates (separate table)
         if (selectedFeatures.has('usage_rates') && tmpl.usage_rate != null && tmpl.product_group_name) {
           const groupId = targetGroupMap.get(tmpl.product_group_name.toLowerCase());
@@ -566,6 +595,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'common_names') return !!t.common_name;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
+                  if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
                   if (f === 'usage_rates') return t.usage_rate != null;
                   if (f === 'product_groups') return !!t.product_group_name;
                   return false;
@@ -575,6 +605,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   if (f === 'common_names') return !!t.common_name;
                   if (f === 'categories') return !!t.category;
                   if (f === 'storage_locations') return !!t.storage_location_name;
+                  if (f === 'shortcuts') return !!(t.shortcut_location_names?.length);
                   if (f === 'usage_rates') return t.usage_rate != null;
                   if (f === 'product_groups') return !!t.product_group_name;
                   return false;
@@ -644,7 +675,7 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
                   <span className="text-xs text-muted-foreground">
                     {matches.size} of {templates.length} matched
                   </span>
-                  {newStorageLocations.length > 0 && selectedFeatures.has('storage_locations') && (
+                  {newStorageLocations.length > 0 && (selectedFeatures.has('storage_locations') || selectedFeatures.has('shortcuts')) && (
                     <span className="text-[10px] text-blue-500">
                       +{newStorageLocations.length} new storage loc{newStorageLocations.length !== 1 ? 's' : ''}
                     </span>

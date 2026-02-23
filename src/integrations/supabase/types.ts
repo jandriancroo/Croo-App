@@ -612,6 +612,7 @@ export type Database = {
           product_group_pos_categories: string[] | null
           product_group_pos_items: string[] | null
           product_name: string
+          shortcut_location_names: string[] | null
           source_item_id: string | null
           source_location_id: string | null
           storage_location_name: string | null
@@ -638,6 +639,7 @@ export type Database = {
           product_group_pos_categories?: string[] | null
           product_group_pos_items?: string[] | null
           product_name: string
+          shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
           storage_location_name?: string | null
@@ -664,6 +666,7 @@ export type Database = {
           product_group_pos_categories?: string[] | null
           product_group_pos_items?: string[] | null
           product_name?: string
+          shortcut_location_names?: string[] | null
           source_item_id?: string | null
           source_location_id?: string | null
           storage_location_name?: string | null
