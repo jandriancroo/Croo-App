@@ -7,6 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { GripVertical, Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface StorageLocationManagerProps {
   open: boolean;
@@ -20,14 +38,125 @@ interface StorageLocation {
   display_order: number;
 }
 
+function SortableLocationRow({
+  loc,
+  count,
+  isEditing,
+  editingName,
+  setEditingName,
+  onStartEdit,
+  onConfirmEdit,
+  onCancelEdit,
+  onDelete,
+}: {
+  loc: StorageLocation;
+  count: number;
+  isEditing: boolean;
+  editingName: string;
+  setEditingName: (v: string) => void;
+  onStartEdit: () => void;
+  onConfirmEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: loc.id, disabled: isEditing });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 px-2 py-2 rounded-md border transition-shadow ${
+        isDragging ? "border-primary/40 border-dashed bg-primary/5 shadow-lg" : "border-border"
+      }`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="touch-none cursor-grab active:cursor-grabbing shrink-0"
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      {isEditing ? (
+        <div className="flex items-center gap-1 flex-1 min-w-0">
+          <Input
+            value={editingName}
+            onChange={(e) => setEditingName(e.target.value)}
+            className="h-7 text-sm flex-1"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onConfirmEdit();
+              if (e.key === "Escape") onCancelEdit();
+            }}
+          />
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onConfirmEdit}>
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCancelEdit}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <>
+          <span className="text-sm flex-1 min-w-0 truncate">{loc.name}</span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+            {count}
+          </Badge>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onStartEdit}>
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function OverlayRow({ loc, count }: { loc: StorageLocation; count: number }) {
+  return (
+    <div className="flex items-center gap-2 px-2 py-2 rounded-md border border-primary bg-background shadow-xl scale-105">
+      <GripVertical className="h-4 w-4 text-primary shrink-0" />
+      <span className="text-sm flex-1 min-w-0 truncate font-medium">{loc.name}</span>
+      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+        {count}
+      </Badge>
+    </div>
+  );
+}
+
 export default function StorageLocationManager({ open, onOpenChange, locationId }: StorageLocationManagerProps) {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [newName, setNewName] = useState("");
   const [addingNew, setAddingNew] = useState(false);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const { data: locations, isLoading } = useQuery({
     queryKey: ["inventory-storage-locations", locationId],
@@ -43,7 +172,6 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
     enabled: open,
   });
 
-  // Get item counts per location
   const { data: itemCounts } = useQuery({
     queryKey: ["inventory-location-item-counts", locationId],
     queryFn: async () => {
@@ -99,13 +227,11 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Unassign items first
       const { error: unassignError } = await supabase
         .from("inventory_items")
         .update({ storage_location_id: null })
         .eq("storage_location_id", id);
       if (unassignError) throw unassignError;
-
       const { error } = await supabase
         .from("inventory_locations")
         .delete()
@@ -122,7 +248,7 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
 
   const reorderMutation = useMutation({
     mutationFn: async (orderedIds: string[]) => {
-      const updates = orderedIds.map((id, index) => 
+      const updates = orderedIds.map((id, index) =>
         supabase.from("inventory_locations").update({ display_order: index }).eq("id", id)
       );
       await Promise.all(updates);
@@ -133,35 +259,18 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
     onError: () => toast.error("Failed to reorder"),
   });
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = "move";
-    // Use a transparent drag image so we rely on CSS styling
-    const dragEl = e.currentTarget as HTMLElement;
-    const rect = dragEl.getBoundingClientRect();
-    e.dataTransfer.setDragImage(dragEl, rect.width / 2, rect.height / 2);
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
   };
 
-  const handleDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (id !== draggedId) setDragOverId(id);
-  };
-
-  const handleDrop = (targetId: string) => {
-    if (!draggedId || !locations || draggedId === targetId) {
-      setDraggedId(null);
-      setDragOverId(null);
-      return;
-    }
-    const ordered = [...locations];
-    const fromIdx = ordered.findIndex(l => l.id === draggedId);
-    const toIdx = ordered.findIndex(l => l.id === targetId);
-    const [moved] = ordered.splice(fromIdx, 1);
-    ordered.splice(toIdx, 0, moved);
-    reorderMutation.mutate(ordered.map(l => l.id));
-    setDraggedId(null);
-    setDragOverId(null);
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id || !locations) return;
+    const oldIndex = locations.findIndex(l => l.id === active.id);
+    const newIndex = locations.findIndex(l => l.id === over.id);
+    const reordered = arrayMove(locations, oldIndex, newIndex);
+    reorderMutation.mutate(reordered.map(l => l.id));
   };
 
   const startEdit = (loc: StorageLocation) => {
@@ -179,6 +288,8 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
     createMutation.mutate(newName.trim());
   };
 
+  const activeLoc = locations?.find(l => l.id === activeId);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm max-h-[80vh] flex flex-col">
@@ -195,94 +306,65 @@ export default function StorageLocationManager({ open, onOpenChange, locationId 
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-            {locations?.map(loc => {
-              const count = itemCounts?.[loc.id] || 0;
-              const isEditing = editingId === loc.id;
-              const isDragOver = dragOverId === loc.id;
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={locations?.map(l => l.id) || []}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+                {locations?.map(loc => {
+                  const count = itemCounts?.[loc.id] || 0;
+                  const isEditing = editingId === loc.id;
 
-              return (
-                <div
-                  key={loc.id}
-                  draggable={!isEditing}
-                  onDragStart={(e) => handleDragStart(e, loc.id)}
-                  onDragOver={(e) => handleDragOver(e, loc.id)}
-                  onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
-                  onDrop={() => handleDrop(loc.id)}
-                  className={`flex items-center gap-2 px-2 py-2 rounded-md border transition-all duration-200 ${
-                    draggedId === loc.id 
-                      ? "opacity-30 scale-95 border-dashed border-primary/40 bg-primary/5" 
-                      : isDragOver 
-                        ? "border-primary bg-primary/10 shadow-md scale-[1.02] ring-1 ring-primary/20" 
-                        : "border-border hover:bg-muted/30"
-                  }`}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
-                  
-                  {isEditing ? (
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <Input
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        className="h-7 text-sm flex-1"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") confirmEdit();
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                      />
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={confirmEdit}>
-                        <Check className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingId(null)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="text-sm flex-1 min-w-0 truncate">{loc.name}</span>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
-                        {count}
-                      </Badge>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => startEdit(loc)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (count > 0) {
-                            if (confirm(`This will move ${count} item${count !== 1 ? 's' : ''} to Unassigned. Continue?`)) {
-                              deleteMutation.mutate(loc.id);
-                            }
-                          } else {
+                  return (
+                    <SortableLocationRow
+                      key={loc.id}
+                      loc={loc}
+                      count={count}
+                      isEditing={isEditing}
+                      editingName={editingName}
+                      setEditingName={setEditingName}
+                      onStartEdit={() => startEdit(loc)}
+                      onConfirmEdit={confirmEdit}
+                      onCancelEdit={() => setEditingId(null)}
+                      onDelete={() => {
+                        if (count > 0) {
+                          if (confirm(`This will move ${count} item${count !== 1 ? 's' : ''} to Unassigned. Continue?`)) {
                             deleteMutation.mutate(loc.id);
                           }
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                        } else {
+                          deleteMutation.mutate(loc.id);
+                        }
+                      }}
+                    />
+                  );
+                })}
 
-            {/* Unassigned count */}
-            {(itemCounts?.["__none__"] || 0) > 0 && (
-              <div className="flex items-center gap-2 px-2 py-2 rounded-md bg-muted/30">
-                <div className="w-4" />
-                <span className="text-sm text-muted-foreground flex-1 italic">Unassigned</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {itemCounts?.["__none__"] || 0}
-                </Badge>
+                {(itemCounts?.["__none__"] || 0) > 0 && (
+                  <div className="flex items-center gap-2 px-2 py-2 rounded-md bg-muted/30">
+                    <div className="w-4" />
+                    <span className="text-sm text-muted-foreground flex-1 italic">Unassigned</span>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {itemCounts?.["__none__"] || 0}
+                    </Badge>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </SortableContext>
+
+            <DragOverlay>
+              {activeLoc ? (
+                <OverlayRow loc={activeLoc} count={itemCounts?.[activeLoc.id] || 0} />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
-        {/* Add new */}
         {addingNew ? (
           <div className="flex items-center gap-1">
             <Input
