@@ -85,7 +85,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [showStorageManager, setShowStorageManager] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
-  const [bulkMoveTarget, setBulkMoveTarget] = useState<string>("");
+  const [bulkMoveTargets, setBulkMoveTargets] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
 
 
@@ -1629,48 +1629,77 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         locationId={locationId}
       />
 
-      {/* Bulk Move Dialog */}
+      {/* Bulk Assign Locations Dialog */}
       <Dialog open={showBulkMoveDialog} onOpenChange={setShowBulkMoveDialog}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
-            <DialogTitle className="text-base">Move {selectedItemIds.size} items</DialogTitle>
+            <DialogTitle className="text-base">Assign {selectedItemIds.size} items</DialogTitle>
           </DialogHeader>
-          <Select value={bulkMoveTarget} onValueChange={setBulkMoveTarget}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select location..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__unassigned__">Unassigned</SelectItem>
-              {storageLocations?.map(loc => (
-                <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <p className="text-xs text-muted-foreground -mt-2">Toggle locations for selected items</p>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {storageLocations?.map(loc => (
+              <label key={loc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer">
+                <Checkbox
+                  checked={bulkMoveTargets.has(loc.id)}
+                  onCheckedChange={(checked) => {
+                    setBulkMoveTargets(prev => {
+                      const next = new Set(prev);
+                      if (checked) next.add(loc.id);
+                      else next.delete(loc.id);
+                      return next;
+                    });
+                  }}
+                />
+                <span className="text-sm">{loc.name}</span>
+              </label>
+            ))}
+          </div>
           <Button
-            disabled={!bulkMoveTarget || isBulkUpdating}
+            disabled={isBulkUpdating}
             onClick={async () => {
               setIsBulkUpdating(true);
               try {
-                const targetId = bulkMoveTarget === "__unassigned__" ? null : bulkMoveTarget;
                 const ids = Array.from(selectedItemIds);
+                const selectedLocIds = Array.from(bulkMoveTargets);
+                const primaryLocId = selectedLocIds[0] || null;
+
+                // Update primary storage_location_id
                 const { error } = await supabase
                   .from("inventory_items")
-                  .update({ storage_location_id: targetId } as any)
+                  .update({ storage_location_id: primaryLocId } as any)
                   .in("id", ids);
                 if (error) throw error;
-                toast.success(`Moved ${ids.length} items`);
+
+                // Sync junction table for each item
+                for (const itemId of ids) {
+                  await supabase
+                    .from("inventory_item_locations")
+                    .delete()
+                    .eq("item_id", itemId);
+
+                  if (selectedLocIds.length > 0) {
+                    await supabase
+                      .from("inventory_item_locations")
+                      .insert(selectedLocIds.map(locId => ({
+                        item_id: itemId,
+                        storage_location_id: locId,
+                      })));
+                  }
+                }
+
+                toast.success(`Assigned ${ids.length} items to ${selectedLocIds.length} location${selectedLocIds.length !== 1 ? 's' : ''}`);
                 queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
                 setSelectedItemIds(new Set());
                 setShowBulkMoveDialog(false);
               } catch {
-                toast.error("Failed to move items");
+                toast.error("Failed to assign items");
               } finally {
                 setIsBulkUpdating(false);
               }
             }}
           >
             {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-            Move Items
+            Apply
           </Button>
         </DialogContent>
       </Dialog>
@@ -1685,7 +1714,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => { setBulkMoveTarget(""); setShowBulkMoveDialog(true); }}
+                onClick={() => { setBulkMoveTargets(new Set()); setShowBulkMoveDialog(true); }}
                 className="gap-1.5"
               >
                 <MoveRight className="h-4 w-4" />
