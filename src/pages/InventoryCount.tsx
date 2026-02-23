@@ -151,6 +151,7 @@ const InventoryCount = () => {
   const isViewOnly = isCompleted && !editMode;
   const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
+  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
   // Block browser tab/window close when actively counting or editing
   useEffect(() => {
