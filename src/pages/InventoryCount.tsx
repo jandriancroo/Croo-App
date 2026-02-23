@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useBlocker } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
@@ -153,6 +153,12 @@ const InventoryCount = () => {
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
   const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
+  // Block browser back / swipe-back when actively counting or editing
+  const blocker = useBlocker(isCounting || isEditing);
+
+  // Pending redirect target when guard is triggered
+  const pendingRedirectRef = useRef<string | null>(null);
+
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
     queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
@@ -162,16 +168,23 @@ const InventoryCount = () => {
   const handleSaveAndExit = useCallback((redirectTo?: string) => {
     saveRef.current?.save();
     setShowSaveExitDialog(false);
-    // Small delay to let save complete before navigating
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      navigate(redirectTo || `/inventory/${locationId}`);
+      if (blocker.state === "blocked") {
+        blocker.proceed();
+      } else {
+        navigate(redirectTo || `/inventory/${locationId}`);
+      }
     }, 500);
-  }, [queryClient, locationId, navigate]);
+  }, [queryClient, locationId, navigate, blocker]);
 
-  // Pending redirect target when guard is triggered
-  const pendingRedirectRef = useRef<string | null>(null);
+  const handleSaveExitCancel = useCallback(() => {
+    setShowSaveExitDialog(false);
+    if (blocker.state === "blocked") {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   const handleBackClick = () => {
     pendingRedirectRef.current = null;
@@ -196,6 +209,14 @@ const InventoryCount = () => {
       delete (window as any).__navigationGuard;
     }
   }, [isCounting, isEditing]);
+
+  // Show save dialog when blocker triggers (swipe-back / browser back)
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      pendingRedirectRef.current = blocker.location.pathname;
+      setShowSaveExitDialog(true);
+    }
+  }, [blocker.state, blocker.location?.pathname]);
 
   const handleSaveClick = () => {
     if (isCounting || isEditing) {
@@ -370,7 +391,7 @@ const InventoryCount = () => {
           countPeriod={formatPeriodLabel(countData)}
         />
 
-        <AlertDialog open={showSaveExitDialog} onOpenChange={setShowSaveExitDialog}>
+        <AlertDialog open={showSaveExitDialog} onOpenChange={(open) => { if (!open) handleSaveExitCancel(); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Save & exit?</AlertDialogTitle>
@@ -379,7 +400,7 @@ const InventoryCount = () => {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={handleSaveExitCancel}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => handleSaveAndExit(pendingRedirectRef.current || undefined)}>
                 Save & Exit
               </AlertDialogAction>
