@@ -374,7 +374,7 @@ const InventoryCount = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={handleSaveExitCancel}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleSaveAndExit(pendingRedirectRef.current || undefined)}>
+              <AlertDialogAction onClick={() => handleSaveAndExit()}>
                 Save & Exit
               </AlertDialogAction>
             </AlertDialogFooter>
