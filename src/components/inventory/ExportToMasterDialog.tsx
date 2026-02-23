@@ -1,6 +1,7 @@
 /**
  * ExportToMasterDialog — exports current location's configured items
- * (with pan sizes + common names) to brand-level master templates.
+ * (with pan sizes, common names, storage locations, usage rates, product groups, categories)
+ * to brand-level master templates.
  * Stores weight-based conversions so they adapt to different pack sizes at other locations.
  */
 
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Upload, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, CheckCircle2 } from "lucide-react";
 
 interface ExportToMasterDialogProps {
   open: boolean;
@@ -26,21 +27,16 @@ interface ExportToMasterDialogProps {
 function parsePerUnitWeight(packSize: string | null): number | null {
   if (!packSize) return null;
   const s = packSize.trim().toUpperCase();
-
-  // Pattern: "6/5 LB" or "6/5LB" or "4/3#" → multi-unit packs
   const multiMatch = s.match(/^(\d+)\s*\/\s*([\d.]+)\s*(LB|#|KG|OZ)?/);
   if (multiMatch) {
     const weight = parseFloat(multiMatch[2]);
     if (!isNaN(weight) && weight > 0) return weight;
   }
-
-  // Pattern: "2#" or "5 LB" → single unit by weight
   const singleMatch = s.match(/^([\d.]+)\s*(#|LB|KG|OZ)$/);
   if (singleMatch) {
     const weight = parseFloat(singleMatch[1]);
     if (!isNaN(weight) && weight > 0) return weight;
   }
-
   return null;
 }
 
@@ -49,6 +45,27 @@ function isWeightBased(packSize: string | null): boolean {
   if (!packSize) return false;
   const s = packSize.toUpperCase();
   return s.includes('LB') || s.includes('#') || s.includes('KG') || s.includes('OZ');
+}
+
+/** Generate match keywords from item name, common name, item number, and brand */
+function generateKeywords(name: string, commonName: string | null, itemNumber: string | null, brand: string | null): string[] {
+  const words = new Set<string>();
+  const addWords = (s: string) => {
+    s.toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+      .filter(w => !["pack", "case", "cut", "bulk", "baby", "flat", "leaf"].includes(w))
+      .forEach(w => words.add(w));
+  };
+  addWords(name);
+  if (commonName) addWords(commonName);
+  if (brand) addWords(brand);
+  if (itemNumber) {
+    const cleanNum = itemNumber.trim().toLowerCase();
+    if (cleanNum.length > 0) words.add(cleanNum);
+  }
+  return Array.from(words);
 }
 
 interface ItemForExport {
@@ -62,6 +79,7 @@ interface ItemForExport {
   vendor_source: string | null;
   item_number: string | null;
   brand: string | null;
+  storage_location_id: string | null;
 }
 
 export default function ExportToMasterDialog({ open, onOpenChange, locationId, brandId }: ExportToMasterDialogProps) {
@@ -69,24 +87,66 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Fetch items with pan_sizes configured
+  // Fetch all active items (not just pan-configured ones anymore)
   const { data: items, isLoading } = useQuery({
     queryKey: ["export-master-items", locationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, brand")
+        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, brand, storage_location_id")
         .eq("location_id", locationId)
         .eq("is_active", true)
-        .not("pan_sizes", "is", null)
         .order("name");
       if (error) throw error;
-      return (data as ItemForExport[]).filter(i => i.pan_sizes?.enabled);
+      return data as ItemForExport[];
     },
     enabled: open,
   });
 
-  // Fetch existing templates to show which are already exported
+  // Fetch storage locations to resolve names
+  const { data: storageLocations } = useQuery({
+    queryKey: ["storage-locations-export", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_locations")
+        .select("id, name")
+        .eq("location_id", locationId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch usage rates for this location
+  const { data: usageRates } = useQuery({
+    queryKey: ["usage-rates-export", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_usage_rates")
+        .select("inventory_item_id, usage_rate, rate_unit, manual_override, product_group_id")
+        .eq("location_id", locationId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch product groups for this location
+  const { data: productGroups } = useQuery({
+    queryKey: ["product-groups-export", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_product_groups")
+        .select("id, name, pos_categories, pos_items")
+        .eq("location_id", locationId)
+        .eq("is_active", true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch existing templates
   const { data: existingTemplates } = useQuery({
     queryKey: ["brand-templates", brandId],
     queryFn: async () => {
@@ -101,6 +161,9 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
   });
 
   const existingSourceIds = new Set(existingTemplates?.map(t => t.source_item_id).filter(Boolean) ?? []);
+  const storageMap = new Map(storageLocations?.map(l => [l.id, l.name]) ?? []);
+  const usageMap = new Map(usageRates?.map(r => [r.inventory_item_id, r]) ?? []);
+  const groupMap = new Map(productGroups?.map(g => [g.id, g]) ?? []);
 
   const exportMutation = useMutation({
     mutationFn: async (itemIds: string[]) => {
@@ -112,36 +175,64 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         const perUnitWeight = parsePerUnitWeight(item.pack_size);
         const weightBased = isWeightBased(item.pack_size);
         const packQty = item.pack_quantity || 1;
-
-        // Calculate pan_units_per_lb or pan_units_per_unit
-        // panCfg.baseline_units = fraction of case that fills baseline pan
-        // Per unit (bag): baseline_units * pack_quantity
-        // Per lb: (baseline_units * pack_quantity) / weight_per_unit
-        const perUnit = panCfg.baseline_units * packQty;
-
-        let panUnitsPerLb: number | null = null;
-        let panUnitsPerUnit: number | null = null;
-
-        if (weightBased && perUnitWeight && perUnitWeight > 0) {
-          panUnitsPerLb = perUnit / perUnitWeight;
-        } else {
-          panUnitsPerUnit = perUnit;
-        }
-
         const productName = item.common_name || item.name;
         const keywords = generateKeywords(item.name, item.common_name, item.item_number, item.brand);
+
+        // Pan size calculations (only if configured)
+        let panUnitsPerLb: number | null = null;
+        let panUnitsPerUnit: number | null = null;
+        let panBaselineKey: string = 'full';
+        let panEnabledKeys: string[] = [];
+        let panOverrides: any = null;
+
+        if (panCfg?.enabled) {
+          panBaselineKey = panCfg.baseline_key || 'full';
+          panEnabledKeys = panCfg.enabled_keys || [];
+          panOverrides = panCfg.overrides || null;
+          const perUnit = (panCfg.baseline_units || 0) * packQty;
+          if (weightBased && perUnitWeight && perUnitWeight > 0) {
+            panUnitsPerLb = perUnit / perUnitWeight;
+          } else {
+            panUnitsPerUnit = perUnit;
+          }
+        }
+
+        // Storage location name
+        const storageLocationName = item.storage_location_id
+          ? storageMap.get(item.storage_location_id) || null
+          : null;
+
+        // Usage rate data
+        const rate = usageMap.get(item.id);
+        const usageRate = rate?.usage_rate ?? null;
+        const usageRateUnit = rate?.rate_unit ?? null;
+        const usageRateManualOverride = rate?.manual_override ?? false;
+
+        // Product group data
+        const group = rate?.product_group_id ? groupMap.get(rate.product_group_id) : null;
+        const productGroupName = group?.name ?? null;
+        const productGroupPosCategories = group?.pos_categories ?? null;
+        const productGroupPosItems = group?.pos_items ?? null;
 
         return {
           brand_id: brandId,
           product_name: productName,
           common_name: item.common_name,
-          pan_baseline_key: panCfg.baseline_key,
-          pan_units_per_lb: panUnitsPerLb,
-          pan_enabled_keys: panCfg.enabled_keys,
-          is_weight_based: weightBased,
-          pan_units_per_unit: weightBased ? null : panUnitsPerUnit,
-          match_keywords: keywords,
           category: item.category,
+          pan_baseline_key: panBaselineKey,
+          pan_units_per_lb: panUnitsPerLb,
+          pan_units_per_unit: weightBased ? null : panUnitsPerUnit,
+          pan_enabled_keys: panEnabledKeys,
+          pan_overrides: panOverrides,
+          is_weight_based: weightBased,
+          match_keywords: keywords,
+          storage_location_name: storageLocationName,
+          usage_rate: usageRate,
+          usage_rate_unit: usageRateUnit,
+          usage_rate_manual_override: usageRateManualOverride,
+          product_group_name: productGroupName,
+          product_group_pos_categories: productGroupPosCategories,
+          product_group_pos_items: productGroupPosItems,
           source_item_id: item.id,
           source_location_id: locationId,
           created_by: user.id,
@@ -150,7 +241,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
 
       const { error } = await supabase
         .from("brand_inventory_templates")
-        .upsert(templates, { onConflict: "brand_id,product_name" });
+        .upsert(templates as any, { onConflict: "brand_id,product_name" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -181,6 +272,19 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     setSelectedIds(next);
   };
 
+  /** Count how many data points an item has configured */
+  const getFeatureBadges = (item: ItemForExport) => {
+    const badges: string[] = [];
+    if (item.pan_sizes?.enabled) badges.push("Pan Sizes");
+    if (item.common_name) badges.push("Common Name");
+    if (item.category) badges.push("Category");
+    if (item.storage_location_id && storageMap.has(item.storage_location_id)) badges.push("Storage");
+    if (usageMap.has(item.id)) badges.push("Usage Rate");
+    const rate = usageMap.get(item.id);
+    if (rate?.product_group_id && groupMap.has(rate.product_group_id)) badges.push("Product Group");
+    return badges;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
@@ -192,8 +296,8 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         </DialogHeader>
 
         <p className="text-xs text-muted-foreground">
-          Export configured items to the brand-level master catalog. 
-          These can then be deployed to other locations with auto-adjusted conversions.
+          Export items with their full configuration (pan sizes, common names, storage locations, 
+          usage rates, product groups, categories) to the brand-level master catalog.
         </p>
 
         {isLoading ? (
@@ -202,7 +306,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
           </div>
         ) : !items?.length ? (
           <p className="text-sm text-muted-foreground text-center py-6">
-            No items with pan sizes configured yet.
+            No active items found.
           </p>
         ) : (
           <>
@@ -211,15 +315,14 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
                 {selectedIds.size === items.filter(i => !existingSourceIds.has(i.id)).length ? "Deselect All" : "Select All New"}
               </button>
               <span className="text-xs text-muted-foreground">
-                {items.length} items configured
+                {items.length} items total
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
               {items.map(item => {
                 const alreadyExported = existingSourceIds.has(item.id);
-                const perUnitWeight = parsePerUnitWeight(item.pack_size);
-                const weightBased = isWeightBased(item.pack_size);
+                const badges = getFeatureBadges(item);
 
                 return (
                   <div
@@ -242,24 +345,14 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
                       <p className="text-xs font-medium truncate">
                         {item.common_name || item.name}
                       </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        {item.category && (
-                          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5">
-                            {item.category}
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        {badges.map(b => (
+                          <Badge key={b} variant="secondary" className="text-[9px] px-1 py-0 h-3.5">
+                            {b}
                           </Badge>
-                        )}
-                        {weightBased ? (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
-                            {perUnitWeight ? `${perUnitWeight} lb/unit` : "weight"}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">count-based</Badge>
-                        )}
-                        {!weightBased && (
-                          <span className="flex items-center gap-0.5">
-                            <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
-                            <span className="text-[9px] text-amber-600">manual review at deploy</span>
-                          </span>
+                        ))}
+                        {badges.length === 0 && (
+                          <span className="text-[9px] text-muted-foreground">No config</span>
                         )}
                         {alreadyExported && (
                           <span className="flex items-center gap-0.5">
@@ -291,29 +384,4 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
       </DialogContent>
     </Dialog>
   );
-}
-
-/** Generate match keywords from item name, common name, item number, and brand */
-function generateKeywords(name: string, commonName: string | null, itemNumber: string | null, brand: string | null): string[] {
-  const words = new Set<string>();
-  const addWords = (s: string) => {
-    s.toLowerCase()
-      .replace(/[^a-z\s]/g, " ")
-      .split(/\s+/)
-      .filter(w => w.length > 2)
-      .filter(w => !["pack", "case", "cut", "bulk", "baby", "flat", "leaf"].includes(w))
-      .forEach(w => words.add(w));
-  };
-
-  addWords(name);
-  if (commonName) addWords(commonName);
-  if (brand) addWords(brand);
-  
-  // Add item number as-is (exact match identifier, e.g. PFG item codes)
-  if (itemNumber) {
-    const cleanNum = itemNumber.trim().toLowerCase();
-    if (cleanNum.length > 0) words.add(cleanNum);
-  }
-  
-  return Array.from(words);
 }

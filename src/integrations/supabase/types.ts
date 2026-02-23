@@ -605,12 +605,20 @@ export type Database = {
           match_keywords: string[]
           pan_baseline_key: string
           pan_enabled_keys: string[]
+          pan_overrides: Json | null
           pan_units_per_lb: number | null
           pan_units_per_unit: number | null
+          product_group_name: string | null
+          product_group_pos_categories: string[] | null
+          product_group_pos_items: string[] | null
           product_name: string
           source_item_id: string | null
           source_location_id: string | null
+          storage_location_name: string | null
           updated_at: string
+          usage_rate: number | null
+          usage_rate_manual_override: boolean | null
+          usage_rate_unit: string | null
         }
         Insert: {
           brand_id: string
@@ -623,12 +631,20 @@ export type Database = {
           match_keywords?: string[]
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
+          pan_overrides?: Json | null
           pan_units_per_lb?: number | null
           pan_units_per_unit?: number | null
+          product_group_name?: string | null
+          product_group_pos_categories?: string[] | null
+          product_group_pos_items?: string[] | null
           product_name: string
           source_item_id?: string | null
           source_location_id?: string | null
+          storage_location_name?: string | null
           updated_at?: string
+          usage_rate?: number | null
+          usage_rate_manual_override?: boolean | null
+          usage_rate_unit?: string | null
         }
         Update: {
           brand_id?: string
@@ -641,12 +657,20 @@ export type Database = {
           match_keywords?: string[]
           pan_baseline_key?: string
           pan_enabled_keys?: string[]
+          pan_overrides?: Json | null
           pan_units_per_lb?: number | null
           pan_units_per_unit?: number | null
+          product_group_name?: string | null
+          product_group_pos_categories?: string[] | null
+          product_group_pos_items?: string[] | null
           product_name?: string
           source_item_id?: string | null
           source_location_id?: string | null
+          storage_location_name?: string | null
           updated_at?: string
+          usage_rate?: number | null
+          usage_rate_manual_override?: boolean | null
+          usage_rate_unit?: string | null
         }
         Relationships: [
           {
