@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams, useBlocker } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2, Save } from "lucide-react";
+import { ArrowLeft, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -153,11 +153,17 @@ const InventoryCount = () => {
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
   const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
-  // Block browser back / swipe-back when actively counting or editing
-  const blocker = useBlocker(isCounting || isEditing);
-
-  // Pending redirect target when guard is triggered
-  const pendingRedirectRef = useRef<string | null>(null);
+  // Block browser tab/window close when actively counting or editing
+  useEffect(() => {
+    if (isCounting || isEditing) {
+      const handler = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', handler);
+      return () => window.removeEventListener('beforeunload', handler);
+    }
+  }, [isCounting, isEditing]);
 
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
@@ -171,52 +177,13 @@ const InventoryCount = () => {
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      if (blocker.state === "blocked") {
-        blocker.proceed();
-      } else {
-        navigate(redirectTo || `/inventory/${locationId}`);
-      }
+      navigate(redirectTo || `/inventory/${locationId}`);
     }, 500);
-  }, [queryClient, locationId, navigate, blocker]);
+  }, [queryClient, locationId, navigate]);
 
   const handleSaveExitCancel = useCallback(() => {
     setShowSaveExitDialog(false);
-    if (blocker.state === "blocked") {
-      blocker.reset();
-    }
-  }, [blocker]);
-
-  const handleBackClick = () => {
-    pendingRedirectRef.current = null;
-    if (isCounting || isEditing) {
-      setShowSaveExitDialog(true);
-    } else {
-      handleClose();
-    }
-  };
-
-  // Register global navigation guard when actively counting
-  useEffect(() => {
-    if (isCounting || isEditing) {
-      (window as any).__navigationGuard = (targetPath: string) => {
-        pendingRedirectRef.current = targetPath;
-        setShowSaveExitDialog(true);
-      };
-      return () => {
-        delete (window as any).__navigationGuard;
-      };
-    } else {
-      delete (window as any).__navigationGuard;
-    }
-  }, [isCounting, isEditing]);
-
-  // Show save dialog when blocker triggers (swipe-back / browser back)
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      pendingRedirectRef.current = blocker.location.pathname;
-      setShowSaveExitDialog(true);
-    }
-  }, [blocker.state, blocker.location?.pathname]);
+  }, []);
 
   const handleSaveClick = () => {
     if (isCounting || isEditing) {
@@ -288,7 +255,13 @@ const InventoryCount = () => {
       <div className="space-y-4 md:max-w-4xl md:mx-auto md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={handleBackClick}>
+          <Button variant="ghost" size="sm" onClick={() => {
+              if (isCounting || isEditing) {
+                setShowSaveExitDialog(true);
+              } else {
+                handleClose();
+              }
+            }}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -401,7 +374,7 @@ const InventoryCount = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={handleSaveExitCancel}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => handleSaveAndExit(pendingRedirectRef.current || undefined)}>
+              <AlertDialogAction onClick={() => handleSaveAndExit()}>
                 Save & Exit
               </AlertDialogAction>
             </AlertDialogFooter>
