@@ -406,6 +406,23 @@ const Inventory = () => {
                             <p className="text-sm text-muted-foreground mt-0.5">
                               {count.counted_by_profile?.full_name || "Unknown"}
                             </p>
+                            {count._stats && count._stats.totalItems > 0 && (
+                              <div className="flex items-center gap-3 mt-1.5">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Package className="h-3 w-3" />
+                                  <span>{count._stats.countedItems}/{count._stats.totalItems}</span>
+                                  <span className="text-muted-foreground/60">
+                                    ({Math.round((count._stats.countedItems / count._stats.totalItems) * 100)}%)
+                                  </span>
+                                </div>
+                                {count._stats.totalCost > 0 && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <DollarSign className="h-3 w-3" />
+                                    <span>${count._stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
