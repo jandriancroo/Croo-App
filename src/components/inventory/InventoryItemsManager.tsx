@@ -72,6 +72,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [useCommonName, setUseCommonName] = useState(false);
   const [commonNameValue, setCommonNameValue] = useState("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
+  const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
   const [remapItem, setRemapItem] = useState<any>(null);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
   const [showInactive, setShowInactive] = useState(false);
@@ -306,7 +307,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
-  const openEditDialog = (item: any) => {
+  const openEditDialog = async (item: any) => {
     setLinkTargetItemId("");
     setEditingItem({
       id: item.id,
@@ -326,14 +327,52 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     setCommonNameValue(item.common_name || "");
     setStorageLocationValue(item.storage_location_id || "");
     setPanSizesConfig(item.pan_sizes ? (item.pan_sizes as PanSizesConfig) : null);
+
+    // Fetch multi-location assignments from junction table
+    const { data: assignments } = await supabase
+      .from("inventory_item_locations")
+      .select("storage_location_id")
+      .eq("item_id", item.id);
+    
+    if (assignments && assignments.length > 0) {
+      setStorageLocationIds(new Set(assignments.map(a => a.storage_location_id)));
+    } else if (item.storage_location_id) {
+      setStorageLocationIds(new Set([item.storage_location_id]));
+    } else {
+      setStorageLocationIds(new Set());
+    }
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     if (!editingItem) return;
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
     const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
-    const storage_location_id = storageLocationValue || null;
+    // Primary storage_location_id: first selected or null
+    const selectedIds = Array.from(storageLocationIds);
+    const storage_location_id = selectedIds[0] || null;
+
+    // Sync junction table
+    try {
+      // Delete existing assignments
+      await supabase
+        .from("inventory_item_locations")
+        .delete()
+        .eq("item_id", editingItem.id);
+      
+      // Insert new assignments
+      if (selectedIds.length > 0) {
+        await supabase
+          .from("inventory_item_locations")
+          .insert(selectedIds.map(locId => ({
+            item_id: editingItem.id,
+            storage_location_id: locId,
+          })));
+      }
+    } catch (err) {
+      console.error("Failed to sync item locations:", err);
+    }
+
     updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig });
   };
 
@@ -1347,22 +1386,35 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             <div className="space-y-4">
               <p className="text-sm font-medium">{editingItem.name}</p>
 
-              {/* Storage Location selector */}
-              <div className="space-y-1">
-                <Label htmlFor="storage-location">Storage Location</Label>
-                <select
-                  id="storage-location"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={storageLocationValue}
-                  onChange={(e) => setStorageLocationValue(e.target.value)}
-                >
-                  <option value="">Unassigned</option>
+              {/* Storage Locations (multi-select) */}
+              <div className="space-y-2">
+                <Label>Storage Locations</Label>
+                <div className="space-y-1.5 max-h-[160px] overflow-y-auto border border-input rounded-md p-2">
                   {storageLocations?.map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    <div key={loc.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`loc-${loc.id}`}
+                        checked={storageLocationIds.has(loc.id)}
+                        onCheckedChange={(checked) => {
+                          const next = new Set(storageLocationIds);
+                          if (checked) next.add(loc.id); else next.delete(loc.id);
+                          setStorageLocationIds(next);
+                        }}
+                      />
+                      <Label htmlFor={`loc-${loc.id}`} className="text-sm cursor-pointer font-normal">
+                        {loc.name}
+                      </Label>
+                    </div>
                   ))}
-                </select>
+                  {(!storageLocations || storageLocations.length === 0) && (
+                    <p className="text-xs text-muted-foreground">No storage locations created yet.</p>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Which storage area this item belongs to
+                  {storageLocationIds.size > 1 
+                    ? `Item will appear in ${storageLocationIds.size} locations during counting`
+                    : "Select multiple locations if this item is stored in more than one spot"
+                  }
                 </p>
               </div>
 

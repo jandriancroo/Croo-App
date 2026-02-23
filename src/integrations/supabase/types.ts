@@ -2321,6 +2321,7 @@ export type Database = {
           id: string
           item_id: string | null
           quantity: number
+          storage_location_id: string | null
           theoretical_quantity: number | null
           variance: number | null
           variance_cost: number | null
@@ -2331,6 +2332,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           quantity?: number
+          storage_location_id?: string | null
           theoretical_quantity?: number | null
           variance?: number | null
           variance_cost?: number | null
@@ -2341,6 +2343,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           quantity?: number
+          storage_location_id?: string | null
           theoretical_quantity?: number | null
           variance?: number | null
           variance_cost?: number | null
@@ -2358,6 +2361,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_items_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
             referencedColumns: ["id"]
           },
         ]
@@ -2421,6 +2431,42 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_item_locations: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          storage_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          storage_location_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          storage_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_item_locations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_item_locations_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
             referencedColumns: ["id"]
           },
         ]

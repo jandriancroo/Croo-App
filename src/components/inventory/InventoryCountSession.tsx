@@ -106,7 +106,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
-  // Fetch items with existing counts
+  // Fetch items with existing counts — supports split-count for multi-location items
   const { data: items } = useQuery({
     queryKey: ["inventory-items-for-count", locationId, countId],
     queryFn: async () => {
@@ -139,47 +139,90 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       
       if (itemsError) throw itemsError;
 
+      // Fetch multi-location assignments from junction table
+      const { data: itemLocations } = await supabase
+        .from("inventory_item_locations")
+        .select("item_id, storage_location_id");
+      
+      // Build map: item_id -> list of storage_location_ids
+      const multiLocMap = new Map<string, string[]>();
+      for (const il of itemLocations || []) {
+        const existing = multiLocMap.get(il.item_id) || [];
+        existing.push(il.storage_location_id);
+        multiLocMap.set(il.item_id, existing);
+      }
+
+      // Get storage location names for lookup
+      const { data: storLocs } = await supabase
+        .from("inventory_locations")
+        .select("id, name")
+        .eq("location_id", locationId);
+      const locNameMap = new Map((storLocs || []).map(l => [l.id, l.name]));
+
       // Get existing count items (include id for edit tracking)
+      // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
         .select("id, item_id, quantity")
-        .eq("count_id", countId);
+        .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map items with their counts and count_item_id
-      const countMap = new Map(countItems?.map(ci => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
+      // Map: "itemId|storLocId" -> { quantity, countItemId }
+      const countMap = new Map(
+        (countItems as any[])?.map((ci: any) => [
+          `${ci.item_id}|${ci.storage_location_id || ''}`, 
+          { quantity: ci.quantity, countItemId: ci.id }
+        ]) || []
+      );
+      // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
+
+      const result: (CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string })[] = [];
       
-      return itemsData?.filter(item => {
-        // Exclude non-countable recipe items (e.g., batch recipes like House Made Dough)
-        if ((item as any).is_recipe && (item as any).countable === false) return false;
-        return true;
-      }).map(item => {
-        const countData = countMap.get(item.id);
+      for (const item of itemsData || []) {
+        // Exclude non-countable recipe items
+        if ((item as any).is_recipe && (item as any).countable === false) continue;
+
         const isRecipe = (item as any).is_recipe === true;
-        return {
-          item_id: item.id,
-          item_name: (item as any).common_name || item.name,
-          unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
-          storage_location: isRecipe 
-            ? ((item.storage_location as any)?.name || "Recipes") 
-            : ((item.storage_location as any)?.name || "Uncategorized"),
-          storage_location_id: isRecipe 
-            ? (item.storage_location_id || "recipes") 
-            : (item.storage_location_id || "uncategorized"),
-          par_level: item.par_level,
-          cost_per_unit: item.cost_per_unit,
-          pack_size: item.pack_size,
-          pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
-          item_number: item.item_number,
-          brand: item.brand,
-          image_url: item.image_url,
-          pan_sizes: (item as any).pan_sizes ?? null,
-          is_recipe: isRecipe,
-          _existingQuantity: countData?.quantity ?? 0,
-          _countItemId: countData?.countItemId || null
-        };
-      }) as (CountItem & { _existingQuantity: number; _countItemId: string | null })[];
+        const multiLocs = multiLocMap.get(item.id);
+        
+        // Determine which storage locations this item should appear in
+        const locIds: (string | null)[] = (multiLocs && multiLocs.length > 0)
+          ? multiLocs
+          : [item.storage_location_id || null];
+
+        for (const locId of locIds) {
+          const splitKey = `${item.id}|${locId || ''}`;
+          const countData = countMap.get(splitKey) || (locIds.length === 1 ? simpleCountMap.get(item.id) : undefined);
+          
+          result.push({
+            item_id: item.id,
+            item_name: (item as any).common_name || item.name,
+            unit: isRecipe ? ((item as any).recipe_yield_unit || item.unit) : item.unit,
+            storage_location: isRecipe 
+              ? (locId ? (locNameMap.get(locId) || "Recipes") : "Recipes")
+              : (locId ? (locNameMap.get(locId) || "Uncategorized") : "Uncategorized"),
+            storage_location_id: isRecipe 
+              ? (locId || "recipes") 
+              : (locId || "uncategorized"),
+            par_level: item.par_level,
+            cost_per_unit: item.cost_per_unit,
+            pack_size: item.pack_size,
+            pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
+            item_number: item.item_number,
+            brand: item.brand,
+            image_url: item.image_url,
+            pan_sizes: (item as any).pan_sizes ?? null,
+            is_recipe: isRecipe,
+            _existingQuantity: countData?.quantity ?? 0,
+            _countItemId: countData?.countItemId || null,
+            _splitKey: splitKey,
+          });
+        }
+      }
+
+      return result;
     }
   });
 
@@ -205,21 +248,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   });
 
   // Initialize counts from items (convert flat quantity to cases + units)
+  // Uses _splitKey as the state key to support split-count items
   useEffect(() => {
     if (items) {
       const initialCounts: Record<string, ItemCount> = {};
       const originals: Record<string, number> = {};
       
       items.forEach(item => {
+        const key = (item as any)._splitKey || item.item_id;
         const totalUnits = (item as any)._existingQuantity || 0;
         const packQty = item.pack_quantity || 1;
-        initialCounts[item.item_id] = {
+        initialCounts[key] = {
           cases: Math.floor(totalUnits / packQty),
           units: totalUnits % packQty
         };
         // Store original quantities for edit tracking
         if (isEditing) {
-          originals[item.item_id] = totalUnits;
+          originals[key] = totalUnits;
         }
       });
       
@@ -278,14 +323,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [counts, rawInputs, getPanUnitsTotal]);
 
   // Calculate cost for a single item (supports recipe cost trickle-down)
-  const getItemCost = useCallback((item: CountItem) => {
-    const totalUnits = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
+  // key param allows split-count items to be identified by splitKey
+  const getItemCost = useCallback((item: CountItem & { _splitKey?: string }) => {
+    const key = (item as any)._splitKey || item.item_id;
+    const totalUnits = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
     
     // Check if this is a recipe item with a calculated batch cost
     const batchCost = recipeCosts?.get(item.item_id);
     if (batchCost !== undefined && batchCost > 0) {
-      // Recipe items: cost per counted unit = batchCost (for the whole recipe)
-      // Each counted unit IS one batch, so cost = batchCost * totalUnits
       return totalUnits * batchCost;
     }
     
@@ -307,20 +352,43 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
 
   // Save count mutation (saves progress without completing)
+  // Now supports split-count items with storage_location_id
   const saveCountMutation = useMutation({
-    mutationFn: async (itemCounts: { item_id: string; quantity: number }[]) => {
-      const { error } = await supabase
-        .from("inventory_count_items")
-        .upsert(
-          itemCounts.map(ic => ({
-            count_id: countId,
-            item_id: ic.item_id,
-            quantity: ic.quantity
-          })),
-          { onConflict: "count_id,item_id" }
-        );
-      
-      if (error) throw error;
+    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null }[]) => {
+      // Use individual upserts since the unique constraint now uses COALESCE
+      for (const ic of itemCounts) {
+        const storLocId = ic.storage_location_id;
+        // Check if a row exists for this combo
+        const { data: existing } = await supabase
+          .from("inventory_count_items")
+          .select("id")
+          .eq("count_id", countId)
+          .eq("item_id", ic.item_id)
+          .then(res => {
+            // Filter by storage_location_id manually since types may not be updated
+            const filtered = (res.data || []).filter((r: any) => 
+              (r as any).storage_location_id === storLocId || 
+              (!storLocId && !(r as any).storage_location_id)
+            );
+            return { ...res, data: filtered };
+          }) as any;
+        
+        if (existing && existing.length > 0) {
+          await supabase
+            .from("inventory_count_items")
+            .update({ quantity: ic.quantity } as any)
+            .eq("id", existing[0].id);
+        } else {
+          await supabase
+            .from("inventory_count_items")
+            .insert({
+              count_id: countId,
+              item_id: ic.item_id,
+              quantity: ic.quantity,
+              storage_location_id: storLocId,
+            } as any);
+        }
+      }
     }
   });
 
@@ -367,9 +435,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const edits: PendingEdit[] = [];
     
     for (const item of items) {
-      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null };
-      const newQuantity = getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes);
-      const originalQuantity = originalCounts.current[item.item_id] ?? 0;
+      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string };
+      const key = extendedItem._splitKey || item.item_id;
+      const newQuantity = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
+      const originalQuantity = originalCounts.current[key] ?? 0;
       
       if (newQuantity !== originalQuantity && extendedItem._countItemId) {
         edits.push({
@@ -412,26 +481,51 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (autosaveRef.current) clearTimeout(autosaveRef.current);
 
     autosaveRef.current = setTimeout(async () => {
-      const itemCounts = items.map(item => ({
-        item_id: item.item_id,
-        quantity: getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)
-      }));
+      const itemCounts = items.map(item => {
+        const key = (item as any)._splitKey || item.item_id;
+        const storLocId = item.storage_location_id;
+        return {
+          item_id: item.item_id,
+          quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
+          storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+        };
+      });
 
       // Skip if nothing changed since last autosave
       const snapshot = JSON.stringify(itemCounts);
       if (snapshot === lastAutosavedRef.current) return;
 
       try {
-        await supabase
-          .from("inventory_count_items")
-          .upsert(
-            itemCounts.map(ic => ({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity
-            })),
-            { onConflict: "count_id,item_id" }
+        // Save each split-count entry individually
+        for (const ic of itemCounts) {
+          const { data: existing } = await supabase
+            .from("inventory_count_items")
+            .select("id")
+            .eq("count_id", countId)
+            .eq("item_id", ic.item_id) as any;
+          
+          const storLocId = ic.storage_location_id;
+          const match = (existing || []).find((r: any) => 
+            (r as any).storage_location_id === storLocId || 
+            (!storLocId && !(r as any).storage_location_id)
           );
+          
+          if (match) {
+            await supabase
+              .from("inventory_count_items")
+              .update({ quantity: ic.quantity } as any)
+              .eq("id", match.id);
+          } else {
+            await supabase
+              .from("inventory_count_items")
+              .insert({
+                count_id: countId,
+                item_id: ic.item_id,
+                quantity: ic.quantity,
+                storage_location_id: storLocId,
+              } as any);
+          }
+        }
 
         // Save elapsed duration too
         await supabase
@@ -456,10 +550,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!items || Object.keys(counts).length === 0) return;
     
     setIsSaving(true);
-    const itemCounts = items.map(item => ({
-      item_id: item.item_id,
-      quantity: getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)
-    }));
+    const itemCounts = items.map(item => {
+      const key = (item as any)._splitKey || item.item_id;
+      const storLocId = item.storage_location_id;
+      return {
+        item_id: item.item_id,
+        quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
+        storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+      };
+    });
     
     try {
       await saveCountMutation.mutateAsync(itemCounts);
