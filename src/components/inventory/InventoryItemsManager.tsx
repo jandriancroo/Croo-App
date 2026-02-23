@@ -1670,20 +1670,24 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   .in("id", ids);
                 if (error) throw error;
 
-                // Sync junction table for each item
-                for (const itemId of ids) {
-                  await supabase
-                    .from("inventory_item_locations")
-                    .delete()
-                    .eq("item_id", itemId);
+                // Bulk delete all existing junction rows
+                await supabase
+                  .from("inventory_item_locations")
+                  .delete()
+                  .in("item_id", ids);
 
-                  if (selectedLocIds.length > 0) {
+                // Bulk insert all new junction rows in chunks
+                if (selectedLocIds.length > 0) {
+                  const rows = ids.flatMap(itemId =>
+                    selectedLocIds.map(locId => ({
+                      item_id: itemId,
+                      storage_location_id: locId,
+                    }))
+                  );
+                  for (let i = 0; i < rows.length; i += 500) {
                     await supabase
                       .from("inventory_item_locations")
-                      .insert(selectedLocIds.map(locId => ({
-                        item_id: itemId,
-                        storage_location_id: locId,
-                      })));
+                      .insert(rows.slice(i, i + 500));
                   }
                 }
 
