@@ -239,9 +239,17 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         };
       });
 
+      // Deduplicate by product_name — if two items share the same resolved name,
+      // keep the last one (prevents "ON CONFLICT DO UPDATE cannot affect a row a second time")
+      const deduped = new Map<string, typeof templates[0]>();
+      for (const t of templates) {
+        deduped.set(t.product_name, t);
+      }
+      const uniqueTemplates = Array.from(deduped.values());
+
       const { error } = await supabase
         .from("brand_inventory_templates")
-        .upsert(templates as any, { onConflict: "brand_id,product_name" });
+        .upsert(uniqueTemplates as any, { onConflict: "brand_id,product_name" });
       if (error) throw error;
     },
     onSuccess: () => {
