@@ -151,13 +151,18 @@ const InventoryCount = () => {
   const isViewOnly = isCompleted && !editMode;
   const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
   const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
-  const needsReconciliation = isCounting && !reconciliationComplete && !continueMode; // Show reconciliation before counting
 
-  // Block browser back / swipe-back when actively counting or editing
-  const blocker = useBlocker(isCounting || isEditing);
-
-  // Pending redirect target when guard is triggered
-  const pendingRedirectRef = useRef<string | null>(null);
+  // Block browser tab/window close when actively counting or editing
+  useEffect(() => {
+    if (isCounting || isEditing) {
+      const handler = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', handler);
+      return () => window.removeEventListener('beforeunload', handler);
+    }
+  }, [isCounting, isEditing]);
 
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
@@ -171,52 +176,13 @@ const InventoryCount = () => {
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      if (blocker.state === "blocked") {
-        blocker.proceed();
-      } else {
-        navigate(redirectTo || `/inventory/${locationId}`);
-      }
+      navigate(redirectTo || `/inventory/${locationId}`);
     }, 500);
-  }, [queryClient, locationId, navigate, blocker]);
+  }, [queryClient, locationId, navigate]);
 
   const handleSaveExitCancel = useCallback(() => {
     setShowSaveExitDialog(false);
-    if (blocker.state === "blocked") {
-      blocker.reset();
-    }
-  }, [blocker]);
-
-  const handleBackClick = () => {
-    pendingRedirectRef.current = null;
-    if (isCounting || isEditing) {
-      setShowSaveExitDialog(true);
-    } else {
-      handleClose();
-    }
-  };
-
-  // Register global navigation guard when actively counting
-  useEffect(() => {
-    if (isCounting || isEditing) {
-      (window as any).__navigationGuard = (targetPath: string) => {
-        pendingRedirectRef.current = targetPath;
-        setShowSaveExitDialog(true);
-      };
-      return () => {
-        delete (window as any).__navigationGuard;
-      };
-    } else {
-      delete (window as any).__navigationGuard;
-    }
-  }, [isCounting, isEditing]);
-
-  // Show save dialog when blocker triggers (swipe-back / browser back)
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      pendingRedirectRef.current = blocker.location.pathname;
-      setShowSaveExitDialog(true);
-    }
-  }, [blocker.state, blocker.location?.pathname]);
+  }, []);
 
   const handleSaveClick = () => {
     if (isCounting || isEditing) {
