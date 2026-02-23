@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
+import DailySpotCount from "@/components/inventory/DailySpotCount";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -316,6 +317,9 @@ const Inventory = () => {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Daily Spot Check */}
+            <DailySpotCount locationId={locationId!} />
 
             {recentCounts && recentCounts.length > 0 && (
               <Card>
