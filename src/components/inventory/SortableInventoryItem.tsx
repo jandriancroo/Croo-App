@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 interface SortableInventoryItemProps {
   item: any;
+  sortableId: string;
   isShortcut: boolean;
   isSelected: boolean;
   isSelectingThisGroup: boolean;
@@ -16,6 +17,7 @@ interface SortableInventoryItemProps {
 
 export function SortableInventoryItem({
   item,
+  sortableId,
   isShortcut,
   isSelected,
   isSelectingThisGroup,
@@ -32,7 +34,7 @@ export function SortableInventoryItem({
     transition,
     isDragging,
   } = useSortable({
-    id: item.id,
+    id: sortableId,
     disabled: isDragDisabled,
   });
 

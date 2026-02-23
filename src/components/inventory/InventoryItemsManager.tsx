@@ -128,18 +128,28 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   });
 
   const handleItemDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDragItemId(event.active.id as string);
+    const id = String(event.active.id).replace('-shortcut', '');
+    setActiveDragItemId(id);
   }, []);
 
-  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[]) => {
+  const handleItemDragEnd = useCallback((event: DragEndEvent, groupItems: any[], isShortcutList?: Set<string>) => {
     setActiveDragItemId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = groupItems.findIndex(i => i.id === active.id);
-    const newIndex = groupItems.findIndex(i => i.id === over.id);
+    // Build sortable ID for each item to match DndContext IDs
+    const getSortableId = (item: any) => {
+      const isShortcut = isShortcutList?.has(item.id);
+      return item.id + (isShortcut ? '-shortcut' : '');
+    };
+    const oldIndex = groupItems.findIndex(i => getSortableId(i) === active.id);
+    const newIndex = groupItems.findIndex(i => getSortableId(i) === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
-    reorderItemsMutation.mutate(reordered.map(i => i.id));
+    // Only reorder primary items (not shortcuts) for display_order persistence
+    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
+    if (primaryOnly.length > 0) {
+      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+    }
   }, [reorderItemsMutation]);
 
 
@@ -1144,10 +1154,13 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                         sensors={dndSensors}
                         collisionDetection={closestCenter}
                         onDragStart={handleItemDragStart}
-                        onDragEnd={(event) => handleItemDragEnd(event, primaryItems)}
+                        onDragEnd={(event) => {
+                          const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
+                          handleItemDragEnd(event, allLocItems, shortcutIdSet);
+                        }}
                       >
                         <SortableContext
-                          items={primaryItems.map(i => i.id)}
+                          items={allLocItems.map(i => i.id + (shortcutItems.includes(i) ? '-shortcut' : ''))}
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
@@ -1159,6 +1172,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                               return (
                                 <SortableInventoryItem
                                   key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
+                                  sortableId={`${item.id}${isShortcut ? '-shortcut' : ''}`}
                                   item={item}
                                   isShortcut={isShortcut}
                                   isSelected={selectedItemIds.has(item.id)}
@@ -1230,6 +1244,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             {unassigned.map((item) => (
                               <SortableInventoryItem
                                 key={item.id}
+                                sortableId={item.id}
                                 item={item}
                                 isShortcut={false}
                                 isSelected={selectedItemIds.has(item.id)}
