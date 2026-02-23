@@ -15,6 +15,7 @@ import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
+import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
 import InventoryScheduleSettings from "./InventoryScheduleSettings";
 import ProductGroupsManager from "./ProductGroupsManager";
@@ -77,6 +78,7 @@ interface SyncProgress {
 const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { canEditRecipes, canEditProductGroups, canEditUsageRates, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
   const [isDailyTracked, setIsDailyTracked] = useState(false);
@@ -887,14 +889,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         )}
       </div>
 
-      {/* Product Groups */}
-      <ProductGroupsManager locationId={locationId} />
+      {/* Product Groups — Brand Admin+ only */}
+      {canEditProductGroups && <ProductGroupsManager locationId={locationId} />}
 
-      {/* Usage Rate Mappings */}
-      <UsageRateMapping locationId={locationId} />
+      {/* Usage Rate Mappings — Brand Admin+ only */}
+      {canEditUsageRates && <UsageRateMapping locationId={locationId} />}
 
-      {/* Prep Recipes Card */}
-      {items && (() => {
+      {/* Prep Recipes Card — Brand Admin+ only */}
+      {canEditRecipes && items && (() => {
         const recipeItems = items.filter(i => i.is_recipe);
         if (recipeItems.length === 0 && !showRecipeDialog) return (
           <Card>
@@ -1419,7 +1421,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 );
               })()}
 
-              {/* Category selector */}
+              {/* Category selector — Brand Admin+ only */}
               <div className="space-y-1">
                 <Label htmlFor="category">Category</Label>
                 <select
@@ -1427,6 +1429,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={categoryValue}
                   onChange={(e) => setCategoryValue(e.target.value)}
+                  disabled={!canEditCategories}
                 >
                   <option value="">No category</option>
                   {INVENTORY_CATEGORIES.map(cat => (
@@ -1438,7 +1441,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 </p>
               </div>
 
-              {/* Common Name */}
+              {/* Common Name — Brand Admin+ only */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -1448,6 +1451,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       setUseCommonName(!!checked);
                       if (!checked) setCommonNameValue("");
                     }}
+                    disabled={!canEditCommonNames}
                   />
                   <Label htmlFor="use-common-name" className="text-sm cursor-pointer">
                     Use common name
@@ -1460,6 +1464,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       placeholder="e.g., Sausage, Mozzarella, Pepperoni"
                       value={commonNameValue}
                       onChange={(e) => setCommonNameValue(e.target.value)}
+                      disabled={!canEditCommonNames}
                     />
                     <p className="text-xs text-muted-foreground">
                       A simple name shown instead of the vendor item name
