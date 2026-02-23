@@ -1027,16 +1027,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {/* Item list with dual counting */}
       <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
-          const count = counts[item.item_id] || { cases: 0, units: 0 };
+          const splitKey = (item as any)._splitKey || item.item_id;
+          const count = counts[splitKey] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
           const packQty = item.pack_quantity || 1;
           const costPerUnit = (item.cost_per_unit || 0) / packQty;
-          const isHighlighted = highlightedItemId === item.item_id;
-          const isErrorHighlighted = errorHighlightedItemId === item.item_id;
+          const isHighlighted = highlightedItemId === splitKey;
+          const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
           return (
             <Card 
-              key={item.item_id} 
+              key={splitKey}
               className={cn(
                 "overflow-hidden transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
@@ -1073,7 +1074,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     <div className="text-right flex-shrink-0">
                         <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
                         <p className="text-xs text-primary-foreground/70">
-                          {getTotalQuantity(item.item_id, item.pack_quantity, item.pan_sizes)} units
+                          {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
                         </p>
                     </div>
                   </div>
@@ -1092,7 +1093,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateCases(item.item_id, -1)}
+                            onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1100,9 +1101,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rawInputs[item.item_id]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
-                          onBlur={() => handleCasesBlur(item.item_id)}
+                          value={rawInputs[splitKey]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
+                          onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
                           className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                         />
@@ -1110,7 +1111,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateCases(item.item_id, 1)}
+                            onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1129,7 +1130,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateCases(item.item_id, -1)}
+                            onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1137,9 +1138,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rawInputs[item.item_id]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
-                          onBlur={() => handleCasesBlur(item.item_id)}
+                          value={rawInputs[splitKey]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
+                          onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
                           className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                         />
@@ -1147,7 +1148,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateCases(item.item_id, 1)}
+                            onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1168,7 +1169,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateUnits(item.item_id, -1)}
+                            onClick={() => updateUnits(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1176,9 +1177,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rawInputs[item.item_id]?.units ?? count.units}
-                          onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
-                          onBlur={() => handleUnitsBlur(item.item_id)}
+                          value={rawInputs[splitKey]?.units ?? count.units}
+                          onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
+                          onBlur={() => handleUnitsBlur(splitKey)}
                           disabled={isViewOnly}
                           className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                         />
@@ -1186,7 +1187,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           <button
                             type="button"
                             className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                            onClick={() => updateUnits(item.item_id, 1)}
+                            onClick={() => updateUnits(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
                           </button>
@@ -1207,7 +1208,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           const container = ALL_CONTAINERS.find(c => c.key === panKey);
                           if (!container) return null;
                           const unitsEach = getPanUnits(item.pan_sizes!, panKey);
-                          const panQty = panCounts[item.item_id]?.[panKey] || 0;
+                          const panQty = panCounts[splitKey]?.[panKey] || 0;
                           return (
                             <div key={panKey} className="flex-1">
                               <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium truncate">
@@ -1221,7 +1222,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   <button
                                     type="button"
                                     className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                                    onClick={() => updatePanCount(item.item_id, panKey, -0.5)}
+                                    onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
                                     <Minus className="h-4 w-4" strokeWidth={2} />
                                   </button>
@@ -1229,9 +1230,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                 <input
                                   type="text"
                                   inputMode="decimal"
-                                  value={rawPanInputs[item.item_id]?.[panKey] ?? panQty}
-                                  onChange={(e) => handlePanInput(item.item_id, panKey, e.target.value)}
-                                  onBlur={() => handlePanBlur(item.item_id, panKey)}
+                                  value={rawPanInputs[splitKey]?.[panKey] ?? panQty}
+                                  onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
+                                  onBlur={() => handlePanBlur(splitKey, panKey)}
                                   disabled={isViewOnly}
                                   className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                                 />
@@ -1239,7 +1240,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   <button
                                     type="button"
                                     className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
-                                    onClick={() => updatePanCount(item.item_id, panKey, 0.5)}
+                                    onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
                                     <Plus className="h-4 w-4" strokeWidth={2} />
                                   </button>
