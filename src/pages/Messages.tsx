@@ -710,86 +710,58 @@ export default function Messages() {
         </div>
       </div>
       
-      {/* Mobile Slide-Over Chat Window */}
-      <Sheet 
-        modal={false}
-        open={isMobile && !!selectedChatId}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedChatId(null);
-          }
-        }}
-      >
-         <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
-          <div className="flex flex-col h-full min-h-0">
-            <div className="flex items-center gap-2 p-4 border-b border-border shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedChatId(null);
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-lg font-semibold">Chat</h2>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden pb-4">
-              {selectedChatId && (
-                <ChatWindow
-                  chatId={selectedChatId}
-                  chatDetails={chats.find(c => c.id === selectedChatId) || null}
-                  onChatDeleted={() => {
-                    setSelectedChatId(null);
-                    fetchChats();
-                  }}
-                  onChatUpdated={fetchChats}
-                />
-              )}
-            </div>
+      {/* Mobile Full-Screen Chat Window — no Radix Sheet to avoid scroll-lock conflicts */}
+      {isMobile && !!selectedChatId && (
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="flex items-center gap-2 p-4 border-b border-border shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedChatId(null)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold">Chat</h2>
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChatWindow
+              chatId={selectedChatId}
+              chatDetails={chats.find(c => c.id === selectedChatId) || null}
+              onChatDeleted={() => {
+                setSelectedChatId(null);
+                fetchChats();
+              }}
+              onChatUpdated={fetchChats}
+            />
+          </div>
+        </div>
+      )}
 
-      {/* Mobile Hiring Chat Sheet */}
-      <Sheet 
-        modal={false}
-        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedHiringConversation(null);
-          }
-        }}
-      >
-        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-kb-safe">
-          <div className="flex flex-col h-full">
-            <div className="flex items-center gap-2 p-4 border-b border-border">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedHiringConversation(null);
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-lg font-semibold truncate">
-                {selectedHiringConversation?.application?.full_name || 'Applicant'}
-              </h2>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {selectedHiringConversation && (
-                <HiringChatPanel
-                  applicationId={selectedHiringConversation.application_id}
-                  applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
-                />
-              )}
-            </div>
+      {/* Mobile Hiring Chat — no Radix Sheet */}
+      {isMobile && viewMode === 'hiring' && !!selectedHiringConversation && (
+        <div className="fixed inset-0 z-[100] bg-background flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="flex items-center gap-2 p-4 border-b border-border shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedHiringConversation(null)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold truncate">
+              {selectedHiringConversation?.application?.full_name || 'Applicant'}
+            </h2>
           </div>
-        </SheetContent>
-      </Sheet>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {selectedHiringConversation && (
+              <HiringChatPanel
+                applicationId={selectedHiringConversation.application_id}
+                applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* New Action Dialog - DM, Group, or Announcement */}
       <Dialog open={isNewActionOpen} onOpenChange={setIsNewActionOpen}>
