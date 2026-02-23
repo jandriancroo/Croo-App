@@ -255,7 +255,13 @@ const InventoryCount = () => {
       <div className="space-y-4 md:max-w-4xl md:mx-auto md:p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={handleBackClick}>
+          <Button variant="ghost" size="sm" onClick={() => {
+              if (isCounting || isEditing) {
+                setShowSaveExitDialog(true);
+              } else {
+                handleClose();
+              }
+            }}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
