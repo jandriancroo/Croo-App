@@ -78,8 +78,12 @@ interface ItemForExport {
   category: string | null;
   vendor_source: string | null;
   item_number: string | null;
+  pa_item_id: string | null;
   brand: string | null;
   storage_location_id: string | null;
+  is_recipe: boolean;
+  recipe_yield_qty: number | null;
+  recipe_yield_unit: string | null;
 }
 
 export default function ExportToMasterDialog({ open, onOpenChange, locationId, brandId }: ExportToMasterDialogProps) {
@@ -93,7 +97,7 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, brand, storage_location_id")
+        .select("id, name, common_name, pack_size, pack_quantity, pan_sizes, category, vendor_source, item_number, pa_item_id, brand, storage_location_id, is_recipe, recipe_yield_qty, recipe_yield_unit")
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("name");
@@ -154,6 +158,19 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         .select("id, name, pos_categories, pos_items")
         .eq("location_id", locationId)
         .eq("is_active", true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch recipe ingredients for recipe items at this location
+  const { data: recipeIngredients } = useQuery({
+    queryKey: ["recipe-ingredients-export", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_recipe_ingredients")
+        .select("recipe_item_id, ingredient_item_id, quantity, unit");
       if (error) throw error;
       return data;
     },
@@ -244,6 +261,23 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
         // Shortcut locations (secondary storage)
         const shortcutLocationNames = shortcutMap.get(item.id) || [];
 
+        // Recipe data
+        const recipeIngredientsData = item.is_recipe && recipeIngredients
+          ? recipeIngredients
+              .filter(ri => ri.recipe_item_id === item.id)
+              .map(ri => {
+                const ingItem = items.find(i => i.id === ri.ingredient_item_id);
+                return {
+                  ingredient_name: ingItem ? (ingItem.common_name || ingItem.name) : 'Unknown',
+                  ingredient_item_number: ingItem?.item_number || null,
+                  ingredient_pa_item_id: ingItem?.pa_item_id || null,
+                  ingredient_vendor_source: ingItem?.vendor_source || null,
+                  quantity: ri.quantity,
+                  unit: ri.unit,
+                };
+              })
+          : [];
+
         return {
           brand_id: brandId,
           product_name: productName,
@@ -267,11 +301,18 @@ export default function ExportToMasterDialog({ open, onOpenChange, locationId, b
           source_item_id: item.id,
           source_location_id: locationId,
           created_by: user.id,
+          // New fields
+          is_recipe: item.is_recipe || false,
+          recipe_yield_qty: item.recipe_yield_qty,
+          recipe_yield_unit: item.recipe_yield_unit,
+          recipe_ingredients: recipeIngredientsData,
+          vendor_source: item.vendor_source,
+          item_number: item.item_number,
+          pa_item_id: item.pa_item_id,
         };
       });
 
-      // Deduplicate by product_name — if two items share the same resolved name,
-      // keep the last one (prevents "ON CONFLICT DO UPDATE cannot affect a row a second time")
+      // Deduplicate by product_name
       const deduped = new Map<string, typeof templates[0]>();
       for (const t of templates) {
         deduped.set(t.product_name, t);
