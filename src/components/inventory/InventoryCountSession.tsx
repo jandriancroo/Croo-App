@@ -1101,9 +1101,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rawInputs[item.item_id]?.cases ?? count.cases}
-                          onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
-                          onBlur={() => handleCasesBlur(item.item_id)}
+                          value={rawInputs[splitKey]?.cases ?? count.cases}
+                          onChange={(e) => handleCasesInput(splitKey, e.target.value)}
+                          onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
                           className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
                         />
