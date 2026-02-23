@@ -190,6 +190,7 @@ function EditShiftForm({
     breaks: BreakEntry[];
     clockInId?: string;
     clockOutId?: string;
+    shiftId?: string;
     punchIds: string[];
   }
 
@@ -200,6 +201,7 @@ function EditShiftForm({
       breaks: s.breaks,
       clockInId: s.clockIn?.id,
       clockOutId: s.clockOut?.id,
+      shiftId: s.clockIn?.shift_id || s.clockOut?.shift_id || undefined,
       punchIds: s.punchIds,
     }))
   );
@@ -291,6 +293,7 @@ function EditShiftForm({
             location_id: locationId,
             punch_type: 'clock_out',
             punch_time: newClockOutTime,
+            shift_id: shift.shiftId || null,
             created_by: currentUserId
           });
         }
@@ -310,6 +313,7 @@ function EditShiftForm({
             await supabase.from('time_punches').insert({
               user_id: userId, location_id: locationId,
               punch_type: 'break_start', punch_time: breakStartIso,
+              shift_id: shift.shiftId || null,
               notes: breakNotes, created_by: currentUserId,
             });
           }
@@ -325,6 +329,7 @@ function EditShiftForm({
               await supabase.from('time_punches').insert({
                 user_id: userId, location_id: locationId,
                 punch_type: 'break_end', punch_time: breakEndIso,
+                shift_id: shift.shiftId || null,
                 notes: breakNotes, created_by: currentUserId,
               });
             }
