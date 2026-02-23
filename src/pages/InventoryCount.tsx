@@ -166,9 +166,14 @@ const InventoryCount = () => {
     setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      navigate(redirectTo || `/inventory/${locationId}`);
+      // If blocker triggered the dialog, proceed through the blocker
+      if (blocker.state === "blocked") {
+        blocker.proceed();
+      } else {
+        navigate(redirectTo || `/inventory/${locationId}`);
+      }
     }, 500);
-  }, [queryClient, locationId, navigate]);
+  }, [queryClient, locationId, navigate, blocker]);
 
   // Pending redirect target when guard is triggered
   const pendingRedirectRef = useRef<string | null>(null);
