@@ -359,19 +359,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       for (const ic of itemCounts) {
         const storLocId = ic.storage_location_id;
         // Check if a row exists for this combo
-        const { data: existing } = await supabase
-          .from("inventory_count_items")
-          .select("id")
-          .eq("count_id", countId)
-          .eq("item_id", ic.item_id)
-          .then(res => {
-            // Filter by storage_location_id manually since types may not be updated
-            const filtered = (res.data || []).filter((r: any) => 
-              (r as any).storage_location_id === storLocId || 
-              (!storLocId && !(r as any).storage_location_id)
-            );
-            return { ...res, data: filtered };
-          }) as any;
+          const { data: existing } = await supabase
+            .from("inventory_count_items")
+            .select("id, storage_location_id")
+            .eq("count_id", countId)
+            .eq("item_id", ic.item_id)
+            .then(res => {
+              // Filter by storage_location_id manually since types may not be updated
+              const filtered = (res.data || []).filter((r: any) => 
+                (r as any).storage_location_id === storLocId || 
+                (!storLocId && !(r as any).storage_location_id)
+              );
+              return { ...res, data: filtered };
+            }) as any;
         
         if (existing && existing.length > 0) {
           await supabase
@@ -500,7 +500,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         for (const ic of itemCounts) {
           const { data: existing } = await supabase
             .from("inventory_count_items")
-            .select("id")
+            .select("id, storage_location_id")
             .eq("count_id", countId)
             .eq("item_id", ic.item_id) as any;
           
