@@ -160,8 +160,11 @@ function findBestMatch(template: Template, items: TargetItem[], usedIds: Set<str
   }
 
   // Tier 2: Exact product name match
+  // Guard: Don't match a recipe template against a vendor-coded item (PFG/PA product)
   const nameMatch = items.find(i =>
-    !usedIds.has(i.id) && (
+    !usedIds.has(i.id) &&
+    !(template.is_recipe && (i.item_number || i.pa_item_id)) && // vendor items can't become recipes
+    (
       (i.common_name || i.name).toLowerCase() === template.product_name.toLowerCase() ||
       i.name.toLowerCase() === template.product_name.toLowerCase()
     )
