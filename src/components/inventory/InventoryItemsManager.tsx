@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -87,6 +87,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
   const [bulkMoveTargets, setBulkMoveTargets] = useState<Set<string>>(new Set());
+  const [showShortcutDialog, setShowShortcutDialog] = useState(false);
+  const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
 
 
 
@@ -222,6 +224,20 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   });
 
 
+  // Fetch item-location shortcuts (junction table)
+  const { data: itemLocationShortcuts } = useQuery({
+    queryKey: ["inventory-item-locations", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_item_locations")
+        .select("item_id, storage_location_id")
+        .in("item_id", (items || []).map(i => i.id));
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!items && items.length > 0,
+  });
+
   // Fetch recipe costs for items without stored cost_per_unit
   const { data: recipeCosts } = useQuery({
     queryKey: ["recipe-costs", locationId],
@@ -337,30 +353,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
     const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
-    // Primary storage_location_id: first selected or null
-    const selectedIds = Array.from(storageLocationIds);
-    const storage_location_id = selectedIds[0] || null;
-
-    // Sync junction table
-    try {
-      // Delete existing assignments
-      await supabase
-        .from("inventory_item_locations")
-        .delete()
-        .eq("item_id", editingItem.id);
-      
-      // Insert new assignments
-      if (selectedIds.length > 0) {
-        await supabase
-          .from("inventory_item_locations")
-          .insert(selectedIds.map(locId => ({
-            item_id: editingItem.id,
-            storage_location_id: locId,
-          })));
-      }
-    } catch (err) {
-      console.error("Failed to sync item locations:", err);
-    }
+    const storage_location_id = storageLocationValue || null;
 
     updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig });
   };
@@ -1054,12 +1047,20 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
               {/* Regular items grouped by storage location — collapsible with drag-and-drop */}
               {storageLocations?.map((loc) => {
-                const locItems = items
+                // Primary items (home location)
+                const primaryItems = items
                   .filter(i => i.storage_location_id === loc.id && !i.is_recipe)
                   .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0));
+                // Shortcut items (items whose primary is elsewhere but have a junction entry here)
+                const shortcutItemIds = (itemLocationShortcuts || [])
+                  .filter(s => s.storage_location_id === loc.id)
+                  .map(s => s.item_id);
+                const shortcutItems = items
+                  .filter(i => shortcutItemIds.includes(i.id) && i.storage_location_id !== loc.id && !i.is_recipe);
+                const allLocItems = [...primaryItems, ...shortcutItems];
                 const isCollapsed = collapsedSections.has(loc.id);
                 const isSelectingThisGroup = activeSelectGroup === loc.id;
-                const panCount = locItems.filter(i => (i as any).pan_sizes?.enabled).length;
+                const panCount = primaryItems.filter(i => (i as any).pan_sizes?.enabled).length;
                 return (
                   <div key={loc.id} className="border border-border rounded-lg overflow-hidden">
                     <button
@@ -1072,7 +1073,13 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     >
                       <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                       <span className="text-sm font-medium flex-1">{loc.name}</span>
-                      <span className="text-xs text-muted-foreground">{locItems.length} items</span>
+                      <span className="text-xs text-muted-foreground">{allLocItems.length} items</span>
+                      {shortcutItems.length > 0 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                          <Link2 className="h-2.5 w-2.5" />
+                          {shortcutItems.length}
+                        </Badge>
+                      )}
                       {panCount > 0 && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                           {panCount} pans
@@ -1081,28 +1088,30 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     </button>
                     {!isCollapsed && (
                       <div className="grid gap-0.5 p-1">
-                        {locItems.length === 0 && (
+                        {allLocItems.length === 0 && (
                           <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
                         )}
-                        {locItems.map((item) => {
+                        {allLocItems.map((item) => {
+                          const isShortcut = shortcutItems.includes(item);
                           const isSelected = selectedItemIds.has(item.id);
                           return (
                             <div
-                              key={item.id}
-                              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group cursor-pointer ${isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-background hover:bg-muted/30'}`}
+                              key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
+                              className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group cursor-pointer ${
+                                isSelected ? 'bg-primary/10 ring-1 ring-primary/30' 
+                                : isShortcut ? 'bg-accent/30 border border-dashed border-accent/50' 
+                                : 'bg-background hover:bg-muted/30'
+                              }`}
                               onClick={() => {
                                 if (isSelectingThisGroup) {
-                                  // In select mode: toggle selection
                                   const next = new Set(selectedItemIds);
                                   if (isSelected) next.delete(item.id); else next.add(item.id);
                                   setSelectedItemIds(next);
                                 } else {
-                                  // Normal mode: open edit dialog
                                   openEditDialog(item);
                                 }
                               }}
                               onContextMenu={(e) => {
-                                // Long press / right click enters select mode for this group
                                 e.preventDefault();
                                 setActiveSelectGroup(loc.id);
                                 setSelectedItemIds(new Set([item.id]));
@@ -1116,14 +1125,26 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                     className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
                                   />
                                 )}
-                                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0" />
-                                <span className="truncate">{(item as any).common_name || item.name}</span>
-                                {(item as any).common_name && (
+                                {!isShortcut && (
+                                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 flex-shrink-0" />
+                                )}
+                                {isShortcut && (
+                                  <Link2 className="h-3.5 w-3.5 text-accent-foreground/60 flex-shrink-0" />
+                                )}
+                                <span className={`truncate ${isShortcut ? 'text-muted-foreground' : ''}`}>
+                                  {(item as any).common_name || item.name}
+                                </span>
+                                {(item as any).common_name && !isShortcut && (
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[100px]" title={item.name}>
                                     ({item.name})
                                   </span>
                                 )}
-                                {(item as any).pan_sizes?.enabled && (
+                                {isShortcut && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 flex-shrink-0 gap-0.5 border-accent/50 text-accent-foreground/60">
+                                    Shortcut
+                                  </Badge>
+                                )}
+                                {(item as any).pan_sizes?.enabled && !isShortcut && (
                                   <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 flex-shrink-0">
                                     Pans
                                   </Badge>
@@ -1131,7 +1152,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                               </div>
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <span className="text-xs">{item.pack_size || item.unit || 'ea'}</span>
-                                {item.cost_per_unit && (
+                                {item.cost_per_unit && !isShortcut && (
                                   <span className="text-xs text-primary">${Number(item.cost_per_unit).toFixed(2)}</span>
                                 )}
                               </div>
@@ -1143,7 +1164,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                   </div>
                 );
               })}
-
               {/* Unassigned items */}
               {(() => {
                 const unassigned = items.filter(i => !i.storage_location_id && !i.is_recipe);
@@ -1283,37 +1303,81 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             <div className="space-y-4">
               <p className="text-sm font-medium">{editingItem.name}</p>
 
-              {/* Storage Locations (multi-select) */}
+              {/* Storage Location */}
               <div className="space-y-2">
-                <Label>Storage Locations</Label>
-                <div className="space-y-1.5 max-h-[160px] overflow-y-auto border border-input rounded-md p-2">
-                  {storageLocations?.map(loc => (
-                    <div key={loc.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`loc-${loc.id}`}
-                        checked={storageLocationIds.has(loc.id)}
-                        onCheckedChange={(checked) => {
-                          const next = new Set(storageLocationIds);
-                          if (checked) next.add(loc.id); else next.delete(loc.id);
-                          setStorageLocationIds(next);
-                        }}
-                      />
-                      <Label htmlFor={`loc-${loc.id}`} className="text-sm cursor-pointer font-normal">
-                        {loc.name}
-                      </Label>
-                    </div>
-                  ))}
-                  {(!storageLocations || storageLocations.length === 0) && (
-                    <p className="text-xs text-muted-foreground">No storage locations created yet.</p>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {storageLocationIds.size > 1 
-                    ? `Item will appear in ${storageLocationIds.size} locations during counting`
-                    : "Select multiple locations if this item is stored in more than one spot"
-                  }
-                </p>
+                <Label>Storage Location</Label>
+                <Select
+                  value={storageLocationValue || "__unassigned__"}
+                  onValueChange={(val) => {
+                    const newVal = val === "__unassigned__" ? "" : val;
+                    setStorageLocationValue(newVal);
+                    // Keep storageLocationIds in sync — primary location is always included
+                    const next = new Set(storageLocationIds);
+                    // Remove old primary if it was only there as primary
+                    if (storageLocationValue) next.delete(storageLocationValue);
+                    if (newVal) next.add(newVal);
+                    setStorageLocationIds(next);
+                  }}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                    {storageLocations?.map(loc => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Shortcuts info */}
+              {(() => {
+                const shortcuts = (itemLocationShortcuts || [])
+                  .filter(s => s.item_id === editingItem.id && s.storage_location_id !== editingItem.storage_location_id);
+                if (shortcuts.length === 0) return null;
+                return (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Link2 className="h-3 w-3" />
+                      Shortcuts ({shortcuts.length})
+                    </Label>
+                    <div className="space-y-1">
+                      {shortcuts.map(s => {
+                        const locName = storageLocations?.find(l => l.id === s.storage_location_id)?.name || 'Unknown';
+                        return (
+                          <div key={s.storage_location_id} className="flex items-center justify-between px-2 py-1.5 bg-accent/20 border border-dashed border-accent/40 rounded text-sm">
+                            <div className="flex items-center gap-1.5">
+                              <Link2 className="h-3 w-3 text-muted-foreground" />
+                              <span>{locName}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-destructive hover:text-destructive"
+                              onClick={async () => {
+                                await supabase
+                                  .from("inventory_item_locations")
+                                  .delete()
+                                  .eq("item_id", editingItem.id)
+                                  .eq("storage_location_id", s.storage_location_id);
+                                queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
+                                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                                toast.success(`Shortcut to ${locName} removed`);
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Shortcuts let this item appear in multiple locations during counting. Use bulk select + "Shortcut" to add more.
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Category selector */}
               <div className="space-y-1">
@@ -1529,6 +1593,68 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
 
 
+      {/* Create Shortcut Dialog */}
+      <Dialog open={showShortcutDialog} onOpenChange={setShowShortcutDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              Create Shortcut
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">
+            {selectedItemIds.size} item{selectedItemIds.size !== 1 ? 's' : ''} will appear in the selected location during counting
+          </p>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {storageLocations?.filter(loc => loc.id !== activeSelectGroup).map(loc => (
+              <button
+                key={loc.id}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                  shortcutTarget === loc.id ? 'bg-primary/10 ring-1 ring-primary/30 font-medium' : 'hover:bg-muted/50'
+                }`}
+                onClick={() => setShortcutTarget(loc.id)}
+              >
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                {loc.name}
+              </button>
+            ))}
+          </div>
+          <Button
+            disabled={!shortcutTarget || isBulkUpdating}
+            onClick={async () => {
+              if (!shortcutTarget) return;
+              setIsBulkUpdating(true);
+              try {
+                const ids = Array.from(selectedItemIds);
+                // Insert junction entries (shortcuts), skip duplicates
+                const inserts = ids.map(itemId => ({
+                  item_id: itemId,
+                  storage_location_id: shortcutTarget,
+                }));
+                const { error } = await supabase
+                  .from("inventory_item_locations")
+                  .upsert(inserts, { onConflict: "item_id,storage_location_id" });
+                if (error) throw error;
+
+                const targetName = storageLocations?.find(l => l.id === shortcutTarget)?.name || 'location';
+                toast.success(`Shortcut created for ${ids.length} item${ids.length !== 1 ? 's' : ''} → ${targetName}`);
+                queryClient.invalidateQueries({ queryKey: ["inventory-item-locations", locationId] });
+                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                setSelectedItemIds(new Set());
+                setActiveSelectGroup(null);
+                setShowShortcutDialog(false);
+              } catch {
+                toast.error("Failed to create shortcuts");
+              } finally {
+                setIsBulkUpdating(false);
+              }
+            }}
+          >
+            {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Link2 className="h-4 w-4 mr-1" />}
+            Create Shortcut
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Pan Size Dialog */}
       <BulkPanSizeDialog
@@ -1645,6 +1771,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               >
                 <MoveRight className="h-4 w-4" />
                 Move
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setShortcutTarget(null); setShowShortcutDialog(true); }}
+                className="gap-1.5"
+              >
+                <Link2 className="h-4 w-4" />
+                Shortcut
               </Button>
               <Button
                 size="sm"
