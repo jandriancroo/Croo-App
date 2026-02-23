@@ -114,7 +114,7 @@ const FEATURE_DESCRIPTIONS: Record<DeployFeature, string> = {
   common_names: "Friendly display names for items",
   categories: "Item categories (Produce, Dairy, etc.)",
   storage_locations: "Where items are stored (auto-creates missing)",
-  shortcuts: "Secondary storage locations (auto-creates missing)",
+  shortcuts: "All shortcuts placed in a 'Shortcuts (Review)' location for you to sort or delete",
   usage_rates: "Consumption rates per product group",
   product_groups: "Product groupings & POS category mappings",
   recipes: "Recipe definitions with ingredients & yields",
@@ -685,19 +685,27 @@ export default function DeployToLocationDialog({ open, onOpenChange, brandId, so
           await supabase.from("inventory_items").update(updateData).eq("id", targetItemId);
         }
 
-        // Shortcuts
+        // Shortcuts — dump all into a single "Shortcuts (Review)" location
         if (selectedFeatures.has('shortcuts') && tmpl.shortcut_location_names?.length) {
-          for (const scName of tmpl.shortcut_location_names) {
-            const scId = targetStorageMap.get(scName.toLowerCase());
-            if (scId) {
-              await supabase
-                .from("inventory_item_locations" as any)
-                .upsert({
-                  item_id: targetItemId,
-                  storage_location_id: scId,
-                  location_id: targetLocationId,
-                } as any, { onConflict: "item_id,storage_location_id" });
+          if (!targetStorageMap.has('shortcuts (review)')) {
+            // Create the review location once
+            const { data: newLoc } = await supabase
+              .from("inventory_locations")
+              .insert({ location_id: targetLocationId, name: 'Shortcuts (Review)', display_order: 999 })
+              .select("id")
+              .single();
+            if (newLoc) {
+              targetStorageMap.set('shortcuts (review)', newLoc.id);
             }
+          }
+          const reviewLocId = targetStorageMap.get('shortcuts (review)');
+          if (reviewLocId) {
+            await supabase
+              .from("inventory_item_locations" as any)
+              .upsert({
+                item_id: targetItemId,
+                storage_location_id: reviewLocId,
+              } as any, { onConflict: "item_id,storage_location_id" });
           }
         }
 
