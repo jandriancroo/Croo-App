@@ -105,6 +105,16 @@ const Inventory = () => {
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
+      // Fetch total active items for this location
+      const { count: totalActiveItems } = await supabase
+        .from("inventory_items")
+        .select("id", { count: "exact", head: true })
+        .eq("location_id", locationId)
+        .eq("is_active", true)
+        .neq("user_hidden", true);
+
+      const totalItems = totalActiveItems || 0;
+
       // Fetch stats for all counts in parallel
       const countIds = data.map(c => c.id);
       const { data: countItems } = await supabase
@@ -126,15 +136,15 @@ const Inventory = () => {
       // Aggregate stats per count
       const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
       for (const ci of (countItems || [])) {
-        if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
-        statsMap[ci.count_id].totalItems++;
+        if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems, countedItems: 0, totalCost: 0 };
         if (ci.quantity > 0) {
           statsMap[ci.count_id].countedItems++;
           statsMap[ci.count_id].totalCost += ci.quantity * (costMap[ci.item_id] || 0);
         }
       }
 
-      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 } }));
+      // Ensure all counts have stats even if no count items yet
+      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems, countedItems: 0, totalCost: 0 } }));
     },
     enabled: !!locationId
   });
