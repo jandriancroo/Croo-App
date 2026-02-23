@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
