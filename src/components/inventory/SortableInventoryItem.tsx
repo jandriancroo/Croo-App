@@ -33,7 +33,7 @@ export function SortableInventoryItem({
     isDragging,
   } = useSortable({
     id: item.id,
-    disabled: isDragDisabled || isShortcut,
+    disabled: isDragDisabled,
   });
 
   const style = {
@@ -53,7 +53,7 @@ export function SortableInventoryItem({
           : isSelected
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
-          ? "bg-accent/30 border border-dashed border-accent/50"
+          ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
           : "bg-background hover:bg-muted/30"
       }`}
       onClick={onClick}
@@ -77,7 +77,17 @@ export function SortableInventoryItem({
             <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
           </div>
         ) : (
-          <Link2 className="h-3.5 w-3.5 text-accent-foreground/60 flex-shrink-0" />
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <div
+              ref={setActivatorNodeRef}
+              {...attributes}
+              {...listeners}
+              className="touch-none cursor-grab active:cursor-grabbing"
+            >
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+            </div>
+            <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+          </div>
         )}
         <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""}`}>
           {(item as any).common_name || item.name}
@@ -93,7 +103,7 @@ export function SortableInventoryItem({
         {isShortcut && (
           <Badge
             variant="outline"
-            className="text-[9px] px-1 py-0 h-4 flex-shrink-0 gap-0.5 border-accent/50 text-accent-foreground/60"
+            className="text-[9px] px-1 py-0 h-4 flex-shrink-0 gap-0.5 border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400"
           >
             Shortcut
           </Badge>
