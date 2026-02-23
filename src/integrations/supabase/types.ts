@@ -1409,6 +1409,89 @@ export type Database = {
           },
         ]
       }
+      daily_spot_count_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          previous_quantity: number | null
+          quantity: number
+          spot_count_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          previous_quantity?: number | null
+          quantity?: number
+          spot_count_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          previous_quantity?: number | null
+          quantity?: number
+          spot_count_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_spot_count_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_spot_count_items_spot_count_id_fkey"
+            columns: ["spot_count_id"]
+            isOneToOne: false
+            referencedRelation: "daily_spot_counts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_spot_counts: {
+        Row: {
+          completed_at: string | null
+          count_date: string
+          counted_by: string | null
+          created_at: string
+          id: string
+          location_id: string
+          notes: string | null
+          started_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          count_date: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          started_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          count_date?: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_spot_counts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_summary_logs: {
         Row: {
           id: string
@@ -2510,6 +2593,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          is_daily_tracked: boolean
           is_recipe: boolean
           item_number: string | null
           last_synced_at: string | null
@@ -2546,6 +2630,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
           last_synced_at?: string | null
@@ -2582,6 +2667,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          is_daily_tracked?: boolean
           is_recipe?: boolean
           item_number?: string | null
           last_synced_at?: string | null

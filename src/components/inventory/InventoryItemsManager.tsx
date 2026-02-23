@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const { user } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPaSyncing, setIsPaSyncing] = useState(false);
+  const [isDailyTracked, setIsDailyTracked] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [paProgress, setPaProgress] = useState<SyncProgress | null>(null);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
@@ -344,10 +346,10 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
 
   // Update pack quantity override mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, override, category, common_name, storage_location_id, pan_sizes }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null }) => {
+    mutationFn: async ({ itemId, override, category, common_name, storage_location_id, pan_sizes, is_daily_tracked }: { itemId: string; override: number | null; category: string | null; common_name: string | null; storage_location_id: string | null; pan_sizes: PanSizesConfig | null; is_daily_tracked?: boolean }) => {
       const { error } = await supabase
         .from("inventory_items")
-        .update({ pack_quantity_override: override, category, common_name, storage_location_id, pan_sizes: pan_sizes as any } as any)
+        .update({ pack_quantity_override: override, category, common_name, storage_location_id, pan_sizes: pan_sizes as any, is_daily_tracked: is_daily_tracked ?? false } as any)
         .eq("id", itemId);
       
       if (error) throw error;
@@ -376,6 +378,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       unit: item.unit || null,
       pack_size: item.pack_size || null,
     });
+    setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
     setUseCommonName(!!item.common_name);
@@ -405,7 +408,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
     const storage_location_id = storageLocationValue || null;
 
-    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig });
+    updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
   };
 
 
@@ -1479,6 +1482,18 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     Leave empty to use PFG value.
                   </p>
                 </div>
+              </div>
+
+              {/* Daily Tracking Toggle */}
+              <div className="flex items-center justify-between py-2 border-t border-border/50">
+                <div>
+                  <Label className="text-sm font-medium">Daily Spot Check</Label>
+                  <p className="text-[10px] text-muted-foreground">Track this item in daily spot counts</p>
+                </div>
+                <Switch
+                  checked={isDailyTracked}
+                  onCheckedChange={setIsDailyTracked}
+                />
               </div>
 
               {/* Flag for Remap */}
