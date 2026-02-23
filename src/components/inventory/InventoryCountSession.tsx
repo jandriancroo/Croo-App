@@ -1027,16 +1027,17 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       {/* Item list with dual counting */}
       <div className="space-y-3 -mx-1 sm:mx-0">
         {currentItems.map((item) => {
-          const count = counts[item.item_id] || { cases: 0, units: 0 };
+          const splitKey = (item as any)._splitKey || item.item_id;
+          const count = counts[splitKey] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
           const packQty = item.pack_quantity || 1;
           const costPerUnit = (item.cost_per_unit || 0) / packQty;
-          const isHighlighted = highlightedItemId === item.item_id;
-          const isErrorHighlighted = errorHighlightedItemId === item.item_id;
+          const isHighlighted = highlightedItemId === splitKey;
+          const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
           return (
             <Card 
-              key={item.item_id} 
+              key={splitKey}
               className={cn(
                 "overflow-hidden transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
