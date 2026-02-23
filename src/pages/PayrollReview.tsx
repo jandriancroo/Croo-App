@@ -263,11 +263,22 @@ function EditShiftForm({
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
+      const nowMs = Date.now();
+
+      // Helper: reject any punch time set in the future
+      const validateNotFuture = (isoTime: string, label: string): boolean => {
+        if (new Date(isoTime).getTime() > nowMs + 60_000) { // 1 min buffer
+          toast.error(`${label} cannot be set in the future`);
+          return false;
+        }
+        return true;
+      };
       
       for (const shift of shiftStates) {
         // Update clock in
         if (shift.clockInId && shift.clockInTime) {
           const newClockInTime = toISOStringInTimezone(shiftDate, shift.clockInTime, timezone);
+          if (!validateNotFuture(newClockInTime, 'Clock in')) { setSaving(false); return; }
           await supabase.from('time_punches').update({ 
             punch_time: newClockInTime,
             edited_by: currentUserId,
@@ -279,6 +290,7 @@ function EditShiftForm({
         if (shift.clockOutId && shift.clockOutTime) {
           const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
           const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
+          if (!validateNotFuture(newClockOutTime, 'Clock out')) { setSaving(false); return; }
           await supabase.from('time_punches').update({ 
             punch_time: newClockOutTime,
             edited_by: currentUserId,
@@ -288,6 +300,7 @@ function EditShiftForm({
         } else if (!shift.clockOutId && shift.clockOutTime) {
           const clockOutDate = getAdjustedDateForClockOut(shift.clockOutTime, shift.clockInTime, shiftDate);
           const newClockOutTime = toISOStringInTimezone(clockOutDate, shift.clockOutTime, timezone);
+          if (!validateNotFuture(newClockOutTime, 'Clock out')) { setSaving(false); return; }
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
@@ -303,6 +316,7 @@ function EditShiftForm({
           if (!brk.startTime) continue;
           const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
           const breakStartIso = toISOStringInTimezone(shiftDate, brk.startTime, timezone);
+          if (!validateNotFuture(breakStartIso, 'Break start')) { setSaving(false); return; }
 
           if (brk.id) {
             await supabase.from('time_punches').update({
@@ -320,6 +334,7 @@ function EditShiftForm({
 
           if (brk.endTime) {
             const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
+            if (!validateNotFuture(breakEndIso, 'Break end')) { setSaving(false); return; }
             if (brk.endId) {
               await supabase.from('time_punches').update({
                 punch_time: breakEndIso, notes: breakNotes,
