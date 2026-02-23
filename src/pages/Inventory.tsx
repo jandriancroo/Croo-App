@@ -108,9 +108,30 @@ const Inventory = () => {
     enabled: !!locationId
   });
 
-  // Start new count mutation
+  // Start new count mutation — resumes existing in-progress count for the same period if one exists
   const startCountMutation = useMutation({
     mutationFn: async ({ periodType, periodEndDate }: { periodType: string | null; periodEndDate: string | null }) => {
+      // Check for existing in-progress count with the same period
+      let query = supabase
+        .from("inventory_counts")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("status", "in_progress");
+
+      if (periodType && periodEndDate) {
+        query = query.eq("period_type", periodType).eq("period_end_date", periodEndDate);
+      } else {
+        // Ad-hoc: match by today's date with no period
+        query = query.is("period_type", null).eq("count_date", new Date().toISOString().split("T")[0]);
+      }
+
+      const { data: existing } = await query.order("started_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (existing) {
+        // Resume the existing session instead of creating a duplicate
+        return existing;
+      }
+
       const { data, error } = await supabase
         .from("inventory_counts")
         .insert({
