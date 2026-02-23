@@ -202,8 +202,12 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
     for (const ing of ingredients) {
       const item = availableItems.find(i => i.id === ing.ingredient_item_id);
-      if (item?.cost_per_unit == null) {
+      if (!item) {
         allHaveCost = false;
+        continue;
+      }
+      // Items with no cost (e.g. Water) are treated as $0, not "missing"
+      if (item.cost_per_unit == null) {
         continue;
       }
 
@@ -703,7 +707,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
-                  Some ingredients missing cost data from PFG
+                  Some ingredients not found in inventory
                 </p>
               )}
             </div>
