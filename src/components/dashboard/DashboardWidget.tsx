@@ -251,6 +251,7 @@ export const METRIC_GROUPS = [
     label: 'Weekly', 
     metrics: [
       'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
+      'pace_vs_ly_week',
       'guest_count_wtd', 'pizza_count_wtd',
       'labor_percent_wtd'
     ] as MetricType[] 
