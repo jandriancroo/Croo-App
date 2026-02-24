@@ -59,10 +59,12 @@ interface ItemCount {
 }
 
 interface PendingEdit {
-  countItemId: string;
+  countItemId: string | null;
   itemName: string;
   previousQuantity: number;
   newQuantity: number;
+  itemId?: string;
+  storageLocationId?: string;
 }
 
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
@@ -395,19 +397,38 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Save edit with tracking mutation
   const saveEditMutation = useMutation({
     mutationFn: async ({ edits, reason }: { edits: PendingEdit[]; reason: string }) => {
-      // First update the count items
       for (const edit of edits) {
-        // Update the count item
-        await supabase
-          .from("inventory_count_items")
-          .update({ quantity: edit.newQuantity })
-          .eq("id", edit.countItemId);
-        
-        // Log the edit
+        let countItemId = edit.countItemId;
+
+        if (!countItemId) {
+          // Item had no previous count entry — insert a new row
+          const storLocId = edit.storageLocationId;
+          const { data: inserted, error: insertErr } = await supabase
+            .from("inventory_count_items")
+            .insert({
+              count_id: countId,
+              item_id: edit.itemId!,
+              quantity: edit.newQuantity,
+              storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+            } as any)
+            .select("id")
+            .single();
+          
+          if (insertErr) throw insertErr;
+          countItemId = (inserted as any).id;
+        } else {
+          // Update existing count item
+          await supabase
+            .from("inventory_count_items")
+            .update({ quantity: edit.newQuantity })
+            .eq("id", countItemId);
+        }
+
+        // Log the edit for audit trail
         await supabase
           .from("inventory_count_edits")
           .insert({
-            count_item_id: edit.countItemId,
+            count_item_id: countItemId,
             edited_by: user?.id,
             previous_quantity: edit.previousQuantity,
             new_quantity: edit.newQuantity,
@@ -420,7 +441,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-count-edits"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-count-items-view"] });
-      // Navigate to view mode (remove edit param)
       window.location.href = `/inventory/${locationId}/count/${countId}`;
     },
     onError: () => {
@@ -440,13 +460,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const newQuantity = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
-      if (newQuantity !== originalQuantity && extendedItem._countItemId) {
+      if (newQuantity !== originalQuantity) {
         edits.push({
           countItemId: extendedItem._countItemId,
           itemName: item.item_name,
           previousQuantity: originalQuantity,
-          newQuantity
-        });
+          newQuantity,
+          // Carry forward item metadata for inserts
+          itemId: item.item_id,
+          storageLocationId: extendedItem.storage_location_id,
+        } as PendingEdit);
       }
     }
     
