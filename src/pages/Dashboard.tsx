@@ -707,7 +707,7 @@ export default function Dashboard() {
 
   // Checklists grid content - passed to WidgetsSection for unified drag & drop
   const checklistsGridContent = (
-    <div className="grid gap-3 grid-cols-1 md:grid-cols-3 items-start">
+    <div className="space-y-2.5">
       {/* Checklist Cards */}
       {checklists.map(checklist => {
         const { expected, completed } = getCompletionData(checklist.id);
