@@ -242,6 +242,7 @@ export const METRIC_GROUPS = [
     label: 'Daily', 
     metrics: [
       'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
+      'pace_vs_ly_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
       'labor_percent_today', 'labor_hours_today'
     ] as MetricType[] 
