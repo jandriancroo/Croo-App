@@ -334,7 +334,7 @@ export function DashboardWidget({
   
   // Use primary color for OLED theme instead of custom accent colors
   const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
-  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'number' | 'hours'): string => {
+  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (formatType) {
@@ -342,6 +342,10 @@ export function DashboardWidget({
         return `$${Math.round(value).toLocaleString()}`;
       case 'percent':
         return `${value.toFixed(1)}%`;
+      case 'percent_signed': {
+        const arrow = value >= 0 ? '▲' : '▼';
+        return `${arrow} ${Math.abs(value).toFixed(1)}%`;
+      }
       case 'hours':
         return `${Math.round(value)}h`;
       case 'number':
