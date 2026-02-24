@@ -10,6 +10,7 @@ Daily,avg_ticket,Avg Ticket,Avg$,Avg Check
 Daily,labor_percent_today,Labor %,Labor%,Lab%
 Daily,labor_cost_today,Labor Cost,Labor$,X
 Daily,labor_hours_today,Hours,Hrs,Lab Hrs
+Daily,pace_vs_ly_day,Pace vs SDLY,vs SDLY,vs SDLY
 Weekly,sales_wtd,Sales WTD,WTD,WTD
 Weekly,sales_pace_week,Week Pace,Pace,Wkly Pace
 Weekly,sales_projected_week,AI Goal EOW,AI EOW,EOW Goal
