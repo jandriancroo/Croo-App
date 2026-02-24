@@ -112,7 +112,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
 
       // Get the location_id from the shift
       const locationId = shift.location_id;
-      // Use limit(1) to handle duplicate chats gracefully
+      // Find existing marketplace chat (unique index prevents duplicates)
       let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
         .from("chats")
         .select("id")
@@ -126,6 +126,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       let marketplaceChat = marketplaceChats?.[0] || null;
 
       if (!marketplaceChat) {
+        // Try to create; unique index will prevent race-condition duplicates
         const { data: newChat, error: chatError } = await supabase
           .from("chats")
           .insert({
@@ -137,8 +138,23 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
           .select()
           .single();
 
-        if (chatError) throw chatError;
-        marketplaceChat = newChat;
+        if (chatError) {
+          // If unique constraint violation, fetch the existing one
+          if (chatError.code === "23505") {
+            const { data: existing } = await supabase
+              .from("chats")
+              .select("id")
+              .eq("title", "Shift Marketplace")
+              .eq("location_id", locationId)
+              .limit(1)
+              .single();
+            marketplaceChat = existing;
+          } else {
+            throw chatError;
+          }
+        } else {
+          marketplaceChat = newChat;
+        }
 
         // Add users at this location to the marketplace chat
         const { data: locationUsers, error: locationUsersError } = await supabase
