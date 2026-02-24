@@ -66,6 +66,8 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           id,
           item_id,
           quantity,
+          entered_cases,
+          entered_units,
           item:inventory_items(
             name,
             common_name,
@@ -264,10 +266,19 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                         </TableHeader>
                         <TableBody>
                           {items.map((item) => {
-                            const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
-                            const hasPackQty = packQty != null && packQty > 1;
-                            const cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
-                            const units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
+                            // Use entered values if available (exact user input), otherwise decompose
+                            const hasEnteredValues = (item as any).entered_cases != null || (item as any).entered_units != null;
+                            let cases: number;
+                            let units: number;
+                            if (hasEnteredValues) {
+                              cases = (item as any).entered_cases ?? 0;
+                              units = (item as any).entered_units ?? 0;
+                            } else {
+                              const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
+                              const hasPackQty = packQty != null && packQty > 1;
+                              cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
+                              units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
+                            }
                             const value = getItemValue(item);
                             const itemEdits = editHistory?.get(item.id) || [];
                             const hasEdits = itemEdits.length > 0;

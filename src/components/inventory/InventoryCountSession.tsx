@@ -361,7 +361,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Save count mutation (saves progress without completing)
   // Now supports split-count items with storage_location_id
   const saveCountMutation = useMutation({
-    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null }[]) => {
+    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null; entered_cases?: number; entered_units?: number }[]) => {
       // Use individual upserts since the unique constraint now uses COALESCE
       for (const ic of itemCounts) {
         const storLocId = ic.storage_location_id;
@@ -383,7 +383,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         if (existing && existing.length > 0) {
           await supabase
             .from("inventory_count_items")
-            .update({ quantity: ic.quantity } as any)
+            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
             .eq("id", existing[0].id);
         } else {
           await supabase
@@ -393,6 +393,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               item_id: ic.item_id,
               quantity: ic.quantity,
               storage_location_id: storLocId,
+              entered_cases: ic.entered_cases,
+              entered_units: ic.entered_units,
             } as any);
         }
       }
@@ -512,10 +514,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const itemCounts = items.map(item => {
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
+        const countState = counts[key] || { cases: 0, units: 0 };
         return {
           item_id: item.item_id,
           quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+          entered_cases: countState.cases,
+          entered_units: countState.units,
         };
       });
 
@@ -541,7 +546,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           if (match) {
             await supabase
               .from("inventory_count_items")
-              .update({ quantity: ic.quantity } as any)
+              .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
               .eq("id", match.id);
           } else {
             await supabase
@@ -551,6 +556,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 item_id: ic.item_id,
                 quantity: ic.quantity,
                 storage_location_id: storLocId,
+                entered_cases: ic.entered_cases,
+                entered_units: ic.entered_units,
               } as any);
           }
         }
