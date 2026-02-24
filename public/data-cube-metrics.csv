@@ -32,6 +32,7 @@ Monthly,pizza_count_mtd,Pizzas MTD,Pizzas,MTD Pizzas
 Monthly,labor_percent_mtd,Labor % MTD,Labor%,MTD Lab%
 Monthly,labor_cost_mtd,Labor Cost MTD,Labor$,X
 Monthly,labor_hours_mtd,Hours MTD,Hrs,X
+Monthly,pace_vs_ly_month,Pace vs SMLY,vs SMLY,vs SMLY
 Personal,personal_hours_week,My Hours (Week),My Hrs,X
 Personal,personal_hours_payroll,My Hours (Payroll),Pay Hrs,Pay Hrs
 Personal,personal_pay_week,Est. Pay (Week),My Pay,X
