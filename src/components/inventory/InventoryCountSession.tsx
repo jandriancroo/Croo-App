@@ -440,13 +440,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const newQuantity = getTotalQuantity(key, item.pack_quantity, item.pan_sizes);
       const originalQuantity = originalCounts.current[key] ?? 0;
       
-      if (newQuantity !== originalQuantity && extendedItem._countItemId) {
+      if (newQuantity !== originalQuantity) {
         edits.push({
           countItemId: extendedItem._countItemId,
           itemName: item.item_name,
           previousQuantity: originalQuantity,
-          newQuantity
-        });
+          newQuantity,
+          // Carry forward item metadata for inserts
+          itemId: item.item_id,
+          storageLocationId: extendedItem.storage_location_id,
+        } as PendingEdit);
       }
     }
     
