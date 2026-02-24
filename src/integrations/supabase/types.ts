@@ -2452,6 +2452,8 @@ export type Database = {
         Row: {
           count_id: string | null
           counted_at: string
+          entered_cases: number | null
+          entered_units: number | null
           id: string
           item_id: string | null
           quantity: number
@@ -2463,6 +2465,8 @@ export type Database = {
         Insert: {
           count_id?: string | null
           counted_at?: string
+          entered_cases?: number | null
+          entered_units?: number | null
           id?: string
           item_id?: string | null
           quantity?: number
@@ -2474,6 +2478,8 @@ export type Database = {
         Update: {
           count_id?: string | null
           counted_at?: string
+          entered_cases?: number | null
+          entered_units?: number | null
           id?: string
           item_id?: string | null
           quantity?: number
