@@ -506,13 +506,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutosavedRef = useRef<string>("");
 
+  // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
+  const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
+
   useEffect(() => {
-    if (!items || Object.keys(counts).length === 0 || isViewOnly || isEditing) return;
-
-    // Debounce: save 3 seconds after last change
-    if (autosaveRef.current) clearTimeout(autosaveRef.current);
-
-    autosaveRef.current = setTimeout(async () => {
+    buildSnapshotRef.current = () => {
+      if (!items || Object.keys(counts).length === 0) return { itemCounts: [], snapshot: "" };
       const itemCounts = items.map(item => {
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
@@ -525,10 +524,121 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           entered_units: countState.units,
         };
       });
+      return { itemCounts, snapshot: JSON.stringify(itemCounts) };
+    };
+  }, [items, counts, panCounts, getTotalQuantity]);
+
+  // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
+  const flushSaveSync = useCallback(() => {
+    if (isViewOnly || isEditing) return;
+    const builder = buildSnapshotRef.current;
+    if (!builder) return;
+    const { itemCounts, snapshot } = builder();
+    if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+
+    // Use navigator.sendBeacon for reliability during unload
+    const payload = JSON.stringify({ countId, itemCounts, elapsedSeconds });
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/utility-service?action=flush_inventory_count`;
+    const sent = navigator.sendBeacon?.(url, new Blob([payload], { type: 'application/json' }));
+    
+    if (!sent) {
+      // Fallback: fire-and-forget fetch (no await)
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    lastAutosavedRef.current = snapshot;
+    console.log("[Inventory] Flush save fired (unmount/unload)");
+  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+
+  // Async flush for unmount (component cleanup)
+  const flushSaveAsync = useCallback(async () => {
+    if (isViewOnly || isEditing) return;
+    const builder = buildSnapshotRef.current;
+    if (!builder) return;
+    const { itemCounts, snapshot } = builder();
+    if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+
+    try {
+      for (const ic of itemCounts) {
+        const { data: existing } = await supabase
+          .from("inventory_count_items")
+          .select("id, storage_location_id")
+          .eq("count_id", countId)
+          .eq("item_id", ic.item_id) as any;
+        
+        const storLocId = ic.storage_location_id;
+        const match = (existing || []).find((r: any) => 
+          (r as any).storage_location_id === storLocId || 
+          (!storLocId && !(r as any).storage_location_id)
+        );
+        
+        if (match) {
+          await supabase
+            .from("inventory_count_items")
+            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
+            .eq("id", match.id);
+        } else {
+          await supabase
+            .from("inventory_count_items")
+            .insert({
+              count_id: countId,
+              item_id: ic.item_id,
+              quantity: ic.quantity,
+              storage_location_id: storLocId,
+              entered_cases: ic.entered_cases,
+              entered_units: ic.entered_units,
+            } as any);
+        }
+      }
+
+      await supabase
+        .from("inventory_counts")
+        .update({ duration_seconds: elapsedSeconds })
+        .eq("id", countId);
+
+      lastAutosavedRef.current = snapshot;
+      console.log("[Inventory] Flush save completed (async)");
+    } catch (e) {
+      console.warn("[Inventory] Flush save failed:", e);
+    }
+  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+
+  // beforeunload: use sync flush to save data before tab/window close
+  useEffect(() => {
+    if (isViewOnly || isEditing) return;
+    const handler = () => flushSaveSync();
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [flushSaveSync, isViewOnly, isEditing]);
+
+  // Unmount flush: save pending data when component unmounts (SPA navigation)
+  const flushSaveAsyncRef = useRef(flushSaveAsync);
+  useEffect(() => { flushSaveAsyncRef.current = flushSaveAsync; }, [flushSaveAsync]);
+  useEffect(() => {
+    return () => {
+      // Fire async flush on unmount — also fire sync as safety net
+      flushSaveAsyncRef.current();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!items || Object.keys(counts).length === 0 || isViewOnly || isEditing) return;
+
+    // Debounce: save 3 seconds after last change
+    if (autosaveRef.current) clearTimeout(autosaveRef.current);
+
+    autosaveRef.current = setTimeout(async () => {
+      const builder = buildSnapshotRef.current;
+      if (!builder) return;
+      const { itemCounts, snapshot } = builder();
 
       // Skip if nothing changed since last autosave
-      const snapshot = JSON.stringify(itemCounts);
-      if (snapshot === lastAutosavedRef.current) return;
+      if (snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
       try {
         // Save each split-count entry individually
