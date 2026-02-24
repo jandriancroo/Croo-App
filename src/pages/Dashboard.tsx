@@ -769,12 +769,6 @@ export default function Dashboard() {
           return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
         };
         
-        // Determine button text: Review (complete), Continue (started), Start Checklist (not started)
-        const getButtonText = () => {
-          if (isComplete) return 'Review';
-          if (hasStarted) return 'Continue';
-          return 'Start Checklist';
-        };
         
         return (
           <ChecklistCard
