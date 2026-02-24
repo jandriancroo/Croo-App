@@ -361,7 +361,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Save count mutation (saves progress without completing)
   // Now supports split-count items with storage_location_id
   const saveCountMutation = useMutation({
-    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null }[]) => {
+    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null; entered_cases?: number; entered_units?: number }[]) => {
       // Use individual upserts since the unique constraint now uses COALESCE
       for (const ic of itemCounts) {
         const storLocId = ic.storage_location_id;
