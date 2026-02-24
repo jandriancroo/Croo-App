@@ -1986,7 +1986,12 @@ export default function PayrollReview() {
       };
     });
 
-    const totals = summary.reduce((acc, emp) => ({
+    // Filter out employees with zero hours, zero PTO, and zero tips
+    const filteredSummary = summary.filter(emp => 
+      emp.regularHours > 0 || emp.overtimeHours > 0 || emp.doubleOvertimeHours > 0 || emp.ptoHours > 0 || emp.tips > 0
+    );
+
+    const totals = filteredSummary.reduce((acc, emp) => ({
       regularHours: acc.regularHours + emp.regularHours,
       overtimeHours: acc.overtimeHours + emp.overtimeHours,
       doubleOvertimeHours: acc.doubleOvertimeHours + emp.doubleOvertimeHours,
@@ -1996,7 +2001,7 @@ export default function PayrollReview() {
       totalCompensation: acc.totalCompensation + emp.totalCompensation
     }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, tips: 0, grossWages: 0, totalCompensation: 0 });
 
-    return { employees: summary, totals };
+    return { employees: filteredSummary, totals };
   };
 
   // Group punches by week for display - ONLY include days within the selected pay period
