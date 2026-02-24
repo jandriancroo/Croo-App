@@ -226,7 +226,51 @@ function OptionE({ c }: { c: typeof mockChecklists[0] }) {
   );
 }
 
+// ─── OPTION F: Combo (B row layout + E accent border) ────────
+function OptionF({ c }: { c: typeof mockChecklists[0] }) {
+  const pct = c.expected > 0 ? Math.round((c.completed / c.expected) * 100) : 0;
+  return (
+    <Card className="border-0 overflow-hidden relative p-0">
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ background: c.isComplete ? 'hsl(var(--primary))' : c.isLocked ? 'hsl(var(--muted))' : `hsl(var(--primary) / 0.5)` }} />
+      <div className="flex items-center gap-3 pl-5 pr-4 py-3.5">
+        <div className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-2xl shrink-0",
+          c.isComplete ? "bg-primary" : c.isLocked ? "bg-muted" : "bg-secondary"
+        )}>
+          {c.isComplete ? (
+            <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
+          ) : c.isLocked ? (
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          ) : (
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm truncate">{c.title}</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">{c.frequency}</Badge>
+          </div>
+          {c.isLocked ? (
+            <span className="text-xs text-muted-foreground">Locked until {c.lockUntilTime}</span>
+          ) : c.isComplete ? (
+            <span className="text-xs text-primary font-medium">All tasks complete ✓</span>
+          ) : (
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground">{c.completed}/{c.expected}</span>
+            </div>
+          )}
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+      </div>
+    </Card>
+  );
+}
+
 const options = [
+  { key: "F", label: "E + B Combo", desc: "Left accent border with compact row layout, icon pill, and inline progress", Component: OptionF },
   { key: "A", label: "Horizontal Bar", desc: "Bold CTA-style progress bar matching the screenshot reference", Component: OptionA },
   { key: "B", label: "Compact Row", desc: "Minimal list-style card with inline thin progress bar", Component: OptionB },
   { key: "C", label: "visionOS Floating", desc: "Rounded pill with large percentage and soft shadow", Component: OptionC },
