@@ -10,6 +10,7 @@ Daily,avg_ticket,Avg Ticket,Avg$,Avg Check
 Daily,labor_percent_today,Labor %,Labor%,Lab%
 Daily,labor_cost_today,Labor Cost,Labor$,X
 Daily,labor_hours_today,Hours,Hrs,Lab Hrs
+Daily,pace_vs_ly_day,Pace vs SDLY,vs SDLY,vs SDLY
 Weekly,sales_wtd,Sales WTD,WTD,WTD
 Weekly,sales_pace_week,Week Pace,Pace,Wkly Pace
 Weekly,sales_projected_week,AI Goal EOW,AI EOW,EOW Goal
@@ -20,6 +21,7 @@ Weekly,pizza_count_wtd,Pizzas WTD,Pizzas,WTD Pizzas
 Weekly,labor_percent_wtd,Labor % WTD,Labor%,WTD Lab%
 Weekly,labor_cost_wtd,Labor Cost WTD,Labor$,x
 Weekly,labor_hours_wtd,Hours WTD,Hrs,x
+Weekly,pace_vs_ly_week,Pace vs SWLY,vs SWLY,vs SWLY
 Monthly,sales_mtd,Sales MTD,MTD,MTD
 Monthly,sales_pace_month,Month Pace,Pace,(add 3 letter month name) + Pace
 Monthly,sales_projected_month,AI Goal EOM,AI EOM,EOM Goal
@@ -30,6 +32,7 @@ Monthly,pizza_count_mtd,Pizzas MTD,Pizzas,MTD Pizzas
 Monthly,labor_percent_mtd,Labor % MTD,Labor%,MTD Lab%
 Monthly,labor_cost_mtd,Labor Cost MTD,Labor$,X
 Monthly,labor_hours_mtd,Hours MTD,Hrs,X
+Monthly,pace_vs_ly_month,Pace vs SMLY,vs SMLY,vs SMLY
 Personal,personal_hours_week,My Hours (Week),My Hrs,X
 Personal,personal_hours_payroll,My Hours (Payroll),Pay Hrs,Pay Hrs
 Personal,personal_pay_week,Est. Pay (Week),My Pay,X

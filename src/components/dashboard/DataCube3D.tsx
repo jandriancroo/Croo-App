@@ -25,7 +25,7 @@ interface DataCube3DProps {
   useDemoData?: boolean; // Temporarily show demo data for testing
 }
 
-function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string {
+function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string {
   if (value === undefined || value === null) return '--';
   
   switch (format) {
@@ -33,6 +33,10 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
       return `$${Math.round(value).toLocaleString()}`;
     case 'percent':
       return `${value.toFixed(1)}%`;
+    case 'percent_signed': {
+      const arrow = value >= 0 ? '▲' : '▼';
+      return `${arrow} ${Math.abs(value).toFixed(1)}%`;
+    }
     case 'hours':
       return `${Math.round(value)}h`;
     case 'number':

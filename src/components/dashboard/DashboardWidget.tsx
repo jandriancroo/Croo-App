@@ -82,6 +82,10 @@ export type MetricType =
   | 'payment_olo_prepaid_mtd' | 'payment_olo_prepaid_mtd_pct'
   | 'payment_olo_giftcard_mtd' | 'payment_olo_giftcard_mtd_pct'
   | 'payment_svs_giftcard_mtd' | 'payment_svs_giftcard_mtd_pct'
+  // Pace vs Last Year variance (computed %)
+  | 'pace_vs_ly_day'
+  | 'pace_vs_ly_week'
+  | 'pace_vs_ly_month'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -93,7 +97,7 @@ export interface MetricConfig {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
-  format: 'currency' | 'percent' | 'number' | 'hours';
+  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours';
   category: 'daily' | 'weekly' | 'monthly';
 }
 
@@ -134,6 +138,10 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   labor_percent_mtd: { type: 'labor_percent_mtd', label: 'Labor % MTD', shortLabel: 'MTD Lab%', icon: Users, format: 'percent', category: 'monthly' },
   labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' }, // Hidden (x)
   labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'monthly' }, // Hidden (x)
+  // Pace vs Last Year variance metrics (computed)
+  pace_vs_ly_day: { type: 'pace_vs_ly_day', label: 'Pace vs SDLY', shortLabel: 'vs SDLY', icon: TrendingUp, format: 'percent_signed', category: 'daily' },
+  pace_vs_ly_week: { type: 'pace_vs_ly_week', label: 'Pace vs SWLY', shortLabel: 'vs SWLY', icon: TrendingUp, format: 'percent_signed', category: 'weekly' },
+  pace_vs_ly_month: { type: 'pace_vs_ly_month', label: 'Pace vs SMLY', shortLabel: 'vs SMLY', icon: TrendingUp, format: 'percent_signed', category: 'monthly' },
   
   // Personal metrics - available to all users (some hidden)
   personal_hours_week: { type: 'personal_hours_week', label: 'My Hours (Week)', shortLabel: 'My Hrs', icon: Clock, format: 'hours', category: 'weekly' }, // Hidden (x)
@@ -234,6 +242,7 @@ export const METRIC_GROUPS = [
     label: 'Daily', 
     metrics: [
       'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
+      'pace_vs_ly_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
       'labor_percent_today', 'labor_hours_today'
     ] as MetricType[] 
@@ -242,6 +251,7 @@ export const METRIC_GROUPS = [
     label: 'Weekly', 
     metrics: [
       'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
+      'pace_vs_ly_week',
       'guest_count_wtd', 'pizza_count_wtd',
       'labor_percent_wtd'
     ] as MetricType[] 
@@ -250,6 +260,7 @@ export const METRIC_GROUPS = [
     label: 'Monthly', 
     metrics: [
       'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_prev_month', 'sales_last_year_month',
+      'pace_vs_ly_month',
       'guest_count_mtd', 'pizza_count_mtd',
       'labor_percent_mtd'
     ] as MetricType[] 
@@ -323,7 +334,7 @@ export function DashboardWidget({
   
   // Use primary color for OLED theme instead of custom accent colors
   const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
-  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'number' | 'hours'): string => {
+  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (formatType) {
@@ -331,6 +342,10 @@ export function DashboardWidget({
         return `$${Math.round(value).toLocaleString()}`;
       case 'percent':
         return `${value.toFixed(1)}%`;
+      case 'percent_signed': {
+        const arrow = value >= 0 ? '▲' : '▼';
+        return `${arrow} ${Math.abs(value).toFixed(1)}%`;
+      }
       case 'hours':
         return `${Math.round(value)}h`;
       case 'number':
@@ -405,6 +420,26 @@ export function DashboardWidget({
       case 'personal_hours_payroll': return salesData.personalData?.hoursPayroll;
       case 'personal_pay_week': return salesData.personalData?.payWeek;
       case 'personal_pay_payroll': return salesData.personalData?.payPayroll;
+      
+      // Pace vs Last Year variance (computed %)
+      case 'pace_vs_ly_day': {
+        const pace = salesData.projections?.todayPaceAdjusted;
+        const ly = salesData.lastYear?.sameDay;
+        if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+        return undefined;
+      }
+      case 'pace_vs_ly_week': {
+        const pace = salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
+        const ly = salesData.lastYear?.sameWeek;
+        if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+        return undefined;
+      }
+      case 'pace_vs_ly_month': {
+        const pace = salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
+        const ly = salesData.lastYear?.sameMonth;
+        if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+        return undefined;
+      }
       
       default: return undefined;
     }
