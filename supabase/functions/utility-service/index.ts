@@ -625,6 +625,74 @@ async function handleVerifyTurnstileUpload(req: Request, supabaseAdmin: any): Pr
   }
 }
 
+// ============= FLUSH INVENTORY COUNT =============
+async function handleFlushInventoryCount(req: Request, supabaseAdmin: any): Promise<Response> {
+  try {
+    const body = await req.json();
+    const { countId, itemCounts, elapsedSeconds } = body;
+
+    if (!countId || !itemCounts || !Array.isArray(itemCounts)) {
+      return new Response(
+        JSON.stringify({ error: "Missing countId or itemCounts" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[flush_inventory_count] Flushing ${itemCounts.length} items for count ${countId}`);
+
+    for (const ic of itemCounts) {
+      const { data: existing } = await supabaseAdmin
+        .from("inventory_count_items")
+        .select("id, storage_location_id")
+        .eq("count_id", countId)
+        .eq("item_id", ic.item_id);
+
+      const storLocId = ic.storage_location_id;
+      const match = (existing || []).find((r: any) =>
+        r.storage_location_id === storLocId ||
+        (!storLocId && !r.storage_location_id)
+      );
+
+      if (match) {
+        await supabaseAdmin
+          .from("inventory_count_items")
+          .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units })
+          .eq("id", match.id);
+      } else {
+        await supabaseAdmin
+          .from("inventory_count_items")
+          .insert({
+            count_id: countId,
+            item_id: ic.item_id,
+            quantity: ic.quantity,
+            storage_location_id: storLocId,
+            entered_cases: ic.entered_cases,
+            entered_units: ic.entered_units,
+          });
+      }
+    }
+
+    if (elapsedSeconds != null) {
+      await supabaseAdmin
+        .from("inventory_counts")
+        .update({ duration_seconds: elapsedSeconds })
+        .eq("id", countId);
+    }
+
+    console.log(`[flush_inventory_count] Done flushing count ${countId}`);
+    return new Response(
+      JSON.stringify({ success: true, flushed: itemCounts.length }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("[flush_inventory_count] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error?.message || "Flush failed" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+}
+
 // ============= MAIN ROUTER =============
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -655,6 +723,8 @@ serve(async (req: Request): Promise<Response> => {
         return await handleSubmitQRTaskReport(req, supabaseAdmin);
       case "verify-turnstile-upload":
         return await handleVerifyTurnstileUpload(req, supabaseAdmin);
+      case "flush_inventory_count":
+        return await handleFlushInventoryCount(req, supabaseAdmin);
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
