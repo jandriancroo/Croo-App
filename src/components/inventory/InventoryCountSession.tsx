@@ -190,9 +190,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const multiLocs = multiLocMap.get(item.id);
         
         // Determine which storage locations this item should appear in
+        // Always include the primary storage_location_id + any shortcut locations
+        const primaryLoc = item.storage_location_id || null;
         const locIds: (string | null)[] = (multiLocs && multiLocs.length > 0)
-          ? multiLocs
-          : [item.storage_location_id || null];
+          ? [primaryLoc, ...multiLocs.filter(l => l !== primaryLoc)]
+          : [primaryLoc];
 
         for (const locId of locIds) {
           const splitKey = `${item.id}|${locId || ''}`;
