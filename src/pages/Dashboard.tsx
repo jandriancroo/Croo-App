@@ -8,6 +8,7 @@ import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, ClipboardCheck, ArrowUpDown, Check, Settings2, AlertTriangle, Lock } from 'lucide-react';
+import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
 import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
@@ -661,21 +662,11 @@ export default function Dashboard() {
       toast.success('Layout saved');
     }
   };
-  const getFrequencyColor = (_frequency: string) => {
-    // Unified muted color for all frequency badges
-    return 'bg-muted text-muted-foreground';
-  };
   const getCompletionData = (checklistId: string) => {
     return completionData[checklistId] || {
       expected: 0,
       completed: 0
     };
-  };
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
 
@@ -707,7 +698,7 @@ export default function Dashboard() {
 
   // Checklists grid content - passed to WidgetsSection for unified drag & drop
   const checklistsGridContent = (
-    <div className="grid gap-3 grid-cols-1 md:grid-cols-3 items-start">
+    <div className="space-y-2.5">
       {/* Checklist Cards */}
       {checklists.map(checklist => {
         const { expected, completed } = getCompletionData(checklist.id);
@@ -778,75 +769,18 @@ export default function Dashboard() {
           return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
         };
         
-        // Determine button text: Review (complete), Continue (started), Start Checklist (not started)
-        const getButtonText = () => {
-          if (isComplete) return 'Review';
-          if (hasStarted) return 'Continue';
-          return 'Start Checklist';
-        };
         
         return (
-          <Card 
-            key={checklist.id} 
-            className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible"
-          >
-            {/* Header Section */}
-            <CardHeader className="py-2 px-3">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
-                <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
-                <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${isOverdue ? 'bg-destructive text-destructive-foreground' : getFrequencyColor(checklist.frequency)}`}>
-                  {isOverdue ? (
-                    <span className="flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      overdue
-                    </span>
-                  ) : checklist.frequency}
-                </Badge>
-              </div>
-            </CardHeader>
-
-            {/* Combined Status Button with Progress Bar */}
-            <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
-              <button 
-                className={`relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden bg-muted ${isLocked ? 'cursor-not-allowed opacity-75' : ''}`}
-                onClick={() => !isLocked && navigate(`/complete/${checklist.id}`)}
-                disabled={isLocked}
-              >
-                {/* Progress fill background */}
-                {!isLocked && (
-                  <div 
-                    className="absolute inset-y-0 left-0 bg-primary transition-all duration-300 rounded-lg"
-                    style={{ width: `${Math.max(completionRate, hasStarted ? 45 : 0)}%` }}
-                  />
-                )}
-                {/* Content */}
-                <div className="relative z-10 flex items-center justify-between px-4 h-full">
-                  {isLocked ? (
-                    <div className="w-full flex items-center justify-center gap-2 text-muted-foreground font-medium">
-                      <Lock className="h-4 w-4" />
-                      <span>Locked until {formatLockTime(checklist.lock_until_time!)}</span>
-                    </div>
-                  ) : isComplete ? (
-                    <>
-                      <div className="flex items-center gap-2 text-primary-foreground">
-                        <Check className="h-4 w-4" strokeWidth={3} />
-                        <span className="font-medium">Completed</span>
-                      </div>
-                      <span className="text-primary-foreground font-medium">100%</span>
-                    </>
-                  ) : hasStarted ? (
-                    <>
-                      <span className="text-primary-foreground font-medium">Continue • {completed}/{expected}</span>
-                      <span className="text-muted-foreground font-medium">{completionRate}%</span>
-                    </>
-                  ) : (
-                    <span className="w-full text-center text-muted-foreground font-medium">Start Checklist</span>
-                  )}
-                </div>
-              </button>
-            </CardContent>
-          </Card>
+          <ChecklistCard
+            key={checklist.id}
+            checklistId={checklist.id}
+            title={checklist.title}
+            completed={completed}
+            expected={expected}
+            isOverdue={isOverdue}
+            isLocked={isLocked}
+            lockUntilTime={isLocked && checklist.lock_until_time ? formatLockTime(checklist.lock_until_time) : undefined}
+          />
         );
       })}
 
