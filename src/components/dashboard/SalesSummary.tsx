@@ -1160,6 +1160,10 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       pizzaMonthly: typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.monthly : undefined,
       laborDaily: salesData.labor,
       laborWeekly: salesData.weeklyLabor,
+      lastYearDay: salesData.lastYear?.sameDay,
+      lastYearWeek: salesData.lastYear?.sameWeek,
+      lastYearMonth: salesData.lastYear?.sameMonth,
+      avgTicket: salesData.avgTicket,
     });
 
     if (emitKey === lastSalesDataSentKey.current) return;

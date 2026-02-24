@@ -287,6 +287,25 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
     case 'payment_olo_prepaid_mtd_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo prepaid', 'prepaid']);
     case 'payment_olo_giftcard_mtd_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo gift card', 'olo giftcard']);
     case 'payment_svs_giftcard_mtd_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['svs gift card', 'svs giftcard']);
+    // Pace vs Last Year variance (computed %)
+    case 'pace_vs_ly_day': {
+      const pace = salesData.projections?.todayPaceAdjusted;
+      const ly = salesData.lastYear?.sameDay;
+      if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+      return undefined;
+    }
+    case 'pace_vs_ly_week': {
+      const pace = salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
+      const ly = salesData.lastYear?.sameWeek;
+      if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+      return undefined;
+    }
+    case 'pace_vs_ly_month': {
+      const pace = salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
+      const ly = salesData.lastYear?.sameMonth;
+      if (pace != null && ly != null && ly > 0) return ((pace - ly) / ly) * 100;
+      return undefined;
+    }
     default: return undefined;
   }
 }
