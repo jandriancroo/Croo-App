@@ -151,7 +151,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
       return item.quantity * batchCost;
     }
     const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || 1);
-    return item.quantity * ((item.item?.cost_per_unit || 0) / packQty);
+    return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
   };
 
   // Group items by storage location, maintaining display_order
