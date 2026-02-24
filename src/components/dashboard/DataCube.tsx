@@ -35,7 +35,7 @@ export function DataCube({
 }: DataCubeProps) {
   const isOled = useIsOledTheme();
   
-  const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string => {
+  const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (format) {
@@ -43,6 +43,10 @@ export function DataCube({
         return `$${Math.round(value).toLocaleString()}`;
       case 'percent':
         return `${value.toFixed(1)}%`;
+      case 'percent_signed': {
+        const arrow = value >= 0 ? '▲' : '▼';
+        return `${arrow} ${Math.abs(value).toFixed(1)}%`;
+      }
       case 'hours':
         return `${Math.round(value)}h`;
       case 'number':
