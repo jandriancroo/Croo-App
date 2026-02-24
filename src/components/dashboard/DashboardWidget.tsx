@@ -138,6 +138,10 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   labor_percent_mtd: { type: 'labor_percent_mtd', label: 'Labor % MTD', shortLabel: 'MTD Lab%', icon: Users, format: 'percent', category: 'monthly' },
   labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' }, // Hidden (x)
   labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'monthly' }, // Hidden (x)
+  // Pace vs Last Year variance metrics (computed)
+  pace_vs_ly_day: { type: 'pace_vs_ly_day', label: 'Pace vs SDLY', shortLabel: 'vs SDLY', icon: TrendingUp, format: 'percent_signed', category: 'daily' },
+  pace_vs_ly_week: { type: 'pace_vs_ly_week', label: 'Pace vs SWLY', shortLabel: 'vs SWLY', icon: TrendingUp, format: 'percent_signed', category: 'weekly' },
+  pace_vs_ly_month: { type: 'pace_vs_ly_month', label: 'Pace vs SMLY', shortLabel: 'vs SMLY', icon: TrendingUp, format: 'percent_signed', category: 'monthly' },
   
   // Personal metrics - available to all users (some hidden)
   personal_hours_week: { type: 'personal_hours_week', label: 'My Hours (Week)', shortLabel: 'My Hrs', icon: Clock, format: 'hours', category: 'weekly' }, // Hidden (x)
