@@ -21,6 +21,7 @@ Weekly,pizza_count_wtd,Pizzas WTD,Pizzas,WTD Pizzas
 Weekly,labor_percent_wtd,Labor % WTD,Labor%,WTD Lab%
 Weekly,labor_cost_wtd,Labor Cost WTD,Labor$,x
 Weekly,labor_hours_wtd,Hours WTD,Hrs,x
+Weekly,pace_vs_ly_week,Pace vs SWLY,vs SWLY,vs SWLY
 Monthly,sales_mtd,Sales MTD,MTD,MTD
 Monthly,sales_pace_month,Month Pace,Pace,(add 3 letter month name) + Pace
 Monthly,sales_projected_month,AI Goal EOM,AI EOM,EOM Goal
