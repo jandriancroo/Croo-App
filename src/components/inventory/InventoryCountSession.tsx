@@ -297,7 +297,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return acc;
   }, {} as Record<string, { name: string; items: CountItem[] }>) || {};
 
-  const locationKeys = Object.keys(itemsByLocation);
+  // Sort location keys by storage location display_order
+  const locationKeys = Object.keys(itemsByLocation).sort((a, b) => {
+    const orderA = storageLocations?.find(sl => sl.id === a)?.display_order ?? 999;
+    const orderB = storageLocations?.find(sl => sl.id === b)?.display_order ?? 999;
+    return orderA - orderB;
+  });
   const currentLocation = locationKeys[currentLocationIndex];
   const currentItems = currentLocation ? itemsByLocation[currentLocation].items : [];
 
