@@ -512,10 +512,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       const itemCounts = items.map(item => {
         const key = (item as any)._splitKey || item.item_id;
         const storLocId = item.storage_location_id;
+        const countState = counts[key] || { cases: 0, units: 0 };
         return {
           item_id: item.item_id,
           quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
           storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+          entered_cases: countState.cases,
+          entered_units: countState.units,
         };
       });
 
