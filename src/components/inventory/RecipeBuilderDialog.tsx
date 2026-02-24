@@ -26,15 +26,15 @@ interface RecipeIngredient {
   unit: string;
 }
 
-const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
+const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "kg", "g", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
 
 // Conversion factors to oz (base unit for auto-calc)
 const TO_OZ: Record<string, number> = {
-  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1,
+  oz: 1, qt: 32, lb: 16, gal: 128, tbsp: 0.5, tsp: 0.1667, ml: 0.033814, cups: 8, ea: 1, bags: 1, ct: 1, kg: 35.274, g: 0.03527,
 };
 
 const PACK_UNIT_MAP: Record<string, string> = {
-  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea", CN: "ea",
+  OZ: "oz", LB: "lb", GA: "gal", GAL: "gal", ML: "ml", CT: "ct", EA: "ea", CN: "ea", KG: "kg", G: "g",
 };
 
 // Standard can sizes in oz

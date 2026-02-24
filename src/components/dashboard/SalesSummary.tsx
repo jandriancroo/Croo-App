@@ -421,8 +421,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       : null;
     
     const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
+    const hasValidPaceCache = cachedProjections?.todayPaceAdjusted !== undefined;
     const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
-    const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
+    // Only skip projections if we have ALL cached values including pace
+    // If pace expired (7-min TTL) but todayProjected is still valid (30-min), we MUST refetch
+    const skipProjections = isTodayCheck && hasValidDailyCache && hasValidPaceCache && hasValidWeeklyMonthlyCache;
     
     // Check if we have cached data - if so, use fast mode for quicker refresh (TODAY only)
     const cached = isTodayCheck && currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
