@@ -26,7 +26,7 @@ interface RecipeIngredient {
   unit: string;
 }
 
-const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
+const UNIT_OPTIONS = ["oz", "qt", "gal", "lb", "kg", "g", "ea", "tbsp", "tsp", "ml", "cups", "bags", "ct"];
 
 // Conversion factors to oz (base unit for auto-calc)
 const TO_OZ: Record<string, number> = {
