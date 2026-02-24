@@ -105,46 +105,57 @@ const Inventory = () => {
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
-      // Fetch total active items for this location
-      const { count: totalActiveItems } = await supabase
-        .from("inventory_items")
-        .select("id", { count: "exact", head: true })
-        .eq("location_id", locationId)
-        .eq("is_active", true)
-        .neq("user_hidden", true);
-
-      const totalItems = totalActiveItems || 0;
-
-      // Fetch stats for all counts in parallel
+      // Fetch stats for all counts from count_items (source of truth)
       const countIds = data.map(c => c.id);
       const { data: countItems } = await supabase
         .from("inventory_count_items")
         .select("count_id, quantity, item_id")
         .in("count_id", countIds);
 
-      // Get unique item IDs for cost lookup
+      // Get unique item IDs for cost lookup (include pack_quantity_override and is_recipe)
       const itemIds = [...new Set((countItems || []).map(ci => ci.item_id))];
       let costMap: Record<string, number> = {};
+      let recipeIds = new Set<string>();
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit, pack_quantity")
+          .select("id, cost_per_unit, pack_quantity, pack_quantity_override, is_recipe")
           .in("id", itemIds);
-        costMap = Object.fromEntries((items || []).map(i => [i.id, (i.cost_per_unit || 0) / (i.pack_quantity || 1)]));
+        for (const i of (items || [])) {
+          if (i.is_recipe) {
+            recipeIds.add(i.id);
+          }
+          const packQty = i.pack_quantity_override ?? (i.pack_quantity || 1);
+          costMap[i.id] = (i.cost_per_unit || 0) / Math.max(packQty, 1);
+        }
       }
 
-      // Aggregate stats per count
+      // Fetch recipe costs if any recipes exist
+      let recipeCostMap: Map<string, number> | null = null;
+      if (recipeIds.size > 0 && locationId) {
+        const { fetchRecipeCosts } = await import("@/utils/recipeCostCalculation");
+        recipeCostMap = await fetchRecipeCosts(locationId);
+      }
+
+      // Aggregate stats per count — totalItems = actual count items, not current active items
       const statsMap: Record<string, { totalItems: number; countedItems: number; totalCost: number }> = {};
       for (const ci of (countItems || [])) {
-        if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems, countedItems: 0, totalCost: 0 };
+        if (!statsMap[ci.count_id]) statsMap[ci.count_id] = { totalItems: 0, countedItems: 0, totalCost: 0 };
+        statsMap[ci.count_id].totalItems++;
         if (ci.quantity > 0) {
           statsMap[ci.count_id].countedItems++;
-          statsMap[ci.count_id].totalCost += ci.quantity * (costMap[ci.item_id] || 0);
+          // Use recipe batch cost if available, otherwise use normalized unit cost
+          const batchCost = recipeCostMap?.get(ci.item_id);
+          if (recipeIds.has(ci.item_id) && batchCost && batchCost > 0) {
+            statsMap[ci.count_id].totalCost += ci.quantity * batchCost;
+          } else {
+            statsMap[ci.count_id].totalCost += ci.quantity * (costMap[ci.item_id] || 0);
+          }
         }
       }
 
       // Ensure all counts have stats even if no count items yet
-      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems, countedItems: 0, totalCost: 0 } }));
+      return data.map(c => ({ ...c, _stats: statsMap[c.id] || { totalItems: 0, countedItems: 0, totalCost: 0 } }));
     },
     enabled: !!locationId
   });
