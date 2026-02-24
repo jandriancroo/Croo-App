@@ -260,6 +260,7 @@ export const METRIC_GROUPS = [
     label: 'Monthly', 
     metrics: [
       'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_prev_month', 'sales_last_year_month',
+      'pace_vs_ly_month',
       'guest_count_mtd', 'pizza_count_mtd',
       'labor_percent_mtd'
     ] as MetricType[] 
