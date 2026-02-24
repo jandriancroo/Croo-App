@@ -286,7 +286,7 @@ export default function ChecklistCardPreview() {
       <div className="max-w-2xl mx-auto space-y-8">
         <div>
           <h1 className="text-2xl font-bold mb-1">Checklist Card Styles</h1>
-          <p className="text-sm text-muted-foreground">5 options — tap to select your preferred style</p>
+          <p className="text-sm text-muted-foreground">6 options — tap to select your preferred style</p>
         </div>
 
         {options.map(({ key, label, desc, Component }) => (
