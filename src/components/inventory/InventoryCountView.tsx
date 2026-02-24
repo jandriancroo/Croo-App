@@ -66,6 +66,8 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           id,
           item_id,
           quantity,
+          entered_cases,
+          entered_units,
           item:inventory_items(
             name,
             common_name,
