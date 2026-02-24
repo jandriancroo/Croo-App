@@ -662,21 +662,11 @@ export default function Dashboard() {
       toast.success('Layout saved');
     }
   };
-  const getFrequencyColor = (_frequency: string) => {
-    // Unified muted color for all frequency badges
-    return 'bg-muted text-muted-foreground';
-  };
   const getCompletionData = (checklistId: string) => {
     return completionData[checklistId] || {
       expected: 0,
       completed: 0
     };
-  };
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
 
