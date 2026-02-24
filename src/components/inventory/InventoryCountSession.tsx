@@ -59,10 +59,12 @@ interface ItemCount {
 }
 
 interface PendingEdit {
-  countItemId: string;
+  countItemId: string | null;
   itemName: string;
   previousQuantity: number;
   newQuantity: number;
+  itemId?: string;
+  storageLocationId?: string;
 }
 
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false, saveRef }: InventoryCountSessionProps) => {
