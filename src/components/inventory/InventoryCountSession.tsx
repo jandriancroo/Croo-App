@@ -546,7 +546,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           if (match) {
             await supabase
               .from("inventory_count_items")
-              .update({ quantity: ic.quantity } as any)
+              .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
               .eq("id", match.id);
           } else {
             await supabase
@@ -556,6 +556,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 item_id: ic.item_id,
                 quantity: ic.quantity,
                 storage_location_id: storLocId,
+                entered_cases: ic.entered_cases,
+                entered_units: ic.entered_units,
               } as any);
           }
         }
