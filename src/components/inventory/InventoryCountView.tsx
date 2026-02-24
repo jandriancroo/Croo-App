@@ -264,9 +264,10 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                         </TableHeader>
                         <TableBody>
                           {items.map((item) => {
-                            const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || 1);
-                            const cases = Math.floor(item.quantity / packQty);
-                            const units = Math.round((item.quantity % packQty) * 100) / 100;
+                            const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || null);
+                            const hasPackQty = packQty != null && packQty > 1;
+                            const cases = hasPackQty ? Math.floor(item.quantity / packQty) : 0;
+                            const units = hasPackQty ? Math.round((item.quantity % packQty) * 100) / 100 : item.quantity;
                             const value = getItemValue(item);
                             const itemEdits = editHistory?.get(item.id) || [];
                             const hasEdits = itemEdits.length > 0;
