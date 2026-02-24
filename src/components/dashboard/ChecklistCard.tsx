@@ -73,18 +73,30 @@ export const ChecklistCard = memo(function ChecklistCard({
           </div>
         )}
 
-        {/* Icon pill */}
-        <div className={cn(
-          "flex items-center justify-center w-10 h-10 rounded-2xl shrink-0",
-          isComplete ? "bg-primary" : isLocked ? "bg-muted" : "bg-secondary"
-        )}>
-          {isComplete ? (
-            <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
-          ) : isLocked ? (
-            <Lock className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ClipboardCheck className="h-5 w-5 text-primary" />
-          )}
+        {/* Dynamic ring icon */}
+        <div className="relative w-12 h-12 shrink-0">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+            <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+            {!isLocked && (
+              <circle
+                cx="24" cy="24" r="20" fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="3" strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 20}
+                strokeDashoffset={isComplete ? 0 : (2 * Math.PI * 20) - (completionRate / 100) * (2 * Math.PI * 20)}
+                className="transition-all duration-700"
+              />
+            )}
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            {isLocked ? (
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            ) : isComplete ? (
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            ) : (
+              <span className="text-[11px] font-black text-primary">{completionRate}%</span>
+            )}
+          </div>
         </div>
 
         {/* Content */}
