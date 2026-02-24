@@ -97,7 +97,7 @@ export interface MetricConfig {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
-  format: 'currency' | 'percent' | 'number' | 'hours';
+  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours';
   category: 'daily' | 'weekly' | 'monthly';
 }
 
