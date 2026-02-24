@@ -128,9 +128,9 @@ const Inventory = () => {
       if (itemIds.length > 0) {
         const { data: items } = await supabase
           .from("inventory_items")
-          .select("id, cost_per_unit")
+          .select("id, cost_per_unit, pack_quantity")
           .in("id", itemIds);
-        costMap = Object.fromEntries((items || []).map(i => [i.id, i.cost_per_unit || 0]));
+        costMap = Object.fromEntries((items || []).map(i => [i.id, (i.cost_per_unit || 0) / (i.pack_quantity || 1)]));
       }
 
       // Aggregate stats per count
