@@ -82,6 +82,10 @@ export type MetricType =
   | 'payment_olo_prepaid_mtd' | 'payment_olo_prepaid_mtd_pct'
   | 'payment_olo_giftcard_mtd' | 'payment_olo_giftcard_mtd_pct'
   | 'payment_svs_giftcard_mtd' | 'payment_svs_giftcard_mtd_pct'
+  // Pace vs Last Year variance (computed %)
+  | 'pace_vs_ly_day'
+  | 'pace_vs_ly_week'
+  | 'pace_vs_ly_month'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
