@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown, Camera } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -1204,10 +1204,8 @@ export default function CompleteChecklist() {
                                       document.getElementById(cameraId)?.click();
                                     }}
                                   >
-                                    <div className="flex items-center justify-center py-1">
-                                      <span className="text-base text-muted-foreground font-medium">
-                                        {isMultiPhoto ? `Snap photo ${slotNumber}` : 'Snap a Photo'}
-                                      </span>
+                                    <div className="flex items-center justify-center min-h-[60px]">
+                                      <Camera className="h-8 w-8 text-muted-foreground" />
                                     </div>
                                   </Label>
                                   <Input
@@ -1273,17 +1271,17 @@ export default function CompleteChecklist() {
                       </div>
                     );
                   })()}
-                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center justify-center space-x-2 py-1">
+                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center justify-center space-x-2 min-h-[60px]">
                       <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
                       <Label 
                         htmlFor={`confirm-${item.id}`} 
-                        className="text-sm font-normal cursor-pointer leading-relaxed"
+                        className="text-sm font-normal cursor-pointer leading-relaxed text-muted-foreground"
                         onClick={(e) => {
                           e.preventDefault();
                           handleResponseChange(item.id, !responses[item.id]);
                         }}
                       >
-                        {item.question}
+                        Click to Complete
                       </Label>
                     </div>}
                 </CardContent>
