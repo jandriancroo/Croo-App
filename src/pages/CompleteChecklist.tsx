@@ -1116,6 +1116,8 @@ export default function CompleteChecklist() {
                   </CardContent>
                 ) : (
                   <>
+                {/* Hide CardHeader entirely for completed image items to let photo fill card */}
+                {!(hasResponse && isImageItem) && (
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
                   {/* Reference Material Display */}
                   {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
@@ -1141,6 +1143,7 @@ export default function CompleteChecklist() {
                         </div>}
                     </div>}
                 </CardHeader>
+                )}
                 <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0'} ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
