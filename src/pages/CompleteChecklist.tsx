@@ -752,12 +752,13 @@ export default function CompleteChecklist() {
           tempValid = tempData.isValid;
           
           // Create a quick task if temperature is out of safe zone
-          if (tempValid === false && extractedTemp !== null && checklist?.location_id && user?.id) {
+          const taskLocationId = currentLocation?.id || checklist?.location_id;
+          if (tempValid === false && extractedTemp !== null && taskLocationId && user?.id) {
             const taskTitle = `Check Temp: ${item.question} (${extractedTemp}°F)`;
             const { error: taskError } = await supabase
               .from('temporary_tasks')
               .insert({
-                location_id: checklist.location_id,
+                location_id: taskLocationId,
                 title: taskTitle,
                 description: `Temperature reading of ${extractedTemp}°F was out of safe zone. Please verify and take corrective action.`,
                 icon_name: 'Thermometer',
