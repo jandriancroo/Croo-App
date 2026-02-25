@@ -1026,9 +1026,28 @@ export default function CompleteChecklist() {
               <Card className="overflow-hidden relative">
               {/* Option C: For image items with response — bottom bar overlay */}
               {hasResponse && isImageItem && <div 
-                  className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-end" 
+                  className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-between" 
                   style={{ pointerEvents: 'auto' }}
                 >
+                    {/* Temperature badge overlay on photo */}
+                    {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
+                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
+                      <div className="flex justify-center pt-3">
+                        {responsesWithCompleters[item.id]?.temperatureValid === false ? (
+                          <div className="px-4 py-2 bg-red-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse">
+                            ⚠ {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F — Unsafe
+                          </div>
+                        ) : (
+                          <div className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(34,197,94,0.6)]">
+                            ✓ {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F — Safe
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Spacer when no temperature */}
+                    {(responsesWithCompleters[item.id]?.extractedTemperature === null || 
+                      responsesWithCompleters[item.id]?.extractedTemperature === undefined) && <div />}
+
                     <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
                       <div 
                         className={`shrink-0 ${canUndoItems ? 'cursor-pointer' : ''}`}
@@ -1067,22 +1086,6 @@ export default function CompleteChecklist() {
                           <Eye className="h-4 w-4" />
                         </button>}
                     </div>
-
-                    {/* Temperature Indicator */}
-                    {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
-                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                      <div className="px-3 pb-2">
-                        {responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                          <div className="px-3 py-1.5 bg-red-500 text-white rounded text-center text-xs font-bold animate-pulse">
-                            Temp Outside of Safe Zone · {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                          </div>
-                        ) : (
-                          <div className="px-3 py-1.5 bg-green-500 text-white rounded text-center text-xs font-bold">
-                            Safe · {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>}
                 
                 {/* Option C: For non-image items with response — inline completion row replaces content */}
@@ -1116,11 +1119,11 @@ export default function CompleteChecklist() {
                   </CardContent>
                 ) : (
                   <>
-                {/* Hide CardHeader entirely for completed image items to let photo fill card */}
-                {!(hasResponse && isImageItem) && (
+                {/* Hide CardHeader for completed image items and for incomplete items with no reference material */}
+                {!(hasResponse && isImageItem) && (item.reference_image_url || item.reference_link || item.reference_video_url) && (
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
                   {/* Reference Material Display */}
-                  {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
+                  <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
                       <div className="font-medium text-muted-foreground">Reference:</div>
                       
                       {item.reference_image_url && <div className="space-y-1">
@@ -1141,7 +1144,7 @@ export default function CompleteChecklist() {
                             {item.reference_video_url}
                           </a>
                         </div>}
-                    </div>}
+                    </div>
                 </CardHeader>
                 )}
                 <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0 pb-2'} ${hasResponse ? 'pointer-events-none' : ''}`}>
