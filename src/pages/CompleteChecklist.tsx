@@ -1141,7 +1141,7 @@ export default function CompleteChecklist() {
                         </div>}
                     </div>}
                 </CardHeader>
-                <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none sm:pb-3' : ''}`}>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0'} ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
@@ -1173,12 +1173,12 @@ export default function CompleteChecklist() {
                               <img
                                   src={photoUrl}
                                   alt={`Checklist photo ${idx + 1}`}
-                                  className={`rounded border object-cover w-full ${isMultiPhoto ? 'aspect-square' : 'h-32 sm:h-56 md:h-72'}`}
+                                  className={`object-cover w-full ${isMultiPhoto ? 'rounded border aspect-square' : 'h-32 sm:h-56 md:h-72'}`}
                                   loading="lazy"
                                 />
-                                <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
+                                {isMultiPhoto && <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
                                   {idx + 1}
-                                </div>
+                                </div>}
                               </div>
                             ))}
                           </div>
