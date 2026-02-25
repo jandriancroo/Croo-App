@@ -292,7 +292,8 @@ const Inventory = () => {
     const endDate = new Date(count.period_end_date + 'T12:00:00');
     switch (count.period_type) {
       case "weekly":
-        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
+        // period_end_date is the count day (Monday), but the week ends the day before (Sunday)
+        return `Week Ending ${format(addDays(endDate, -1), "MMM d, yyyy")}`;
       case "monthly":
         return `${format(endDate, "MMMM yyyy")} Month End`;
       case "yearly":
@@ -373,13 +374,11 @@ const Inventory = () => {
         });
         result.push({ type: 'weekly-count', count: weekCount });
 
-        // Quick counts that fall within this weekly count's period
-        // The period runs from the day after the prior coverage end (weekEndDate+1 = countDate-6)
-        // through the count day itself (countDate)
+        // Quick counts within the covered business week (Mon-Sun)
         const quicksInWeek = quickCounts
           .filter(c => {
             const d = new Date(c.count_date + 'T12:00:00');
-            return d >= weekStartDate && d <= countDate;
+            return d >= weekStartDate && d <= weekEndDate;
           })
           .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime());
         for (const qc of quicksInWeek) {
@@ -387,10 +386,10 @@ const Inventory = () => {
         }
       }
 
-      // Orphan quick counts not in any weekly count's period
+      // Orphan quick counts not in any covered week (Mon-Sun)
       const allWeekRanges = weeksInMonth.map(w => {
         const cd = new Date(w.period_end_date + 'T12:00:00');
-        return { start: addDays(cd, -7), end: cd };
+        return { start: addDays(cd, -7), end: addDays(cd, -1) };
       });
       const orphans = quickCounts
         .filter(c => {
@@ -399,8 +398,33 @@ const Inventory = () => {
           return !allWeekRanges.some(r => d >= r.start && d <= r.end);
         })
         .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime());
-      for (const qc of orphans) {
-        result.push({ type: 'quick-count', count: qc });
+
+      // Group orphans into implied week containers (Mon-Sun based on their date)
+      if (orphans.length > 0) {
+        const orphanWeeks = new Map<string, typeof orphans>();
+        for (const qc of orphans) {
+          const d = new Date(qc.count_date + 'T12:00:00');
+          // Find the Monday of the week this date falls in (Mon=0 based)
+          const jsDay = d.getDay(); // 0=Sun, 1=Mon...
+          const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
+          const weekMon = addDays(d, mondayOffset);
+          const key = format(weekMon, "yyyy-MM-dd");
+          if (!orphanWeeks.has(key)) orphanWeeks.set(key, []);
+          orphanWeeks.get(key)!.push(qc);
+        }
+        // Sort week keys descending
+        const sortedKeys = [...orphanWeeks.keys()].sort().reverse();
+        for (const key of sortedKeys) {
+          const weekMon = new Date(key + 'T12:00:00');
+          const weekSun = addDays(weekMon, 6);
+          result.push({
+            type: 'week-header',
+            label: `${format(weekMon, "MMM d")} – ${format(weekSun, "MMM d, yyyy")}`,
+          });
+          for (const qc of orphanWeeks.get(key)!) {
+            result.push({ type: 'quick-count', count: qc });
+          }
+        }
       }
     }
 
