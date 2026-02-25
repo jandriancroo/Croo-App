@@ -108,7 +108,7 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
   const sizes = {
     A: { title: "text-3xl", desc: "text-base", question: "text-base", badge: "text-lg px-3 py-1", imgH: "h-64", card: "space-y-6" },
     B: { title: "text-xl", desc: "text-sm", question: "text-sm", badge: "text-sm px-2.5 py-0.5", imgH: "h-36", card: "space-y-3" },
-    C: { title: "text-lg", desc: "text-xs", question: "text-sm font-medium", badge: "text-xs px-2 py-0.5", imgH: "h-28", card: "space-y-2.5" },
+    C: { title: "text-lg", desc: "text-xs", question: "text-sm font-medium", badge: "text-xs px-2 py-0.5", imgH: "h-32", card: "space-y-2.5" },
     D: { title: "text-xl", desc: "text-sm", question: "text-[13px] font-medium", badge: "text-xs px-2 py-0.5", imgH: "h-32", card: "space-y-3" },
     E: { title: "text-lg", desc: "text-xs", question: "text-sm", badge: "text-sm px-2 py-0.5", imgH: "h-24", card: "space-y-2" },
   };
