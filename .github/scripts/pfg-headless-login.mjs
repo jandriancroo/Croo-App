@@ -53,7 +53,7 @@ async function loginLocation(browser, { locationId, username, password }) {
       client_id: PFG_CLIENT_ID,
       scope: 'openid profile offline_access',
       redirect_uri: PFG_REDIRECT_URI,
-      response_mode: 'fragment',
+      response_mode: 'query',
       response_type: 'code',
       code_challenge: pkce.challenge,
       code_challenge_method: 'S256',
@@ -71,13 +71,30 @@ async function loginLocation(browser, { locationId, username, password }) {
   let authCode = null;
 
   try {
-    // Listen for the redirect that contains the auth code
-    page.on('framenavigated', (frame) => {
-      const url = frame.url();
-      if (url.startsWith(PFG_REDIRECT_URI) && url.includes('code=')) {
-        const fragment = new URL(url.replace('#', '?')).searchParams;
-        authCode = fragment.get('code');
-      }
+    // Intercept the redirect request to capture the auth code from query params
+    // Using response_mode=query so code is in ?code=XXX (not fragment)
+    const codePromise = new Promise((resolve) => {
+      page.on('request', (request) => {
+        const url = request.url();
+        if (url.startsWith(PFG_REDIRECT_URI) && url.includes('code=')) {
+          try {
+            const parsed = new URL(url);
+            const code = parsed.searchParams.get('code');
+            if (code) resolve(code);
+          } catch {}
+        }
+      });
+
+      page.on('framenavigated', (frame) => {
+        const url = frame.url();
+        if (url.startsWith(PFG_REDIRECT_URI) && url.includes('code=')) {
+          try {
+            const parsed = new URL(url);
+            const code = parsed.searchParams.get('code');
+            if (code) resolve(code);
+          } catch {}
+        }
+      });
     });
 
     await page.goto(authorizeUrl, { waitUntil: 'networkidle', timeout: 30000 });
@@ -121,14 +138,18 @@ async function loginLocation(browser, { locationId, username, password }) {
 
     await page.click(submitSelector);
 
-    // Wait for redirect
-    await page.waitForURL(`${PFG_REDIRECT_URI}**`, { timeout: 30000 }).catch(() => {});
+    // Wait for the auth code from the redirect (captured by request/navigate listeners)
+    authCode = await Promise.race([
+      codePromise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout waiting for auth code')), 30000)),
+    ]);
 
     if (!authCode) {
+      // Fallback: check current URL
       const finalUrl = page.url();
       if (finalUrl.includes('code=')) {
-        const fragment = new URL(finalUrl.replace('#', '?')).searchParams;
-        authCode = fragment.get('code');
+        const parsed = new URL(finalUrl);
+        authCode = parsed.searchParams.get('code');
       }
     }
 
