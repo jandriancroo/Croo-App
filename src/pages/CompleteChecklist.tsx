@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { CheckCircle2, Eye, Lock, Camera } from 'lucide-react';
+import { CheckCircle2, Eye, Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -1144,7 +1144,7 @@ export default function CompleteChecklist() {
                     </div>}
                 </CardHeader>
                 )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0'} ${hasResponse ? 'pointer-events-none' : ''}`}>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0 pb-2'} ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
@@ -1204,13 +1204,10 @@ export default function CompleteChecklist() {
                                       document.getElementById(cameraId)?.click();
                                     }}
                                   >
-                                    <div className="flex items-center justify-between px-1">
-                                      <span className="text-sm text-muted-foreground">
+                                    <div className="flex items-center justify-center py-1">
+                                      <span className="text-base text-muted-foreground font-medium">
                                         {isMultiPhoto ? `Snap photo ${slotNumber}` : 'Snap a Photo'}
                                       </span>
-                                      <Button variant="outline" size="icon" className="h-8 w-8 pointer-events-none">
-                                        <Camera className="h-4 w-4" />
-                                      </Button>
                                     </div>
                                   </Label>
                                   <Input
@@ -1276,7 +1273,7 @@ export default function CompleteChecklist() {
                       </div>
                     );
                   })()}
-                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center space-x-2 py-2">
+                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center justify-center space-x-2 py-1">
                       <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
                       <Label 
                         htmlFor={`confirm-${item.id}`} 
