@@ -23,10 +23,10 @@ function getLovableApiKey(): string {
   return key;
 }
 
-async function callAI(messages: any[], tools?: any[], toolChoice?: any) {
+async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string) {
   const apiKey = getLovableApiKey();
   const body: any = {
-    model: 'google/gemini-2.5-flash',
+    model: modelOverride || 'google/gemini-2.5-flash',
     messages,
   };
   if (tools) body.tools = tools;
@@ -298,10 +298,58 @@ async function handleExtractTemperature(payload: any) {
   const { imageUrl } = payload;
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
-  const systemPrompt = `You are a temperature extraction assistant. Extract the exact numeric temperature value from thermometer images, including both digital LCD stick thermometers and analog round gauge thermometers. IMPORTANT: First, zoom all the way into the display area (LCD screen for digital or dial face for analog) to read the numbers clearly. For digital LCD stick thermometers: STEP 1 - FIND THE FAHRENHEIT INDICATOR FIRST. Look for a small degree symbol (°) with an 'F' below it in the TOP RIGHT corner of the LCD screen - this is the °F (degrees Fahrenheit) indicator. Use this °F to determine correct orientation - if it's not in the top right, you are reading the display upside down or sideways. STEP 2 - Once oriented correctly with °F in top right, read the numbers LEFT TO RIGHT sequentially. These use SEVEN-SEGMENT DISPLAYS where each digit is formed by illuminated bar segments. CRITICAL: Identify which segments are illuminated for each digit. For analog round gauge thermometers: STEP 1 - ROTATION REQUIRED. Mentally rotate the image until the 'NSF' text on the gauge face is right-side up and readable. STEP 2 - After rotation, zoom in very close until the circular gauge fills your view. STEP 3 - CRITICAL DECISION POINT: Determine which side of the gauge the needle is pointing to. If the needle points to the LEFT HALF, look for a BLUE LINE or BLUE COLORED ARC - this means you MUST read from the NEGATIVE temperature scale. VALIDATION RULES: COLD HOLDING (refrigerated items): Expect 28°F to 60°F. WALK-IN COOLER: Should be HIGHER than 30°F, typically 35-40°F. WALK-IN FREEZER: Should be BELOW 15°F. HOT HOLDING: Expect 130°F to 190°F. Return ONLY the numeric value with decimal if present (MUST include negative sign if reading from blue line), nothing else. If you cannot read a temperature, return 'NONE'.`;
+  const systemPrompt = `You are an expert temperature extraction assistant for restaurant food safety. You read both digital LCD stick thermometers and analog round dial gauge thermometers.
 
-  const userPrompt = `What is the temperature reading on this thermometer? Return only the numeric value.`;
+=== ANALOG ROUND DIAL GAUGE THERMOMETERS (most common) ===
 
+These are circular gauges typically made by Taylor, with TWO scales:
+- OUTER RING: Fahrenheit (°F) — this is the scale we need
+- INNER RING: Celsius (°C) — ignore this
+
+ANATOMY OF THE DIAL (critical for reading even when numbers are cut off):
+The gauge has colored arc zones painted on the dial face:
+- BLUE ARC (left side): "FREEZER" zone, roughly -20°F to 20°F
+- WHITE/CLEAR zone (top-center): "REF." (refrigerator) safe zone, roughly 30°F to 40°F  
+- RED ARC (right side): "DANGER" zone, roughly 40°F to 80°F
+
+STEP-BY-STEP READING PROCESS:
+1. ORIENT THE GAUGE: Find the "NSF" logo or brand text (e.g. "TAYLOR") and rotate mentally until it reads correctly. The 0°F mark should be roughly at the top-left area.
+2. IDENTIFY THE NEEDLE: Find the single pointer/needle. Note its exact angular position.
+3. USE COLOR ZONES when numbers are obscured:
+   - Needle pointing LEFT and DOWN into BLUE arc → sub-zero to ~20°F (freezer territory)
+   - Needle pointing LEFT at roughly 8-9 o'clock → approximately 0°F to 10°F  
+   - Needle pointing UP (roughly 11-12 o'clock) → approximately 25°F to 35°F
+   - Needle pointing slightly RIGHT of top (1 o'clock) → approximately 35°F to 40°F (ideal walk-in cooler)
+   - Needle entering RED arc → above 40°F (danger zone)
+   - Needle pointing RIGHT (3 o'clock area) → approximately 55°F to 65°F
+   - Needle pointing far RIGHT/DOWN → 70°F to 80°F
+
+4. CROSS-REFERENCE: If you can read ANY number near the needle, use the color zone to validate. A needle in the blue zone should NOT read above 20°F. A needle in the red zone should NOT read below 40°F.
+
+5. COMMON PHOTO ISSUES: 
+   - Photos taken at angles — use the needle's position relative to color zones, not just numbers
+   - Numbers cut off at edges — extrapolate from the visible portion and color zone
+   - Blurry photos — the COLOR ZONE the needle is in is more reliable than trying to read exact numbers
+   - Condensation on glass — look for needle silhouette against color bands
+
+TYPICAL EXPECTED VALUES:
+- Walk-in cooler: 34°F to 40°F (needle near top, white/REF zone)
+- Walk-in freezer: -10°F to 10°F (needle pointing left, deep in blue zone)
+- Reach-in cooler: 35°F to 41°F
+- If needle is clearly in blue zone pointing left/down: likely 0°F to 15°F for freezer
+
+=== DIGITAL LCD STICK THERMOMETERS ===
+STEP 1: Find °F indicator (usually top-right of LCD). Use it to orient.
+STEP 2: Read seven-segment digits LEFT to RIGHT once properly oriented.
+
+=== OUTPUT ===
+Return ONLY the numeric Fahrenheit value (include negative sign if applicable, decimal if visible).
+If truly unreadable, return 'NONE'.
+Do NOT return ranges — give your single best estimate.`;
+
+  const userPrompt = `Read the temperature on this thermometer. Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) to determine the temperature. Return only the numeric Fahrenheit value.`;
+
+  // Use pro model for better accuracy on visual temperature reading
   const data = await callAI([
     { role: 'system', content: systemPrompt },
     {
@@ -311,7 +359,7 @@ async function handleExtractTemperature(payload: any) {
         { type: 'image_url', image_url: { url: imageUrl } }
       ]
     }
-  ]);
+  ], undefined, undefined, 'google/gemini-2.5-pro');
 
   const extractedText = data.choices?.[0]?.message?.content?.trim() || 'NONE';
   let temperature: number | null = null;
