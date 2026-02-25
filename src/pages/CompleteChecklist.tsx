@@ -1026,27 +1026,24 @@ export default function CompleteChecklist() {
               <Card className="overflow-hidden relative">
               {/* Option C: For image items with response — bottom bar overlay */}
               {hasResponse && isImageItem && <div 
-                  className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-between" 
+                  className="absolute inset-0 z-10 flex flex-col" 
                   style={{ pointerEvents: 'auto' }}
                 >
-                    {/* Temperature badge overlay on photo */}
-                    {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
-                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                      <div className="flex justify-center pt-3">
-                        {responsesWithCompleters[item.id]?.temperatureValid === false ? (
+                    {/* Photo area with centered temperature badge */}
+                    <div className="flex-1 flex items-center justify-center bg-background/40 backdrop-blur-[2px]">
+                      {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
+                       responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
+                        responsesWithCompleters[item.id]?.temperatureValid === false ? (
                           <div className="px-4 py-2 bg-red-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse">
-                            ⚠ {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F — Unsafe
+                            👎 {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Unsafe
                           </div>
                         ) : (
                           <div className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(34,197,94,0.6)]">
-                            ✓ {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F — Safe
+                            👍 {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Safe
                           </div>
-                        )}
-                      </div>
-                    )}
-                    {/* Spacer when no temperature */}
-                    {(responsesWithCompleters[item.id]?.extractedTemperature === null || 
-                      responsesWithCompleters[item.id]?.extractedTemperature === undefined) && <div />}
+                        )
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
                       <div 
