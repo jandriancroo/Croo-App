@@ -1777,6 +1777,33 @@ serve(async (req) => {
       case 'refresh_keep_alive':
         return await handleRefreshKeepAlive(supabase, body);
       
+      case 'list_active_integrations': {
+        // Used by GitHub Actions headless login to get all PFG-connected locations
+        const { data: activeInts, error: listErr } = await supabase
+          .from('location_integrations')
+          .select('location_id, credentials')
+          .eq('integration_type', 'pfg')
+          .eq('is_active', true);
+        
+        if (listErr) {
+          return new Response(JSON.stringify({ error: listErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        
+        const locations = (activeInts || [])
+          .filter((i: any) => i.credentials?.pfg_username && i.credentials?.pfg_password)
+          .map((i: any) => ({
+            locationId: i.location_id,
+            username: i.credentials.pfg_username,
+            password: i.credentials.pfg_password,
+          }));
+        
+        return new Response(JSON.stringify({ locations }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       case 'headless_login_failed': {
         // GitHub Actions headless login failed — create support ticket
         const failLocationId = body?.locationId;

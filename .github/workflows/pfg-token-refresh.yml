@@ -9,7 +9,7 @@ on:
 jobs:
   refresh-pfg-token:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     
     steps:
       - uses: actions/checkout@v4
@@ -26,17 +26,6 @@ jobs:
       
       - name: Run PFG Login Script
         env:
-          PFG_USERNAME: ${{ secrets.PFG_USERNAME }}
-          PFG_PASSWORD: ${{ secrets.PFG_PASSWORD }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          PFG_LOCATION_ID: ${{ secrets.PFG_LOCATION_ID }}
         run: node .github/scripts/pfg-headless-login.mjs
-
-      - name: Report failure
-        if: failure()
-        run: |
-          curl -s -X POST "${{ secrets.SUPABASE_URL }}/functions/v1/pfg-service?action=headless_login_failed" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -d "{\"locationId\": \"${{ secrets.PFG_LOCATION_ID }}\", \"error\": \"GitHub Actions headless login failed\"}"
