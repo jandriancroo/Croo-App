@@ -373,11 +373,13 @@ const Inventory = () => {
         });
         result.push({ type: 'weekly-count', count: weekCount });
 
-        // Quick counts within this week's range
+        // Quick counts that fall within this weekly count's period
+        // The period runs from the day after the prior coverage end (weekEndDate+1 = countDate-6)
+        // through the count day itself (countDate)
         const quicksInWeek = quickCounts
           .filter(c => {
             const d = new Date(c.count_date + 'T12:00:00');
-            return d >= weekStartDate && d <= weekEndDate;
+            return d >= weekStartDate && d <= countDate;
           })
           .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime());
         for (const qc of quicksInWeek) {
@@ -385,10 +387,10 @@ const Inventory = () => {
         }
       }
 
-      // Orphan quick counts not in any week range
+      // Orphan quick counts not in any weekly count's period
       const allWeekRanges = weeksInMonth.map(w => {
-        const end = new Date(w.period_end_date + 'T12:00:00');
-        return { start: addDays(end, -6), end };
+        const cd = new Date(w.period_end_date + 'T12:00:00');
+        return { start: addDays(cd, -7), end: cd };
       });
       const orphans = quickCounts
         .filter(c => {
