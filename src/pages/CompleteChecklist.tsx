@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Upload, CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
+import { CheckCircle2, Eye, Lock, Camera } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -918,12 +918,12 @@ export default function CompleteChecklist() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold">{checklist.title}</h2>
-            <Badge variant={completionPercentage === 100 ? "default" : "secondary"} className="text-lg px-3 py-1">
+            <h2 className="text-lg font-bold">{checklist.title}</h2>
+            <Badge variant={completionPercentage === 100 ? "default" : "secondary"} className="text-xs px-2 py-0.5">
               {completionPercentage}%
             </Badge>
           </div>
-          {checklist.description && <p className="text-muted-foreground">{checklist.description}</p>}
+          {checklist.description && <p className="text-xs text-muted-foreground">{checklist.description}</p>}
           
           {/* Hide Completed Toggle */}
           <div className="flex items-center gap-2 pt-2">
@@ -1013,7 +1013,7 @@ export default function CompleteChecklist() {
               <div className="space-y-2">
               {/* Title above divider - never blurred */}
               <div className="px-1">
-                <h3 className="text-base font-medium">
+                <h3 className="text-sm font-medium">
                   {item.question}
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </h3>
@@ -1022,82 +1022,100 @@ export default function CompleteChecklist() {
               {/* Horizontal divider */}
               <div className="border-t border-border" />
               
-              {/* Card with content - this gets blurred when completed */}
+              {/* Card with content */}
               <Card className="overflow-hidden relative">
-              {hasResponse && <div 
-                  className="absolute inset-0 bg-background/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 gap-3" 
+              {/* Option C: For image items with response — bottom bar overlay */}
+              {hasResponse && isImageItem && <div 
+                  className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-end" 
                   style={{ pointerEvents: 'auto' }}
                 >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
                       <div 
-                        className={`bg-green-600/80 rounded-full p-4 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
+                        className={`shrink-0 ${canUndoItems ? 'cursor-pointer' : ''}`}
                         onClick={() => canUndoItems && handleUndoClick(item.id)}
-                        title={canUndoItems ? 'Click to undo' : undefined}
+                        title={canUndoItems ? 'Tap to undo' : undefined}
                       >
-                        <CheckCircle2 className="h-10 w-10 text-white" />
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
                       </div>
                       
                       {completerInfo && (
-                        <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
-                          <Avatar className="h-16 w-16">
+                        <>
+                          <Avatar className="h-7 w-7 shrink-0">
                             <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                            <AvatarFallback className="text-xs">
+                            <AvatarFallback className="text-[10px]">
                               {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="text-left">
-                            <div className="text-sm font-medium">
-                              {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                            </div>
-                          </div>
-                        </div>
+                          <span className="text-sm font-medium truncate">
+                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                          </span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                          </span>
+                        </>
                       )}
+
+                      {currentPhotos.length > 0 && <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setPreviewImage(currentPhotos[0]);
+                          }}
+                          className="shrink-0 p-1.5 rounded-full hover:bg-background transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>}
                     </div>
 
-                    {/* Temperature Indicator Below User Info */}
+                    {/* Temperature Indicator */}
                     {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
                      responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                      <div className="w-full max-w-md">
+                      <div className="px-3 pb-2">
                         {responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                          <div className="px-6 py-3 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600 text-center">
-                            <span className="font-bold text-sm">
-                              Temp Outside of Safe Zone
-                            </span>
-                            <div className="text-xs mt-0.5">
-                              {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                            </div>
+                          <div className="px-3 py-1.5 bg-red-500 text-white rounded text-center text-xs font-bold animate-pulse">
+                            Temp Outside of Safe Zone · {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
                           </div>
                         ) : (
-                          <div className="px-6 py-3 bg-green-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-green-600 text-center">
-                            <span className="font-bold text-sm">
-                              Safe
-                            </span>
-                            <div className="text-xs mt-0.5">
-                              {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                            </div>
+                          <div className="px-3 py-1.5 bg-green-500 text-white rounded text-center text-xs font-bold">
+                            Safe · {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
                           </div>
                         )}
                       </div>
                     )}
-
-                    
-                    {(responsesWithCompleters[item.id]?.isImage || isImageItem) && currentPhotos.length > 0 && <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // For multi-photo, show first image (could enhance to show gallery)
-                          setPreviewImage(currentPhotos[0]);
-                        }}
-                        className="absolute bottom-3 right-3 z-20 bg-background/80 backdrop-blur-sm rounded-full p-2 hover:bg-background transition-colors shadow-lg"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>}
                   </div>}
                 
+                {/* Option C: For non-image items with response — inline completion row replaces content */}
+                {hasResponse && !isImageItem ? (
+                  <CardContent className="py-2">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className={`shrink-0 ${canUndoItems ? 'cursor-pointer' : ''}`}
+                        onClick={() => canUndoItems && handleUndoClick(item.id)}
+                        title={canUndoItems ? 'Tap to undo' : undefined}
+                      >
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      </div>
+                      {completerInfo && (
+                        <>
+                          <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                            <AvatarFallback className="text-[10px]">
+                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium truncate">
+                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                          </span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">
+                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                ) : (
+                  <>
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
                   {/* Reference Material Display */}
                   {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
@@ -1166,7 +1184,7 @@ export default function CompleteChecklist() {
                           </div>
                         )}
 
-                        {/* Upload buttons for remaining photos needed */}
+                        {/* Upload buttons — compact "Snap a Photo" style */}
                         {!isComplete && (
                           <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                             {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
@@ -1174,7 +1192,7 @@ export default function CompleteChecklist() {
                               const cameraId = `image-camera-${item.id}-${slotNumber}`;
 
                               return (
-                                <div key={idx} className="space-y-2">
+                                <div key={idx}>
                                   <Label 
                                     htmlFor={cameraId} 
                                     className="cursor-pointer"
@@ -1183,11 +1201,13 @@ export default function CompleteChecklist() {
                                       document.getElementById(cameraId)?.click();
                                     }}
                                   >
-                                    <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
-                                      <Upload className="h-4 w-4" />
-                                      <span className="text-sm">
-                                        {isMultiPhoto ? `Take photo ${slotNumber}` : 'Tap to take photo'}
+                                    <div className="flex items-center justify-between px-1">
+                                      <span className="text-sm text-muted-foreground">
+                                        {isMultiPhoto ? `Snap photo ${slotNumber}` : 'Snap a Photo'}
                                       </span>
+                                      <Button variant="outline" size="icon" className="h-8 w-8 pointer-events-none">
+                                        <Camera className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   </Label>
                                   <Input
@@ -1212,7 +1232,7 @@ export default function CompleteChecklist() {
                         {/* Temperature manual override (for low-memory camera failures) */}
                         {showManualTemp && !isComplete && (
                           <div className="rounded border border-border bg-muted/20 p-3 space-y-2">
-                            <div className="text-sm font-medium">Can’t take a photo?</div>
+                            <div className="text-sm font-medium">Can't take a photo?</div>
                             {!manualTempOpen[item.id] ? (
                               <Button
                                 type="button"
@@ -1267,6 +1287,8 @@ export default function CompleteChecklist() {
                       </Label>
                     </div>}
                 </CardContent>
+                  </>
+                )}
               </Card>
               </div>
             </div>
