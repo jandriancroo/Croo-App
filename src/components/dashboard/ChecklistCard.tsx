@@ -61,7 +61,9 @@ export const ChecklistCard = memo(function ChecklistCard({
             ? 'hsl(var(--primary))' 
             : isLocked 
               ? 'hsl(var(--muted))' 
-              : 'hsl(var(--primary) / 0.5)' 
+              : isOverdue 
+                ? 'hsl(var(--destructive))' 
+                : 'hsl(var(--accent))' 
         }} 
       />
 
