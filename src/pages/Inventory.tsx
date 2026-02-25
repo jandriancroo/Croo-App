@@ -325,9 +325,25 @@ const Inventory = () => {
       | { type: 'month-header'; label: string }
       | { type: 'monthly-count'; count: any }
       | { type: 'yearly-count'; count: any }
-      | { type: 'week-header'; label: string; startingInventory?: number }
+      | { type: 'week-header'; label: string; startingInventory?: number; tag?: string }
       | { type: 'weekly-count'; count: any }
       | { type: 'quick-count'; count: any };
+
+    // Calculate current and last week Mondays for tagging
+    const now = new Date();
+    const jsDay = now.getDay();
+    const currentMondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
+    const currentWeekMonday = new Date(now);
+    currentWeekMonday.setHours(12, 0, 0, 0);
+    currentWeekMonday.setDate(now.getDate() + currentMondayOffset);
+    const currentWeekKey = format(currentWeekMonday, "yyyy-MM-dd");
+    const lastWeekKey = format(addDays(currentWeekMonday, -7), "yyyy-MM-dd");
+
+    const getWeekTag = (mondayKey: string): string | undefined => {
+      if (mondayKey === currentWeekKey) return 'Current Week';
+      if (mondayKey === lastWeekKey) return 'Last Week';
+      return undefined;
+    };
 
     const result: CountEntry[] = [];
 
@@ -342,18 +358,29 @@ const Inventory = () => {
         result.push({ type: 'yearly-count', count: yc });
       }
 
-      // Weekly counts in this month, sorted desc
+      // Build all week containers: from weekly counts + orphan quick counts
+      type WeekContainer = {
+        mondayKey: string;
+        weekStartDate: Date;
+        weekEndDate: Date;
+        weeklyCount?: any;
+        startingInventory?: number;
+        quickCounts: any[];
+      };
+
+      const weekMap = new Map<string, WeekContainer>();
+
+      // Add weeks from weekly counts
       const weeksInMonth = weeklyCounts
         .filter(c => format(new Date((c.period_end_date || c.count_date) + 'T12:00:00'), "yyyy-MM") === monthKey)
         .sort((a, b) => new Date(b.period_end_date).getTime() - new Date(a.period_end_date).getTime());
 
       for (let wi = 0; wi < weeksInMonth.length; wi++) {
         const weekCount = weeksInMonth[wi];
-        // period_end_date is the count day (e.g. Monday Feb 23), but the inventory
-        // covers the prior business week: Mon Feb 16 – Sun Feb 22
         const countDate = new Date(weekCount.period_end_date + 'T12:00:00');
-        const weekEndDate = addDays(countDate, -1);   // Sunday before count day
-        const weekStartDate = addDays(countDate, -7); // Monday of prior week
+        const wEnd = addDays(countDate, -1);   // Sunday
+        const wStart = addDays(countDate, -7); // Monday
+        const mKey = format(wStart, "yyyy-MM-dd");
 
         // Starting inventory from prior week's ending cost
         let startingInventory: number | undefined;
@@ -362,68 +389,74 @@ const Inventory = () => {
           startingInventory = priorWeek._stats.totalCost;
         } else if (!priorWeek) {
           const prior = weeklyCounts
-            .filter(c => new Date(c.period_end_date) < weekStartDate && c.status === 'completed')
+            .filter(c => new Date(c.period_end_date) < wStart && c.status === 'completed')
             .sort((a, b) => new Date(b.period_end_date).getTime() - new Date(a.period_end_date).getTime())[0];
           if (prior?._stats?.totalCost > 0) startingInventory = prior._stats.totalCost;
         }
 
-        result.push({
-          type: 'week-header',
-          label: `${format(weekStartDate, "MMM d")} – ${format(weekEndDate, "MMM d, yyyy")}`,
+        const container: WeekContainer = {
+          mondayKey: mKey,
+          weekStartDate: wStart,
+          weekEndDate: wEnd,
+          weeklyCount: weekCount,
           startingInventory,
-        });
-        result.push({ type: 'weekly-count', count: weekCount });
+          quickCounts: [],
+        };
 
-        // Quick counts within the covered business week (Mon-Sun)
-        const quicksInWeek = quickCounts
+        // Attach quick counts within this Mon-Sun range
+        quickCounts
           .filter(c => {
             const d = new Date(c.count_date + 'T12:00:00');
-            return d >= weekStartDate && d <= weekEndDate;
+            return d >= wStart && d <= wEnd;
           })
-          .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime());
-        for (const qc of quicksInWeek) {
-          result.push({ type: 'quick-count', count: qc });
-        }
+          .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime())
+          .forEach(qc => container.quickCounts.push(qc));
+
+        weekMap.set(mKey, container);
       }
 
-      // Orphan quick counts not in any covered week (Mon-Sun)
-      const allWeekRanges = weeksInMonth.map(w => {
-        const cd = new Date(w.period_end_date + 'T12:00:00');
-        return { start: addDays(cd, -7), end: addDays(cd, -1) };
+      // Find orphan quick counts and create implied week containers
+      const existingRanges = [...weekMap.values()];
+      const orphanQuicks = quickCounts.filter(c => {
+        const d = new Date(c.count_date + 'T12:00:00');
+        if (format(d, "yyyy-MM") !== monthKey) return false;
+        return !existingRanges.some(r => d >= r.weekStartDate && d <= r.weekEndDate);
       });
-      const orphans = quickCounts
-        .filter(c => {
-          const d = new Date(c.count_date + 'T12:00:00');
-          if (format(d, "yyyy-MM") !== monthKey) return false;
-          return !allWeekRanges.some(r => d >= r.start && d <= r.end);
-        })
-        .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime());
 
-      // Group orphans into implied week containers (Mon-Sun based on their date)
-      if (orphans.length > 0) {
-        const orphanWeeks = new Map<string, typeof orphans>();
-        for (const qc of orphans) {
-          const d = new Date(qc.count_date + 'T12:00:00');
-          // Find the Monday of the week this date falls in (Mon=0 based)
-          const jsDay = d.getDay(); // 0=Sun, 1=Mon...
-          const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
-          const weekMon = addDays(d, mondayOffset);
-          const key = format(weekMon, "yyyy-MM-dd");
-          if (!orphanWeeks.has(key)) orphanWeeks.set(key, []);
-          orphanWeeks.get(key)!.push(qc);
-        }
-        // Sort week keys descending
-        const sortedKeys = [...orphanWeeks.keys()].sort().reverse();
-        for (const key of sortedKeys) {
-          const weekMon = new Date(key + 'T12:00:00');
-          const weekSun = addDays(weekMon, 6);
-          result.push({
-            type: 'week-header',
-            label: `${format(weekMon, "MMM d")} – ${format(weekSun, "MMM d, yyyy")}`,
+      for (const qc of orphanQuicks) {
+        const d = new Date(qc.count_date + 'T12:00:00');
+        const day = d.getDay();
+        const monOff = day === 0 ? -6 : 1 - day;
+        const mon = addDays(d, monOff);
+        const mKey = format(mon, "yyyy-MM-dd");
+        if (!weekMap.has(mKey)) {
+          weekMap.set(mKey, {
+            mondayKey: mKey,
+            weekStartDate: mon,
+            weekEndDate: addDays(mon, 6),
+            quickCounts: [],
           });
-          for (const qc of orphanWeeks.get(key)!) {
-            result.push({ type: 'quick-count', count: qc });
-          }
+        }
+        weekMap.get(mKey)!.quickCounts.push(qc);
+      }
+
+      // Sort all weeks descending (most recent first)
+      const allWeeks = [...weekMap.values()].sort((a, b) =>
+        b.weekStartDate.getTime() - a.weekStartDate.getTime()
+      );
+
+      for (const week of allWeeks) {
+        result.push({
+          type: 'week-header',
+          label: `${format(week.weekStartDate, "MMM d")} – ${format(week.weekEndDate, "MMM d, yyyy")}`,
+          startingInventory: week.startingInventory,
+          tag: getWeekTag(week.mondayKey),
+        });
+        if (week.weeklyCount) {
+          result.push({ type: 'weekly-count', count: week.weeklyCount });
+        }
+        for (const qc of week.quickCounts) {
+          result.push({ type: 'quick-count', count: qc });
         }
       }
     }
@@ -532,7 +565,14 @@ const Inventory = () => {
                       if (entry.type === 'week-header') {
                         return (
                           <div key={`wh-${idx}`} className="pl-7 pr-4 pt-3 pb-1.5">
-                            <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                              {entry.tag && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                                  {entry.tag}
+                                </span>
+                              )}
+                            </div>
                             {entry.startingInventory != null && entry.startingInventory > 0 && (
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 Starting Inventory: ${entry.startingInventory.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
