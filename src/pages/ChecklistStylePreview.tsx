@@ -79,12 +79,15 @@ function CompletedOverlay({ completer, style }: { completer: { name: string; tim
     );
   }
 
-  // Style E — green left accent + inline row
+  // Style E — green left accent + inline row with avatar
   return (
-    <div className="absolute inset-0 bg-background/40 z-10 flex items-center px-4">
+    <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex items-center px-4">
       <div className="flex items-center gap-2 w-full">
         <div className="w-1 h-8 rounded-full bg-green-600 shrink-0" />
         <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        <Avatar className="h-7 w-7 shrink-0">
+          <AvatarFallback className="text-[10px] bg-muted">{completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+        </Avatar>
         <span className="text-xs font-medium">{completer.name}</span>
         <span className="text-[10px] text-muted-foreground ml-auto">{completer.time}</span>
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
@@ -144,8 +147,14 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
                     )}
                     {item.type === "image" ? (
                       <CardContent className={cn("p-0", item.completed && "pointer-events-none")}>
-                        <div className={cn("bg-muted/30 flex items-center justify-center", s.imgH)}>
-                          {!item.completed && (
+                        <div className={cn("bg-muted/30 flex items-center justify-center relative", s.imgH)}>
+                          {item.completed ? (
+                            <img 
+                              src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop" 
+                              alt="Sample" 
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          ) : (
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <Upload className="h-4 w-4" />
                               <span className="text-sm">Tap to take photo</span>
