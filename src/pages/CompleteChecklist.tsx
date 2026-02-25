@@ -751,27 +751,49 @@ export default function CompleteChecklist() {
           extractedTemp = tempData.temperature;
           tempValid = tempData.isValid;
           
-          // Create a quick task if temperature is out of safe zone
+          // Alert managers if temperature is out of safe zone
           const taskLocationId = currentLocation?.id || checklist?.location_id;
           if (tempValid === false && extractedTemp !== null && taskLocationId && user?.id) {
-            const taskTitle = `Check Temp: ${item.question} (${extractedTemp}°F)`;
-            const { error: taskError } = await supabase
-              .from('temporary_tasks')
-              .insert({
-                location_id: taskLocationId,
-                title: taskTitle,
-                description: `Temperature reading of ${extractedTemp}°F was out of safe zone. Please verify and take corrective action.`,
-                icon_name: 'Thermometer',
-                accent_color: '#ef4444',
-                created_by: user.id,
-                is_active: true,
-                task_style: 'minimal'
-              });
-            
-            if (!taskError) {
-              toast.warning(`Temperature out of range - task created`, {
-                description: taskTitle
-              });
+            const alertTitle = `🌡️ Unsafe Temp: ${item.question}`;
+            const alertBody = `${extractedTemp}°F is out of safe zone. Verify and take corrective action.`;
+            const dedupKey = `temp_alert_${taskLocationId}_${item.id}_${new Date().toISOString().split('T')[0]}_${Date.now()}`;
+
+            // Resolve manager user IDs for this location
+            const { data: managerUsers } = await supabase
+              .from('user_locations')
+              .select('user_id, user_roles!inner(role)')
+              .eq('location_id', taskLocationId)
+              .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager']);
+
+            const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
+
+            if (managerIds.length > 0) {
+              // Queue alert for manager dashboard + push notification
+              const { error: alertError } = await supabase
+                .from('alert_queue')
+                .insert({
+                  alert_type: 'unsafe_temperature',
+                  dedup_key: dedupKey,
+                  location_id: taskLocationId,
+                  payload: {
+                    user_ids: managerIds,
+                    title: alertTitle,
+                    body: alertBody,
+                    notification_type: 'unsafe_temperature',
+                    data: {
+                      type: 'unsafe_temperature',
+                      location_id: taskLocationId,
+                      checklist_item: item.question,
+                      temperature: extractedTemp
+                    }
+                  }
+                });
+
+              if (!alertError) {
+                toast.warning(`Temperature out of range — managers notified`, {
+                  description: `${extractedTemp}°F on ${item.question}`
+                });
+              }
             }
           }
         }
