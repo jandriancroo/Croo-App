@@ -148,7 +148,7 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
                   </div>
                   <div className="border-t border-border" />
                   <Card className="overflow-hidden relative border">
-                    {item.completed && item.completer && (
+                    {item.completed && item.completer && item.type === "image" && (
                       <CompletedOverlay completer={item.completer} style={style} />
                     )}
                     {item.type === "image" ? (
@@ -168,8 +168,22 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
                           )}
                         </div>
                       </CardContent>
+                    ) : item.completed && item.completer ? (
+                      <CardContent className="py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="cursor-pointer shrink-0" title="Tap to undo">
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          </div>
+                          <Avatar className="h-6 w-6 shrink-0">
+                            <img src="https://i.pravatar.cc/56?u=andrea" alt={item.completer.name} className="object-cover" />
+                            <AvatarFallback className="text-[10px] bg-muted">{item.completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate">{item.completer.name}</span>
+                          <span className="text-[10px] text-muted-foreground ml-auto">{item.completer.time}</span>
+                        </div>
+                      </CardContent>
                     ) : (
-                      <CardContent className={cn("py-3", item.completed && "pointer-events-none")}>
+                      <CardContent className="py-3">
                         <div className="flex items-center space-x-2">
                           <Checkbox checked={item.completed} />
                           <Label className="text-sm font-normal">{item.question}</Label>
