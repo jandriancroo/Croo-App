@@ -295,7 +295,7 @@ async function handleParseResume(payload: any) {
 }
 
 async function handleExtractTemperature(payload: any) {
-  const { imageUrl } = payload;
+  const { imageUrl, itemName } = payload;
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
   const systemPrompt = `You are an expert temperature extraction assistant for restaurant food safety. You read both digital LCD stick thermometers and analog round dial gauge thermometers.
@@ -306,37 +306,55 @@ These are circular gauges typically made by Taylor, with TWO scales:
 - OUTER RING: Fahrenheit (°F) — this is the scale we need
 - INNER RING: Celsius (°C) — ignore this
 
-ANATOMY OF THE DIAL (critical for reading even when numbers are cut off):
-The gauge has colored arc zones painted on the dial face:
-- BLUE ARC (left side): "FREEZER" zone, roughly -20°F to 20°F
-- WHITE/CLEAR zone (top-center): "REF." (refrigerator) safe zone, roughly 30°F to 40°F  
-- RED ARC (right side): "DANGER" zone, roughly 40°F to 80°F
+ANATOMY OF THE DIAL — CRITICAL LAYOUT:
+The gauge face is a ~270° arc (not a full circle). The scale runs CLOCKWISE:
+- The arc STARTS at roughly 7 o'clock position with the lowest value (around -20°F)
+- The arc ENDS at roughly 5 o'clock position with the highest value (around 80°F)
+- There is a GAP at the bottom (roughly 5-7 o'clock) with no scale
+
+COLOR ZONES on the dial face (painted arcs):
+- BLUE ARC: Covers roughly 7 o'clock to 10 o'clock. Labeled "FREEZER". Range: -20°F to ~20°F
+- WHITE/CLEAR zone: Covers roughly 10 o'clock to 12-1 o'clock. Labeled "REF." (refrigerator safe). Range: ~28°F to ~40°F
+- RED ARC: Covers roughly 1 o'clock to 5 o'clock. Labeled "DANGER ZONE". Range: ~40°F to 80°F
+
+TICK MARKS: Major ticks every 10°F, minor ticks every 2°F. Each small notch = 2°F.
 
 STEP-BY-STEP READING PROCESS:
-1. ORIENT THE GAUGE: Find the "NSF" logo or brand text (e.g. "TAYLOR") and rotate mentally until it reads correctly. The 0°F mark should be roughly at the top-left area.
-2. IDENTIFY THE NEEDLE: Find the single pointer/needle. Note its exact angular position.
-3. USE COLOR ZONES when numbers are obscured:
-   - Needle pointing LEFT and DOWN into BLUE arc → sub-zero to ~20°F (freezer territory)
-   - Needle pointing LEFT at roughly 8-9 o'clock → approximately 0°F to 10°F  
-   - Needle pointing UP (roughly 11-12 o'clock) → approximately 25°F to 35°F
-   - Needle pointing slightly RIGHT of top (1 o'clock) → approximately 35°F to 40°F (ideal walk-in cooler)
-   - Needle entering RED arc → above 40°F (danger zone)
-   - Needle pointing RIGHT (3 o'clock area) → approximately 55°F to 65°F
-   - Needle pointing far RIGHT/DOWN → 70°F to 80°F
+1. IDENTIFY THE NEEDLE: Find the single metal pointer/needle.
+2. DETERMINE WHICH COLOR ZONE the needle tip is in — this is your PRIMARY clue.
+3. COUNT TICK MARKS from the nearest labeled number or zone boundary to get the exact reading.
+4. ZONE-BASED ESTIMATION when numbers are cut off:
+   - Needle deep in BLUE arc (7-8 o'clock) → -20°F to 0°F
+   - Needle at left edge of BLUE (8-9 o'clock) → 0°F to 10°F
+   - Needle at top of BLUE (9-10 o'clock) → 10°F to 20°F
+   - Needle leaving BLUE, entering WHITE (10-11 o'clock) → 20°F to 30°F
+   - Needle in WHITE zone (11-12 o'clock) → 30°F to 36°F
+   - Needle at right side of WHITE (12-1 o'clock) → 36°F to 40°F
+   - Needle at BOUNDARY of WHITE and RED → exactly 40°F
+   - Needle ONE NOTCH past WHITE into RED → 42°F
+   - Needle TWO NOTCHES into RED → 44°F
+   - Needle clearly in RED (1-2 o'clock) → 42°F to 55°F
+   - Needle mid RED (2-3 o'clock) → 55°F to 65°F
+   - Needle deep RED (3-5 o'clock) → 65°F to 80°F
 
-4. CROSS-REFERENCE: If you can read ANY number near the needle, use the color zone to validate. A needle in the blue zone should NOT read above 20°F. A needle in the red zone should NOT read below 40°F.
+5. CROSS-VALIDATION RULES (MANDATORY):
+   - If needle is in RED zone, temperature MUST be ≥ 40°F. Never return a value below 40 for a red-zone needle.
+   - If needle is in BLUE zone, temperature MUST be ≤ 20°F. Never return a value above 20 for a blue-zone needle.
+   - If needle is in WHITE zone, temperature MUST be between 28°F and 40°F.
+   - If needle is RIGHT of center/top of gauge → it is ABOVE 35°F, not below.
+   - If needle is LEFT of center/top of gauge → it is BELOW 35°F, not above.
 
-5. COMMON PHOTO ISSUES: 
-   - Photos taken at angles — use the needle's position relative to color zones, not just numbers
-   - Numbers cut off at edges — extrapolate from the visible portion and color zone
-   - Blurry photos — the COLOR ZONE the needle is in is more reliable than trying to read exact numbers
-   - Condensation on glass — look for needle silhouette against color bands
+6. CONTEXT CHECK: The item name may hint at expected range:
+   - "Walk-In Cooler" → expect 34-42°F (needle should be in WHITE or just barely RED)
+   - "Walk-In Freezer" → expect -10°F to 10°F (needle should be in BLUE)
+   - "Reach-In" → expect 34-41°F
+   Do NOT force the reading to match expected range, but USE this as a sanity check.
 
-TYPICAL EXPECTED VALUES:
-- Walk-in cooler: 34°F to 40°F (needle near top, white/REF zone)
-- Walk-in freezer: -10°F to 10°F (needle pointing left, deep in blue zone)
-- Reach-in cooler: 35°F to 41°F
-- If needle is clearly in blue zone pointing left/down: likely 0°F to 15°F for freezer
+7. COMMON PHOTO ISSUES:
+   - Photos at angles: focus on needle position relative to color arcs, not numbers
+   - Numbers cut off: use color zone + tick count from zone boundary
+   - Blurry: the COLOR ZONE is the most reliable indicator
+   - Condensation: look for needle silhouette against color bands
 
 === DIGITAL LCD STICK THERMOMETERS ===
 STEP 1: Find °F indicator (usually top-right of LCD). Use it to orient.
@@ -347,7 +365,8 @@ Return ONLY the numeric Fahrenheit value (include negative sign if applicable, d
 If truly unreadable, return 'NONE'.
 Do NOT return ranges — give your single best estimate.`;
 
-  const userPrompt = `Read the temperature on this thermometer. Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) to determine the temperature. Return only the numeric Fahrenheit value.`;
+  const itemContext = itemName ? ` The item being measured is: "${itemName}".` : '';
+  const userPrompt = `Read the temperature on this thermometer.${itemContext} Even if numbers are partially cut off, use the needle position relative to the color zones (blue=freezer, white=refrigerator safe, red=danger) and count tick marks from zone boundaries. Return only the numeric Fahrenheit value.`;
 
   // Use pro model for better accuracy on visual temperature reading
   const data = await callAI([
