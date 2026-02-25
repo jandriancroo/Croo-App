@@ -92,7 +92,7 @@ export const ChecklistCard = memo(function ChecklistCard({
             {isLocked ? (
               <Lock className="h-4 w-4 text-muted-foreground" />
             ) : isComplete ? (
-              <CheckCircle2 className="h-5 w-5 text-primary" />
+              <Check className="h-5 w-5 text-primary" strokeWidth={3} />
             ) : (
               <span className="text-[11px] font-black text-primary">{completionRate}%</span>
             )}
