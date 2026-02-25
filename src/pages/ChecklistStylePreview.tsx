@@ -52,21 +52,19 @@ function CompletedOverlay({ completer, style }: { completer: { name: string; tim
   }
 
   if (style === "C") {
-    // Bottom bar — avatar with photo, name, time, preview + undo
+    // Bottom bar — single row: check, avatar, name, time, preview
     return (
       <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-end">
         <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
           <div className="cursor-pointer shrink-0" title="Tap to undo">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
           </div>
-          <Avatar className="h-7 w-7 shrink-0">
+          <Avatar className="h-6 w-6 shrink-0">
             <img src="https://i.pravatar.cc/56?u=josh" alt={completer.name} className="object-cover" />
             <AvatarFallback className="text-[10px] bg-muted">{completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1">
-            <span className="text-xs font-medium truncate block">{completer.name}</span>
-            <span className="text-[10px] text-muted-foreground">{completer.time}</span>
-          </div>
+          <span className="text-xs font-medium truncate">{completer.name}</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">{completer.time}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Preview photo">
             <Eye className="h-3.5 w-3.5" />
           </Button>
