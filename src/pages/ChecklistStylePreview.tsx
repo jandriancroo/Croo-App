@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle2, Eye, Upload } from "lucide-react";
+import { CheckCircle2, Eye, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Fake data
@@ -152,22 +152,26 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
                       <CompletedOverlay completer={item.completer} style={style} />
                     )}
                     {item.type === "image" ? (
-                      <CardContent className={cn("p-0", item.completed && "pointer-events-none")}>
-                        <div className={cn("bg-muted/30 flex items-center justify-center relative", s.imgH)}>
-                          {item.completed ? (
+                      item.completed ? (
+                        <CardContent className="p-0 pointer-events-none">
+                          <div className={cn("relative", s.imgH)}>
                             <img 
                               src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop" 
                               alt="Sample" 
                               className="absolute inset-0 w-full h-full object-cover"
                             />
-                          ) : (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Upload className="h-4 w-4" />
-                              <span className="text-sm">Tap to take photo</span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
+                          </div>
+                        </CardContent>
+                      ) : (
+                        <CardContent className="py-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Snap a Photo</span>
+                            <Button variant="outline" size="icon" className="h-8 w-8">
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      )
                     ) : item.completed && item.completer ? (
                       <CardContent className="py-2">
                         <div className="flex items-center gap-2">
