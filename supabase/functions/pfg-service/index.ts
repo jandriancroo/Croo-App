@@ -844,10 +844,11 @@ async function handleOAuthExchange(supabase: any, body: any): Promise<Response> 
 
   // Save/update the integration
   const now = new Date();
+  const expiresIn = tokenData.expires_in || 3600; // Default 1 hour if missing
   const credentials: PFGCredentials = {
     refresh_token: tokenData.refresh_token,
     access_token: tokenData.access_token,
-    token_expires_at: new Date(now.getTime() + tokenData.expires_in * 1000).toISOString(),
+    token_expires_at: new Date(now.getTime() + expiresIn * 1000).toISOString(),
     refresh_token_updated_at: now.toISOString(),
   };
 
