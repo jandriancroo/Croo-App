@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { CheckCircle2, Eye, Lock } from 'lucide-react';
+import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -1034,12 +1034,12 @@ export default function CompleteChecklist() {
                       {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
                        responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
                         responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                          <div className="px-4 py-2 bg-red-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(239,68,68,0.6)] animate-pulse">
-                            👎 {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Unsafe
+                          <div className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-full text-sm font-bold shadow-[0_0_16px_rgba(239,68,68,0.7)] animate-pulse">
+                            <ThumbsDown className="h-4 w-4" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Unsafe
                           </div>
                         ) : (
-                          <div className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold shadow-[0_0_12px_rgba(34,197,94,0.6)]">
-                            👍 {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Safe
+                          <div className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold shadow-[0_0_16px_rgba(34,197,94,0.7)]">
+                            <ThumbsUp className="h-4 w-4" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Safe
                           </div>
                         )
                       )}
