@@ -385,7 +385,7 @@ export function SupportChatPanel() {
                       {formatTicketId(selectedTicket.ticket_number)}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{CATEGORY_LABELS[selectedTicket.category]}</span>
+                  <Badge variant="secondary" className="text-xs w-fit">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
                 </div>
               </div>
               {/* Status Indicator - icon only */}
