@@ -61,6 +61,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgOrderGuideId, setPfgOrderGuideId] = useState('');
   const [pfgCustomerId, setPfgCustomerId] = useState('');
   const [pfgIsSavingGuide, setPfgIsSavingGuide] = useState(false);
+  const [pfgLoginUsername, setPfgLoginUsername] = useState('');
+  const [pfgLoginPassword, setPfgLoginPassword] = useState('');
+  const [pfgShowLoginPassword, setPfgShowLoginPassword] = useState(false);
+  const [pfgIsSavingCreds, setPfgIsSavingCreds] = useState(false);
+  const [pfgIsTestingRopc, setPfgIsTestingRopc] = useState(false);
+  const [pfgRopcResult, setPfgRopcResult] = useState<'success' | 'error' | null>(null);
+  
 
   // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
@@ -138,6 +145,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = pfgIntegration.credentials as any;
       setPfgOrderGuideId(creds?.product_list_header_id || '');
       setPfgCustomerId(creds?.customer_id || '');
+      setPfgLoginUsername(creds?.pfg_username || '');
+      setPfgLoginPassword(creds?.pfg_password || '');
     }
   }, [pfgIntegration]);
 
@@ -452,8 +461,76 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   };
 
+  // Save PFG login credentials for ROPC auto-re-auth
+  const savePfgCredentials = async () => {
+    if (!locationId || !pfgLoginUsername || !pfgLoginPassword) return;
+    setPfgIsSavingCreds(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=save_pfg_credentials`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ locationId, pfg_username: pfgLoginUsername, pfg_password: pfgLoginPassword }),
+        }
+      );
+      const result = await res.json();
+      if (result.success) {
+        toast.success('PFG credentials saved for auto-reconnect!');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+      } else {
+        toast.error(result.error || 'Failed to save credentials');
+      }
+    } catch {
+      toast.error('Failed to save PFG credentials');
+    } finally {
+      setPfgIsSavingCreds(false);
+    }
+  };
+
+  // Test ROPC with real credentials
+  const testPfgRopc = async () => {
+    if (!locationId) return;
+    setPfgIsTestingRopc(true);
+    setPfgRopcResult(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pfg-service?action=test_ropc`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ locationId }),
+        }
+      );
+      const result = await res.json();
+      if (result.success) {
+        setPfgRopcResult('success');
+        toast.success('ROPC works! PFG will auto-reconnect when tokens expire.');
+        queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] });
+      } else {
+        setPfgRopcResult('error');
+        toast.error(result.message || 'ROPC test failed');
+      }
+    } catch {
+      setPfgRopcResult('error');
+      toast.error('ROPC test failed');
+    } finally {
+      setPfgIsTestingRopc(false);
+    }
+  };
+
   const pfgHasToken = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token;
   const pfgUsername = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.username;
+  const pfgHasRopcCreds = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.pfg_username;
+  const pfgRopcLastSuccess = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.ropc_last_success;
   const pfgRefreshAge = pfgIntegration?.credentials && (pfgIntegration.credentials as any)?.refresh_token_updated_at
     ? Math.round((Date.now() - new Date((pfgIntegration.credentials as any).refresh_token_updated_at).getTime()) / 3600000)
     : null;
@@ -691,48 +768,138 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     </div>
                   ) : null}
 
-                  {/* Order Guide Settings - only show when connected */}
+                  {/* Auto-Reconnect Credentials */}
                   {pfgHasToken && (
                     <div className="border-t pt-3 space-y-3">
-                      <h5 className="text-sm font-medium">Order Guide</h5>
+                      <h5 className="text-sm font-medium">Auto-Reconnect (ROPC)</h5>
+                      <p className="text-xs text-muted-foreground">
+                        Store your PFG login so the system can auto-reconnect when the session expires (~24h).
+                      </p>
+                      {pfgHasRopcCreds && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                          <span>Credentials saved{pfgRopcLastSuccess ? ` · Last ROPC: ${new Date(pfgRopcLastSuccess).toLocaleDateString()}` : ''}</span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
-                          <Label htmlFor="pfg-guide-id" className="text-sm">Product List Header ID</Label>
+                          <Label htmlFor="pfg-login-user" className="text-sm">PFG Username</Label>
                           <Input
-                            id="pfg-guide-id"
-                            value={pfgOrderGuideId}
-                            onChange={(e) => setPfgOrderGuideId(e.target.value)}
-                            placeholder="e.g., b4680e1a-4815-..."
-                            className="h-9 text-xs font-mono"
+                            id="pfg-login-user"
+                            value={pfgLoginUsername}
+                            onChange={(e) => setPfgLoginUsername(e.target.value)}
+                            placeholder="your@email.com"
+                            className="h-9 text-sm"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="pfg-customer-id" className="text-sm">Customer ID</Label>
-                          <Input
-                            id="pfg-customer-id"
-                            value={pfgCustomerId}
-                            onChange={(e) => setPfgCustomerId(e.target.value)}
-                            placeholder="e.g., 73094123-ab82-..."
-                            className="h-9 text-xs font-mono"
-                          />
+                          <Label htmlFor="pfg-login-pass" className="text-sm">PFG Password</Label>
+                          <div className="relative">
+                            <Input
+                              id="pfg-login-pass"
+                              type={pfgShowLoginPassword ? "text" : "password"}
+                              value={pfgLoginPassword}
+                              onChange={(e) => setPfgLoginPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="h-9 text-sm pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-0 top-0 h-full px-3"
+                              onClick={() => setPfgShowLoginPassword(!pfgShowLoginPassword)}
+                            >
+                              {pfgShowLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={savePfgGuideSettings}
-                        disabled={pfgIsSavingGuide}
-                      >
-                        {pfgIsSavingGuide ? (
-                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4 mr-1.5" />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={savePfgCredentials}
+                          disabled={pfgIsSavingCreds || !pfgLoginUsername || !pfgLoginPassword}
+                        >
+                          {pfgIsSavingCreds ? (
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-1.5" />
+                          )}
+                          Save Credentials
+                        </Button>
+                        {pfgHasRopcCreds && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={testPfgRopc}
+                            disabled={pfgIsTestingRopc}
+                          >
+                            {pfgIsTestingRopc ? (
+                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            ) : pfgRopcResult === 'success' ? (
+                              <Check className="h-4 w-4 mr-1.5 text-primary" />
+                            ) : pfgRopcResult === 'error' ? (
+                              <X className="h-4 w-4 mr-1.5 text-destructive" />
+                            ) : (
+                              <TestTube className="h-4 w-4 mr-1.5" />
+                            )}
+                            Test ROPC
+                          </Button>
                         )}
-                        Save Guide
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Find these in your PFG portal URL or browser DevTools when viewing an order guide
-                      </p>
+                      </div>
                     </div>
+                  )}
+
+                  {/* Order Guide Settings - collapsed */}
+                  {pfgHasToken && (
+                    <Collapsible>
+                      <div className="border-t pt-3">
+                        <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full">
+                          <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
+                          <span>Advanced: Order Guide IDs</span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-3 pt-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="pfg-guide-id" className="text-sm">Product List Header ID</Label>
+                              <Input
+                                id="pfg-guide-id"
+                                value={pfgOrderGuideId}
+                                onChange={(e) => setPfgOrderGuideId(e.target.value)}
+                                placeholder="e.g., b4680e1a-4815-..."
+                                className="h-9 text-xs font-mono"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="pfg-customer-id" className="text-sm">Customer ID</Label>
+                              <Input
+                                id="pfg-customer-id"
+                                value={pfgCustomerId}
+                                onChange={(e) => setPfgCustomerId(e.target.value)}
+                                placeholder="e.g., 73094123-ab82-..."
+                                className="h-9 text-xs font-mono"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={savePfgGuideSettings}
+                            disabled={pfgIsSavingGuide}
+                          >
+                            {pfgIsSavingGuide ? (
+                              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4 mr-1.5" />
+                            )}
+                            Save Guide
+                          </Button>
+                          <p className="text-xs text-muted-foreground">
+                            Find these in your PFG portal URL or browser DevTools when viewing an order guide
+                          </p>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
                   )}
 
                    <div className={pfgHasToken ? "border-t pt-3" : ""}>

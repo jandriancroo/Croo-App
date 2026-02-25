@@ -66,11 +66,16 @@ async function fetchPfgJson(
 interface PFGCredentials {
   username?: string;
   password?: string;
+  pfg_username?: string;
+  pfg_password?: string;
   refresh_token: string;
   customer_id?: string;
   access_token?: string;
   token_expires_at?: string;
   refresh_token_updated_at?: string;
+  ropc_last_success?: string;
+  ropc_last_failure?: string;
+  ropc_failure_reason?: string;
 }
 
 interface TokenResponse {
@@ -127,6 +132,40 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse |
     return tokenData;
   } catch (error) {
     console.error('[PFG Auth] Refresh error:', error);
+    return null;
+  }
+}
+
+// ROPC (Resource Owner Password Credentials) — re-authenticate using stored username/password
+async function ropcAuthenticate(username: string, password: string): Promise<TokenResponse | null> {
+  try {
+    console.log('[PFG ROPC] Attempting password grant for user:', username);
+    const params = new URLSearchParams({
+      client_id: PFG_CLIENT_ID,
+      scope: PFG_SCOPE,
+      grant_type: 'password',
+      username,
+      password,
+      response_type: 'token',
+    });
+
+    const response = await fetch(PFG_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      console.error('[PFG ROPC] Failed:', response.status, text.slice(0, 500));
+      return null;
+    }
+
+    const tokenData = JSON.parse(text);
+    console.log('[PFG ROPC] Success! expires_in:', tokenData.expires_in);
+    return tokenData;
+  } catch (error) {
+    console.error('[PFG ROPC] Error:', error);
     return null;
   }
 }
@@ -891,7 +930,45 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
       const tokenData = await refreshAccessToken(creds.refresh_token);
       
       if (!tokenData) {
-        results.push({ locationId: integration.location_id, success: false, error: 'Refresh failed — manual re-login needed' });
+        // ROPC FALLBACK: try password grant if credentials are stored
+        const pfgUser = creds.pfg_username;
+        const pfgPass = creds.pfg_password;
+        
+        if (pfgUser && pfgPass) {
+          console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id}, attempting ROPC fallback...`);
+          const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
+          
+          if (ropcData) {
+            const now = new Date();
+            const updatedCreds: PFGCredentials = {
+              ...creds,
+              refresh_token: ropcData.refresh_token,
+              access_token: ropcData.access_token,
+              token_expires_at: new Date(now.getTime() + ropcData.expires_in * 1000).toISOString(),
+              refresh_token_updated_at: now.toISOString(),
+              ropc_last_success: now.toISOString(),
+            };
+            await supabase
+              .from('location_integrations')
+              .update({ credentials: updatedCreds })
+              .eq('id', integration.id);
+            results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
+            console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id}`);
+            continue;
+          } else {
+            // ROPC also failed — update failure tracking
+            const now = new Date();
+            await supabase
+              .from('location_integrations')
+              .update({ credentials: { ...creds, ropc_last_failure: now.toISOString(), ropc_failure_reason: 'ROPC auth failed after grant expiry' } })
+              .eq('id', integration.id);
+            results.push({ locationId: integration.location_id, success: false, error: 'Both refresh and ROPC failed — check credentials' });
+            console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
+            continue;
+          }
+        }
+        
+        results.push({ locationId: integration.location_id, success: false, error: 'Refresh failed — no ROPC credentials stored' });
         continue;
       }
 
@@ -1596,6 +1673,98 @@ serve(async (req) => {
     console.log('[PFG Service] Action:', action || 'fetch');
 
     switch (action) {
+      case 'test_ropc': {
+        // Test ROPC with real credentials for a specific location
+        const { locationId: testLocId } = body;
+        if (!testLocId) {
+          return new Response(JSON.stringify({ error: 'Missing locationId' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const { data: testInt } = await supabase
+          .from('location_integrations')
+          .select('id, credentials')
+          .eq('location_id', testLocId)
+          .eq('integration_type', 'pfg')
+          .eq('is_active', true)
+          .maybeSingle();
+        if (!testInt) {
+          return new Response(JSON.stringify({ error: 'No PFG integration found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const testCreds = testInt.credentials as any;
+        if (!testCreds?.pfg_username || !testCreds?.pfg_password) {
+          return new Response(JSON.stringify({ error: 'No PFG credentials stored — save username/password first', ropc_supported: false }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        console.log('[PFG ROPC Test] Testing real credentials for location:', testLocId);
+        const ropcResult = await ropcAuthenticate(testCreds.pfg_username, testCreds.pfg_password);
+        if (ropcResult) {
+          // Save the new tokens
+          const now = new Date();
+          const updatedCreds = {
+            ...testCreds,
+            refresh_token: ropcResult.refresh_token,
+            access_token: ropcResult.access_token,
+            token_expires_at: new Date(now.getTime() + ropcResult.expires_in * 1000).toISOString(),
+            refresh_token_updated_at: now.toISOString(),
+            ropc_last_success: now.toISOString(),
+          };
+          await supabase
+            .from('location_integrations')
+            .update({ credentials: updatedCreds })
+            .eq('id', testInt.id);
+          return new Response(JSON.stringify({ 
+            success: true, 
+            ropc_supported: true,
+            message: 'ROPC authentication successful! Tokens refreshed.',
+            expires_in: ropcResult.expires_in,
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          return new Response(JSON.stringify({ 
+            success: false, 
+            ropc_supported: false,
+            message: 'ROPC failed — credentials may be wrong or ROPC not supported for this account.',
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      case 'save_pfg_credentials': {
+        const { locationId: credLocId, pfg_username, pfg_password } = body;
+        if (!credLocId || !pfg_username || !pfg_password) {
+          return new Response(JSON.stringify({ error: 'Missing locationId, pfg_username, or pfg_password' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const { data: credInt } = await supabase
+          .from('location_integrations')
+          .select('id, credentials')
+          .eq('location_id', credLocId)
+          .eq('integration_type', 'pfg')
+          .maybeSingle();
+        if (!credInt) {
+          return new Response(JSON.stringify({ error: 'No PFG integration found — connect PFG first' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const existingCreds = (credInt.credentials as any) || {};
+        const merged = { ...existingCreds, pfg_username, pfg_password };
+        await supabase
+          .from('location_integrations')
+          .update({ credentials: merged })
+          .eq('id', credInt.id);
+        console.log('[PFG] Saved ROPC credentials for location:', credLocId);
+        return new Response(JSON.stringify({ success: true, message: 'PFG credentials saved' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'save_token':
         return await handleSaveToken(supabase, body);
 
