@@ -59,11 +59,11 @@ function CompletedOverlay({ completer, style }: { completer: { name: string; tim
           <div className="cursor-pointer shrink-0" title="Tap to undo">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
           </div>
-          <Avatar className="h-6 w-6 shrink-0">
+          <Avatar className="h-7 w-7 shrink-0">
             <img src="https://i.pravatar.cc/56?u=josh" alt={completer.name} className="object-cover" />
             <AvatarFallback className="text-[10px] bg-muted">{completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
-          <span className="text-xs font-medium truncate">{completer.name}</span>
+          <span className="text-sm font-medium truncate">{completer.name}</span>
           <span className="text-[10px] text-muted-foreground ml-auto">{completer.time}</span>
           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Preview photo">
             <Eye className="h-3.5 w-3.5" />
@@ -178,11 +178,11 @@ function ChecklistOption({ label, style, description }: { label: string; style: 
                           <div className="cursor-pointer shrink-0" title="Tap to undo">
                             <CheckCircle2 className="h-5 w-5 text-green-600" />
                           </div>
-                          <Avatar className="h-6 w-6 shrink-0">
+                          <Avatar className="h-7 w-7 shrink-0">
                             <img src="https://i.pravatar.cc/56?u=andrea" alt={item.completer.name} className="object-cover" />
                             <AvatarFallback className="text-[10px] bg-muted">{item.completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                           </Avatar>
-                          <span className="text-xs font-medium truncate">{item.completer.name}</span>
+                          <span className="text-sm font-medium truncate">{item.completer.name}</span>
                           <span className="text-[10px] text-muted-foreground ml-auto">{item.completer.time}</span>
                         </div>
                       </CardContent>
