@@ -1173,7 +1173,7 @@ export default function CompleteChecklist() {
                               <img
                                   src={photoUrl}
                                   alt={`Checklist photo ${idx + 1}`}
-                                  className={`rounded border object-cover w-full ${isMultiPhoto ? 'aspect-square' : 'h-32'}`}
+                                  className={`rounded border object-cover w-full ${isMultiPhoto ? 'aspect-square' : 'h-32 sm:h-48 md:h-64'}`}
                                   loading="lazy"
                                 />
                                 <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
