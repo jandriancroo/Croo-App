@@ -1777,6 +1777,27 @@ serve(async (req) => {
       case 'refresh_keep_alive':
         return await handleRefreshKeepAlive(supabase, body);
       
+      case 'headless_login_failed': {
+        // GitHub Actions headless login failed — create support ticket
+        const failLocationId = body?.locationId;
+        const failError = body?.error || 'Unknown headless login failure';
+        console.error('[PFG Headless] Login failed for location:', failLocationId, failError);
+        
+        if (failLocationId) {
+          await supabase.from('support_tickets').insert({
+            title: 'PFG Headless Login Failed',
+            description: `The automated PFG token refresh via GitHub Actions failed.\n\nLocation: ${failLocationId}\nError: ${failError}\n\nA manager may need to manually reconnect PFG in Settings → Integrations.`,
+            status: 'open',
+            priority: 'high',
+            source: 'system',
+          });
+        }
+        
+        return new Response(JSON.stringify({ success: true, message: 'Failure logged' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       case 'sync_orders':
         return await handleSyncOrders(supabase, body);
       
