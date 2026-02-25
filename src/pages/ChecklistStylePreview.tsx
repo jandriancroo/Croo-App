@@ -52,12 +52,13 @@ function CompletedOverlay({ completer, style }: { completer: { name: string; tim
   }
 
   if (style === "C") {
-    // Bottom bar — small avatar, name, time
+    // Bottom bar — avatar with photo, name, time
     return (
-      <div className="absolute inset-0 bg-background/40 backdrop-blur-[1px] z-10 flex flex-col justify-end">
+      <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col justify-end">
         <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-          <Avatar className="h-6 w-6">
+          <Avatar className="h-7 w-7">
+            <img src="https://i.pravatar.cc/56?u=josh" alt={completer.name} className="object-cover" />
             <AvatarFallback className="text-[10px] bg-muted">{completer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
           <span className="text-xs font-medium truncate">{completer.name}</span>
