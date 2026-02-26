@@ -658,17 +658,14 @@ export function MobileScheduleView({
             {dayEvents.map(event => {
               const color = event.category?.color || '#8B5CF6';
               return (
-                <button
+                <div
                   key={event.id}
-                  onClick={() => {
-                    setEventDialogOpen(true);
-                  }}
                   className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1 text-left min-w-0"
                   style={{ maxWidth: 'calc(50% - 3px)', borderLeftColor: color, borderLeftWidth: 3 }}
                 >
                   <span className="text-xs font-medium truncate">{event.event_name}</span>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
-                </button>
+                </div>
               );
             })}
           </div>
