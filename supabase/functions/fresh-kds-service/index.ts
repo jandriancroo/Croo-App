@@ -220,28 +220,98 @@ serve(async (req) => {
     }
 
     // ======================================================================
+    // ACTION: probe-metrics - discover available API endpoints
+    // ======================================================================
+    if (action === 'probe-metrics') {
+      const token = await getFreshToken();
+      const kdsLocationId = req.headers.get('x-kds-location-id') || '';
+      const probeDateFrom = '2026-02-24';
+      const probeDateTo = '2026-02-25';
+      
+      const probeEndpoints = [
+        'average-times/',
+        'counts/',
+        'counts/late/',
+        'counts/on-time/',
+        'counts/caution/',
+        'average-times/bumped/',
+        'average-times/total/',
+        'percentages/',
+        'percentages/late/',
+        'percentages/on-time/',
+        'late/',
+        'on-time/',
+        'caution/',
+      ];
+
+      const results: Record<string, any> = {};
+      
+      for (const ep of probeEndpoints) {
+        try {
+          const url = new URL(`https://kds-api.ftservices.cloud/metrics/orders/${ep}`);
+          if (kdsLocationId) url.searchParams.set('locationId', kdsLocationId);
+          url.searchParams.set('dateFrom', `${probeDateFrom}T08:00:00.000Z`);
+          url.searchParams.set('dateTo', `${probeDateTo}T07:59:59.999Z`);
+          
+          const res = await fetch(url.toString(), {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'x-brand-id': brandId,
+              'Accept': 'application/json',
+            },
+          });
+          results[ep] = { status: res.status, data: res.ok ? await res.json() : await res.text() };
+        } catch (e) {
+          results[ep] = { status: 'error', data: e.message };
+        }
+      }
+
+      return new Response(JSON.stringify({ results }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ======================================================================
     // ACTION: discover-locations  
     // ======================================================================
     if (action === 'discover-locations') {
       const token = await getFreshToken();
       
-      // Fetch the user's brands/locations from Fresh KDS
+      // Fetch brands
       const brandsRes = await fetch('https://user-api.ftservices.cloud/brands', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
       });
-
       if (!brandsRes.ok) {
         return new Response(JSON.stringify({ error: 'Failed to fetch brands' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
       const brands = await brandsRes.json();
-      return new Response(JSON.stringify({ brands }), {
+      
+      // Try multiple location endpoints
+      const fetchBrandId = brandId || brands?.results?.[0]?.id;
+      const locationResults: Record<string, any> = {};
+      if (fetchBrandId) {
+        const paths = [
+          `https://user-api.ftservices.cloud/brands/${fetchBrandId}/locations`,
+          `https://kds-api.ftservices.cloud/brands/${fetchBrandId}/locations`,
+          `https://user-api.ftservices.cloud/locations`,
+          `https://kds-api.ftservices.cloud/locations`,
+          `https://kds-api.ftservices.cloud/locations?brandId=${fetchBrandId}`,
+        ];
+        for (const p of paths) {
+          try {
+            const r = await fetch(p, {
+              headers: { 'Authorization': `Bearer ${token}`, 'x-brand-id': fetchBrandId, 'Accept': 'application/json' },
+            });
+            locationResults[p] = { status: r.status, data: r.ok ? await r.json() : await r.text() };
+          } catch (e) {
+            locationResults[p] = { error: e.message };
+          }
+        }
+      }
+      
+      return new Response(JSON.stringify({ brands, locationResults }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
