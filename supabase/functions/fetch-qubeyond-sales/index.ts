@@ -2087,50 +2087,65 @@ function generateDailyProjectionsForMonth(
 }
 
 // Calculate pace-adjusted projection: actual sales + remaining hourly projections
+// When <30 min into the current hour, use the full projection for that hour
+// instead of partial actual, to avoid penalizing a slow start to an hour.
 function calculatePaceAdjustedProjection(
   actualSales: number,
   currentHour: number,
   currentMinutes: number,
   hoursOpen: number,
   hoursClose: number,
-  hourlyProjections: { hour: string; projected: number }[]
+  hourlyData: { hour: string; sales: number; projected: number }[]
 ): number {
   // If store is closed or hasn't opened yet, return actual sales
   if (currentHour < hoursOpen || currentHour >= hoursClose) {
     return actualSales;
   }
   
-  // Calculate fraction of current hour remaining
-  const minutesRemainingInCurrentHour = 60 - currentMinutes;
-  const fractionOfCurrentHourRemaining = minutesRemainingInCurrentHour / 60;
-  
-  // Get current hour's projection and add fractional remaining portion
   const currentHourStr = `${currentHour.toString().padStart(2, '0')}:00`;
-  const currentHourProjection = hourlyProjections.find(h => h.hour === currentHourStr);
-  const currentHourRemainingProjection = currentHourProjection 
-    ? currentHourProjection.projected * fractionOfCurrentHourRemaining 
-    : 0;
+  const currentHourEntry = hourlyData.find(h => h.hour === currentHourStr);
+  const currentHourProjection = currentHourEntry?.projected ?? 0;
+  const currentHourActual = currentHourEntry?.sales ?? 0;
   
-  // Sum up projections for FUTURE hours (starting from next hour through close)
-  let futureHoursProjected = 0;
-  for (let hour = currentHour + 1; hour < hoursClose; hour++) {
-    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
-    const projection = hourlyProjections.find(h => h.hour === hourStr);
-    if (projection) {
-      futureHoursProjected += projection.projected;
+  // Under 30 minutes into the hour: treat current hour as a future hour
+  // Use completed-hours actuals + full projection for current + future hours
+  const usePartialHour = currentMinutes >= 30;
+  
+  let currentHourContribution = 0;
+  if (usePartialHour) {
+    // 30+ min in: actual is meaningful, add remaining fraction of projection
+    const fractionRemaining = (60 - currentMinutes) / 60;
+    currentHourContribution = currentHourActual + (currentHourProjection * fractionRemaining);
+  } else {
+    // <30 min in: use full projection for this hour (ignore partial actual)
+    currentHourContribution = currentHourProjection;
+  }
+  
+  // Sum completed hours actuals (before current hour)
+  let completedHoursActual = 0;
+  for (const entry of hourlyData) {
+    const entryHour = parseInt(entry.hour.split(':')[0]);
+    if (entryHour < currentHour) {
+      completedHoursActual += entry.sales;
     }
   }
   
-  // Total remaining = fractional current hour + all future hours
-  const totalRemainingProjected = currentHourRemainingProjection + futureHoursProjected;
+  // Sum future hours projections (after current hour)
+  let futureHoursProjected = 0;
+  for (let hour = currentHour + 1; hour < hoursClose; hour++) {
+    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    const entry = hourlyData.find(h => h.hour === hourStr);
+    if (entry) {
+      futureHoursProjected += entry.projected;
+    }
+  }
   
-  // Pace-adjusted = actual sales + total remaining projections
-  const paceAdjusted = actualSales + totalRemainingProjected;
+  const paceAdjusted = completedHoursActual + currentHourContribution + futureHoursProjected;
   
   // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
   const clampedPace = Math.max(paceAdjusted, actualSales);
   
-  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${currentHourRemainingProjection.toFixed(0)} (${minutesRemainingInCurrentHour}min left in hr ${currentHour}) + $${futureHoursProjected.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
+  console.log(`Pace calculation: $${completedHoursActual.toFixed(0)} completed + $${currentHourContribution.toFixed(0)} (hr ${currentHour}, ${usePartialHour ? (60 - currentMinutes) + 'min left' : 'full proj <30min'}) + $${futureHoursProjected.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
   
   return Math.round(clampedPace);
 }
@@ -2147,7 +2162,7 @@ function generateProjections(
   hoursClose: number,
   todayStr: string,
   locationId: string,
-  hourlyProjections: { hour: string; projected: number }[],
+  hourlyProjections: { hour: string; sales: number; projected: number }[],
   lastYearData?: { 
     sameDay: number; 
     sameWeek: number; 
@@ -3060,24 +3075,23 @@ serve(async (req) => {
             console.log(`[PROJECTION] Using ${projectionSource} projection: $${resolvedProjection} (was $${projections.todayProjected.toFixed(0)} calculated)`);
             projections.todayProjected = resolvedProjection;
             
-            // Recalculate pace with the resolved projection
-            // Pace = actual sales so far + remaining hourly projections
-            const tzHour = currentHour;
-            let remainingProjected = 0;
-            for (const h of hourlyWithProjections) {
-              const hourNum = parseInt(h.hour.split(':')[0], 10);
-              if (hourNum > tzHour && h.projected) {
-                remainingProjected += h.projected;
-              }
-            }
-            
-            // Scale remaining projections to match the new daily target ratio
-            const originalTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
-            if (originalTotal > 0) {
-              const scaleFactor = resolvedProjection / originalTotal;
-              remainingProjected = remainingProjected * scaleFactor;
-            }
-            
+            // Recalculate pace using unified pace function with scaled hourly projections
+            const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
+            const paceScaleFactor = origTotal > 0 ? resolvedProjection / origTotal : 1;
+            const scaledHourlyForPace = hourlyWithProjections.map(h => ({
+              ...h,
+              projected: Math.round((h.projected || 0) * paceScaleFactor)
+            }));
+            projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
+              dailySales,
+              currentHour,
+              currentMinutes,
+              hoursOpen,
+              hoursClose,
+              scaledHourlyForPace
+            );
+            console.log(`[PROJECTION] Recalculated pace with ${projectionSource}: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)}, scale ${paceScaleFactor.toFixed(3)})`);
+
             projections.todayPaceAdjusted = dailySales + remainingProjected;
             console.log(`[PROJECTION] Recalculated pace: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)} + remaining $${remainingProjected.toFixed(0)})`);
           }
