@@ -67,6 +67,11 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsSavingCreds, setPfgIsSavingCreds] = useState(false);
   const [pfgIsTestingRopc, setPfgIsTestingRopc] = useState(false);
   const [pfgRopcResult, setPfgRopcResult] = useState<'success' | 'error' | null>(null);
+
+  // Fresh KDS state
+  const [kdsLocationId, setKdsLocationId] = useState('');
+  const [kdsIsSaving, setKdsIsSaving] = useState(false);
+  const [kdsIsSyncing, setKdsIsSyncing] = useState(false);
   
 
   // Fetch existing QuBeyond integration
@@ -106,6 +111,29 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     },
     enabled: !!locationId
   });
+
+  // Fetch location's Fresh KDS ID
+  const { data: locationKdsData } = useQuery({
+    queryKey: ['location-kds-id', locationId],
+    queryFn: async () => {
+      if (!locationId) return null;
+      const { data, error } = await supabase
+        .from('locations')
+        .select('fresh_kds_location_id')
+        .eq('id', locationId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  // Sync KDS location ID state when data loads
+  useEffect(() => {
+    if (locationKdsData) {
+      setKdsLocationId(locationKdsData.fresh_kds_location_id || '');
+    }
+  }, [locationKdsData]);
 
   // Fetch existing PA integration
   const { data: paIntegration, isLoading: paIsLoading } = useQuery({
@@ -1106,6 +1134,100 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   </p>
                 </>
               )}
+            </div>
+
+            {/* Fresh KDS Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">Fresh KDS</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Display average ticket times on the dashboard
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="kds-location-id" className="text-sm">Fresh KDS Location ID</Label>
+                <Input
+                  id="kds-location-id"
+                  value={kdsLocationId}
+                  onChange={(e) => setKdsLocationId(e.target.value)}
+                  placeholder="e.g., abc123-def456-..."
+                  className="h-9"
+                />
+                <p className="text-xs text-muted-foreground">
+                  The location UUID from your Fresh KDS dashboard
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!locationId || !kdsLocationId.trim()) {
+                      toast.error('Please enter a KDS location ID');
+                      return;
+                    }
+                    setKdsIsSaving(true);
+                    try {
+                      const { error } = await supabase
+                        .from('locations')
+                        .update({ fresh_kds_location_id: kdsLocationId.trim() })
+                        .eq('id', locationId);
+                      if (error) throw error;
+                      toast.success('Fresh KDS location ID saved!');
+                      queryClient.invalidateQueries({ queryKey: ['location-kds-id', locationId] });
+                    } catch (error) {
+                      toast.error('Failed to save: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                    } finally {
+                      setKdsIsSaving(false);
+                    }
+                  }}
+                  disabled={kdsIsSaving || !kdsLocationId.trim()}
+                >
+                  {kdsIsSaving ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-1.5" />
+                  )}
+                  Save
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!locationId) return;
+                    setKdsIsSyncing(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('fresh-kds-service', {
+                        body: { action: 'sync-ticket-times', locationId }
+                      });
+                      if (error) throw error;
+                      if (data?.needsSetup) {
+                        toast.error('Please save a KDS location ID first');
+                      } else if (data?.success) {
+                        toast.success(`Synced ${data.synced} days of ticket time data`);
+                      } else {
+                        toast.error(data?.error || 'Sync failed');
+                      }
+                    } catch (error) {
+                      toast.error('Sync failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                    } finally {
+                      setKdsIsSyncing(false);
+                    }
+                  }}
+                  disabled={kdsIsSyncing || !kdsLocationId.trim()}
+                >
+                  {kdsIsSyncing ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1.5" />
+                  )}
+                  Sync Now
+                </Button>
+              </div>
             </div>
           </CardContent>
         </CollapsibleContent>
