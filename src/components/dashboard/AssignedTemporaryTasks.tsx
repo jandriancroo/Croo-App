@@ -56,7 +56,8 @@ export function AssignedTemporaryTasks({
   showCompleted = false,
   includeCateringOrders = false,
   includeEventTasks = false,
-  compact = false
+  compact = false,
+  afterEventsContent,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
