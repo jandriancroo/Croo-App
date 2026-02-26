@@ -80,7 +80,7 @@ export function OvationReviewsCube() {
 
 
   // Fetch reviews for the current location
-  const { data: reviewsData, isLoading, error } = useQuery<OvationReviewsData>({
+  const { data: reviewsData } = useQuery<OvationReviewsData>({
     queryKey: ['ovation-reviews', currentLocation?.id, brandId],
     queryFn: async () => {
       if (!currentLocation?.id) return { reviews: [], wtdAverage: null, wtdCount: 0, totalCount: 0 };
