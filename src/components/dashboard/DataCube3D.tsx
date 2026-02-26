@@ -25,7 +25,7 @@ interface DataCube3DProps {
   useDemoData?: boolean; // Temporarily show demo data for testing
 }
 
-function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string {
+function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string {
   if (value === undefined || value === null) return '--';
   
   switch (format) {
@@ -39,6 +39,8 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
     }
     case 'hours':
       return `${Math.round(value)}h`;
+    case 'minutes':
+      return `${value.toFixed(1)}m`;
     case 'number':
     default:
       return Math.round(value).toLocaleString();
@@ -178,6 +180,8 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
     case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
     case 'sales_last_year_day': return salesData.lastYear?.sameDay;
     case 'avg_ticket': return salesData.avgTicket;
+    case 'kds_ticket_time': return salesData.kdsData?.ticketTimeToday;
+    case 'kds_ticket_time_wtd': return salesData.kdsData?.ticketTimeWtd;
     case 'guest_count_today': return salesData.guestCount?.daily;
     case 'pizza_count_today': return typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily;
     case 'labor_percent_today':

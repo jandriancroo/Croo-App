@@ -35,7 +35,7 @@ export function DataCube({
 }: DataCubeProps) {
   const isOled = useIsOledTheme();
   
-  const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string => {
+  const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (format) {
@@ -49,6 +49,8 @@ export function DataCube({
       }
       case 'hours':
         return `${Math.round(value)}h`;
+      case 'minutes':
+        return `${value.toFixed(1)}m`;
       case 'number':
         return Math.round(value).toLocaleString();
       default:
@@ -88,6 +90,8 @@ export function DataCube({
       case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
       case 'sales_last_year_day': return salesData.lastYear?.sameDay;
       case 'avg_ticket': return salesData.avgTicket;
+      case 'kds_ticket_time': return salesData.kdsData?.ticketTimeToday;
+      case 'kds_ticket_time_wtd': return salesData.kdsData?.ticketTimeWtd;
       
       // Daily guests/products
       case 'guest_count_today': return salesData.guestCount?.daily;

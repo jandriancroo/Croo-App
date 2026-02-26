@@ -86,6 +86,9 @@ export type MetricType =
   | 'pace_vs_ly_day'
   | 'pace_vs_ly_week'
   | 'pace_vs_ly_month'
+  // KDS metrics
+  | 'kds_ticket_time'
+  | 'kds_ticket_time_wtd'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -97,7 +100,7 @@ export interface MetricConfig {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
-  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours';
+  format: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes';
   category: 'daily' | 'weekly' | 'monthly';
 }
 
@@ -214,6 +217,10 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_olo_giftcard_mtd_pct: { type: 'payment_olo_giftcard_mtd_pct', label: 'OLO GC % MTD', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'monthly' },
   payment_svs_giftcard_mtd_pct: { type: 'payment_svs_giftcard_mtd_pct', label: 'SVS GC % MTD', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'monthly' },
   
+  // KDS metrics
+  kds_ticket_time: { type: 'kds_ticket_time', label: 'Ticket Time', shortLabel: 'KDS Time', icon: Clock, format: 'minutes', category: 'daily' },
+  kds_ticket_time_wtd: { type: 'kds_ticket_time_wtd', label: 'Ticket Time WTD', shortLabel: 'KDS WTD', icon: Clock, format: 'minutes', category: 'weekly' },
+
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
   labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
@@ -244,6 +251,7 @@ export const METRIC_GROUPS = [
       'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
       'pace_vs_ly_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
+      'kds_ticket_time',
       'labor_percent_today', 'labor_hours_today'
     ] as MetricType[] 
   },
@@ -253,6 +261,7 @@ export const METRIC_GROUPS = [
       'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
       'pace_vs_ly_week',
       'guest_count_wtd', 'pizza_count_wtd',
+      'kds_ticket_time_wtd',
       'labor_percent_wtd'
     ] as MetricType[] 
   },
@@ -305,6 +314,11 @@ export interface SalesDataForWidgets {
     weekly: Array<{ paymentType: string; amount: number }>;
     monthly: Array<{ paymentType: string; amount: number }>;
   } | null;
+  // KDS metrics data
+  kdsData?: {
+    ticketTimeToday?: number;
+    ticketTimeWtd?: number;
+  } | null;
 }
 
 interface DashboardWidgetProps {
@@ -334,7 +348,7 @@ export function DashboardWidget({
   
   // Use primary color for OLED theme instead of custom accent colors
   const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
-  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours'): string => {
+  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'percent_signed' | 'number' | 'hours' | 'minutes'): string => {
     if (value === undefined || value === null) return '--';
     
     switch (formatType) {
@@ -348,6 +362,8 @@ export function DashboardWidget({
       }
       case 'hours':
         return `${Math.round(value)}h`;
+      case 'minutes':
+        return `${value.toFixed(1)}m`;
       case 'number':
         return Math.round(value).toLocaleString();
       default:
@@ -421,6 +437,10 @@ export function DashboardWidget({
       case 'personal_pay_week': return salesData.personalData?.payWeek;
       case 'personal_pay_payroll': return salesData.personalData?.payPayroll;
       
+      // KDS metrics
+      case 'kds_ticket_time': return salesData.kdsData?.ticketTimeToday;
+      case 'kds_ticket_time_wtd': return salesData.kdsData?.ticketTimeWtd;
+
       // Pace vs Last Year variance (computed %)
       case 'pace_vs_ly_day': {
         const pace = salesData.projections?.todayPaceAdjusted;
