@@ -22,6 +22,8 @@ interface AssignedTemporaryTasksProps {
   includeEventTasks?: boolean;
   /** Compact badge-style rendering for mobile Today tab */
   compact?: boolean;
+  /** Content to render between events and tasks in compact mode */
+  afterEventsContent?: React.ReactNode;
 }
 
 interface CateringOrder {
