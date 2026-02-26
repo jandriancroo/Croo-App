@@ -122,10 +122,8 @@ serve(async (req) => {
     const anonClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(
-      authHeader.replace('Bearer ', '')
-    );
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user: authUser }, error: authError } = await anonClient.auth.getUser();
+    if (authError || !authUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -151,7 +149,7 @@ serve(async (req) => {
       // Get the location's Fresh KDS ID
       const { data: location, error: locError } = await serviceClient
         .from('locations')
-        .select('id, fresh_kds_location_id, timezone')
+        .select('id, fresh_kds_location_id')
         .eq('id', locationId)
         .single();
 
@@ -169,7 +167,7 @@ serve(async (req) => {
         });
       }
 
-      const timezone = location.timezone || 'America/Los_Angeles';
+      const timezone = 'America/Los_Angeles';
       const now = new Date();
       const today = getDateStringForTimezone(now, timezone);
       
