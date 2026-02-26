@@ -122,7 +122,7 @@ export function QuickTaskTemplateLibrary({
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {isLoading ? (
               <p className="text-center text-muted-foreground py-8">Loading...</p>
             ) : filteredTemplates.length === 0 ? (
@@ -136,75 +136,47 @@ export function QuickTaskTemplateLibrary({
                 </p>
               </div>
             ) : (
-              filteredTemplates.map((template: any) => (
-                <div
-                  key={template.id}
-                  className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-                  style={{ borderLeftWidth: 4, borderLeftColor: template.accent_color }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => {
-                        onSelectTemplate(template);
-                        onOpenChange(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{template.name}</p>
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] px-1.5 gap-0.5"
-                          style={{ borderColor: template.accent_color, color: template.accent_color }}
-                        >
-                          {getTaskStyleIcon(template.task_style, template.is_qr_triggered)}
-                          {getTaskStyleLabel(template.task_style, template.is_qr_triggered)}
-                        </Badge>
-                      </div>
-                      {template.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {template.description}
-                        </p>
-                      )}
-                      {template.subtasks && (template.subtasks as any[]).length > 0 && (
-                        <Badge variant="secondary" className="text-[10px] mt-1">
-                          {(template.subtasks as any[]).length} subtasks
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          onSelectTemplate(template);
-                          onOpenChange(false);
-                        }}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        Use
-                      </Button>
+              <div className="flex flex-wrap gap-1.5">
+                {filteredTemplates.map((template: any) => (
+                  <div
+                    key={template.id}
+                    className="group flex items-center gap-1.5 rounded-full border border-border/50 bg-card shadow-sm pl-1 pr-1 py-1 cursor-pointer hover:bg-accent/50 transition-colors"
+                    style={{ borderLeftWidth: 3, borderLeftColor: template.accent_color }}
+                    onClick={() => {
+                      onSelectTemplate(template);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <span className="flex items-center justify-center h-5 w-5 rounded-full shrink-0" style={{ backgroundColor: `${template.accent_color}20`, color: template.accent_color }}>
+                      {getTaskStyleIcon(template.task_style, template.is_qr_triggered)}
+                    </span>
+                    <span className="text-xs font-medium whitespace-nowrap pr-1">{template.name}</span>
+                    {template.subtasks && (template.subtasks as any[]).length > 0 && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">{(template.subtasks as any[]).length}✓</span>
+                    )}
+                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className="h-6 w-6 rounded-full"
                         onClick={() => setEditTemplate(template)}
                         title="Edit template"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3 w-3" />
                       </Button>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-6 w-6 rounded-full text-destructive hover:text-destructive"
                         onClick={() => setDeleteTemplateId(template.id)}
                         title="Delete template"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </DialogContent>
