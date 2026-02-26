@@ -561,13 +561,14 @@ export function AssignedTemporaryTasks({
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="h-[2px] w-[90%] bg-muted-foreground/50" />
           </div>
-          <EventCard
+          <TemporaryTaskCard
             id={task.id}
-            name={task.event_name}
-            time={task.event_time}
-            categoryName={task.category?.name}
-            categoryColor={task.category?.color}
-            showCompleteButton={false}
+            title={task.event_name}
+            subtitle={task.event_time}
+            icon={CalendarCheck}
+            accentColor={task.category?.color || "#6366f1"}
+            onAction={() => {}}
+            iconStyle="minimal"
           />
         </div>
       ))}
