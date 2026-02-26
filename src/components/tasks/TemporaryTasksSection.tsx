@@ -242,7 +242,7 @@ export function TemporaryTasksSection() {
               No active quick tasks. Create one to assign temporary tasks to employees.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
               {tasks.map((task: any) => {
                 const completedSubtasks = task.subtasks?.filter((s: any) => s.completed_at).length || 0;
                 const totalSubtasks = task.subtasks?.length || 0;
@@ -251,124 +251,53 @@ export function TemporaryTasksSection() {
                 return (
                   <div
                     key={task.id}
-                    className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-                    style={{ borderLeftWidth: 4, borderLeftColor: task.accent_color }}
+                    className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 cursor-pointer active:bg-muted transition-colors group"
+                    style={{ borderLeftColor: task.accent_color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
+                    onClick={() => setSelectedTask(task)}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div 
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm truncate">{task.title}</p>
-                          {task.task_style === 'alarm' && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-[10px] px-1.5 gap-0.5"
-                              style={{ borderColor: task.accent_color, color: task.accent_color }}
-                            >
-                              <AlarmClock className="h-2.5 w-2.5" />
-                              ALARM
-                            </Badge>
-                          )}
-                          {task.is_qr_triggered && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-[10px] px-1.5 gap-0.5"
-                              style={{ borderColor: task.accent_color, color: task.accent_color }}
-                            >
-                              <QrCode className="h-2.5 w-2.5" />
-                              QR
-                            </Badge>
-                          )}
-                          {hasSubtasks && (
-                            <Badge variant="outline" className="text-[10px] px-1.5">
-                              {completedSubtasks}/{totalSubtasks}
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {/* Assignments */}
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {task.assignments?.map((assignment: any) => (
-                            <Badge 
-                              key={assignment.id} 
-                              variant="secondary" 
-                              className="text-[10px] gap-0.5 px-1.5 py-0"
-                            >
-                              {assignment.user_id ? (
-                                <>
-                                  <User className="h-2.5 w-2.5" />
-                                  {assignment.user?.full_name?.split(' ')[0] || "Unknown"}
-                                </>
-                              ) : (
-                                <>
-                                  <Users className="h-2.5 w-2.5" />
-                                  {ROLE_LABELS[assignment.role] || assignment.role}
-                                </>
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-
-                        {/* Expiry or Alarm info */}
-                        {task.task_style === 'alarm' ? (
-                          <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
-                            <AlarmClock className="h-3 w-3" />
-                            {task.frequency_type === 'custom' 
-                              ? `${(task.custom_times || []).length} times/day`
-                              : task.frequency_minutes === 30 
-                                ? 'Every 30 min'
-                                : task.frequency_minutes === 60 
-                                  ? 'Every hour'
-                                  : 'Every 2 hours'
-                            }
-                          </div>
-                        ) : task.expires_at && (
-                          <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(task.expires_at), { addSuffix: true })}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => setSelectedTask(task)}
-                          title="View"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        {effectiveCanCreateTasks && (
+                    <span className="text-xs font-medium truncate flex-1">{task.title}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {task.task_style === 'alarm' && (
+                        <AlarmClock className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      {task.is_qr_triggered && (
+                        <QrCode className="h-3 w-3 text-muted-foreground" />
+                      )}
+                      {hasSubtasks && (
+                        <span className="text-[10px] text-muted-foreground">{completedSubtasks}/{totalSubtasks}</span>
+                      )}
+                      {effectiveCanCreateTasks && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7"
+                            <button
+                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setEditTask(task)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditTask(task); }}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicate(task)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDuplicate(task); }}>
                               <Copy className="h-4 w-4 mr-2" />
                               Duplicate
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSaveAsTemplateTask(task)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSaveAsTemplateTask(task); }}>
                               <Save className="h-4 w-4 mr-2" />
                               Save as Template
                             </DropdownMenuItem>
+                            {task.is_qr_triggered && (
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setQrDialogTask(task); }}>
+                                <QrCode className="h-4 w-4 mr-2" />
+                                View QR Code
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
-                              onClick={() => setDeleteTaskId(task.id)}
+                              onClick={(e) => { e.stopPropagation(); setDeleteTaskId(task.id); }}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -376,8 +305,7 @@ export function TemporaryTasksSection() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
                 );
