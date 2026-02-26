@@ -270,7 +270,7 @@ export function TemporaryTasksSection() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
-                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-background/80"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <Pencil className="h-3 w-3 text-muted-foreground" />
