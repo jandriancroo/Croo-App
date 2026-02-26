@@ -554,7 +554,7 @@ export function MobileScheduleView({
       {/* Assigned Tasks */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
-        <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} />
+        <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} compact={true} />
       </div>
       
       <div>
