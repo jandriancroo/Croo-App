@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const FRESH_AUTH_URL = 'https://user-api.ftservices.cloud/auth';
-const FRESH_KDS_METRICS_URL = 'https://kds-api.ftservices.cloud/metrics/orders/average-times/';
+const FRESH_KDS_BASE = 'https://kds-api.ftservices.cloud/metrics/orders';
 
 // ============================================================================
 // AUTH - Get Fresh KDS Bearer token
@@ -24,11 +24,7 @@ async function getFreshToken(): Promise<string> {
   const res = await fetch(FRESH_AUTH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      audience: 'fresh-tools-web',
-      username,
-      password,
-    }),
+    body: JSON.stringify({ audience: 'fresh-tools-web', username, password }),
   });
 
   if (!res.ok) {
@@ -37,50 +33,35 @@ async function getFreshToken(): Promise<string> {
   }
 
   const data = await res.json();
-  if (!data.token) {
-    throw new Error('Fresh KDS auth response missing token');
-  }
-
+  if (!data.token) throw new Error('Fresh KDS auth response missing token');
   return data.token;
 }
 
 // ============================================================================
-// FETCH AVERAGE TICKET TIMES
+// API HELPERS
 // ============================================================================
 
-interface TicketTimeResult {
-  time: string;
-  value: number;
-}
-
-async function fetchAverageTicketTimes(
-  token: string,
-  brandId: string,
-  kdsLocationId: string,
-  dateFrom: string,
-  dateTo: string
-): Promise<TicketTimeResult[]> {
-  const url = new URL(FRESH_KDS_METRICS_URL);
+function buildMetricUrl(endpoint: string, kdsLocationId: string, dateFrom: string, dateTo: string): string {
+  const url = new URL(`${FRESH_KDS_BASE}/${endpoint}`);
   url.searchParams.set('locationId', kdsLocationId);
   url.searchParams.set('dateFrom', `${dateFrom}T08:00:00.000Z`);
   url.searchParams.set('dateTo', `${dateTo}T07:59:59.999Z`);
+  return url.toString();
+}
 
-  const res = await fetch(url.toString(), {
-    method: 'GET',
+async function fetchMetric(token: string, brandId: string, endpoint: string, kdsLocationId: string, dateFrom: string, dateTo: string) {
+  const res = await fetch(buildMetricUrl(endpoint, kdsLocationId, dateFrom, dateTo), {
     headers: {
       'Authorization': `Bearer ${token}`,
       'x-brand-id': brandId,
       'Accept': 'application/json',
     },
   });
-
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Fresh KDS metrics failed: ${res.status} - ${text}`);
+    throw new Error(`Fresh KDS ${endpoint} failed: ${res.status} - ${text}`);
   }
-
-  const data = await res.json();
-  return data.results || [];
+  return await res.json();
 }
 
 // ============================================================================
@@ -93,6 +74,20 @@ function getDateStringForTimezone(date: Date, timezone: string): string {
   const month = String(tzDate.getMonth() + 1).padStart(2, '0');
   const day = String(tzDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+// Aggregate hourly results into daily totals by date
+function aggregateCountsByDate(countsData: { fast: any[], medium: any[], slow: any[] }): Record<string, { fast: number, medium: number, slow: number }> {
+  const daily: Record<string, { fast: number, medium: number, slow: number }> = {};
+  
+  for (const bucket of ['fast', 'medium', 'slow'] as const) {
+    for (const entry of countsData[bucket] || []) {
+      const dateKey = entry.time.split('T')[0];
+      if (!daily[dateKey]) daily[dateKey] = { fast: 0, medium: 0, slow: 0 };
+      daily[dateKey][bucket] += entry.value || 0;
+    }
+  }
+  return daily;
 }
 
 // ============================================================================
@@ -108,8 +103,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -125,28 +119,24 @@ serve(async (req) => {
     const { data: { user: authUser }, error: authError } = await anonClient.auth.getUser();
     if (authError || !authUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Service client for DB writes
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-
     const { action, locationId } = await req.json();
 
     // ======================================================================
-    // ACTION: sync-ticket-times
+    // ACTION: sync-kds-data (replaces old sync-ticket-times)
+    // Fetches BOTH average-times and counts for a location
     // ======================================================================
-    if (action === 'sync-ticket-times') {
+    if (action === 'sync-ticket-times' || action === 'sync-kds-data') {
       if (!locationId) {
         return new Response(JSON.stringify({ error: 'locationId required' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Get the location's Fresh KDS ID
       const { data: location, error: locError } = await serviceClient
         .from('locations')
         .select('id, fresh_kds_location_id')
@@ -155,48 +145,66 @@ serve(async (req) => {
 
       if (locError || !location) {
         return new Response(JSON.stringify({ error: 'Location not found' }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       if (!location.fresh_kds_location_id) {
         return new Response(JSON.stringify({ error: 'Fresh KDS not configured for this location', needsSetup: true }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       const timezone = 'America/Los_Angeles';
       const now = new Date();
       const today = getDateStringForTimezone(now, timezone);
-      
-      // Fetch last 7 days
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
 
-      // Get Fresh KDS token
       const token = await getFreshToken();
+      const kdsLocId = location.fresh_kds_location_id;
 
-      // Fetch metrics
-      const results = await fetchAverageTicketTimes(
-        token,
-        brandId,
-        location.fresh_kds_location_id,
-        fromDate,
-        today
-      );
+      // Fetch both endpoints in parallel
+      const [avgTimesData, countsData] = await Promise.all([
+        fetchMetric(token, brandId, 'average-times/', kdsLocId, fromDate, today),
+        fetchMetric(token, brandId, 'counts/', kdsLocId, fromDate, today),
+      ]);
 
-      // Upsert into kds_cache
-      if (results.length > 0) {
-        const rows = results.map((r) => ({
+      // Process average times (hourly → daily avg)
+      const avgTimeResults: { time: string; value: number }[] = avgTimesData.results || [];
+      const dailyAvgTimes: Record<string, { sum: number; count: number }> = {};
+      for (const r of avgTimeResults) {
+        const dateKey = r.time.split('T')[0];
+        if (r.value > 0) {
+          if (!dailyAvgTimes[dateKey]) dailyAvgTimes[dateKey] = { sum: 0, count: 0 };
+          dailyAvgTimes[dateKey].sum += r.value;
+          dailyAvgTimes[dateKey].count += 1;
+        }
+      }
+
+      // Process counts (hourly → daily totals)
+      const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+
+      // Merge into upsert rows
+      const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
+      const rows = Array.from(allDates).map(dateKey => {
+        const avg = dailyAvgTimes[dateKey];
+        const counts = dailyCounts[dateKey] || { fast: 0, medium: 0, slow: 0 };
+        const total = counts.fast + counts.medium + counts.slow;
+        return {
           location_id: locationId,
-          metric_date: r.time.split('T')[0],
-          avg_ticket_time: r.value,
+          metric_date: dateKey,
+          avg_ticket_time: avg ? Math.round((avg.sum / avg.count) * 100) / 100 : 0,
+          orders_fast: counts.fast,
+          orders_medium: counts.medium,
+          orders_slow: counts.slow,
+          orders_total: total,
           fetched_at: new Date().toISOString(),
-        }));
+        };
+      });
 
+      if (rows.length > 0) {
         const { error: upsertError } = await serviceClient
           .from('kds_cache')
           .upsert(rows, { onConflict: 'location_id,metric_date' });
@@ -204,128 +212,106 @@ serve(async (req) => {
         if (upsertError) {
           console.error('KDS cache upsert error:', upsertError);
           return new Response(JSON.stringify({ error: 'Failed to cache KDS data', detail: upsertError.message }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
       }
 
       return new Response(JSON.stringify({
         success: true,
-        synced: results.length,
+        synced: rows.length,
         dateRange: { from: fromDate, to: today },
+        sample: rows.length > 0 ? rows[rows.length - 1] : null,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // ======================================================================
-    // ACTION: probe-metrics - discover available API endpoints
+    // ACTION: sync-all-kds-locations
+    // Syncs all locations that have fresh_kds_location_id configured
     // ======================================================================
-    if (action === 'probe-metrics') {
-      const token = await getFreshToken();
-      const kdsLocationId = req.headers.get('x-kds-location-id') || '';
-      const probeDateFrom = '2026-02-24';
-      const probeDateTo = '2026-02-25';
-      
-      const probeEndpoints = [
-        'average-times/',
-        'counts/',
-        'counts/late/',
-        'counts/on-time/',
-        'counts/caution/',
-        'average-times/bumped/',
-        'average-times/total/',
-        'percentages/',
-        'percentages/late/',
-        'percentages/on-time/',
-        'late/',
-        'on-time/',
-        'caution/',
-      ];
+    if (action === 'sync-all-kds-locations') {
+      const { data: locations, error: locsErr } = await serviceClient
+        .from('locations')
+        .select('id, name, fresh_kds_location_id')
+        .not('fresh_kds_location_id', 'is', null);
 
-      const results: Record<string, any> = {};
-      
-      for (const ep of probeEndpoints) {
-        try {
-          const url = new URL(`https://kds-api.ftservices.cloud/metrics/orders/${ep}`);
-          if (kdsLocationId) url.searchParams.set('locationId', kdsLocationId);
-          url.searchParams.set('dateFrom', `${probeDateFrom}T08:00:00.000Z`);
-          url.searchParams.set('dateTo', `${probeDateTo}T07:59:59.999Z`);
-          
-          const res = await fetch(url.toString(), {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'x-brand-id': brandId,
-              'Accept': 'application/json',
-            },
-          });
-          results[ep] = { status: res.status, data: res.ok ? await res.json() : await res.text() };
-        } catch (e) {
-          results[ep] = { status: 'error', data: e.message };
-        }
-      }
-
-      return new Response(JSON.stringify({ results }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // ======================================================================
-    // ACTION: discover-locations  
-    // ======================================================================
-    if (action === 'discover-locations') {
-      const token = await getFreshToken();
-      
-      // Fetch brands
-      const brandsRes = await fetch('https://user-api.ftservices.cloud/brands', {
-        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-      });
-      if (!brandsRes.ok) {
-        return new Response(JSON.stringify({ error: 'Failed to fetch brands' }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (locsErr || !locations || locations.length === 0) {
+        return new Response(JSON.stringify({ error: 'No KDS-enabled locations found' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const brands = await brandsRes.json();
-      
-      // Try multiple location endpoints
-      const fetchBrandId = brandId || brands?.results?.[0]?.id;
-      const locationResults: Record<string, any> = {};
-      if (fetchBrandId) {
-        const paths = [
-          `https://user-api.ftservices.cloud/brands/${fetchBrandId}/locations`,
-          `https://kds-api.ftservices.cloud/brands/${fetchBrandId}/locations`,
-          `https://user-api.ftservices.cloud/locations`,
-          `https://kds-api.ftservices.cloud/locations`,
-          `https://kds-api.ftservices.cloud/locations?brandId=${fetchBrandId}`,
-        ];
-        for (const p of paths) {
-          try {
-            const r = await fetch(p, {
-              headers: { 'Authorization': `Bearer ${token}`, 'x-brand-id': fetchBrandId, 'Accept': 'application/json' },
-            });
-            locationResults[p] = { status: r.status, data: r.ok ? await r.json() : await r.text() };
-          } catch (e) {
-            locationResults[p] = { error: e.message };
+
+      const timezone = 'America/Los_Angeles';
+      const now = new Date();
+      const today = getDateStringForTimezone(now, timezone);
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const fromDate = getDateStringForTimezone(sevenDaysAgo, timezone);
+
+      const token = await getFreshToken();
+      const results: { locationId: string; name: string; synced: number; error?: string }[] = [];
+
+      for (const loc of locations) {
+        try {
+          const [avgTimesData, countsData] = await Promise.all([
+            fetchMetric(token, brandId, 'average-times/', loc.fresh_kds_location_id, fromDate, today),
+            fetchMetric(token, brandId, 'counts/', loc.fresh_kds_location_id, fromDate, today),
+          ]);
+
+          const avgTimeResults = avgTimesData.results || [];
+          const dailyAvgTimes: Record<string, { sum: number; count: number }> = {};
+          for (const r of avgTimeResults) {
+            const dateKey = r.time.split('T')[0];
+            if (r.value > 0) {
+              if (!dailyAvgTimes[dateKey]) dailyAvgTimes[dateKey] = { sum: 0, count: 0 };
+              dailyAvgTimes[dateKey].sum += r.value;
+              dailyAvgTimes[dateKey].count += 1;
+            }
           }
+
+          const dailyCounts = aggregateCountsByDate(countsData.results || { fast: [], medium: [], slow: [] });
+          const allDates = new Set([...Object.keys(dailyAvgTimes), ...Object.keys(dailyCounts)]);
+
+          const rows = Array.from(allDates).map(dateKey => {
+            const avg = dailyAvgTimes[dateKey];
+            const counts = dailyCounts[dateKey] || { fast: 0, medium: 0, slow: 0 };
+            return {
+              location_id: loc.id,
+              metric_date: dateKey,
+              avg_ticket_time: avg ? Math.round((avg.sum / avg.count) * 100) / 100 : 0,
+              orders_fast: counts.fast,
+              orders_medium: counts.medium,
+              orders_slow: counts.slow,
+              orders_total: counts.fast + counts.medium + counts.slow,
+              fetched_at: new Date().toISOString(),
+            };
+          });
+
+          if (rows.length > 0) {
+            await serviceClient.from('kds_cache').upsert(rows, { onConflict: 'location_id,metric_date' });
+          }
+          results.push({ locationId: loc.id, name: loc.name, synced: rows.length });
+        } catch (e) {
+          console.error(`KDS sync failed for ${loc.name}:`, e);
+          results.push({ locationId: loc.id, name: loc.name, synced: 0, error: e.message });
         }
       }
-      
-      return new Response(JSON.stringify({ brands, locationResults }), {
+
+      return new Response(JSON.stringify({ success: true, locations: results }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
     console.error('Fresh KDS service error:', err);
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

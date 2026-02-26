@@ -92,6 +92,11 @@ export function DataCube({
       case 'avg_ticket': return salesData.avgTicket;
       case 'kds_ticket_time': return salesData.kdsData?.ticketTimeToday;
       case 'kds_ticket_time_wtd': return salesData.kdsData?.ticketTimeWtd;
+      case 'kds_order_count': return salesData.kdsData?.orderCount;
+      case 'kds_late_pct': return salesData.kdsData?.latePct;
+      case 'kds_ontime_count': return salesData.kdsData?.onTimeCount;
+      case 'kds_caution_count': return salesData.kdsData?.cautionCount;
+      case 'kds_late_count': return salesData.kdsData?.lateCount;
       
       // Daily guests/products
       case 'guest_count_today': return salesData.guestCount?.daily;

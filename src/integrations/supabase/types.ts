@@ -3344,6 +3344,10 @@ export type Database = {
           id: string
           location_id: string
           metric_date: string
+          orders_fast: number | null
+          orders_medium: number | null
+          orders_slow: number | null
+          orders_total: number | null
         }
         Insert: {
           avg_ticket_time?: number | null
@@ -3352,6 +3356,10 @@ export type Database = {
           id?: string
           location_id: string
           metric_date: string
+          orders_fast?: number | null
+          orders_medium?: number | null
+          orders_slow?: number | null
+          orders_total?: number | null
         }
         Update: {
           avg_ticket_time?: number | null
@@ -3360,6 +3368,10 @@ export type Database = {
           id?: string
           location_id?: string
           metric_date?: string
+          orders_fast?: number | null
+          orders_medium?: number | null
+          orders_slow?: number | null
+          orders_total?: number | null
         }
         Relationships: [
           {

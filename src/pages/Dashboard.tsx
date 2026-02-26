@@ -128,11 +128,48 @@ export default function Dashboard() {
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
   
-  // Combine sales data with personal data
+  // Fetch KDS data for current location
+  const { data: kdsData } = useQuery({
+    queryKey: ['kds-cache', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('kds_cache')
+        .select('*')
+        .eq('location_id', currentLocation.id)
+        .gte('metric_date', weekAgo)
+        .lte('metric_date', today)
+        .order('metric_date', { ascending: false });
+      
+      if (error || !data || data.length === 0) return null;
+      
+      const todayRow = data[0]; // Most recent
+      const wtdAvg = data.reduce((s, r) => s + (r.avg_ticket_time || 0), 0) / data.filter(r => (r.avg_ticket_time || 0) > 0).length || 0;
+      const totalOrders = todayRow.orders_total || 0;
+      const latePct = totalOrders > 0 ? ((todayRow.orders_slow || 0) / totalOrders) * 100 : 0;
+      
+      return {
+        ticketTimeToday: todayRow.avg_ticket_time || undefined,
+        ticketTimeWtd: wtdAvg > 0 ? Math.round(wtdAvg * 100) / 100 : undefined,
+        orderCount: totalOrders || undefined,
+        latePct: totalOrders > 0 ? Math.round(latePct * 10) / 10 : undefined,
+        onTimeCount: todayRow.orders_fast || 0,
+        cautionCount: todayRow.orders_medium || 0,
+        lateCount: todayRow.orders_slow || 0,
+      };
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+  
+  // Combine sales data with personal data and KDS data
   const combinedSalesData: SalesDataForWidgets | null = salesOverviewData 
-    ? { ...salesOverviewData, personalData: personalPayData }
-    : personalPayData 
-      ? { personalData: personalPayData }
+    ? { ...salesOverviewData, personalData: personalPayData, kdsData }
+    : personalPayData || kdsData
+      ? { personalData: personalPayData, kdsData }
       : null;
 
   // Use shared query for cubes (WidgetsSection fetches, we just read from cache)
