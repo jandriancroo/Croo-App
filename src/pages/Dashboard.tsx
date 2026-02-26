@@ -723,6 +723,9 @@ export default function Dashboard() {
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks compact />
       
+      {/* OvationUp Reviews */}
+      <OvationReviewsCube />
+
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
       
