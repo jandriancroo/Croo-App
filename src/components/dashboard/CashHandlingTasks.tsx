@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShieldCheck, DollarSign } from "lucide-react";
+import { ShieldCheck, DollarSign, Check, LucideIcon } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
-import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface CashHandlingTasksProps {
   locationHours: { hours_open: string | null; hours_close: string | null } | null;
@@ -39,7 +38,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       return data || [];
     },
     enabled: !!currentLocation && canAccessCashHandling,
-    staleTime: 5 * 60 * 1000, // 5 min cache - categories rarely change
+    staleTime: 5 * 60 * 1000,
   });
   
   // Fetch today's logbook entries to check what's been submitted
@@ -60,8 +59,8 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       return data || [];
     },
     enabled: !!currentLocation && canAccessCashHandling,
-    staleTime: 15 * 1000, // 15s cache
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 15 * 1000,
+    refetchInterval: 30000,
   });
   
   if (!canAccessCashHandling || !locationHours) return null;
@@ -105,7 +104,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   const currentMinutes = currentHours * 60 + currentMins;
   
   // Visibility logic
-  // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
   const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
   const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
   const showAmSafeCount = !amSafeCountSubmitted && 
@@ -114,7 +112,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     currentMinutes >= amWindowStart && 
     currentMinutes <= amWindowEnd;
   
-  // PM Safe Count: At close to 2 hours after close (or until submitted)
   const pmWindowStart = closeMinutes;
   const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
   const showPmSafeCount = !pmSafeCountSubmitted && 
@@ -123,7 +120,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     currentMinutes >= pmWindowStart && 
     currentMinutes <= pmWindowEnd;
   
-  // Deposit: At close to 2 hours after close (or until submitted)
   const showDeposit = !depositSubmitted && 
     pmWindowStart !== null && 
     pmWindowEnd !== null && 
@@ -141,7 +137,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     navigate(`/logbook?${params.toString()}`);
   };
   
-  const tasks = [
+  const tasks: { id: string; show: boolean; title: string; icon: LucideIcon; onClick: () => void }[] = [
     {
       id: "am-safe",
       show: showAmSafeCount,
@@ -169,18 +165,23 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   
   return (
     <>
-      {tasks.map(task => (
-        <TemporaryTaskCard
-          key={task.id}
-          id={task.id}
-          title={task.title}
-          icon={task.icon}
-          accentColor={TEAL_COLOR}
-          onAction={task.onClick}
-          iconStyle="minimal"
-          showShare={false}
-        />
-      ))}
+      {tasks.map(task => {
+        const Icon = task.icon;
+        return (
+          <div
+            key={task.id}
+            onClick={task.onClick}
+            className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 pl-3 pr-1.5 py-1 cursor-pointer active:bg-muted transition-colors"
+            style={{ borderLeftColor: TEAL_COLOR, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: TEAL_COLOR }} />
+            <span className="text-xs font-medium truncate flex-1">{task.title}</span>
+            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+              <Check className="h-3 w-3 text-primary-foreground" />
+            </div>
+          </div>
+        );
+      })}
     </>
   );
 }
