@@ -722,14 +722,14 @@ export default function Dashboard() {
       {/* Assigned Temporary Tasks + Event Daily Tasks in one compact uniform style */}
       <AssignedTemporaryTasks compact includeEventTasks />
       
+      {/* Cash Handling Task Cards - right after events/tasks */}
+      <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+      
       {/* OvationUp Reviews */}
       <OvationReviewsCube />
 
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
-      
-      {/* Cash Handling Task Cards */}
-      <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
     </div>
   );
 
