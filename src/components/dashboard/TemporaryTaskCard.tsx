@@ -129,14 +129,13 @@ export function TemporaryTaskCard({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Button
-              size="icon"
-              className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm"
+            <button
+              className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-50"
               onClick={onAction}
               disabled={isLoading}
             >
-              <Check className="h-4 w-4" />
-            </Button>
+              <Check className="h-3.5 w-3.5" />
+            </button>
             {showShare && (
               <Button
                 size="icon"
