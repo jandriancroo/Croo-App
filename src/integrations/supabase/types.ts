@@ -3336,6 +3336,41 @@ export type Database = {
           },
         ]
       }
+      kds_cache: {
+        Row: {
+          avg_ticket_time: number | null
+          created_at: string
+          fetched_at: string
+          id: string
+          location_id: string
+          metric_date: string
+        }
+        Insert: {
+          avg_ticket_time?: number | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          location_id: string
+          metric_date: string
+        }
+        Update: {
+          avg_ticket_time?: number | null
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          location_id?: string
+          metric_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kds_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_cache: {
         Row: {
           created_at: string
@@ -3672,6 +3707,7 @@ export type Database = {
           address: string | null
           created_at: string
           created_by: string | null
+          fresh_kds_location_id: string | null
           id: string
           is_active: boolean
           latitude: number | null
@@ -3687,6 +3723,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
+          fresh_kds_location_id?: string | null
           id?: string
           is_active?: boolean
           latitude?: number | null
@@ -3702,6 +3739,7 @@ export type Database = {
           address?: string | null
           created_at?: string
           created_by?: string | null
+          fresh_kds_location_id?: string | null
           id?: string
           is_active?: boolean
           latitude?: number | null
