@@ -656,17 +656,17 @@ export function MobileScheduleView({
       {dayEvents.length > 0 && (
         <div className="space-y-1.5">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {dayEvents.map(event => {
               const color = event.category?.color || '#8B5CF6';
               return (
                 <div
                   key={event.id}
                   onClick={() => setPreviewEvent(event)}
-                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1 text-left min-w-0 cursor-pointer active:bg-muted transition-colors"
-                  style={{ maxWidth: 'calc(50% - 3px)', borderLeftColor: color, borderLeftWidth: 3 }}
+                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 min-w-0 cursor-pointer active:bg-muted transition-colors"
+                  style={{ borderLeftColor: color, borderLeftWidth: 3 }}
                 >
-                  <span className="text-xs font-medium truncate">{event.event_name}</span>
+                  <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
                 </div>
               );
