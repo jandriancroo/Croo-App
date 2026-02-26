@@ -956,7 +956,7 @@ async function calculateLaborFromPunches(
   locationId: string,
   dateStr: string,
   timezone: string
-): Promise<{ laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null> {
+): Promise<{ laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; hourlyLaborCost?: Map<number, number> } | null> {
   console.log(`[PUNCH-LABOR] Calculating labor from punches for ${dateStr} location ${locationId}`);
   
   try {
@@ -1042,6 +1042,38 @@ async function calculateLaborFromPunches(
     let totalHoursWorked = 0;
     let totalLaborCost = 0;
     const now = new Date();
+    // Track labor cost per hour (hour 0-23 in local timezone)
+    const hourlyLaborCost = new Map<number, number>();
+    
+    // Helper: distribute a worked segment's cost across hours
+    function distributeSegmentToHours(segStart: Date, segEnd: Date, wage: number, tz: string) {
+      // Convert to local hour boundaries
+      const startLocal = new Date(segStart.toLocaleString('en-US', { timeZone: tz }));
+      const endLocal = new Date(segEnd.toLocaleString('en-US', { timeZone: tz }));
+      
+      let cursor = new Date(segStart);
+      while (cursor < segEnd) {
+        const cursorLocal = new Date(cursor.toLocaleString('en-US', { timeZone: tz }));
+        const hour = cursorLocal.getHours();
+        
+        // Next hour boundary in local time
+        const nextHourLocal = new Date(cursorLocal);
+        nextHourLocal.setMinutes(0, 0, 0);
+        nextHourLocal.setHours(hour + 1);
+        
+        // How many ms of this segment fall in this hour?
+        const segEndInHour = segEnd < new Date(cursor.getTime() + (nextHourLocal.getTime() - cursorLocal.getTime()))
+          ? segEnd
+          : new Date(cursor.getTime() + (nextHourLocal.getTime() - cursorLocal.getTime()));
+        
+        const minutesInHour = (segEndInHour.getTime() - cursor.getTime()) / (1000 * 60);
+        const costInHour = (minutesInHour / 60) * wage;
+        
+        hourlyLaborCost.set(hour, (hourlyLaborCost.get(hour) || 0) + costInHour);
+        
+        cursor = segEndInHour;
+      }
+    }
     
     // Calculate hours for each user
     for (const [userId, userPunches] of punchesByUser) {
@@ -1050,28 +1082,29 @@ async function calculateLaborFromPunches(
       let breakStartTime: Date | null = null;
       let hoursWorked = 0;
       let breakMinutes = 0;
+      // Track worked segments for hourly distribution
+      const workedSegments: { start: Date; end: Date }[] = [];
+      const breakSegments: { start: Date; end: Date }[] = [];
       
       for (const punch of userPunches) {
         const punchTime = new Date(punch.punch_time);
         
         switch (punch.punch_type) {
           case 'clock_in':
-            // If we're on a break, this clock_in is actually returning from break
             if (breakStartTime) {
               const breakMs = punchTime.getTime() - breakStartTime.getTime();
               breakMinutes += breakMs / (1000 * 60);
+              breakSegments.push({ start: breakStartTime, end: punchTime });
               breakStartTime = null;
-              console.log(`[PUNCH-LABOR] User ${userId} returned from break (${(breakMs / (1000 * 60)).toFixed(0)} min break)`);
             } else if (!clockInTime) {
-              // Only set clockInTime if we don't already have one (first clock in of the day)
               clockInTime = punchTime;
             }
-            // If we already have a clockInTime and no break, this might be a duplicate or error - ignore
             break;
           case 'clock_out':
             if (clockInTime) {
               const shiftMs = punchTime.getTime() - clockInTime.getTime();
               hoursWorked += shiftMs / (1000 * 60 * 60);
+              workedSegments.push({ start: clockInTime, end: punchTime });
               clockInTime = null;
             }
             break;
@@ -1082,6 +1115,7 @@ async function calculateLaborFromPunches(
             if (breakStartTime) {
               const breakMs = punchTime.getTime() - breakStartTime.getTime();
               breakMinutes += breakMs / (1000 * 60);
+              breakSegments.push({ start: breakStartTime, end: punchTime });
               breakStartTime = null;
             }
             break;
@@ -1092,6 +1126,7 @@ async function calculateLaborFromPunches(
       if (clockInTime) {
         const liveMs = now.getTime() - clockInTime.getTime();
         hoursWorked += liveMs / (1000 * 60 * 60);
+        workedSegments.push({ start: clockInTime, end: now });
         console.log(`[PUNCH-LABOR] User ${userId} still clocked in - adding ${(liveMs / (1000 * 60 * 60)).toFixed(2)} live hours`);
       }
       
@@ -1099,14 +1134,23 @@ async function calculateLaborFromPunches(
       if (breakStartTime) {
         const liveBreakMs = now.getTime() - breakStartTime.getTime();
         breakMinutes += liveBreakMs / (1000 * 60);
+        breakSegments.push({ start: breakStartTime, end: now });
       }
       
-      // Subtract breaks (assuming unpaid - could be configurable)
+      // Subtract breaks
       const breakHours = breakMinutes / 60;
       const netHours = Math.max(0, hoursWorked - breakHours);
       
       totalHoursWorked += netHours;
       totalLaborCost += netHours * wage;
+      
+      // Distribute worked segments to hourly buckets (then subtract breaks)
+      for (const seg of workedSegments) {
+        distributeSegmentToHours(seg.start, seg.end, wage, timezone);
+      }
+      for (const seg of breakSegments) {
+        distributeSegmentToHours(seg.start, seg.end, -wage, timezone); // negative to subtract break cost
+      }
       
       console.log(`[PUNCH-LABOR] User ${userId}: ${netHours.toFixed(2)} hours @ $${wage}/hr = $${(netHours * wage).toFixed(2)}`);
     }
@@ -1117,8 +1161,9 @@ async function calculateLaborFromPunches(
       laborPercent: 0, // Will be calculated by caller with sales data
       laborCost: totalLaborCost,
       hoursWorked: totalHoursWorked,
-      regularHours: totalHoursWorked, // TODO: implement OT calculation
-      overtimeHours: 0
+      regularHours: totalHoursWorked,
+      overtimeHours: 0,
+      hourlyLaborCost
     };
   } catch (error) {
     console.error('[PUNCH-LABOR] Error calculating labor:', error);
@@ -3168,13 +3213,37 @@ serve(async (req) => {
       }
     }
 
-    // Add labor % to hourly data if we have labor data (use daily labor % for all hours as approximation)
+    // Add labor % to hourly data — use per-hour labor cost from punches when available
     let hourlyWithLabor = hourlyWithProjections;
     if (laborData && laborData.laborPercent > 0) {
-      hourlyWithLabor = hourlyWithProjections.map(h => ({
-        ...h,
-        laborPercent: laborData.laborPercent
-      }));
+      const hourlyLaborMap = (laborData as any).hourlyLaborCost as Map<number, number> | undefined;
+      hourlyWithLabor = hourlyWithProjections.map(h => {
+        // Parse hour from the display string (e.g. "10 AM" or "2 PM" or "14:00")
+        let hourNum = -1;
+        if (hourlyLaborMap && hourlyLaborMap.size > 0) {
+          const match = h.hour.match(/^(\d{1,2})\s*(AM|PM)?$/i);
+          if (match) {
+            let hr = parseInt(match[1], 10);
+            const ampm = (match[2] || '').toUpperCase();
+            if (ampm === 'PM' && hr !== 12) hr += 12;
+            if (ampm === 'AM' && hr === 12) hr = 0;
+            hourNum = hr;
+          } else {
+            // Try HH:MM format
+            const hhmm = h.hour.match(/^(\d{1,2}):/);
+            if (hhmm) hourNum = parseInt(hhmm[1], 10);
+          }
+        }
+        
+        if (hourNum >= 0 && hourlyLaborMap && hourlyLaborMap.has(hourNum)) {
+          const laborCostForHour = Math.max(0, hourlyLaborMap.get(hourNum) || 0);
+          const salesForHour = h.sales || 0;
+          const laborPct = salesForHour > 0 ? (laborCostForHour / salesForHour) * 100 : (laborCostForHour > 0 ? 999 : 0);
+          return { ...h, laborPercent: Math.min(laborPct, 999), laborCost: laborCostForHour };
+        }
+        // Fallback: if no hourly breakdown or hour not found, use daily %
+        return { ...h, laborPercent: laborData.laborPercent };
+      });
     }
 
     // Add labor % to weekly breakdown if we have weekly labor data
