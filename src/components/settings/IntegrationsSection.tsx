@@ -33,7 +33,7 @@ function StatusDot({ connected }: { connected: boolean }) {
         connected ? 'bg-green-500' : 'bg-muted-foreground/30'
       }`}
       style={connected ? {
-        animation: 'statusGlow 6s ease-in-out infinite',
+        animation: 'statusGlow 4s ease-in-out infinite',
       } : undefined}
     />
   );
