@@ -719,17 +719,14 @@ export default function Dashboard() {
       {/* Hiring Documents - Secure Document Requests */}
       <I9UploadCard />
       
-      {/* Assigned Temporary Tasks */}
-      <AssignedTemporaryTasks compact />
+      {/* Assigned Temporary Tasks + Event Daily Tasks in one compact uniform style */}
+      <AssignedTemporaryTasks compact includeEventTasks />
       
       {/* OvationUp Reviews */}
       <OvationReviewsCube />
 
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
-      
-      {/* Event Daily Task Cards */}
-      {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
       
       {/* Cash Handling Task Cards */}
       <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
