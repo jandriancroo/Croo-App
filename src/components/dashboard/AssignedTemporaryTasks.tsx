@@ -411,6 +411,9 @@ export function AssignedTemporaryTasks({
         className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 pl-3 pr-1.5 py-1 cursor-pointer active:bg-muted transition-colors"
         style={{ borderLeftColor: item.color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
       >
+        {item.isEvent && (
+          <CalendarCheck className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />
+        )}
         <span className="text-xs font-medium truncate flex-1">{item.label}</span>
         {item.progress && (
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
@@ -423,25 +426,10 @@ export function AssignedTemporaryTasks({
 
     return (
       <>
-        {eventItems.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {eventItems.map(renderBadge)}
-          </div>
-        )}
-
-        {eventItems.length > 0 && otherItems.length > 0 && (
-          <div className="flex items-center gap-2 py-0.5 px-1">
-            <div className="h-[1px] flex-1 bg-border/60" />
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-medium">Quick Tasks</span>
-            <div className="h-[1px] flex-1 bg-border/60" />
-          </div>
-        )}
-
-        {otherItems.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {otherItems.map(renderBadge)}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-1.5">
+          {eventItems.map(renderBadge)}
+          {otherItems.map(renderBadge)}
+        </div>
 
         {selectedTask && (
           <TemporaryTaskDetailsDialog
