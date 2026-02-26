@@ -266,7 +266,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Save className="h-5 w-5" />
@@ -509,15 +509,15 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
             <div className="space-y-2">
               <Label>Default Roles</Label>
               <p className="text-xs text-muted-foreground">Roles to assign when creating tasks from this template</p>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-x-3 gap-y-1.5 flex-wrap">
                 {ROLE_OPTIONS.map(role => (
-                  <div key={role.value} className="flex items-center gap-2">
+                  <div key={role.value} className="flex items-center gap-1.5">
                     <Checkbox
                       id={`role-${role.value}`}
                       checked={selectedRoles.includes(role.value)}
                       onCheckedChange={() => toggleRole(role.value)}
                     />
-                    <Label htmlFor={`role-${role.value}`} className="text-sm font-normal cursor-pointer">
+                    <Label htmlFor={`role-${role.value}`} className="text-xs font-normal cursor-pointer">
                       {role.label}
                     </Label>
                   </div>
@@ -530,34 +530,34 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
           {taskStyle !== "qr" && (
             <div className="space-y-2">
               <Label>Subtasks</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <Input
                   value={newSubtask}
                   onChange={(e) => setNewSubtask(e.target.value)}
                   placeholder="Add subtask..."
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
                 <Select value={newSubtaskType} onValueChange={(v: "checkbox" | "photo") => setNewSubtaskType(v)}>
-                  <SelectTrigger className="w-28">
+                  <SelectTrigger className="w-20 shrink-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="checkbox">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <CheckSquare className="h-3.5 w-3.5" />
                         Check
                       </div>
                     </SelectItem>
                     <SelectItem value="photo">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <Camera className="h-3.5 w-3.5" />
                         Photo
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <Button type="button" size="icon" onClick={handleAddSubtask}>
+                <Button type="button" size="icon" className="shrink-0" onClick={handleAddSubtask}>
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
