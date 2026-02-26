@@ -3,8 +3,9 @@ import { getDisplayName } from '@/utils/displayName';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -140,6 +141,7 @@ export function MobileScheduleView({
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   const { isAdmin, isManager, role } = useUserRole();
@@ -660,7 +662,8 @@ export function MobileScheduleView({
               return (
                 <div
                   key={event.id}
-                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1 text-left min-w-0"
+                  onClick={() => setPreviewEvent(event)}
+                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1 text-left min-w-0 cursor-pointer active:bg-muted transition-colors"
                   style={{ maxWidth: 'calc(50% - 3px)', borderLeftColor: color, borderLeftWidth: 3 }}
                 >
                   <span className="text-xs font-medium truncate">{event.event_name}</span>
@@ -929,6 +932,48 @@ export function MobileScheduleView({
             onUpdate?.();
           }}
         />
+      )}
+
+      {/* Event Preview Dialog */}
+      {previewEvent && (
+        <Dialog open={!!previewEvent} onOpenChange={(open) => { if (!open) setPreviewEvent(null); }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div
+                  className="p-1.5 rounded-md"
+                  style={{ backgroundColor: `${previewEvent.category?.color || '#8B5CF6'}20` }}
+                >
+                  <CalendarCheck className="h-4 w-4" style={{ color: previewEvent.category?.color || '#8B5CF6' }} />
+                </div>
+                {previewEvent.event_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>{formatTime12Hour(previewEvent.event_time)}</span>
+                {previewEvent.category?.name && (
+                  <span
+                    className="px-1.5 py-0.5 rounded text-xs"
+                    style={{
+                      backgroundColor: `${previewEvent.category.color || '#8B5CF6'}20`,
+                      color: previewEvent.category.color || '#8B5CF6',
+                    }}
+                  >
+                    {previewEvent.category.name}
+                  </span>
+                )}
+              </div>
+              {previewEvent.notes && (
+                <p className="text-sm">{previewEvent.notes}</p>
+              )}
+              {previewEvent.is_recurring && (
+                <p className="text-xs text-muted-foreground">Recurring event</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
