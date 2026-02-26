@@ -58,12 +58,6 @@ export function EventCard({
         />
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div
-              className="p-1.5 rounded-md shrink-0"
-              style={{ backgroundColor: `${accentColor}20` }}
-            >
-              <Icon className="h-4 w-4" style={{ color: accentColor }} />
-            </div>
             <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
               <p className="font-medium text-sm leading-tight">{name}</p>
               <span
@@ -77,16 +71,15 @@ export function EventCard({
           {showCompleteButton && onComplete && (
             <div className="flex items-center gap-1.5 shrink-0">
               <Button
-                size="sm"
-                className="h-8 px-4 rounded-lg text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm gap-1.5"
+                size="icon"
+                className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   onComplete();
                 }}
                 disabled={isLoading}
               >
-                <Check className="h-3.5 w-3.5" />
-                Done
+                <Check className="h-4 w-4" />
               </Button>
             </div>
           )}
