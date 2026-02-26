@@ -846,7 +846,7 @@ export function MobileScheduleView({
               <TabsTrigger value="schedule">Schedule</TabsTrigger>
             </TabsList>
           </div>
-          <div className="flex-1 overflow-auto px-4 py-3">
+          <div className="flex-1 overflow-auto px-2 py-3">
             <TabsContent value="today" className="mt-0 h-full">
               {renderTodayContent()}
             </TabsContent>
@@ -857,7 +857,7 @@ export function MobileScheduleView({
         </Tabs>
       ) : (
         /* Non-admin view - schedule only */
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-2">
           {renderScheduleContent()}
         </div>
       )}
