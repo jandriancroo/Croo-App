@@ -749,6 +749,32 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── OvationUp Dialog ── */}
+      <Dialog open={editingIntegration === 'ovation'} onOpenChange={(open) => !open && setEditingIntegration(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plug className="h-5 w-5" /> OvationUp
+            </DialogTitle>
+            <DialogDescription>Connect guest review data from OvationUp</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              OvationUp integration is configured at the brand level. Contact your admin to set up the connection token and location mappings.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-sm">OvationUp Location ID</Label>
+              <Input placeholder="e.g., 68f7d2e7e4235de56f8f92fd" className="h-9 text-xs font-mono" />
+              <p className="text-[11px] text-muted-foreground">The location ID from OvationUp dashboard</p>
+            </div>
+            <Button size="sm" disabled>
+              <Save className="h-4 w-4 mr-1.5" />
+              Save Mapping
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
