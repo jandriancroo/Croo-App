@@ -29,8 +29,10 @@ interface IntegrationsSectionProps {
 function StatusDot({ connected }: { connected: boolean }) {
   return (
     <span
-      className={`inline-block w-2.5 h-2.5 rounded-full ${
-        connected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-muted-foreground/30'
+      className={`inline-block w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+        connected 
+          ? 'bg-green-500 shadow-[0_0_6px_2px_rgba(34,197,94,0.45),0_0_12px_4px_rgba(34,197,94,0.2)] animate-[pulse_3s_ease-in-out_infinite]' 
+          : 'bg-muted-foreground/30'
       }`}
     />
   );
