@@ -128,11 +128,6 @@ export function MobileShiftCard({
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-semibold truncate">{name}</span>
-                {statusIndicator === 'break' && (
-                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs shrink-0">
-                    On Break
-                  </Badge>
-                )}
               </div>
               {hoursWorked !== undefined && (
                 <span className={`text-base font-bold shrink-0 ${getStatusTextColor()}`}>
@@ -165,8 +160,12 @@ export function MobileShiftCard({
                 
                 {breakStartTime && (
                   <div className="flex items-center gap-2 text-sm flex-wrap">
-                    <span className="text-muted-foreground whitespace-nowrap">Break: <span className="text-foreground font-medium">{formatTimeFn(breakStartTime, timezone)}</span></span>
-                    <span className="text-muted-foreground whitespace-nowrap">- <span className="text-foreground font-medium">{breakEndTime ? formatTimeFn(breakEndTime, timezone) : 'Active'}</span></span>
+                    <span className={`whitespace-nowrap ${!breakEndTime ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
+                      {!breakEndTime ? 'On Break:' : 'Break:'} <span className="text-foreground font-medium">{formatTimeFn(breakStartTime, timezone)}</span>
+                    </span>
+                    {breakEndTime && (
+                      <span className="text-muted-foreground whitespace-nowrap">- <span className="text-foreground font-medium">{formatTimeFn(breakEndTime, timezone)}</span></span>
+                    )}
                   </div>
                 )}
               </>
