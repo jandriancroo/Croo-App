@@ -22,6 +22,8 @@ interface AssignedTemporaryTasksProps {
   includeEventTasks?: boolean;
   /** Compact badge-style rendering for mobile Today tab */
   compact?: boolean;
+  /** Content to render between events and tasks in compact mode */
+  afterEventsContent?: React.ReactNode;
 }
 
 interface CateringOrder {
@@ -54,7 +56,8 @@ export function AssignedTemporaryTasks({
   showCompleted = false,
   includeCateringOrders = false,
   includeEventTasks = false,
-  compact = false
+  compact = false,
+  afterEventsContent,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -428,6 +431,9 @@ export function AssignedTemporaryTasks({
       <>
         <div className="flex flex-wrap gap-1.5">
           {eventItems.map(renderBadge)}
+        </div>
+        {afterEventsContent}
+        <div className="flex flex-wrap gap-1.5">
           {otherItems.map(renderBadge)}
         </div>
 

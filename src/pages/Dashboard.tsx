@@ -719,11 +719,12 @@ export default function Dashboard() {
       {/* Hiring Documents - Secure Document Requests */}
       <I9UploadCard />
       
-      {/* Assigned Temporary Tasks + Event Daily Tasks in one compact uniform style */}
-      <AssignedTemporaryTasks compact includeEventTasks />
-      
-      {/* Cash Handling Task Cards - right after events/tasks */}
-      <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+      {/* Assigned Temporary Tasks + Event Daily Tasks — cash handling inserted between events & tasks */}
+      <AssignedTemporaryTasks 
+        compact 
+        includeEventTasks 
+        afterEventsContent={<CashHandlingTasks locationHours={locationSettings} timezone={timezone} />}
+      />
       
       {/* OvationUp Reviews */}
       <OvationReviewsCube />
