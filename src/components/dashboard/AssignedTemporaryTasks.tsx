@@ -402,13 +402,13 @@ export function AssignedTemporaryTasks({
 
     return (
       <>
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {badgeItems.map(item => (
             <div
               key={item.id}
               onClick={item.onClick}
-              className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 min-w-0 cursor-pointer active:bg-muted transition-colors"
-              style={{ borderLeftColor: item.color, borderLeftWidth: 3 }}
+              className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 cursor-pointer active:bg-muted transition-colors"
+              style={{ borderLeftColor: item.color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
             >
               <span className="text-xs font-medium truncate flex-1">{item.label}</span>
               {item.progress && (
