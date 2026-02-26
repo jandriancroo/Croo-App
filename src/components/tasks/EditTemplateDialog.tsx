@@ -266,7 +266,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Save className="h-5 w-5" />
@@ -274,7 +274,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 min-w-0 w-full">
           {/* Name & Description */}
           <div className="space-y-2">
             <Label htmlFor="name">Template Name *</Label>
@@ -300,7 +300,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
           {/* Task Style */}
           <div className="space-y-2">
             <Label>Task Style</Label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <Button
                 type="button"
                 variant={taskStyle === "standard" ? "default" : "outline"}
