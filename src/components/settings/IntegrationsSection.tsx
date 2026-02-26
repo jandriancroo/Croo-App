@@ -430,6 +430,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           connectedLabel="Location mapped"
           onEdit={() => setEditingIntegration('kds')}
         />
+        <IntegrationCard
+          title="OvationUp"
+          description="Guest reviews & feedback"
+          connected={false}
+          setupLabel="Setup OvationUp"
+          onEdit={() => setEditingIntegration('ovation')}
+        />
       </div>
 
       {/* ── QuBeyond Dialog ── */}
