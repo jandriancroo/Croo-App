@@ -136,11 +136,11 @@ export function QuickTaskTemplateLibrary({
                 </p>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-col gap-1.5">
                 {filteredTemplates.map((template: any) => (
                   <div
                     key={template.id}
-                    className="group flex items-center gap-1.5 rounded-full border border-border/50 bg-card shadow-sm pl-1 pr-1 py-1 cursor-pointer hover:bg-accent/50 transition-colors"
+                    className="group flex items-center gap-1.5 rounded-full border border-border/50 bg-card shadow-sm pl-1 pr-1 py-1 cursor-pointer hover:bg-accent/50 transition-colors w-full"
                     style={{ borderLeftWidth: 3, borderLeftColor: template.accent_color }}
                     onClick={() => {
                       onSelectTemplate(template);
@@ -150,7 +150,7 @@ export function QuickTaskTemplateLibrary({
                     <span className="flex items-center justify-center h-5 w-5 rounded-full shrink-0" style={{ backgroundColor: `${template.accent_color}20`, color: template.accent_color }}>
                       {getTaskStyleIcon(template.task_style, template.is_qr_triggered)}
                     </span>
-                    <span className="text-xs font-medium whitespace-nowrap pr-1">{template.name}</span>
+                    <span className="text-xs font-medium flex-1 min-w-0 pr-1">{template.name}</span>
                     {template.subtasks && (template.subtasks as any[]).length > 0 && (
                       <span className="text-[10px] text-muted-foreground shrink-0">{(template.subtasks as any[]).length}✓</span>
                     )}
