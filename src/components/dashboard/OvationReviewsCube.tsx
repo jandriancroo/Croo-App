@@ -78,20 +78,6 @@ export function OvationReviewsCube() {
     staleTime: 60 * 60 * 1000,
   });
 
-  // Check if OvationUp is configured for this brand + location
-  const { data: ovationConfig } = useQuery({
-    queryKey: ['ovation-config', brandId, currentLocation?.id],
-    queryFn: async () => {
-      if (!brandId) return null;
-      const { data, error } = await supabase.functions.invoke('ovation-service', {
-        body: { brandId, locationId: currentLocation?.id },
-        headers: { 'X-Action': 'get_config' },
-      });
-      // Use query param approach
-      return null; // Will use fetch below
-    },
-    enabled: false, // Disabled - use reviews query directly
-  });
 
   // Fetch reviews for the current location
   const { data: reviewsData, isLoading, error } = useQuery<OvationReviewsData>({
