@@ -111,7 +111,7 @@ export function MobileShiftCard({
         <div className="flex items-center gap-3">
           {/* Avatar with status dot */}
           <div className="relative shrink-0">
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-9 w-9">
               <AvatarImage src={avatarUrl || undefined} />
               <AvatarFallback>{name.charAt(0)}</AvatarFallback>
             </Avatar>
@@ -127,10 +127,10 @@ export function MobileShiftCard({
             {/* Name row with hours */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-semibold truncate">{name}</span>
+                <span className="text-sm font-semibold truncate">{name}</span>
               </div>
               {hoursWorked !== undefined && (
-                <span className={`text-base font-bold shrink-0 ${getStatusTextColor()}`}>
+                <span className={`text-sm font-bold shrink-0 ${getStatusTextColor()}`}>
                   {hoursWorked.toFixed(1)}h
                 </span>
               )}
@@ -138,7 +138,7 @@ export function MobileShiftCard({
             
             {/* Scheduled time row (for Today view) */}
             {clockInTime && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                 {scheduledStart && scheduledEnd ? (
                   <span>{formatTime12Hour(scheduledStart)} - {formatTime12Hour(scheduledEnd)}</span>
@@ -151,7 +151,7 @@ export function MobileShiftCard({
             {/* Time display - either punch times or shift times */}
             {clockInTime && timezone && formatTimeFn ? (
               <>
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-3 text-xs">
                   <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeFn(clockInTime, timezone)}</span></span>
                   {clockOutTime && (
                     <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{formatTimeFn(clockOutTime, timezone)}</span></span>
@@ -159,7 +159,7 @@ export function MobileShiftCard({
                 </div>
                 
                 {breakStartTime && (
-                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                  <div className="flex items-center gap-2 text-xs flex-wrap">
                     <span className={`whitespace-nowrap ${!breakEndTime ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
                       {!breakEndTime ? 'On Break:' : 'Break:'} <span className="text-foreground font-medium">{formatTimeFn(breakStartTime, timezone)}</span>
                     </span>
