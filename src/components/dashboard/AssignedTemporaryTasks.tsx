@@ -21,6 +21,8 @@ interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
   includeCateringOrders?: boolean;
   includeEventTasks?: boolean;
+  /** Compact badge-style rendering for mobile Today tab */
+  compact?: boolean;
 }
 
 interface CateringOrder {
@@ -52,7 +54,8 @@ const ORANGE_COLOR = "#f97316";
 export function AssignedTemporaryTasks({ 
   showCompleted = false,
   includeCateringOrders = false,
-  includeEventTasks = false
+  includeEventTasks = false,
+  compact = false
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -357,6 +360,106 @@ export function AssignedTemporaryTasks({
 
   if (hasNoTasks) {
     return null;
+  }
+  // Compact badge-style rendering for mobile Today tab
+  if (compact) {
+    // Collect all items into a unified badge list
+    const badgeItems: { id: string; label: string; color: string; progress?: string; onClick: () => void }[] = [];
+
+    incompleteTasks.forEach(task => {
+      const counts = subtaskCounts[task.id];
+      const progress = counts && counts.total > 0 ? `${counts.completed}/${counts.total}` : undefined;
+      badgeItems.push({
+        id: task.id,
+        label: task.title,
+        color: task.accent_color || '#8B5CF6',
+        progress,
+        onClick: () => setSelectedTask(task),
+      });
+    });
+
+    pendingOrders.forEach(order => {
+      badgeItems.push({
+        id: `catering-${order.id}`,
+        label: order.customer_name,
+        color: ORANGE_COLOR,
+        progress: formatTime(order.pickup_time),
+        onClick: () => setSelectedOrder(order),
+      });
+    });
+
+    incompleteEventTasks.forEach(task => {
+      badgeItems.push({
+        id: `event-${task.id}`,
+        label: task.event_name,
+        color: task.category?.color || '#8B5CF6',
+        progress: formatTime(task.event_time),
+        onClick: () => handleEventTaskComplete(task.id),
+      });
+    });
+
+    if (badgeItems.length === 0 && !showCompleted) return null;
+
+    return (
+      <>
+        <div className="grid grid-cols-2 gap-1.5">
+          {badgeItems.map(item => (
+            <div
+              key={item.id}
+              onClick={item.onClick}
+              className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 min-w-0 cursor-pointer active:bg-muted transition-colors"
+              style={{ borderLeftColor: item.color, borderLeftWidth: 3 }}
+            >
+              <span className="text-xs font-medium truncate flex-1">{item.label}</span>
+              {item.progress && (
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {selectedTask && (
+          <TemporaryTaskDetailsDialog
+            open={!!selectedTask}
+            onOpenChange={(open) => !open && setSelectedTask(null)}
+            task={selectedTask}
+            onComplete={handleTaskComplete}
+          />
+        )}
+
+        {/* Catering Order Details Dialog */}
+        <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ChefHat className="h-5 w-5" />
+                Catering Order
+              </DialogTitle>
+            </DialogHeader>
+            {selectedOrder && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Customer</span>
+                    <span className="font-medium">{selectedOrder.customer_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Pickup</span>
+                    <span className="text-primary font-medium">Today at {formatTime(selectedOrder.pickup_time)}</span>
+                  </div>
+                </div>
+                {canComplete && (
+                  <Button className="w-full" size="lg" onClick={() => handleCateringComplete(selectedOrder)}>
+                    <Check className="h-5 w-5 mr-2" />
+                    Mark Completed
+                  </Button>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
   }
 
   return (
