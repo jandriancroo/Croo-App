@@ -650,24 +650,28 @@ export function MobileScheduleView({
         })}
       </div>
 
-      {/* Events for selected day */}
+      {/* Events for selected day - compact badge style, 2 per row */}
       {dayEvents.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-          {dayEvents.map(event => (
-            <Card key={event.id} className="p-3">
-              <div className="flex items-center gap-2">
-                <div 
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: event.category?.color || '#8B5CF6' }}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{event.event_name}</div>
-                  <div className="text-xs text-muted-foreground">{formatTime12Hour(event.event_time)}</div>
-                </div>
-              </div>
-            </Card>
-          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {dayEvents.map(event => {
+              const color = event.category?.color || '#8B5CF6';
+              return (
+                <button
+                  key={event.id}
+                  onClick={() => {
+                    setEventDialogOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-2.5 py-1 text-left min-w-0"
+                  style={{ maxWidth: 'calc(50% - 3px)', borderLeftColor: color, borderLeftWidth: 3 }}
+                >
+                  <span className="text-xs font-medium truncate">{event.event_name}</span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
