@@ -505,16 +505,16 @@ export function AssignedTemporaryTasks({
 
       {/* Incomplete event tasks */}
       {incompleteEventTasks.map((task) => (
-        <EventCard
+        <TemporaryTaskCard
           key={`event-${task.id}`}
           id={task.id}
-          name={task.event_name}
-          time={task.event_time}
-          categoryName={task.category?.name}
-          categoryColor={task.category?.color}
-          showCompleteButton={true}
+          title={task.event_name}
+          subtitle={task.event_time}
+          icon={CalendarCheck}
+          accentColor={task.category?.color || "#6366f1"}
+          onAction={() => handleEventTaskComplete(task.id)}
           isLoading={completingEventTask === task.id}
-          onComplete={() => handleEventTaskComplete(task.id)}
+          iconStyle="minimal"
         />
       ))}
 
