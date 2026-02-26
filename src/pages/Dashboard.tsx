@@ -14,7 +14,6 @@ import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
-import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { OvationReviewsCube } from '@/components/dashboard/OvationReviewsCube';
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
@@ -720,17 +719,14 @@ export default function Dashboard() {
       {/* Hiring Documents - Secure Document Requests */}
       <I9UploadCard />
       
-      {/* Assigned Temporary Tasks */}
-      <AssignedTemporaryTasks compact />
+      {/* Assigned Temporary Tasks + Event Daily Tasks in one compact uniform style */}
+      <AssignedTemporaryTasks compact includeEventTasks />
       
       {/* OvationUp Reviews */}
       <OvationReviewsCube />
 
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
-      
-      {/* Event Daily Task Cards */}
-      {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
       
       {/* Cash Handling Task Cards */}
       <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
