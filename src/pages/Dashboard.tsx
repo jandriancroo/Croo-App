@@ -683,7 +683,7 @@ export default function Dashboard() {
       <I9UploadCard />
       
       {/* Assigned Temporary Tasks */}
-      <AssignedTemporaryTasks />
+      <AssignedTemporaryTasks compact />
       
       {/* Catering Orders (Today + Tomorrow) */}
       <CateringOrdersAlert />
