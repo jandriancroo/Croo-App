@@ -3091,9 +3091,6 @@ serve(async (req) => {
               scaledHourlyForPace
             );
             console.log(`[PROJECTION] Recalculated pace with ${projectionSource}: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)}, scale ${paceScaleFactor.toFixed(3)})`);
-
-            projections.todayPaceAdjusted = dailySales + remainingProjected;
-            console.log(`[PROJECTION] Recalculated pace: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)} + remaining $${remainingProjected.toFixed(0)})`);
           }
         }
       }
