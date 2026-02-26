@@ -75,18 +75,16 @@ export function EventCard({
             </div>
           </div>
           {showCompleteButton && onComplete && (
-            <Button
-              size="sm"
-              className="shrink-0 h-8 px-4 rounded-lg text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm gap-1.5"
+            <button
+              className="shrink-0 h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-sm disabled:opacity-50"
               onClick={(e) => {
                 e.stopPropagation();
                 onComplete();
               }}
               disabled={isLoading}
             >
-              <Check className="h-3.5 w-3.5" />
-              Done
-            </Button>
+              <Check className="h-4 w-4" />
+            </button>
           )}
         </CardContent>
       </Card>
