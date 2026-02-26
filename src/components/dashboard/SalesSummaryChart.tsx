@@ -138,6 +138,7 @@ export function SalesSummaryChart({
                   {hasLaborData && data?.laborPercent !== undefined && data.laborPercent > 0 && (
                     <p className="text-orange-500">
                       Labor: <span className="font-medium">{Number(data.laborPercent).toFixed(1)}%</span>
+                      {data?.laborCost > 0 && <span className="text-muted-foreground ml-1">({formatCurrency(data.laborCost)})</span>}
                     </p>
                   )}
                   {data?.estimatedPizzas > 0 && (
