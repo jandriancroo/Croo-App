@@ -6,13 +6,12 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { TemporaryTaskDetailsDialog } from "@/components/tasks/TemporaryTaskDetailsDialog";
-import { ClipboardList, Check, ChefHat } from "lucide-react";
+import { ClipboardList, Check, ChefHat, CalendarCheck } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
-import { EventCard } from "@/components/schedule/EventCard";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
@@ -505,16 +504,16 @@ export function AssignedTemporaryTasks({
 
       {/* Incomplete event tasks */}
       {incompleteEventTasks.map((task) => (
-        <EventCard
+        <TemporaryTaskCard
           key={`event-${task.id}`}
           id={task.id}
-          name={task.event_name}
-          time={task.event_time}
-          categoryName={task.category?.name}
-          categoryColor={task.category?.color}
-          showCompleteButton={true}
+          title={task.event_name}
+          subtitle={task.event_time}
+          icon={CalendarCheck}
+          accentColor={task.category?.color || "#6366f1"}
+          onAction={() => handleEventTaskComplete(task.id)}
           isLoading={completingEventTask === task.id}
-          onComplete={() => handleEventTaskComplete(task.id)}
+          iconStyle="minimal"
         />
       ))}
 
@@ -561,13 +560,14 @@ export function AssignedTemporaryTasks({
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="h-[2px] w-[90%] bg-muted-foreground/50" />
           </div>
-          <EventCard
+          <TemporaryTaskCard
             id={task.id}
-            name={task.event_name}
-            time={task.event_time}
-            categoryName={task.category?.name}
-            categoryColor={task.category?.color}
-            showCompleteButton={false}
+            title={task.event_name}
+            subtitle={task.event_time}
+            icon={CalendarCheck}
+            accentColor={task.category?.color || "#6366f1"}
+            onAction={() => {}}
+            iconStyle="minimal"
           />
         </div>
       ))}
