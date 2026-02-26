@@ -1,0 +1,25 @@
+name: OvationUp Token Refresh
+
+on:
+  schedule:
+    # Run every 20 hours (cycles through different times)
+    - cron: '30 */20 * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+jobs:
+  refresh-ovation-token:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Refresh OvationUp Token
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node .github/scripts/ovation-token-refresh.mjs
