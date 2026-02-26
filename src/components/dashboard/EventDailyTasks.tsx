@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { EventCard } from "@/components/schedule/EventCard";
+import { TemporaryTaskCard } from "@/components/dashboard/TemporaryTaskCard";
+import { CalendarCheck } from "lucide-react";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
