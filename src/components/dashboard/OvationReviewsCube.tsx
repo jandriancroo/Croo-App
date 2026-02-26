@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Card } from '@/components/ui/card';
-import { Star, MessageSquare, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Star, MessageSquare, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
