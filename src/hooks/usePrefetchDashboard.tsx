@@ -74,13 +74,18 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
     queryClient.prefetchQuery({
       queryKey: ['location-hours-today', locationId, timezone],
       queryFn: async () => {
-        const { data } = await supabase
+      const { data } = await supabase
           .from('location_hours')
           .select('open_time, close_time, is_closed')
           .eq('location_id', locationId)
           .eq('day_of_week', dayOfWeek)
           .maybeSingle();
-        return data;
+        if (!data || data.is_closed) return null;
+        // Map to same format as Dashboard's queryFn
+        return {
+          hours_open: data.open_time,
+          hours_close: data.close_time
+        };
       },
       staleTime: 10 * 60 * 1000,
     });
