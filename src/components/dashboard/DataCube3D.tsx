@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { DollarSign, Users, TrendingUp, TrendingDown, Clock, Percent, Target, Wallet, Calendar, Pizza, ArrowUp, ArrowDown, Pause } from 'lucide-react';
+import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
