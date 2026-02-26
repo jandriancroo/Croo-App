@@ -48,23 +48,30 @@ export function EventCard({
   return (
     <>
       <Card
-        className={`overflow-hidden ${notes ? "cursor-pointer hover:bg-accent/50 transition-colors" : ""}`}
-        style={{ borderLeft: `4px solid ${accentColor}` }}
+        className={`overflow-hidden border-0 relative ${notes ? "cursor-pointer hover:bg-accent/50 transition-colors" : ""}`}
         onClick={handleCardClick}
       >
+        {/* Accent left border */}
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+          style={{ backgroundColor: accentColor }}
+        />
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <div
-              className="p-1.5 rounded shrink-0 self-center"
+              className="p-1.5 rounded-md shrink-0"
               style={{ backgroundColor: `${accentColor}20` }}
             >
               <Icon className="h-4 w-4" style={{ color: accentColor }} />
             </div>
-            <div className="min-w-0 flex flex-col justify-center">
-              <p className="font-medium text-sm truncate">{name}</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
+              <p className="font-medium text-sm leading-tight">{name}</p>
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+              >
                 {formatTime12Hour(time)}
-              </p>
+              </span>
             </div>
           </div>
           {showCompleteButton && onComplete && (
