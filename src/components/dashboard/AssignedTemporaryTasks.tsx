@@ -407,13 +407,16 @@ export function AssignedTemporaryTasks({
             <div
               key={item.id}
               onClick={item.onClick}
-              className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 cursor-pointer active:bg-muted transition-colors"
+              className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 pl-3 pr-1.5 py-1 cursor-pointer active:bg-muted transition-colors"
               style={{ borderLeftColor: item.color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
             >
               <span className="text-xs font-medium truncate flex-1">{item.label}</span>
               {item.progress && (
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
               )}
+              <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                <Check className="h-3 w-3 text-primary-foreground" />
+              </div>
             </div>
           ))}
         </div>
