@@ -16,6 +16,7 @@ import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
+import { OvationReviewsCube } from '@/components/dashboard/OvationReviewsCube';
 import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
 import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
