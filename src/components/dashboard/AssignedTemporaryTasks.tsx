@@ -365,6 +365,17 @@ export function AssignedTemporaryTasks({
     // Collect all items into a unified badge list
     const badgeItems: { id: string; label: string; color: string; progress?: string; onClick: () => void }[] = [];
 
+    // Events first
+    incompleteEventTasks.forEach(task => {
+      badgeItems.push({
+        id: `event-${task.id}`,
+        label: task.event_name,
+        color: task.category?.color || '#8B5CF6',
+        progress: formatTime(task.event_time),
+        onClick: () => handleEventTaskComplete(task.id),
+      });
+    });
+
     incompleteTasks.forEach(task => {
       const counts = subtaskCounts[task.id];
       const progress = counts && counts.total > 0 ? `${counts.completed}/${counts.total}` : undefined;
@@ -384,16 +395,6 @@ export function AssignedTemporaryTasks({
         color: ORANGE_COLOR,
         progress: formatTime(order.pickup_time),
         onClick: () => setSelectedOrder(order),
-      });
-    });
-
-    incompleteEventTasks.forEach(task => {
-      badgeItems.push({
-        id: `event-${task.id}`,
-        label: task.event_name,
-        color: task.category?.color || '#8B5CF6',
-        progress: formatTime(task.event_time),
-        onClick: () => handleEventTaskComplete(task.id),
       });
     });
 
