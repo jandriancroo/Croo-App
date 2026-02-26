@@ -431,6 +431,9 @@ export function AssignedTemporaryTasks({
       <>
         <div className="flex flex-wrap gap-1.5">
           {eventItems.map(renderBadge)}
+        </div>
+        {afterEventsContent}
+        <div className="flex flex-wrap gap-1.5">
           {otherItems.map(renderBadge)}
         </div>
 
