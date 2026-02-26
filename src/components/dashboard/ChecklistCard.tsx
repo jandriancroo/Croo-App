@@ -48,8 +48,7 @@ export const ChecklistCard = memo(function ChecklistCard({
     <Card 
       className={cn(
         "border-0 overflow-hidden relative p-0 cursor-pointer hover:scale-[1.01] transition-all duration-200",
-        isDragging ? 'opacity-50 scale-105' : '',
-        isOverdue && !isComplete ? 'ring-2 ring-destructive/50' : ''
+        isDragging ? 'opacity-50 scale-105' : ''
       )}
       onClick={handleClick}
     >
