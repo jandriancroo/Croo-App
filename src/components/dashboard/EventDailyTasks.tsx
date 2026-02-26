@@ -150,16 +150,16 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
   return (
     <>
       {incompleteTasks.map((task) => (
-        <EventCard
+        <TemporaryTaskCard
           key={task.id}
           id={task.id}
-          name={task.event_name}
-          time={task.event_time}
-          categoryName={task.category?.name}
-          categoryColor={task.category?.color}
-          showCompleteButton={true}
+          title={task.event_name}
+          subtitle={task.event_time}
+          icon={CalendarCheck}
+          accentColor={task.category?.color || "#6366f1"}
+          onAction={() => handleComplete(task.id)}
           isLoading={completing === task.id}
-          onComplete={() => handleComplete(task.id)}
+          iconStyle="minimal"
         />
       ))}
     </>
