@@ -89,6 +89,11 @@ export type MetricType =
   // KDS metrics
   | 'kds_ticket_time'
   | 'kds_ticket_time_wtd'
+  | 'kds_order_count'
+  | 'kds_late_pct'
+  | 'kds_ontime_count'
+  | 'kds_caution_count'
+  | 'kds_late_count'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -220,6 +225,11 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // KDS metrics
   kds_ticket_time: { type: 'kds_ticket_time', label: 'Ticket Time', shortLabel: 'KDS Time', icon: Clock, format: 'minutes', category: 'daily' },
   kds_ticket_time_wtd: { type: 'kds_ticket_time_wtd', label: 'Ticket Time WTD', shortLabel: 'KDS WTD', icon: Clock, format: 'minutes', category: 'weekly' },
+  kds_order_count: { type: 'kds_order_count', label: 'KDS Orders', shortLabel: 'Orders', icon: Pizza, format: 'number', category: 'daily' },
+  kds_late_pct: { type: 'kds_late_pct', label: '% Late Orders', shortLabel: '% Late', icon: Clock, format: 'percent', category: 'daily' },
+  kds_ontime_count: { type: 'kds_ontime_count', label: 'On Time', shortLabel: 'On Time', icon: Clock, format: 'number', category: 'daily' },
+  kds_caution_count: { type: 'kds_caution_count', label: 'Caution', shortLabel: 'Caution', icon: Clock, format: 'number', category: 'daily' },
+  kds_late_count: { type: 'kds_late_count', label: 'Late', shortLabel: 'Late', icon: Clock, format: 'number', category: 'daily' },
 
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
@@ -252,6 +262,7 @@ export const METRIC_GROUPS = [
       'pace_vs_ly_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
       'kds_ticket_time',
+      'kds_order_count', 'kds_late_pct', 'kds_ontime_count', 'kds_caution_count', 'kds_late_count',
       'labor_percent_today', 'labor_hours_today'
     ] as MetricType[] 
   },
@@ -318,6 +329,11 @@ export interface SalesDataForWidgets {
   kdsData?: {
     ticketTimeToday?: number;
     ticketTimeWtd?: number;
+    orderCount?: number;
+    latePct?: number;
+    onTimeCount?: number;
+    cautionCount?: number;
+    lateCount?: number;
   } | null;
 }
 
@@ -440,6 +456,11 @@ export function DashboardWidget({
       // KDS metrics
       case 'kds_ticket_time': return salesData.kdsData?.ticketTimeToday;
       case 'kds_ticket_time_wtd': return salesData.kdsData?.ticketTimeWtd;
+      case 'kds_order_count': return salesData.kdsData?.orderCount;
+      case 'kds_late_pct': return salesData.kdsData?.latePct;
+      case 'kds_ontime_count': return salesData.kdsData?.onTimeCount;
+      case 'kds_caution_count': return salesData.kdsData?.cautionCount;
+      case 'kds_late_count': return salesData.kdsData?.lateCount;
 
       // Pace vs Last Year variance (computed %)
       case 'pace_vs_ly_day': {
