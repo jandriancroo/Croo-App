@@ -31,7 +31,7 @@ function StatusDot({ connected }: { connected: boolean }) {
     <span
       className={`inline-block w-2.5 h-2.5 rounded-full transition-all duration-300 ${
         connected 
-          ? 'bg-green-500 shadow-[0_0_4px_1px_rgba(34,197,94,0.4),0_0_10px_3px_rgba(34,197,94,0.15)]' 
+          ? 'bg-green-500 shadow-[0_0_4px_1px_rgba(34,197,94,0.4),0_0_10px_3px_rgba(34,197,94,0.15)] animate-[pulse_4s_ease-in-out_infinite]' 
           : 'bg-muted-foreground/30'
       }`}
     />
