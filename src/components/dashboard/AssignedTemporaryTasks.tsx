@@ -426,28 +426,9 @@ export function AssignedTemporaryTasks({
 
     return (
       <>
-        <div className="flex flex-col gap-2">
-          {eventItems.length > 0 && (
-            <div className="flex items-stretch gap-0">
-              <div className="flex items-center justify-center w-5 shrink-0">
-                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/40 -rotate-90 whitespace-nowrap">Events</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 flex-1">
-                {eventItems.map(renderBadge)}
-              </div>
-            </div>
-          )}
-
-          {otherItems.length > 0 && (
-            <div className="flex items-stretch gap-0">
-              <div className="flex items-center justify-center w-5 shrink-0">
-                <span className="text-[8px] uppercase tracking-[0.15em] font-semibold text-muted-foreground/40 -rotate-90 whitespace-nowrap">Tasks</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 flex-1">
-                {otherItems.map(renderBadge)}
-              </div>
-            </div>
-          )}
+        <div className="flex flex-wrap gap-1.5">
+          {eventItems.map(renderBadge)}
+          {otherItems.map(renderBadge)}
         </div>
 
         {selectedTask && (
