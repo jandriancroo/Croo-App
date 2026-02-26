@@ -447,11 +447,15 @@ export function DataCube3D({
       {/* 3D Cube Container - fills parent, uses perspective */}
       <div 
         ref={containerRef}
-        className="relative w-full h-full cursor-pointer overflow-visible"
-        onClick={handleClick}
+        className="relative w-full h-full cursor-pointer overflow-visible select-none"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onContextMenu={(e) => e.preventDefault()}
         style={{
           perspective: `${cubeDepth * 4}px`,
           perspectiveOrigin: 'center center',
+          touchAction: 'manipulation',
         }}
       >
         {/* The actual 3D rotating cube */}
@@ -466,7 +470,6 @@ export function DataCube3D({
           {[0, 1, 2, 3].map((faceIndex) => {
             const face = faces[faceIndex % faces.length];
             const rotateY = faceIndex * 90;
-            // Only use per-face titles (no cube-level title fallback)
             const faceTitle = face?.title;
             
             return (
@@ -489,6 +492,13 @@ export function DataCube3D({
           })}
         </div>
       </div>
+      
+      {/* Subtle pause icon - bottom right, low opacity teal */}
+      {isFrozen && totalFaces > 1 && (
+        <div className="absolute bottom-1.5 right-1.5 pointer-events-none z-10">
+          <Pause className="h-3 w-3 text-teal-400/40" fill="currentColor" />
+        </div>
+      )}
     </div>
   );
 }
