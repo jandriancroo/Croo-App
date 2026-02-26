@@ -493,14 +493,6 @@ export function AssignedTemporaryTasks({
         />
       ))}
 
-      {/* Subtle divider between events and quick tasks */}
-      {incompleteEventTasks.length > 0 && (incompleteTasks.length > 0 || pendingOrders.length > 0) && (
-        <div className="flex items-center gap-2 py-0.5 px-1">
-          <div className="h-[1px] flex-1 bg-border/60" />
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-medium">Quick Tasks</span>
-          <div className="h-[1px] flex-1 bg-border/60" />
-        </div>
-      )}
 
       {/* Incomplete temporary tasks */}
       {incompleteTasks.map((task) => {
