@@ -332,88 +332,13 @@ export function DataCube3D({
 }: DataCube3DProps) {
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [cubeDepth, setCubeDepth] = useState(60);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
   
-  // Demo data for testing when no real data is available
-  const demoSalesData: SalesDataForWidgets = {
-    daily: 4825,
-    weekly: 28450,
-    monthly: 112380,
-    avgTicket: 18.50,
-    guestCount: { daily: 261, weekly: 1538, monthly: 6075 },
-    pizzaCount: { daily: 142, weekly: 836, monthly: 3305 },
-    labor: { laborCost: 892, laborPercent: 18.5, hoursWorked: 48.5 },
-    weeklyLabor: { laborCost: 5245, laborPercent: 18.4, hoursWorked: 285 },
-    monthlyLabor: { laborCost: 20870, laborPercent: 18.6, hoursWorked: 1135 },
-    projections: {
-      todayPaceAdjusted: 5120,
-      todayProjected: 4950,
-      weekPaceAdjusted: 31200,
-      weekProjected: 30500,
-      monthPaceAdjusted: 125000,
-      monthProjected: 122000,
-    },
-    comparison: {
-      prevDay: 4680,
-      prevDayFullDay: 4680,
-      prevWeek: 27890,
-      prevWeekFullWeek: 27890,
-      prevMonth: 108500,
-      prevMonthFullMonth: 108500,
-    },
-    lastYear: {
-      sameDay: 4520,
-      sameWeek: 26800,
-      sameMonth: 105200,
-    },
-    payments: {
-      daily: [
-        { paymentType: 'Cash', amount: 965 },
-        { paymentType: 'Credit Card', amount: 2895 },
-        { paymentType: 'DoorDash', amount: 482 },
-        { paymentType: 'UberEats', amount: 289 },
-        { paymentType: 'OLO Visa', amount: 145 },
-        { paymentType: 'OLO Mastercard', amount: 49 },
-      ],
-      weekly: [
-        { paymentType: 'Cash', amount: 5690 },
-        { paymentType: 'Credit Card', amount: 17070 },
-        { paymentType: 'DoorDash', amount: 2845 },
-        { paymentType: 'UberEats', amount: 1704 },
-      ],
-      monthly: [
-        { paymentType: 'Cash', amount: 22476 },
-        { paymentType: 'Credit Card', amount: 67428 },
-        { paymentType: 'DoorDash', amount: 11238 },
-        { paymentType: 'UberEats', amount: 6734 },
-      ],
-    },
-  };
-  
-  // Use demo data if enabled and no real data
-  const effectiveSalesData = useDemoData ? demoSalesData : salesData;
-  
-  const totalFaces = Math.min(faces.length, 4);
-  
-  // Migrate legacy hex colors to theme color keys
-  const themeColorKey: ThemeColorKey = isThemeColorKey(accentColor) 
-    ? accentColor 
-    : migrateAccentColor(accentColor);
-  
-  // Calculate cube depth based on container width
-  useEffect(() => {
-    const updateDepth = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth;
-        setCubeDepth(width / 2);
-      }
-    };
-    
-    updateDepth();
-    window.addEventListener('resize', updateDepth);
-    return () => window.removeEventListener('resize', updateDepth);
-  }, []);
+  // ... keep existing code (demo data, effectiveSalesData, totalFaces, themeColorKey, cubeDepth effect)
   
   const rotateTo = useCallback((faceIndex: number) => {
     if (isAnimating || faceIndex === currentFace) return;
@@ -427,22 +352,54 @@ export function DataCube3D({
     rotateTo(nextFace);
   }, [currentFace, totalFaces, rotateTo]);
   
-  // Auto-rotate
+  // Auto-rotate (respects frozen state)
   useEffect(() => {
-    if (totalFaces <= 1) return;
+    if (totalFaces <= 1 || isFrozen) return;
     
     const interval = setInterval(() => {
       rotateNext();
     }, autoRotateInterval);
     
     return () => clearInterval(interval);
-  }, [rotateNext, autoRotateInterval, totalFaces]);
+  }, [rotateNext, autoRotateInterval, totalFaces, isFrozen]);
   
-  const handleClick = () => {
-    if (totalFaces > 1) {
-      rotateNext();
+  // Long-press handlers for freeze toggle
+  const handlePointerDown = useCallback(() => {
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setIsFrozen(prev => !prev);
+    }, 500);
+  }, []);
+  
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
-  };
+    // If it wasn't a long press, treat as normal tap
+    if (!isLongPressRef.current && totalFaces > 1) {
+      rotateNext();
+      // Resume auto-rotate on tap
+      if (isFrozen) {
+        setIsFrozen(false);
+      }
+    }
+  }, [totalFaces, rotateNext, isFrozen]);
+  
+  const handlePointerCancel = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
 
   // Calculate 3D rotation based on current face
   const getRotationY = () => {
