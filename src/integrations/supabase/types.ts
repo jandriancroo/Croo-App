@@ -7183,6 +7183,7 @@ export type Database = {
         Args: { p_document_id: string; p_user_id: string }
         Returns: undefined
       }
+      send_hourly_sales_pulse: { Args: never; Returns: undefined }
       trigger_alarm_tasks_sql: { Args: never; Returns: undefined }
       validate_location_code: {
         Args: { p_code: string }
