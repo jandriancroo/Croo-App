@@ -10,8 +10,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
 const EMAIL_TYPES = [
-  { value: "daily_summary", label: "Daily Summary", description: "End-of-day logbook summary with sales, labor, checklists, cash handling" },
-  { value: "weekly_summary", label: "Weekly Summary", description: "Aggregated Mon-Sun sales, labor, checklists, and cash handling" },
+  { value: "daily_summary", label: "Daily Pulse", description: "End-of-day logbook summary with sales, labor, checklists, cash handling" },
+  { value: "weekly_summary", label: "Weekly Pulse", description: "Aggregated Mon-Sun sales, labor, checklists, and cash handling" },
   { value: "support_ticket", label: "Support Ticket", description: "New support ticket notification" },
   { value: "weekly_schedule", label: "Weekly Schedule (Employee)", description: "Individual schedule email sent to each employee" },
   { value: "weekly_schedule_manager", label: "Weekly Schedule (Manager)", description: "Full team schedule grid sent to shift managers and above" },

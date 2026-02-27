@@ -1372,7 +1372,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   await queueEmail({
     from: "CrooHQ <reports@croohq.email>",
     to: eligibleRecipients.map(r => r.email),
-    subject: `Weekly Summary — ${location.name} — ${displayRange}`,
+    subject: `Weekly Pulse — ${location.name} — ${displayRange}`,
     html: emailHtml,
     source: "weekly_summary",
     dedupKey,
