@@ -841,7 +841,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       await queueEmail({
         from: "CrooHQ <reports@croohq.email>",
         to: [recipient.email],
-        subject: `${isTest ? '[TEST] ' : ''}Daily Summary: ${location.name} - ${shortDate}`,
+        subject: `${isTest ? '[TEST] ' : ''}Daily Pulse: ${location.name} - ${shortDate}`,
         html: emailHtml,
         source: isTest ? 'test_preview' : 'daily_summary',
         dedupKey: isTest ? `test_${Date.now()}_${recipient.email}` : `daily_summary_v5_${location_id}_${entry_date}_${recipient.email}`,
