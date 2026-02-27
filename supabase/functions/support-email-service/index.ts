@@ -657,7 +657,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
           ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
         <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Summary</h1>
+          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Pulse</h1>
         </td>
         <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
@@ -841,7 +841,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
       await queueEmail({
         from: "CrooHQ <reports@croohq.email>",
         to: [recipient.email],
-        subject: `${isTest ? '[TEST] ' : ''}Daily Summary: ${location.name} - ${shortDate}`,
+        subject: `${isTest ? '[TEST] ' : ''}Daily Pulse: ${location.name} - ${shortDate}`,
         html: emailHtml,
         source: isTest ? 'test_preview' : 'daily_summary',
         dedupKey: isTest ? `test_${Date.now()}_${recipient.email}` : `daily_summary_v5_${location_id}_${entry_date}_${recipient.email}`,
@@ -1245,7 +1245,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
           ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
         <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Weekly Summary</h1>
+          <h1 style="color:#fff;font-size:26px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Weekly Pulse</h1>
         </td>
         <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
@@ -1372,7 +1372,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   await queueEmail({
     from: "CrooHQ <reports@croohq.email>",
     to: eligibleRecipients.map(r => r.email),
-    subject: `Weekly Summary — ${location.name} — ${displayRange}`,
+    subject: `Weekly Pulse — ${location.name} — ${displayRange}`,
     html: emailHtml,
     source: "weekly_summary",
     dedupKey,
