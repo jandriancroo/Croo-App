@@ -657,7 +657,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
           ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
         <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Summary</h1>
+          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Pulse</h1>
         </td>
         <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
