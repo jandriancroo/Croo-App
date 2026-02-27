@@ -231,6 +231,7 @@ const AppContent = () => {
         <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
         <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
         <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
+        <Route path="/pulse-icon-preview" element={<ProtectedRoute><PulseIconPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
