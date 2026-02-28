@@ -275,7 +275,7 @@ export default function Messages() {
             )}
             {isAdmin && (
               <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); setIsAnnouncementOpen(true); }}>
-                <Send className="h-5 w-5" /> Announcement
+                <Megaphone className="h-5 w-5" /> Announcement
               </Button>
             )}
             <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); handleViewModeChange('support'); }}>
