@@ -144,7 +144,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       {/* Messages - Virtualized */}
       <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden relative">
         {/* Scroll to bottom + mark as read button */}
-        {!isNearBottomRef.current && displayMessages.length > 0 && (
+        {isScrolledUp && displayMessages.length > 0 && (
           <button
             onClick={() => {
               scrollToBottom();
