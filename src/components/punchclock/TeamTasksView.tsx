@@ -239,7 +239,7 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
   };
 
   const [initialized, setInitialized] = useState(false);
-  const [undoingSubtask, setUndoingSubtask] = useState<string | null>(null);
+  const [confirmUndo, setConfirmUndo] = useState<string | null>(null);
 
   // Auto-expand all tasks on first load only
   if (teamTasks.length > 0 && !initialized) {
