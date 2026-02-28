@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, Send } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, Send, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -74,7 +74,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
   // Task style (read-only for editing)
-  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm">("standard");
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "team">("standard");
   
   // Alarm task fields
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
@@ -246,22 +246,24 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
       return;
     }
     
-    if (assignmentType === "employees" && selectedEmployees.length === 0) {
-      toast.error("Please select at least one employee");
-      return;
-    }
-    
-    if (assignmentType === "roles" && selectedRoles.length === 0) {
-      toast.error("Please select at least one role");
-      return;
+    if (taskStyle !== "team") {
+      if (assignmentType === "employees" && selectedEmployees.length === 0) {
+        toast.error("Please select at least one employee");
+        return;
+      }
+      
+      if (assignmentType === "roles" && selectedRoles.length === 0) {
+        toast.error("Please select at least one role");
+        return;
+      }
     }
 
-    if (taskStyle === "alarm") {
+    if (taskStyle === "alarm" || taskStyle === "team") {
       if (daysOfWeek.length === 0) {
         toast.error("Please select at least one day of the week");
         return;
       }
-      if (frequencyType === "custom" && customTimes.length === 0) {
+      if (taskStyle === "alarm" && frequencyType === "custom" && customTimes.length === 0) {
         toast.error("Please add at least one custom time");
         return;
       }
@@ -289,6 +291,8 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.show_on_punch_clock = showOnPunchClock;
+      } else if (taskStyle === "team") {
+        taskData.days_of_week = daysOfWeek;
       }
 
       // Update the task
@@ -299,21 +303,23 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
 
       if (taskError) throw taskError;
 
-      // Delete existing assignments and create new ones
-      await supabase
-        .from('temporary_task_assignments')
-        .delete()
-        .eq('task_id', task.id);
+      // Delete existing assignments and create new ones (skip for team tasks)
+      if (taskStyle !== "team") {
+        await supabase
+          .from('temporary_task_assignments')
+          .delete()
+          .eq('task_id', task.id);
 
-      const assignments = assignmentType === "employees"
-        ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
-        : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
+        const assignments = assignmentType === "employees"
+          ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
+          : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
 
-      const { error: assignmentError } = await supabase
-        .from('temporary_task_assignments')
-        .insert(assignments);
+        const { error: assignmentError } = await supabase
+          .from('temporary_task_assignments')
+          .insert(assignments);
 
-      if (assignmentError) throw assignmentError;
+        if (assignmentError) throw assignmentError;
+      }
 
       // Handle subtasks
       // Delete subtasks marked for deletion
@@ -377,10 +383,12 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
           <DialogTitle className="flex items-center gap-2">
             {taskStyle === "alarm" ? (
               <AlarmClock className="h-5 w-5" />
+            ) : taskStyle === "team" ? (
+              <Users className="h-5 w-5" />
             ) : (
               <ClipboardList className="h-5 w-5" />
             )}
-            Edit {taskStyle === "alarm" ? "Alarm" : "Standard"} Task
+            Edit {taskStyle === "alarm" ? "Alarm" : taskStyle === "team" ? "Team" : "Standard"} Task
           </DialogTitle>
         </DialogHeader>
 
@@ -457,7 +465,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             />
           </div>
 
-          {/* Show on Dashboard Toggle - for standard tasks */}
+          {/* Show on Dashboard Toggle - for standard tasks only */}
           {taskStyle === "standard" && (
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -470,6 +478,27 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                 checked={showOnDashboard}
                 onCheckedChange={setShowOnDashboard}
               />
+            </div>
+          )}
+
+          {/* Team Task: Active Days */}
+          {taskStyle === "team" && (
+            <div className="space-y-2">
+              <Label>Active Days *</Label>
+              <div className="flex gap-1">
+                {DAYS_OF_WEEK.map(day => (
+                  <Button
+                    key={day.value}
+                    type="button"
+                    size="sm"
+                    variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
+                    className="flex-1 px-1 text-xs"
+                    onClick={() => toggleDayOfWeek(day.value)}
+                  >
+                    {day.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -623,101 +652,103 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             </>
           )}
 
-          {/* Assignment Type */}
-          <div className="space-y-2">
-            <Label>Assign To</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={assignmentType === "employees" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("employees");
-                  setSelectedRoles([]);
-                }}
-              >
-                Employees
-              </Button>
-              <Button
-                type="button"
-                variant={assignmentType === "roles" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("roles");
-                  setSelectedEmployees([]);
-                }}
-              >
-                Roles
-              </Button>
-            </div>
-          </div>
-
-          {/* Employee Selection */}
-          {assignmentType === "employees" && (
-            <div className="space-y-2">
-              <Label>Select Employees *</Label>
-              <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                {employees.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No employees found</p>
-                ) : (
-                  employees.map((employee: any) => (
-                    <div key={employee.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`edit-emp-${employee.id}`}
-                        checked={selectedEmployees.includes(employee.id)}
-                        onCheckedChange={() => toggleEmployee(employee.id)}
-                      />
-                      <label
-                        htmlFor={`edit-emp-${employee.id}`}
-                        className="text-sm cursor-pointer flex-1"
-                      >
-                        {employee.full_name}
-                      </label>
-                    </div>
-                  ))
-                )}
+          {/* Assignment - hidden for team tasks */}
+          {taskStyle !== "team" && (
+            <>
+              <div className="space-y-2">
+                <Label>Assign To</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={assignmentType === "employees" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("employees");
+                      setSelectedRoles([]);
+                    }}
+                  >
+                    Employees
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignmentType === "roles" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("roles");
+                      setSelectedEmployees([]);
+                    }}
+                  >
+                    Roles
+                  </Button>
+                </div>
               </div>
-              {selectedEmployees.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {selectedEmployees.map(empId => {
-                    const emp = employees.find((e: any) => e.id === empId);
-                    return emp ? (
-                      <Badge key={empId} variant="secondary" className="gap-1">
-                        {emp.full_name}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => toggleEmployee(empId)}
-                        />
-                      </Badge>
-                    ) : null;
-                  })}
+
+              {assignmentType === "employees" && (
+                <div className="space-y-2">
+                  <Label>Select Employees *</Label>
+                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                    {employees.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No employees found</p>
+                    ) : (
+                      employees.map((employee: any) => (
+                        <div key={employee.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`edit-emp-${employee.id}`}
+                            checked={selectedEmployees.includes(employee.id)}
+                            onCheckedChange={() => toggleEmployee(employee.id)}
+                          />
+                          <label
+                            htmlFor={`edit-emp-${employee.id}`}
+                            className="text-sm cursor-pointer flex-1"
+                          >
+                            {employee.full_name}
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {selectedEmployees.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedEmployees.map(empId => {
+                        const emp = employees.find((e: any) => e.id === empId);
+                        return emp ? (
+                          <Badge key={empId} variant="secondary" className="gap-1">
+                            {emp.full_name}
+                            <X
+                              className="h-3 w-3 cursor-pointer"
+                              onClick={() => toggleEmployee(empId)}
+                            />
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Role Selection */}
-          {assignmentType === "roles" && (
-            <div className="space-y-2">
-              <Label>Select Roles *</Label>
-              <div className="border rounded-lg p-3 space-y-2">
-                {ROLE_OPTIONS.map(role => (
-                  <div key={role.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`edit-role-${role.value}`}
-                      checked={selectedRoles.includes(role.value)}
-                      onCheckedChange={() => toggleRole(role.value)}
-                    />
-                    <label
-                      htmlFor={`edit-role-${role.value}`}
-                      className="text-sm cursor-pointer flex-1"
-                    >
-                      {role.label}
-                    </label>
+              {assignmentType === "roles" && (
+                <div className="space-y-2">
+                  <Label>Select Roles *</Label>
+                  <div className="border rounded-lg p-3 space-y-2">
+                    {ROLE_OPTIONS.map(role => (
+                      <div key={role.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`edit-role-${role.value}`}
+                          checked={selectedRoles.includes(role.value)}
+                          onCheckedChange={() => toggleRole(role.value)}
+                        />
+                        <label
+                          htmlFor={`edit-role-${role.value}`}
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          {role.label}
+                        </label>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Subtasks */}
