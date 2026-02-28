@@ -1224,15 +1224,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}>
+                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-primary border-primary/30' : 'bg-primary border-primary/30'}`}>
                   {brandLogoUrl && (
                     <>
                       <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
-                      <div className={`w-px h-5 ${isDayMode ? 'bg-accent-foreground/20' : 'bg-neutral-600'}`} />
+                      <div className="w-px h-5 bg-primary-foreground/30" />
                     </>
                   )}
-                  <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
-                  <span className={`text-base font-semibold ${isDayMode ? 'text-accent-foreground' : 'text-white'}`}>{currentLocation.name}</span>
+                  <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-primary-foreground" />
+                  <span className="text-base font-semibold text-primary-foreground">{currentLocation.name}</span>
                 </div>
               </div>
             )}
@@ -1348,8 +1348,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   )}
                   {/* Text pinned below image - white box with black text */}
                   {currentCustomText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 pb-28 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
+                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {currentCustomText}
                       </h2>
                     </div>
@@ -1382,8 +1382,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   )}
                   {/* Text pinned below image - white box with black text */}
                   {customOverlayText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 pb-28 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
+                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {customOverlayText}
                       </h2>
                     </div>
@@ -1486,10 +1486,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {currentLocation?.id && timezone && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
                 <button
-                  className={`flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 hover:scale-105 active:scale-95 transition-all shadow-xl ${isDayMode ? 'bg-accent/90 border-accent-foreground/20' : 'bg-neutral-700/90 border-neutral-500'}`}
+                  className="flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 border-primary/30 bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-xl"
                   onClick={() => setShowManagerDashboard(true)}
                 >
-                  <ArrowLeftRight className={`h-8 w-8 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
+                  <ArrowLeftRight className="h-8 w-8 text-primary-foreground" />
                 </button>
               </div>
             )}
