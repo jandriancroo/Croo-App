@@ -94,7 +94,7 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
     queryKey: ['team-task-completions', locationId, today],
     queryFn: async () => {
       const allSubtaskIds = teamTasks.flatMap(t => t.subtasks.map(s => s.id));
-      if (allSubtaskIds.length === 0) return [];
+      if (allSubtaskIds.length === 0) return [] as SubtaskCompletion[];
 
       const { data, error } = await supabase
         .from('task_subtask_completions')
@@ -104,9 +104,8 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
 
       if (error) throw error;
 
-      // Fetch profiles for completed_by
       const userIds = [...new Set((data || []).map(c => c.completed_by))];
-      if (userIds.length === 0) return data || [];
+      if (userIds.length === 0) return (data || []).map(c => ({ ...c, profile: { full_name: 'Unknown', profile_photo_url: null } })) as SubtaskCompletion[];
 
       const { data: profiles } = await supabase
         .from('profiles')
