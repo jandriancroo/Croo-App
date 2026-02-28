@@ -110,6 +110,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     const threshold = 150;
     const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
     isNearBottomRef.current = isNear;
+    setIsScrolledUp(!isNear);
     if (isNear) {
       setShowNewMessageBubble(false);
       setNewMessageCount(0);

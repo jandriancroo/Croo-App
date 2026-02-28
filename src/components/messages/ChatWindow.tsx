@@ -53,7 +53,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     newMessage, setNewMessage,
     sending, setSending,
     uploading, setUploading,
-    virtuosoRef, isNearBottomRef,
+    virtuosoRef,
+    isScrolledUp,
     scrollToBottom, loadEarlierMessages,
   } = data;
 
