@@ -200,16 +200,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           onSelectChat(chat.id);
         }
       }}
-      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
+      className={`group w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
-          : chat.title === 'Shift Marketplace'
-          ? 'bg-accent/15 hover:bg-accent/20 border border-accent/30'
-          : chat.isPinned
-          ? 'bg-primary/15 hover:bg-primary/20'
           : chat.unreadCount && chat.unreadCount > 0
-          ? 'bg-primary/10 hover:bg-primary/15'
-          : 'hover:bg-muted'
+          ? 'bg-muted/80 hover:bg-muted'
+          : 'hover:bg-muted/50'
       }`}
     >
       <Avatar className={`h-12 w-12 flex-shrink-0 ${chat.title === 'Shift Marketplace' ? 'bg-accent/20' : ''}`}>
@@ -384,7 +380,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           </>
         )}
         {unpinnedChats.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1 px-1">
             {unpinnedChats.map(renderChat)}
           </div>
         )}
