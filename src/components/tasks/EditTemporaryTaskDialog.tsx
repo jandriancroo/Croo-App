@@ -465,7 +465,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             />
           </div>
 
-          {/* Show on Dashboard Toggle - for standard tasks */}
+          {/* Show on Dashboard Toggle - for standard tasks only */}
           {taskStyle === "standard" && (
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -478,6 +478,27 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                 checked={showOnDashboard}
                 onCheckedChange={setShowOnDashboard}
               />
+            </div>
+          )}
+
+          {/* Team Task: Active Days */}
+          {taskStyle === "team" && (
+            <div className="space-y-2">
+              <Label>Active Days *</Label>
+              <div className="flex gap-1">
+                {DAYS_OF_WEEK.map(day => (
+                  <Button
+                    key={day.value}
+                    type="button"
+                    size="sm"
+                    variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
+                    className="flex-1 px-1 text-xs"
+                    onClick={() => toggleDayOfWeek(day.value)}
+                  >
+                    {day.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
