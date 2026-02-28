@@ -181,8 +181,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput="smooth"
             alignToBottom
-            atBottomStateChange={() => {
-              // Scroll state managed by hook's checkIfNearBottom
+            atBottomStateChange={(atBottom) => {
+              setIsScrolledUp(!atBottom);
             }}
             startReached={() => {
               if (hasMoreEarlier && !loadingEarlier) {
