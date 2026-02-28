@@ -31,7 +31,7 @@ function FilterChipBar({
   onViewModeChange: (mode: ViewMode) => void;
 }) {
   return (
-    <div className={`${compact ? '' : 'pb-3'} overflow-x-auto scrollbar-hide`}>
+    <div className="overflow-x-auto scrollbar-hide">
       <div className="flex gap-2 min-w-max">
         {filters.map(f => {
           const isActive = viewMode === f.id;
