@@ -1604,6 +1604,21 @@ export function ManagerDashboardOverlay({
                         })}
                       </div>
                     )}
+
+                    {/* Team Tasks Button */}
+                    <button
+                      onClick={() => setShowTeamTasks(true)}
+                      className={`w-full mt-2 py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all ${
+                        isDayMode 
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                          : 'bg-white text-neutral-900 hover:bg-neutral-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Users className="h-4 w-4" />
+                        TEAM TASKS
+                      </div>
+                    </button>
                     
                     {/* Empty state */}
                     {quickTasks.length === 0 && checklistsData.length === 0 && (
