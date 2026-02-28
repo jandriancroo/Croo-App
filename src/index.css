@@ -832,6 +832,20 @@ All colors MUST be HSL.
     color: hsl(215 12% 75%);
   }
 
+  /* OLED mobile header — match dock Batman grey */
+  [data-theme="oled"] header.bg-primary {
+    background: hsl(220 22% 15%) !important;
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] header.bg-primary * {
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] header.bg-primary .nav-logo-inline {
+    color: initial;
+  }
+
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,
