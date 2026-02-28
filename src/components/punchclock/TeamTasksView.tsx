@@ -15,6 +15,7 @@ interface TeamTasksViewProps {
   locationId: string;
   timezone: string;
   onBack: () => void;
+  isDayMode?: boolean;
 }
 
 interface TeamSubtask {

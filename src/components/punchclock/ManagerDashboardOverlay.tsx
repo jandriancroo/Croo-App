@@ -962,12 +962,13 @@ export function ManagerDashboardOverlay({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-background"
+        className={`fixed inset-0 z-[100] ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`}
       >
         <TeamTasksView
           locationId={locationId}
           timezone={timezone}
           onBack={() => setShowTeamTasks(false)}
+          isDayMode={isDayMode}
         />
       </motion.div>
     );
