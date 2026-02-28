@@ -1082,27 +1082,57 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               {subtasks.length > 0 && (
                 <div className="border rounded-lg p-3 space-y-2">
                   {subtasks.map((subtask, index) => (
-                    <div key={index} className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {subtask.item_type === "photo" ? (
-                          <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                        ) : (
-                          <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className="text-sm">{subtask.title}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5">
-                          {subtask.item_type === "photo" ? "Photo" : "Check"}
-                        </Badge>
+                    <div key={index} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {subtask.item_type === "photo" ? (
+                            <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          <span className="text-sm">{subtask.title}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5">
+                            {subtask.item_type === "photo" ? "Photo" : "Check"}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => handleRemoveSubtask(index)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => handleRemoveSubtask(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      {taskStyle === "team" && subtask.days_of_week && (
+                        <div className="flex gap-0.5 pl-6">
+                          {DAYS_OF_WEEK.map(day => (
+                            <button
+                              key={day.value}
+                              type="button"
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                                subtask.days_of_week!.includes(day.value)
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                              onClick={() => {
+                                const updated = [...subtasks];
+                                const current = updated[index].days_of_week || [];
+                                updated[index] = {
+                                  ...updated[index],
+                                  days_of_week: current.includes(day.value)
+                                    ? current.filter(d => d !== day.value)
+                                    : [...current, day.value].sort((a, b) => a - b)
+                                };
+                                setSubtasks(updated);
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
             </div>
