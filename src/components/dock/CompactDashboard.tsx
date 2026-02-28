@@ -168,9 +168,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
   }, [currentTime, timezone]);
 
-  // Fetch sales data from sales_cache
+  // Fetch sales data from sales_cache — shared key with prefetch + ManagerDashboard
   const { data: salesData } = useQuery({
-    queryKey: ['compact-dash-sales', locationId, todayStr],
+    queryKey: ['sales-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase
