@@ -1225,8 +1225,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
                 <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}>
-                  <img src={crooLogo} alt="Croo" className="h-6 w-auto" />
-                  <div className={`w-px h-5 ${isDayMode ? 'bg-accent-foreground/20' : 'bg-neutral-600'}`} />
+                  {brandLogoUrl && (
+                    <>
+                      <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
+                      <div className={`w-px h-5 ${isDayMode ? 'bg-accent-foreground/20' : 'bg-neutral-600'}`} />
+                    </>
+                  )}
                   <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
                   <span className={`text-base font-semibold ${isDayMode ? 'text-accent-foreground' : 'text-white'}`}>{currentLocation.name}</span>
                 </div>
