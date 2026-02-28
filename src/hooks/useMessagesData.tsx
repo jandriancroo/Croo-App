@@ -132,11 +132,8 @@ export function useMessagesData() {
     
     if (mode === 'announcements') {
       filtered = filtered.filter(chat => chat.is_announcement);
-    } else if (mode === 'groups') {
-      filtered = filtered.filter(chat => chat.is_group && !chat.is_announcement);
-    } else if (mode === 'dms') {
-      filtered = filtered.filter(chat => !chat.is_group && !chat.is_announcement);
     } else if (mode === 'all') {
+      // Combined view: DMs + Groups (no announcements), groups auto-pinned to top
       filtered = filtered.filter(chat => !chat.is_announcement);
     }
     
