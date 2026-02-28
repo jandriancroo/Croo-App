@@ -109,13 +109,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
   }, [laborCuts, cutsSaved, laborCutsStorageKey]);
   
-  // Update time every minute (no seconds needed)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+  // Shared clock tick — every minute (no seconds needed for dock)
+  const currentTime = useClock(60000);
 
   // Lock body scroll when expanded to prevent background scrolling
   useEffect(() => {

@@ -256,13 +256,8 @@ export function ManagerDashboardOverlay({
     }
   }, [laborCuts, cutsSaved, laborCutsStorageKey]);
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // Shared clock tick — every second for live duration display
+  const currentTime = useClock(1000);
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 
