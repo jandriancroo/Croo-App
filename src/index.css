@@ -238,37 +238,37 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Beach Theme - Ocean + Sage blend with warm yellow sunshine */
+/* Beach Theme - Coastal blues with soft sand warmth */
 [data-theme="beach"] {
-  --background: 170 20% 93%;
-  --foreground: 185 30% 12%;
-  --card: 165 22% 97%;
-  --card-foreground: 185 30% 12%;
-  --popover: 165 22% 97%;
-  --popover-foreground: 185 30% 12%;
-  --primary: 175 45% 38%;
+  --background: 195 25% 93%;
+  --foreground: 205 30% 12%;
+  --card: 195 22% 97%;
+  --card-foreground: 205 30% 12%;
+  --popover: 195 22% 97%;
+  --popover-foreground: 205 30% 12%;
+  --primary: 205 55% 45%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 155 30% 86%;
-  --secondary-foreground: 170 40% 25%;
-  --muted: 165 18% 89%;
-  --muted-foreground: 180 15% 40%;
-  --accent: 42 75% 52%;
-  --accent-foreground: 25 30% 12%;
+  --secondary: 170 25% 86%;
+  --secondary-foreground: 200 40% 25%;
+  --muted: 190 18% 89%;
+  --muted-foreground: 200 15% 40%;
+  --accent: 38 50% 62%;
+  --accent-foreground: 30 35% 15%;
   --destructive: 355 55% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 165 18% 79%;
-  --input: 165 18% 85%;
-  --ring: 175 45% 38%;
-  --glass-background: 165 22% 100% / 0.6;
-  --glass-border: 165 20% 75% / 0.3;
-  --glass-shadow: 185 30% 12% / 0.08;
+  --border: 195 18% 79%;
+  --input: 195 18% 85%;
+  --ring: 205 55% 45%;
+  --glass-background: 195 22% 100% / 0.6;
+  --glass-border: 195 20% 75% / 0.3;
+  --glass-shadow: 205 30% 12% / 0.08;
 
-  --chart-1: 175 45% 42%;
-  --chart-2: 42 75% 55%;
-  --chart-3: 145 35% 48%;
-  --chart-4: 195 50% 50%;
-  --chart-5: 30 60% 55%;
-  --chart-6: 160 40% 45%;
+  --chart-1: 205 55% 48%;
+  --chart-2: 38 50% 62%;
+  --chart-3: 170 35% 48%;
+  --chart-4: 160 45% 42%;
+  --chart-5: 30 45% 55%;
+  --chart-6: 185 40% 45%;
 }
 
 /* Cupcake Theme - Warm layered pinks, soft and inviting */
@@ -318,7 +318,7 @@ All colors MUST be HSL.
   --secondary-foreground: 0 0% 100%;
   --muted: 38 22% 90%;
   --muted-foreground: 20 12% 42%;
-  --accent: 170 55% 28%;
+  --accent: 20 55% 28%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 70% 42%;
   --destructive-foreground: 0 0% 100%;
@@ -335,6 +335,38 @@ All colors MUST be HSL.
   --chart-4: 0 70% 42%;
   --chart-5: 45 70% 50%;
   --chart-6: 200 30% 40%;
+}
+
+/* Cupcake sprinkles background decoration */
+[data-theme="cupcake"] #root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 6px 2px at 5% 12%, hsl(340 50% 65% / 0.3) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 15% 35%, hsl(15 60% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 25% 8%, hsl(45 55% 65% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 35% 55%, hsl(340 45% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 45% 22%, hsl(200 45% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 55% 78%, hsl(320 50% 62% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 65% 42%, hsl(15 55% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 72% 15%, hsl(45 50% 62% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 82% 65%, hsl(340 48% 58% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 90% 30%, hsl(170 40% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 8% 72%, hsl(280 40% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 48% 88%, hsl(15 50% 62% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 78% 92%, hsl(45 48% 60% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 18% 52%, hsl(200 42% 62% / 0.2) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 58% 48%, hsl(340 42% 63% / 0.18) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 92% 55%, hsl(320 45% 60% / 0.25) 50%, transparent 51%);
+  background-repeat: no-repeat;
+}
+
+[data-theme="cupcake"] #root > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ============================================
@@ -538,12 +570,12 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .glass-dock {
-    background: hsl(var(--accent) / 0.98);
+    background: hsl(225 15% 10% / 0.98);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     box-shadow: 
       0 -4px 28px hsl(0 0% 0% / 0.5),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+      inset 0 1px 0 hsl(0 0% 100% / 0.06);
   }
   
   [data-theme="oled"] .glass-dock::after {
@@ -706,6 +738,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .nav-bar-unified {
+    background: hsl(225 15% 10%);
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
   }
   
