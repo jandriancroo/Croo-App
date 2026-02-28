@@ -16,7 +16,7 @@ import {
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
-import { SupportButton } from '@/components/support/SupportButton';
+
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
 
@@ -25,16 +25,14 @@ function FilterChipBar({
   filters, 
   viewMode, 
   onViewModeChange, 
-  compact = false 
 }: { 
   filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }>;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  compact?: boolean;
 }) {
   return (
-    <div className={`${compact ? 'px-3 pb-2' : 'pb-3'} overflow-x-auto scrollbar-hide`}>
-      <div className="flex gap-1.5 min-w-max">
+    <div className="overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 min-w-max">
         {filters.map(f => {
           const isActive = viewMode === f.id;
           const Icon = f.icon;
@@ -42,18 +40,18 @@ function FilterChipBar({
             <button
               key={f.id}
               onClick={() => onViewModeChange(f.id)}
-              className={`relative flex items-center gap-${compact ? '1.5' : '2'} py-${compact ? '1.5' : '2.5'} rounded-full text-${compact ? 'xs' : 'sm'} font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
+              className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
                 isActive
-                  ? `bg-primary text-primary-foreground px-${compact ? '3' : '4'}`
-                  : `bg-muted text-muted-foreground hover:bg-muted/80 px-${compact ? '2' : '2.5'}`
+                  ? 'bg-primary text-primary-foreground px-4'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 px-3'
               }`}
               style={{
-                maxWidth: isActive ? (compact ? '160px' : '200px') : (compact ? '34px' : '42px'),
-                minWidth: isActive ? 'auto' : (compact ? '34px' : '42px'),
+                maxWidth: isActive ? '200px' : '44px',
+                minWidth: isActive ? 'auto' : '44px',
               }}
               aria-label={f.label}
             >
-              <Icon className={`h-${compact ? '4' : '4.5'} w-${compact ? '4' : '4.5'} shrink-0`} />
+              <Icon className="h-5 w-5 shrink-0" />
               <span
                 className="transition-all duration-300 ease-in-out overflow-hidden"
                 style={{
@@ -184,13 +182,14 @@ export default function Messages() {
         </div>
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
-          <div className="flex items-center justify-end p-3 pb-2">
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
-              <Plus className="h-4 w-4" />
+          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+            </div>
+            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
+              <Plus className="h-5 w-5" />
             </Button>
           </div>
-
-          <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} compact />
           
           {viewMode !== 'hiring' && viewMode !== 'support' && (
             <div className="px-3 pb-2">
@@ -285,6 +284,9 @@ export default function Messages() {
                 <Send className="h-5 w-5" /> Announcement
               </Button>
             )}
+            <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); handleViewModeChange('support'); }}>
+              <Headphones className="h-5 w-5" /> Support Request
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -315,7 +317,7 @@ export default function Messages() {
         />
       )}
 
-      <SupportButton />
+      {/* SupportButton removed - now accessible via New Conversation dialog */}
     </Layout>
   );
 }
