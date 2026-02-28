@@ -70,19 +70,12 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
 
       if (subError) throw subError;
 
-      // Filter subtasks for today and group by task
+      // Group subtasks by task
       return tasks.map(task => ({
         ...task,
         subtasks: (subtasks || [])
-          .filter(s => {
-            if (s.task_id !== task.id) return false;
-            // If subtask has day restrictions, check them
-            if (s.days_of_week && s.days_of_week.length > 0) {
-              return s.days_of_week.includes(todayDayOfWeek);
-            }
-            return true; // No day restriction = every day
-          })
-          .map(s => ({ id: s.id, title: s.title, order_index: s.order_index, days_of_week: s.days_of_week, quantity: s.quantity }))
+          .filter(s => s.task_id === task.id)
+          .map(s => ({ id: s.id, title: s.title, order_index: s.order_index, quantity: s.quantity }))
       })) as TeamTask[];
     },
     staleTime: 60000,
