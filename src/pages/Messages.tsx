@@ -176,23 +176,18 @@ export default function Messages() {
 
       {/* Mobile Layout */}
       <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col">
-        <div className="mb-2">
-          <h1 className="text-3xl font-bold">Chat</h1>
-          <PageHeaderDivider />
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 overflow-x-auto scrollbar-hide">
+            <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+          </div>
+          <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
+            <Plus className="h-5 w-5" />
+          </Button>
         </div>
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-            <div className="flex-1 overflow-x-auto scrollbar-hide">
-              <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
-            </div>
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
-              <Plus className="h-5 w-5" />
-            </Button>
-          </div>
-          
           {viewMode !== 'hiring' && viewMode !== 'support' && (
-            <div className="px-3 pb-2">
+            <div className="px-3 pt-3 pb-2">
               <ChatSearch onSearch={handleSearch} placeholder="Search..." />
             </div>
           )}
