@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, File, Clock } from 'lucide-react';
+import { MessageSquare, File, Clock, Trash2 } from 'lucide-react';
 import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
@@ -25,6 +25,7 @@ interface Message {
   created_at: string;
   scheduled_at: string | null;
   parent_message_id: string | null;
+  is_deleted_for_everyone?: boolean;
   profiles?: {
     full_name: string;
     profile_photo_url: string | null;
@@ -46,12 +47,14 @@ interface MessageBubbleProps {
   isAnnouncement: boolean;
   isArcadeChat: boolean;
   isGroupChat: boolean;
+  canUnsend?: boolean;
   smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
   onSmackTalk: (text: string, messageId?: string) => void;
   onImageClick: (url: string) => void;
+  onUnsend?: (messageId: string) => void;
   sending: boolean;
 }
 
@@ -67,16 +70,19 @@ export function MessageBubble({
   isAnnouncement,
   isArcadeChat,
   isGroupChat,
+  canUnsend = false,
   smackTalks = [],
   signedAttachmentUrl,
   onReaction,
   onReply,
   onSmackTalk,
   onImageClick,
+  onUnsend,
   sending,
 }: MessageBubbleProps) {
   const isPending = message.isPending;
-  const displayUrl = signedAttachmentUrl || message.attachment_url;
+  const isDeleted = message.is_deleted_for_everyone;
+  const displayUrl = isDeleted ? null : (signedAttachmentUrl || message.attachment_url);
 
   // Bubble tail class - only show on last message of cluster
   const bubbleTailClass = isLastInCluster
@@ -87,6 +93,20 @@ export function MessageBubble({
 
   // Cluster spacing - tighter for same sender
   const clusterSpacing = isFirstInCluster ? 'mt-3' : 'mt-0.5';
+
+  // Deleted message — render minimal placeholder
+  if (isDeleted) {
+    return (
+      <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
+        <div className="w-8 flex-shrink-0" />
+        <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
+          <div className="rounded-2xl px-3 py-2 bg-muted/50 border border-border/50 italic text-muted-foreground text-sm">
+            🚫 This message was removed
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
@@ -232,6 +252,17 @@ export function MessageBubble({
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
+              {canUnsend && onUnsend && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={() => onUnsend(message.id)}
+                  title="Delete for everyone"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
             <MessageReactions messageId={message.id} currentUserId={currentUserId} />
           </>

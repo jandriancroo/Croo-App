@@ -34,7 +34,7 @@ export interface Chat {
   }>;
 }
 
-export type ViewMode = 'all' | 'groups' | 'dms' | 'announcements' | 'hiring' | 'support';
+export type ViewMode = 'all' | 'announcements' | 'hiring' | 'support';
 
 export function useMessagesData() {
   const { user } = useAuth();
@@ -132,11 +132,8 @@ export function useMessagesData() {
     
     if (mode === 'announcements') {
       filtered = filtered.filter(chat => chat.is_announcement);
-    } else if (mode === 'groups') {
-      filtered = filtered.filter(chat => chat.is_group && !chat.is_announcement);
-    } else if (mode === 'dms') {
-      filtered = filtered.filter(chat => !chat.is_group && !chat.is_announcement);
     } else if (mode === 'all') {
+      // Combined view: DMs + Groups (no announcements), groups auto-pinned to top
       filtered = filtered.filter(chat => !chat.is_announcement);
     }
     
@@ -228,10 +225,16 @@ export function useMessagesData() {
 
       const sortedChats = chatsWithUnread
         .sort((a: any, b: any) => {
+          // Shift Marketplace always first
           if (a.title === 'Shift Marketplace') return -1;
           if (b.title === 'Shift Marketplace') return 1;
+          // User-pinned chats next
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
+          // Auto-pin: group chats above DMs (within same pin tier)
+          if (a.is_group && !a.is_announcement && (!b.is_group || b.is_announcement)) return -1;
+          if (b.is_group && !b.is_announcement && (!a.is_group || a.is_announcement)) return 1;
+          // Unread chats next
           if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
           if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
@@ -406,7 +409,7 @@ export function useMessagesData() {
       setSearchParams({}, { replace: true });
     } else {
       if (urlChatId === marketplaceChatId) {
-        setViewMode('groups');
+        setViewMode('all');
         setSelectedChatId(urlChatId);
         setShowChatList(false);
         urlChatIdProcessed.current = true;

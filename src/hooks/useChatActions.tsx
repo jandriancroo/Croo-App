@@ -237,6 +237,35 @@ export function useChatActions({
     }
   }, [chatId, onChatDeleted]);
 
+  const handleUnsendMessage = useCallback(async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          is_deleted_for_everyone: true,
+          deleted_by: currentUserId,
+          deleted_at: new Date().toISOString(),
+          content: null,
+          attachment_url: null,
+          attachment_type: null,
+        })
+        .eq('id', messageId);
+
+      if (error) throw error;
+
+      // Optimistic update
+      queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+        if (!old) return [];
+        return old.map(m => m.id === messageId ? { ...m, is_deleted_for_everyone: true, content: null, attachment_url: null } : m);
+      });
+
+      toast.success('Message removed for everyone');
+    } catch (error: any) {
+      console.error('Error unsending message:', error);
+      toast.error('Failed to remove message');
+    }
+  }, [currentUserId, chatId, queryClient]);
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUserId) return;
@@ -283,6 +312,7 @@ export function useChatActions({
     handleGifSelect,
     handleSmackTalk,
     handleDeleteChat,
+    handleUnsendMessage,
     handleFileUpload,
   };
 }
