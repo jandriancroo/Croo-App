@@ -610,12 +610,12 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="divide-y divide-border/50 px-1">
             {tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full p-3 text-left transition-all rounded-xl border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
+                className={`w-full px-3 py-3 text-left transition-all border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
                   selectedTicket?.id === ticket.id
                     ? 'bg-accent text-accent-foreground'
                     : 'hover:bg-muted/50'
