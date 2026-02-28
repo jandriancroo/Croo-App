@@ -116,19 +116,18 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
     if (isReadAndSign) {
       return (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Read & Sign Document</h2>
-          <ReadAndSignForm
-            onSave={async () => {
-              toast({ title: "Document created successfully" });
-              queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
-              setShowNewEntrySheet(false);
-              setActiveTab('search');
-            }}
-            isSaving={isSavingSpecialForm}
-            employees={employees}
-          />
-        </div>
+        <ReadAndSignForm
+          locationId={currentLocation!.id}
+          employees={employees}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['read-and-sign-docs'] });
+            setShowNewEntrySheet(false);
+            setActiveTab('search');
+          }}
+          onCancel={() => {
+            setShowNewEntrySheet(false);
+          }}
+        />
       );
     }
 

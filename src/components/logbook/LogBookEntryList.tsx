@@ -180,9 +180,28 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                     <div className="mt-2 space-y-1">
                       {entry._isWriteUp && entry._writeUpData && <EmployeeWriteUpEntry writeUp={entry._writeUpData} />}
 
-                      {entry._isReadAndSign && entry._readAndSignData && <ReadAndSignEntry document={entry._readAndSignData} />}
+                      {entry._isReadAndSign && entry._readAndSignData && (
+                        <ReadAndSignEntry
+                          documentId={entry._readAndSignData.id}
+                          title={entry._readAndSignData.title}
+                          createdAt={entry._readAndSignData.created_at}
+                          createdByName={entry._readAndSignData.created_by_profile?.full_name}
+                          revisionNumber={entry._readAndSignData.revision_number || 0}
+                          revisedAt={entry._readAndSignData.revised_at}
+                        />
+                      )}
 
-                      {entry._isPerformanceReview && entry._performanceReviewData && <PerformanceReviewEntry review={entry._performanceReviewData} />}
+                      {entry._isPerformanceReview && entry._performanceReviewData && (
+                        <PerformanceReviewEntry
+                          reviewId={entry._performanceReviewData.id}
+                          employeeName={entry._performanceReviewData.employee?.full_name || 'Unknown'}
+                          employeePhoto={entry._performanceReviewData.employee?.profile_photo_url}
+                          createdAt={entry._performanceReviewData.created_at}
+                          createdByName={entry._performanceReviewData.created_by_profile?.full_name}
+                          isSigned={!!entry._performanceReviewData.signed_at}
+                          signedAt={entry._performanceReviewData.signed_at}
+                        />
+                      )}
 
                       {!entry._isWriteUp && !entry._isReadAndSign && !entry._isPerformanceReview && entry.logbook_entry_values?.map((val: any) => {
                         const bankDepositData = val.value_text ? parseBankDepositData(val.value_text) : null;
