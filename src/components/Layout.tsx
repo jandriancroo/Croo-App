@@ -283,12 +283,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   const themes = [
     { value: 'default', label: 'Default' },
-    { value: 'oled', label: 'Dark Knight' },
+    { value: 'oled', label: 'Dark Mode' },
     { value: 'earth', label: 'Warm Earth' },
-    { value: 'ocean', label: 'Ocean Breeze' },
-    { value: 'sage', label: 'Sage' },
-    { value: 'lavender', label: 'Lavender' },
-    { value: 'vibrant', label: 'Vibrant' },
+    { value: 'beach', label: 'Beach' },
+    { value: 'cupcake', label: 'Cupcake' },
     { value: 'blaze', label: 'Blaze Pizza' },
   ];
 
