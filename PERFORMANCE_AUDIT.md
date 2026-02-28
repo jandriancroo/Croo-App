@@ -37,7 +37,7 @@
 
 | Page | Lines | Score | Status | Remaining Opportunities |
 |------|-------|-------|--------|------------------------|
-| **PayrollReview** | ~2,782 → ~850 (shell) + ~1,300 (hook) | **78/100** | Hook extracted (`usePayrollData`), `EditShiftForm` componentized | ⚠️ **25 individual `get_current_wage` RPC calls** — should batch into single SQL query. Currently fires N+1 requests per period load (visible in network: 25 sequential RPCs). Fix = single `select id, hourly_wage from profiles where id in (...)` |
+| **PayrollReview** | ~2,782 → ~850 (shell) + ~1,300 (hook) | **78/100** | Hook extracted (`usePayrollData`), `EditShiftForm` componentized | ⚠️ **25 individual `get_current_wage` RPC calls** — wages ARE used for OT/DT dollar calculations in time cards, but should batch into single SQL function `get_wages_for_users(uuid[])` instead of N individual RPCs. Not blocking since they run in parallel via `Promise.all`, but a single round-trip would be faster. |
 | **Inventory** | ~724 lines | **65/100** | Lazy-loaded but monolithic | No hook extraction yet. Complex state management inline. Would benefit from `useInventoryData` hook |
 | **Settings** | ~600 lines | **70/100** | Lazy-loaded, tab-based | Sub-tabs not lazy-loaded. Each settings panel loads eagerly even if user only visits one |
 | **Hiring** | ~500 lines | **72/100** | Lazy-loaded | Inline data fetching, no hook extraction, no query key sharing |
@@ -113,7 +113,7 @@ GET  user_locations      → 200 (25 users)
 GET  profiles            → 200 (25 profiles, single batch ✅)
 GET  time_punches        → 200 (150+ punches, single query ✅)
 GET  availability        → 200 (single query ✅)
-POST get_current_wage ×25 → 200 each ❌ (N+1 problem)
+POST get_current_wage ×25 → 200 each ⚠️ (parallel via Promise.all, but could be 1 batch RPC)
 ```
 
 **Fixing #1 alone would reduce requests from ~30 to ~5 on period load.**
