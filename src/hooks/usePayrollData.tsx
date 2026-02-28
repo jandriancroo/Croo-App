@@ -7,7 +7,7 @@
  * overtime, overnight-grouping, or shift-pairing logic without explicit approval.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
