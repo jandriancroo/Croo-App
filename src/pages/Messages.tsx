@@ -1,6 +1,6 @@
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Megaphone, User } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -98,7 +98,7 @@ export default function Messages() {
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
     { id: 'all', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
     ...(showSupportTab ? [{ id: 'support' as ViewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
-    { id: 'announcements', label: 'Announce', icon: Send, badge: unreadCounts.announcements },
+    { id: 'announcements', label: 'Announce', icon: Megaphone, badge: unreadCounts.announcements },
     ...(showHiringTab ? [{ id: 'hiring' as ViewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
   ];
 
@@ -275,7 +275,7 @@ export default function Messages() {
             )}
             {isAdmin && (
               <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); setIsAnnouncementOpen(true); }}>
-                <Send className="h-5 w-5" /> Announcement
+                <Megaphone className="h-5 w-5" /> Announcement
               </Button>
             )}
             <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); handleViewModeChange('support'); }}>
