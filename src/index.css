@@ -402,6 +402,17 @@ All colors MUST be HSL.
 }
 
 /* Beach Hawaiian paradise background — Maui photo */
+[data-theme="beach"] body {
+  background: transparent !important;
+}
+
+[data-theme="beach"] #root {
+  background: hsl(185 28% 92% / 0.72);
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
 [data-theme="beach"] body::before {
   content: '';
   position: fixed;
@@ -409,7 +420,7 @@ All colors MUST be HSL.
   z-index: 0;
   pointer-events: none;
   background: url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
-  opacity: 0.18;
+  opacity: 0.35;
 }
 
 @keyframes beachWave {
