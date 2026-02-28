@@ -74,7 +74,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
   // Task style (read-only for editing)
-  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm">("standard");
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "team">("standard");
   
   // Alarm task fields
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
