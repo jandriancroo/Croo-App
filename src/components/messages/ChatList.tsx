@@ -369,7 +369,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       <div className="overflow-y-auto flex-1">
         {pinnedChats.length > 0 && (
           <>
-            <div className="grid grid-cols-4 gap-2 px-3 py-3 justify-items-center">
+            <div className="flex flex-wrap gap-2 px-3 py-3 justify-center">
               {pinnedChats.map(renderPinnedBubble)}
             </div>
             {unpinnedChats.length > 0 && (
