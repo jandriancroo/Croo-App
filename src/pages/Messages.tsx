@@ -80,7 +80,7 @@ function FilterChipBar({
 export default function Messages() {
   const data = useMessagesData();
   const {
-    user, currentUserId, currentLocation, isMobile,
+    currentUserId, currentLocation, isMobile,
     isAdmin, isManager, showHiringTab, showSupportTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
