@@ -427,7 +427,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           title: subtask.title,
           item_type: subtask.item_type,
           order_index: index,
-          ...(taskStyle === "team" && subtask.days_of_week ? { days_of_week: subtask.days_of_week } : {}),
+          
           ...(subtask.quantity ? { quantity: subtask.quantity } : {}),
         }));
 
