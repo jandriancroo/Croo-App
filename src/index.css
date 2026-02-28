@@ -164,46 +164,45 @@ All colors MUST be HSL.
   }
 }
 
-/* OLED Theme - True black for OLED displays, pastel dark blue accents */
+/* Dark Mode - Optimized for visibility with clean dark UI */
 [data-theme="oled"] {
-  --background: 0 0% 0%;
-  --foreground: 220 10% 85%;
-  --card: 0 0% 4%;
-  --card-foreground: 220 10% 85%;
-  --popover: 0 0% 5%;
-  --popover-foreground: 220 10% 85%;
-  --primary: 215 30% 18%;
-  --primary-foreground: 220 10% 95%;
-  --secondary: 0 0% 8%;
-  --secondary-foreground: 220 10% 80%;
-  --muted: 0 0% 6%;
-  --muted-foreground: 220 8% 50%;
-  --accent: 210 25% 16%;
-  --accent-foreground: 220 10% 95%;
-  --destructive: 0 40% 32%;
-  --destructive-foreground: 220 10% 95%;
-  --border: 0 0% 15%;
-  --input: 0 0% 8%;
-  --ring: 215 30% 21%;
-  --sidebar-background: 0 0% 0%;
-  --sidebar-foreground: 220 10% 85%;
-  --sidebar-primary: 215 30% 18%;
-  --sidebar-primary-foreground: 220 10% 95%;
-  --sidebar-accent: 0 0% 8%;
-  --sidebar-accent-foreground: 220 10% 85%;
-  --sidebar-border: 0 0% 15%;
-  --sidebar-ring: 215 30% 21%;
-  --glass-background: 0 0% 3% / 0.95;
-  --glass-border: 220 10% 100% / 0.08;
-  --glass-shadow: 0 0% 0% / 0;
+  --background: 225 15% 8%;
+  --foreground: 210 15% 90%;
+  --card: 225 15% 12%;
+  --card-foreground: 210 15% 90%;
+  --popover: 225 15% 11%;
+  --popover-foreground: 210 15% 90%;
+  --primary: 189 50% 48%;
+  --primary-foreground: 225 15% 6%;
+  --secondary: 225 12% 18%;
+  --secondary-foreground: 210 15% 82%;
+  --muted: 225 12% 16%;
+  --muted-foreground: 210 10% 55%;
+  --accent: 22 75% 58%;
+  --accent-foreground: 225 15% 6%;
+  --destructive: 0 65% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 225 12% 20%;
+  --input: 225 12% 18%;
+  --ring: 189 50% 48%;
+  --sidebar-background: 225 15% 8%;
+  --sidebar-foreground: 210 15% 90%;
+  --sidebar-primary: 189 50% 48%;
+  --sidebar-primary-foreground: 225 15% 6%;
+  --sidebar-accent: 225 12% 16%;
+  --sidebar-accent-foreground: 210 15% 85%;
+  --sidebar-border: 225 12% 20%;
+  --sidebar-ring: 189 50% 48%;
+  --glass-background: 225 15% 10% / 0.9;
+  --glass-border: 210 15% 100% / 0.08;
+  --glass-shadow: 0 0% 0% / 0.25;
   
-  /* Muted monochrome chart colors for OLED */
-  --chart-1: 215 25% 35%;
-  --chart-2: 215 20% 45%;
-  --chart-3: 215 15% 55%;
-  --chart-4: 215 10% 40%;
-  --chart-5: 215 20% 30%;
-  --chart-6: 215 15% 50%;
+  --chart-1: 189 50% 48%;
+  --chart-2: 22 75% 58%;
+  --chart-3: 160 40% 50%;
+  --chart-4: 280 40% 55%;
+  --chart-5: 45 70% 55%;
+  --chart-6: 340 50% 55%;
 }
 
 /* Warm Earth Theme - Brown/Beige tones */
