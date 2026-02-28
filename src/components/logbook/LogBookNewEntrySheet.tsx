@@ -140,7 +140,6 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               if (isSavingSpecialForm) return;
               setIsSavingSpecialForm(true);
               try {
-                const dateStr = getDateInTimezone(selectedDate);
                 const { data: writeUp, error: writeUpError } = await supabase
                   .from('employee_writeups')
                   .insert({ location_id: currentLocation!.id, employee_id: writeUpData.employeeId, created_by: user!.id, reason: writeUpData.reason, issue_description: writeUpData.issueDescription, next_steps: writeUpData.nextSteps, photo_url: writeUpData.photoUrl || null, is_final_warning: writeUpData.isFinalWarning })
