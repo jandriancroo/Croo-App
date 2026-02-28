@@ -139,6 +139,28 @@ export const UserManagementTable = ({
                           </Badge>
                           <span className="text-muted-foreground">•</span>
                           <span className="text-muted-foreground">{getRoleDisplayName(u.role!)}</span>
+                          {isSuperAdmin && u.app_version && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className={`font-mono ${getVersionDisplay(u.app_version, currentVersion).className}`}>
+                                {getVersionDisplay(u.app_version, currentVersion).text}
+                              </span>
+                              {!getVersionDisplay(u.app_version, currentVersion).isCurrent && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-4 w-4 p-0 ml-0.5"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    await triggerForceReload(u.id);
+                                    toast({ title: 'Update signal sent', description: `${u.full_name || 'User'} will reload on next active session.` });
+                                  }}
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
