@@ -1,6 +1,6 @@
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User, ChevronDown } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
