@@ -257,18 +257,18 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
     : null;
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className={`h-full flex flex-col ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-border">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+      <div className={`flex items-center gap-3 p-4 border-b ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
+        <Button variant="ghost" size="icon" onClick={onBack} className={isDayMode ? '' : 'text-white hover:bg-neutral-800'}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold">Team Tasks</h2>
+          <Users className={`h-5 w-5 ${isDayMode ? 'text-primary' : 'text-primary'}`} />
+          <h2 className={`text-lg font-bold ${isDayMode ? '' : 'text-white'}`}>Team Tasks</h2>
         </div>
         {teamTasks.length > 0 && (
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className={`ml-auto ${isDayMode ? '' : 'bg-neutral-700 text-neutral-200 border-neutral-600'}`}>
             {completions.length}/{teamTasks.reduce((sum, t) => sum + t.subtasks.length, 0)} done
           </Badge>
         )}
