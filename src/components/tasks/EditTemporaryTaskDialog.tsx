@@ -383,10 +383,12 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
           <DialogTitle className="flex items-center gap-2">
             {taskStyle === "alarm" ? (
               <AlarmClock className="h-5 w-5" />
+            ) : taskStyle === "team" ? (
+              <Users className="h-5 w-5" />
             ) : (
               <ClipboardList className="h-5 w-5" />
             )}
-            Edit {taskStyle === "alarm" ? "Alarm" : "Standard"} Task
+            Edit {taskStyle === "alarm" ? "Alarm" : taskStyle === "team" ? "Team" : "Standard"} Task
           </DialogTitle>
         </DialogHeader>
 
