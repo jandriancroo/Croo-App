@@ -26,6 +26,8 @@ interface CreateTemporaryTaskDialogProps {
 interface Subtask {
   title: string;
   item_type: "checkbox" | "photo";
+  days_of_week?: number[];
+  quantity?: number;
 }
 
 const DURATION_OPTIONS = [
