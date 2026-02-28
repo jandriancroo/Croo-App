@@ -15,6 +15,7 @@ interface TeamTasksViewProps {
   locationId: string;
   timezone: string;
   onBack: () => void;
+  isDayMode?: boolean;
 }
 
 interface TeamSubtask {
@@ -44,7 +45,7 @@ interface ClockedInEmployee {
   profile_photo_url: string | null;
 }
 
-export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewProps) {
+export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }: TeamTasksViewProps) {
   const queryClient = useQueryClient();
   const today = getTodayInTimezone(timezone);
   const todayDayOfWeek = getDayOfWeekInTimezone(timezone) + 1;
@@ -256,18 +257,18 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
     : null;
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className={`h-full flex flex-col ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`}>
       {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-border">
-        <Button variant="ghost" size="icon" onClick={onBack}>
+      <div className={`flex items-center gap-3 p-4 border-b ${isDayMode ? 'border-border' : 'border-neutral-700'}`}>
+        <Button variant="ghost" size="icon" onClick={onBack} className={isDayMode ? '' : 'text-white hover:bg-neutral-800'}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold">Team Tasks</h2>
+          <Users className={`h-5 w-5 ${isDayMode ? 'text-primary' : 'text-primary'}`} />
+          <h2 className={`text-lg font-bold ${isDayMode ? '' : 'text-white'}`}>Team Tasks</h2>
         </div>
         {teamTasks.length > 0 && (
-          <Badge variant="secondary" className="ml-auto">
+          <Badge variant="secondary" className={`ml-auto ${isDayMode ? '' : 'bg-neutral-700 text-neutral-200 border-neutral-600'}`}>
             {completions.length}/{teamTasks.reduce((sum, t) => sum + t.subtasks.length, 0)} done
           </Badge>
         )}
@@ -276,9 +277,9 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
       {/* Tasks List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Loading tasks...</p>
+          <p className={`text-center py-8 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Loading tasks...</p>
         ) : teamTasks.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No team tasks for today</p>
+          <p className={`text-center py-8 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>No team tasks for today</p>
         ) : (
           teamTasks.map(task => {
             const taskCompletedCount = task.subtasks.filter(s => isCompleted(s.id)).length;
@@ -292,9 +293,9 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
             });
 
             return (
-              <Card key={task.id} className="overflow-hidden">
+              <Card key={task.id} className={`overflow-hidden ${isDayMode ? '' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <button
-                  className="w-full flex items-center gap-3 p-3 text-left"
+                  className={`w-full flex items-center gap-3 p-3 text-left ${isDayMode ? '' : 'hover:bg-neutral-700/50'}`}
                   onClick={() => toggleExpand(task.id)}
                 >
                   <div
@@ -302,16 +303,16 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                     style={{ backgroundColor: task.accent_color }}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{task.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={`font-semibold text-sm ${isDayMode ? '' : 'text-white'}`}>{task.title}</p>
+                    <p className={`text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                       {taskCompletedCount}/{task.subtasks.length} completed
                     </p>
                   </div>
                   {allDone && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ChevronDown className={`h-4 w-4 shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`} />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ChevronRight className={`h-4 w-4 shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`} />
                   )}
                 </button>
 
@@ -335,8 +336,8 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                                 layout
                                 className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
                                   completed
-                                    ? 'bg-muted/50 cursor-pointer'
-                                    : 'bg-secondary/50 cursor-pointer hover:bg-secondary'
+                                    ? isDayMode ? 'bg-muted/50 cursor-pointer' : 'bg-neutral-700/30 cursor-pointer'
+                                    : isDayMode ? 'bg-secondary/50 cursor-pointer hover:bg-secondary' : 'bg-neutral-700/50 cursor-pointer hover:bg-neutral-700'
                                 }`}
                                 onClick={() => {
                                   if (!completed) {
@@ -353,10 +354,10 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                                   <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/40 shrink-0" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className={`text-sm ${completed ? 'line-through text-muted-foreground' : 'font-medium'}`}>
+                                  <p className={`text-sm ${completed ? `line-through ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}` : `font-medium ${isDayMode ? '' : 'text-white'}`}`}>
                                     {subtask.title}
                                     {subtask.quantity && (
-                                      <span className="ml-1 text-xs text-muted-foreground">
+                                      <span className={`ml-1 text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>
                                         {' '}QTY {subtask.quantity}
                                       </span>
                                     )}
@@ -370,7 +371,7 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                                         {completion.profile.full_name?.charAt(0)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-[10px] text-muted-foreground">
+                                    <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                                       {completion.profile.full_name?.split(' ')[0]}
                                     </span>
                                   </div>
