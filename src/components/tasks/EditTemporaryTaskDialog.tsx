@@ -652,8 +652,8 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             </>
           )}
 
-          {/* Assignment Type */}
-          <div className="space-y-2">
+          {/* Assignment Type - hidden for team tasks */}
+          {taskStyle !== "team" && (<div className="space-y-2">
             <Label>Assign To</Label>
             <div className="flex gap-2">
               <Button
