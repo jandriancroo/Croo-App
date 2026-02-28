@@ -1486,10 +1486,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {currentLocation?.id && timezone && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
                 <button
-                  className={`flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 hover:scale-105 active:scale-95 transition-all shadow-xl ${isDayMode ? 'bg-accent/90 border-accent-foreground/20' : 'bg-neutral-700/90 border-neutral-500'}`}
+                  className="flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 border-primary/30 bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-xl"
                   onClick={() => setShowManagerDashboard(true)}
                 >
-                  <ArrowLeftRight className={`h-8 w-8 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
+                  <ArrowLeftRight className="h-8 w-8 text-primary-foreground" />
                 </button>
               </div>
             )}

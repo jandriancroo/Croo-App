@@ -989,13 +989,9 @@ export function ManagerDashboardOverlay({
         {/* Swap Button - Bottom Center */}
         <button
           onClick={onClose}
-          className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full transition-all group shadow-neumorphic-lg ${
-            isDayMode 
-              ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
-              : 'bg-neutral-800 border border-neutral-700 text-white hover:bg-neutral-700'
-          }`}
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-20 h-20 rounded-full transition-all group shadow-neumorphic-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95"
         >
-          <ArrowLeftRight className="h-6 w-6" />
+          <ArrowLeftRight className="h-8 w-8" />
         </button>
 
         <div className="relative h-full p-4 flex flex-col">
