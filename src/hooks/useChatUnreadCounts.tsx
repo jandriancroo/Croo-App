@@ -118,6 +118,7 @@ export function useChatUnreadCounts(locationId: string | null) {
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
