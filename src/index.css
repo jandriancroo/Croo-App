@@ -401,31 +401,7 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach Hawaiian paradise background — footprints in sand */
-html[data-theme="beach"] {
-  background: 
-    url('/images/beach-footprints.png') center/cover no-repeat fixed !important;
-}
-
-html[data-theme="beach"] body {
-  background: hsl(195 25% 92% / 0.45) !important;
-}
-
-html[data-theme="beach"] #root {
-  background: transparent !important;
-}
-
-/* Make all bg-background layers transparent so beach image shows through */
-html[data-theme="beach"] .bg-background,
-html[data-theme="beach"] [class*="bg-background"] {
-  background-color: transparent !important;
-}
-
-/* Keep cards semi-opaque so content is readable */
-html[data-theme="beach"] .bg-card,
-html[data-theme="beach"] [class*="bg-card"] {
-  background-color: hsl(42 30% 96% / 0.85) !important;
-}
+/* Beach theme — no global background image; applied per-page via components */
 
 /* Beach mobile header — sky blue */
 [data-theme="beach"] header.bg-primary {
