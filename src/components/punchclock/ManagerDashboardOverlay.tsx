@@ -956,6 +956,23 @@ export function ManagerDashboardOverlay({
 
   const hasAnyCuts = laborCuts.length > 0;
 
+  if (showTeamTasks) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] bg-background"
+      >
+        <TeamTasksView
+          locationId={locationId}
+          timezone={timezone}
+          onBack={() => setShowTeamTasks(false)}
+        />
+      </motion.div>
+    );
+  }
+
   return (
     <AnimatePresence>
       <motion.div
