@@ -304,37 +304,37 @@ All colors MUST be HSL.
   --chart-6: 350 30% 48%;
 }
 
-/* Blaze Pizza Theme - Brand colors from blazepizza.com */
+/* Blaze Pizza Theme - Pepperoni red, golden crust, brown text */
 [data-theme="blaze"] {
-  --background: 30 12% 95%;
-  --foreground: 24 28% 22%;
-  --card: 0 0% 99%;
-  --card-foreground: 24 28% 22%;
-  --popover: 0 0% 99%;
-  --popover-foreground: 24 28% 22%;
-  --primary: 22 80% 48%;
+  --background: 35 18% 93%;
+  --foreground: 24 35% 18%;
+  --card: 36 22% 97%;
+  --card-foreground: 24 35% 18%;
+  --popover: 36 22% 97%;
+  --popover-foreground: 24 35% 18%;
+  --primary: 4 72% 46%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 150 32% 38%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 30 8% 90%;
-  --muted-foreground: 24 12% 42%;
-  --accent: 24 35% 18%;
+  --secondary: 36 52% 68%;
+  --secondary-foreground: 24 35% 18%;
+  --muted: 35 20% 88%;
+  --muted-foreground: 24 18% 40%;
+  --accent: 28 45% 42%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 68% 42%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 10% 82%;
-  --input: 30 10% 92%;
-  --ring: 22 80% 48%;
-  --glass-background: 0 0% 100% / 0.85;
-  --glass-border: 22 40% 60% / 0.3;
-  --glass-shadow: 24 28% 22% / 0.08;
+  --border: 32 18% 78%;
+  --input: 35 16% 90%;
+  --ring: 4 72% 46%;
+  --glass-background: 36 22% 97% / 0.88;
+  --glass-border: 4 40% 55% / 0.25;
+  --glass-shadow: 24 35% 18% / 0.08;
   
-  --chart-1: 22 80% 48%;
-  --chart-2: 150 32% 38%;
-  --chart-3: 24 35% 18%;
-  --chart-4: 0 68% 42%;
-  --chart-5: 38 55% 52%;
-  --chart-6: 30 15% 55%;
+  --chart-1: 4 72% 46%;
+  --chart-2: 36 52% 68%;
+  --chart-3: 28 45% 42%;
+  --chart-4: 150 32% 38%;
+  --chart-5: 22 80% 52%;
+  --chart-6: 24 35% 18%;
 }
 
 /* Cupcake falling sprinkles animation */
