@@ -336,8 +336,8 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                                 layout
                                 className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
                                   completed
-                                    ? 'bg-muted/50 cursor-pointer'
-                                    : 'bg-secondary/50 cursor-pointer hover:bg-secondary'
+                                    ? isDayMode ? 'bg-muted/50 cursor-pointer' : 'bg-neutral-700/30 cursor-pointer'
+                                    : isDayMode ? 'bg-secondary/50 cursor-pointer hover:bg-secondary' : 'bg-neutral-700/50 cursor-pointer hover:bg-neutral-700'
                                 }`}
                                 onClick={() => {
                                   if (!completed) {
