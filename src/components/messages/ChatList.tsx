@@ -24,6 +24,7 @@ interface Chat {
   title: string | null;
   is_group: boolean;
   is_announcement?: boolean;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   group_image_url: string | null;
@@ -214,9 +215,17 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
             <ArrowLeftRight className="h-6 w-6 text-accent" />
           </AvatarFallback>
         ) : chat.is_announcement ? (
-          <AvatarFallback className="bg-primary/10">
-            <Megaphone className="h-6 w-6 text-primary" />
-          </AvatarFallback>
+          <>
+            <AvatarImage
+              src={
+                chat.chat_members?.find((m) => m.user_id === chat.created_by)?.profiles?.profile_photo_url ||
+                undefined
+              }
+            />
+            <AvatarFallback className="bg-primary/10">
+              <Megaphone className="h-6 w-6 text-primary" />
+            </AvatarFallback>
+          </>
         ) : chat.is_group ? (
           <>
             <AvatarImage src={chat.group_image_url || undefined} />
@@ -306,9 +315,17 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     }
     if (chat.is_announcement) {
       return (
-        <AvatarFallback className="bg-primary/10">
-          <Megaphone className="h-6 w-6 text-primary" />
-        </AvatarFallback>
+        <>
+          <AvatarImage
+            src={
+              chat.chat_members?.find((m) => m.user_id === chat.created_by)?.profiles?.profile_photo_url ||
+              undefined
+            }
+          />
+          <AvatarFallback className="bg-primary/10">
+            <Megaphone className="h-6 w-6 text-primary" />
+          </AvatarFallback>
+        </>
       );
     }
     if (chat.is_group) {
