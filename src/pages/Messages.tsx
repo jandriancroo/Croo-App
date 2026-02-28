@@ -7,6 +7,7 @@ import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
 import { ChatSearch } from '@/components/messages/ChatSearch';
+import { CreateTicketDialog } from '@/components/support/CreateTicketDialog';
 import {
   Dialog,
   DialogContent,
