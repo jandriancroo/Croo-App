@@ -3,7 +3,12 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Initialize theme and text size from localStorage before React renders to prevent flash
-const savedTheme = localStorage.getItem('app-theme') || 'default';
+const THEME_MIGRATION: Record<string, string> = { ocean: 'beach', sage: 'beach', lavender: 'default', vibrant: 'default' };
+let savedTheme = localStorage.getItem('app-theme') || 'default';
+if (THEME_MIGRATION[savedTheme]) {
+  savedTheme = THEME_MIGRATION[savedTheme];
+  localStorage.setItem('app-theme', savedTheme);
+}
 document.documentElement.setAttribute('data-theme', savedTheme);
 
 const savedTextSize = localStorage.getItem('app-text-size') || 'default';
