@@ -350,38 +350,37 @@ All colors MUST be HSL.
   --chart-6: 180 35% 65%;
 }
 
-/* Blaze Pizza Theme - Official brand colors */
+/* Blaze Pizza Theme - Brand colors from blazepizza.com */
 [data-theme="blaze"] {
-  --background: 30 50% 92%;
-  --foreground: 20 25% 20%;
-  --card: 30 30% 98%;
-  --card-foreground: 20 25% 20%;
-  --popover: 30 30% 98%;
-  --popover-foreground: 20 25% 20%;
-  --primary: 24 85% 52%;
+  --background: 38 35% 95%;
+  --foreground: 20 15% 18%;
+  --card: 40 30% 99%;
+  --card-foreground: 20 15% 18%;
+  --popover: 40 30% 99%;
+  --popover-foreground: 20 15% 18%;
+  --primary: 22 82% 50%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 175 100% 22%;
+  --secondary: 170 55% 28%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 30 35% 88%;
-  --muted-foreground: 20 15% 40%;
-  --accent: 24 85% 52%;
+  --muted: 38 22% 90%;
+  --muted-foreground: 20 12% 42%;
+  --accent: 170 55% 28%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 10 70% 35%;
+  --destructive: 0 70% 42%;
   --destructive-foreground: 0 0% 100%;
-  --border: 24 60% 70%;
-  --input: 30 40% 95%;
-  --ring: 24 85% 52%;
-  --glass-background: 30 30% 98% / 0.9;
-  --glass-border: 24 60% 65% / 0.4;
-  --glass-shadow: 20 25% 20% / 0.08;
+  --border: 30 25% 80%;
+  --input: 38 25% 92%;
+  --ring: 22 82% 50%;
+  --glass-background: 40 30% 99% / 0.85;
+  --glass-border: 22 50% 65% / 0.35;
+  --glass-shadow: 20 15% 18% / 0.08;
   
-  /* Blaze brand chart colors */
-  --chart-1: 175 100% 22%;
-  --chart-2: 24 85% 52%;
-  --chart-3: 30 50% 75%;
-  --chart-4: 10 70% 45%;
-  --chart-5: 40 60% 55%;
-  --chart-6: 20 25% 35%;
+  --chart-1: 22 82% 50%;
+  --chart-2: 170 55% 28%;
+  --chart-3: 38 60% 58%;
+  --chart-4: 0 70% 42%;
+  --chart-5: 45 70% 50%;
+  --chart-6: 200 30% 40%;
 }
 
 /* ============================================
