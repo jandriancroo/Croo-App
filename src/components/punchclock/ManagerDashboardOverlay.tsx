@@ -54,7 +54,7 @@ import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjecti
 import { ProjectionIcon } from '@/components/ui/projection-tag';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
-
+import { TeamTasksView } from './TeamTasksView';
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
