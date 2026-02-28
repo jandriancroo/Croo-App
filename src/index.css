@@ -238,37 +238,37 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Beach Theme - Maui sunset: warm corals, burnt orange sky, deep ocean */
+/* Beach Theme - Kihei ocean blues, sky, and sand */
 [data-theme="beach"] {
-  --background: 25 30% 90%;
-  --foreground: 215 35% 18%;
-  --card: 28 35% 96%;
-  --card-foreground: 215 35% 18%;
-  --popover: 28 35% 96%;
-  --popover-foreground: 215 35% 18%;
-  --primary: 15 72% 52%;
+  --background: 195 25% 92%;
+  --foreground: 210 35% 15%;
+  --card: 42 30% 96%;
+  --card-foreground: 210 35% 15%;
+  --popover: 42 30% 96%;
+  --popover-foreground: 210 35% 15%;
+  --primary: 195 70% 42%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 200 55% 42%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 25 22% 84%;
-  --muted-foreground: 215 20% 38%;
-  --accent: 35 80% 55%;
-  --accent-foreground: 215 35% 12%;
+  --secondary: 42 45% 72%;
+  --secondary-foreground: 210 35% 15%;
+  --muted: 200 18% 86%;
+  --muted-foreground: 210 18% 38%;
+  --accent: 170 60% 38%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 350 62% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 25 25% 76%;
-  --input: 25 20% 82%;
-  --ring: 15 72% 52%;
-  --glass-background: 28 30% 100% / 0.45;
-  --glass-border: 25 20% 65% / 0.3;
-  --glass-shadow: 215 35% 18% / 0.08;
+  --border: 195 20% 78%;
+  --input: 200 18% 84%;
+  --ring: 195 70% 42%;
+  --glass-background: 200 30% 100% / 0.50;
+  --glass-border: 195 20% 65% / 0.3;
+  --glass-shadow: 210 35% 15% / 0.08;
 
-  --chart-1: 15 72% 52%;
-  --chart-2: 200 55% 42%;
-  --chart-3: 35 80% 55%;
-  --chart-4: 340 55% 52%;
-  --chart-5: 170 40% 45%;
-  --chart-6: 280 35% 52%;
+  --chart-1: 195 70% 42%;
+  --chart-2: 170 60% 38%;
+  --chart-3: 42 45% 60%;
+  --chart-4: 210 50% 52%;
+  --chart-5: 160 45% 48%;
+  --chart-6: 35 55% 55%;
 }
 
 /* Cupcake Theme - Warm layered pinks, soft and inviting */
