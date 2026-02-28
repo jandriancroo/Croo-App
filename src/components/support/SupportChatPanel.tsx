@@ -615,12 +615,12 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border">
+          <div className="p-2 space-y-1">
             {tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full p-3 text-left transition-all border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
+                className={`w-full p-3 text-left transition-all rounded-lg border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
                   selectedTicket?.id === ticket.id
                     ? 'bg-primary/10 border-l-primary'
                     : STATUS_BG_COLORS[ticket.status]
@@ -628,7 +628,7 @@ export function SupportChatPanel() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-0.5">
                       <span className="font-mono text-xs font-semibold text-primary">
                         {formatTicketId(ticket.ticket_number)}
                       </span>
