@@ -81,7 +81,8 @@ export function MessageBubble({
   sending,
 }: MessageBubbleProps) {
   const isPending = message.isPending;
-  const displayUrl = signedAttachmentUrl || message.attachment_url;
+  const isDeleted = message.is_deleted_for_everyone;
+  const displayUrl = isDeleted ? null : (signedAttachmentUrl || message.attachment_url);
 
   // Bubble tail class - only show on last message of cluster
   const bubbleTailClass = isLastInCluster
@@ -92,6 +93,20 @@ export function MessageBubble({
 
   // Cluster spacing - tighter for same sender
   const clusterSpacing = isFirstInCluster ? 'mt-3' : 'mt-0.5';
+
+  // Deleted message — render minimal placeholder
+  if (isDeleted) {
+    return (
+      <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
+        <div className="w-8 flex-shrink-0" />
+        <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
+          <div className="rounded-2xl px-3 py-2 bg-muted/50 border border-border/50 italic text-muted-foreground text-sm">
+            🚫 This message was removed
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
