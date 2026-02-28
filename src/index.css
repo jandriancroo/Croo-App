@@ -338,15 +338,7 @@ All colors MUST be HSL.
 }
 
 /* Cupcake sprinkles background decoration */
-[data-theme="cupcake"] {
-  position: relative;
-}
-
-[data-theme="cupcake"] .min-h-screen {
-  position: relative;
-}
-
-[data-theme="cupcake"] .min-h-screen::before {
+[data-theme="cupcake"] body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -376,11 +368,6 @@ All colors MUST be HSL.
     radial-gradient(ellipse 7px 3px at 28% 72%, hsl(55 50% 58% / 0.32) 50%, transparent 51%),
     radial-gradient(ellipse 3px 7px at 95% 12%, hsl(15 50% 56% / 0.35) 50%, transparent 51%);
   background-repeat: no-repeat;
-}
-
-[data-theme="cupcake"] .min-h-screen > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* ============================================
