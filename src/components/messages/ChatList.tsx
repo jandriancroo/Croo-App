@@ -293,13 +293,21 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           </div>
         </div>
         {chat.messagePreview && (
-          <p className={`text-[14px] truncate mt-1 ${
-            chat.unreadCount && chat.unreadCount > 0 
-              ? 'text-foreground font-medium' 
-              : 'text-muted-foreground'
-          }`}>
-            {searchQuery ? highlightSearchTerm(formatMessagePreview(chat.messagePreview), searchQuery) : formatMessagePreview(chat.messagePreview)}
-          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <p className={`text-[14px] truncate flex-1 min-w-0 ${
+              chat.unreadCount && chat.unreadCount > 0 
+                ? 'text-foreground font-medium' 
+                : 'text-muted-foreground'
+            }`}>
+              {searchQuery ? highlightSearchTerm(formatMessagePreview(chat.messagePreview), searchQuery) : formatMessagePreview(chat.messagePreview)}
+            </p>
+            {chat.unreadCount != null && chat.unreadCount > 0 && (
+              <span className="flex items-center gap-0.5 shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary">
+                new
+                <ChevronDown className="h-3 w-3" />
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
