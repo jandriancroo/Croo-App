@@ -973,7 +973,7 @@ export default function Dashboard() {
     // If section not visible, just render the checklists grid directly
     checklistsGridContent
   );
-  return <Layout>
+  return <Layout beachBackground>
       <PullToRefresh
         alwaysRefreshKeys={ALWAYS_REFRESH_KEYS}
         cooldownKeys={COOLDOWN_KEYS}
