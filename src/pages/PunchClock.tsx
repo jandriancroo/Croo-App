@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -1572,13 +1573,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       )}
 
       {/* Manager Dashboard Overlay */}
-      {showManagerDashboard && currentLocation?.id && timezone && (
-        <ManagerDashboardOverlay
-          locationId={currentLocation.id}
-          timezone={timezone}
-          onClose={() => setShowManagerDashboard(false)}
-        />
-      )}
+      <AnimatePresence>
+        {showManagerDashboard && currentLocation?.id && timezone && (
+          <ManagerDashboardOverlay
+            locationId={currentLocation.id}
+            timezone={timezone}
+            onClose={() => setShowManagerDashboard(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }
