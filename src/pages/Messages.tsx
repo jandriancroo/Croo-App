@@ -164,20 +164,9 @@ export default function Messages() {
         <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">Chat</h1>
-            <div className="flex gap-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleMarkAllRead}
-                className="h-8 w-8"
-                title="Mark all as read"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-              <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
           <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           {chatListContent}
