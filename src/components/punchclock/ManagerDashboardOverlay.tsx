@@ -54,7 +54,7 @@ import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjecti
 import { ProjectionIcon } from '@/components/ui/projection-tag';
 import type { AppRole } from '@/hooks/useUserRole';
 import { AlarmTaskOverlay } from './AlarmTaskOverlay';
-
+import { TeamTasksView } from './TeamTasksView';
 
 interface ManagerDashboardOverlayProps {
   locationId: string;
@@ -208,6 +208,7 @@ export function ManagerDashboardOverlay({
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
   const [isDayMode, setIsDayMode] = useState(false);
+  const [showTeamTasks, setShowTeamTasks] = useState(false);
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
@@ -955,6 +956,23 @@ export function ManagerDashboardOverlay({
 
   const hasAnyCuts = laborCuts.length > 0;
 
+  if (showTeamTasks) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] bg-background"
+      >
+        <TeamTasksView
+          locationId={locationId}
+          timezone={timezone}
+          onBack={() => setShowTeamTasks(false)}
+        />
+      </motion.div>
+    );
+  }
+
   return (
     <AnimatePresence>
       <motion.div
@@ -1586,6 +1604,21 @@ export function ManagerDashboardOverlay({
                         })}
                       </div>
                     )}
+
+                    {/* Team Tasks Button */}
+                    <button
+                      onClick={() => setShowTeamTasks(true)}
+                      className={`w-full mt-2 py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all ${
+                        isDayMode 
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                          : 'bg-white text-neutral-900 hover:bg-neutral-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Users className="h-4 w-4" />
+                        TEAM TASKS
+                      </div>
+                    </button>
                     
                     {/* Empty state */}
                     {quickTasks.length === 0 && checklistsData.length === 0 && (
