@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { getDisplayName } from '@/utils/displayName';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
