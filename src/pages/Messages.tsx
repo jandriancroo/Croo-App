@@ -98,7 +98,7 @@ export default function Messages() {
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
     { id: 'all', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
     ...(showSupportTab ? [{ id: 'support' as ViewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
-    { id: 'announcements', label: 'Announce', icon: Send, badge: unreadCounts.announcements },
+    { id: 'announcements', label: 'Announce', icon: Megaphone, badge: unreadCounts.announcements },
     ...(showHiringTab ? [{ id: 'hiring' as ViewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
   ];
 
