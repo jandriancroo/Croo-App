@@ -265,9 +265,9 @@ export function ManagerDashboardOverlay({
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 
-  // Fetch sales data from sales_cache
+  // Fetch sales data from sales_cache — shared key with CompactDashboard + prefetch
   const { data: salesData } = useQuery({
-    queryKey: ['manager-dash-sales', locationId, todayStr],
+    queryKey: ['sales-cache-today', locationId, todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_cache')
