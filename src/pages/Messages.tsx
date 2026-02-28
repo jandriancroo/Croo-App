@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Megaphone, User } from 'lucide-react';
