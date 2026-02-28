@@ -225,6 +225,23 @@ export default function PunchClock() {
     }
   }, [showManagerDashboard]);
 
+  // Fetch brand logo for location badge
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchBrandLogo = async () => {
+      if (!currentLocation?.organization_id) return;
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('logo_url, brand_id, brands(logo_url)')
+        .eq('id', currentLocation.organization_id)
+        .single();
+      if (org) {
+        setBrandLogoUrl(org.logo_url || (org.brands as any)?.logo_url || null);
+      }
+    };
+    fetchBrandLogo();
+  }, [currentLocation?.organization_id]);
+
   const MASTER_EXIT_CODE = '0223';
 
   const handleMasterExit = async () => {
