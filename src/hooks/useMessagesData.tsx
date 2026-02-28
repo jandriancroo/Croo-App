@@ -409,7 +409,7 @@ export function useMessagesData() {
       setSearchParams({}, { replace: true });
     } else {
       if (urlChatId === marketplaceChatId) {
-        setViewMode('groups');
+        setViewMode('all');
         setSelectedChatId(urlChatId);
         setShowChatList(false);
         urlChatIdProcessed.current = true;
