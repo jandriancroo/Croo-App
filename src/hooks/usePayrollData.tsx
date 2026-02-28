@@ -554,7 +554,7 @@ export function usePayrollData() {
 
     if (!profiles) return;
 
-    const [allPunchesResult, allShiftsResult, ...wageResults] = await Promise.all([
+    const [allPunchesResult, allShiftsResult, wagesResult] = await Promise.all([
       supabase
         .from('time_punches')
         .select('*')
@@ -569,13 +569,12 @@ export function usePayrollData() {
         .in('user_id', allUserIds)
         .gte('shift_date', selectedPeriod.startDate)
         .lte('shift_date', selectedPeriod.endDate) as any,
-      ...allUserIds.map(uid => supabase.rpc('get_current_wage', { p_user_id: uid })),
+      supabase.rpc('get_current_wages_batch', { p_user_ids: allUserIds }),
     ]);
 
     const wageByUserId = new Map<string, number>();
-    allUserIds.forEach((uid, idx) => {
-      const wage = wageResults[idx]?.data;
-      if (wage != null) wageByUserId.set(uid, wage);
+    ((wagesResult.data as any[]) || []).forEach((row: any) => {
+      if (row.hourly_wage != null) wageByUserId.set(row.user_id, row.hourly_wage);
     });
 
     const punchesByUser = new Map<string, any[]>();
