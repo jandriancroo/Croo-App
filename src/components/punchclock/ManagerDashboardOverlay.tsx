@@ -977,6 +977,7 @@ export function ManagerDashboardOverlay({
   return (
     <>
       <motion.div
+        key="manager-dashboard-overlay"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
