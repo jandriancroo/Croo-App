@@ -324,15 +324,35 @@ export default function Certifications() {
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/users')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Certifications</h1>
-            <p className="text-muted-foreground">
-              Track food handlers cards and ServSafe certifications
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/users')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Certifications</h1>
+              <p className="text-muted-foreground">
+                Track food handlers cards and ServSafe certifications
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 border rounded-lg p-0.5">
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setViewMode('cards')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
