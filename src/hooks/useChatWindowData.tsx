@@ -119,7 +119,12 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   }, []);
 
   const scrollToBottom = useCallback((instant = false) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+    if (virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: 'LAST',
+        behavior: instant ? 'auto' : 'smooth',
+      });
+    }
     setShowNewMessageBubble(false);
     setNewMessageCount(0);
   }, []);
