@@ -1,6 +1,6 @@
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Send, User, ChevronDown } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -19,6 +19,8 @@ import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Shared filter chip bar component
 function FilterChipBar({ 
@@ -80,7 +82,7 @@ function FilterChipBar({
 export default function Messages() {
   const data = useMessagesData();
   const {
-    currentUserId, currentLocation, isMobile,
+    user, currentUserId, currentLocation, isMobile,
     isAdmin, isManager, showHiringTab, showSupportTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
@@ -95,11 +97,30 @@ export default function Messages() {
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
 
+  // Mark all chats as read — optimistic
+  const handleMarkAllRead = async () => {
+    if (!user || !currentLocation) return;
+    try {
+      const now = new Date().toISOString();
+      const chatIds = chats.map(c => c.id);
+      if (chatIds.length === 0) return;
+      
+      await supabase
+        .from('chat_members')
+        .update({ last_read_at: now })
+        .eq('user_id', user.id)
+        .in('chat_id', chatIds);
+      
+      fetchChats();
+      toast.success('All chats marked as read');
+    } catch {
+      toast.error('Failed to mark as read');
+    }
+  };
+
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
-    { id: 'all', label: 'All', icon: MessageCircle, badge: unreadCounts.chats },
+    { id: 'all', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
     ...(showSupportTab ? [{ id: 'support' as ViewMode, label: 'Support', icon: Headphones, badge: unreadCounts.support }] : []),
-    { id: 'groups', label: 'Groups', icon: Users, badge: 0 },
-    { id: 'dms', label: 'DMs', icon: MessageCircle, badge: 0 },
     { id: 'announcements', label: 'Announce', icon: Send, badge: unreadCounts.announcements },
     ...(showHiringTab ? [{ id: 'hiring' as ViewMode, label: 'Hiring', icon: Briefcase, badge: unreadCounts.hiring }] : []),
   ];
@@ -164,9 +185,20 @@ export default function Messages() {
         <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">Chat</h1>
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleMarkAllRead}
+                className="h-8 w-8"
+                title="Mark all as read"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+              <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           {chatListContent}
@@ -184,9 +216,17 @@ export default function Messages() {
         </div>
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between p-3 pb-2">
-            <span className="text-sm font-medium text-muted-foreground">All Conversations</span>
+          <div className="flex items-center justify-end p-3 pb-2">
             <div className="flex gap-1.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleMarkAllRead}
+                className="h-8 w-8"
+                title="Mark all as read"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
               <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
                 <Plus className="h-4 w-4" />
               </Button>
