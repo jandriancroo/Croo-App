@@ -249,7 +249,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       setSubtasks([...subtasks, { 
         title: newSubtask.trim(), 
         item_type: newSubtaskType,
-        days_of_week: taskStyle === "team" ? [0, 1, 2, 3, 4, 5, 6] : undefined,
+        
       }]);
       setNewSubtask("");
     }
