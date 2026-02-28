@@ -277,9 +277,9 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
       {/* Tasks List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Loading tasks...</p>
+          <p className={`text-center py-8 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>Loading tasks...</p>
         ) : teamTasks.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">No team tasks for today</p>
+          <p className={`text-center py-8 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>No team tasks for today</p>
         ) : (
           teamTasks.map(task => {
             const taskCompletedCount = task.subtasks.filter(s => isCompleted(s.id)).length;
