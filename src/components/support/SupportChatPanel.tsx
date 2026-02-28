@@ -620,10 +620,10 @@ export function SupportChatPanel() {
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full p-3 text-left transition-all rounded-lg border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
+                className={`w-full p-3 text-left transition-all rounded-xl border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
                   selectedTicket?.id === ticket.id
-                    ? 'bg-primary/10 border-l-primary'
-                    : STATUS_BG_COLORS[ticket.status]
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-muted/50'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
