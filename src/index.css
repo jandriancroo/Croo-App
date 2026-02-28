@@ -789,8 +789,17 @@ All colors MUST be HSL.
   [data-theme="oled"] .nav-bar-unified {
     background: hsl(220 22% 15%);
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] .nav-bar-unified * {
+    color: inherit;
   }
   
+  [data-theme="oled"] .nav-bar-unified svg {
+    color: hsl(215 12% 75%);
+  }
+
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,
