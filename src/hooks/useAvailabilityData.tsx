@@ -442,6 +442,7 @@ export function useAvailabilityData() {
     formatTimeScope,
     formatDayOfWeek,
     formatRequestedDate,
+    getWeekLabel,
     // Refetch
     fetchData,
   };
