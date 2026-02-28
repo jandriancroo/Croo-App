@@ -407,8 +407,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
       if (taskError) throw taskError;
 
-      // Create assignments (skip for QR tasks - they notify managers automatically)
-      if (taskStyle !== "qr") {
+      // Create assignments (skip for QR and Team tasks)
+      if (taskStyle !== "qr" && taskStyle !== "team") {
         const assignments = assignmentType === "employees"
           ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
           : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
@@ -427,6 +427,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           title: subtask.title,
           item_type: subtask.item_type,
           order_index: index,
+          ...(taskStyle === "team" && subtask.days_of_week ? { days_of_week: subtask.days_of_week } : {}),
+          ...(subtask.quantity ? { quantity: subtask.quantity } : {}),
         }));
 
         const { error: subtaskError } = await supabase
