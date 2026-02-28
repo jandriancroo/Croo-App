@@ -221,10 +221,13 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
     });
   };
 
-  // Auto-expand all tasks on mount
-  if (teamTasks.length > 0 && expandedTasks.size === 0) {
-    const allIds = new Set(teamTasks.map(t => t.id));
-    if (allIds.size > 0) setExpandedTasks(allIds);
+  const [initialized, setInitialized] = useState(false);
+  const [undoingSubtask, setUndoingSubtask] = useState<string | null>(null);
+
+  // Auto-expand all tasks on first load only
+  if (teamTasks.length > 0 && !initialized) {
+    setExpandedTasks(new Set(teamTasks.map(t => t.id)));
+    setInitialized(true);
   }
 
   // Get the subtask title for the picker overlay
