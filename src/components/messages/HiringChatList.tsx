@@ -224,12 +224,12 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
 
   return (
     <>
-      <div className="space-y-1 overflow-y-auto flex-1 px-1">
+      <div className="divide-y divide-border/50 overflow-y-auto flex-1 px-1">
         {conversations.map((conv) => (
           <div
             key={conv.id}
             onClick={() => onSelectConversation(conv)}
-            className={`w-full text-left p-3 rounded-xl transition-colors cursor-pointer ${
+            className={`w-full text-left px-3 py-3 transition-colors cursor-pointer ${
               selectedId === conv.id ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
             }`}
           >
