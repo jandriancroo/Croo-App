@@ -1448,7 +1448,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
                   {/* Powered by Croo branding */}
                   <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
-                    <span className="text-base text-muted-foreground font-medium">Powered by</span>
+                    <span className={`text-base font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Powered by</span>
                     <img 
                       src={crooLogo} 
                       alt="Croo" 
