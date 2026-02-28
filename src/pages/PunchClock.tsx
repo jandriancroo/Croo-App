@@ -1439,7 +1439,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="ghost"
                       size="lg"
-                      className="h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150"
+                      className={`h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150 ${isDayMode ? '' : 'text-neutral-400 hover:bg-neutral-700'}`}
                       onClick={handleBackspace}
                     >
                       ⌫
