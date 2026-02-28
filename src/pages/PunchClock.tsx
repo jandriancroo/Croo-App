@@ -207,6 +207,23 @@ export default function PunchClock() {
 
   // Manager Dashboard state
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
+  const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
+
+  // Listen for localStorage changes from ManagerDashboardOverlay
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsDayMode(localStorage.getItem('punch-clock-day-mode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Re-read isDayMode when manager dashboard closes
+  useEffect(() => {
+    if (!showManagerDashboard) {
+      setIsDayMode(localStorage.getItem('punch-clock-day-mode') === 'true');
+    }
+  }, [showManagerDashboard]);
 
   const MASTER_EXIT_CODE = '0223';
 
@@ -1185,8 +1202,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
-          <Card className="w-full max-w-5xl overflow-hidden relative">
+        <div className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+          <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -1352,20 +1369,20 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               )}
 
               {/* Right Side - Number Pad */}
-              <CardContent className="p-8 flex flex-col justify-center">
+              <CardContent className={`p-8 flex flex-col justify-center ${isDayMode ? '' : 'bg-neutral-800'}`}>
                 <div className="space-y-4">
                   {/* Time Display - moved from image side */}
                   <div className="text-center pb-2">
-                    <div className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">
+                    <div className={`text-4xl sm:text-5xl font-bold tracking-tight ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                       {format(currentTime, 'h:mm:ss a')}
                     </div>
-                    <p className="text-muted-foreground text-sm mt-1">
+                    <p className={`text-sm mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                       {format(currentTime, 'EEEE, MMMM d')}
                     </p>
                   </div>
                   
                   <div>
-                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
                     </h3>
                     <div className="text-center mb-4">
@@ -1397,7 +1414,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                         key={num}
                         variant="outline"
                         size="lg"
-                        className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+                        className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -1414,7 +1431,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="outline"
                       size="lg"
-                      className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+                      className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -1431,7 +1448,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
 
                   {/* Powered by Croo branding */}
                   <div className="flex items-center justify-center gap-3 pt-6 mt-auto">
-                    <span className="text-base text-muted-foreground font-medium">Powered by</span>
+                    <span className={`text-base font-medium ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}`}>Powered by</span>
                     <img 
                       src={crooLogo} 
                       alt="Croo" 
@@ -1446,15 +1463,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
           {/* Swap to Dashboard Button - Bottom Center */}
           {currentLocation?.id && timezone && (
             <button
-              className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full bg-accent backdrop-blur-xl border border-accent-foreground/20 hover:bg-accent/80 transition-all group shadow-lg"
+              className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full backdrop-blur-xl border hover:opacity-80 transition-all group shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}
               onClick={() => setShowManagerDashboard(true)}
             >
-              <ArrowLeftRight className="h-6 w-6 text-accent-foreground" />
+              <ArrowLeftRight className={`h-6 w-6 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
             </button>
           )}
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
+        <div className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
           {/* Logo - larger size */}
           <div className="mb-8">
             <img src={crooLogo} alt="Croo" className="h-24 w-auto" />

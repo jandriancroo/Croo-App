@@ -207,7 +207,7 @@ export function ManagerDashboardOverlay({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
-  const [isDayMode, setIsDayMode] = useState(false);
+  const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const [showTeamTasks, setShowTeamTasks] = useState(false);
 
   // Build storage key for labor cuts persistence
@@ -1165,7 +1165,7 @@ export function ManagerDashboardOverlay({
                       {format(currentTime, 'EEEE, MMMM d')}
                     </p>
                     <button
-                      onClick={() => setIsDayMode(!isDayMode)}
+                      onClick={() => { const next = !isDayMode; setIsDayMode(next); localStorage.setItem('punch-clock-day-mode', String(next)); }}
                       className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full transition-all ${
                         isDayMode 
                           ? 'bg-secondary text-foreground hover:bg-secondary/80' 
