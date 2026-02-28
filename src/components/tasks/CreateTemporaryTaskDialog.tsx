@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode, Send } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, QrCode, Send, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +26,8 @@ interface CreateTemporaryTaskDialogProps {
 interface Subtask {
   title: string;
   item_type: "checkbox" | "photo";
+  days_of_week?: number[];
+  quantity?: number;
 }
 
 const DURATION_OPTIONS = [
@@ -84,7 +86,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
   // Task style
-  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "qr">("standard");
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "qr" | "team">("standard");
   
   // Standard task fields
   const [duration, setDuration] = useState("none");
@@ -197,6 +199,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         setTaskStyle("qr");
       } else if (initialTemplate.task_style === "alarm") {
         setTaskStyle("alarm");
+      } else if (initialTemplate.task_style === "team") {
+        setTaskStyle("team");
       } else {
         setTaskStyle("standard");
       }
@@ -242,7 +246,11 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {
-      setSubtasks([...subtasks, { title: newSubtask.trim(), item_type: newSubtaskType }]);
+      setSubtasks([...subtasks, { 
+        title: newSubtask.trim(), 
+        item_type: newSubtaskType,
+        days_of_week: taskStyle === "team" ? [0, 1, 2, 3, 4, 5, 6] : undefined,
+      }]);
       setNewSubtask("");
     }
   };
@@ -297,8 +305,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       return;
     }
     
-    // QR tasks don't need employee assignments - they notify managers automatically
-    if (taskStyle !== "qr") {
+    // QR and Team tasks don't need employee assignments
+    if (taskStyle !== "qr" && taskStyle !== "team") {
       if (assignmentType === "employees" && selectedEmployees.length === 0) {
         toast.error("Please select at least one employee");
         return;
@@ -306,6 +314,17 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       
       if (assignmentType === "roles" && selectedRoles.length === 0) {
         toast.error("Please select at least one role");
+        return;
+      }
+    }
+
+    if (taskStyle === "team") {
+      if (daysOfWeek.length === 0) {
+        toast.error("Please select at least one day of the week");
+        return;
+      }
+      if (subtasks.length === 0) {
+        toast.error("Team tasks require at least one subtask");
         return;
       }
     }
@@ -348,9 +367,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         accent_color: accentColor,
         created_by: user!.id,
         task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
-        is_recurring: taskStyle === "alarm",
-        show_on_dashboard: taskStyle === "qr" ? false : showOnDashboard,
-        shareable: taskStyle !== "qr" && subtasks.length > 0 ? shareable : false,
+        is_recurring: taskStyle === "alarm" || taskStyle === "team",
+        show_on_dashboard: taskStyle === "qr" ? false : taskStyle === "team" ? false : showOnDashboard,
+        show_on_punch_clock: taskStyle === "team" ? true : (taskStyle === "alarm" ? showOnPunchClock : false),
+        shareable: taskStyle !== "qr" && taskStyle !== "team" && subtasks.length > 0 ? shareable : false,
       };
 
       if (taskStyle === "standard") {
@@ -365,7 +385,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.push_enabled = pushEnabled;
-        taskData.show_on_punch_clock = showOnPunchClock;
+      } else if (taskStyle === "team") {
+        // Team task fields
+        taskData.days_of_week = daysOfWeek;
+        taskData.is_active = true;
       } else if (taskStyle === "qr") {
         // QR task fields
         taskData.is_qr_triggered = true;
@@ -384,8 +407,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
 
       if (taskError) throw taskError;
 
-      // Create assignments (skip for QR tasks - they notify managers automatically)
-      if (taskStyle !== "qr") {
+      // Create assignments (skip for QR and Team tasks)
+      if (taskStyle !== "qr" && taskStyle !== "team") {
         const assignments = assignmentType === "employees"
           ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
           : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
@@ -404,6 +427,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           title: subtask.title,
           item_type: subtask.item_type,
           order_index: index,
+          ...(taskStyle === "team" && subtask.days_of_week ? { days_of_week: subtask.days_of_week } : {}),
+          ...(subtask.quantity ? { quantity: subtask.quantity } : {}),
         }));
 
         const { error: subtaskError } = await supabase
@@ -459,35 +484,45 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           {/* Task Style Toggle */}
           <div className="space-y-2">
             <Label>Task Style</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               <Button
                 type="button"
                 variant={taskStyle === "standard" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("standard")}
               >
-                <ClipboardList className="h-4 w-4" />
+                <ClipboardList className="h-3.5 w-3.5" />
                 Standard
               </Button>
               <Button
                 type="button"
                 variant={taskStyle === "alarm" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("alarm")}
               >
-                <AlarmClock className="h-4 w-4" />
+                <AlarmClock className="h-3.5 w-3.5" />
                 Alarm
+              </Button>
+              <Button
+                type="button"
+                variant={taskStyle === "team" ? "default" : "outline"}
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setTaskStyle("team")}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Team
               </Button>
               <Button
                 type="button"
                 variant={taskStyle === "qr" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("qr")}
               >
-                <QrCode className="h-4 w-4" />
+                <QrCode className="h-3.5 w-3.5" />
                 QR
               </Button>
             </div>
@@ -496,6 +531,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
                 ? "One-time task that stays until completed or expired"
                 : taskStyle === "alarm"
                 ? "Recurring task with scheduled reminders for clocked-in staff"
+                : taskStyle === "team"
+                ? "All-day task list available on Punch Clock for any team member"
                 : "Guest-scannable QR code that triggers alerts when issues are reported"
               }
             </p>
@@ -783,6 +820,62 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
             </>
           )}
 
+          {/* Team Task Settings */}
+          {taskStyle === "team" && (
+            <>
+              {/* Days of Week */}
+              <div className="space-y-2">
+                <Label>Active Days *</Label>
+                <div className="flex gap-1">
+                  {DAYS_OF_WEEK.map(day => (
+                    <Button
+                      key={day.value}
+                      type="button"
+                      size="sm"
+                      variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
+                      className="flex-1 px-1 text-xs"
+                      onClick={() => toggleDayOfWeek(day.value)}
+                    >
+                      {day.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Which days this task list is available
+                </p>
+              </div>
+
+              {/* Accent Color */}
+              <div className="space-y-2">
+                <Label>Accent Color</Label>
+                <Select value={accentColor} onValueChange={setAccentColor}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: accentColor }}
+                      />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLORS.map(color => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full" 
+                            style={{ backgroundColor: color.value }}
+                          />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
           {/* QR Task Settings */}
           {taskStyle === "qr" && (
             <>
@@ -851,8 +944,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               </div>
             </>
           )}
-          {/* Assignment Section - Hidden for QR tasks */}
-          {taskStyle !== "qr" && (
+          {/* Assignment Section - Hidden for QR and Team tasks */}
+          {taskStyle !== "qr" && taskStyle !== "team" && (
             <>
               <div className="space-y-2">
                 <Label>Assign To</Label>
@@ -949,7 +1042,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           {/* Subtasks - Hidden for QR tasks */}
           {taskStyle !== "qr" && (
             <div className="space-y-2">
-              <Label>Subtasks (Optional)</Label>
+              <Label>Subtasks {taskStyle === "team" ? "*" : "(Optional)"}</Label>
               <div className="flex gap-2">
                 <Input
                   value={newSubtask}
@@ -989,27 +1082,57 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               {subtasks.length > 0 && (
                 <div className="border rounded-lg p-3 space-y-2">
                   {subtasks.map((subtask, index) => (
-                    <div key={index} className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {subtask.item_type === "photo" ? (
-                          <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                        ) : (
-                          <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className="text-sm">{subtask.title}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5">
-                          {subtask.item_type === "photo" ? "Photo" : "Check"}
-                        </Badge>
+                    <div key={index} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {subtask.item_type === "photo" ? (
+                            <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                          ) : (
+                            <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                          <span className="text-sm">{subtask.title}</span>
+                          <Badge variant="outline" className="text-[10px] px-1.5">
+                            {subtask.item_type === "photo" ? "Photo" : "Check"}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => handleRemoveSubtask(index)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => handleRemoveSubtask(index)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      {taskStyle === "team" && subtask.days_of_week && (
+                        <div className="flex gap-0.5 pl-6">
+                          {DAYS_OF_WEEK.map(day => (
+                            <button
+                              key={day.value}
+                              type="button"
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                                subtask.days_of_week!.includes(day.value)
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                              onClick={() => {
+                                const updated = [...subtasks];
+                                const current = updated[index].days_of_week || [];
+                                updated[index] = {
+                                  ...updated[index],
+                                  days_of_week: current.includes(day.value)
+                                    ? current.filter(d => d !== day.value)
+                                    : [...current, day.value].sort((a, b) => a - b)
+                                };
+                                setSubtasks(updated);
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
             </div>
