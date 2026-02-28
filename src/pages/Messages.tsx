@@ -185,20 +185,9 @@ export default function Messages() {
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
           <div className="flex items-center justify-end p-3 pb-2">
-            <div className="flex gap-1.5">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={handleMarkAllRead}
-                className="h-8 w-8"
-                title="Mark all as read"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-              <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
 
           <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} compact />
