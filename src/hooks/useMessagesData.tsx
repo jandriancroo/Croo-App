@@ -213,7 +213,7 @@ export function useMessagesData() {
           title = otherMember?.profiles ? getDisplayName(otherMember.profiles.full_name, otherMember.profiles.nickname) : 'Direct Message';
         }
 
-        const isPinned = currentMember?.is_pinned || false;
+        const isPinned = currentMember?.is_pinned || chat.title === 'Shift Marketplace' || false;
 
         return { ...chat, title, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
       });

@@ -176,6 +176,10 @@ export default function Messages() {
 
       {/* Mobile Layout */}
       <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col">
+        <div className="mb-2">
+          <h1 className="text-3xl font-bold">Chat</h1>
+          <PageHeaderDivider />
+        </div>
         <div className="flex items-center gap-2 mb-2">
           <div className="flex-1 overflow-x-auto scrollbar-hide">
             <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
