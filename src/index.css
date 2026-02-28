@@ -238,116 +238,70 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Ocean Theme - Soft teal/aqua colors */
-[data-theme="ocean"] {
-  --background: 195 30% 94%;
-  --foreground: 200 35% 12%;
-  --card: 195 40% 98%;
-  --card-foreground: 200 35% 12%;
-  --popover: 195 40% 98%;
-  --popover-foreground: 200 35% 12%;
-  --primary: 185 55% 38%;
+/* Beach Theme - Ocean + Sage blend with warm yellow sunshine */
+[data-theme="beach"] {
+  --background: 170 20% 93%;
+  --foreground: 185 30% 12%;
+  --card: 165 22% 97%;
+  --card-foreground: 185 30% 12%;
+  --popover: 165 22% 97%;
+  --popover-foreground: 185 30% 12%;
+  --primary: 175 45% 38%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 190 40% 88%;
-  --secondary-foreground: 190 50% 25%;
-  --muted: 195 25% 90%;
-  --muted-foreground: 200 20% 40%;
-  --accent: 170 50% 42%;
-  --accent-foreground: 0 0% 100%;
+  --secondary: 155 30% 86%;
+  --secondary-foreground: 170 40% 25%;
+  --muted: 165 18% 89%;
+  --muted-foreground: 180 15% 40%;
+  --accent: 42 75% 52%;
+  --accent-foreground: 25 30% 12%;
   --destructive: 355 55% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 195 25% 80%;
-  --input: 195 25% 86%;
-  --ring: 185 55% 38%;
-  --glass-background: 195 40% 100% / 0.6;
-  --glass-border: 195 30% 80% / 0.35;
-  --glass-shadow: 200 35% 12% / 0.08;
+  --border: 165 18% 79%;
+  --input: 165 18% 85%;
+  --ring: 175 45% 38%;
+  --glass-background: 165 22% 100% / 0.6;
+  --glass-border: 165 20% 75% / 0.3;
+  --glass-shadow: 185 30% 12% / 0.08;
+
+  --chart-1: 175 45% 42%;
+  --chart-2: 42 75% 55%;
+  --chart-3: 145 35% 48%;
+  --chart-4: 195 50% 50%;
+  --chart-5: 30 60% 55%;
+  --chart-6: 160 40% 45%;
 }
 
-/* Sage Theme - Soft green/gray tones */
-[data-theme="sage"] {
-  --background: 140 15% 93%;
-  --foreground: 150 20% 12%;
-  --card: 140 20% 98%;
-  --card-foreground: 150 20% 12%;
-  --popover: 140 20% 98%;
-  --popover-foreground: 150 20% 12%;
-  --primary: 155 35% 40%;
+/* Cupcake Theme - Warm layered pinks, soft and inviting */
+[data-theme="cupcake"] {
+  --background: 340 25% 94%;
+  --foreground: 340 20% 15%;
+  --card: 340 30% 98%;
+  --card-foreground: 340 20% 15%;
+  --popover: 340 30% 98%;
+  --popover-foreground: 340 20% 15%;
+  --primary: 340 45% 52%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 145 25% 87%;
-  --secondary-foreground: 155 30% 28%;
-  --muted: 140 15% 89%;
-  --muted-foreground: 150 15% 40%;
-  --accent: 130 40% 45%;
+  --secondary: 350 35% 90%;
+  --secondary-foreground: 340 40% 32%;
+  --muted: 340 20% 90%;
+  --muted-foreground: 340 15% 42%;
+  --accent: 15 55% 58%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 50% 50%;
+  --destructive: 0 55% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 145 15% 80%;
-  --input: 145 15% 85%;
-  --ring: 155 35% 40%;
-  --glass-background: 140 20% 100% / 0.6;
-  --glass-border: 145 15% 75% / 0.3;
-  --glass-shadow: 150 20% 12% / 0.08;
-}
+  --border: 340 22% 82%;
+  --input: 340 22% 88%;
+  --ring: 340 45% 52%;
+  --glass-background: 340 30% 100% / 0.6;
+  --glass-border: 340 22% 80% / 0.3;
+  --glass-shadow: 340 20% 15% / 0.08;
 
-/* Lavender Theme - Soft purple/violet tones */
-[data-theme="lavender"] {
-  --background: 270 20% 95%;
-  --foreground: 265 25% 15%;
-  --card: 270 25% 99%;
-  --card-foreground: 265 25% 15%;
-  --popover: 270 25% 99%;
-  --popover-foreground: 265 25% 15%;
-  --primary: 265 40% 52%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 270 30% 90%;
-  --secondary-foreground: 265 35% 35%;
-  --muted: 270 18% 91%;
-  --muted-foreground: 265 15% 42%;
-  --accent: 280 45% 55%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 350 55% 52%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 270 20% 82%;
-  --input: 270 20% 88%;
-  --ring: 265 40% 52%;
-  --glass-background: 270 25% 100% / 0.6;
-  --glass-border: 270 20% 80% / 0.3;
-  --glass-shadow: 265 25% 15% / 0.08;
-}
-
-/* Vibrant Theme - Harmonious pastels */
-[data-theme="vibrant"] {
-  --background: 40 30% 95%;
-  --foreground: 30 20% 20%;
-  --card: 0 0% 100%;
-  --card-foreground: 30 20% 20%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 30 20% 20%;
-  --primary: 145 35% 55%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 200 45% 88%;
-  --secondary-foreground: 200 40% 35%;
-  --muted: 35 25% 90%;
-  --muted-foreground: 30 15% 45%;
-  --accent: 25 50% 65%;
-  --accent-foreground: 30 20% 18%;
-  --destructive: 5 45% 65%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 35 20% 82%;
-  --input: 35 20% 88%;
-  --ring: 145 35% 55%;
-  --glass-background: 0 0% 100% / 0.65;
-  --glass-border: 35 20% 80% / 0.35;
-  --glass-shadow: 30 20% 20% / 0.1;
-  
-  /* Pastel chart variables */
-  --chart-1: 145 40% 65%;
-  --chart-2: 200 45% 70%;
-  --chart-3: 35 45% 75%;
-  --chart-4: 25 45% 68%;
-  --chart-5: 5 40% 72%;
-  --chart-6: 180 35% 65%;
+  --chart-1: 340 45% 55%;
+  --chart-2: 15 55% 60%;
+  --chart-3: 355 40% 62%;
+  --chart-4: 320 35% 55%;
+  --chart-5: 25 50% 55%;
+  --chart-6: 350 30% 48%;
 }
 
 /* Blaze Pizza Theme - Brand colors from blazepizza.com */
