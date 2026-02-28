@@ -246,14 +246,16 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
       return;
     }
     
-    if (assignmentType === "employees" && selectedEmployees.length === 0) {
-      toast.error("Please select at least one employee");
-      return;
-    }
-    
-    if (assignmentType === "roles" && selectedRoles.length === 0) {
-      toast.error("Please select at least one role");
-      return;
+    if (taskStyle !== "team") {
+      if (assignmentType === "employees" && selectedEmployees.length === 0) {
+        toast.error("Please select at least one employee");
+        return;
+      }
+      
+      if (assignmentType === "roles" && selectedRoles.length === 0) {
+        toast.error("Please select at least one role");
+        return;
+      }
     }
 
     if (taskStyle === "alarm") {
