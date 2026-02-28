@@ -70,12 +70,14 @@ export function MessageBubble({
   isAnnouncement,
   isArcadeChat,
   isGroupChat,
+  canUnsend = false,
   smackTalks = [],
   signedAttachmentUrl,
   onReaction,
   onReply,
   onSmackTalk,
   onImageClick,
+  onUnsend,
   sending,
 }: MessageBubbleProps) {
   const isPending = message.isPending;
