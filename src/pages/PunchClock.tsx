@@ -1398,7 +1398,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                                 ? 'bg-destructive/20 border-destructive'
                                 : pin.length > i 
                                   ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
-                                  : 'bg-muted/50 border-border'
+                                  : isDayMode ? 'bg-muted/50 border-border' : 'bg-neutral-700/50 border-neutral-600'
                             }`}
                           >
                             {pin.length > i ? '•' : ''}
