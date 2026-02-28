@@ -2,6 +2,7 @@ import { getDisplayName } from '@/utils/displayName';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
+import { isSameDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Virtuoso } from 'react-virtuoso';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
