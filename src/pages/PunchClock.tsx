@@ -1202,8 +1202,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
-        <div className="relative min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
-          <Card className="w-full max-w-5xl overflow-hidden relative">
+        <div className={`relative min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
+          <Card className={`w-full max-w-5xl overflow-hidden relative ${isDayMode ? '' : 'bg-neutral-800 border-neutral-700'}`}>
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
