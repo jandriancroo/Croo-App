@@ -975,8 +975,9 @@ export function ManagerDashboardOverlay({
   }
 
   return (
-    <AnimatePresence>
+    <>
       <motion.div
+        key="manager-dashboard-overlay"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
@@ -1753,6 +1754,6 @@ export function ManagerDashboardOverlay({
       
       {/* Alarm Task Overlay - must be outside motion.div for proper z-index stacking */}
       <AlarmTaskOverlay locationId={locationId} />
-    </AnimatePresence>
+    </>
   );
 }
