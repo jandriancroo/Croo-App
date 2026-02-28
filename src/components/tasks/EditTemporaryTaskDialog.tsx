@@ -303,21 +303,23 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
 
       if (taskError) throw taskError;
 
-      // Delete existing assignments and create new ones
-      await supabase
-        .from('temporary_task_assignments')
-        .delete()
-        .eq('task_id', task.id);
+      // Delete existing assignments and create new ones (skip for team tasks)
+      if (taskStyle !== "team") {
+        await supabase
+          .from('temporary_task_assignments')
+          .delete()
+          .eq('task_id', task.id);
 
-      const assignments = assignmentType === "employees"
-        ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
-        : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
+        const assignments = assignmentType === "employees"
+          ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
+          : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
 
-      const { error: assignmentError } = await supabase
-        .from('temporary_task_assignments')
-        .insert(assignments);
+        const { error: assignmentError } = await supabase
+          .from('temporary_task_assignments')
+          .insert(assignments);
 
-      if (assignmentError) throw assignmentError;
+        if (assignmentError) throw assignmentError;
+      }
 
       // Handle subtasks
       // Delete subtasks marked for deletion
