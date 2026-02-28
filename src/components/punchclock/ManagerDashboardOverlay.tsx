@@ -986,10 +986,10 @@ export function ManagerDashboardOverlay({
             : 'bg-neutral-900'
         }`}
       >
-        {/* Swap Button - Bottom Center */}
+        {/* Swap Button - Bottom Center, same position as punch clock */}
         <button
           onClick={onClose}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-20 h-20 rounded-full transition-all group shadow-neumorphic-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[101] flex items-center justify-center w-20 h-20 rounded-full transition-all shadow-neumorphic-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 active:scale-95"
         >
           <ArrowLeftRight className="h-8 w-8" />
         </button>
