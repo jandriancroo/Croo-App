@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Users, Megaphone, Pin, PinOff, ArrowLeftRight } from 'lucide-react';
+import { Users, Pin, PinOff, ArrowLeftRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import {
   Dialog,
@@ -222,8 +222,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 undefined
               }
             />
-            <AvatarFallback className="bg-primary/10">
-              <Megaphone className="h-6 w-6 text-primary" />
+            <AvatarFallback className="text-lg font-medium">
+              {chat.title?.charAt(0) || 'A'}
             </AvatarFallback>
           </>
         ) : chat.is_group ? (
@@ -322,8 +322,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
               undefined
             }
           />
-          <AvatarFallback className="bg-primary/10">
-            <Megaphone className="h-6 w-6 text-primary" />
+          <AvatarFallback className="text-lg font-medium">
+            {chat.title?.charAt(0) || 'A'}
           </AvatarFallback>
         </>
       );
