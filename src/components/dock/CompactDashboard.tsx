@@ -59,7 +59,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const locationId = currentLocation?.id;
   const { user } = useAuth();
   
-  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showCutOptions, setShowCutOptions] = useState<string | null>(null);
   const [customTime, setCustomTime] = useState('');

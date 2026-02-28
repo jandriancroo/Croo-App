@@ -202,7 +202,7 @@ export function ManagerDashboardOverlay({
   timezone, 
   onClose 
 }: ManagerDashboardOverlayProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
   const [showCutOptions, setShowCutOptions] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
