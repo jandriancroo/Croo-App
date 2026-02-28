@@ -40,7 +40,8 @@ interface SubtaskCompletion {
 export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewProps) {
   const queryClient = useQueryClient();
   const today = getTodayInTimezone(timezone);
-  const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
+  // days_of_week in DB uses 1-indexed (Mon=1..Sun=7), but getDayOfWeekInTimezone returns 0-indexed (Mon=0..Sun=6)
+  const todayDayOfWeek = getDayOfWeekInTimezone(timezone) + 1;
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showEmployeePicker, setShowEmployeePicker] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
