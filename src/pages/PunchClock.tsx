@@ -1382,8 +1382,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   )}
                   {/* Text pinned below image - white box with black text */}
                   {customOverlayText && textPosition === 'below' && (
-                    <div className={`border-t px-6 py-4 pb-28 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
-                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap ${isDayMode ? 'text-foreground' : 'text-white'}`}>
+                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
+                      <h2 className={`text-2xl font-bold text-center break-words whitespace-pre-wrap max-w-[calc(100%-6rem)] mx-auto ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {customOverlayText}
                       </h2>
                     </div>
