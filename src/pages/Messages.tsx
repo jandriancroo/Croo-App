@@ -33,8 +33,8 @@ function FilterChipBar({
   compact?: boolean;
 }) {
   return (
-    <div className={`${compact ? 'px-3 pb-2' : 'pb-3'} overflow-x-auto scrollbar-hide`}>
-      <div className="flex gap-1.5 min-w-max">
+    <div className={`${compact ? '' : 'pb-3'} overflow-x-auto scrollbar-hide`}>
+      <div className="flex gap-2 min-w-max">
         {filters.map(f => {
           const isActive = viewMode === f.id;
           const Icon = f.icon;
@@ -42,18 +42,18 @@ function FilterChipBar({
             <button
               key={f.id}
               onClick={() => onViewModeChange(f.id)}
-              className={`relative flex items-center gap-${compact ? '1.5' : '2'} py-${compact ? '1.5' : '2.5'} rounded-full text-${compact ? 'xs' : 'sm'} font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
+              className={`relative flex items-center gap-2 py-2.5 rounded-full text-sm font-medium whitespace-nowrap overflow-visible transition-all duration-300 ease-in-out ${
                 isActive
-                  ? `bg-primary text-primary-foreground px-${compact ? '3' : '4'}`
-                  : `bg-muted text-muted-foreground hover:bg-muted/80 px-${compact ? '2' : '2.5'}`
+                  ? 'bg-primary text-primary-foreground px-4'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80 px-3'
               }`}
               style={{
-                maxWidth: isActive ? (compact ? '160px' : '200px') : (compact ? '34px' : '42px'),
-                minWidth: isActive ? 'auto' : (compact ? '34px' : '42px'),
+                maxWidth: isActive ? '200px' : '44px',
+                minWidth: isActive ? 'auto' : '44px',
               }}
               aria-label={f.label}
             >
-              <Icon className={`h-${compact ? '4' : '4.5'} w-${compact ? '4' : '4.5'} shrink-0`} />
+              <Icon className="h-5 w-5 shrink-0" />
               <span
                 className="transition-all duration-300 ease-in-out overflow-hidden"
                 style={{
