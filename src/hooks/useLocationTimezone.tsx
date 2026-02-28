@@ -63,70 +63,26 @@ export const useLocationTimezone = () => {
     gcTime: 30 * 60 * 1000,
   });
 
-  // Date utilities using the location's timezone
-  const getTodayInTimezone = (): string => {
-    return getTodayInTz(timezone);
-  };
-
-  const getDateInTimezone = (date: Date): string => {
-    return getDateInTz(date, timezone);
-  };
-
-  const getStartOfTodayInTimezone = (): Date => {
-    return getStartOfTodayInTz(timezone);
-  };
-
-  const getDateInTimezoneOffset = (daysOffset: number): string => {
-    return getDateInTzOffset(daysOffset, timezone);
-  };
-
-  // Business day utilities that use the location's close time for cutoff calculation
-  const getBusinessDateInTimezone = (): string => {
-    return getBusinessDateInTz(timezone, closeTime);
-  };
-
-  const getBusinessDayRangeInTimezone = (dateStr: string): { start: Date; end: Date } => {
-    return getBusinessDayRangeInTz(dateStr, timezone, closeTime);
-  };
-
-  const getCutoffHour = (): number => {
-    return calculateCutoffHour(closeTime);
-  };
-
-  // Convert a local date and time to ISO string for database storage
-  const toISO = (dateStr: string, timeStr: string): string => {
-    return toISOStringInTimezone(dateStr, timeStr, timezone);
-  };
-
-  // Format a timestamp for display
-  const formatTime = (timestamp: string | Date): string => {
-    return formatTimeDisplay(timestamp, timezone);
-  };
-
-  // Format a full datetime for display
-  const formatDateTime = (timestamp: string | Date): string => {
-    return formatDateTimeDisplay(timestamp, timezone);
-  };
-
-  // Get the timezone offset string
-  const getOffset = (): string => {
-    return getTimezoneOffset(timezone);
-  };
+  // ── Memoized utility functions ──
+  // These only re-create when timezone or closeTime changes, not on every render.
+  const utils = useMemo(() => ({
+    getTodayInTimezone: () => getTodayInTz(timezone),
+    getDateInTimezone: (date: Date) => getDateInTz(date, timezone),
+    getStartOfTodayInTimezone: () => getStartOfTodayInTz(timezone),
+    getDateInTimezoneOffset: (daysOffset: number) => getDateInTzOffset(daysOffset, timezone),
+    getBusinessDateInTimezone: () => getBusinessDateInTz(timezone, closeTime),
+    getBusinessDayRangeInTimezone: (dateStr: string) => getBusinessDayRangeInTz(dateStr, timezone, closeTime),
+    getCutoffHour: () => calculateCutoffHour(closeTime),
+    toISO: (dateStr: string, timeStr: string) => toISOStringInTimezone(dateStr, timeStr, timezone),
+    formatTime: (timestamp: string | Date) => formatTimeDisplay(timestamp, timezone),
+    formatDateTime: (timestamp: string | Date) => formatDateTimeDisplay(timestamp, timezone),
+    getOffset: () => getTimezoneOffset(timezone),
+  }), [timezone, closeTime]);
 
   return {
     timezone,
     closeTime,
     loading,
-    getTodayInTimezone,
-    getDateInTimezone,
-    getStartOfTodayInTimezone,
-    getDateInTimezoneOffset,
-    getBusinessDateInTimezone,
-    getBusinessDayRangeInTimezone,
-    getCutoffHour,
-    toISO,
-    formatTime,
-    formatDateTime,
-    getOffset,
+    ...utils,
   };
 };
