@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useClock } from '@/hooks/useClock';
 import { getDisplayName } from '@/utils/displayName';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
@@ -58,7 +59,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const locationId = currentLocation?.id;
   const { user } = useAuth();
   
-  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showCutOptions, setShowCutOptions] = useState<string | null>(null);
   const [customTime, setCustomTime] = useState('');
@@ -108,13 +109,8 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
   }, [laborCuts, cutsSaved, laborCutsStorageKey]);
   
-  // Update time every minute (no seconds needed)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
+  // Shared clock tick — every minute (no seconds needed for dock)
+  const currentTime = useClock(60000);
 
   // Lock body scroll when expanded to prevent background scrolling
   useEffect(() => {

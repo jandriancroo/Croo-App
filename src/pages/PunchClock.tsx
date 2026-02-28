@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useClock } from '@/hooks/useClock';
 import { AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -149,7 +150,7 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const isPunchingRef = useRef(false); // Prevent double-tap duplicate punches
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const currentTime = useClock(1000);
   // Active meeting event (if user is assigned to one happening now)
   const [activeMeetingEvent, setActiveMeetingEvent] = useState<any>(null);
   // Labor rules for clock-in restrictions
@@ -260,10 +261,8 @@ export default function PunchClock() {
     window.location.href = '/';
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+
+
 
   // Rotate facts and custom slides with crossfade (using dynamic slideDuration)
   useEffect(() => {

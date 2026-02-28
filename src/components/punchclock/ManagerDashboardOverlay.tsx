@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useClock } from '@/hooks/useClock';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, differenceInMinutes } from 'date-fns';
@@ -201,7 +202,7 @@ export function ManagerDashboardOverlay({
   timezone, 
   onClose 
 }: ManagerDashboardOverlayProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const [selectedEmployee, setSelectedEmployee] = useState<ActiveShift | null>(null);
   const [showCutOptions, setShowCutOptions] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -255,13 +256,8 @@ export function ManagerDashboardOverlay({
     }
   }, [laborCuts, cutsSaved, laborCutsStorageKey]);
 
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // Shared clock tick — every second for live duration display
+  const currentTime = useClock(1000);
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 

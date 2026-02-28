@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useClock } from '@/hooks/useClock';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
@@ -68,16 +69,10 @@ export function ShiftSummaryCard({
   isClockedIn,
   isOnBreak,
 }: ShiftSummaryCardProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const currentTime = useClock(1000);
   const [hoursWorked, setHoursWorked] = useState({ hours: 0, minutes: 0 });
   const [clockInTime, setClockInTime] = useState<Date | null>(null);
   const [breaks, setBreaks] = useState<BreakRecord[]>([]);
-
-  // Update timer every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch today's punches to calculate hours and breaks
   useEffect(() => {
