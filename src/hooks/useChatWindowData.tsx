@@ -485,7 +485,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     messagesEndRef,
     messagesContainerRef,
     virtuosoRef,
-    isNearBottomRef,
+    isScrolledUp,
     scrollToBottom,
     loadEarlierMessages,
   };
