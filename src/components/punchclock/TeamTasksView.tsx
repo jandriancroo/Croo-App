@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Undo2, Users } from 'lucide-react';
 import { getTodayInTimezone, getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
 import { toast } from 'sonner';
