@@ -164,37 +164,37 @@ All colors MUST be HSL.
   }
 }
 
-/* Dark Mode - Optimized for visibility with clean dark UI */
+/* Dark Mode - Batman cape grey, optimized for visibility */
 [data-theme="oled"] {
-  --background: 225 15% 8%;
-  --foreground: 210 15% 90%;
-  --card: 225 15% 12%;
-  --card-foreground: 210 15% 90%;
-  --popover: 225 15% 11%;
-  --popover-foreground: 210 15% 90%;
+  --background: 220 18% 9%;
+  --foreground: 215 15% 88%;
+  --card: 220 18% 13%;
+  --card-foreground: 215 15% 88%;
+  --popover: 220 18% 12%;
+  --popover-foreground: 215 15% 88%;
   --primary: 189 50% 48%;
-  --primary-foreground: 225 15% 6%;
-  --secondary: 225 12% 18%;
-  --secondary-foreground: 210 15% 82%;
-  --muted: 225 12% 16%;
-  --muted-foreground: 210 10% 55%;
+  --primary-foreground: 220 18% 6%;
+  --secondary: 220 16% 19%;
+  --secondary-foreground: 215 15% 80%;
+  --muted: 220 14% 17%;
+  --muted-foreground: 215 10% 52%;
   --accent: 22 75% 58%;
-  --accent-foreground: 225 15% 6%;
+  --accent-foreground: 220 18% 6%;
   --destructive: 0 65% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 225 12% 20%;
-  --input: 225 12% 18%;
+  --border: 220 14% 22%;
+  --input: 220 14% 19%;
   --ring: 189 50% 48%;
-  --sidebar-background: 225 15% 8%;
-  --sidebar-foreground: 210 15% 90%;
+  --sidebar-background: 220 18% 9%;
+  --sidebar-foreground: 215 15% 88%;
   --sidebar-primary: 189 50% 48%;
-  --sidebar-primary-foreground: 225 15% 6%;
-  --sidebar-accent: 225 12% 16%;
-  --sidebar-accent-foreground: 210 15% 85%;
-  --sidebar-border: 225 12% 20%;
+  --sidebar-primary-foreground: 220 18% 6%;
+  --sidebar-accent: 220 14% 17%;
+  --sidebar-accent-foreground: 215 15% 83%;
+  --sidebar-border: 220 14% 22%;
   --sidebar-ring: 189 50% 48%;
-  --glass-background: 225 15% 10% / 0.9;
-  --glass-border: 210 15% 100% / 0.08;
+  --glass-background: 220 18% 11% / 0.9;
+  --glass-border: 215 15% 100% / 0.08;
   --glass-shadow: 0 0% 0% / 0.25;
   
   --chart-1: 189 50% 48%;
