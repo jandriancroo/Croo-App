@@ -401,18 +401,18 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach Hawaiian paradise background — Maui photo behind content */
+/* Beach Hawaiian paradise background — footprints in sand */
+[data-theme="beach"] html {
+  background: 
+    url('/images/beach-footprints.png') center/cover no-repeat fixed !important;
+}
+
 [data-theme="beach"] body {
-  background: transparent !important;
+  background: hsl(195 25% 92% / 0.15) !important;
 }
 
 [data-theme="beach"] #root {
-  position: relative;
-  min-height: 100vh;
-  z-index: 1;
-  background: 
-    linear-gradient(180deg, hsl(195 25% 92% / 0.25) 0%, hsl(195 25% 92% / 0.25) 100%),
-    url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
+  background: transparent;
 }
 
 /* Beach mobile header — sky blue */
