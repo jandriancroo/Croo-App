@@ -306,35 +306,35 @@ All colors MUST be HSL.
 
 /* Blaze Pizza Theme - Brand colors from blazepizza.com */
 [data-theme="blaze"] {
-  --background: 38 30% 94%;
-  --foreground: 20 25% 15%;
-  --card: 40 28% 98%;
-  --card-foreground: 20 25% 15%;
-  --popover: 40 28% 98%;
-  --popover-foreground: 20 25% 15%;
-  --primary: 22 85% 48%;
+  --background: 30 12% 95%;
+  --foreground: 24 28% 22%;
+  --card: 0 0% 99%;
+  --card-foreground: 24 28% 22%;
+  --popover: 0 0% 99%;
+  --popover-foreground: 24 28% 22%;
+  --primary: 22 80% 48%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 168 60% 26%;
+  --secondary: 150 32% 38%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 38 20% 89%;
-  --muted-foreground: 20 12% 40%;
-  --accent: 18 50% 22%;
+  --muted: 30 8% 90%;
+  --muted-foreground: 24 12% 42%;
+  --accent: 24 35% 18%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 355 72% 44%;
+  --destructive: 0 68% 42%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 22% 78%;
-  --input: 38 22% 91%;
-  --ring: 22 85% 48%;
-  --glass-background: 40 28% 99% / 0.85;
-  --glass-border: 22 50% 60% / 0.35;
-  --glass-shadow: 20 25% 15% / 0.08;
+  --border: 30 10% 82%;
+  --input: 30 10% 92%;
+  --ring: 22 80% 48%;
+  --glass-background: 0 0% 100% / 0.85;
+  --glass-border: 22 40% 60% / 0.3;
+  --glass-shadow: 24 28% 22% / 0.08;
   
-  --chart-1: 22 85% 48%;
-  --chart-2: 168 60% 26%;
-  --chart-3: 42 65% 52%;
-  --chart-4: 355 72% 44%;
-  --chart-5: 18 50% 22%;
-  --chart-6: 38 45% 58%;
+  --chart-1: 22 80% 48%;
+  --chart-2: 150 32% 38%;
+  --chart-3: 24 35% 18%;
+  --chart-4: 0 68% 42%;
+  --chart-5: 38 55% 52%;
+  --chart-6: 30 15% 55%;
 }
 
 /* Cupcake sprinkles background decoration */
