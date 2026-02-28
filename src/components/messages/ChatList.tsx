@@ -315,9 +315,17 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     }
     if (chat.is_announcement) {
       return (
-        <AvatarFallback className="bg-primary/10">
-          <Megaphone className="h-6 w-6 text-primary" />
-        </AvatarFallback>
+        <>
+          <AvatarImage
+            src={
+              chat.chat_members?.find((m) => m.user_id === chat.created_by)?.profiles?.profile_photo_url ||
+              undefined
+            }
+          />
+          <AvatarFallback className="bg-primary/10">
+            <Megaphone className="h-6 w-6 text-primary" />
+          </AvatarFallback>
+        </>
       );
     }
     if (chat.is_group) {
