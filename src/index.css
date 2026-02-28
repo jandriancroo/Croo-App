@@ -402,22 +402,29 @@ All colors MUST be HSL.
 }
 
 /* Beach Hawaiian paradise background — footprints in sand */
-[data-theme="beach"] html {
+html[data-theme="beach"] {
   background: 
     url('/images/beach-footprints.png') center/cover no-repeat fixed !important;
 }
 
-[data-theme="beach"] body {
+html[data-theme="beach"] body {
   background: hsl(195 25% 92% / 0.15) !important;
 }
 
-[data-theme="beach"] #root {
+html[data-theme="beach"] #root {
   background: transparent !important;
 }
 
-/* Make Layout wrapper transparent so beach bg shows through */
-[data-theme="beach"] .bg-background {
+/* Make all bg-background layers transparent so beach image shows through */
+html[data-theme="beach"] .bg-background,
+html[data-theme="beach"] [class*="bg-background"] {
   background-color: transparent !important;
+}
+
+/* Keep cards semi-opaque so content is readable */
+html[data-theme="beach"] .bg-card,
+html[data-theme="beach"] [class*="bg-card"] {
+  background-color: hsl(42 30% 96% / 0.85) !important;
 }
 
 /* Beach mobile header — sky blue */
