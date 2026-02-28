@@ -331,16 +331,19 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
 
                           return (
                             <div key={subtask.id}>
-                              <div
+                              <motion.div
+                                layout
                                 className={`flex items-center gap-2 p-2 rounded-lg transition-colors ${
                                   completed
-                                    ? 'bg-muted/50'
+                                    ? 'bg-muted/50 cursor-pointer'
                                     : 'bg-secondary/50 cursor-pointer hover:bg-secondary'
                                 }`}
                                 onClick={() => {
                                   if (!completed) {
                                     setShowEmployeePicker(subtask.id);
                                     setPickerTaskId(task.id);
+                                  } else {
+                                    setConfirmUndo(confirmUndo === subtask.id ? null : subtask.id);
                                   }
                                 }}
                               >
@@ -354,7 +357,7 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                                     {subtask.title}
                                     {subtask.quantity && (
                                       <span className="ml-1 text-xs text-muted-foreground">
-                                        QTY {subtask.quantity}
+                                        {' '}QTY {subtask.quantity}
                                       </span>
                                     )}
                                   </p>
@@ -372,7 +375,33 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
                                     </span>
                                   </div>
                                 )}
-                              </div>
+                              </motion.div>
+                              {/* Undo slide-down */}
+                              <AnimatePresence>
+                                {confirmUndo === subtask.id && completed && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full mt-1 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUndo(subtask.id);
+                                        setConfirmUndo(null);
+                                      }}
+                                    >
+                                      <Undo2 className="h-3.5 w-3.5" />
+                                      Undo Completion
+                                    </Button>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
                           );
                         })}
