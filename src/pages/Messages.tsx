@@ -112,10 +112,7 @@ export default function Messages() {
       autoSelectApplicationId={pendingHiringApplicationId}
     />
   ) : viewMode === 'support' ? null : (
-    <>
-      <div className={isMobile ? 'px-3 pb-2' : 'mb-4'}>
-        <ChatSearch onSearch={handleSearch} placeholder={isMobile ? 'Search...' : 'Search all chats...'} />
-      </div>
+    <div className="relative flex-1 min-h-0 flex flex-col">
       <ChatList
         chats={filteredChats}
         selectedChatId={selectedChatId}
@@ -125,7 +122,10 @@ export default function Messages() {
         searchQuery={searchQuery}
         currentUserId={currentUserId}
       />
-    </>
+      <div className="absolute bottom-3 left-3 right-3 z-10">
+        <ChatSearch onSearch={handleSearch} placeholder={isMobile ? 'Search...' : 'Search all chats...'} />
+      </div>
+    </div>
   );
 
   const chatWindowContent = viewMode === 'support' ? (
@@ -190,11 +190,6 @@ export default function Messages() {
         </div>
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
-          {viewMode !== 'hiring' && viewMode !== 'support' && (
-            <div className="px-3 pt-3 pb-2">
-              <ChatSearch onSearch={handleSearch} placeholder="Search..." />
-            </div>
-          )}
           
           <div className="flex-1 min-h-0 overflow-y-auto px-1">
             {viewMode === 'support' ? <SupportChatPanel /> : viewMode === 'hiring' ? (

@@ -346,7 +346,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       onTouchStart={(e) => handleTouchStart(chat, e)}
       onTouchEnd={() => handleTouchEnd(chat)}
       onTouchMove={handleTouchMove}
-      className="flex flex-col items-center gap-1 w-[72px] select-none"
+      className={`flex flex-col items-center gap-1 select-none ${
+        pinnedChats.length === 1 ? 'w-full max-w-[120px]' :
+        pinnedChats.length === 2 ? 'w-[calc(50%-0.25rem)]' :
+        pinnedChats.length === 3 ? 'w-[calc(33.33%-0.34rem)]' :
+        'w-[calc(25%-0.375rem)]'
+      }`}
     >
       <div className="relative">
         <Avatar className="h-14 w-14">
@@ -366,10 +371,10 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
 
   return (
     <>
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-y-auto flex-1 pb-16">
         {pinnedChats.length > 0 && (
           <>
-            <div className="grid grid-cols-4 gap-2 px-3 py-3 justify-items-center">
+            <div className="flex flex-wrap gap-2 px-3 py-3 justify-center">
               {pinnedChats.map(renderPinnedBubble)}
             </div>
             {unpinnedChats.length > 0 && (
