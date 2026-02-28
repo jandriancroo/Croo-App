@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useClock } from '@/hooks/useClock';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 
