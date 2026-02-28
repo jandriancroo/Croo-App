@@ -49,6 +49,10 @@ export function usePayrollData() {
   const [closingPeriod, setClosingPeriod] = useState(false);
   const [ptoData, setPtoData] = useState<Record<string, number>>({});
 
+  // Cache guard: skip refetch if data was loaded within STALE_MS for same period+location
+  const STALE_MS = 5 * 60 * 1000; // 5 minutes
+  const lastFetchRef = useRef<{ key: string; at: number } | null>(null);
+
   // Cache current user ID on mount for instant approve feedback
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -92,6 +96,16 @@ export function usePayrollData() {
 
   useEffect(() => {
     if (selectedPeriod && currentLocation && timezone) {
+      const cacheKey = `${selectedPeriod.startDate}_${selectedPeriod.endDate}_${currentLocation.id}`;
+      const now = Date.now();
+      if (
+        lastFetchRef.current &&
+        lastFetchRef.current.key === cacheKey &&
+        now - lastFetchRef.current.at < STALE_MS &&
+        timeCards.length > 0
+      ) {
+        return; // Data is still fresh, skip refetch
+      }
       fetchTimeCards();
     }
   }, [selectedPeriod, currentLocation, timezone]);
