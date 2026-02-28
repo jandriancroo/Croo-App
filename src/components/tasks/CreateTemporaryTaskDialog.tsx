@@ -305,8 +305,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       return;
     }
     
-    // QR tasks don't need employee assignments - they notify managers automatically
-    if (taskStyle !== "qr") {
+    // QR and Team tasks don't need employee assignments
+    if (taskStyle !== "qr" && taskStyle !== "team") {
       if (assignmentType === "employees" && selectedEmployees.length === 0) {
         toast.error("Please select at least one employee");
         return;
@@ -314,6 +314,17 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
       
       if (assignmentType === "roles" && selectedRoles.length === 0) {
         toast.error("Please select at least one role");
+        return;
+      }
+    }
+
+    if (taskStyle === "team") {
+      if (daysOfWeek.length === 0) {
+        toast.error("Please select at least one day of the week");
+        return;
+      }
+      if (subtasks.length === 0) {
+        toast.error("Team tasks require at least one subtask");
         return;
       }
     }
