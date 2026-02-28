@@ -238,37 +238,37 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Beach Theme - Ocean + Sage blend with warm yellow sunshine */
+/* Beach Theme - Coastal blues with soft sand warmth */
 [data-theme="beach"] {
-  --background: 170 20% 93%;
-  --foreground: 185 30% 12%;
-  --card: 165 22% 97%;
-  --card-foreground: 185 30% 12%;
-  --popover: 165 22% 97%;
-  --popover-foreground: 185 30% 12%;
-  --primary: 175 45% 38%;
+  --background: 195 25% 93%;
+  --foreground: 205 30% 12%;
+  --card: 195 22% 97%;
+  --card-foreground: 205 30% 12%;
+  --popover: 195 22% 97%;
+  --popover-foreground: 205 30% 12%;
+  --primary: 205 55% 45%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 155 30% 86%;
-  --secondary-foreground: 170 40% 25%;
-  --muted: 165 18% 89%;
-  --muted-foreground: 180 15% 40%;
-  --accent: 42 75% 52%;
-  --accent-foreground: 25 30% 12%;
+  --secondary: 170 25% 86%;
+  --secondary-foreground: 200 40% 25%;
+  --muted: 190 18% 89%;
+  --muted-foreground: 200 15% 40%;
+  --accent: 38 50% 62%;
+  --accent-foreground: 30 35% 15%;
   --destructive: 355 55% 50%;
   --destructive-foreground: 0 0% 100%;
-  --border: 165 18% 79%;
-  --input: 165 18% 85%;
-  --ring: 175 45% 38%;
-  --glass-background: 165 22% 100% / 0.6;
-  --glass-border: 165 20% 75% / 0.3;
-  --glass-shadow: 185 30% 12% / 0.08;
+  --border: 195 18% 79%;
+  --input: 195 18% 85%;
+  --ring: 205 55% 45%;
+  --glass-background: 195 22% 100% / 0.6;
+  --glass-border: 195 20% 75% / 0.3;
+  --glass-shadow: 205 30% 12% / 0.08;
 
-  --chart-1: 175 45% 42%;
-  --chart-2: 42 75% 55%;
-  --chart-3: 145 35% 48%;
-  --chart-4: 195 50% 50%;
-  --chart-5: 30 60% 55%;
-  --chart-6: 160 40% 45%;
+  --chart-1: 205 55% 48%;
+  --chart-2: 38 50% 62%;
+  --chart-3: 170 35% 48%;
+  --chart-4: 160 45% 42%;
+  --chart-5: 30 45% 55%;
+  --chart-6: 185 40% 45%;
 }
 
 /* Cupcake Theme - Warm layered pinks, soft and inviting */
