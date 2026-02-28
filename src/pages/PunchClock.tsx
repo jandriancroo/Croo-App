@@ -1228,7 +1228,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   {brandLogoUrl && (
                     <>
                       <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
-                      <div className={`w-px h-5 ${isDayMode ? 'bg-accent-foreground/20' : 'bg-neutral-600'}`} />
+                      <div className="w-px h-5 bg-primary-foreground/30" />
                     </>
                   )}
                   <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
