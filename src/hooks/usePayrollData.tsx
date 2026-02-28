@@ -7,7 +7,7 @@
  * overtime, overnight-grouping, or shift-pairing logic without explicit approval.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -48,6 +48,10 @@ export function usePayrollData() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [closingPeriod, setClosingPeriod] = useState(false);
   const [ptoData, setPtoData] = useState<Record<string, number>>({});
+
+  // Cache guard: skip refetch if data was loaded within STALE_MS for same period+location
+  const STALE_MS = 5 * 60 * 1000; // 5 minutes
+  const lastFetchRef = useRef<{ key: string; at: number } | null>(null);
 
   // Cache current user ID on mount for instant approve feedback
   useEffect(() => {
@@ -92,6 +96,16 @@ export function usePayrollData() {
 
   useEffect(() => {
     if (selectedPeriod && currentLocation && timezone) {
+      const cacheKey = `${selectedPeriod.startDate}_${selectedPeriod.endDate}_${currentLocation.id}`;
+      const now = Date.now();
+      if (
+        lastFetchRef.current &&
+        lastFetchRef.current.key === cacheKey &&
+        now - lastFetchRef.current.at < STALE_MS &&
+        timeCards.length > 0
+      ) {
+        return; // Data is still fresh, skip refetch
+      }
       fetchTimeCards();
     }
   }, [selectedPeriod, currentLocation, timezone]);
@@ -554,7 +568,7 @@ export function usePayrollData() {
 
     if (!profiles) return;
 
-    const [allPunchesResult, allShiftsResult, ...wageResults] = await Promise.all([
+    const [allPunchesResult, allShiftsResult, wagesResult] = await Promise.all([
       supabase
         .from('time_punches')
         .select('*')
@@ -569,13 +583,12 @@ export function usePayrollData() {
         .in('user_id', allUserIds)
         .gte('shift_date', selectedPeriod.startDate)
         .lte('shift_date', selectedPeriod.endDate) as any,
-      ...allUserIds.map(uid => supabase.rpc('get_current_wage', { p_user_id: uid })),
+      supabase.rpc('get_current_wages_batch', { p_user_ids: allUserIds }),
     ]);
 
     const wageByUserId = new Map<string, number>();
-    allUserIds.forEach((uid, idx) => {
-      const wage = wageResults[idx]?.data;
-      if (wage != null) wageByUserId.set(uid, wage);
+    ((wagesResult.data as any[]) || []).forEach((row: any) => {
+      if (row.hourly_wage != null) wageByUserId.set(row.user_id, row.hourly_wage);
     });
 
     const punchesByUser = new Map<string, any[]>();
@@ -756,6 +769,13 @@ export function usePayrollData() {
       });
 
     setTimeCards(cards);
+    // Stamp cache so navigating away/back skips refetch for 5 min
+    if (selectedPeriod && currentLocation) {
+      lastFetchRef.current = {
+        key: `${selectedPeriod.startDate}_${selectedPeriod.endDate}_${currentLocation.id}`,
+        at: Date.now(),
+      };
+    }
   };
 
   // ─── Delete handlers ──────────────────────────────────────────────
