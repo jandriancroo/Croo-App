@@ -566,12 +566,12 @@ export function SupportChatPanel() {
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1.5">
+          <div className="p-2 space-y-1">
             {tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full p-3 text-left transition-all rounded-lg border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${STATUS_BG_COLORS[ticket.status]}`}
+                className={`w-full p-3 text-left transition-all rounded-xl border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} hover:bg-muted/50`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
