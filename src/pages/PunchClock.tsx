@@ -1325,8 +1325,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   )}
                   {/* Text pinned below image - white box with black text */}
                   {currentCustomText && textPosition === 'below' && (
-                    <div className="bg-background border-t border-border px-6 py-4">
-                      <h2 className="text-2xl font-bold text-foreground text-center">
+                    <div className={`border-t px-6 py-4 ${isDayMode ? 'bg-background border-border' : 'bg-neutral-800 border-neutral-700'}`}>
+                      <h2 className={`text-2xl font-bold text-center ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                         {currentCustomText}
                       </h2>
                     </div>
