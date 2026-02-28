@@ -25,12 +25,10 @@ function FilterChipBar({
   filters, 
   viewMode, 
   onViewModeChange, 
-  compact = false 
 }: { 
   filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }>;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  compact?: boolean;
 }) {
   return (
     <div className={`${compact ? '' : 'pb-3'} overflow-x-auto scrollbar-hide`}>
