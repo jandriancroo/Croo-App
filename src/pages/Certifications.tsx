@@ -417,140 +417,237 @@ export default function Certifications() {
           </DialogContent>
         </Dialog>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {profiles.map((profile) => {
-            const employeeCerts = getCertsByEmployee(profile.id);
+        {viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {profiles.map((profile) => {
+              const employeeCerts = getCertsByEmployee(profile.id);
 
-            return (
-              <Card key={profile.id} className="overflow-hidden">
-                <CardHeader className="py-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={profile.profile_photo_url || ""} />
-                      <AvatarFallback className="text-xs">{profile.full_name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-sm truncate">{profile.full_name}</CardTitle>
-                    </div>
-                    {(isAdmin || profile.id === user?.id) && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 flex-shrink-0"
-                        onClick={() => {
-                          setSelectedEmployeeId(profile.id);
-                          setUploadDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0 px-4 pb-3">
-                  {employeeCerts.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      No certifications
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {employeeCerts.map((cert) => {
-                        const isPdf = cert.certificate_url?.toLowerCase().endsWith('.pdf');
-                        return (
-                          <div key={cert.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-                            <a 
-                              href={cert.certificate_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                            >
-                              {isPdf ? (
-                                <FileText className="w-5 h-5 text-muted-foreground" />
-                              ) : (
-                                <img 
-                                  src={cert.certificate_url} 
-                                  alt={getCertTypeName(cert.certification_type as CertificationType)}
-                                  className="w-full h-full object-cover"
-                                />
-                              )}
-                            </a>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">
-                                  {cert.certification_type === "food_handlers" ? "Food Handler" : "ServSafe"}
-                                </span>
-                                {cert.status === "approved" ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
-                                ) : cert.status === "rejected" ? (
-                                  <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
-                                ) : (
-                                  <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Exp: {format(new Date(cert.expiration_date), "MM/dd/yy")}
-                              </p>
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                onClick={() => {
-                                  setPreviewUrl(cert.certificate_url);
-                                  setPreviewOpen(true);
-                                }}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </Button>
-                              {isAdmin && (
-                                <>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6"
-                                    onClick={() => {
-                                      setSelectedCertification(cert);
-                                      setEditDialogOpen(true);
-                                    }}
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6 text-destructive"
-                                    onClick={() => handleDelete(cert.id)}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {isAdmin && employeeCerts.some(c => c.status === "pending") && (
-                        <div className="flex gap-1 pt-1">
-                          {employeeCerts.filter(c => c.status === "pending").map(cert => (
-                            <div key={cert.id} className="flex gap-1">
-                              <Button size="sm" className="h-6 text-xs" onClick={() => handleApprove(cert.id)}>
-                                Approve
-                              </Button>
-                              <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => handleReject(cert.id)}>
-                                Reject
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
+              return (
+                <Card key={profile.id} className="overflow-hidden">
+                  <CardHeader className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={profile.profile_photo_url || ""} />
+                        <AvatarFallback className="text-xs">{profile.full_name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-sm truncate">{profile.full_name}</CardTitle>
+                      </div>
+                      {(isAdmin || profile.id === user?.id) && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 flex-shrink-0"
+                          onClick={() => {
+                            setSelectedEmployeeId(profile.id);
+                            setUploadDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 px-4 pb-3">
+                    {employeeCerts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        No certifications
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {employeeCerts.map((cert) => {
+                          const isPdf = cert.certificate_url?.toLowerCase().endsWith('.pdf');
+                          return (
+                            <div key={cert.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                              <a 
+                                href={cert.certificate_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
+                              >
+                                {isPdf ? (
+                                  <FileText className="w-5 h-5 text-muted-foreground" />
+                                ) : (
+                                  <img 
+                                    src={cert.certificate_url} 
+                                    alt={getCertTypeName(cert.certification_type as CertificationType)}
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                              </a>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium truncate">
+                                    {cert.certification_type === "food_handlers" ? "Food Handler" : "ServSafe"}
+                                  </span>
+                                  {cert.status === "approved" ? (
+                                    <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+                                  ) : cert.status === "rejected" ? (
+                                    <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                                  ) : (
+                                    <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Exp: {format(new Date(cert.expiration_date), "MM/dd/yy")}
+                                </p>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    setPreviewUrl(cert.certificate_url);
+                                    setPreviewOpen(true);
+                                  }}
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                                {isAdmin && (
+                                  <>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6"
+                                      onClick={() => {
+                                        setSelectedCertification(cert);
+                                        setEditDialogOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => handleDelete(cert.id)}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {isAdmin && employeeCerts.some(c => c.status === "pending") && (
+                          <div className="flex gap-1 pt-1">
+                            {employeeCerts.filter(c => c.status === "pending").map(cert => (
+                              <div key={cert.id} className="flex gap-1">
+                                <Button size="sm" className="h-6 text-xs" onClick={() => handleApprove(cert.id)}>
+                                  Approve
+                                </Button>
+                                <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => handleReject(cert.id)}>
+                                  Reject
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          /* List View */
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Expiration</TableHead>
+                <TableHead className="w-[80px]">Status</TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profiles.map((profile) => {
+                const employeeCerts = getCertsByEmployee(profile.id);
+                if (employeeCerts.length === 0) {
+                  return (
+                    <TableRow key={profile.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7">
+                            <AvatarImage src={profile.profile_photo_url || ""} />
+                            <AvatarFallback className="text-[10px]">{profile.full_name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm truncate">{profile.full_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell colSpan={3}>
+                        <span className="text-xs text-muted-foreground">No certifications</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(isAdmin || profile.id === user?.id) && (
+                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+                return employeeCerts.map((cert, idx) => (
+                  <TableRow key={cert.id}>
+                    <TableCell>
+                      {idx === 0 ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7">
+                            <AvatarImage src={profile.profile_photo_url || ""} />
+                            <AvatarFallback className="text-[10px]">{profile.full_name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm truncate">{profile.full_name}</span>
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{cert.certification_type === "food_handlers" ? "Food Handler" : "ServSafe"}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{format(new Date(cert.expiration_date), "MMM d, yyyy")}</span>
+                    </TableCell>
+                    <TableCell>
+                      {cert.status === "approved" ? (
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                      ) : cert.status === "rejected" ? (
+                        <XCircle className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 justify-end">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setPreviewUrl(cert.certificate_url); setPreviewOpen(true); }}>
+                          <ExternalLink className="w-3 h-3" />
+                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedCertification(cert); setEditDialogOpen(true); }}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => handleDelete(cert.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </>
+                        )}
+                        {idx === 0 && (isAdmin || profile.id === user?.id) && (
+                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ));
+              })}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       <EditCertificationDialog
