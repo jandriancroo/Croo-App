@@ -944,8 +944,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
               </div>
             </>
           )}
-          {/* Assignment Section - Hidden for QR tasks */}
-          {taskStyle !== "qr" && (
+          {/* Assignment Section - Hidden for QR and Team tasks */}
+          {taskStyle !== "qr" && taskStyle !== "team" && (
             <>
               <div className="space-y-2">
                 <Label>Assign To</Label>
