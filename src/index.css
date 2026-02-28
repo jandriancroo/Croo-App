@@ -337,6 +337,38 @@ All colors MUST be HSL.
   --chart-6: 200 30% 40%;
 }
 
+/* Cupcake sprinkles background decoration */
+[data-theme="cupcake"] #root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 6px 2px at 5% 12%, hsl(340 50% 65% / 0.3) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 15% 35%, hsl(15 60% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 25% 8%, hsl(45 55% 65% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 35% 55%, hsl(340 45% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 45% 22%, hsl(200 45% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 55% 78%, hsl(320 50% 62% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 65% 42%, hsl(15 55% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 72% 15%, hsl(45 50% 62% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 82% 65%, hsl(340 48% 58% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 90% 30%, hsl(170 40% 60% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 8% 72%, hsl(280 40% 65% / 0.25) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 48% 88%, hsl(15 50% 62% / 0.22) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 78% 92%, hsl(45 48% 60% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 18% 52%, hsl(200 42% 62% / 0.2) 50%, transparent 51%),
+    radial-gradient(ellipse 6px 2px at 58% 48%, hsl(340 42% 63% / 0.18) 50%, transparent 51%),
+    radial-gradient(ellipse 2px 6px at 92% 55%, hsl(320 45% 60% / 0.25) 50%, transparent 51%);
+  background-repeat: no-repeat;
+}
+
+[data-theme="cupcake"] #root > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ============================================
    Global Frosted Glass UI (Buttons, Selectors, Dock)
    Applied to ALL themes
