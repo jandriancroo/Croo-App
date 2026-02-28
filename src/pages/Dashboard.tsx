@@ -571,51 +571,51 @@ export default function Dashboard() {
     
     const checklistIds = checklists.map(c => c.id);
     
-    // BATCH QUERY 1: Get all checklist items for all checklists at once
-    const { data: allChecklistItems } = await supabase
-      .from('checklist_items')
-      .select('id, checklist_id, days_of_week')
-      .in('checklist_id', checklistIds);
-    
     // Separate checklists by frequency to avoid 1000-row limit truncation
     const dailyChecklistIds = checklists.filter(c => c.frequency !== 'monthly').map(c => c.id);
     const monthlyChecklistIds = checklists.filter(c => c.frequency === 'monthly').map(c => c.id);
     
-    // BATCH QUERY 2a: Get daily responses (today's business day only)
-    const dailyResponsesPromise = dailyChecklistIds.length > 0 
-      ? supabase
-          .from('checklist_responses')
-          .select(`
-            id,
-            item_id,
-            created_at,
-            checklist_submissions!inner(id, checklist_id, location_id)
-          `)
-          .in('checklist_submissions.checklist_id', dailyChecklistIds)
-          .eq('checklist_submissions.location_id', currentLocation.id)
-          .gte('created_at', periodStartBusiness.toISOString())
-          .lte('created_at', periodEndBusiness.toISOString())
-      : Promise.resolve({ data: [] });
-    
-    // BATCH QUERY 2b: Get monthly responses (this month only)
-    const monthlyResponsesPromise = monthlyChecklistIds.length > 0
-      ? supabase
-          .from('checklist_responses')
-          .select(`
-            id,
-            item_id,
-            created_at,
-            checklist_submissions!inner(id, checklist_id, location_id)
-          `)
-          .in('checklist_submissions.checklist_id', monthlyChecklistIds)
-          .eq('checklist_submissions.location_id', currentLocation.id)
-          .gte('created_at', monthStart.toISOString())
-          .lte('created_at', monthEnd.toISOString())
-      : Promise.resolve({ data: [] });
-    
-    const [{ data: dailyResponses }, { data: monthlyResponses }] = await Promise.all([
-      dailyResponsesPromise,
-      monthlyResponsesPromise
+    // ALL 3 QUERIES IN PARALLEL: items + daily responses + monthly responses
+    const [
+      { data: allChecklistItems },
+      { data: dailyResponses },
+      { data: monthlyResponses }
+    ] = await Promise.all([
+      // Query 1: All checklist items
+      supabase
+        .from('checklist_items')
+        .select('id, checklist_id, days_of_week')
+        .in('checklist_id', checklistIds),
+      // Query 2: Daily responses (today's business day only)
+      dailyChecklistIds.length > 0 
+        ? supabase
+            .from('checklist_responses')
+            .select(`
+              id,
+              item_id,
+              created_at,
+              checklist_submissions!inner(id, checklist_id, location_id)
+            `)
+            .in('checklist_submissions.checklist_id', dailyChecklistIds)
+            .eq('checklist_submissions.location_id', currentLocation.id)
+            .gte('created_at', periodStartBusiness.toISOString())
+            .lte('created_at', periodEndBusiness.toISOString())
+        : Promise.resolve({ data: [] as any[] }),
+      // Query 3: Monthly responses (this month only)
+      monthlyChecklistIds.length > 0
+        ? supabase
+            .from('checklist_responses')
+            .select(`
+              id,
+              item_id,
+              created_at,
+              checklist_submissions!inner(id, checklist_id, location_id)
+            `)
+            .in('checklist_submissions.checklist_id', monthlyChecklistIds)
+            .eq('checklist_submissions.location_id', currentLocation.id)
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString())
+        : Promise.resolve({ data: [] as any[] }),
     ]);
     
     // Combine responses
