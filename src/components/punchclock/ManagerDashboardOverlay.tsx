@@ -208,6 +208,7 @@ export function ManagerDashboardOverlay({
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
   const [isDayMode, setIsDayMode] = useState(false);
+  const [showTeamTasks, setShowTeamTasks] = useState(false);
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
