@@ -306,67 +306,68 @@ All colors MUST be HSL.
 
 /* Blaze Pizza Theme - Brand colors from blazepizza.com */
 [data-theme="blaze"] {
-  --background: 38 35% 95%;
-  --foreground: 20 15% 18%;
-  --card: 40 30% 99%;
-  --card-foreground: 20 15% 18%;
-  --popover: 40 30% 99%;
-  --popover-foreground: 20 15% 18%;
-  --primary: 22 82% 50%;
+  --background: 38 30% 94%;
+  --foreground: 20 25% 15%;
+  --card: 40 28% 98%;
+  --card-foreground: 20 25% 15%;
+  --popover: 40 28% 98%;
+  --popover-foreground: 20 25% 15%;
+  --primary: 22 85% 48%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 170 55% 28%;
+  --secondary: 168 60% 26%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 38 22% 90%;
-  --muted-foreground: 20 12% 42%;
-  --accent: 20 55% 28%;
+  --muted: 38 20% 89%;
+  --muted-foreground: 20 12% 40%;
+  --accent: 18 50% 22%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 70% 42%;
+  --destructive: 355 72% 44%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 25% 80%;
-  --input: 38 25% 92%;
-  --ring: 22 82% 50%;
-  --glass-background: 40 30% 99% / 0.85;
-  --glass-border: 22 50% 65% / 0.35;
-  --glass-shadow: 20 15% 18% / 0.08;
+  --border: 30 22% 78%;
+  --input: 38 22% 91%;
+  --ring: 22 85% 48%;
+  --glass-background: 40 28% 99% / 0.85;
+  --glass-border: 22 50% 60% / 0.35;
+  --glass-shadow: 20 25% 15% / 0.08;
   
-  --chart-1: 22 82% 50%;
-  --chart-2: 170 55% 28%;
-  --chart-3: 38 60% 58%;
-  --chart-4: 0 70% 42%;
-  --chart-5: 45 70% 50%;
-  --chart-6: 200 30% 40%;
+  --chart-1: 22 85% 48%;
+  --chart-2: 168 60% 26%;
+  --chart-3: 42 65% 52%;
+  --chart-4: 355 72% 44%;
+  --chart-5: 18 50% 22%;
+  --chart-6: 38 45% 58%;
 }
 
 /* Cupcake sprinkles background decoration */
-[data-theme="cupcake"] #root::before {
+[data-theme="cupcake"] body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(ellipse 6px 2px at 5% 12%, hsl(340 50% 65% / 0.3) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 15% 35%, hsl(15 60% 65% / 0.25) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 25% 8%, hsl(45 55% 65% / 0.28) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 35% 55%, hsl(340 45% 60% / 0.22) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 45% 22%, hsl(200 45% 65% / 0.25) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 55% 78%, hsl(320 50% 62% / 0.28) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 65% 42%, hsl(15 55% 60% / 0.22) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 72% 15%, hsl(45 50% 62% / 0.25) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 82% 65%, hsl(340 48% 58% / 0.28) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 90% 30%, hsl(170 40% 60% / 0.22) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 8% 72%, hsl(280 40% 65% / 0.25) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 48% 88%, hsl(15 50% 62% / 0.22) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 78% 92%, hsl(45 48% 60% / 0.28) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 18% 52%, hsl(200 42% 62% / 0.2) 50%, transparent 51%),
-    radial-gradient(ellipse 6px 2px at 58% 48%, hsl(340 42% 63% / 0.18) 50%, transparent 51%),
-    radial-gradient(ellipse 2px 6px at 92% 55%, hsl(320 45% 60% / 0.25) 50%, transparent 51%);
+    radial-gradient(ellipse 8px 3px at 5% 12%, hsl(340 55% 62% / 0.4) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 12% 35%, hsl(15 65% 62% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 22% 8%, hsl(45 60% 60% / 0.38) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 32% 55%, hsl(190 50% 58% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 42% 22%, hsl(280 45% 62% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 52% 78%, hsl(340 50% 60% / 0.38) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 62% 42%, hsl(15 60% 58% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 72% 15%, hsl(45 55% 58% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 82% 65%, hsl(340 52% 56% / 0.38) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 90% 30%, hsl(170 45% 58% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 8% 72%, hsl(280 45% 62% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 48% 88%, hsl(15 55% 60% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 78% 92%, hsl(45 52% 58% / 0.38) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 18% 52%, hsl(190 48% 60% / 0.3) 50%, transparent 51%),
+    radial-gradient(ellipse 8px 3px at 58% 48%, hsl(340 48% 60% / 0.28) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 8px at 92% 55%, hsl(280 50% 58% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 7px 3px at 3% 45%, hsl(120 40% 55% / 0.3) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 7px at 38% 18%, hsl(200 50% 60% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 7px 3px at 68% 82%, hsl(30 55% 58% / 0.35) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 7px at 85% 45%, hsl(340 45% 58% / 0.3) 50%, transparent 51%),
+    radial-gradient(ellipse 7px 3px at 28% 72%, hsl(55 50% 58% / 0.32) 50%, transparent 51%),
+    radial-gradient(ellipse 3px 7px at 95% 12%, hsl(15 50% 56% / 0.35) 50%, transparent 51%);
   background-repeat: no-repeat;
-}
-
-[data-theme="cupcake"] #root > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* ============================================
