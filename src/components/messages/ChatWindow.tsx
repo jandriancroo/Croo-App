@@ -1,8 +1,9 @@
 import { getDisplayName } from '@/utils/displayName';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
+import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
 import { isSameDay } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 import { Virtuoso } from 'react-virtuoso';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { AnnouncementStats } from './AnnouncementStats';
@@ -52,7 +53,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     newMessage, setNewMessage,
     sending, setSending,
     uploading, setUploading,
-    virtuosoRef, isNearBottomRef,
+    virtuosoRef,
+    isScrolledUp, setIsScrolledUp,
     scrollToBottom, loadEarlierMessages,
   } = data;
 
@@ -141,13 +143,28 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       {/* Messages - Virtualized */}
       <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden relative">
-        {showNewMessageBubble && (
+        {/* Scroll to bottom + mark as read button */}
+        {isScrolledUp && displayMessages.length > 0 && (
           <button
-            onClick={() => scrollToBottom()}
-            className="fixed bottom-32 left-1/2 -translate-x-1/2 z-20 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce hover:bg-primary/90 transition-colors"
+            onClick={() => {
+              scrollToBottom();
+              // Mark chat as read optimistically
+              if (data.currentUserId && chatId) {
+                supabase
+                  .from('chat_members')
+                  .update({ last_read_at: new Date().toISOString() })
+                  .eq('chat_id', chatId)
+                  .eq('user_id', data.currentUserId)
+                  .then();
+              }
+            }}
+            className="absolute bottom-4 right-4 z-20 bg-primary text-primary-foreground h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
           >
-            <span>New message{newMessageCount > 1 ? `s (${newMessageCount})` : ''}</span>
-            <span className="text-lg">↓</span>
+            {showNewMessageBubble && newMessageCount > 0 ? (
+              <span className="text-xs font-bold">{newMessageCount > 99 ? '99+' : newMessageCount}</span>
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
           </button>
         )}
         
@@ -165,10 +182,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             followOutput="smooth"
             alignToBottom
             atBottomStateChange={(atBottom) => {
-              isNearBottomRef.current = atBottom;
-              if (atBottom) {
-                // Clear new message bubble handled by hook
-              }
+              setIsScrolledUp(!atBottom);
             }}
             startReached={() => {
               if (hasMoreEarlier && !loadingEarlier) {

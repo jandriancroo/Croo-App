@@ -68,6 +68,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -109,6 +110,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     const threshold = 150;
     const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
     isNearBottomRef.current = isNear;
+    setIsScrolledUp(!isNear);
     if (isNear) {
       setShowNewMessageBubble(false);
       setNewMessageCount(0);
@@ -484,7 +486,8 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     messagesEndRef,
     messagesContainerRef,
     virtuosoRef,
-    isNearBottomRef,
+    isScrolledUp,
+    setIsScrolledUp,
     scrollToBottom,
     loadEarlierMessages,
   };
