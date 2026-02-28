@@ -293,9 +293,9 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
             });
 
             return (
-              <Card key={task.id} className="overflow-hidden">
+              <Card key={task.id} className={`overflow-hidden ${isDayMode ? '' : 'bg-neutral-800/80 border-neutral-700'}`}>
                 <button
-                  className="w-full flex items-center gap-3 p-3 text-left"
+                  className={`w-full flex items-center gap-3 p-3 text-left ${isDayMode ? '' : 'hover:bg-neutral-700/50'}`}
                   onClick={() => toggleExpand(task.id)}
                 >
                   <div
@@ -303,16 +303,16 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                     style={{ backgroundColor: task.accent_color }}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{task.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={`font-semibold text-sm ${isDayMode ? '' : 'text-white'}`}>{task.title}</p>
+                    <p className={`text-xs ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                       {taskCompletedCount}/{task.subtasks.length} completed
                     </p>
                   </div>
                   {allDone && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ChevronDown className={`h-4 w-4 shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`} />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ChevronRight className={`h-4 w-4 shrink-0 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`} />
                   )}
                 </button>
 
