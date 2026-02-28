@@ -86,7 +86,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
   // Task style
-  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "qr">("standard");
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm" | "qr" | "team">("standard");
   
   // Standard task fields
   const [duration, setDuration] = useState("none");
