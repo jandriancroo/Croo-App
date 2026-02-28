@@ -261,10 +261,8 @@ export default function PunchClock() {
     window.location.href = '/';
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+
+
 
   // Rotate facts and custom slides with crossfade (using dynamic slideDuration)
   useEffect(() => {
