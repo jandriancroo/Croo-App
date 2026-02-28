@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, File, Clock } from 'lucide-react';
+import { MessageSquare, File, Clock, Trash2 } from 'lucide-react';
 import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
@@ -25,6 +25,7 @@ interface Message {
   created_at: string;
   scheduled_at: string | null;
   parent_message_id: string | null;
+  is_deleted_for_everyone?: boolean;
   profiles?: {
     full_name: string;
     profile_photo_url: string | null;
@@ -46,12 +47,14 @@ interface MessageBubbleProps {
   isAnnouncement: boolean;
   isArcadeChat: boolean;
   isGroupChat: boolean;
+  canUnsend?: boolean;
   smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
   onSmackTalk: (text: string, messageId?: string) => void;
   onImageClick: (url: string) => void;
+  onUnsend?: (messageId: string) => void;
   sending: boolean;
 }
 
