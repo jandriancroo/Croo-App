@@ -95,26 +95,7 @@ export default function Messages() {
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
 
-  // Mark all chats as read — optimistic
-  const handleMarkAllRead = async () => {
-    if (!user || !currentLocation) return;
-    try {
-      const now = new Date().toISOString();
-      const chatIds = chats.map(c => c.id);
-      if (chatIds.length === 0) return;
-      
-      await supabase
-        .from('chat_members')
-        .update({ last_read_at: now })
-        .eq('user_id', user.id)
-        .in('chat_id', chatIds);
-      
-      fetchChats();
-      toast.success('All chats marked as read');
-    } catch {
-      toast.error('Failed to mark as read');
-    }
-  };
+
 
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
     { id: 'all', label: 'Chats', icon: MessageCircle, badge: unreadCounts.chats },
