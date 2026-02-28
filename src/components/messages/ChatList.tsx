@@ -339,6 +339,10 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     );
   };
 
+  const pinnedCount = pinnedChats.length;
+  // Avatar size scales: 1-3 pinned = large (h-16), 4+ = smaller (h-14)
+  const avatarSize = pinnedCount <= 3 ? 'h-16 w-16' : 'h-14 w-14';
+
   const renderPinnedBubble = (chat: Chat) => (
     <button
       key={chat.id}
@@ -346,15 +350,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       onTouchStart={(e) => handleTouchStart(chat, e)}
       onTouchEnd={() => handleTouchEnd(chat)}
       onTouchMove={handleTouchMove}
-      className={`flex flex-col items-center gap-1 select-none ${
-        pinnedChats.length === 1 ? 'w-full max-w-[120px]' :
-        pinnedChats.length === 2 ? 'w-[calc(50%-0.25rem)]' :
-        pinnedChats.length === 3 ? 'w-[calc(33.33%-0.34rem)]' :
-        'w-[calc(25%-0.375rem)]'
+      className={`flex flex-col items-center gap-1.5 select-none flex-1 min-w-0 ${
+        pinnedCount > 4 ? 'max-w-[calc(25%-0.375rem)]' : ''
       }`}
     >
       <div className="relative">
-        <Avatar className="h-14 w-14">
+        <Avatar className={avatarSize}>
           {getAvatarContent(chat)}
         </Avatar>
         {chat.unreadCount != null && chat.unreadCount > 0 && (
