@@ -1753,6 +1753,6 @@ export function ManagerDashboardOverlay({
       
       {/* Alarm Task Overlay - must be outside motion.div for proper z-index stacking */}
       <AlarmTaskOverlay locationId={locationId} />
-    </AnimatePresence>
+    </>
   );
 }
