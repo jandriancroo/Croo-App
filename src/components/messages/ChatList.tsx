@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Users, Megaphone, Pin, PinOff, ArrowLeftRight } from 'lucide-react';
+import { Users, Pin, PinOff, ArrowLeftRight } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import {
   Dialog,
