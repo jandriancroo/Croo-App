@@ -126,7 +126,7 @@ export const useUserManagementData = () => {
   }, [canAccessPage, roleLoading, navigate, toast]);
 
   // ── Queries ──
-  const { data: users = [], isLoading: loading, refetch: refetchUsers } = useQuery({
+  const { data: users = [], isLoading: loading } = useQuery({
     queryKey: ['user-management-users', currentLocation?.id],
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,

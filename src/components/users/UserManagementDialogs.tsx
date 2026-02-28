@@ -13,7 +13,6 @@ import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
 import { I9RequestDialog } from '@/components/users/I9RequestDialog';
 import { Loader2, Camera, Copy, Trash2 } from 'lucide-react';
 import { type AppRole } from '@/hooks/useUserRole';
-import { type UserProfile } from '@/hooks/useUserManagementData';
 
 interface UserManagementDialogsProps {
   data: ReturnType<typeof import('@/hooks/useUserManagementData').useUserManagementData>;
