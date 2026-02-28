@@ -227,7 +227,7 @@ export default function Messages() {
       {isMobile && !!selectedChatId && (
         <div className="fixed inset-0 z-[100] bg-background flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2 p-4 border-b border-border shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => setSelectedChatId(null)}>
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedChatId(null); fetchChats(); }}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold">Chat</h2>
