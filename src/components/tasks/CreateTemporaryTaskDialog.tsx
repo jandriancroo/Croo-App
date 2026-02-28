@@ -1042,7 +1042,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           {/* Subtasks - Hidden for QR tasks */}
           {taskStyle !== "qr" && (
             <div className="space-y-2">
-              <Label>Subtasks (Optional)</Label>
+              <Label>Subtasks {taskStyle === "team" ? "*" : "(Optional)"}</Label>
               <div className="flex gap-2">
                 <Input
                   value={newSubtask}
