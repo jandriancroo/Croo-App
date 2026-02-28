@@ -412,7 +412,12 @@ All colors MUST be HSL.
 }
 
 [data-theme="beach"] #root {
-  background: transparent;
+  background: transparent !important;
+}
+
+/* Make Layout wrapper transparent so beach bg shows through */
+[data-theme="beach"] .bg-background {
+  background-color: transparent !important;
 }
 
 /* Beach mobile header — sky blue */
