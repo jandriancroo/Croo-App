@@ -371,7 +371,7 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                                         {completion.profile.full_name?.charAt(0)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-[10px] text-muted-foreground">
+                                    <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                                       {completion.profile.full_name?.split(' ')[0]}
                                     </span>
                                   </div>
