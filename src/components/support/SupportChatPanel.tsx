@@ -77,11 +77,6 @@ const STATUS_BORDER_COLORS: Record<string, string> = {
   resolved: 'border-l-green-500',
 };
 
-const STATUS_BG_COLORS: Record<string, string> = {
-  open: 'bg-yellow-500/5 hover:bg-yellow-500/10',
-  in_progress: 'bg-blue-500/5 hover:bg-blue-500/10',
-  resolved: 'bg-muted/50 hover:bg-muted',
-};
 
 interface QuickReply {
   label: string;
