@@ -401,7 +401,20 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach theme — no global background image; applied per-page via components */
+/* Beach background — dashboard only (toggled via .beach-dashboard class on body) */
+html[data-theme="beach"] body.beach-dashboard {
+  background: 
+    linear-gradient(180deg, hsl(195 25% 92% / 0.45) 0%, hsl(195 25% 92% / 0.45) 100%),
+    url('/images/beach-footprints.png') center/cover no-repeat fixed !important;
+}
+
+html[data-theme="beach"] body.beach-dashboard .bg-background {
+  background-color: transparent !important;
+}
+
+html[data-theme="beach"] body.beach-dashboard .bg-card {
+  background-color: hsl(42 30% 96% / 0.85) !important;
+}
 
 /* Beach mobile header — sky blue */
 [data-theme="beach"] header.bg-primary {
