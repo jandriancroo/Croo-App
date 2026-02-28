@@ -207,6 +207,23 @@ export default function PunchClock() {
 
   // Manager Dashboard state
   const [showManagerDashboard, setShowManagerDashboard] = useState(false);
+  const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
+
+  // Listen for localStorage changes from ManagerDashboardOverlay
+  useEffect(() => {
+    const handleStorage = () => {
+      setIsDayMode(localStorage.getItem('punch-clock-day-mode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Re-read isDayMode when manager dashboard closes
+  useEffect(() => {
+    if (!showManagerDashboard) {
+      setIsDayMode(localStorage.getItem('punch-clock-day-mode') === 'true');
+    }
+  }, [showManagerDashboard]);
 
   const MASTER_EXIT_CODE = '0223';
 
