@@ -359,7 +359,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         )}
       </div>
       <span className="text-[11px] font-medium text-center leading-tight line-clamp-2 w-full">
-        {chat.title || (chat.is_group ? 'Group' : 'DM')}
+        {chat.title === 'Shift Marketplace' ? 'Shifts' : (chat.title || (chat.is_group ? 'Group' : 'DM'))}
       </span>
     </button>
   );
