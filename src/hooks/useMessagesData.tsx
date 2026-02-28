@@ -34,7 +34,7 @@ export interface Chat {
   }>;
 }
 
-export type ViewMode = 'all' | 'groups' | 'dms' | 'announcements' | 'hiring' | 'support';
+export type ViewMode = 'all' | 'announcements' | 'hiring' | 'support';
 
 export function useMessagesData() {
   const { user } = useAuth();
