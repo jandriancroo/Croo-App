@@ -354,7 +354,7 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                                   <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/40 shrink-0" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className={`text-sm ${completed ? 'line-through text-muted-foreground' : 'font-medium'}`}>
+                                  <p className={`text-sm ${completed ? `line-through ${isDayMode ? 'text-muted-foreground' : 'text-neutral-500'}` : `font-medium ${isDayMode ? '' : 'text-white'}`}`}>
                                     {subtask.title}
                                     {subtask.quantity && (
                                       <span className="ml-1 text-xs text-muted-foreground">
