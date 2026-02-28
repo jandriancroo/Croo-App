@@ -1466,7 +1466,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full backdrop-blur-xl border hover:opacity-80 transition-all group shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}
               onClick={() => setShowManagerDashboard(true)}
             >
-              <ArrowLeftRight className="h-6 w-6 text-accent-foreground" />
+              <ArrowLeftRight className={`h-6 w-6 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
             </button>
           )}
         </div>
