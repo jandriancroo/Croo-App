@@ -276,7 +276,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
             {chat.isPinned && (
               <Pin className="h-3 w-3 text-primary md:hidden" />
             )}
-            {chat.unreadCount && chat.unreadCount > 0 ? (
+            {chat.unreadCount != null && chat.unreadCount > 0 ? (
               <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-full">
                 {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
               </span>
