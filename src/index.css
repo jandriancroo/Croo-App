@@ -407,7 +407,7 @@ All colors MUST be HSL.
 }
 
 [data-theme="beach"] #root {
-  background: hsl(185 28% 92% / 0.72);
+  background: hsl(185 28% 92% / 0.55);
   min-height: 100vh;
   position: relative;
   z-index: 1;
