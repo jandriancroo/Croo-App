@@ -531,6 +531,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
                 ? "One-time task that stays until completed or expired"
                 : taskStyle === "alarm"
                 ? "Recurring task with scheduled reminders for clocked-in staff"
+                : taskStyle === "team"
+                ? "All-day task list available on Punch Clock for any team member"
                 : "Guest-scannable QR code that triggers alerts when issues are reported"
               }
             </p>
