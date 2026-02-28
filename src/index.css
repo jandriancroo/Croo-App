@@ -238,37 +238,37 @@ All colors MUST be HSL.
   --chart-6: 15 50% 50%;
 }
 
-/* Beach Theme - Hawaiian paradise, crystal ocean, golden sand */
+/* Beach Theme - Maui ocean & sand palette */
 [data-theme="beach"] {
-  --background: 192 40% 93%;
-  --foreground: 210 45% 12%;
-  --card: 188 32% 97%;
-  --card-foreground: 210 45% 12%;
-  --popover: 188 32% 97%;
-  --popover-foreground: 210 45% 12%;
-  --primary: 195 80% 38%;
+  --background: 185 28% 92%;
+  --foreground: 200 40% 14%;
+  --card: 180 20% 97%;
+  --card-foreground: 200 40% 14%;
+  --popover: 180 20% 97%;
+  --popover-foreground: 200 40% 14%;
+  --primary: 178 55% 32%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 172 45% 78%;
-  --secondary-foreground: 195 55% 18%;
-  --muted: 188 25% 87%;
-  --muted-foreground: 200 20% 36%;
-  --accent: 32 65% 55%;
+  --secondary: 168 35% 72%;
+  --secondary-foreground: 180 40% 18%;
+  --muted: 180 18% 86%;
+  --muted-foreground: 195 18% 38%;
+  --accent: 38 55% 52%;
   --accent-foreground: 0 0% 100%;
   --destructive: 350 62% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 190 28% 76%;
-  --input: 190 22% 84%;
-  --ring: 195 80% 38%;
-  --glass-background: 190 30% 100% / 0.5;
-  --glass-border: 192 25% 70% / 0.3;
-  --glass-shadow: 210 45% 12% / 0.08;
+  --border: 180 22% 78%;
+  --input: 180 18% 84%;
+  --ring: 178 55% 32%;
+  --glass-background: 180 25% 100% / 0.55;
+  --glass-border: 180 20% 70% / 0.3;
+  --glass-shadow: 200 40% 14% / 0.08;
 
-  --chart-1: 195 80% 42%;
-  --chart-2: 32 65% 55%;
-  --chart-3: 172 52% 40%;
-  --chart-4: 162 60% 32%;
-  --chart-5: 40 55% 50%;
-  --chart-6: 205 50% 48%;
+  --chart-1: 178 55% 38%;
+  --chart-2: 38 55% 52%;
+  --chart-3: 168 42% 38%;
+  --chart-4: 155 50% 32%;
+  --chart-5: 42 50% 48%;
+  --chart-6: 195 45% 42%;
 }
 
 /* Cupcake Theme - Warm layered pinks, soft and inviting */
@@ -401,44 +401,40 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach Hawaiian paradise background */
+/* Beach Hawaiian paradise background — Maui photo */
 [data-theme="beach"] body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      hsl(198 75% 82% / 0.4) 0%,
-      hsl(192 60% 88% / 0.2) 30%,
-      hsl(185 45% 90% / 0.1) 50%,
-      hsl(42 50% 82% / 0.15) 70%,
-      hsl(35 55% 75% / 0.25) 85%,
-      hsl(198 65% 78% / 0.3) 100%
-    );
+  background: url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
+  opacity: 0.18;
 }
 
 @keyframes beachWave {
-  0%, 100% { transform: translateX(0) scaleY(1); }
-  50% { transform: translateX(-2%) scaleY(1.02); }
+  0%, 100% { transform: translateX(0) scaleY(1); opacity: 0.55; }
+  25% { transform: translateX(-1.5%) scaleY(1.06); opacity: 0.7; }
+  50% { transform: translateX(0) scaleY(1.1); opacity: 0.6; }
+  75% { transform: translateX(1.5%) scaleY(1.04); opacity: 0.65; }
 }
 
 [data-theme="beach"] body::after {
   content: '';
   position: fixed;
   bottom: 0;
-  left: -5%;
-  right: -5%;
-  height: 120px;
-  z-index: 0;
+  left: -10%;
+  right: -10%;
+  height: 80px;
+  z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 40px at 20% 100%, hsl(185 55% 72% / 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 35px at 50% 100%, hsl(198 60% 68% / 0.15) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45px at 80% 100%, hsl(190 50% 74% / 0.2) 0%, transparent 70%);
-  animation: beachWave 6s ease-in-out infinite;
+    radial-gradient(ellipse 70% 50px at 15% 100%, hsl(185 50% 65% / 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 45px at 45% 100%, hsl(178 55% 55% / 0.3) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55px at 75% 100%, hsl(190 45% 60% / 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 35px at 30% 85%, hsl(180 40% 70% / 0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 40px at 65% 90%, hsl(185 45% 65% / 0.25) 0%, transparent 70%);
+  animation: beachWave 5s ease-in-out infinite;
 }
 
 /* ============================================
@@ -830,6 +826,20 @@ All colors MUST be HSL.
   
   [data-theme="oled"] .nav-bar-unified svg {
     color: hsl(215 12% 75%);
+  }
+
+  /* OLED mobile header — match dock Batman grey */
+  [data-theme="oled"] header.bg-primary {
+    background: hsl(220 22% 15%) !important;
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] header.bg-primary * {
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] header.bg-primary .nav-logo-inline {
+    color: initial;
   }
 
   [data-theme="oled"] .nav-logo-bulge::before {
