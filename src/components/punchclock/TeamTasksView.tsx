@@ -212,6 +212,23 @@ export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewPro
     }
   };
 
+  const handleUndo = async (subtaskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('task_subtask_completions')
+        .delete()
+        .eq('subtask_id', subtaskId)
+        .eq('completed_date', today);
+
+      if (error) throw error;
+      toast.success('Completion undone');
+      queryClient.invalidateQueries({ queryKey: ['team-task-completions'] });
+    } catch (error) {
+      console.error('Error undoing completion:', error);
+      toast.error('Failed to undo');
+    }
+  };
+
   const toggleExpand = (taskId: string) => {
     setExpandedTasks(prev => {
       const next = new Set(prev);
