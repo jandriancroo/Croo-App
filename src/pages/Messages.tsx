@@ -93,7 +93,7 @@ export default function Messages() {
     unreadCounts, searchQuery,
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
-
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
 
 
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
