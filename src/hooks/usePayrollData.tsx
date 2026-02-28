@@ -769,6 +769,13 @@ export function usePayrollData() {
       });
 
     setTimeCards(cards);
+    // Stamp cache so navigating away/back skips refetch for 5 min
+    if (selectedPeriod && currentLocation) {
+      lastFetchRef.current = {
+        key: `${selectedPeriod.startDate}_${selectedPeriod.endDate}_${currentLocation.id}`,
+        at: Date.now(),
+      };
+    }
   };
 
   // ─── Delete handlers ──────────────────────────────────────────────
