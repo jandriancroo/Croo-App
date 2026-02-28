@@ -19,8 +19,6 @@ import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { SupportButton } from '@/components/support/SupportButton';
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 // Shared filter chip bar component
 function FilterChipBar({ 
