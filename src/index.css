@@ -706,6 +706,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .nav-bar-unified {
+    background: hsl(225 15% 10%);
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
   }
   
