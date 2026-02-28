@@ -407,33 +407,8 @@ All colors MUST be HSL.
   min-height: 100vh;
   z-index: 1;
   background: 
-    linear-gradient(180deg, hsl(185 28% 92% / 0.58) 0%, hsl(185 28% 92% / 0.58) 100%),
+    linear-gradient(180deg, hsl(25 30% 90% / 0.35) 0%, hsl(25 30% 90% / 0.35) 100%),
     url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
-}
-
-@keyframes beachWave {
-  0%, 100% { transform: translateX(0) scaleY(1); opacity: 0.55; }
-  25% { transform: translateX(-1.5%) scaleY(1.06); opacity: 0.7; }
-  50% { transform: translateX(0) scaleY(1.1); opacity: 0.6; }
-  75% { transform: translateX(1.5%) scaleY(1.04); opacity: 0.65; }
-}
-
-[data-theme="beach"] body::after {
-  content: '';
-  position: fixed;
-  bottom: 0;
-  left: -10%;
-  right: -10%;
-  height: 80px;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 50px at 15% 100%, hsl(185 50% 65% / 0.35) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 45px at 45% 100%, hsl(178 55% 55% / 0.3) 0%, transparent 70%),
-    radial-gradient(ellipse 65% 55px at 75% 100%, hsl(190 45% 60% / 0.35) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 35px at 30% 85%, hsl(180 40% 70% / 0.2) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 40px at 65% 90%, hsl(185 45% 65% / 0.25) 0%, transparent 70%);
-  animation: beachWave 5s ease-in-out infinite;
 }
 
 /* ============================================
