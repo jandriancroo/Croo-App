@@ -181,11 +181,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput="smooth"
             alignToBottom
-            atBottomStateChange={(atBottom) => {
-              isNearBottomRef.current = atBottom;
-              if (atBottom) {
-                // Clear new message bubble handled by hook
-              }
+            atBottomStateChange={() => {
+              // Scroll state managed by hook's checkIfNearBottom
             }}
             startReached={() => {
               if (hasMoreEarlier && !loadingEarlier) {
