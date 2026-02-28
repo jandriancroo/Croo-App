@@ -205,30 +205,37 @@ All colors MUST be HSL.
   --chart-6: 340 50% 55%;
 }
 
-/* Warm Earth Theme - Brown/Beige tones */
+/* Warm Earth Theme - Bold browns, forest greens, sky blue */
 [data-theme="earth"] {
-  --background: 35 25% 92%;
-  --foreground: 25 30% 15%;
-  --card: 35 30% 97%;
-  --card-foreground: 25 30% 15%;
-  --popover: 35 30% 97%;
-  --popover-foreground: 25 30% 15%;
-  --primary: 25 55% 42%;
-  --primary-foreground: 35 30% 98%;
-  --secondary: 35 35% 85%;
-  --secondary-foreground: 25 45% 30%;
-  --muted: 35 20% 88%;
-  --muted-foreground: 25 20% 40%;
-  --accent: 15 65% 50%;
-  --accent-foreground: 35 30% 98%;
+  --background: 40 22% 91%;
+  --foreground: 25 35% 12%;
+  --card: 40 25% 97%;
+  --card-foreground: 25 35% 12%;
+  --popover: 40 25% 97%;
+  --popover-foreground: 25 35% 12%;
+  --primary: 145 40% 32%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 200 50% 85%;
+  --secondary-foreground: 200 45% 25%;
+  --muted: 40 18% 87%;
+  --muted-foreground: 25 18% 40%;
+  --accent: 25 65% 38%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 5 55% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 30 20% 78%;
-  --input: 30 20% 85%;
-  --ring: 25 55% 42%;
-  --glass-background: 35 30% 100% / 0.65;
-  --glass-border: 30 20% 70% / 0.3;
-  --glass-shadow: 25 30% 15% / 0.08;
+  --border: 35 18% 76%;
+  --input: 40 18% 84%;
+  --ring: 145 40% 32%;
+  --glass-background: 40 25% 100% / 0.65;
+  --glass-border: 35 18% 70% / 0.3;
+  --glass-shadow: 25 35% 12% / 0.08;
+
+  --chart-1: 145 40% 38%;
+  --chart-2: 200 50% 52%;
+  --chart-3: 25 65% 45%;
+  --chart-4: 35 55% 55%;
+  --chart-5: 160 35% 45%;
+  --chart-6: 15 50% 50%;
 }
 
 /* Ocean Theme - Soft teal/aqua colors */
