@@ -981,7 +981,7 @@ export function ManagerDashboardOverlay({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        transition={{ duration: 0.6, ease: 'easeInOut' }}
         className={`fixed inset-0 z-[100] overflow-hidden ${
           isDayMode 
             ? 'bg-background' 
