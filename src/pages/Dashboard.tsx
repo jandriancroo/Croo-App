@@ -70,6 +70,11 @@ interface ChecklistStats {
   submissions_today: number;
 }
 export default function Dashboard() {
+  // Beach theme background — only on dashboard
+  useEffect(() => {
+    document.body.classList.add('beach-dashboard');
+    return () => document.body.classList.remove('beach-dashboard');
+  }, []);
   const [completionData, setCompletionData] = useState<Record<string, {
     expected: number;
     completed: number;
