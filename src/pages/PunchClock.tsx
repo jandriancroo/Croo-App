@@ -1431,7 +1431,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                     <Button
                       variant="outline"
                       size="lg"
-                      className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+                      className={`h-16 text-2xl font-bold rounded-xl border-2 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md ${isDayMode ? 'bg-card' : 'bg-neutral-700 border-neutral-600 text-white'}`}
                       onClick={() => handleNumberClick('0')}
                     >
                       0
