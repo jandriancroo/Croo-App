@@ -1207,9 +1207,11 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-2 px-4 py-2 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}>
-                  <div className={`w-2 h-2 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
-                  <span className={`text-sm font-medium ${isDayMode ? 'text-accent-foreground' : 'text-white'}`}>{currentLocation.name}</span>
+                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}>
+                  <img src={crooLogo} alt="Croo" className="h-6 w-auto" />
+                  <div className={`w-px h-5 ${isDayMode ? 'bg-accent-foreground/20' : 'bg-neutral-600'}`} />
+                  <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
+                  <span className={`text-base font-semibold ${isDayMode ? 'text-accent-foreground' : 'text-white'}`}>{currentLocation.name}</span>
                 </div>
               </div>
             )}
@@ -1458,17 +1460,19 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                 </div>
               </CardContent>
             </div>
-          </Card>
 
-          {/* Swap to Dashboard Button - Bottom Center */}
-          {currentLocation?.id && timezone && (
-            <button
-              className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-16 h-16 rounded-full backdrop-blur-xl border hover:opacity-80 transition-all group shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}
-              onClick={() => setShowManagerDashboard(true)}
-            >
-              <ArrowLeftRight className={`h-6 w-6 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
-            </button>
-          )}
+            {/* Swap to Dashboard Button - Inside card at bottom center */}
+            {currentLocation?.id && timezone && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+                <button
+                  className={`flex items-center justify-center w-20 h-20 rounded-full backdrop-blur-xl border-2 hover:scale-105 active:scale-95 transition-all shadow-xl ${isDayMode ? 'bg-accent/90 border-accent-foreground/20' : 'bg-neutral-700/90 border-neutral-500'}`}
+                  onClick={() => setShowManagerDashboard(true)}
+                >
+                  <ArrowLeftRight className={`h-8 w-8 ${isDayMode ? 'text-accent-foreground' : 'text-white'}`} />
+                </button>
+              </div>
+            )}
+          </Card>
         </div>
       ) : (
         <div className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
