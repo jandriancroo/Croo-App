@@ -7184,6 +7184,13 @@ export type Database = {
         Args: { p_date?: string; p_user_id: string }
         Returns: number
       }
+      get_current_wages_batch: {
+        Args: { p_date?: string; p_user_ids: string[] }
+        Returns: {
+          hourly_wage: number
+          user_id: string
+        }[]
+      }
       get_unread_chat_count: { Args: { _user_id: string }; Returns: number }
       get_user_location_ids: { Args: { _user_id: string }; Returns: string[] }
       get_user_role: {
