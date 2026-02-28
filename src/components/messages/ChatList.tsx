@@ -380,7 +380,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           </>
         )}
         {unpinnedChats.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-1 px-1">
             {unpinnedChats.map(renderChat)}
           </div>
         )}
