@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, ArrowLeft, Briefcase, MessageCircle, Headphones, Megaphone, User } from 'lucide-react';
@@ -7,6 +8,7 @@ import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
 import { ChatSearch } from '@/components/messages/ChatSearch';
+import { CreateTicketDialog } from '@/components/support/CreateTicketDialog';
 import {
   Dialog,
   DialogContent,
@@ -92,7 +94,7 @@ export default function Messages() {
     unreadCounts, searchQuery,
     fetchChats, handleSearch, handleViewModeChange, handleTogglePin,
   } = data;
-
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
 
 
   const filters: Array<{ id: ViewMode; label: string; icon: any; badge: number }> = [
@@ -283,7 +285,7 @@ export default function Messages() {
                 <Megaphone className="h-5 w-5" /> Announcement
               </Button>
             )}
-            <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); handleViewModeChange('support'); }}>
+            <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); setIsCreateTicketOpen(true); }}>
               <Headphones className="h-5 w-5" /> Support Request
             </Button>
           </div>
@@ -316,7 +318,7 @@ export default function Messages() {
         />
       )}
 
-      {/* SupportButton removed - now accessible via New Conversation dialog */}
+      <CreateTicketDialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen} />
     </Layout>
   );
 }
