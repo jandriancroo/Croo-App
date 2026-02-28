@@ -748,6 +748,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
               </div>
             </div>
           )}
+          )}
 
           {/* Subtasks */}
           <div className="space-y-2">
