@@ -319,7 +319,7 @@ export default function Messages() {
         />
       )}
 
-      <SupportButton />
+      {/* SupportButton removed - now accessible via New Conversation dialog */}
     </Layout>
   );
 }
