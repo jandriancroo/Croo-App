@@ -1224,7 +1224,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
             {/* Floating Location Badge - positioned at top center where sections meet */}
             {currentLocation && (
               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-accent border-accent-foreground/20' : 'bg-neutral-800 border-neutral-600'}`}>
+                <div className={`flex items-center gap-3 px-5 py-2.5 backdrop-blur-xl border rounded-full shadow-lg ${isDayMode ? 'bg-primary border-primary/30' : 'bg-primary border-primary/30'}`}>
                   {brandLogoUrl && (
                     <>
                       <img src={brandLogoUrl} alt="Brand" className="h-7 w-7 object-contain rounded" />
