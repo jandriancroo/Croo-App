@@ -405,7 +405,7 @@ All colors MUST be HSL.
 html[data-theme="beach"] body.beach-dashboard {
   background: 
     linear-gradient(180deg, hsl(195 25% 92% / 0.45) 0%, hsl(195 25% 92% / 0.45) 100%),
-    url('/images/beach-footprints.png') center/cover no-repeat fixed !important;
+    url('/images/beach-footprints.jpg') center/cover no-repeat fixed !important;
 }
 
 html[data-theme="beach"] body.beach-dashboard .bg-background {
