@@ -45,7 +45,7 @@ interface ClockedInEmployee {
   profile_photo_url: string | null;
 }
 
-export function TeamTasksView({ locationId, timezone, onBack }: TeamTasksViewProps) {
+export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }: TeamTasksViewProps) {
   const queryClient = useQueryClient();
   const today = getTodayInTimezone(timezone);
   const todayDayOfWeek = getDayOfWeekInTimezone(timezone) + 1;
