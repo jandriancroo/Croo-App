@@ -199,6 +199,8 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         setTaskStyle("qr");
       } else if (initialTemplate.task_style === "alarm") {
         setTaskStyle("alarm");
+      } else if (initialTemplate.task_style === "team") {
+        setTaskStyle("team");
       } else {
         setTaskStyle("standard");
       }
