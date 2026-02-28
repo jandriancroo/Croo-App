@@ -368,7 +368,7 @@ export function useAvailabilityData() {
     return format(weekStart, "yyyy-MM-dd");
   };
 
-  const getWeekLabel = (weekKeyStr: string) => {
+  const getWeekLabel = (weekKeyStr: string): string => {
     const weekStart = parseDateStringInTimezone(weekKeyStr, "America/Los_Angeles");
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
     const now = new Date();

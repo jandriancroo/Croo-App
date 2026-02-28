@@ -117,22 +117,7 @@ export default function Availability() {
             <div className="space-y-6">
               {data.sortedWeekKeys.map((weekKey) => {
                 const weekRequests = data.groupedByWeek[weekKey];
-                const weekStart = new Date(weekKey);
-                const weekLabel = data.sortedWeekKeys.length > 0
-                  ? (() => {
-                      // Inline week label from grouped data
-                      const { format, endOfWeek, isThisWeek, isSameWeek, addWeeks } = require("date-fns");
-                      const { parseDateStringInTimezone } = require("@/utils/timezoneUtils");
-                      const ws = parseDateStringInTimezone(weekKey, "America/Los_Angeles");
-                      const we = endOfWeek(ws, { weekStartsOn: 1 });
-                      const now = new Date();
-                      const dr = `${format(ws, "MMM d")} – ${format(we, "MMM d, yyyy")}`;
-                      if (isThisWeek(ws, { weekStartsOn: 1 })) return `This Week (${dr})`;
-                      if (isSameWeek(ws, addWeeks(now, 1), { weekStartsOn: 1 })) return `Next Week (${dr})`;
-                      if (isSameWeek(ws, addWeeks(now, -1), { weekStartsOn: 1 })) return `Last Week (${dr})`;
-                      return dr;
-                    })()
-                  : weekKey;
+                const weekLabel = data.getWeekLabel(weekKey);
 
                 return (
                   <div key={weekKey}>
