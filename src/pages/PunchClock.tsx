@@ -1231,8 +1231,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                       <div className="w-px h-5 bg-primary-foreground/30" />
                     </>
                   )}
-                  <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isDayMode ? 'bg-accent-foreground' : 'bg-primary'}`} />
-                  <span className={`text-base font-semibold ${isDayMode ? 'text-accent-foreground' : 'text-white'}`}>{currentLocation.name}</span>
+                  <div className="w-2.5 h-2.5 rounded-full animate-pulse bg-primary-foreground" />
+                  <span className="text-base font-semibold text-primary-foreground">{currentLocation.name}</span>
                 </div>
               </div>
             )}
