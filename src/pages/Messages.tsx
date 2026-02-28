@@ -184,13 +184,14 @@ export default function Messages() {
         </div>
 
         <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden">
-          <div className="flex items-center justify-end p-3 pb-2">
-            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-8 w-8">
-              <Plus className="h-4 w-4" />
+          <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+            <div className="flex-1 overflow-x-auto scrollbar-hide">
+              <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+            </div>
+            <Button size="icon" onClick={() => setIsNewActionOpen(true)} className="h-10 w-10 rounded-full shrink-0">
+              <Plus className="h-5 w-5" />
             </Button>
           </div>
-
-          <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} compact />
           
           {viewMode !== 'hiring' && viewMode !== 'support' && (
             <div className="px-3 pb-2">
