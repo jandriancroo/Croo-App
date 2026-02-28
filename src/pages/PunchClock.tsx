@@ -1369,14 +1369,14 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               )}
 
               {/* Right Side - Number Pad */}
-              <CardContent className="p-8 flex flex-col justify-center">
+              <CardContent className={`p-8 flex flex-col justify-center ${isDayMode ? '' : 'bg-neutral-800'}`}>
                 <div className="space-y-4">
                   {/* Time Display - moved from image side */}
                   <div className="text-center pb-2">
-                    <div className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight">
+                    <div className={`text-4xl sm:text-5xl font-bold tracking-tight ${isDayMode ? 'text-foreground' : 'text-white'}`}>
                       {format(currentTime, 'h:mm:ss a')}
                     </div>
-                    <p className="text-muted-foreground text-sm mt-1">
+                    <p className={`text-sm mt-1 ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
                       {format(currentTime, 'EEEE, MMMM d')}
                     </p>
                   </div>
