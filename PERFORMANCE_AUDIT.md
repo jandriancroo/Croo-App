@@ -113,7 +113,7 @@ GET  user_locations      → 200 (25 users)
 GET  profiles            → 200 (25 profiles, single batch ✅)
 GET  time_punches        → 200 (150+ punches, single query ✅)
 GET  availability        → 200 (single query ✅)
-POST get_current_wage ×25 → 200 each ❌ (N+1 problem)
+POST get_current_wage ×25 → 200 each ⚠️ (parallel via Promise.all, but could be 1 batch RPC)
 ```
 
 **Fixing #1 alone would reduce requests from ~30 to ~5 on period load.**
