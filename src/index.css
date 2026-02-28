@@ -401,21 +401,27 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach Hawaiian paradise background — Maui photo */
-[data-theme="beach"] body {
-  background-color: transparent !important;
-  background-image: url('/images/maui-beach.jpeg') !important;
-  background-size: cover !important;
-  background-position: center !important;
-  background-attachment: fixed !important;
-  background-repeat: no-repeat !important;
+/* Beach Hawaiian paradise background — Maui photo applied via #root */
+[data-theme="beach"] #root {
+  position: relative;
+  min-height: 100vh;
+  z-index: 1;
 }
 
-[data-theme="beach"] #root {
-  background: hsl(185 28% 92% / 0.6);
-  min-height: 100vh;
-  position: relative;
-  z-index: 1;
+[data-theme="beach"] #root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
+}
+
+[data-theme="beach"] #root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: hsl(185 28% 92% / 0.62);
 }
 
 @keyframes beachWave {
