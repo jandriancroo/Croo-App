@@ -207,7 +207,7 @@ export function ManagerDashboardOverlay({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
   const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
-  const [isDayMode, setIsDayMode] = useState(false);
+  const [isDayMode, setIsDayMode] = useState(() => localStorage.getItem('punch-clock-day-mode') === 'true');
   const [showTeamTasks, setShowTeamTasks] = useState(false);
 
   // Build storage key for labor cuts persistence
