@@ -1493,7 +1493,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
               <ArrowLeftRight className="h-8 w-8 text-primary-foreground" />
             </button>
           )}
-          </Card>
         </div>
       ) : (
         <div className={`min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden touch-none ${isDayMode ? 'bg-background' : 'bg-neutral-900'}`} style={{ touchAction: 'none' }}>
