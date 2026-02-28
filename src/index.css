@@ -625,6 +625,15 @@ All colors MUST be HSL.
     box-shadow: 
       0 -4px 28px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(220 20% 30% / 0.15);
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] .glass-dock svg {
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] .glass-dock span {
+    color: hsl(215 12% 75%);
   }
   
   [data-theme="oled"] .glass-dock::after {
@@ -789,8 +798,17 @@ All colors MUST be HSL.
   [data-theme="oled"] .nav-bar-unified {
     background: hsl(220 22% 15%);
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
+    color: hsl(215 12% 75%);
+  }
+
+  [data-theme="oled"] .nav-bar-unified * {
+    color: inherit;
   }
   
+  [data-theme="oled"] .nav-bar-unified svg {
+    color: hsl(215 12% 75%);
+  }
+
   [data-theme="oled"] .nav-logo-bulge::before {
     background: linear-gradient(
       180deg,
