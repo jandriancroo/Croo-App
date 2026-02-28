@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, Send } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell, Send, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
