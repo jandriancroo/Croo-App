@@ -270,11 +270,10 @@ export default function MultiLocationDashboard() {
     refetchInterval: 3 * 60 * 1000, // Re-check every 3 minutes (matches cache TTL)
   });
 
-  // Fetch sales data from sales_cache — SAME SOURCE as SalesSummary.checkDatabaseCache
-  // This runs AFTER sync to ensure we have fresh data
-  // We include liveDataMap in the key so it refetches after sync completes
+  // Fetch sales data from sales_cache — fires immediately (no longer waits for live sync)
+  // Live data overlay happens in the render phase via liveDataMap merge
   const { data: salesDataMap = {}, isLoading: salesLoading } = useQuery({
-    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr, Object.keys(liveDataMap).length],
+    queryKey: ['org-sales-data', locations.map(l => l.id), todayStr, weekStartStr, monthEndStr],
     queryFn: async () => {
       if (locations.length === 0) return {};
       
