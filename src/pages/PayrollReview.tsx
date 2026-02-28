@@ -33,7 +33,6 @@ export default function PayrollReview() {
     setSelectedPeriod,
     getPeriodStatus,
     isPeriodClosed,
-    closingPeriod,
     handleClosePeriod,
     handleReopenPeriod,
     timeCards,
