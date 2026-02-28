@@ -150,7 +150,7 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const isPunchingRef = useRef(false); // Prevent double-tap duplicate punches
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const currentTime = useClock(1000);
   // Active meeting event (if user is assigned to one happening now)
   const [activeMeetingEvent, setActiveMeetingEvent] = useState<any>(null);
   // Labor rules for clock-in restrictions
