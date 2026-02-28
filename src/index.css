@@ -408,7 +408,7 @@ html[data-theme="beach"] {
 }
 
 html[data-theme="beach"] body {
-  background: hsl(195 25% 92% / 0.15) !important;
+  background: hsl(195 25% 92% / 0.45) !important;
 }
 
 html[data-theme="beach"] #root {
