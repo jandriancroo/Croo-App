@@ -187,9 +187,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Fetch labor data
+  // Fetch labor data — shared key with ManagerDashboard
   const { data: laborData } = useQuery({
-    queryKey: ['compact-dash-labor', locationId, todayStr],
+    queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase

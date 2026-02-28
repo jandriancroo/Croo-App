@@ -424,9 +424,9 @@ export function ManagerDashboardOverlay({
     refetchInterval: 30000,
   });
 
-  // Fetch labor data
+  // Fetch labor data — shared key with CompactDashboard
   const { data: laborData } = useQuery({
-    queryKey: ['manager-dash-labor', locationId, todayStr],
+    queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('labor_cache')
