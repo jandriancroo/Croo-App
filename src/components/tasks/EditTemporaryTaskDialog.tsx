@@ -652,102 +652,103 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             </>
           )}
 
-          {/* Assignment Type - hidden for team tasks */}
-          {taskStyle !== "team" && (<div className="space-y-2">
-            <Label>Assign To</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={assignmentType === "employees" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("employees");
-                  setSelectedRoles([]);
-                }}
-              >
-                Employees
-              </Button>
-              <Button
-                type="button"
-                variant={assignmentType === "roles" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setAssignmentType("roles");
-                  setSelectedEmployees([]);
-                }}
-              >
-                Roles
-              </Button>
-            </div>
-          </div>
-
-          {/* Employee Selection */}
-          {assignmentType === "employees" && (
-            <div className="space-y-2">
-              <Label>Select Employees *</Label>
-              <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                {employees.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No employees found</p>
-                ) : (
-                  employees.map((employee: any) => (
-                    <div key={employee.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`edit-emp-${employee.id}`}
-                        checked={selectedEmployees.includes(employee.id)}
-                        onCheckedChange={() => toggleEmployee(employee.id)}
-                      />
-                      <label
-                        htmlFor={`edit-emp-${employee.id}`}
-                        className="text-sm cursor-pointer flex-1"
-                      >
-                        {employee.full_name}
-                      </label>
-                    </div>
-                  ))
-                )}
+          {/* Assignment - hidden for team tasks */}
+          {taskStyle !== "team" && (
+            <>
+              <div className="space-y-2">
+                <Label>Assign To</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={assignmentType === "employees" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("employees");
+                      setSelectedRoles([]);
+                    }}
+                  >
+                    Employees
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={assignmentType === "roles" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setAssignmentType("roles");
+                      setSelectedEmployees([]);
+                    }}
+                  >
+                    Roles
+                  </Button>
+                </div>
               </div>
-              {selectedEmployees.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {selectedEmployees.map(empId => {
-                    const emp = employees.find((e: any) => e.id === empId);
-                    return emp ? (
-                      <Badge key={empId} variant="secondary" className="gap-1">
-                        {emp.full_name}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => toggleEmployee(empId)}
-                        />
-                      </Badge>
-                    ) : null;
-                  })}
+
+              {assignmentType === "employees" && (
+                <div className="space-y-2">
+                  <Label>Select Employees *</Label>
+                  <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                    {employees.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No employees found</p>
+                    ) : (
+                      employees.map((employee: any) => (
+                        <div key={employee.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`edit-emp-${employee.id}`}
+                            checked={selectedEmployees.includes(employee.id)}
+                            onCheckedChange={() => toggleEmployee(employee.id)}
+                          />
+                          <label
+                            htmlFor={`edit-emp-${employee.id}`}
+                            className="text-sm cursor-pointer flex-1"
+                          >
+                            {employee.full_name}
+                          </label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {selectedEmployees.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedEmployees.map(empId => {
+                        const emp = employees.find((e: any) => e.id === empId);
+                        return emp ? (
+                          <Badge key={empId} variant="secondary" className="gap-1">
+                            {emp.full_name}
+                            <X
+                              className="h-3 w-3 cursor-pointer"
+                              onClick={() => toggleEmployee(empId)}
+                            />
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Role Selection */}
-          {assignmentType === "roles" && (
-            <div className="space-y-2">
-              <Label>Select Roles *</Label>
-              <div className="border rounded-lg p-3 space-y-2">
-                {ROLE_OPTIONS.map(role => (
-                  <div key={role.value} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`edit-role-${role.value}`}
-                      checked={selectedRoles.includes(role.value)}
-                      onCheckedChange={() => toggleRole(role.value)}
-                    />
-                    <label
-                      htmlFor={`edit-role-${role.value}`}
-                      className="text-sm cursor-pointer flex-1"
-                    >
-                      {role.label}
-                    </label>
+              {assignmentType === "roles" && (
+                <div className="space-y-2">
+                  <Label>Select Roles *</Label>
+                  <div className="border rounded-lg p-3 space-y-2">
+                    {ROLE_OPTIONS.map(role => (
+                      <div key={role.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`edit-role-${role.value}`}
+                          checked={selectedRoles.includes(role.value)}
+                          onCheckedChange={() => toggleRole(role.value)}
+                        />
+                        <label
+                          htmlFor={`edit-role-${role.value}`}
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          {role.label}
+                        </label>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
+            </>
           )}
 
           {/* Subtasks */}
