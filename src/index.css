@@ -401,44 +401,40 @@ All colors MUST be HSL.
   animation: sprinkleFall 18s linear infinite;
 }
 
-/* Beach Hawaiian paradise background */
+/* Beach Hawaiian paradise background — Maui photo */
 [data-theme="beach"] body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      hsl(198 75% 82% / 0.4) 0%,
-      hsl(192 60% 88% / 0.2) 30%,
-      hsl(185 45% 90% / 0.1) 50%,
-      hsl(42 50% 82% / 0.15) 70%,
-      hsl(35 55% 75% / 0.25) 85%,
-      hsl(198 65% 78% / 0.3) 100%
-    );
+  background: url('/images/maui-beach.jpeg') center/cover no-repeat fixed;
+  opacity: 0.18;
 }
 
 @keyframes beachWave {
-  0%, 100% { transform: translateX(0) scaleY(1); }
-  50% { transform: translateX(-2%) scaleY(1.02); }
+  0%, 100% { transform: translateX(0) scaleY(1); opacity: 0.55; }
+  25% { transform: translateX(-1.5%) scaleY(1.06); opacity: 0.7; }
+  50% { transform: translateX(0) scaleY(1.1); opacity: 0.6; }
+  75% { transform: translateX(1.5%) scaleY(1.04); opacity: 0.65; }
 }
 
 [data-theme="beach"] body::after {
   content: '';
   position: fixed;
   bottom: 0;
-  left: -5%;
-  right: -5%;
-  height: 120px;
-  z-index: 0;
+  left: -10%;
+  right: -10%;
+  height: 80px;
+  z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 40px at 20% 100%, hsl(185 55% 72% / 0.18) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 35px at 50% 100%, hsl(198 60% 68% / 0.15) 0%, transparent 70%),
-    radial-gradient(ellipse 55% 45px at 80% 100%, hsl(190 50% 74% / 0.2) 0%, transparent 70%);
-  animation: beachWave 6s ease-in-out infinite;
+    radial-gradient(ellipse 70% 50px at 15% 100%, hsl(185 50% 65% / 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 45px at 45% 100%, hsl(178 55% 55% / 0.3) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55px at 75% 100%, hsl(190 45% 60% / 0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 35px at 30% 85%, hsl(180 40% 70% / 0.2) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 40px at 65% 90%, hsl(185 45% 65% / 0.25) 0%, transparent 70%);
+  animation: beachWave 5s ease-in-out infinite;
 }
 
 /* ============================================
