@@ -300,16 +300,80 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     </div>
   );
 
+  const getAvatarContent = (chat: Chat) => {
+    if (chat.title === 'Shift Marketplace') {
+      return (
+        <AvatarFallback className="bg-accent/15">
+          <ArrowLeftRight className="h-6 w-6 text-accent" />
+        </AvatarFallback>
+      );
+    }
+    if (chat.is_announcement) {
+      return (
+        <AvatarFallback className="bg-primary/10">
+          <Megaphone className="h-6 w-6 text-primary" />
+        </AvatarFallback>
+      );
+    }
+    if (chat.is_group) {
+      return (
+        <>
+          <AvatarImage src={chat.group_image_url || undefined} />
+          <AvatarFallback><Users className="h-6 w-6" /></AvatarFallback>
+        </>
+      );
+    }
+    return (
+      <>
+        <AvatarImage
+          src={
+            chat.chat_members?.find((m) => m.user_id !== currentUserId)?.profiles?.profile_photo_url ||
+            chat.chat_members?.[0]?.profiles?.profile_photo_url ||
+            undefined
+          }
+        />
+        <AvatarFallback className="text-lg font-medium">
+          {chat.title?.charAt(0) || 'C'}
+        </AvatarFallback>
+      </>
+    );
+  };
+
+  const renderPinnedBubble = (chat: Chat) => (
+    <button
+      key={chat.id}
+      onClick={() => onSelectChat(chat.id)}
+      onTouchStart={(e) => handleTouchStart(chat, e)}
+      onTouchEnd={() => handleTouchEnd(chat)}
+      onTouchMove={handleTouchMove}
+      className="flex flex-col items-center gap-1 w-[72px] select-none"
+    >
+      <div className="relative">
+        <Avatar className="h-14 w-14">
+          {getAvatarContent(chat)}
+        </Avatar>
+        {chat.unreadCount && chat.unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1 text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full">
+            {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+          </span>
+        )}
+      </div>
+      <span className="text-[11px] font-medium text-center leading-tight line-clamp-2 w-full">
+        {chat.title || (chat.is_group ? 'Group' : 'DM')}
+      </span>
+    </button>
+  );
+
   return (
     <>
       <div className="overflow-y-auto flex-1">
         {pinnedChats.length > 0 && (
           <>
-            <div className="space-y-1">
-              {pinnedChats.map(renderChat)}
+            <div className="grid grid-cols-4 gap-2 px-3 py-3 justify-items-center">
+              {pinnedChats.map(renderPinnedBubble)}
             </div>
             {unpinnedChats.length > 0 && (
-              <div className="my-2 mx-3 border-t border-border" />
+              <div className="mx-3 border-t border-border" />
             )}
           </>
         )}
