@@ -367,9 +367,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         accent_color: accentColor,
         created_by: user!.id,
         task_style: taskStyle === "qr" ? "standard" : taskStyle, // QR uses standard style in DB
-        is_recurring: taskStyle === "alarm",
-        show_on_dashboard: taskStyle === "qr" ? false : showOnDashboard,
-        shareable: taskStyle !== "qr" && subtasks.length > 0 ? shareable : false,
+        is_recurring: taskStyle === "alarm" || taskStyle === "team",
+        show_on_dashboard: taskStyle === "qr" ? false : taskStyle === "team" ? false : showOnDashboard,
+        show_on_punch_clock: taskStyle === "team" ? true : (taskStyle === "alarm" ? showOnPunchClock : false),
+        shareable: taskStyle !== "qr" && taskStyle !== "team" && subtasks.length > 0 ? shareable : false,
       };
 
       if (taskStyle === "standard") {
@@ -384,7 +385,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.push_enabled = pushEnabled;
-        taskData.show_on_punch_clock = showOnPunchClock;
+      } else if (taskStyle === "team") {
+        // Team task fields
+        taskData.days_of_week = daysOfWeek;
+        taskData.is_active = true;
       } else if (taskStyle === "qr") {
         // QR task fields
         taskData.is_qr_triggered = true;
