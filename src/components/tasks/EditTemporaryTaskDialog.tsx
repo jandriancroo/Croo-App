@@ -258,12 +258,12 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
       }
     }
 
-    if (taskStyle === "alarm") {
+    if (taskStyle === "alarm" || taskStyle === "team") {
       if (daysOfWeek.length === 0) {
         toast.error("Please select at least one day of the week");
         return;
       }
-      if (frequencyType === "custom" && customTimes.length === 0) {
+      if (taskStyle === "alarm" && frequencyType === "custom" && customTimes.length === 0) {
         toast.error("Please add at least one custom time");
         return;
       }
