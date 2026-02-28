@@ -285,7 +285,7 @@ export default function Messages() {
                 <Megaphone className="h-5 w-5" /> Announcement
               </Button>
             )}
-            <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); handleViewModeChange('support'); }}>
+            <Button variant="outline" className="w-full gap-3 justify-start h-12" onClick={() => { setIsNewActionOpen(false); setIsCreateTicketOpen(true); }}>
               <Headphones className="h-5 w-5" /> Support Request
             </Button>
           </div>
