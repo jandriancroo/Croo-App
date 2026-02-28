@@ -64,6 +64,7 @@ export default function Certifications() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
