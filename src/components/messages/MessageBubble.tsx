@@ -252,6 +252,17 @@ export function MessageBubble({
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
+              {canUnsend && onUnsend && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  onClick={() => onUnsend(message.id)}
+                  title="Delete for everyone"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
             <MessageReactions messageId={message.id} currentUserId={currentUserId} />
           </>
