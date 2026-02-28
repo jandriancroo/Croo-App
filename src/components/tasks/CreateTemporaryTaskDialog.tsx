@@ -820,6 +820,62 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
             </>
           )}
 
+          {/* Team Task Settings */}
+          {taskStyle === "team" && (
+            <>
+              {/* Days of Week */}
+              <div className="space-y-2">
+                <Label>Active Days *</Label>
+                <div className="flex gap-1">
+                  {DAYS_OF_WEEK.map(day => (
+                    <Button
+                      key={day.value}
+                      type="button"
+                      size="sm"
+                      variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
+                      className="flex-1 px-1 text-xs"
+                      onClick={() => toggleDayOfWeek(day.value)}
+                    >
+                      {day.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Which days this task list is available
+                </p>
+              </div>
+
+              {/* Accent Color */}
+              <div className="space-y-2">
+                <Label>Accent Color</Label>
+                <Select value={accentColor} onValueChange={setAccentColor}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: accentColor }}
+                      />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLORS.map(color => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full" 
+                            style={{ backgroundColor: color.value }}
+                          />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
           {/* QR Task Settings */}
           {taskStyle === "qr" && (
             <>
