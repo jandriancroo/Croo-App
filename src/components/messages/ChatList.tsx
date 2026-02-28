@@ -371,7 +371,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
 
   return (
     <>
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-y-auto flex-1 pb-16">
         {pinnedChats.length > 0 && (
           <>
             <div className="flex flex-wrap gap-2 px-3 py-3 justify-center">
