@@ -484,35 +484,45 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
           {/* Task Style Toggle */}
           <div className="space-y-2">
             <Label>Task Style</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               <Button
                 type="button"
                 variant={taskStyle === "standard" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("standard")}
               >
-                <ClipboardList className="h-4 w-4" />
+                <ClipboardList className="h-3.5 w-3.5" />
                 Standard
               </Button>
               <Button
                 type="button"
                 variant={taskStyle === "alarm" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("alarm")}
               >
-                <AlarmClock className="h-4 w-4" />
+                <AlarmClock className="h-3.5 w-3.5" />
                 Alarm
+              </Button>
+              <Button
+                type="button"
+                variant={taskStyle === "team" ? "default" : "outline"}
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setTaskStyle("team")}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Team
               </Button>
               <Button
                 type="button"
                 variant={taskStyle === "qr" ? "default" : "outline"}
                 size="sm"
-                className="gap-2 flex-1"
+                className="gap-1 text-xs"
                 onClick={() => setTaskStyle("qr")}
               >
-                <QrCode className="h-4 w-4" />
+                <QrCode className="h-3.5 w-3.5" />
                 QR
               </Button>
             </div>
