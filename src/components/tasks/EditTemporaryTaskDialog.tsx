@@ -291,6 +291,8 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         taskData.alarm_end_time = alarmEndTime;
         taskData.notify_only_working = notifyOnlyWorking;
         taskData.show_on_punch_clock = showOnPunchClock;
+      } else if (taskStyle === "team") {
+        taskData.days_of_week = daysOfWeek;
       }
 
       // Update the task
