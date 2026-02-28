@@ -16,7 +16,7 @@ import {
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { SupportChatPanel } from '@/components/support/SupportChatPanel';
-import { SupportButton } from '@/components/support/SupportButton';
+
 import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { useMessagesData, type ViewMode } from '@/hooks/useMessagesData';
 
