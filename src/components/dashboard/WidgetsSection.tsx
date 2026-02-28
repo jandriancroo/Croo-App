@@ -419,16 +419,7 @@ export const WidgetsSection = memo(function WidgetsSection({
     autoCreateSalesChart();
   }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient]);
   
-  // Debug: Log when salesData changes
-  useEffect(() => {
-    console.log('[WidgetsSection] salesData updated:', {
-      hasSalesData: !!salesData,
-      daily: salesData?.daily,
-      weekly: salesData?.weekly,
-      cubeCount: localCubes.length,
-      hasSalesChart
-    });
-  }, [salesData, localCubes.length, hasSalesChart]);
+  // Debug logging removed for performance - was causing excess re-render tracking
 
   // Build combined sortable items list (cubes + checklists block) - memoized
   const sortableItems = useMemo((): SortableItem[] => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -93,26 +93,32 @@ export function useChatUnreadCounts(locationId: string | null) {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Realtime subscription for instant badge updates
+    // Debounced refetch to prevent cascading calls from rapid realtime events
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedFetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchCounts();
+      }, 1500); // Wait 1.5s after last event before fetching
+    };
+
+    // Realtime subscription for badge updates (debounced)
     channelRef.current = supabase
       .channel(`chat-counts-${user.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => {
-          fetchCounts();
-        }
+        debouncedFetch
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `user_id=eq.${user.id}` },
-        () => {
-          fetchCounts();
-        }
+        debouncedFetch
       )
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
