@@ -1105,34 +1105,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                      {taskStyle === "team" && subtask.days_of_week && (
-                        <div className="flex gap-0.5 pl-6">
-                          {DAYS_OF_WEEK.map(day => (
-                            <button
-                              key={day.value}
-                              type="button"
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
-                                subtask.days_of_week!.includes(day.value)
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-muted-foreground'
-                              }`}
-                              onClick={() => {
-                                const updated = [...subtasks];
-                                const current = updated[index].days_of_week || [];
-                                updated[index] = {
-                                  ...updated[index],
-                                  days_of_week: current.includes(day.value)
-                                    ? current.filter(d => d !== day.value)
-                                    : [...current, day.value].sort((a, b) => a - b)
-                                };
-                                setSubtasks(updated);
-                              }}
-                            >
-                              {day.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      
                     </div>
                   ))}
             </div>

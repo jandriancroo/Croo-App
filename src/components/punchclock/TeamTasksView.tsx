@@ -20,7 +20,6 @@ interface TeamSubtask {
   id: string;
   title: string;
   order_index: number;
-  days_of_week: number[] | null;
   quantity: number | null;
 }
 
