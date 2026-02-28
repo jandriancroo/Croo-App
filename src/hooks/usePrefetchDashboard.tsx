@@ -147,6 +147,23 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
       staleTime: 60 * 1000, // 1 min - today's data changes
     });
 
+    // Prefetch labor data — shared key with CompactDashboard + ManagerDashboard
+    queryClient.prefetchQuery({
+      queryKey: ['labor-cache-today', locationId, todayStr],
+      queryFn: async () => {
+        const { data } = await supabase
+          .from('labor_cache')
+          .select('labor_hours, labor_cost')
+          .eq('location_id', locationId)
+          .eq('labor_date', todayStr);
+        if (!data || data.length === 0) return null;
+        const totalCost = data.reduce((sum, row) => sum + (row.labor_cost || 0), 0);
+        const totalHours = data.reduce((sum, row) => sum + (row.labor_hours || 0), 0);
+        return { labor_cost: totalCost, labor_hours: totalHours };
+      },
+      staleTime: 60 * 1000,
+    });
+
     // Prefetch WTD sales from cache (Monday through yesterday)
     const [y, m, d] = todayStr.split('-').map(Number);
     const localDate = new Date(y, m - 1, d);

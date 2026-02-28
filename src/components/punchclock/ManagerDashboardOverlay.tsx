@@ -265,9 +265,9 @@ export function ManagerDashboardOverlay({
 
   const todayStr = useMemo(() => getTodayInTimezone(timezone), [timezone]);
 
-  // Fetch sales data from sales_cache
+  // Fetch sales data from sales_cache — shared key with CompactDashboard + prefetch
   const { data: salesData } = useQuery({
-    queryKey: ['manager-dash-sales', locationId, todayStr],
+    queryKey: ['sales-cache-today', locationId, todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_cache')
@@ -424,9 +424,9 @@ export function ManagerDashboardOverlay({
     refetchInterval: 30000,
   });
 
-  // Fetch labor data
-  const { data: laborData } = useQuery({
-    queryKey: ['manager-dash-labor', locationId, todayStr],
+  // Fetch labor data — shared key with CompactDashboard
+  const { data: laborDataRaw } = useQuery({
+    queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('labor_cache')
@@ -435,14 +435,18 @@ export function ManagerDashboardOverlay({
         .eq('labor_date', todayStr);
 
       if (error) throw error;
+      if (!data || data.length === 0) return null;
 
       // Sum up all labor sources
       const totalCost = (data || []).reduce((sum, row) => sum + (row.labor_cost || 0), 0);
       const totalHours = (data || []).reduce((sum, row) => sum + (row.labor_hours || 0), 0);
-      return { laborCost: totalCost, laborHours: totalHours };
+      return { labor_cost: totalCost, labor_hours: totalHours };
     },
     refetchInterval: 60000,
   });
+  
+  // Map to camelCase for this component's usage
+  const laborData = laborDataRaw ? { laborCost: laborDataRaw.labor_cost, laborHours: laborDataRaw.labor_hours } : null;
 
   // Fetch quick tasks for shift managers+
   const { data: quickTasks = [] } = useQuery({

@@ -168,9 +168,9 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }
   }, [currentTime, timezone]);
 
-  // Fetch sales data from sales_cache
+  // Fetch sales data from sales_cache — shared key with prefetch + ManagerDashboard
   const { data: salesData } = useQuery({
-    queryKey: ['compact-dash-sales', locationId, todayStr],
+    queryKey: ['sales-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase
@@ -187,20 +187,24 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     refetchInterval: isExpanded ? 60000 : false,
   });
 
-  // Fetch labor data
+  // Fetch labor data — shared key with ManagerDashboard
+  // Sum multiple source rows (qubeyond + punch_clock) for accurate totals
   const { data: laborData } = useQuery({
-    queryKey: ['compact-dash-labor', locationId, todayStr],
+    queryKey: ['labor-cache-today', locationId, todayStr],
     queryFn: async () => {
       if (!locationId) return null;
       const { data, error } = await supabase
         .from('labor_cache')
         .select('labor_hours, labor_cost')
         .eq('location_id', locationId)
-        .eq('labor_date', todayStr)
-        .maybeSingle();
+        .eq('labor_date', todayStr);
 
       if (error) throw error;
-      return data;
+      if (!data || data.length === 0) return null;
+      
+      const totalCost = data.reduce((sum, row) => sum + (row.labor_cost || 0), 0);
+      const totalHours = data.reduce((sum, row) => sum + (row.labor_hours || 0), 0);
+      return { labor_cost: totalCost, labor_hours: totalHours };
     },
     enabled: !!locationId && isExpanded,
     refetchInterval: isExpanded ? 60000 : false,
