@@ -318,7 +318,7 @@ export default function Messages() {
         />
       )}
 
-      {/* SupportButton removed - now accessible via New Conversation dialog */}
+      <CreateTicketDialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen} />
     </Layout>
   );
 }
