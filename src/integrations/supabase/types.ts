@@ -6204,6 +6204,55 @@ export type Database = {
           },
         ]
       }
+      task_subtask_completions: {
+        Row: {
+          completed_at: string
+          completed_by: string
+          completed_date: string
+          id: string
+          subtask_id: string
+          task_id: string
+        }
+        Insert: {
+          completed_at?: string
+          completed_by: string
+          completed_date: string
+          id?: string
+          subtask_id: string
+          task_id: string
+        }
+        Update: {
+          completed_at?: string
+          completed_by?: string
+          completed_date?: string
+          id?: string
+          subtask_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_subtask_completions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_subtask_completions_subtask_id_fkey"
+            columns: ["subtask_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_task_subtasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_subtask_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       temporary_task_assignments: {
         Row: {
           created_at: string
@@ -6248,9 +6297,11 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string
+          days_of_week: number[] | null
           id: string
           item_type: string
           order_index: number
+          quantity: number | null
           response_image_url: string | null
           task_id: string
           title: string
@@ -6259,9 +6310,11 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          days_of_week?: number[] | null
           id?: string
           item_type?: string
           order_index?: number
+          quantity?: number | null
           response_image_url?: string | null
           task_id: string
           title: string
@@ -6270,9 +6323,11 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
+          days_of_week?: number[] | null
           id?: string
           item_type?: string
           order_index?: number
+          quantity?: number | null
           response_image_url?: string | null
           task_id?: string
           title?: string
