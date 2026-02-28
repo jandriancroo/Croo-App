@@ -416,11 +416,13 @@ html[data-theme="beach"] body.beach-dashboard .bg-card {
   background-color: hsl(42 30% 96% / 0.85) !important;
 }
 
-/* Force opaque popover/dropdown/select overlays on beach dashboard */
+/* Force opaque popover/dropdown/select/sheet overlays on beach dashboard */
 html[data-theme="beach"] body.beach-dashboard [data-radix-popper-content-wrapper] *,
 html[data-theme="beach"] body.beach-dashboard [role="listbox"],
 html[data-theme="beach"] body.beach-dashboard [role="menu"],
+html[data-theme="beach"] body.beach-dashboard [role="dialog"],
 html[data-theme="beach"] body.beach-dashboard [data-radix-menu-content],
+html[data-theme="beach"] body.beach-dashboard [vaul-drawer],
 html[data-theme="beach"] body.beach-dashboard .glass-card {
   background-color: hsl(var(--popover)) !important;
   backdrop-filter: none !important;
