@@ -24,6 +24,7 @@ interface Chat {
   title: string | null;
   is_group: boolean;
   is_announcement?: boolean;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   group_image_url: string | null;
