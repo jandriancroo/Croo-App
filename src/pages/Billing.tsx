@@ -104,16 +104,7 @@ export default function Billing() {
                 const isPopular = key === 'pro';
 
                 return (
-                  <Card
-                    key={key}
-                    className={`relative flex flex-col transition-all ${
-                      isCurrent
-                        ? 'border-primary ring-2 ring-primary/20'
-                        : isPopular
-                        ? 'border-primary/50'
-                        : ''
-                    }`}
-                  >
+                  <div key={key} className="relative flex flex-col">
                     {(isPopular || key === 'ludicrous') && !isCurrent && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge className="bg-primary text-primary-foreground text-xs px-3 whitespace-nowrap">
@@ -126,6 +117,16 @@ export default function Billing() {
                         <Badge className="bg-accent text-accent-foreground text-xs px-3">Your Plan</Badge>
                       </div>
                     )}
+                  <Card
+                    className={`flex-1 flex flex-col transition-all ${
+                      isCurrent
+                        ? 'border-primary ring-2 ring-primary/20'
+                        : isPopular
+                        ? 'border-primary/50'
+                        : ''
+                    }`}
+                  >
+
 
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
@@ -165,7 +166,8 @@ export default function Billing() {
                         </Button>
                       )}
                     </CardContent>
-                  </Card>
+                   </Card>
+                  </div>
                 );
               })}
             </div>
