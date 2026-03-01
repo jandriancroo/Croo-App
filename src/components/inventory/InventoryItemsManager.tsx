@@ -1848,6 +1848,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               >
                 Pan Sizes
               </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setBulkCategoryValue(""); setShowBulkCategoryDialog(true); }}
+                className="gap-1.5"
+              >
+                <Tag className="h-4 w-4" />
+                Category
+              </Button>
             </div>
             <div className="h-6 w-px bg-primary-foreground/20" />
             <Button
