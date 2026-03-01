@@ -166,7 +166,8 @@ export default function Billing() {
                         </Button>
                       )}
                     </CardContent>
-                  </Card>
+                   </Card>
+                  </div>
                 );
               })}
             </div>
