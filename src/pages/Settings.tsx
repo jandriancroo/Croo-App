@@ -45,6 +45,7 @@ const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
