@@ -110,6 +110,11 @@ export function SortableInventoryItem({
             Shortcut
           </Badge>
         )}
+        {(item as any).category && !isShortcut && (
+          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 flex-shrink-0 text-muted-foreground">
+            {(item as any).category}
+          </Badge>
+        )}
         {(item as any).pan_sizes?.enabled && !isShortcut && (
           <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 flex-shrink-0">
             Pans
