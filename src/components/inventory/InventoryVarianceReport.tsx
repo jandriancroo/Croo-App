@@ -439,7 +439,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                         item.variance > 0 && "bg-green-500"
                       )}
                     >
-                      {item.variance > 0 ? "+" : ""}{item.variance}
+                      {item.variance > 0 ? "+" : ""}{Number(Number(item.variance).toFixed(2))}
                       {item.variance_cost && (
                         <span className="ml-1">
                           (${Math.abs(item.variance_cost).toFixed(2)})
