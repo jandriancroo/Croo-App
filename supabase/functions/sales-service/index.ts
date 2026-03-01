@@ -904,6 +904,100 @@ async function handleSyncDay(req: Request, supabase: any): Promise<Response> {
 }
 
 // ============================================================================
+// ACTION: sync-yesterday — No auth required, uses service role (called by nightly maintenance)
+// ============================================================================
+
+async function handleSyncYesterday(supabase: any): Promise<Response> {
+  console.log('[sales-service] sync-yesterday: Starting...');
+
+  const { data: integrations, error: intError } = await supabase
+    .from('location_integrations')
+    .select(`id, location_id, credentials, locations!inner(id, name)`)
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true);
+
+  if (intError || !integrations || integrations.length === 0) {
+    console.log('[sales-service] sync-yesterday: No active integrations');
+    return new Response(JSON.stringify({ message: 'No active integrations' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const results: { locationId: string; name: string; status: string }[] = [];
+
+  for (const integration of integrations) {
+    const locationId = integration.location_id;
+    const locationName = (integration.locations as any)?.name || 'Unknown';
+    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+    const qbLocationId = credentials?.location_id || '';
+
+    if (!qbLocationId || !credentials?.username || !credentials?.password) {
+      results.push({ locationId, name: locationName, status: 'missing_credentials' });
+      continue;
+    }
+
+    // Get timezone for this location
+    const { data: settings } = await supabase
+      .from('location_settings')
+      .select('timezone')
+      .eq('location_id', locationId)
+      .maybeSingle();
+
+    const timezone = settings?.timezone || 'America/Los_Angeles';
+    
+    // Calculate yesterday in the location's timezone
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    const todayStr = formatter.format(now);
+    const yesterdayDate = new Date(todayStr + 'T12:00:00');
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+    console.log(`[sales-service] sync-yesterday: ${locationName} syncing ${yesterdayStr}`);
+
+    try {
+      const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+      if (!tokenGw) {
+        results.push({ locationId, name: locationName, status: 'auth_failed' });
+        continue;
+      }
+
+      const salesData = await fetchAllSalesData(supabase, tokenGw, yesterdayStr, qbLocationId, locationId);
+
+      if (salesData.netSales <= 0) {
+        results.push({ locationId, name: locationName, status: 'no_sales' });
+        continue;
+      }
+
+      const payload = buildUpsertPayload(locationId, yesterdayStr, salesData);
+
+      const { error: upsertError } = await supabase
+        .from('sales_cache')
+        .upsert(payload, { onConflict: 'location_id,sale_date' });
+
+      if (upsertError) {
+        console.error(`[sales-service] sync-yesterday ${locationName} upsert error:`, upsertError);
+        results.push({ locationId, name: locationName, status: 'upsert_error' });
+      } else {
+        console.log(`[sales-service] sync-yesterday ${locationName}: $${salesData.netSales.toFixed(2)}, ${salesData.productMix.length} mix items`);
+        results.push({ locationId, name: locationName, status: 'success' });
+      }
+    } catch (err) {
+      console.error(`[sales-service] sync-yesterday ${locationName} error:`, err);
+      results.push({ locationId, name: locationName, status: 'error' });
+    }
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    synced: results.filter(r => r.status === 'success').length,
+    results,
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+// ============================================================================
 // TIPS SYNC — Bulk fetch tips for a date range and upsert into daily_tips
 // ============================================================================
 
@@ -1097,6 +1191,9 @@ serve(async (req) => {
       
       case 'sync-day':
         return await handleSyncDay(req, supabase);
+      
+      case 'sync-yesterday':
+        return await handleSyncYesterday(supabase);
       
       case 'backfill':
         return await handleBackfill(req, supabase);
