@@ -12,7 +12,7 @@ import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook
 import { EmployeeWriteUpEntry } from "@/components/logbook/EmployeeWriteUpEntry";
 import { ReadAndSignEntry } from "@/components/logbook/ReadAndSignEntry";
 import { PerformanceReviewEntry } from "@/components/logbook/PerformanceReviewEntry";
-import crooLogo from "@/assets/croo-logo.webp";
+
 import type { useLogBookData } from "@/hooks/useLogBookData";
 
 type LogBookData = ReturnType<typeof useLogBookData>;
