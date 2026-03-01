@@ -4,14 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useUserRole } from '@/hooks/useUserRole';
 import { SUBSCRIPTION_TIERS, ADDONS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth';
 
 const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   core: <Zap className="h-5 w-5" />,
@@ -24,10 +23,9 @@ const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous'];
 
 export default function Billing() {
   const { subscribed, tierKey, loading, startCheckout, openPortal, subscriptionEnd, trialEnd, checkSubscription } = useSubscription();
-  const { userRole } = useAuth();
+  const { isSuperAdmin } = useUserRole();
   const [searchParams] = useSearchParams();
   const [skipTrial, setSkipTrial] = useState(false);
-  const isSuperAdmin = userRole === 'super_admin';
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
