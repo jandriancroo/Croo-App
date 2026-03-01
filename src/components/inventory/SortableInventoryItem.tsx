@@ -49,7 +49,7 @@ export function SortableInventoryItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm group cursor-pointer ${
+      className={`flex items-center py-1.5 px-2 rounded text-sm group cursor-pointer gap-2 ${
         isDragging
           ? "border border-primary/40 border-dashed bg-primary/5 shadow-lg"
           : isSelected
@@ -61,7 +61,8 @@ export function SortableInventoryItem({
       onClick={onClick}
       onContextMenu={onContextMenu}
     >
-      <div className="flex items-center gap-2 truncate flex-1">
+      {/* Name section — truncates */}
+      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
         {isSelectingThisGroup && (
           <Checkbox
             checked={isSelected}
@@ -110,18 +111,26 @@ export function SortableInventoryItem({
             Shortcut
           </Badge>
         )}
-        {(item as any).category && !isShortcut && (
-          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 flex-shrink-0 text-muted-foreground">
+      </div>
+
+      {/* Fixed-width badge columns */}
+      <div className="flex items-center gap-1.5 flex-shrink-0 w-[120px] justify-end">
+        {(item as any).category && !isShortcut ? (
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap">
             {(item as any).category}
           </Badge>
-        )}
+        ) : !isShortcut ? (
+          <span className="w-1" />
+        ) : null}
         {(item as any).pan_sizes?.enabled && !isShortcut && (
-          <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 flex-shrink-0">
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap">
             Pans
           </Badge>
         )}
       </div>
-      <div className="flex items-center gap-2 text-muted-foreground">
+
+      {/* Price/unit column */}
+      <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
         <span className="text-xs">{item.pack_size || item.unit || "ea"}</span>
         {item.cost_per_unit && !isShortcut && (
           <span className="text-xs text-primary">
