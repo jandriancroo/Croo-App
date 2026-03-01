@@ -429,7 +429,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                           <span className="ml-1">• Expected: {Number(theoretical.theoreticalUsage.toFixed(2))}</span>
                         )}
                         {!theoretical && item.theoretical_quantity && (
-                          <span className="ml-1">• Expected: {item.theoretical_quantity}</span>
+                          <span className="ml-1">• Expected: {Number(Number(item.theoretical_quantity).toFixed(2))}</span>
                         )}
                       </p>
                     </div>
