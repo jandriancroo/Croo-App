@@ -103,6 +103,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [activeSelectGroup, setActiveSelectGroup] = useState<string | null>(null);
   const [showBulkPanDialog, setShowBulkPanDialog] = useState(false);
+  const [showBulkCategoryDialog, setShowBulkCategoryDialog] = useState(false);
+  const [bulkCategoryValue, setBulkCategoryValue] = useState<string>("");
   const [showStorageManager, setShowStorageManager] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
