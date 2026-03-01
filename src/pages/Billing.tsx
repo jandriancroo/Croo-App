@@ -97,7 +97,7 @@ export default function Billing() {
         ) : (
           <>
             {/* Pricing cards */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 pt-4">
               {TIER_ORDER.map((key) => {
                 const tier = SUBSCRIPTION_TIERS[key];
                 const isCurrent = isCurrentTier(key);
