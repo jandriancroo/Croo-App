@@ -389,6 +389,7 @@ export default function Settings() {
               'location-profile': () => navigate(`/location/${currentLocation?.id}`),
               'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
+              'billing': () => navigate('/billing'),
             };
 
             if (navLinks[sectionId]) {
