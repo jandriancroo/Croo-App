@@ -202,34 +202,6 @@ export default function Billing() {
               })}
             </div>
 
-            {/* Founder tier — special callout */}
-            <Card className="border-dashed border-accent/50 bg-accent/5">
-              <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-lg bg-accent/10 text-accent">
-                    <Crown className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold flex items-center gap-2">
-                      Founder Plan
-                      {isCurrentTier('founder') && <Badge className="bg-accent text-accent-foreground text-xs">Active</Badge>}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      All Ludicrous features locked at $99/mo forever · Early adopter exclusive
-                    </p>
-                  </div>
-                </div>
-                {isCurrentTier('founder') ? (
-                  <Button variant="outline" size="sm" disabled>Current Plan</Button>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => handleCheckout(SUBSCRIPTION_TIERS.founder.price_id)}>
-                    {subscribed ? 'Switch' : 'Claim Founder Rate'}
-                    <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Hiring Add-on */}
             <Card>
               <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
