@@ -426,7 +426,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                         {format(new Date(item.count_date), "MMM d")} • 
                         Counted: {item.quantity} {item.item?.unit}
                         {theoretical && (
-                          <span className="ml-1">• Expected: {theoretical.theoreticalUsage}</span>
+                          <span className="ml-1">• Expected: {Number(theoretical.theoreticalUsage.toFixed(2))}</span>
                         )}
                         {!theoretical && item.theoretical_quantity && (
                           <span className="ml-1">• Expected: {item.theoretical_quantity}</span>
