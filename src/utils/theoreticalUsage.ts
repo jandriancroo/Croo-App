@@ -136,6 +136,7 @@ export async function calculateTheoreticalUsage(
           productGroupName: group.name,
           usageRate: Number(rate.usage_rate),
           unitsSold,
+          packQuantity: packQty,
         });
 
         // Cascade: theoretical oz of recipe needed → ratio of batches → raw ingredient qty
