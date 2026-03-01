@@ -3,12 +3,14 @@ import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useUserRole } from '@/hooks/useUserRole';
 import { SUBSCRIPTION_TIERS, ADDONS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   core: <Zap className="h-5 w-5" />,
@@ -21,8 +23,9 @@ const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous'];
 
 export default function Billing() {
   const { subscribed, tierKey, loading, startCheckout, openPortal, subscriptionEnd, trialEnd, checkSubscription } = useSubscription();
+  const { isSuperAdmin } = useUserRole();
   const [searchParams] = useSearchParams();
-
+  const [skipTrial, setSkipTrial] = useState(false);
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
@@ -36,7 +39,7 @@ export default function Billing() {
   const handleCheckout = async (priceId: string) => {
     try {
       toast.info('Opening checkout…');
-      await startCheckout(priceId);
+      await startCheckout(priceId, skipTrial);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start checkout');
     }
@@ -62,6 +65,23 @@ export default function Billing() {
           <p className="text-muted-foreground">Choose the plan that fits your operation</p>
           <PageHeaderDivider />
         </div>
+
+        {/* Super admin skip trial toggle */}
+        {isSuperAdmin && (
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-destructive/30 bg-destructive/5">
+            <Switch
+              checked={skipTrial}
+              onCheckedChange={setSkipTrial}
+              id="skip-trial"
+            />
+            <label htmlFor="skip-trial" className="text-sm font-medium cursor-pointer">
+              Skip 14-day trial (charge immediately)
+            </label>
+            {skipTrial && (
+              <Badge variant="destructive" className="text-xs">No Trial</Badge>
+            )}
+          </div>
+        )}
 
         {/* Current plan banner */}
         {subscribed && tierKey && (

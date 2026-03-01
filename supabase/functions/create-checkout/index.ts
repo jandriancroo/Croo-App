@@ -36,9 +36,9 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId } = await req.json();
+    const { priceId, skipTrial } = await req.json();
     if (!priceId) throw new Error("priceId is required");
-    logStep("Price ID received", { priceId });
+    logStep("Price ID received", { priceId, skipTrial });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
@@ -60,7 +60,7 @@ serve(async (req) => {
       consent_collection: {
         terms_of_service: "required",
       },
-      subscription_data: {
+      subscription_data: skipTrial ? {} : {
         trial_period_days: 14,
       },
       success_url: `${origin}/settings?checkout=success`,
