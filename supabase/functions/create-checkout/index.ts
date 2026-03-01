@@ -57,6 +57,9 @@ serve(async (req) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       allow_promotion_codes: true,
+      consent_collection: {
+        terms_of_service: "required",
+      },
       subscription_data: {
         trial_period_days: 14,
       },
