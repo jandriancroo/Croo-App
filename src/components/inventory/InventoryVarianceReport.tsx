@@ -383,7 +383,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                             <div>
                               <p className="font-medium text-sm">{t.itemName}</p>
                               <p className="text-xs text-muted-foreground">
-                                {t.unitsSold} sold × {t.usageRate} rate
+                                {t.unitsSold} sold × {Number(t.usageRate.toFixed(6))} rate
                                 <span className="ml-1 text-muted-foreground/70">({t.productGroupName})</span>
                               </p>
                             </div>
