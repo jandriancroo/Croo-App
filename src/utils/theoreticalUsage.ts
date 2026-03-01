@@ -105,6 +105,7 @@ export async function calculateTheoreticalUsage(
     for (const rate of usageRates) {
       const item = rate.item as any;
       const group = rate.group as any;
+      const packQty = Number(item?.pack_quantity) || 1;
       if (!item || !group || !rate.usage_rate) continue;
 
       const posCategories = (group.pos_categories as string[]) || [];
