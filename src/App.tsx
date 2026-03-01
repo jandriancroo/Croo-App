@@ -70,6 +70,7 @@ const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
 const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
