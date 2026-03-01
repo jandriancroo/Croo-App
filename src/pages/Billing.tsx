@@ -182,17 +182,17 @@ export default function Billing() {
                       </ul>
 
                       {isCurrent ? (
-                        <Button variant="outline" className={`w-full ${isFounder ? 'founder-btn-current' : ''}`} disabled>
+                        <Button variant="outline" className={`w-full h-auto py-2 text-xs ${isFounder ? 'founder-btn-current' : ''}`} disabled>
                           Current Plan
                         </Button>
                       ) : (
                         <Button
-                          className={`w-full font-semibold ${isFounder ? 'founder-btn' : !isPopular ? 'text-foreground border-border' : ''}`}
+                          className={`w-full h-auto py-2 text-xs font-semibold ${isFounder ? 'founder-btn' : !isPopular ? 'text-foreground border-border' : ''}`}
                           variant={isPopular ? 'default' : 'outline'}
                           onClick={() => handleCheckout(tier.price_id)}
                         >
-                          {subscribed ? 'Switch Plan' : isFounder ? 'Claim Founder Rate' : 'Start 14-day Trial'}
-                          <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
+                          <span className="truncate">{subscribed ? 'Switch Plan' : isFounder ? 'Claim Founder Rate' : 'Start Trial'}</span>
+                          <ExternalLink className="h-3 w-3 ml-1 flex-shrink-0" />
                         </Button>
                       )}
                     </CardContent>
