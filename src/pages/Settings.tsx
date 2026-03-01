@@ -11,7 +11,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,11 +40,12 @@ const textSizes = [
 // Sections that belong to the location tab
 const LOCATION_SECTIONS = ['theme', 'notifications', 'food-safety-audits', 'inventory', 'punch-clock', 'location-profile'];
 // Sections that belong to the org tab
-const ORG_SECTIONS = ['org-members', 'org-roles'];
+const ORG_SECTIONS = ['billing', 'org-members', 'org-roles'];
 // Sections only super admins see
 const SUPER_ADMIN_SECTIONS = ['brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
   theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
   notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   'food-safety-audits': { title: 'Audit Results', icon: <ShieldCheck className="h-4 w-4" /> },
@@ -350,6 +351,7 @@ export default function Settings() {
       if (id === 'location-profile') return !!currentLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'inventory') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_inventory'));
       if (id === 'punch-clock') return !!currentLocation && !isChecklistOnlyLocation && (isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin);
+      if (id === 'billing') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-members') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-roles') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
       if (id === 'org-positions') return !!currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin);
@@ -388,6 +390,7 @@ export default function Settings() {
               'location-profile': () => navigate(`/location/${currentLocation?.id}`),
               'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
               'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
+              'billing': () => navigate('/billing'),
             };
 
             if (navLinks[sectionId]) {

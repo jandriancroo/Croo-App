@@ -69,6 +69,7 @@ const PunchClockCustomization = lazyWithRetry(() => import("./pages/PunchClockCu
 const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
+const Billing = lazyWithRetry(() => import("./pages/Billing"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
 const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
@@ -188,6 +189,7 @@ const AppContent = () => {
         <Route path="/punch-clock" element={<PunchClock />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
         <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
         <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
