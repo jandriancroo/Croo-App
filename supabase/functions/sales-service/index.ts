@@ -1192,6 +1192,9 @@ serve(async (req) => {
       case 'sync-day':
         return await handleSyncDay(req, supabase);
       
+      case 'sync-yesterday':
+        return await handleSyncYesterday(supabase);
+      
       case 'backfill':
         return await handleBackfill(req, supabase);
       
