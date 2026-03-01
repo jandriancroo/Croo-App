@@ -60,7 +60,7 @@ serve(async (req) => {
       consent_collection: {
         terms_of_service: "required",
       },
-      subscription_data: {
+      subscription_data: skipTrial ? {} : {
         trial_period_days: 14,
       },
       success_url: `${origin}/settings?checkout=success`,

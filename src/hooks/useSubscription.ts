@@ -76,9 +76,9 @@ export function useSubscription() {
     return () => subscription.unsubscribe();
   }, [checkSubscription]);
 
-  const startCheckout = useCallback(async (priceId: string) => {
+  const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean) => {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { priceId },
+      body: { priceId, skipTrial },
     });
     if (error) throw error;
     if (data?.url) {
