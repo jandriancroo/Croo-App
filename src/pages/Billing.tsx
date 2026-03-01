@@ -24,8 +24,10 @@ const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous'];
 
 export default function Billing() {
   const { subscribed, tierKey, loading, startCheckout, openPortal, subscriptionEnd, trialEnd, checkSubscription } = useSubscription();
+  const { userRole } = useAuth();
   const [searchParams] = useSearchParams();
-
+  const [skipTrial, setSkipTrial] = useState(false);
+  const isSuperAdmin = userRole === 'super_admin';
   useEffect(() => {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success') {
