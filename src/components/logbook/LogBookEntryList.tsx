@@ -60,8 +60,8 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-7 w-7">
-                          <AvatarImage src={entry.profiles?.profile_photo_url || crooLogo} />
-                          <AvatarFallback>{entry.profiles?.full_name?.[0] || '?'}</AvatarFallback>
+                          {entry.profiles?.profile_photo_url && <AvatarImage src={entry.profiles.profile_photo_url} />}
+                          <AvatarFallback>{entry.profiles?.full_name?.split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}</AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="text-sm font-medium leading-tight">{entry.profiles?.full_name || 'Unknown'}</p>
