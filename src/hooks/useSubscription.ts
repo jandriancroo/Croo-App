@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PRODUCT_TO_TIER, SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 
 interface SubscriptionState {
   loading: boolean;
@@ -9,9 +10,13 @@ interface SubscriptionState {
   productIds: string[];
   subscriptionEnd: string | null;
   trialEnd: string | null;
+  locationCount: number;
+  organizationId: string | null;
 }
 
 export function useSubscription() {
+  const { organizationId } = useAppLocation();
+
   const [state, setState] = useState<SubscriptionState>({
     loading: true,
     subscribed: false,
@@ -19,6 +24,8 @@ export function useSubscription() {
     productIds: [],
     subscriptionEnd: null,
     trialEnd: null,
+    locationCount: 0,
+    organizationId: null,
   });
 
   const checkSubscription = useCallback(async () => {
@@ -29,11 +36,16 @@ export function useSubscription() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('check-subscription');
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        body: { organization_id: organizationId },
+      });
       if (error) throw error;
 
       if (!data?.subscribed) {
-        setState({ loading: false, subscribed: false, tierKey: null, productIds: [], subscriptionEnd: null, trialEnd: null });
+        setState({
+          loading: false, subscribed: false, tierKey: null, productIds: [],
+          subscriptionEnd: null, trialEnd: null, locationCount: 0, organizationId: null,
+        });
         return;
       }
 
@@ -54,16 +66,17 @@ export function useSubscription() {
         productIds: data.product_ids || [],
         subscriptionEnd: data.subscription_end,
         trialEnd: data.trial_end,
+        locationCount: data.location_count || 0,
+        organizationId: data.organization_id || null,
       });
     } catch (err) {
       console.error('Subscription check failed:', err);
       setState(s => ({ ...s, loading: false }));
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     checkSubscription();
-    // Re-check every 60 seconds
     const interval = setInterval(checkSubscription, 60_000);
     return () => clearInterval(interval);
   }, [checkSubscription]);
@@ -78,13 +91,13 @@ export function useSubscription() {
 
   const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean) => {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { priceId, skipTrial },
+      body: { priceId, skipTrial, organizationId },
     });
     if (error) throw error;
     if (data?.url) {
       window.open(data.url, '_blank');
     }
-  }, []);
+  }, [organizationId]);
 
   const openPortal = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke('customer-portal');
