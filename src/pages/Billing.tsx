@@ -114,13 +114,15 @@ export default function Billing() {
                         : ''
                     }`}
                   >
-                    {isPopular && !isCurrent && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                        <Badge className="bg-primary text-primary-foreground text-xs px-3">Most Popular</Badge>
+                    {(isPopular || key === 'ludicrous') && !isCurrent && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                        <Badge className="bg-primary text-primary-foreground text-xs px-3 whitespace-nowrap">
+                          {isPopular ? 'Most Popular' : "Industry's Best Value"}
+                        </Badge>
                       </div>
                     )}
                     {isCurrent && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge className="bg-accent text-accent-foreground text-xs px-3">Your Plan</Badge>
                       </div>
                     )}
