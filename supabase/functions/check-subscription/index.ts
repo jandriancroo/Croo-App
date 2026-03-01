@@ -92,9 +92,9 @@ serve(async (req) => {
         const trialingSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 10 });
 
         const matchingSubs = [...activeSubs.data, ...trialingSubs.data].filter((sub) => {
-          // Match if subscription has this org_id in metadata, OR if no metadata (legacy)
+          // Org-scoped: only match subscriptions explicitly tagged with this org
           const subOrgId = sub.metadata?.organization_id;
-          return !subOrgId || subOrgId === organizationId;
+          return subOrgId === organizationId;
         });
 
         if (matchingSubs.length > 0) {
