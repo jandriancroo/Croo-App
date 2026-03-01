@@ -187,7 +187,7 @@ export default function Billing() {
                         </Button>
                       ) : (
                         <Button
-                          className={`w-full ${isFounder ? 'founder-btn' : ''}`}
+                          className={`w-full font-semibold ${isFounder ? 'founder-btn' : !isPopular ? 'text-foreground border-border' : ''}`}
                           variant={isPopular ? 'default' : 'outline'}
                           onClick={() => handleCheckout(tier.price_id)}
                         >
