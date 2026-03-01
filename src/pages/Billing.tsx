@@ -117,15 +117,23 @@ export default function Billing() {
         ) : (
           <>
             {/* Pricing cards */}
-            <div className="grid gap-4 md:grid-cols-3 pt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4">
               {TIER_ORDER.map((key) => {
                 const tier = SUBSCRIPTION_TIERS[key];
                 const isCurrent = isCurrentTier(key);
                 const isPopular = key === 'pro';
+                const isFounder = key === 'founder';
 
                 return (
                   <div key={key} className="relative flex flex-col">
-                    {(isPopular || key === 'ludicrous') && !isCurrent && (
+                    {isFounder && !isCurrent && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+                        <Badge className="founder-badge-label text-xs px-3 whitespace-nowrap">
+                          Exclusive
+                        </Badge>
+                      </div>
+                    )}
+                    {(isPopular || key === 'ludicrous') && !isCurrent && !isFounder && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                         <Badge className="bg-primary text-primary-foreground text-xs px-3 whitespace-nowrap">
                           {isPopular ? 'Most Popular' : "Industry's Best Value"}
@@ -134,54 +142,56 @@ export default function Billing() {
                     )}
                     {isCurrent && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                        <Badge className="bg-accent text-accent-foreground text-xs px-3">Your Plan</Badge>
+                        <Badge className={`text-xs px-3 ${isFounder ? 'founder-badge-active' : 'bg-accent text-accent-foreground'}`}>
+                          {isFounder ? '✦ Founder ✦' : 'Your Plan'}
+                        </Badge>
                       </div>
                     )}
                   <Card
                     className={`flex-1 flex flex-col transition-all ${
-                      isCurrent
+                      isFounder
+                        ? 'founder-card'
+                        : isCurrent
                         ? 'border-primary ring-2 ring-primary/20'
                         : isPopular
                         ? 'border-primary/50'
                         : ''
                     }`}
                   >
-
-
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-primary">{TIER_ICONS[key]}</span>
-                        <CardTitle className="text-lg">{tier.name}</CardTitle>
+                        <span className={isFounder ? 'founder-icon' : 'text-primary'}>{TIER_ICONS[key]}</span>
+                        <CardTitle className={`text-lg ${isFounder ? 'founder-text' : ''}`}>{tier.name}</CardTitle>
                       </div>
-                      <CardDescription className="text-xs">{tier.description}</CardDescription>
+                      <CardDescription className={`text-xs ${isFounder ? 'founder-desc' : ''}`}>{tier.description}</CardDescription>
                     </CardHeader>
 
                     <CardContent className="flex-1 flex flex-col">
                       <div className="mb-4">
-                        <span className="text-3xl font-bold">${tier.price}</span>
-                        <span className="text-muted-foreground text-sm">/mo per location</span>
+                        <span className={`text-3xl font-bold ${isFounder ? 'founder-text' : ''}`}>${tier.price}</span>
+                        <span className={`text-sm ${isFounder ? 'founder-desc' : 'text-muted-foreground'}`}>/mo per location</span>
                       </div>
 
                       <ul className="space-y-2 mb-6 flex-1">
                         {tier.features.map((f) => (
                           <li key={f} className="flex items-start gap-2 text-sm">
-                            <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                            <span>{f}</span>
+                            <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isFounder ? 'founder-icon' : 'text-primary'}`} />
+                            <span className={isFounder ? 'founder-feature' : ''}>{f}</span>
                           </li>
                         ))}
                       </ul>
 
                       {isCurrent ? (
-                        <Button variant="outline" className="w-full" disabled>
+                        <Button variant="outline" className={`w-full ${isFounder ? 'founder-btn-current' : ''}`} disabled>
                           Current Plan
                         </Button>
                       ) : (
                         <Button
-                          className="w-full"
+                          className={`w-full ${isFounder ? 'founder-btn' : ''}`}
                           variant={isPopular ? 'default' : 'outline'}
                           onClick={() => handleCheckout(tier.price_id)}
                         >
-                          {subscribed ? 'Switch Plan' : 'Start 14-day Trial'}
+                          {subscribed ? 'Switch Plan' : isFounder ? 'Claim Founder Rate' : 'Start 14-day Trial'}
                           <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
                         </Button>
                       )}
