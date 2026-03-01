@@ -58,24 +58,17 @@ serve(async (req) => {
     if (organizationId) {
       logStep("Org-scoped check", { organizationId });
 
-      // Get all admin+ users in this organization (via org_members + user_locations)
-      const { data: orgAdmins, error: orgErr } = await supabase
+      // Get all admin+ users in this organization
+      const { data: orgAdmins } = await supabase
         .from("organization_members")
         .select("user_id")
         .eq("organization_id", organizationId);
 
-      // Also get users with admin+ roles at locations in this org
-      const { data: locAdmins, error: locErr } = await supabase.rpc("get_org_admin_emails", {
-        _organization_id: organizationId,
-      }).maybeSingle();
-
-      // Collect unique admin emails from profiles
+      // Collect unique user IDs (org members + requesting user)
       const adminUserIds = new Set<string>();
       if (orgAdmins) {
         for (const m of orgAdmins) adminUserIds.add(m.user_id);
       }
-
-      // Also add the requesting user themselves
       adminUserIds.add(user.id);
 
       // Get emails for all admin users
@@ -85,7 +78,7 @@ serve(async (req) => {
         .in("id", Array.from(adminUserIds));
 
       const emails = (adminProfiles || []).map((p: any) => p.email).filter(Boolean);
-      logStep("Checking org admin emails", { emails, adminCount: emails.length });
+      logStep("Checking org admin emails", { emails: emails.length });
 
       // Search Stripe for customers matching any org admin email
       for (const email of emails) {
