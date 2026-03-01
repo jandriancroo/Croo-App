@@ -163,6 +163,7 @@ export async function calculateTheoreticalUsage(
           productGroupName: group.name,
           usageRate: Number(rate.usage_rate),
           unitsSold,
+          packQuantity: packQty,
         });
       }
     }
