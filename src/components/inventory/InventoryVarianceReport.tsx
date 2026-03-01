@@ -388,7 +388,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                               </p>
                             </div>
                             <Badge variant="secondary" className="font-mono">
-                              {t.theoreticalUsage} {t.unit}
+                              {Number(t.theoreticalUsage.toFixed(2))} {t.unit}
                             </Badge>
                           </div>
                         ))}
