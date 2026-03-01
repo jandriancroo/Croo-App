@@ -383,12 +383,12 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                             <div>
                               <p className="font-medium text-sm">{t.itemName}</p>
                               <p className="text-xs text-muted-foreground">
-                                {t.unitsSold} sold × {t.usageRate} rate
+                                {t.unitsSold} sold × {Number(t.usageRate.toFixed(6))} rate
                                 <span className="ml-1 text-muted-foreground/70">({t.productGroupName})</span>
                               </p>
                             </div>
                             <Badge variant="secondary" className="font-mono">
-                              {t.theoreticalUsage} {t.unit}
+                              {Number(t.theoreticalUsage.toFixed(2))} {t.unit}
                             </Badge>
                           </div>
                         ))}
@@ -426,10 +426,10 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                         {format(new Date(item.count_date), "MMM d")} • 
                         Counted: {item.quantity} {item.item?.unit}
                         {theoretical && (
-                          <span className="ml-1">• Expected: {theoretical.theoreticalUsage}</span>
+                          <span className="ml-1">• Expected: {Number(theoretical.theoreticalUsage.toFixed(2))}</span>
                         )}
                         {!theoretical && item.theoretical_quantity && (
-                          <span className="ml-1">• Expected: {item.theoretical_quantity}</span>
+                          <span className="ml-1">• Expected: {Number(Number(item.theoretical_quantity).toFixed(2))}</span>
                         )}
                       </p>
                     </div>
@@ -439,7 +439,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
                         item.variance > 0 && "bg-green-500"
                       )}
                     >
-                      {item.variance > 0 ? "+" : ""}{item.variance}
+                      {item.variance > 0 ? "+" : ""}{Number(Number(item.variance).toFixed(2))}
                       {item.variance_cost && (
                         <span className="ml-1">
                           (${Math.abs(item.variance_cost).toFixed(2)})
