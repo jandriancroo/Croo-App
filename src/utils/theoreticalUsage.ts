@@ -31,7 +31,7 @@ export async function calculateTheoreticalUsage(
         inventory_item_id,
         product_group_id,
         usage_rate,
-        item:inventory_items(name, unit),
+        item:inventory_items(name, unit, pack_quantity),
         group:inventory_product_groups(name, pos_categories, pos_items)
       `)
       .eq("location_id", locationId)
