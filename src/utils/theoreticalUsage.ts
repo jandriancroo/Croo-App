@@ -8,6 +8,7 @@ export interface TheoreticalUsageResult {
   productGroupName: string;
   usageRate: number;
   unitsSold: number;
+  packQuantity: number;
 }
 
 /**
@@ -30,7 +31,7 @@ export async function calculateTheoreticalUsage(
         inventory_item_id,
         product_group_id,
         usage_rate,
-        item:inventory_items(name, unit),
+        item:inventory_items(name, unit, pack_quantity),
         group:inventory_product_groups(name, pos_categories, pos_items)
       `)
       .eq("location_id", locationId)
@@ -104,6 +105,7 @@ export async function calculateTheoreticalUsage(
     for (const rate of usageRates) {
       const item = rate.item as any;
       const group = rate.group as any;
+      const packQty = Number(item?.pack_quantity) || 1;
       if (!item || !group || !rate.usage_rate) continue;
 
       const posCategories = (group.pos_categories as string[]) || [];
@@ -134,6 +136,7 @@ export async function calculateTheoreticalUsage(
           productGroupName: group.name,
           usageRate: Number(rate.usage_rate),
           unitsSold,
+          packQuantity: packQty,
         });
 
         // Cascade: theoretical oz of recipe needed → ratio of batches → raw ingredient qty
@@ -146,8 +149,9 @@ export async function calculateTheoreticalUsage(
             unit: ing.unit,
             theoreticalUsage: Math.round(rawQty * 100) / 100,
             productGroupName: group.name,
-            usageRate: 0, // derived, not direct
+            usageRate: 0,
             unitsSold,
+            packQuantity: 1,
           });
         }
       } else {
@@ -159,6 +163,7 @@ export async function calculateTheoreticalUsage(
           productGroupName: group.name,
           usageRate: Number(rate.usage_rate),
           unitsSold,
+          packQuantity: packQty,
         });
       }
     }
