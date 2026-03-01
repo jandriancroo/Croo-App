@@ -202,7 +202,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               ) : null,
               Scroller: VirtuosoPanYScroller,
             }}
-            className="h-full px-4 sm:px-6 overflow-x-hidden"
+            className="h-full px-4 sm:px-6"
             itemContent={(index, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
               const smackTalks = smackTalkMap.get(message.id) || [];
