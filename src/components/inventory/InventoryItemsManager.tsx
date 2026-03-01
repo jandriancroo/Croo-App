@@ -64,7 +64,7 @@ interface EditingItem {
 }
 
 const INVENTORY_CATEGORIES = [
-  "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Dry Goods", "Beverages", "Paper Goods", "Cleaning", "Other"
+  "Dough", "Sauce", "Cheese", "Meat", "Veggie", "Condiments", "Desserts", "Dry Goods", "Beverages", "Paper Goods", "Cleaning", "Other"
 ];
 
 interface SyncProgress {
