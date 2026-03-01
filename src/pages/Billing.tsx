@@ -3,12 +3,15 @@ import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SUBSCRIPTION_TIERS, ADDONS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/auth';
 
 const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   core: <Zap className="h-5 w-5" />,
