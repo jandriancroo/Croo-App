@@ -79,22 +79,26 @@ serve(async (req) => {
 
     // Gather all product IDs from active subscriptions
     const productIds: string[] = [];
-    let subscriptionEnd: string | null = null;
-    let trialEnd: string | null = null;
+    let latestEnd = 0;
+    let latestTrialEnd = 0;
 
     for (const sub of allSubs) {
-      if (!subscriptionEnd || sub.current_period_end * 1000 > new Date(subscriptionEnd).getTime()) {
-        subscriptionEnd = new Date(sub.current_period_end * 1000).toISOString();
-      }
+      const periodEnd = (sub.current_period_end ?? 0) * 1000;
+      if (periodEnd > latestEnd) latestEnd = periodEnd;
+
       if (sub.trial_end) {
-        const te = new Date(sub.trial_end * 1000).toISOString();
-        if (!trialEnd || new Date(te) > new Date(trialEnd)) trialEnd = te;
+        const te = sub.trial_end * 1000;
+        if (te > latestTrialEnd) latestTrialEnd = te;
       }
+
       for (const item of sub.items.data) {
         const pid = typeof item.price.product === "string" ? item.price.product : (item.price.product as any).id;
         if (!productIds.includes(pid)) productIds.push(pid);
       }
     }
+
+    const subscriptionEnd = latestEnd > 0 ? new Date(latestEnd).toISOString() : null;
+    const trialEnd = latestTrialEnd > 0 ? new Date(latestTrialEnd).toISOString() : null;
 
     logStep("Subscription data", { productIds, subscriptionEnd, trialEnd });
 
