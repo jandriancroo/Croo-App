@@ -70,6 +70,7 @@ const BrandDashboard = lazyWithRetry(() => import("./pages/BrandDashboard"));
 const MyProfile = lazyWithRetry(() => import("./pages/MyProfile"));
 const MultiLocationDashboard = lazyWithRetry(() => import("./pages/MultiLocationDashboard"));
 const Billing = lazyWithRetry(() => import("./pages/Billing"));
+const Terms = lazyWithRetry(() => import("./pages/Terms"));
 const Inventory = lazyWithRetry(() => import("./pages/Inventory"));
 const InventoryCount = lazyWithRetry(() => import("./pages/InventoryCount"));
 const COGSReport = lazyWithRetry(() => import("./pages/COGSReport"));
@@ -215,6 +216,7 @@ const AppContent = () => {
         <Route path="/games/pizza" element={<ProtectedRoute><PizzaPaddleGame /></ProtectedRoute>} />
         <Route path="/games/marcman" element={<ProtectedRoute><MarcManGame /></ProtectedRoute>} />
         <Route path="/qr-generator" element={<QRCodeGenerator />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
