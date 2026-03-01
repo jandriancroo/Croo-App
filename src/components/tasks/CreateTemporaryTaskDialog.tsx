@@ -438,6 +438,31 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess, initi
         if (subtaskError) throw subtaskError;
       }
 
+      // Send push notification to assigned users for standard/team tasks
+      if (taskStyle !== "qr" && taskStyle !== "alarm") {
+        try {
+          const pushBody: any = {
+            title: '📋 New Task Assigned',
+            body: title.trim(),
+            notification_type: 'task_assigned',
+            data: { type: 'task_assigned', task_id: task.id },
+          };
+
+          if (assignmentType === "employees" && selectedEmployees.length > 0) {
+            pushBody.user_ids = selectedEmployees;
+          } else if (assignmentType === "roles" && selectedRoles.length > 0) {
+            pushBody.roles = selectedRoles;
+            pushBody.location_id = currentLocation!.id;
+          }
+
+          if (pushBody.user_ids || pushBody.roles) {
+            await supabase.functions.invoke('send-push-notification', { body: pushBody });
+          }
+        } catch (pushErr) {
+          console.error('Push notification failed (non-blocking):', pushErr);
+        }
+      }
+
       // For QR tasks, show the QR code dialog
       if (taskStyle === "qr") {
         setCreatedQrCode(task.qr_code);
