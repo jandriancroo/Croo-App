@@ -232,7 +232,7 @@ export default function Messages() {
             </Button>
             <h2 className="text-lg font-semibold">Chat</h2>
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <ChatWindow
               chatId={selectedChatId}
               chatDetails={chats.find(c => c.id === selectedChatId) || null}
