@@ -189,6 +189,7 @@ const AppContent = () => {
         <Route path="/punch-clock" element={<PunchClock />} />
         <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
         <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
         <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
         <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
