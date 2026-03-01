@@ -149,8 +149,9 @@ export async function calculateTheoreticalUsage(
             unit: ing.unit,
             theoreticalUsage: Math.round(rawQty * 100) / 100,
             productGroupName: group.name,
-            usageRate: 0, // derived, not direct
+            usageRate: 0,
             unitsSold,
+            packQuantity: 1,
           });
         }
       } else {
