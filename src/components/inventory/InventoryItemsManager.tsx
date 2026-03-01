@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2 } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2, Tag } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -103,6 +103,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [activeSelectGroup, setActiveSelectGroup] = useState<string | null>(null);
   const [showBulkPanDialog, setShowBulkPanDialog] = useState(false);
+  const [showBulkCategoryDialog, setShowBulkCategoryDialog] = useState(false);
+  const [bulkCategoryValue, setBulkCategoryValue] = useState<string>("");
   const [showStorageManager, setShowStorageManager] = useState(false);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
@@ -1649,6 +1651,61 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       />
 
 
+      {/* Bulk Category Dialog */}
+      <Dialog open={showBulkCategoryDialog} onOpenChange={setShowBulkCategoryDialog}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Assign Category
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-2">
+            {selectedItemIds.size} item{selectedItemIds.size !== 1 ? 's' : ''} will be categorized
+          </p>
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {INVENTORY_CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors ${
+                  bulkCategoryValue === cat ? 'bg-primary/10 ring-1 ring-primary/30 font-medium' : 'hover:bg-muted/50'
+                }`}
+                onClick={() => setBulkCategoryValue(cat)}
+              >
+                <Tag className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                {cat}
+              </button>
+            ))}
+          </div>
+          <Button
+            disabled={!bulkCategoryValue || isBulkUpdating}
+            onClick={async () => {
+              setIsBulkUpdating(true);
+              try {
+                const ids = Array.from(selectedItemIds);
+                const { error } = await supabase
+                  .from("inventory_items")
+                  .update({ category: bulkCategoryValue })
+                  .in("id", ids);
+                if (error) throw error;
+
+                toast.success(`${ids.length} item${ids.length !== 1 ? 's' : ''} → ${bulkCategoryValue}`);
+                queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+                setSelectedItemIds(new Set());
+                setActiveSelectGroup(null);
+                setShowBulkCategoryDialog(false);
+              } catch {
+                toast.error("Failed to assign category");
+              } finally {
+                setIsBulkUpdating(false);
+              }
+            }}
+          >
+            {isBulkUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Tag className="h-4 w-4 mr-1" />}
+            Assign Category
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Shortcut Dialog */}
       <Dialog open={showShortcutDialog} onOpenChange={setShowShortcutDialog}>
@@ -1845,6 +1902,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 className="gap-1.5"
               >
                 Pan Sizes
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => { setBulkCategoryValue(""); setShowBulkCategoryDialog(true); }}
+                className="gap-1.5"
+              >
+                <Tag className="h-4 w-4" />
+                Category
               </Button>
             </div>
             <div className="h-6 w-px bg-primary-foreground/20" />
