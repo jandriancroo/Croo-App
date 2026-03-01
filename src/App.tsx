@@ -218,6 +218,7 @@ const AppContent = () => {
         <Route path="/games/marcman" element={<ProtectedRoute><MarcManGame /></ProtectedRoute>} />
         <Route path="/qr-generator" element={<QRCodeGenerator />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
