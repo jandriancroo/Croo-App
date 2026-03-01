@@ -8,6 +8,7 @@ export interface TheoreticalUsageResult {
   productGroupName: string;
   usageRate: number;
   unitsSold: number;
+  packQuantity: number;
 }
 
 /**
