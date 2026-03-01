@@ -19,7 +19,7 @@ const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   founder: <Crown className="h-5 w-5" />,
 };
 
-const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous'];
+const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous', 'founder'];
 
 export default function Billing() {
   const { subscribed, tierKey, loading, startCheckout, openPortal, subscriptionEnd, trialEnd, checkSubscription } = useSubscription();
