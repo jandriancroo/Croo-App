@@ -174,6 +174,9 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
+  // Derive organizationId from current location so it updates on switch
+  const effectiveOrganizationId = currentLocation?.organization_id ?? organizationId;
+
   return (
     <LocationContext.Provider
       value={{
@@ -183,7 +186,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         loading,
         refetchLocations: fetchLocations,
         isChecklistOnlyLocation,
-        organizationId,
+        organizationId: effectiveOrganizationId,
         isSwitching,
         switchingTo,
       }}
