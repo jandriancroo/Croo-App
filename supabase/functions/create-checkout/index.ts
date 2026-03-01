@@ -59,6 +59,8 @@ serve(async (req) => {
       subscription_data: {
         trial_period_days: 14,
       },
+      automatic_tax: { enabled: true },
+      customer_update: customerId ? { address: "auto" } : undefined,
       success_url: `${origin}/settings?checkout=success`,
       cancel_url: `${origin}/settings?checkout=canceled`,
     });
