@@ -172,15 +172,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId }
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units }
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }]) || []);
 
       const result: (CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string })[] = [];
       
