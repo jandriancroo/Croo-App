@@ -171,14 +171,18 @@ const InventoryCount = () => {
     navigate(`/inventory/${locationId}`);
   };
 
-  const handleSaveAndExit = useCallback((redirectTo?: string) => {
-    saveRef.current?.save();
+  const handleSaveAndExit = useCallback(async (redirectTo?: string) => {
     setShowSaveExitDialog(false);
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      navigate(redirectTo || `/inventory/${locationId}`);
-    }, 500);
+    try {
+      await saveRef.current?.save();
+    } catch (e) {
+      console.error("[Inventory] Save & Exit save failed:", e);
+      toast.error("Save failed — your data is still here, try again");
+      return; // Don't navigate if save failed
+    }
+    queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+    queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+    navigate(redirectTo || `/inventory/${locationId}`);
   }, [queryClient, locationId, navigate]);
 
   const handleSaveExitCancel = useCallback(() => {
