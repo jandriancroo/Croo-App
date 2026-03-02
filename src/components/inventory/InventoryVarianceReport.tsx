@@ -250,6 +250,15 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     });
   };
 
+  const toggleVarianceCategory = (cat: string) => {
+    setCollapsedVarianceCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Date range selector */}
