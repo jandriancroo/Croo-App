@@ -529,6 +529,70 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, [items, counts, panCounts, getTotalQuantity]);
 
+  // Resilient per-item save: wraps each upsert in try/catch, tracks failures for retry
+  const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
+    let saved = 0;
+    let failed = 0;
+    
+    for (const ic of itemCounts) {
+      try {
+        const storLocId = ic.storage_location_id;
+        const { data: existing } = await supabase
+          .from("inventory_count_items")
+          .select("id, storage_location_id")
+          .eq("count_id", countId)
+          .eq("item_id", ic.item_id) as any;
+        
+        const match = (existing || []).find((r: any) => 
+          (r as any).storage_location_id === storLocId || 
+          (!storLocId && !(r as any).storage_location_id)
+        );
+        
+        if (match) {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
+            .eq("id", match.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .insert({
+              count_id: countId,
+              item_id: ic.item_id,
+              quantity: ic.quantity,
+              storage_location_id: storLocId,
+              entered_cases: ic.entered_cases,
+              entered_units: ic.entered_units,
+            } as any);
+          if (error) throw error;
+        }
+        
+        // Clear from failed queue on success
+        failedItemsRef.current.delete(`${ic.item_id}|${storLocId || ''}`);
+        saved++;
+      } catch (e) {
+        // Track failed item for retry on next cycle
+        const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
+        failedItemsRef.current.set(key, ic);
+        failed++;
+        console.warn(`[Inventory] Failed to save item ${ic.item_id}:`, e);
+      }
+    }
+    
+    // Save elapsed duration (separate try/catch so item failures don't block this)
+    try {
+      await supabase
+        .from("inventory_counts")
+        .update({ duration_seconds: elapsedSecondsRef.current })
+        .eq("id", countId);
+    } catch (e) {
+      console.warn("[Inventory] Failed to save duration:", e);
+    }
+    
+    return { saved, failed };
+  }, [countId]);
+
   // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
   const flushSaveSync = useCallback(() => {
     if (isViewOnly || isEditing) return;
@@ -565,49 +629,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     try {
-      for (const ic of itemCounts) {
-        const { data: existing } = await supabase
-          .from("inventory_count_items")
-          .select("id, storage_location_id")
-          .eq("count_id", countId)
-          .eq("item_id", ic.item_id) as any;
-        
-        const storLocId = ic.storage_location_id;
-        const match = (existing || []).find((r: any) => 
-          (r as any).storage_location_id === storLocId || 
-          (!storLocId && !(r as any).storage_location_id)
-        );
-        
-        if (match) {
-          await supabase
-            .from("inventory_count_items")
-            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-            .eq("id", match.id);
-        } else {
-          await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity,
-              storage_location_id: storLocId,
-              entered_cases: ic.entered_cases,
-              entered_units: ic.entered_units,
-            } as any);
-        }
-      }
-
-      await supabase
-        .from("inventory_counts")
-        .update({ duration_seconds: elapsedSecondsRef.current })
-        .eq("id", countId);
-
+      await saveItemsBatch(itemCounts);
       lastAutosavedRef.current = snapshot;
       console.log("[Inventory] Flush save completed (async)");
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
     }
-  }, [isViewOnly, isEditing, countId]);
+  }, [isViewOnly, isEditing, saveItemsBatch]);
 
   // beforeunload: use sync flush to save data before tab/window close
   useEffect(() => {
