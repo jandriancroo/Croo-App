@@ -656,7 +656,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, []);
 
   // True interval autosave — saves every 10 seconds regardless of activity
-  // This replaces the old debounce pattern which was broken by elapsedSeconds resetting the timer
+  // Uses resilient saveItemsBatch with per-item error isolation
   useEffect(() => {
     if (!items || isViewOnly || isEditing) return;
 
@@ -665,61 +665,32 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       if (!builder) return;
       const { itemCounts, snapshot } = builder();
 
-      // Skip if nothing changed since last autosave
-      if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+      // Also include any previously failed items for retry
+      const retryItems = Array.from(failedItemsRef.current.values());
+      const allItems = retryItems.length > 0 
+        ? [...itemCounts, ...retryItems.filter(ri => !itemCounts.some((ic: any) => ic.item_id === ri.item_id && ic.storage_location_id === ri.storage_location_id))]
+        : itemCounts;
 
-      try {
-        // Save each split-count entry individually
-        for (const ic of itemCounts) {
-          const { data: existing } = await supabase
-            .from("inventory_count_items")
-            .select("id, storage_location_id")
-            .eq("count_id", countId)
-            .eq("item_id", ic.item_id) as any;
-          
-          const storLocId = ic.storage_location_id;
-          const match = (existing || []).find((r: any) => 
-            (r as any).storage_location_id === storLocId || 
-            (!storLocId && !(r as any).storage_location_id)
-          );
-          
-          if (match) {
-            await supabase
-              .from("inventory_count_items")
-              .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-              .eq("id", match.id);
-          } else {
-            await supabase
-              .from("inventory_count_items")
-              .insert({
-                count_id: countId,
-                item_id: ic.item_id,
-                quantity: ic.quantity,
-                storage_location_id: storLocId,
-                entered_cases: ic.entered_cases,
-                entered_units: ic.entered_units,
-              } as any);
-          }
-        }
+      // Skip if nothing changed and no retries pending
+      if ((!snapshot || snapshot === lastAutosavedRef.current) && retryItems.length === 0) return;
+      if (allItems.length === 0) return;
 
-        // Save elapsed duration too
-        await supabase
-          .from("inventory_counts")
-          .update({ duration_seconds: elapsedSecondsRef.current })
-          .eq("id", countId);
-
+      const { saved, failed } = await saveItemsBatch(allItems);
+      
+      if (saved > 0) {
         lastAutosavedRef.current = snapshot;
         setLastSavedAt(new Date());
-        console.log("[Inventory] Autosaved (interval)");
-      } catch (e) {
-        console.warn("[Inventory] Autosave failed:", e);
+        console.log(`[Inventory] Autosaved ${saved} items${failed > 0 ? ` (${failed} failed, will retry)` : ''}`);
+      }
+      if (failed > 0 && saved === 0) {
+        console.warn(`[Inventory] Autosave: all ${failed} items failed, will retry next cycle`);
       }
     }, 10000); // Every 10 seconds
 
     return () => {
       clearInterval(autosaveInterval);
     };
-  }, [items, isViewOnly, isEditing, countId]);
+  }, [items, isViewOnly, isEditing, countId, saveItemsBatch]);
 
   // Save on visibility change (user switches tabs/apps — immediate save)
   useEffect(() => {
