@@ -33,7 +33,7 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_counts")
-        .select("id, count_date, period_start, period_end, count_type")
+        .select("id, count_date, count_type")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .order("count_date", { ascending: false });
