@@ -113,6 +113,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Fetch items with existing counts — supports split-count for multi-location items
   const { data: items } = useQuery({
     queryKey: ["inventory-items-for-count", locationId, countId],
+    staleTime: Infinity, // CRITICAL: Never auto-refetch during counting — prevents state wipe
+    refetchOnWindowFocus: false, // Prevent app-switch from triggering refetch
     queryFn: async () => {
       // Get all items
       const { data: itemsData, error: itemsError } = await supabase
