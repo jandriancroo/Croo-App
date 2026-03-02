@@ -257,8 +257,8 @@ const COGSReport = () => {
       unmappedItems,
       hasBeginning: !!counts?.beginning,
       hasEnding: !!counts?.ending,
-      beginDate: counts?.beginning?.count_date,
-      endDate: counts?.ending?.count_date,
+      beginDate: counts?.beginning?.period_end_date || counts?.beginning?.count_date,
+      endDate: counts?.ending?.period_end_date || counts?.ending?.count_date,
     };
   }, [counts, inventoryItems, purchases, salesData, bomData]);
 
