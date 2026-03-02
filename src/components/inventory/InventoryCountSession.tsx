@@ -362,48 +362,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const totalItems = items?.length || 0;
   const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
 
-  // Save count mutation (saves progress without completing)
-  // Now supports split-count items with storage_location_id
-  const saveCountMutation = useMutation({
-    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null; entered_cases?: number; entered_units?: number }[]) => {
-      // Use individual upserts since the unique constraint now uses COALESCE
-      for (const ic of itemCounts) {
-        const storLocId = ic.storage_location_id;
-        // Check if a row exists for this combo
-          const { data: existing } = await supabase
-            .from("inventory_count_items")
-            .select("id, storage_location_id")
-            .eq("count_id", countId)
-            .eq("item_id", ic.item_id)
-            .then(res => {
-              // Filter by storage_location_id manually since types may not be updated
-              const filtered = (res.data || []).filter((r: any) => 
-                (r as any).storage_location_id === storLocId || 
-                (!storLocId && !(r as any).storage_location_id)
-              );
-              return { ...res, data: filtered };
-            }) as any;
-        
-        if (existing && existing.length > 0) {
-          await supabase
-            .from("inventory_count_items")
-            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-            .eq("id", existing[0].id);
-        } else {
-          await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity,
-              storage_location_id: storLocId,
-              entered_cases: ic.entered_cases,
-              entered_units: ic.entered_units,
-            } as any);
-        }
-      }
-    }
-  });
+  // Save count mutation is now replaced by the resilient saveItemsBatch function below
 
   // Save edit with tracking mutation
   const saveEditMutation = useMutation({
@@ -505,6 +464,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const lastAutosavedRef = useRef<string>("");
+  const failedItemsRef = useRef<Map<string, any>>(new Map()); // key -> item payload for retry
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
@@ -527,6 +487,70 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       return { itemCounts, snapshot: JSON.stringify(itemCounts) };
     };
   }, [items, counts, panCounts, getTotalQuantity]);
+
+  // Resilient per-item save: wraps each upsert in try/catch, tracks failures for retry
+  const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
+    let saved = 0;
+    let failed = 0;
+    
+    for (const ic of itemCounts) {
+      try {
+        const storLocId = ic.storage_location_id;
+        const { data: existing } = await supabase
+          .from("inventory_count_items")
+          .select("id, storage_location_id")
+          .eq("count_id", countId)
+          .eq("item_id", ic.item_id) as any;
+        
+        const match = (existing || []).find((r: any) => 
+          (r as any).storage_location_id === storLocId || 
+          (!storLocId && !(r as any).storage_location_id)
+        );
+        
+        if (match) {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
+            .eq("id", match.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .insert({
+              count_id: countId,
+              item_id: ic.item_id,
+              quantity: ic.quantity,
+              storage_location_id: storLocId,
+              entered_cases: ic.entered_cases,
+              entered_units: ic.entered_units,
+            } as any);
+          if (error) throw error;
+        }
+        
+        // Clear from failed queue on success
+        failedItemsRef.current.delete(`${ic.item_id}|${storLocId || ''}`);
+        saved++;
+      } catch (e) {
+        // Track failed item for retry on next cycle
+        const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
+        failedItemsRef.current.set(key, ic);
+        failed++;
+        console.warn(`[Inventory] Failed to save item ${ic.item_id}:`, e);
+      }
+    }
+    
+    // Save elapsed duration (separate try/catch so item failures don't block this)
+    try {
+      await supabase
+        .from("inventory_counts")
+        .update({ duration_seconds: elapsedSecondsRef.current })
+        .eq("id", countId);
+    } catch (e) {
+      console.warn("[Inventory] Failed to save duration:", e);
+    }
+    
+    return { saved, failed };
+  }, [countId]);
 
   // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
   const flushSaveSync = useCallback(() => {
@@ -564,49 +588,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     try {
-      for (const ic of itemCounts) {
-        const { data: existing } = await supabase
-          .from("inventory_count_items")
-          .select("id, storage_location_id")
-          .eq("count_id", countId)
-          .eq("item_id", ic.item_id) as any;
-        
-        const storLocId = ic.storage_location_id;
-        const match = (existing || []).find((r: any) => 
-          (r as any).storage_location_id === storLocId || 
-          (!storLocId && !(r as any).storage_location_id)
-        );
-        
-        if (match) {
-          await supabase
-            .from("inventory_count_items")
-            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-            .eq("id", match.id);
-        } else {
-          await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity,
-              storage_location_id: storLocId,
-              entered_cases: ic.entered_cases,
-              entered_units: ic.entered_units,
-            } as any);
-        }
-      }
-
-      await supabase
-        .from("inventory_counts")
-        .update({ duration_seconds: elapsedSecondsRef.current })
-        .eq("id", countId);
-
+      await saveItemsBatch(itemCounts);
       lastAutosavedRef.current = snapshot;
       console.log("[Inventory] Flush save completed (async)");
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
     }
-  }, [isViewOnly, isEditing, countId]);
+  }, [isViewOnly, isEditing, saveItemsBatch]);
 
   // beforeunload: use sync flush to save data before tab/window close
   useEffect(() => {
@@ -627,7 +615,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, []);
 
   // True interval autosave — saves every 10 seconds regardless of activity
-  // This replaces the old debounce pattern which was broken by elapsedSeconds resetting the timer
+  // Uses resilient saveItemsBatch with per-item error isolation
   useEffect(() => {
     if (!items || isViewOnly || isEditing) return;
 
@@ -636,61 +624,32 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       if (!builder) return;
       const { itemCounts, snapshot } = builder();
 
-      // Skip if nothing changed since last autosave
-      if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+      // Also include any previously failed items for retry
+      const retryItems = Array.from(failedItemsRef.current.values());
+      const allItems = retryItems.length > 0 
+        ? [...itemCounts, ...retryItems.filter(ri => !itemCounts.some((ic: any) => ic.item_id === ri.item_id && ic.storage_location_id === ri.storage_location_id))]
+        : itemCounts;
 
-      try {
-        // Save each split-count entry individually
-        for (const ic of itemCounts) {
-          const { data: existing } = await supabase
-            .from("inventory_count_items")
-            .select("id, storage_location_id")
-            .eq("count_id", countId)
-            .eq("item_id", ic.item_id) as any;
-          
-          const storLocId = ic.storage_location_id;
-          const match = (existing || []).find((r: any) => 
-            (r as any).storage_location_id === storLocId || 
-            (!storLocId && !(r as any).storage_location_id)
-          );
-          
-          if (match) {
-            await supabase
-              .from("inventory_count_items")
-              .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-              .eq("id", match.id);
-          } else {
-            await supabase
-              .from("inventory_count_items")
-              .insert({
-                count_id: countId,
-                item_id: ic.item_id,
-                quantity: ic.quantity,
-                storage_location_id: storLocId,
-                entered_cases: ic.entered_cases,
-                entered_units: ic.entered_units,
-              } as any);
-          }
-        }
+      // Skip if nothing changed and no retries pending
+      if ((!snapshot || snapshot === lastAutosavedRef.current) && retryItems.length === 0) return;
+      if (allItems.length === 0) return;
 
-        // Save elapsed duration too
-        await supabase
-          .from("inventory_counts")
-          .update({ duration_seconds: elapsedSecondsRef.current })
-          .eq("id", countId);
-
+      const { saved, failed } = await saveItemsBatch(allItems);
+      
+      if (saved > 0) {
         lastAutosavedRef.current = snapshot;
         setLastSavedAt(new Date());
-        console.log("[Inventory] Autosaved (interval)");
-      } catch (e) {
-        console.warn("[Inventory] Autosave failed:", e);
+        console.log(`[Inventory] Autosaved ${saved} items${failed > 0 ? ` (${failed} failed, will retry)` : ''}`);
+      }
+      if (failed > 0 && saved === 0) {
+        console.warn(`[Inventory] Autosave: all ${failed} items failed, will retry next cycle`);
       }
     }, 10000); // Every 10 seconds
 
     return () => {
       clearInterval(autosaveInterval);
     };
-  }, [items, isViewOnly, isEditing, countId]);
+  }, [items, isViewOnly, isEditing, countId, saveItemsBatch]);
 
   // Save on visibility change (user switches tabs/apps — immediate save)
   useEffect(() => {
@@ -708,6 +667,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [flushSaveSync, isViewOnly, isEditing]);
 
   // Save current progress (manual save — used by Save & Exit)
+  // Uses resilient saveItemsBatch with up to 2 retries for failed items
   const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
     
@@ -727,13 +687,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     
     try {
-      await saveCountMutation.mutateAsync(itemCounts);
+      let result = await saveItemsBatch(itemCounts);
       
-      // Save elapsed duration
-      await supabase
-        .from("inventory_counts")
-        .update({ duration_seconds: elapsedSecondsRef.current })
-        .eq("id", countId);
+      // Retry failed items up to 2 more times
+      for (let attempt = 0; attempt < 2 && result.failed > 0; attempt++) {
+        console.log(`[Inventory] Manual save retry ${attempt + 1} for ${result.failed} failed items`);
+        await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+        const retryItems = Array.from(failedItemsRef.current.values());
+        if (retryItems.length === 0) break;
+        result = await saveItemsBatch(retryItems);
+      }
       
       // Update last autosaved to prevent unmount flush from re-saving stale data
       if (buildSnapshotRef.current) {
@@ -741,7 +704,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         lastAutosavedRef.current = snapshot;
       }
       
-      toast.success("Progress saved");
+      if (failedItemsRef.current.size > 0) {
+        toast.warning(`Saved with ${failedItemsRef.current.size} item(s) pending — they'll retry automatically`);
+      } else {
+        toast.success("Progress saved");
+      }
+      setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
     } catch (error) {
