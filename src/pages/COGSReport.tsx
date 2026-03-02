@@ -29,24 +29,24 @@ const COGSReport = () => {
     queryFn: async () => {
       if (!locationId) return { beginning: null, ending: null };
       
-      // Beginning: most recent completed count on or before week start
+      // Beginning: most recent completed count with period_end_date on or before week start
       const { data: beginCounts } = await supabase
         .from("inventory_counts")
-        .select("id, count_date, completed_at, period_type, counted_at")
+        .select("id, count_date, completed_at, period_type, counted_at, period_end_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
-        .lte("count_date", weekStartStr)
-        .order("count_date", { ascending: false })
+        .lte("period_end_date", weekStartStr)
+        .order("period_end_date", { ascending: false })
         .limit(1);
       
-      // Ending: first completed count on or after week end
+      // Ending: first completed count with period_end_date on or after week end
       const { data: endCounts } = await supabase
         .from("inventory_counts")
-        .select("id, count_date, completed_at, period_type, counted_at")
+        .select("id, count_date, completed_at, period_type, counted_at, period_end_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
-        .gte("count_date", weekEndStr)
-        .order("count_date", { ascending: true })
+        .gte("period_end_date", weekEndStr)
+        .order("period_end_date", { ascending: true })
         .limit(1);
 
       const beginning = beginCounts?.[0] || null;
@@ -257,8 +257,8 @@ const COGSReport = () => {
       unmappedItems,
       hasBeginning: !!counts?.beginning,
       hasEnding: !!counts?.ending,
-      beginDate: counts?.beginning?.count_date,
-      endDate: counts?.ending?.count_date,
+      beginDate: counts?.beginning?.period_end_date || counts?.beginning?.count_date,
+      endDate: counts?.ending?.period_end_date || counts?.ending?.count_date,
     };
   }, [counts, inventoryItems, purchases, salesData, bomData]);
 
