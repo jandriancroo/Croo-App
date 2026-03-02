@@ -257,31 +257,47 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
-  // Initialize counts from items (convert flat quantity to cases + units)
-  // Uses _splitKey as the state key to support split-count items
+  // Initialize counts from items — ONLY ONCE on first load
+  // Uses entered_cases/entered_units when available (preserves raw user input)
+  // Falls back to decomposing quantity for legacy counts
+  const countsInitializedRef = useRef(false);
   useEffect(() => {
-    if (items) {
-      const initialCounts: Record<string, ItemCount> = {};
-      const originals: Record<string, number> = {};
+    if (!items || countsInitializedRef.current) return;
+    countsInitializedRef.current = true;
+    
+    const initialCounts: Record<string, ItemCount> = {};
+    const originals: Record<string, number> = {};
+    
+    items.forEach(item => {
+      const key = (item as any)._splitKey || item.item_id;
+      const existingCases = (item as any)._existingCases;
+      const existingUnits = (item as any)._existingUnits;
+      const totalUnits = (item as any)._existingQuantity || 0;
+      const packQty = item.pack_quantity || 1;
       
-      items.forEach(item => {
-        const key = (item as any)._splitKey || item.item_id;
-        const totalUnits = (item as any)._existingQuantity || 0;
-        const packQty = item.pack_quantity || 1;
+      // Prefer stored entered_cases/entered_units (exact user input)
+      // Fall back to mathematical decomposition of quantity
+      if (existingCases !== null && existingCases !== undefined) {
+        initialCounts[key] = {
+          cases: existingCases,
+          units: existingUnits ?? 0,
+        };
+      } else {
         initialCounts[key] = {
           cases: Math.floor(totalUnits / packQty),
           units: totalUnits % packQty
         };
-        // Store original quantities for edit tracking
-        if (isEditing) {
-          originals[key] = totalUnits;
-        }
-      });
-      
-      setCounts(initialCounts);
-      if (isEditing) {
-        originalCounts.current = originals;
       }
+      
+      // Store original quantities for edit tracking
+      if (isEditing) {
+        originals[key] = totalUnits;
+      }
+    });
+    
+    setCounts(initialCounts);
+    if (isEditing) {
+      originalCounts.current = originals;
     }
   }, [items, isEditing]);
 
