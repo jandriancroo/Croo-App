@@ -653,20 +653,36 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, [items, isViewOnly, isEditing, countId, saveItemsBatch]);
 
-  // Save on visibility change (user switches tabs/apps — immediate save)
+  // Save on visibility change (user switches tabs/apps — confirmed async save)
   useEffect(() => {
     if (isViewOnly || isEditing) return;
     
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'hidden') {
-        // User is leaving — do a sync flush for safety
-        flushSaveSync();
+        // User is leaving — do CONFIRMED async save (not sendBeacon which can't confirm)
+        const builder = buildSnapshotRef.current;
+        if (!builder) return;
+        const { itemCounts, snapshot } = builder();
+        if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+        
+        try {
+          const { saved } = await saveItemsBatch(itemCounts);
+          if (saved > 0) {
+            lastAutosavedRef.current = snapshot;
+            setLastSavedAt(new Date());
+            console.log(`[Inventory] Visibility-change save: ${saved} items confirmed`);
+          }
+        } catch (e) {
+          // If async fails, fire sync as last resort (better than nothing)
+          flushSaveSync();
+          console.warn("[Inventory] Visibility-change async failed, fired sync fallback:", e);
+        }
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [flushSaveSync, isViewOnly, isEditing]);
+  }, [saveItemsBatch, flushSaveSync, isViewOnly, isEditing]);
 
   // Save current progress (manual save — used by Save & Exit)
   // Uses resilient saveItemsBatch with up to 2 retries for failed items
