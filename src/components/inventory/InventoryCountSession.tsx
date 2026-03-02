@@ -600,7 +600,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       await supabase
         .from("inventory_counts")
-        .update({ duration_seconds: elapsedSeconds })
+        .update({ duration_seconds: elapsedSecondsRef.current })
         .eq("id", countId);
 
       lastAutosavedRef.current = snapshot;
@@ -608,7 +608,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
     }
-  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+  }, [isViewOnly, isEditing, countId]);
 
   // beforeunload: use sync flush to save data before tab/window close
   useEffect(() => {
