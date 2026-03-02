@@ -133,6 +133,9 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                   <p className="text-xl font-bold text-white leading-tight flex items-center justify-center gap-0.5">
                     <DollarSign className="h-5 w-5" />
                     {formatCurrency(dockContent.totalValue).replace('$', '')}
+                    {dockContent.lastSavedAt && (
+                      <span className="ml-1.5 h-2.5 w-2.5 rounded-full bg-green-400 animate-pulse inline-block flex-shrink-0" />
+                    )}
                   </p>
                 </div>
               </div>

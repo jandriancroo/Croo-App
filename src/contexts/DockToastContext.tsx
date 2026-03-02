@@ -10,6 +10,7 @@ interface DockContentState {
   isVoiceSupported: boolean;
   isEditing: boolean;
   elapsedSeconds: number;
+  lastSavedAt: Date | null;
   onSave: () => void;
   onToggleVoice?: () => void;
 }
