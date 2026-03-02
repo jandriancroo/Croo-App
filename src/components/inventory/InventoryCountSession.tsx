@@ -167,7 +167,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity")
+        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
