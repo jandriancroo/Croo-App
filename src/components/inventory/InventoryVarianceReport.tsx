@@ -17,6 +17,7 @@ interface InventoryVarianceReportProps {
 const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) => {
   const [dateRange, setDateRange] = useState("7");
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [collapsedVarianceCategories, setCollapsedVarianceCategories] = useState<Set<string>>(new Set());
   const days = parseInt(dateRange);
 
   const startDate = subDays(new Date(), days).toISOString().split("T")[0];
