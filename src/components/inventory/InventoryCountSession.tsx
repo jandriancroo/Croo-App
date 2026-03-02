@@ -362,48 +362,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const totalItems = items?.length || 0;
   const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
 
-  // Save count mutation (saves progress without completing)
-  // Now supports split-count items with storage_location_id
-  const saveCountMutation = useMutation({
-    mutationFn: async (itemCounts: { item_id: string; quantity: number; storage_location_id: string | null; entered_cases?: number; entered_units?: number }[]) => {
-      // Use individual upserts since the unique constraint now uses COALESCE
-      for (const ic of itemCounts) {
-        const storLocId = ic.storage_location_id;
-        // Check if a row exists for this combo
-          const { data: existing } = await supabase
-            .from("inventory_count_items")
-            .select("id, storage_location_id")
-            .eq("count_id", countId)
-            .eq("item_id", ic.item_id)
-            .then(res => {
-              // Filter by storage_location_id manually since types may not be updated
-              const filtered = (res.data || []).filter((r: any) => 
-                (r as any).storage_location_id === storLocId || 
-                (!storLocId && !(r as any).storage_location_id)
-              );
-              return { ...res, data: filtered };
-            }) as any;
-        
-        if (existing && existing.length > 0) {
-          await supabase
-            .from("inventory_count_items")
-            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-            .eq("id", existing[0].id);
-        } else {
-          await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity,
-              storage_location_id: storLocId,
-              entered_cases: ic.entered_cases,
-              entered_units: ic.entered_units,
-            } as any);
-        }
-      }
-    }
-  });
+  // Save count mutation is now replaced by the resilient saveItemsBatch function below
 
   // Save edit with tracking mutation
   const saveEditMutation = useMutation({
