@@ -646,7 +646,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       if (failed > 0 && saved === 0) {
         console.warn(`[Inventory] Autosave: all ${failed} items failed, will retry next cycle`);
       }
-    }, 10000); // Every 10 seconds
+    }, 5000); // Every 5 seconds — more frequent to minimize data loss window
 
     return () => {
       clearInterval(autosaveInterval);
