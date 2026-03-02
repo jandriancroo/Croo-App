@@ -292,8 +292,8 @@ const Inventory = () => {
     const endDate = new Date(count.period_end_date + 'T12:00:00');
     switch (count.period_type) {
       case "weekly":
-        // period_end_date is the count day (Monday), but the week ends the day before (Sunday)
-        return `Week Ending ${format(addDays(endDate, -1), "MMM d, yyyy")}`;
+        // period_end_date is already the week-ending date (e.g. Sunday)
+        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
       case "monthly":
         return `${format(endDate, "MMMM yyyy")} Month End`;
       case "yearly":
