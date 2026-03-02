@@ -113,6 +113,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Fetch items with existing counts — supports split-count for multi-location items
   const { data: items } = useQuery({
     queryKey: ["inventory-items-for-count", locationId, countId],
+    staleTime: Infinity, // CRITICAL: Never auto-refetch during counting — prevents state wipe
+    refetchOnWindowFocus: false, // Prevent app-switch from triggering refetch
     queryFn: async () => {
       // Get all items
       const { data: itemsData, error: itemsError } = await supabase
@@ -167,22 +169,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Count items now use storage_location_id to distinguish split entries
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("id, item_id, quantity")
+        .select("id, item_id, quantity, entered_cases, entered_units, storage_location_id")
         .eq("count_id", countId) as any;
       
       if (countError) throw countError;
 
-      // Map: "itemId|storLocId" -> { quantity, countItemId }
+      // Map: "itemId|storLocId" -> { quantity, countItemId, entered_cases, entered_units }
       const countMap = new Map(
         (countItems as any[])?.map((ci: any) => [
           `${ci.item_id}|${ci.storage_location_id || ''}`, 
-          { quantity: ci.quantity, countItemId: ci.id }
+          { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }
         ]) || []
       );
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
-      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
+      const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }]) || []);
 
-      const result: (CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string })[] = [];
+      const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
       
       for (const item of itemsData || []) {
         // Exclude non-countable recipe items
@@ -222,6 +224,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pan_sizes: (item as any).pan_sizes ?? null,
             is_recipe: isRecipe,
             _existingQuantity: countData?.quantity ?? 0,
+            _existingCases: countData?.entered_cases ?? null,
+            _existingUnits: countData?.entered_units ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
           });
@@ -253,31 +257,47 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
-  // Initialize counts from items (convert flat quantity to cases + units)
-  // Uses _splitKey as the state key to support split-count items
+  // Initialize counts from items — ONLY ONCE on first load
+  // Uses entered_cases/entered_units when available (preserves raw user input)
+  // Falls back to decomposing quantity for legacy counts
+  const countsInitializedRef = useRef(false);
   useEffect(() => {
-    if (items) {
-      const initialCounts: Record<string, ItemCount> = {};
-      const originals: Record<string, number> = {};
+    if (!items || countsInitializedRef.current) return;
+    countsInitializedRef.current = true;
+    
+    const initialCounts: Record<string, ItemCount> = {};
+    const originals: Record<string, number> = {};
+    
+    items.forEach(item => {
+      const key = (item as any)._splitKey || item.item_id;
+      const existingCases = (item as any)._existingCases;
+      const existingUnits = (item as any)._existingUnits;
+      const totalUnits = (item as any)._existingQuantity || 0;
+      const packQty = item.pack_quantity || 1;
       
-      items.forEach(item => {
-        const key = (item as any)._splitKey || item.item_id;
-        const totalUnits = (item as any)._existingQuantity || 0;
-        const packQty = item.pack_quantity || 1;
+      // Prefer stored entered_cases/entered_units (exact user input)
+      // Fall back to mathematical decomposition of quantity
+      if (existingCases !== null && existingCases !== undefined) {
+        initialCounts[key] = {
+          cases: existingCases,
+          units: existingUnits ?? 0,
+        };
+      } else {
         initialCounts[key] = {
           cases: Math.floor(totalUnits / packQty),
           units: totalUnits % packQty
         };
-        // Store original quantities for edit tracking
-        if (isEditing) {
-          originals[key] = totalUnits;
-        }
-      });
-      
-      setCounts(initialCounts);
-      if (isEditing) {
-        originalCounts.current = originals;
       }
+      
+      // Store original quantities for edit tracking
+      if (isEditing) {
+        originals[key] = totalUnits;
+      }
+    });
+    
+    setCounts(initialCounts);
+    if (isEditing) {
+      originalCounts.current = originals;
     }
   }, [items, isEditing]);
 
