@@ -85,7 +85,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [pendingVoiceText, setPendingVoiceText] = useState<string | null>(null);
   const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const elapsedSecondsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   
   // Edit tracking
   const [showEditConfirm, setShowEditConfirm] = useState(false);
@@ -502,8 +504,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     setShowEditConfirm(false);
   };
 
-  // Silent autosave - saves progress in background without UI feedback
-  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutosavedRef = useRef<string>("");
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
@@ -537,7 +537,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     // Use navigator.sendBeacon for reliability during unload
-    const payload = JSON.stringify({ countId, itemCounts, elapsedSeconds });
+    const payload = JSON.stringify({ countId, itemCounts, elapsedSeconds: elapsedSecondsRef.current });
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/utility-service?action=flush_inventory_count`;
     const sent = navigator.sendBeacon?.(url, new Blob([payload], { type: 'application/json' }));
     
@@ -553,7 +553,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
     lastAutosavedRef.current = snapshot;
     console.log("[Inventory] Flush save fired (unmount/unload)");
-  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+  }, [isViewOnly, isEditing, countId]);
 
   // Async flush for unmount (component cleanup)
   const flushSaveAsync = useCallback(async () => {
@@ -598,7 +598,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       await supabase
         .from("inventory_counts")
-        .update({ duration_seconds: elapsedSeconds })
+        .update({ duration_seconds: elapsedSecondsRef.current })
         .eq("id", countId);
 
       lastAutosavedRef.current = snapshot;
@@ -606,7 +606,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     } catch (e) {
       console.warn("[Inventory] Flush save failed:", e);
     }
-  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+  }, [isViewOnly, isEditing, countId]);
 
   // beforeunload: use sync flush to save data before tab/window close
   useEffect(() => {
@@ -626,19 +626,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, []);
 
+  // True interval autosave — saves every 10 seconds regardless of activity
+  // This replaces the old debounce pattern which was broken by elapsedSeconds resetting the timer
   useEffect(() => {
-    if (!items || Object.keys(counts).length === 0 || isViewOnly || isEditing) return;
+    if (!items || isViewOnly || isEditing) return;
 
-    // Debounce: save 3 seconds after last change
-    if (autosaveRef.current) clearTimeout(autosaveRef.current);
-
-    autosaveRef.current = setTimeout(async () => {
+    const autosaveInterval = setInterval(async () => {
       const builder = buildSnapshotRef.current;
       if (!builder) return;
       const { itemCounts, snapshot } = builder();
 
       // Skip if nothing changed since last autosave
-      if (snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+      if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
       try {
         // Save each split-count entry individually
@@ -677,20 +676,36 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         // Save elapsed duration too
         await supabase
           .from("inventory_counts")
-          .update({ duration_seconds: elapsedSeconds })
+          .update({ duration_seconds: elapsedSecondsRef.current })
           .eq("id", countId);
 
         lastAutosavedRef.current = snapshot;
-        console.log("[Inventory] Autosaved");
+        setLastSavedAt(new Date());
+        console.log("[Inventory] Autosaved (interval)");
       } catch (e) {
         console.warn("[Inventory] Autosave failed:", e);
       }
-    }, 3000);
+    }, 10000); // Every 10 seconds
 
     return () => {
-      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+      clearInterval(autosaveInterval);
     };
-  }, [counts, panCounts, items, isViewOnly, isEditing, countId, elapsedSeconds, getTotalQuantity]);
+  }, [items, isViewOnly, isEditing, countId]);
+
+  // Save on visibility change (user switches tabs/apps — immediate save)
+  useEffect(() => {
+    if (isViewOnly || isEditing) return;
+    
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        // User is leaving — do a sync flush for safety
+        flushSaveSync();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [flushSaveSync, isViewOnly, isEditing]);
 
   // Save current progress (manual save — used by Save & Exit)
   const handleSave = async () => {
@@ -717,7 +732,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Save elapsed duration
       await supabase
         .from("inventory_counts")
-        .update({ duration_seconds: elapsedSeconds })
+        .update({ duration_seconds: elapsedSecondsRef.current })
         .eq("id", countId);
       
       // Update last autosaved to prevent unmount flush from re-saving stale data
@@ -997,7 +1012,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => {
     if (!isViewOnly && !isEditing) {
       timerRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
+        setElapsedSeconds(prev => {
+          const next = prev + 1;
+          elapsedSecondsRef.current = next;
+          return next;
+        });
       }, 1000);
     }
     return () => {
@@ -1081,6 +1100,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="font-semibold font-mono">{Math.floor(elapsedSeconds / 60)} min</span>
               </div>
+              {lastSavedAt && (
+                <>
+                  <div className="h-6 w-px bg-border" />
+                  <div className="flex items-center gap-1">
+                    <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-muted-foreground">Saved</span>
+                  </div>
+                </>
+              )}
               {isSupported && !isEditing && (
                 <>
                   <div className="h-6 w-px bg-border" />
