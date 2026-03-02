@@ -999,7 +999,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => {
     if (!isViewOnly && !isEditing) {
       timerRef.current = setInterval(() => {
-        setElapsedSeconds(prev => prev + 1);
+        setElapsedSeconds(prev => {
+          const next = prev + 1;
+          elapsedSecondsRef.current = next;
+          return next;
+        });
       }, 1000);
     }
     return () => {
