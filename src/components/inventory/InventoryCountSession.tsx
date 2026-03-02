@@ -85,7 +85,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const [pendingVoiceText, setPendingVoiceText] = useState<string | null>(null);
   const [errorHighlightedItemId, setErrorHighlightedItemId] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const elapsedSecondsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   
   // Edit tracking
   const [showEditConfirm, setShowEditConfirm] = useState(false);
