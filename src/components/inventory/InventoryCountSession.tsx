@@ -505,6 +505,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const lastAutosavedRef = useRef<string>("");
+  const failedItemsRef = useRef<Map<string, any>>(new Map()); // key -> item payload for retry
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
