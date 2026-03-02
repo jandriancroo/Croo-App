@@ -504,8 +504,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     setShowEditConfirm(false);
   };
 
-  // Silent autosave - saves progress in background without UI feedback
-  const autosaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAutosavedRef = useRef<string>("");
   const lastAutosavedRef = useRef<string>("");
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
