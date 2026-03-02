@@ -1037,6 +1037,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isVoiceSupported: isSupported,
         isEditing,
         elapsedSeconds,
+        lastSavedAt,
         onSave: () => {}, // Save moved to page header
         onToggleVoice: () => toggleListeningRef.current(),
       });
