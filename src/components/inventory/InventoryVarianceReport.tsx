@@ -172,17 +172,36 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
     });
   }, [counts]);
 
-  // Get items with significant variances
-  const significantVariances = useMemo(() => {
-    return counts?.flatMap(count => 
+  // Group variances by category
+  const variancesByCategory = useMemo(() => {
+    const allVariances = counts?.flatMap(count => 
       (count.inventory_count_items || [])
         .filter((ci: any) => ci.variance && Math.abs(ci.variance) > 0)
         .map((ci: any) => ({
           ...ci,
           count_date: count.count_date
         }))
-    ).sort((a: any, b: any) => Math.abs(b.variance_cost || 0) - Math.abs(a.variance_cost || 0))
-    .slice(0, 10) || [];
+    ) || [];
+    
+    const grouped = new Map<string, any[]>();
+    for (const item of allVariances) {
+      const category = item.item?.category || "Uncategorized";
+      const existing = grouped.get(category) || [];
+      existing.push(item);
+      grouped.set(category, existing);
+    }
+    
+    for (const [, items] of grouped) {
+      items.sort((a: any, b: any) => Math.abs(b.variance_cost || 0) - Math.abs(a.variance_cost || 0));
+    }
+    
+    return new Map(
+      [...grouped.entries()].sort(([a], [b]) => {
+        if (a === "Uncategorized") return 1;
+        if (b === "Uncategorized") return -1;
+        return a.localeCompare(b);
+      })
+    );
   }, [counts]);
 
   // Build theoretical lookup by item name
