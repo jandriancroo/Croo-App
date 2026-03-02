@@ -222,6 +222,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             pan_sizes: (item as any).pan_sizes ?? null,
             is_recipe: isRecipe,
             _existingQuantity: countData?.quantity ?? 0,
+            _existingCases: countData?.entered_cases ?? null,
+            _existingUnits: countData?.entered_units ?? null,
             _countItemId: countData?.countItemId || null,
             _splitKey: splitKey,
           });
