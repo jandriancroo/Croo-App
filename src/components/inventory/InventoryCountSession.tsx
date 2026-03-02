@@ -182,7 +182,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Also keep a simple item_id map for backwards compat (old counts without storage_location_id)
       const simpleCountMap = new Map((countItems as any[])?.map((ci: any) => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id, entered_cases: ci.entered_cases, entered_units: ci.entered_units }]) || []);
 
-      const result: (CountItem & { _existingQuantity: number; _countItemId: string | null; _splitKey: string })[] = [];
+      const result: (CountItem & { _existingQuantity: number; _existingCases: number | null; _existingUnits: number | null; _countItemId: string | null; _splitKey: string })[] = [];
       
       for (const item of itemsData || []) {
         // Exclude non-countable recipe items
