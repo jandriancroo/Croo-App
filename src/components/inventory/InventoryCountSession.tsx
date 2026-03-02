@@ -485,6 +485,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   const lastAutosavedRef = useRef<string>("");
   const failedItemsRef = useRef<Map<string, any>>(new Map()); // key -> item payload for retry
+  // Track last-saved quantities per item to avoid re-saving unchanged items
+  const lastSavedQuantitiesRef = useRef<Map<string, string>>(new Map());
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
@@ -508,57 +510,129 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, [items, counts, panCounts, getTotalQuantity]);
 
-  // Resilient per-item save: wraps each upsert in try/catch, tracks failures for retry
+  // Resilient batch save: ONE bulk SELECT, then only UPDATE/INSERT changed items
   const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
     let saved = 0;
     let failed = 0;
-    
-    for (const ic of itemCounts) {
-      try {
-        const storLocId = ic.storage_location_id;
-        const { data: existing } = await supabase
-          .from("inventory_count_items")
-          .select("id, storage_location_id")
-          .eq("count_id", countId)
-          .eq("item_id", ic.item_id) as any;
-        
-        const match = (existing || []).find((r: any) => 
-          (r as any).storage_location_id === storLocId || 
-          (!storLocId && !(r as any).storage_location_id)
-        );
-        
-        if (match) {
-          const { error } = await supabase
-            .from("inventory_count_items")
-            .update({ quantity: ic.quantity, entered_cases: ic.entered_cases, entered_units: ic.entered_units } as any)
-            .eq("id", match.id);
-          if (error) throw error;
-        } else {
-          const { error } = await supabase
-            .from("inventory_count_items")
-            .insert({
-              count_id: countId,
-              item_id: ic.item_id,
-              quantity: ic.quantity,
-              storage_location_id: storLocId,
-              entered_cases: ic.entered_cases,
-              entered_units: ic.entered_units,
-            } as any);
-          if (error) throw error;
-        }
-        
-        // Clear from failed queue on success
-        failedItemsRef.current.delete(`${ic.item_id}|${storLocId || ''}`);
-        saved++;
-      } catch (e) {
-        // Track failed item for retry on next cycle
-        const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
-        failedItemsRef.current.set(key, ic);
-        failed++;
-        console.warn(`[Inventory] Failed to save item ${ic.item_id}:`, e);
+    if (itemCounts.length === 0) return { saved, failed };
+
+    try {
+      // ONE query to fetch all existing count items for this count
+      const { data: allExisting, error: fetchErr } = await supabase
+        .from("inventory_count_items")
+        .select("id, item_id, storage_location_id, quantity, entered_cases, entered_units")
+        .eq("count_id", countId) as any;
+      
+      if (fetchErr) throw fetchErr;
+
+      // Build lookup map: "item_id|storage_location_id" -> existing record
+      const existingMap = new Map<string, any>();
+      for (const row of (allExisting || [])) {
+        const key = `${row.item_id}|${row.storage_location_id || ''}`;
+        existingMap.set(key, row);
       }
+
+      // Separate into updates vs inserts, and skip unchanged items
+      const toUpdate: { id: string; quantity: number; entered_cases: number; entered_units: number }[] = [];
+      const toInsert: any[] = [];
+
+      for (const ic of itemCounts) {
+        const key = `${ic.item_id}|${ic.storage_location_id || ''}`;
+        const existing = existingMap.get(key);
+        
+        // Build a fingerprint to skip unchanged items
+        const fingerprint = `${ic.quantity}|${ic.entered_cases}|${ic.entered_units}`;
+        const lastSaved = lastSavedQuantitiesRef.current.get(key);
+        
+        if (existing) {
+          // Skip if quantity hasn't changed from DB AND from last save
+          const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}`;
+          if (fingerprint === dbFingerprint && fingerprint === lastSaved) continue;
+          
+          toUpdate.push({
+            id: existing.id,
+            quantity: ic.quantity,
+            entered_cases: ic.entered_cases,
+            entered_units: ic.entered_units,
+          });
+        } else {
+          if (fingerprint === lastSaved) continue; // Already inserted on a previous cycle
+          toInsert.push({
+            count_id: countId,
+            item_id: ic.item_id,
+            quantity: ic.quantity,
+            storage_location_id: ic.storage_location_id,
+            entered_cases: ic.entered_cases,
+            entered_units: ic.entered_units,
+          });
+        }
+      }
+
+      // Batch updates (individual PATCHes but NO extra SELECT per item)
+      for (const upd of toUpdate) {
+        try {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .update({ quantity: upd.quantity, entered_cases: upd.entered_cases, entered_units: upd.entered_units } as any)
+            .eq("id", upd.id);
+          if (error) throw error;
+          const key = itemCounts.find(ic => {
+            const existing = existingMap.get(`${ic.item_id}|${ic.storage_location_id || ''}`);
+            return existing?.id === upd.id;
+          });
+          if (key) {
+            const k = `${key.item_id}|${key.storage_location_id || ''}`;
+            lastSavedQuantitiesRef.current.set(k, `${upd.quantity}|${upd.entered_cases}|${upd.entered_units}`);
+            failedItemsRef.current.delete(k);
+          }
+          saved++;
+        } catch (e) {
+          const key = itemCounts.find(ic => {
+            const existing = existingMap.get(`${ic.item_id}|${ic.storage_location_id || ''}`);
+            return existing?.id === upd.id;
+          });
+          if (key) {
+            const k = `${key.item_id}|${key.storage_location_id || ''}`;
+            failedItemsRef.current.set(k, key);
+          }
+          failed++;
+          console.warn(`[Inventory] Failed to update item:`, e);
+        }
+      }
+
+      // Batch inserts (one call for all new items)
+      if (toInsert.length > 0) {
+        try {
+          const { error } = await supabase
+            .from("inventory_count_items")
+            .insert(toInsert as any);
+          if (error) throw error;
+          for (const ins of toInsert) {
+            const k = `${ins.item_id}|${ins.storage_location_id || ''}`;
+            lastSavedQuantitiesRef.current.set(k, `${ins.quantity}|${ins.entered_cases}|${ins.entered_units}`);
+            failedItemsRef.current.delete(k);
+          }
+          saved += toInsert.length;
+        } catch (e) {
+          for (const ins of toInsert) {
+            const k = `${ins.item_id}|${ins.storage_location_id || ''}`;
+            failedItemsRef.current.set(k, ins);
+          }
+          failed += toInsert.length;
+          console.warn(`[Inventory] Failed to insert items:`, e);
+        }
+      }
+
+    } catch (e) {
+      // Bulk SELECT failed — everything fails this cycle, will retry
+      console.warn("[Inventory] Bulk fetch failed, will retry next cycle:", e);
+      for (const ic of itemCounts) {
+        const k = `${ic.item_id}|${ic.storage_location_id || ''}`;
+        failedItemsRef.current.set(k, ic);
+      }
+      failed = itemCounts.length;
     }
-    
+
     // Save elapsed duration (separate try/catch so item failures don't block this)
     try {
       await supabase
