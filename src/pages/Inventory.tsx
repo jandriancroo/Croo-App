@@ -378,8 +378,8 @@ const Inventory = () => {
       for (let wi = 0; wi < weeksInMonth.length; wi++) {
         const weekCount = weeksInMonth[wi];
         const countDate = new Date(weekCount.period_end_date + 'T12:00:00');
-        const wEnd = addDays(countDate, -1);   // Sunday
-        const wStart = addDays(countDate, -7); // Monday
+        const wEnd = countDate;                // period_end_date is already the week end (Sunday)
+        const wStart = addDays(countDate, -6); // Monday
         const mKey = format(wStart, "yyyy-MM-dd");
 
         // Starting inventory from prior week's ending cost
