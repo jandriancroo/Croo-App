@@ -32,7 +32,7 @@ interface InventoryCountSessionProps {
   onClose: () => void;
   isEditing?: boolean;
   isViewOnly?: boolean;
-  saveRef?: React.MutableRefObject<{ save: () => void; isSaving: boolean } | null>;
+  saveRef?: React.MutableRefObject<{ save: () => Promise<void>; isSaving: boolean } | null>;
 }
 
 interface CountItem {
@@ -700,10 +700,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     const itemCounts = items.map(item => {
       const key = (item as any)._splitKey || item.item_id;
       const storLocId = item.storage_location_id;
+      const casesVal = counts[key]?.cases || 0;
+      const unitsVal = counts[key]?.units || 0;
       return {
         item_id: item.item_id,
         quantity: getTotalQuantity(key, item.pack_quantity, item.pan_sizes),
         storage_location_id: (storLocId === 'uncategorized' || storLocId === 'recipes') ? null : storLocId,
+        entered_cases: casesVal,
+        entered_units: unitsVal,
       };
     });
     
@@ -716,13 +720,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         .update({ duration_seconds: elapsedSeconds })
         .eq("id", countId);
       
+      // Update last autosaved to prevent unmount flush from re-saving stale data
+      if (buildSnapshotRef.current) {
+        const { snapshot } = buildSnapshotRef.current();
+        lastAutosavedRef.current = snapshot;
+      }
+      
       toast.success("Progress saved");
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      onClose();
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save");
+      throw error; // Re-throw so Save & Exit knows it failed
     } finally {
       setIsSaving(false);
     }
@@ -968,7 +978,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => {
     if (saveRef) {
       saveRef.current = {
-        save: () => isEditing ? handleSaveEditsRef.current() : handleSaveRef.current(),
+        save: async () => { 
+          if (isEditing) { 
+            handleSaveEditsRef.current(); 
+          } else { 
+            await handleSaveRef.current(); 
+          } 
+        },
         isSaving,
       };
     }
