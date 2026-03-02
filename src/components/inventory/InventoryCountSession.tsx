@@ -539,7 +539,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
     // Use navigator.sendBeacon for reliability during unload
-    const payload = JSON.stringify({ countId, itemCounts, elapsedSeconds });
+    const payload = JSON.stringify({ countId, itemCounts, elapsedSeconds: elapsedSecondsRef.current });
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/utility-service?action=flush_inventory_count`;
     const sent = navigator.sendBeacon?.(url, new Blob([payload], { type: 'application/json' }));
     
@@ -555,7 +555,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
     lastAutosavedRef.current = snapshot;
     console.log("[Inventory] Flush save fired (unmount/unload)");
-  }, [isViewOnly, isEditing, countId, elapsedSeconds]);
+  }, [isViewOnly, isEditing, countId]);
 
   // Async flush for unmount (component cleanup)
   const flushSaveAsync = useCallback(async () => {
