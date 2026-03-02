@@ -708,6 +708,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [flushSaveSync, isViewOnly, isEditing]);
 
   // Save current progress (manual save — used by Save & Exit)
+  // Uses resilient saveItemsBatch with up to 2 retries for failed items
   const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
     
@@ -727,13 +728,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     });
     
     try {
-      await saveCountMutation.mutateAsync(itemCounts);
+      let result = await saveItemsBatch(itemCounts);
       
-      // Save elapsed duration
-      await supabase
-        .from("inventory_counts")
-        .update({ duration_seconds: elapsedSecondsRef.current })
-        .eq("id", countId);
+      // Retry failed items up to 2 more times
+      for (let attempt = 0; attempt < 2 && result.failed > 0; attempt++) {
+        console.log(`[Inventory] Manual save retry ${attempt + 1} for ${result.failed} failed items`);
+        await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+        const retryItems = Array.from(failedItemsRef.current.values());
+        if (retryItems.length === 0) break;
+        result = await saveItemsBatch(retryItems);
+      }
       
       // Update last autosaved to prevent unmount flush from re-saving stale data
       if (buildSnapshotRef.current) {
@@ -741,7 +745,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         lastAutosavedRef.current = snapshot;
       }
       
-      toast.success("Progress saved");
+      if (failedItemsRef.current.size > 0) {
+        toast.warning(`Saved with ${failedItemsRef.current.size} item(s) pending — they'll retry automatically`);
+      } else {
+        toast.success("Progress saved");
+      }
+      setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
     } catch (error) {
