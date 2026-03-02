@@ -215,7 +215,7 @@ const InventoryCount = () => {
       return count?.count_date ? format(new Date(count.count_date), "MMM d, yyyy") : "";
     }
     
-    const endDate = new Date(count.period_end_date);
+    const endDate = new Date(count.period_end_date + 'T12:00:00');
     switch (count.period_type) {
       case "weekly":
         return `Week Ending ${format(endDate, "MMM d, yyyy")}`;

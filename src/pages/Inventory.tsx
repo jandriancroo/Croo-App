@@ -292,8 +292,8 @@ const Inventory = () => {
     const endDate = new Date(count.period_end_date + 'T12:00:00');
     switch (count.period_type) {
       case "weekly":
-        // period_end_date is the count day (Monday), but the week ends the day before (Sunday)
-        return `Week Ending ${format(addDays(endDate, -1), "MMM d, yyyy")}`;
+        // period_end_date is already the week-ending date (e.g. Sunday)
+        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
       case "monthly":
         return `${format(endDate, "MMMM yyyy")} Month End`;
       case "yearly":
@@ -378,8 +378,8 @@ const Inventory = () => {
       for (let wi = 0; wi < weeksInMonth.length; wi++) {
         const weekCount = weeksInMonth[wi];
         const countDate = new Date(weekCount.period_end_date + 'T12:00:00');
-        const wEnd = addDays(countDate, -1);   // Sunday
-        const wStart = addDays(countDate, -7); // Monday
+        const wEnd = countDate;                // period_end_date is already the week end (Sunday)
+        const wStart = addDays(countDate, -6); // Monday
         const mKey = format(wStart, "yyyy-MM-dd");
 
         // Starting inventory from prior week's ending cost
