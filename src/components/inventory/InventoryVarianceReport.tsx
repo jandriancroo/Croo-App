@@ -431,50 +431,74 @@ const InventoryVarianceReport = ({ locationId }: InventoryVarianceReportProps) =
         </Card>
       )}
 
-      {/* Significant variances list — grouped by category */}
+      {/* Variance by Category */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Top Variances</CardTitle>
+          <CardTitle className="text-lg">Variance by Category</CardTitle>
         </CardHeader>
         <CardContent>
-          {significantVariances.length > 0 ? (
+          {variancesByCategory.size > 0 ? (
             <div className="space-y-3">
-              {significantVariances.map((item: any, idx: number) => {
-                const theoretical = theoreticalByItem.get(item.item?.name);
-                const category = item.item?.category;
+              {[...variancesByCategory.entries()].map(([category, items]) => {
+                const isCollapsed = collapsedVarianceCategories.has(category);
+                const totalShortage = items.reduce((sum: number, i: any) => sum + (i.variance_cost < 0 ? Math.abs(i.variance_cost) : 0), 0);
+                const totalOverage = items.reduce((sum: number, i: any) => sum + (i.variance_cost > 0 ? i.variance_cost : 0), 0);
+                const netVariance = totalOverage - totalShortage;
+                
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{item.item?.name || "Unknown Item"}</p>
-                        {category && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{category}</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(item.count_date), "MMM d")} • 
-                        Counted: {item.quantity} {item.item?.unit}
-                        {theoretical && (
-                          <span className="ml-1">• Expected: {Number(theoretical.theoreticalUsage.toFixed(2))}</span>
-                        )}
-                        {!theoretical && item.theoretical_quantity && (
-                          <span className="ml-1">• Expected: {Number(Number(item.theoretical_quantity).toFixed(2))}</span>
-                        )}
-                      </p>
-                    </div>
-                    <Badge 
-                      variant={item.variance < 0 ? "destructive" : "default"}
-                      className={cn(
-                        item.variance > 0 && "bg-green-500"
-                      )}
+                  <div key={category}>
+                    <button
+                      className="flex items-center justify-between w-full p-3 rounded-lg bg-muted/80 hover:bg-muted transition-colors text-left"
+                      onClick={() => toggleVarianceCategory(category)}
                     >
-                      {item.variance > 0 ? "+" : ""}{Number(Number(item.variance).toFixed(2))}
-                      {item.variance_cost && (
-                        <span className="ml-1">
-                          (${Math.abs(item.variance_cost).toFixed(2)})
-                        </span>
-                      )}
-                    </Badge>
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        <span className="font-medium">{category}</span>
+                        <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
+                      </div>
+                      <Badge 
+                        variant={netVariance < 0 ? "destructive" : "default"}
+                        className={cn(netVariance >= 0 && "bg-green-500")}
+                      >
+                        {netVariance >= 0 ? "+" : "-"}${Math.abs(netVariance).toFixed(2)}
+                      </Badge>
+                    </button>
+                    
+                    {!isCollapsed && (
+                      <div className="space-y-1 mt-1 ml-6">
+                        {items.map((item: any, idx: number) => {
+                          const theoretical = theoreticalByItem.get(item.item?.name);
+                          return (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                              <div>
+                                <p className="font-medium text-sm">{item.item?.name || "Unknown Item"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(item.count_date), "MMM d")} • 
+                                  Counted: {item.quantity} {item.item?.unit}
+                                  {theoretical && (
+                                    <span className="ml-1">• Expected: {Number(theoretical.theoreticalUsage.toFixed(2))}</span>
+                                  )}
+                                  {!theoretical && item.theoretical_quantity && (
+                                    <span className="ml-1">• Expected: {Number(Number(item.theoretical_quantity).toFixed(2))}</span>
+                                  )}
+                                </p>
+                              </div>
+                              <Badge 
+                                variant={item.variance < 0 ? "destructive" : "default"}
+                                className={cn(item.variance > 0 && "bg-green-500")}
+                              >
+                                {item.variance > 0 ? "+" : ""}{Number(Number(item.variance).toFixed(2))}
+                                {item.variance_cost && (
+                                  <span className="ml-1">
+                                    (${Math.abs(item.variance_cost).toFixed(2)})
+                                  </span>
+                                )}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
