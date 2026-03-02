@@ -1037,6 +1037,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isVoiceSupported: isSupported,
         isEditing,
         elapsedSeconds,
+        lastSavedAt,
         onSave: () => {}, // Save moved to page header
         onToggleVoice: () => toggleListeningRef.current(),
       });
@@ -1048,7 +1049,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return () => {
       setDockContent(null);
     };
-  }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, elapsedSeconds, setDockContent]);
+  }, [isMobile, isViewOnly, totalCost, countedItems, totalItems, isSaving, isListening, isSupported, isEditing, elapsedSeconds, lastSavedAt, setDockContent]);
 
   // Format currency
   const formatCurrency = (value: number) => {
