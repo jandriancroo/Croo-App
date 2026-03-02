@@ -29,7 +29,7 @@ const InventoryCount = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSaveExitDialog, setShowSaveExitDialog] = useState(false);
   const [reconciliationComplete, setReconciliationComplete] = useState(false);
-  const saveRef = useRef<{ save: () => void; isSaving: boolean } | null>(null);
+  const saveRef = useRef<{ save: () => Promise<void>; isSaving: boolean } | null>(null);
   const { locationId, countId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
