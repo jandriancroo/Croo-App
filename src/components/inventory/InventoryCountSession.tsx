@@ -628,19 +628,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     };
   }, []);
 
+  // True interval autosave — saves every 10 seconds regardless of activity
+  // This replaces the old debounce pattern which was broken by elapsedSeconds resetting the timer
   useEffect(() => {
-    if (!items || Object.keys(counts).length === 0 || isViewOnly || isEditing) return;
+    if (!items || isViewOnly || isEditing) return;
 
-    // Debounce: save 3 seconds after last change
-    if (autosaveRef.current) clearTimeout(autosaveRef.current);
-
-    autosaveRef.current = setTimeout(async () => {
+    const autosaveInterval = setInterval(async () => {
       const builder = buildSnapshotRef.current;
       if (!builder) return;
       const { itemCounts, snapshot } = builder();
 
       // Skip if nothing changed since last autosave
-      if (snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
+      if (!snapshot || snapshot === lastAutosavedRef.current || itemCounts.length === 0) return;
 
       try {
         // Save each split-count entry individually
@@ -679,20 +678,36 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         // Save elapsed duration too
         await supabase
           .from("inventory_counts")
-          .update({ duration_seconds: elapsedSeconds })
+          .update({ duration_seconds: elapsedSecondsRef.current })
           .eq("id", countId);
 
         lastAutosavedRef.current = snapshot;
-        console.log("[Inventory] Autosaved");
+        setLastSavedAt(new Date());
+        console.log("[Inventory] Autosaved (interval)");
       } catch (e) {
         console.warn("[Inventory] Autosave failed:", e);
       }
-    }, 3000);
+    }, 10000); // Every 10 seconds
 
     return () => {
-      if (autosaveRef.current) clearTimeout(autosaveRef.current);
+      clearInterval(autosaveInterval);
     };
-  }, [counts, panCounts, items, isViewOnly, isEditing, countId, elapsedSeconds, getTotalQuantity]);
+  }, [items, isViewOnly, isEditing, countId]);
+
+  // Save on visibility change (user switches tabs/apps — immediate save)
+  useEffect(() => {
+    if (isViewOnly || isEditing) return;
+    
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'hidden') {
+        // User is leaving — do a sync flush for safety
+        flushSaveSync();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [flushSaveSync, isViewOnly, isEditing]);
 
   // Save current progress (manual save — used by Save & Exit)
   const handleSave = async () => {
