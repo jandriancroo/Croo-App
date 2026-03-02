@@ -505,7 +505,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   };
 
   const lastAutosavedRef = useRef<string>("");
-  const lastAutosavedRef = useRef<string>("");
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
