@@ -732,7 +732,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       // Save elapsed duration
       await supabase
         .from("inventory_counts")
-        .update({ duration_seconds: elapsedSeconds })
+        .update({ duration_seconds: elapsedSecondsRef.current })
         .eq("id", countId);
       
       // Update last autosaved to prevent unmount flush from re-saving stale data
