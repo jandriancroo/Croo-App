@@ -720,13 +720,19 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         .update({ duration_seconds: elapsedSeconds })
         .eq("id", countId);
       
+      // Update last autosaved to prevent unmount flush from re-saving stale data
+      if (buildSnapshotRef.current) {
+        const { snapshot } = buildSnapshotRef.current();
+        lastAutosavedRef.current = snapshot;
+      }
+      
       toast.success("Progress saved");
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-      onClose();
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save");
+      throw error; // Re-throw so Save & Exit knows it failed
     } finally {
       setIsSaving(false);
     }
