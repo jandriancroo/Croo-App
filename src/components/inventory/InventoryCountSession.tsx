@@ -972,7 +972,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   useEffect(() => {
     if (saveRef) {
       saveRef.current = {
-        save: () => isEditing ? handleSaveEditsRef.current() : handleSaveRef.current(),
+        save: async () => { 
+          if (isEditing) { 
+            handleSaveEditsRef.current(); 
+          } else { 
+            await handleSaveRef.current(); 
+          } 
+        },
         isSaving,
       };
     }
