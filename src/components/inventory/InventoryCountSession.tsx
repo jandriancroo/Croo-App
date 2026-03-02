@@ -553,6 +553,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [countId]);
 
   // Synchronous flush: fire-and-forget save using sendBeacon + edge fallback
+  // IMPORTANT: Does NOT mark as saved — sendBeacon can't confirm success
   const flushSaveSync = useCallback(() => {
     if (isViewOnly || isEditing) return;
     const builder = buildSnapshotRef.current;
@@ -575,8 +576,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       }).catch(() => {});
     }
 
-    lastAutosavedRef.current = snapshot;
-    console.log("[Inventory] Flush save fired (unmount/unload)");
+    // DO NOT set lastAutosavedRef here — sendBeacon success is unconfirmed
+    // The next autosave cycle will re-save this data with confirmation
+    console.log("[Inventory] Flush save fired (unmount/unload) — unconfirmed");
   }, [isViewOnly, isEditing, countId]);
 
   // Async flush for unmount (component cleanup)
