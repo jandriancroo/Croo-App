@@ -32,7 +32,7 @@ interface InventoryCountSessionProps {
   onClose: () => void;
   isEditing?: boolean;
   isViewOnly?: boolean;
-  saveRef?: React.MutableRefObject<{ save: () => void; isSaving: boolean } | null>;
+  saveRef?: React.MutableRefObject<{ save: () => Promise<void>; isSaving: boolean } | null>;
 }
 
 interface CountItem {
