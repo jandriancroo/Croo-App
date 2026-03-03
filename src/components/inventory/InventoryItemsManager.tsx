@@ -1270,7 +1270,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
-                            {unassigned.map((item) => (
+                            {unassigned.map((item, idx) => (
                               <SortableInventoryItem
                                 key={item.id}
                                 sortableId={item.id}
@@ -1279,6 +1279,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                 isSelected={selectedItemIds.has(item.id)}
                                 isSelectingThisGroup={isSelectingThisGroup}
                                 isDragDisabled={isSelectingThisGroup}
+                                isReorderMode={isReorderMode}
+                                isFirst={idx === 0}
+                                isLast={idx === unassigned.length - 1}
+                                onMoveUp={() => handleMoveItem(unassigned, idx, 'up')}
+                                onMoveDown={() => handleMoveItem(unassigned, idx, 'down')}
                                 onClick={() => {
                                   if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
