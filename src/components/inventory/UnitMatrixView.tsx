@@ -196,8 +196,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     const panKey = colKey.replace("pan_", "");
     const panConfig = item.pan_sizes as PanSizesConfig | null;
     
+    // No pan config yet — open sheet to set up baseline
     if (!panConfig?.enabled) {
-      toast.error("Enable pan sizes for this item first");
+      setBaselineSheetPanKey(panKey);
+      setBaselineSheetItem(item);
       return;
     }
     
@@ -205,8 +207,9 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     const isEnabled = panConfig.enabled_keys.includes(panKey);
     
     if (isCurrentBaseline && isEnabled) {
-      // Already baseline — no action
-      toast("This is already the baseline", { description: "Tap a different enabled cell to set it as baseline" });
+      // Tap baseline → open sheet to edit it
+      setBaselineSheetPanKey(panKey);
+      setBaselineSheetItem(item);
       return;
     }
     
@@ -217,7 +220,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
         description: "Set as baseline or disable?",
         action: {
           label: "Set Baseline",
-          onClick: () => setBaseline.mutate({ itemId, panKey, currentConfig: panConfig }),
+          onClick: () => {
+            setBaselineSheetPanKey(panKey);
+            setBaselineSheetItem(item);
+          },
         },
         cancel: {
           label: "Disable",
@@ -230,7 +236,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     
     // Not enabled — enable it
     togglePanKey.mutate({ itemId, panKey, currentConfig: panConfig });
-  }, [togglePanKey, setBaseline]);
+  }, [togglePanKey]);
 
   const categories = useMemo(() => {
     if (!items) return [];
