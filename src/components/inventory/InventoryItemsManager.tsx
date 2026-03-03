@@ -1103,10 +1103,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             <div className="flex items-center gap-2 font-semibold text-sm">
               <Package className="h-4 w-4" />
               Items ({items?.length || 0})
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Sub-view toggle */}
-              <div className="flex items-center rounded-md border border-border overflow-hidden">
+              <div className="flex items-center rounded-md border border-border overflow-hidden ml-2">
                 <button
                   className={`px-2 py-1 text-xs font-medium transition-colors ${
                     itemsSubView === "list" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -1125,6 +1122,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   Matrix
                 </button>
               </div>
+            </div>
+            <div className="flex items-center gap-2">
               {itemsSubView === "list" && (
                 <>
                   <Button
