@@ -203,11 +203,21 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     });
   }, [items, categoryFilter, searchQuery]);
 
-  const matrixData = useMemo(() => {
-    return filteredItems.map(item => ({
-      item,
-      cells: computeCellValues(item),
-    }));
+  const groupedData = useMemo(() => {
+    const groups: { category: string; rows: { item: any; cells: Record<string, CellValue> }[] }[] = [];
+    const catMap = new Map<string, { item: any; cells: Record<string, CellValue> }[]>();
+    
+    for (const item of filteredItems) {
+      const cat = item.category || "Other";
+      if (!catMap.has(cat)) catMap.set(cat, []);
+      catMap.get(cat)!.push({ item, cells: computeCellValues(item) });
+    }
+    
+    // Sort categories alphabetically
+    for (const [category, rows] of Array.from(catMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      groups.push({ category, rows });
+    }
+    return groups;
   }, [filteredItems]);
 
   const visibleColumns = UNIT_COLUMNS;
