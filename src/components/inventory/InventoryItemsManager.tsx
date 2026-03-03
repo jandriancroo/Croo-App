@@ -1069,7 +1069,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             </div>
           </div>
           {items && items.length > 0 ? (
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            <div className="space-y-2">
               {/* Items needing remap */}
               {(() => {
                 const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap');
