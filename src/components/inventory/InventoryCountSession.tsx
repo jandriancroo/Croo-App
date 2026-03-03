@@ -116,10 +116,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     staleTime: Infinity, // CRITICAL: Never auto-refetch during counting — prevents state wipe
     refetchOnWindowFocus: false, // Prevent app-switch from triggering refetch
     queryFn: async () => {
-      // Get all items
-      const { data: itemsData, error: itemsError } = await supabase
-        .from("inventory_items")
-        .select(`
+      const itemColumns = `
           id,
           name,
           common_name,
@@ -138,12 +135,45 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           countable,
           recipe_yield_unit,
           storage_location:inventory_locations(name)
-        `)
+      `;
+      
+      // Get all active items
+      const { data: activeItems, error: itemsError } = await supabase
+        .from("inventory_items")
+        .select(itemColumns)
         .eq("location_id", locationId)
         .eq("is_active", true)
         .order("display_order");
       
       if (itemsError) throw itemsError;
+
+      // For edit/continue mode: also fetch items in the count record that may now be inactive/hidden
+      // This prevents data loss when re-opening a completed count
+      let itemsData = activeItems || [];
+      if (isEditing) {
+        const { data: countItemIds } = await supabase
+          .from("inventory_count_items")
+          .select("item_id")
+          .eq("count_id", countId);
+        
+        const activeIdSet = new Set((activeItems || []).map(i => i.id));
+        const missingIds = (countItemIds || [])
+          .map(ci => ci.item_id)
+          .filter(id => !activeIdSet.has(id));
+        
+        if (missingIds.length > 0) {
+          // Deduplicate missing IDs
+          const uniqueMissingIds = [...new Set(missingIds)];
+          const { data: inactiveItems } = await supabase
+            .from("inventory_items")
+            .select(itemColumns)
+            .in("id", uniqueMissingIds);
+          
+          if (inactiveItems && inactiveItems.length > 0) {
+            itemsData = [...itemsData, ...inactiveItems];
+          }
+        }
+      }
 
       // Fetch multi-location assignments from junction table
       const { data: itemLocations } = await supabase
