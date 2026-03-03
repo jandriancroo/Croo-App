@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { AlertTriangle, Filter } from "lucide-react";
 import { ALL_CONTAINERS, type PanSizesConfig, getPanUnits } from "./PanSizesSection";
+import BaselineConfigSheet from "./BaselineConfigSheet";
 
 interface UnitMatrixViewProps {
   locationId: string;
