@@ -1,8 +1,9 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Link2 } from "lucide-react";
+import { GripVertical, Link2, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 
 interface SortableInventoryItemProps {
   item: any;
@@ -11,6 +12,11 @@ interface SortableInventoryItemProps {
   isSelected: boolean;
   isSelectingThisGroup: boolean;
   isDragDisabled: boolean;
+  isReorderMode?: boolean;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
@@ -22,6 +28,11 @@ export function SortableInventoryItem({
   isSelected,
   isSelectingThisGroup,
   isDragDisabled,
+  isReorderMode = false,
+  isFirst = false,
+  isLast = false,
+  onMoveUp,
+  onMoveDown,
   onClick,
   onContextMenu,
 }: SortableInventoryItemProps) {
@@ -35,7 +46,7 @@ export function SortableInventoryItem({
     isDragging,
   } = useSortable({
     id: sortableId,
-    disabled: isDragDisabled,
+    disabled: isDragDisabled || isReorderMode,
   });
 
   const style = {
@@ -58,40 +69,72 @@ export function SortableInventoryItem({
           ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
           : "bg-background hover:bg-muted/30"
       }`}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
+      onClick={isReorderMode ? undefined : onClick}
+      onContextMenu={isReorderMode ? undefined : onContextMenu}
     >
-      {/* Name section — truncates */}
-      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-        {isSelectingThisGroup && (
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => {}}
-            className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
-          />
-        )}
-        {!isShortcut ? (
-          <div
-            ref={setActivatorNodeRef}
-            {...attributes}
-            {...listeners}
-            className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0"
-          >
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+      {/* Reorder arrows OR drag handle */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {isReorderMode ? (
+          <div className="flex flex-col gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 p-0"
+              disabled={isFirst}
+              onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 p-0"
+              disabled={isLast}
+              onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <div
-              ref={setActivatorNodeRef}
-              {...attributes}
-              {...listeners}
-              className="touch-none cursor-grab active:cursor-grabbing"
-            >
-              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-            </div>
-            <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
-          </div>
+          <>
+            {isSelectingThisGroup && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => {}}
+                className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
+              />
+            )}
+            {!isShortcut ? (
+              <div
+                ref={setActivatorNodeRef}
+                {...attributes}
+                {...listeners}
+                className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0"
+              >
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <div
+                  ref={setActivatorNodeRef}
+                  {...attributes}
+                  {...listeners}
+                  className="touch-none cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+                </div>
+                <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+              </div>
+            )}
+          </>
         )}
+        {isReorderMode && isShortcut && (
+          <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+        )}
+      </div>
+
+      {/* Name */}
+      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
         <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""}`}>
           {(item as any).common_name || item.name}
         </span>
@@ -114,30 +157,34 @@ export function SortableInventoryItem({
       </div>
 
       {/* Fixed-width badge columns */}
-      <div className="flex items-center gap-1.5 flex-shrink-0 w-[120px] justify-end">
-        {(item as any).category && !isShortcut ? (
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap">
-            {(item as any).category}
-          </Badge>
-        ) : !isShortcut ? (
-          <span className="w-1" />
-        ) : null}
-        {(item as any).pan_sizes?.enabled && !isShortcut && (
-          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap">
-            Pans
-          </Badge>
-        )}
-      </div>
+      {!isReorderMode && (
+        <div className="flex items-center gap-1.5 flex-shrink-0 w-[120px] justify-end">
+          {(item as any).category && !isShortcut ? (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap">
+              {(item as any).category}
+            </Badge>
+          ) : !isShortcut ? (
+            <span className="w-1" />
+          ) : null}
+          {(item as any).pan_sizes?.enabled && !isShortcut && (
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap">
+              Pans
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Price/unit column */}
-      <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
-        <span className="text-xs">{item.pack_size || item.unit || "ea"}</span>
-        {item.cost_per_unit && !isShortcut && (
-          <span className="text-xs text-primary">
-            ${Number(item.cost_per_unit).toFixed(2)}
-          </span>
-        )}
-      </div>
+      {!isReorderMode && (
+        <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
+          <span className="text-xs">{item.pack_size || item.unit || "ea"}</span>
+          {item.cost_per_unit && !isShortcut && (
+            <span className="text-xs text-primary">
+              ${Number(item.cost_per_unit).toFixed(2)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2, Tag } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2, Tag, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -112,6 +112,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -150,6 +151,16 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     if (oldIndex === -1 || newIndex === -1) return;
     const reordered = arrayMove(groupItems, oldIndex, newIndex);
     // Only reorder primary items (not shortcuts) for display_order persistence
+    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
+    if (primaryOnly.length > 0) {
+      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+    }
+  }, [reorderItemsMutation]);
+
+  const handleMoveItem = useCallback((groupItems: any[], itemIndex: number, direction: 'up' | 'down', isShortcutList?: Set<string>) => {
+    const newIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+    if (newIndex < 0 || newIndex >= groupItems.length) return;
+    const reordered = arrayMove(groupItems, itemIndex, newIndex);
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
@@ -1061,6 +1072,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               Items ({items?.length || 0})
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={isReorderMode ? "default" : "outline"}
+                onClick={() => setIsReorderMode(!isReorderMode)}
+              >
+                <ListOrdered className="h-4 w-4 mr-1" />
+                {isReorderMode ? "Done" : "Reorder"}
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
                 <Settings2 className="h-4 w-4 mr-1" />
                 Locations
@@ -1068,7 +1087,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             </div>
           </div>
           {items && items.length > 0 ? (
-            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+            <div className="space-y-2">
               {/* Items needing remap */}
               {(() => {
                 const remapItems = items.filter(i => (i as any).remap_status === 'needs_remap');
@@ -1171,8 +1190,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             {allLocItems.length === 0 && (
                               <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
                             )}
-                            {allLocItems.map((item) => {
+                            {allLocItems.map((item, idx) => {
                               const isShortcut = shortcutItems.includes(item);
+                              const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
                               return (
                                 <SortableInventoryItem
                                   key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
@@ -1182,6 +1202,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup}
                                   isDragDisabled={isSelectingThisGroup}
+                                  isReorderMode={isReorderMode}
+                                  isFirst={idx === 0}
+                                  isLast={idx === allLocItems.length - 1}
+                                  onMoveUp={() => handleMoveItem(allLocItems, idx, 'up', shortcutIdSet)}
+                                  onMoveDown={() => handleMoveItem(allLocItems, idx, 'down', shortcutIdSet)}
                                   onClick={() => {
                                     if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
@@ -1245,7 +1270,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                           strategy={verticalListSortingStrategy}
                         >
                           <div className="grid gap-0.5 p-1">
-                            {unassigned.map((item) => (
+                            {unassigned.map((item, idx) => (
                               <SortableInventoryItem
                                 key={item.id}
                                 sortableId={item.id}
@@ -1254,6 +1279,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                 isSelected={selectedItemIds.has(item.id)}
                                 isSelectingThisGroup={isSelectingThisGroup}
                                 isDragDisabled={isSelectingThisGroup}
+                                isReorderMode={isReorderMode}
+                                isFirst={idx === 0}
+                                isLast={idx === unassigned.length - 1}
+                                onMoveUp={() => handleMoveItem(unassigned, idx, 'up')}
+                                onMoveDown={() => handleMoveItem(unassigned, idx, 'down')}
                                 onClick={() => {
                                   if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
