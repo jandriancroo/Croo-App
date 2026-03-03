@@ -1,9 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Link2, ArrowUp, ArrowDown } from "lucide-react";
+import { GripVertical, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 
 interface SortableInventoryItemProps {
   item: any;
@@ -13,10 +12,7 @@ interface SortableInventoryItemProps {
   isSelectingThisGroup: boolean;
   isDragDisabled: boolean;
   isReorderMode?: boolean;
-  isFirst?: boolean;
-  isLast?: boolean;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  reorderState?: "idle" | "picked" | "target";
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
@@ -29,10 +25,7 @@ export function SortableInventoryItem({
   isSelectingThisGroup,
   isDragDisabled,
   isReorderMode = false,
-  isFirst = false,
-  isLast = false,
-  onMoveUp,
-  onMoveDown,
+  reorderState = "idle",
   onClick,
   onContextMenu,
 }: SortableInventoryItemProps) {
@@ -49,52 +42,60 @@ export function SortableInventoryItem({
     disabled: isDragDisabled || isReorderMode,
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 50 : undefined,
-  };
+  const style = isReorderMode
+    ? undefined
+    : {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : undefined,
+      };
+
+  const reorderClasses = isReorderMode
+    ? reorderState === "picked"
+      ? "bg-primary/15 ring-2 ring-primary shadow-md scale-[1.02] -translate-y-0.5"
+      : reorderState === "target"
+      ? "bg-primary/5"
+      : "hover:bg-muted/40"
+    : "";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center py-1.5 px-2 rounded text-sm group cursor-pointer gap-2 ${
+      className={`flex items-center py-1.5 px-2 rounded text-sm cursor-pointer gap-2 transition-all duration-150 ${
         isDragging
           ? "border border-primary/40 border-dashed bg-primary/5 shadow-lg"
+          : isReorderMode
+          ? `${reorderClasses} ${reorderState === "picked" ? "" : ""}`
           : isSelected
           ? "bg-primary/10 ring-1 ring-primary/30"
           : isShortcut
           ? "bg-orange-100 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-700/50"
           : "bg-background hover:bg-muted/30"
       }`}
-      onClick={isReorderMode ? undefined : onClick}
+      onClick={onClick}
       onContextMenu={isReorderMode ? undefined : onContextMenu}
     >
-      {/* Reorder arrows OR drag handle */}
+      {/* Left icons */}
       <div className="flex items-center gap-1 flex-shrink-0">
         {isReorderMode ? (
-          <div className="flex flex-col gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 p-0"
-              disabled={isFirst}
-              onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
-            >
-              <ArrowUp className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 p-0"
-              disabled={isLast}
-              onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          <>
+            {reorderState === "picked" ? (
+              <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-[10px] text-primary-foreground font-bold">✓</span>
+              </div>
+            ) : (
+              <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center">
+                <span className="text-[10px] text-muted-foreground">
+                  {reorderState === "target" ? "↓" : ""}
+                </span>
+              </div>
+            )}
+            {isShortcut && (
+              <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
+            )}
+          </>
         ) : (
           <>
             {isSelectingThisGroup && (
@@ -128,14 +129,11 @@ export function SortableInventoryItem({
             )}
           </>
         )}
-        {isReorderMode && isShortcut && (
-          <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
-        )}
       </div>
 
       {/* Name */}
       <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-        <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""}`}>
+        <span className={`truncate ${isShortcut ? "text-muted-foreground" : ""} ${reorderState === "picked" ? "font-medium" : ""}`}>
           {(item as any).common_name || item.name}
         </span>
         {(item as any).common_name && !isShortcut && (
@@ -156,7 +154,7 @@ export function SortableInventoryItem({
         )}
       </div>
 
-      {/* Fixed-width badge columns */}
+      {/* Fixed-width badge columns — hidden in reorder mode */}
       {!isReorderMode && (
         <div className="flex items-center gap-1.5 flex-shrink-0 w-[120px] justify-end">
           {(item as any).category && !isShortcut ? (
@@ -174,7 +172,7 @@ export function SortableInventoryItem({
         </div>
       )}
 
-      {/* Price/unit column */}
+      {/* Price/unit column — hidden in reorder mode */}
       {!isReorderMode && (
         <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
           <span className="text-xs">{item.pack_size || item.unit || "ea"}</span>
@@ -183,6 +181,15 @@ export function SortableInventoryItem({
               ${Number(item.cost_per_unit).toFixed(2)}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Reorder hint */}
+      {isReorderMode && reorderState === "target" && (
+        <div className="flex-shrink-0">
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary">
+            Place here
+          </Badge>
         </div>
       )}
     </div>

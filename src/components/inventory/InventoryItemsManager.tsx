@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, GripVertical, Link2, Tag, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -114,6 +114,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
+  const [pickedItemId, setPickedItemId] = useState<string | null>(null);
+  const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -158,16 +160,37 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [reorderItemsMutation]);
 
-  const handleMoveItem = useCallback((groupItems: any[], itemIndex: number, direction: 'up' | 'down', isShortcutList?: Set<string>) => {
-    const newIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
-    if (newIndex < 0 || newIndex >= groupItems.length) return;
-    const reordered = arrayMove(groupItems, itemIndex, newIndex);
+  const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
+    if (!pickedItemId) {
+      // Pick this item
+      setPickedItemId(clickedItemId);
+      setPickedGroupKey(groupKey);
+      return;
+    }
+    if (pickedItemId === clickedItemId && pickedGroupKey === groupKey) {
+      // Unpick (cancel)
+      setPickedItemId(null);
+      setPickedGroupKey(null);
+      return;
+    }
+    if (pickedGroupKey !== groupKey) {
+      // Different group — just re-pick
+      setPickedItemId(clickedItemId);
+      setPickedGroupKey(groupKey);
+      return;
+    }
+    // Place: move picked item to before clicked item
+    const oldIndex = groupItems.findIndex(i => i.id === pickedItemId);
+    const newIndex = groupItems.findIndex(i => i.id === clickedItemId);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(groupItems, oldIndex, newIndex);
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
     }
-  }, [reorderItemsMutation]);
-
+    setPickedItemId(null);
+    setPickedGroupKey(null);
+  }, [pickedItemId, pickedGroupKey, reorderItemsMutation]);
 
 
 
@@ -1077,7 +1100,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               <Button
                 size="sm"
                 variant={isReorderMode ? "default" : "outline"}
-                onClick={() => setIsReorderMode(!isReorderMode)}
+                onClick={() => {
+                  const next = !isReorderMode;
+                  setIsReorderMode(next);
+                  if (!next) {
+                    setPickedItemId(null);
+                    setPickedGroupKey(null);
+                  }
+                }}
               >
                 <ListOrdered className="h-4 w-4 mr-1" />
                 {isReorderMode ? "Done" : "Reorder"}
@@ -1088,6 +1118,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               </Button>
             </div>
           </div>
+          {isReorderMode && (
+            <p className="text-xs text-muted-foreground px-1">
+              {pickedItemId 
+                ? "Now tap where you want to place it. Tap the same item to cancel."
+                : "Tap an item to pick it up, then tap where to place it."}
+            </p>
+          )}
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
@@ -1203,14 +1240,21 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isShortcut={isShortcut}
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup}
-                                  isDragDisabled={isSelectingThisGroup}
+                                  isDragDisabled={isSelectingThisGroup || isReorderMode}
                                   isReorderMode={isReorderMode}
-                                  isFirst={idx === 0}
-                                  isLast={idx === allLocItems.length - 1}
-                                  onMoveUp={() => handleMoveItem(allLocItems, idx, 'up', shortcutIdSet)}
-                                  onMoveDown={() => handleMoveItem(allLocItems, idx, 'down', shortcutIdSet)}
+                                  reorderState={
+                                    isReorderMode
+                                      ? pickedItemId === item.id && pickedGroupKey === loc.id
+                                        ? "picked"
+                                        : pickedItemId && pickedGroupKey === loc.id
+                                        ? "target"
+                                        : "idle"
+                                      : "idle"
+                                  }
                                   onClick={() => {
-                                    if (isSelectingThisGroup) {
+                                    if (isReorderMode) {
+                                      handleReorderClick(item.id, loc.id, allLocItems, shortcutIdSet);
+                                    } else if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                       setSelectedItemIds(next);
@@ -1280,14 +1324,21 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 isShortcut={false}
                                 isSelected={selectedItemIds.has(item.id)}
                                 isSelectingThisGroup={isSelectingThisGroup}
-                                isDragDisabled={isSelectingThisGroup}
+                                isDragDisabled={isSelectingThisGroup || isReorderMode}
                                 isReorderMode={isReorderMode}
-                                isFirst={idx === 0}
-                                isLast={idx === unassigned.length - 1}
-                                onMoveUp={() => handleMoveItem(unassigned, idx, 'up')}
-                                onMoveDown={() => handleMoveItem(unassigned, idx, 'down')}
+                                reorderState={
+                                  isReorderMode
+                                    ? pickedItemId === item.id && pickedGroupKey === "__unassigned__"
+                                      ? "picked"
+                                      : pickedItemId && pickedGroupKey === "__unassigned__"
+                                      ? "target"
+                                      : "idle"
+                                    : "idle"
+                                }
                                 onClick={() => {
-                                  if (isSelectingThisGroup) {
+                                  if (isReorderMode) {
+                                    handleReorderClick(item.id, "__unassigned__", unassigned);
+                                  } else if (isSelectingThisGroup) {
                                     const next = new Set(selectedItemIds);
                                     if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                     setSelectedItemIds(next);
