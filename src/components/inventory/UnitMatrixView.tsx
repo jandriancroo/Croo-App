@@ -263,7 +263,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                   Item
                 </th>
                 {visibleColumns.map(col => (
-                  <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">
+                  <th key={col.key} className="text-center px-1 py-2 font-medium text-muted-foreground min-w-[64px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label}</span>
                     {col.toggleable && <span className="text-[8px] block text-muted-foreground/50">tap to toggle</span>}
                   </th>
