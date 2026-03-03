@@ -48,6 +48,7 @@ import { SortableInventoryItem, ItemDragOverlay } from "./SortableInventoryItem"
 
 interface InventoryItemsManagerProps {
   locationId: string;
+  mode?: "items" | "setup";
 }
 
 interface EditingItem {
