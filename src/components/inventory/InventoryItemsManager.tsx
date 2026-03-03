@@ -1190,8 +1190,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                             {allLocItems.length === 0 && (
                               <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">No items assigned yet</p>
                             )}
-                            {allLocItems.map((item) => {
+                            {allLocItems.map((item, idx) => {
                               const isShortcut = shortcutItems.includes(item);
+                              const shortcutIdSet = new Set(shortcutItems.map(i => i.id));
                               return (
                                 <SortableInventoryItem
                                   key={`${item.id}${isShortcut ? '-shortcut' : ''}`}
@@ -1201,6 +1202,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup}
                                   isDragDisabled={isSelectingThisGroup}
+                                  isReorderMode={isReorderMode}
+                                  isFirst={idx === 0}
+                                  isLast={idx === allLocItems.length - 1}
+                                  onMoveUp={() => handleMoveItem(allLocItems, idx, 'up', shortcutIdSet)}
+                                  onMoveDown={() => handleMoveItem(allLocItems, idx, 'down', shortcutIdSet)}
                                   onClick={() => {
                                     if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
