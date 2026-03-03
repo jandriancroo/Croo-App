@@ -1429,7 +1429,47 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </DialogHeader>
           {editingItem && (
             <div className="space-y-4">
-              <p className="text-sm font-medium">{editingItem.name}</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  {editingCommonName ? (
+                    <Input
+                      autoFocus
+                      className="h-7 text-sm font-medium flex-1"
+                      placeholder="Common name (e.g. Spring Mix)"
+                      value={commonNameValue}
+                      onChange={(e) => setCommonNameValue(e.target.value)}
+                      onBlur={() => setEditingCommonName(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setEditingCommonName(false);
+                        if (e.key === "Escape") {
+                          setCommonNameValue(editingItem.common_name || "");
+                          setEditingCommonName(false);
+                        }
+                      }}
+                      disabled={!canEditCommonNames}
+                    />
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium truncate">
+                        {commonNameValue || editingItem.name}
+                      </p>
+                      {canEditCommonNames && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditingCommonName(true)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+                {commonNameValue ? (
+                  <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
+                ) : null}
+              </div>
 
               {/* Storage Location */}
               <div className="space-y-2">
