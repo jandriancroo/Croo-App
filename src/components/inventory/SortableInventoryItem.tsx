@@ -178,7 +178,7 @@ export function ItemDragOverlay({ item }: { item: any }) {
   return (
     <div className="flex items-center justify-between py-1.5 px-2 rounded text-sm bg-background border border-primary shadow-xl scale-105">
       <div className="flex items-center gap-2 truncate flex-1">
-        <GripVertical className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+        <div className="w-3.5 h-3.5 rounded-full bg-primary flex-shrink-0" />
         <span className="truncate font-medium">
           {(item as any).common_name || item.name}
         </span>
