@@ -50,6 +50,8 @@ interface CountItem {
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
   is_recipe: boolean;
+  /** Per-shortcut counting mode: inherit uses global settings */
+  count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
 
 // Count state: cases + individual units (supports decimals for partial cases)
