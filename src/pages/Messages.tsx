@@ -191,7 +191,7 @@ export default function Messages() {
           </Button>
         </div>
 
-        <div className="flex-1 flex flex-col bg-card rounded-lg overflow-hidden relative">
+        <div className="flex-1 flex flex-col bg-card rounded-lg overflow-clip relative">
           
           <div className="flex-1 min-h-0 overflow-y-auto px-1">
             {viewMode === 'support' ? <SupportChatPanel /> : viewMode === 'hiring' ? (
