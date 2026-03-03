@@ -259,11 +259,11 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-20">
               <tr className="bg-muted/95 backdrop-blur-sm border-b border-border">
-                <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm text-left px-3 py-2 font-semibold min-w-[180px] max-w-[220px]">
+                <th className="sticky left-0 z-20 bg-muted/95 backdrop-blur-sm text-left px-2 py-2 font-semibold w-[130px] min-w-[130px] max-w-[130px]">
                   Item
                 </th>
                 {visibleColumns.map(col => (
-                  <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">
+                  <th key={col.key} className="text-center px-1 py-2 font-medium text-muted-foreground min-w-[64px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label}</span>
                     {col.toggleable && <span className="text-[8px] block text-muted-foreground/50">tap to toggle</span>}
                   </th>
@@ -296,10 +296,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                           idx % 2 === 0 ? "" : "bg-muted/10"
                         }`}
                       >
-                        <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 font-medium truncate max-w-[220px]">
-                          <div className="flex items-center gap-1.5">
+                        <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-1.5 font-medium w-[130px] min-w-[130px] max-w-[130px]">
+                          <div className="flex items-center gap-1 min-w-0">
                             {hasIssue && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
-                            <span className="truncate" title={displayName}>{displayName}</span>
+                            <span className="line-clamp-2 text-[11px] leading-tight break-words" title={displayName}>{displayName}</span>
                           </div>
                         </td>
                         
