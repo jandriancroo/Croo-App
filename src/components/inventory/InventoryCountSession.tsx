@@ -1350,7 +1350,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const countBy = item.count_by || 'inherit';
           const showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
           const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
-          const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
           return (
             <Card 
