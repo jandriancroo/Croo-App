@@ -27,7 +27,10 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import StorageLocationManager from "./StorageLocationManager";
-import UnitMatrixView from "./UnitMatrixView";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { Suspense } from "react";
+
+const UnitMatrixView = lazyWithRetry(() => import("./UnitMatrixView"));
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
