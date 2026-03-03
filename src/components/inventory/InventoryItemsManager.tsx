@@ -1564,25 +1564,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 );
               })()}
 
-              {/* Category selector — Brand Admin+ only */}
-              <div className="space-y-1">
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={categoryValue}
-                  onChange={(e) => setCategoryValue(e.target.value)}
-                  disabled={!canEditCategories}
-                >
-                  <option value="">No category</option>
-                  {INVENTORY_CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  Used to group items in variance reports
-                </p>
-              </div>
+              {/* Category is now in the dialog header */}
 
               {/* Common name is now edited inline at the top */}
 
