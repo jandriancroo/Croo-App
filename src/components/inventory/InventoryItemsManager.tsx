@@ -119,6 +119,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
+  const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemId, setPickedItemId] = useState<string | null>(null);
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
