@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered } from "lucide-react";
+import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTriangle, ArrowRightLeft, ChevronDown, Settings2, MoveRight, X, Plus, RefreshCw, Link2, Tag, ListOrdered, Grid3X3 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
@@ -27,6 +27,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import StorageLocationManager from "./StorageLocationManager";
+import UnitMatrixView from "./UnitMatrixView";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
@@ -116,6 +117,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemId, setPickedItemId] = useState<string | null>(null);
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
+  const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1097,27 +1099,59 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               Items ({items?.length || 0})
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant={isReorderMode ? "default" : "outline"}
-                onClick={() => {
-                  const next = !isReorderMode;
-                  setIsReorderMode(next);
-                  if (!next) {
-                    setPickedItemId(null);
-                    setPickedGroupKey(null);
-                  }
-                }}
-              >
-                <ListOrdered className="h-4 w-4 mr-1" />
-                {isReorderMode ? "Done" : "Reorder"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
-                <Settings2 className="h-4 w-4 mr-1" />
-                Locations
-              </Button>
+              {/* Sub-view toggle */}
+              <div className="flex items-center rounded-md border border-border overflow-hidden">
+                <button
+                  className={`px-2 py-1 text-xs font-medium transition-colors ${
+                    itemsSubView === "list" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setItemsSubView("list")}
+                >
+                  List
+                </button>
+                <button
+                  className={`px-2 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
+                    itemsSubView === "matrix" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                  }`}
+                  onClick={() => setItemsSubView("matrix")}
+                >
+                  <Grid3X3 className="h-3 w-3" />
+                  Units
+                </button>
+              </div>
+              {itemsSubView === "list" && (
+                <>
+                  <Button
+                    size="sm"
+                    variant={isReorderMode ? "default" : "outline"}
+                    onClick={() => {
+                      const next = !isReorderMode;
+                      setIsReorderMode(next);
+                      if (!next) {
+                        setPickedItemId(null);
+                        setPickedGroupKey(null);
+                      }
+                    }}
+                  >
+                    <ListOrdered className="h-4 w-4 mr-1" />
+                    {isReorderMode ? "Done" : "Reorder"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
+                    <Settings2 className="h-4 w-4 mr-1" />
+                    Locations
+                  </Button>
+                </>
+              )}
             </div>
           </div>
+
+          {/* Matrix sub-view */}
+          {itemsSubView === "matrix" && (
+            <UnitMatrixView locationId={locationId} />
+          )}
+
+          {/* List sub-view */}
+          {itemsSubView === "list" && <>
           {isReorderMode && (
             <p className="text-xs text-muted-foreground px-1">
               {pickedItemId 
@@ -1371,6 +1405,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               No items yet. Click "Sync with PFG" to import.
             </p>
           )}
+          </>}
         </div>
       </Card>
 

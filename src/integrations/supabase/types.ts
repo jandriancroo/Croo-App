@@ -2577,21 +2577,30 @@ export type Database = {
       }
       inventory_item_locations: {
         Row: {
+          count_by: string
           created_at: string
           id: string
           item_id: string
+          pack_quantity_override: number | null
+          pan_enabled_keys: string[] | null
           storage_location_id: string
         }
         Insert: {
+          count_by?: string
           created_at?: string
           id?: string
           item_id: string
+          pack_quantity_override?: number | null
+          pan_enabled_keys?: string[] | null
           storage_location_id: string
         }
         Update: {
+          count_by?: string
           created_at?: string
           id?: string
           item_id?: string
+          pack_quantity_override?: number | null
+          pan_enabled_keys?: string[] | null
           storage_location_id?: string
         }
         Relationships: [
