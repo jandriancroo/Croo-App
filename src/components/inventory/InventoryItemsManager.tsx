@@ -1567,37 +1567,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 </p>
               </div>
 
-              {/* Common Name — Brand Admin+ only */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="use-common-name"
-                    checked={useCommonName}
-                    onCheckedChange={(checked) => {
-                      setUseCommonName(!!checked);
-                      if (!checked) setCommonNameValue("");
-                    }}
-                    disabled={!canEditCommonNames}
-                  />
-                  <Label htmlFor="use-common-name" className="text-sm cursor-pointer">
-                    Use common name
-                  </Label>
-                </div>
-                {useCommonName && (
-                  <div className="space-y-1">
-                    <Input
-                      id="common-name"
-                      placeholder="e.g., Sausage, Mozzarella, Pepperoni"
-                      value={commonNameValue}
-                      onChange={(e) => setCommonNameValue(e.target.value)}
-                      disabled={!canEditCommonNames}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      A simple name shown instead of the vendor item name
-                    </p>
-                  </div>
-                )}
-              </div>
+              {/* Common name is now edited inline at the top */}
 
               {/* Pan Sizes */}
               <PanSizesSection
