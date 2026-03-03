@@ -1100,7 +1100,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               <Button
                 size="sm"
                 variant={isReorderMode ? "default" : "outline"}
-                onClick={() => setIsReorderMode(!isReorderMode)}
+                onClick={() => {
+                  const next = !isReorderMode;
+                  setIsReorderMode(next);
+                  if (!next) {
+                    setPickedItemId(null);
+                    setPickedGroupKey(null);
+                  }
+                }}
               >
                 <ListOrdered className="h-4 w-4 mr-1" />
                 {isReorderMode ? "Done" : "Reorder"}
@@ -1111,6 +1118,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               </Button>
             </div>
           </div>
+          {isReorderMode && (
+            <p className="text-xs text-muted-foreground px-1">
+              {pickedItemId 
+                ? "Now tap where you want to place it. Tap the same item to cancel."
+                : "Tap an item to pick it up, then tap where to place it."}
+            </p>
+          )}
           {items && items.length > 0 ? (
             <div className="space-y-2">
               {/* Items needing remap */}
