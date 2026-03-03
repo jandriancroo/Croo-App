@@ -262,9 +262,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                 <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm text-left px-3 py-2 font-semibold min-w-[180px] max-w-[220px]">
                   Item
                 </th>
-                <th className="text-left px-2 py-2 font-medium text-muted-foreground min-w-[70px]">
-                  Cat
-                </th>
                 {visibleColumns.map(col => (
                   <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label}</span>
