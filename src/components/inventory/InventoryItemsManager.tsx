@@ -116,6 +116,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [bulkMoveTargets, setBulkMoveTargets] = useState<Set<string>>(new Set());
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
+  const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemId, setPickedItemId] = useState<string | null>(null);
@@ -1839,7 +1840,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Dialog>
 
       {/* Create Shortcut Dialog */}
-      <Dialog open={showShortcutDialog} onOpenChange={setShowShortcutDialog}>
+      <Dialog open={showShortcutDialog} onOpenChange={(open) => { setShowShortcutDialog(open); if (!open) setShortcutCountBy('inherit'); }}>
         <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2">
@@ -1864,6 +1865,23 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               </button>
             ))}
           </div>
+          
+          {/* Count-by selector */}
+          <div className="space-y-1.5 pt-1 border-t border-border">
+            <label className="text-xs font-medium text-muted-foreground">Count by</label>
+            <Select value={shortcutCountBy} onValueChange={(v: any) => setShortcutCountBy(v)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Inherit (default)</SelectItem>
+                <SelectItem value="cases_and_units">Cases & Units</SelectItem>
+                <SelectItem value="cases_only">Cases only</SelectItem>
+                <SelectItem value="units_only">Units only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button
             disabled={!shortcutTarget || isBulkUpdating}
             onClick={async () => {
@@ -1871,10 +1889,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               setIsBulkUpdating(true);
               try {
                 const ids = Array.from(selectedItemIds);
-                // Insert junction entries (shortcuts), skip duplicates
                 const inserts = ids.map(itemId => ({
                   item_id: itemId,
                   storage_location_id: shortcutTarget,
+                  count_by: shortcutCountBy,
                 }));
                 const { error } = await supabase
                   .from("inventory_item_locations")
@@ -1888,6 +1906,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 setSelectedItemIds(new Set());
                 setActiveSelectGroup(null);
                 setShowShortcutDialog(false);
+                setShortcutCountBy('inherit');
               } catch {
                 toast.error("Failed to create shortcuts");
               } finally {
