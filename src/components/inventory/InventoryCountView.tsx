@@ -257,11 +257,10 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                       <Table className="table-fixed w-full">
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="pl-3 w-[38%]">Item</TableHead>
-                            <TableHead className="text-right w-[13%] px-1">Cases</TableHead>
-                            <TableHead className="text-right w-[13%] px-1">Units</TableHead>
+                            <TableHead className="pl-3 w-[40%]">Item</TableHead>
+                            <TableHead className="text-right w-[22%] px-1">Counted</TableHead>
                             <TableHead className="text-right w-[13%] px-1">Qty</TableHead>
-                            <TableHead className="text-right pr-4 w-[23%]">Value</TableHead>
+                            <TableHead className="text-right pr-4 w-[25%]">Value</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -282,6 +281,14 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                             const value = getItemValue(item);
                             const itemEdits = editHistory?.get(item.id) || [];
                             const hasEdits = itemEdits.length > 0;
+                            
+                            // Smart summary: show only what was actually counted
+                            const smartParts: string[] = [];
+                            if (cases > 0) smartParts.push(`${cases} cs`);
+                            if (units > 0) smartParts.push(`${units % 1 === 0 ? units : units.toFixed(1)} ea`);
+                            if (smartParts.length === 0 && item.quantity === 0) smartParts.push("0");
+                            if (smartParts.length === 0) smartParts.push(`${item.quantity} ea`);
+                            const smartSummary = smartParts.join(", ");
                             
                             return (
                               <Collapsible key={item.id} asChild>
@@ -313,8 +320,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                                         </div>
                                       </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-mono text-sm px-1">{cases}</TableCell>
-                                    <TableCell className="text-right font-mono text-sm px-1">{units}</TableCell>
+                                    <TableCell className="text-right font-mono text-sm px-1">{smartSummary}</TableCell>
                                     <TableCell className="text-right font-mono text-sm px-1">{item.quantity}</TableCell>
                                     <TableCell className="text-right pr-4 font-medium text-primary text-sm truncate">
                                       {formatCurrency(value)}
