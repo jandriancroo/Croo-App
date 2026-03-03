@@ -160,16 +160,37 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
   }, [reorderItemsMutation]);
 
-  const handleMoveItem = useCallback((groupItems: any[], itemIndex: number, direction: 'up' | 'down', isShortcutList?: Set<string>) => {
-    const newIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
-    if (newIndex < 0 || newIndex >= groupItems.length) return;
-    const reordered = arrayMove(groupItems, itemIndex, newIndex);
+  const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
+    if (!pickedItemId) {
+      // Pick this item
+      setPickedItemId(clickedItemId);
+      setPickedGroupKey(groupKey);
+      return;
+    }
+    if (pickedItemId === clickedItemId && pickedGroupKey === groupKey) {
+      // Unpick (cancel)
+      setPickedItemId(null);
+      setPickedGroupKey(null);
+      return;
+    }
+    if (pickedGroupKey !== groupKey) {
+      // Different group — just re-pick
+      setPickedItemId(clickedItemId);
+      setPickedGroupKey(groupKey);
+      return;
+    }
+    // Place: move picked item to before clicked item
+    const oldIndex = groupItems.findIndex(i => i.id === pickedItemId);
+    const newIndex = groupItems.findIndex(i => i.id === clickedItemId);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(groupItems, oldIndex, newIndex);
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
     }
-  }, [reorderItemsMutation]);
-
+    setPickedItemId(null);
+    setPickedGroupKey(null);
+  }, [pickedItemId, pickedGroupKey, reorderItemsMutation]);
 
 
 
