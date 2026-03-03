@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
+import { Plus, ClipboardList, Settings, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
+import { COGSReportContent } from "@/pages/COGSReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
@@ -510,15 +511,15 @@ const Inventory = () => {
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Count</span>
             </TabsTrigger>
-            <TabsTrigger value="variance" className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4" />
-              <span className="hidden sm:inline">Variance</span>
-            </TabsTrigger>
-            <TabsTrigger value="cogs" className="flex items-center gap-2" onClick={() => navigate(`/inventory/${locationId}/cogs`)}>
+            <TabsTrigger value="cogs-variance" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
               <span className="hidden sm:inline">COGS</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Items</span>
+            </TabsTrigger>
+            <TabsTrigger value="setup" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Setup</span>
             </TabsTrigger>
@@ -677,12 +678,17 @@ const Inventory = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="variance" className="mt-4">
+          <TabsContent value="cogs-variance" className="mt-4 space-y-6">
+            <COGSReportContent locationId={locationId!} />
             <InventoryVarianceReport locationId={locationId!} />
           </TabsContent>
 
           <TabsContent value="items" className="mt-4">
-            <InventoryItemsManager locationId={locationId!} />
+            <InventoryItemsManager locationId={locationId!} mode="items" />
+          </TabsContent>
+
+          <TabsContent value="setup" className="mt-4">
+            <InventoryItemsManager locationId={locationId!} mode="setup" />
           </TabsContent>
         </Tabs>
       </div>

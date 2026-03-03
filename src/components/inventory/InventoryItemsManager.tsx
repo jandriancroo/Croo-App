@@ -48,6 +48,7 @@ import { SortableInventoryItem, ItemDragOverlay } from "./SortableInventoryItem"
 
 interface InventoryItemsManagerProps {
   locationId: string;
+  mode?: "items" | "setup";
 }
 
 interface EditingItem {
@@ -75,7 +76,7 @@ interface SyncProgress {
 }
 
 
-const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
+const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { canEditRecipes, canEditProductGroups, canEditUsageRates, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
@@ -829,6 +830,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   return (
     <>
     <div className="space-y-6">
+      {mode === "setup" && <>
       {/* Schedule + Sync side by side */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InventoryScheduleSettings locationId={locationId} />
@@ -1061,9 +1063,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           </Card>
         );
       })()}
+      </>}
 
-
-
+      {mode === "items" && <>
       <Card>
         <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
@@ -1365,6 +1367,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           )}
         </Card>
       )}
+      </>}
     </div>
 
       {/* Edit Item Dialog */}
