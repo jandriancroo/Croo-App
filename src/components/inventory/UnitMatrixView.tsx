@@ -375,14 +375,14 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                             <td
                               key={col.key}
                               className={`px-1.5 py-1.5 text-center ${
-                                isBaseline ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : ""
+                                isBaseline ? "bg-orange-500/15 ring-1 ring-inset ring-orange-500/30" : ""
                               } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
                               onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                             >
                               <div className="flex flex-col items-center gap-0">
                                 {qty != null ? (
                                   <span className={`font-mono font-semibold text-[11px] ${
-                                    isBaseline ? "text-primary font-bold" : "text-foreground"
+                                    isBaseline ? "text-orange-500 font-bold" : "text-foreground"
                                   }`}>
                                     {qty % 1 === 0 ? qty : qty.toFixed(2)}
                                   </span>
