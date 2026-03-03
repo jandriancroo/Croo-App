@@ -471,7 +471,6 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
             )}
           </>
         )}
-      </div>
     </div>
   );
 };
