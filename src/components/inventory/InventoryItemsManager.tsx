@@ -454,7 +454,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     if (!editingItem) return;
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
-    const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
+    const common_name = commonNameValue.trim() || null;
     const storage_location_id = storageLocationValue || null;
 
     updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
