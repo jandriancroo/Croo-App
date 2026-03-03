@@ -364,7 +364,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                                 className={`px-1.5 py-1.5 text-center ${isToggleable && hasPanConfig ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
                                 onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                               >
-                                <span className="text-muted-foreground/30">
+                                <span className="text-muted-foreground/50 text-lg leading-none">
                                   {isToggleable && hasPanConfig ? '○' : '—'}
                                 </span>
                               </td>
