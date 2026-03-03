@@ -430,7 +430,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
-    setUseCommonName(!!item.common_name);
+    setEditingCommonName(false);
     setCommonNameValue(item.common_name || "");
     setStorageLocationValue(item.storage_location_id || "");
     setPanSizesConfig(item.pan_sizes ? (item.pan_sizes as PanSizesConfig) : null);
