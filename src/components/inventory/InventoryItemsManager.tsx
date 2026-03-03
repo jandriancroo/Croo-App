@@ -1367,6 +1367,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           )}
         </Card>
       )}
+      </>}
     </div>
 
       {/* Edit Item Dialog */}
