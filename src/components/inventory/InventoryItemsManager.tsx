@@ -1122,7 +1122,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                   onClick={() => setItemsSubView("matrix")}
                 >
                   <Grid3X3 className="h-3 w-3" />
-                  Units
+                  Matrix
                 </button>
               </div>
               {itemsSubView === "list" && (
