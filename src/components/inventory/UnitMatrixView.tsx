@@ -382,7 +382,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                               <div className="flex flex-col items-center gap-0">
                                 {qty != null ? (
                                   <span className={`font-mono font-semibold text-[11px] ${
-                                    isBaseline ? "text-primary" : "text-foreground"
+                                    isBaseline ? "text-primary font-bold" : "text-foreground"
                                   }`}>
                                     {qty % 1 === 0 ? qty : qty.toFixed(2)}
                                   </span>
