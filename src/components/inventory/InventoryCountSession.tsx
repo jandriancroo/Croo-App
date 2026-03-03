@@ -1436,7 +1436,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   ) : (
                   <div className="flex items-center gap-3">
-                    {/* Cases pill stepper */}
+                    {/* Cases pill stepper — hidden if count_by=units_only */}
+                    {showCases && (
                     <div className="flex-1">
                       <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
                         Cases
@@ -1471,8 +1472,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
+                    )}
 
-                    {/* Units pill stepper */}
+                    {/* Units pill stepper — hidden if count_by=cases_only */}
+                    {showUnits && (
                     <div className="flex-1">
                       <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
                         Units
@@ -1510,6 +1513,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                   )}
 
