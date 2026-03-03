@@ -420,7 +420,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <span className="font-mono text-muted-foreground text-[9px]">$0.72</span> = cost per unit
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-muted-foreground/30">○</span> = disabled (tap to enable)
+          <span className="text-muted-foreground/50 text-lg leading-none">○</span> = disabled (tap to enable)
         </span>
         <span className="flex items-center gap-1">
           <span className="text-muted-foreground/30">—</span> = not available
