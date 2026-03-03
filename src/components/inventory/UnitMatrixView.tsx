@@ -296,10 +296,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                           idx % 2 === 0 ? "" : "bg-muted/10"
                         }`}
                       >
-                        <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 font-medium truncate max-w-[220px]">
-                          <div className="flex items-center gap-1.5">
+                        <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-1.5 font-medium w-[130px] min-w-[130px] max-w-[130px]">
+                          <div className="flex items-center gap-1 min-w-0">
                             {hasIssue && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
-                            <span className="truncate" title={displayName}>{displayName}</span>
+                            <span className="line-clamp-2 text-[11px] leading-tight break-words" title={displayName}>{displayName}</span>
                           </div>
                         </td>
                         
