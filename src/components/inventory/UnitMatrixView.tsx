@@ -364,7 +364,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                                 className={`px-1.5 py-1.5 text-center ${isToggleable && hasPanConfig ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
                                 onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                               >
-                                <span className="text-muted-foreground/30">
+                                <span className="text-muted-foreground/50 text-lg leading-none">
                                   {isToggleable && hasPanConfig ? '○' : '—'}
                                 </span>
                               </td>
@@ -375,14 +375,14 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                             <td
                               key={col.key}
                               className={`px-1.5 py-1.5 text-center ${
-                                isBaseline ? "bg-primary/5" : ""
+                                isBaseline ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : ""
                               } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
                               onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                             >
                               <div className="flex flex-col items-center gap-0">
                                 {qty != null ? (
                                   <span className={`font-mono font-semibold text-[11px] ${
-                                    isBaseline ? "text-primary" : "text-foreground"
+                                    isBaseline ? "text-primary font-bold" : "text-foreground"
                                   }`}>
                                     {qty % 1 === 0 ? qty : qty.toFixed(2)}
                                   </span>
@@ -420,7 +420,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <span className="font-mono text-muted-foreground text-[9px]">$0.72</span> = cost per unit
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-muted-foreground/30">○</span> = disabled (tap to enable)
+          <span className="text-muted-foreground/50 text-lg leading-none">○</span> = disabled (tap to enable)
         </span>
         <span className="flex items-center gap-1">
           <span className="text-muted-foreground/30">—</span> = not available
