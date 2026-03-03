@@ -1424,25 +1424,27 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
-           <DialogHeader className="flex flex-row items-center justify-between gap-2">
-             <DialogTitle className="text-base">Edit Item</DialogTitle>
-             {editingItem && (
-               <Select
-                 value={categoryValue || "__none__"}
-                 onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                 disabled={!canEditCategories}
-               >
-                 <SelectTrigger className="h-6 w-auto gap-1 px-2 py-0 text-[10px] border-dashed rounded-full font-medium [&>svg]:h-3 [&>svg]:w-3">
-                   <SelectValue placeholder="No category" />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="__none__">No category</SelectItem>
-                   {INVENTORY_CATEGORIES.map(cat => (
-                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                   ))}
-                 </SelectContent>
-               </Select>
-             )}
+           <DialogHeader>
+             <div className="flex items-center justify-between gap-2 pr-6">
+               <DialogTitle className="text-base">Edit Item</DialogTitle>
+               {editingItem && (
+                 <Select
+                   value={categoryValue || "__none__"}
+                   onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
+                   disabled={!canEditCategories}
+                 >
+                   <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
+                     <SelectValue placeholder="No category" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="__none__">No category</SelectItem>
+                     {INVENTORY_CATEGORIES.map(cat => (
+                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               )}
+             </div>
            </DialogHeader>
           {editingItem && (
             <div className="space-y-4">
