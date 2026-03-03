@@ -1062,6 +1062,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               Items ({items?.length || 0})
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={isReorderMode ? "default" : "outline"}
+                onClick={() => setIsReorderMode(!isReorderMode)}
+              >
+                <ListOrdered className="h-4 w-4 mr-1" />
+                {isReorderMode ? "Done" : "Reorder"}
+              </Button>
               <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
                 <Settings2 className="h-4 w-4 mr-1" />
                 Locations
