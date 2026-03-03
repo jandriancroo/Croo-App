@@ -115,6 +115,8 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [baselineSheetItem, setBaselineSheetItem] = useState<any | null>(null);
+  const [baselineSheetPanKey, setBaselineSheetPanKey] = useState<string | null>(null);
   
   const { data: items, isLoading } = useQuery({
     queryKey: ["inventory-items", locationId],
