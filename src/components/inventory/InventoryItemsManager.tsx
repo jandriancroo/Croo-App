@@ -830,6 +830,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   return (
     <>
     <div className="space-y-6">
+      {mode === "setup" && <>
       {/* Schedule + Sync side by side */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <InventoryScheduleSettings locationId={locationId} />
