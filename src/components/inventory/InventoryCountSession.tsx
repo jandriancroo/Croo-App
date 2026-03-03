@@ -307,7 +307,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       
       // Prefer stored entered_cases/entered_units (exact user input)
       // Fall back to mathematical decomposition of quantity
-      if (existingCases !== null && existingCases !== undefined) {
+      // CRITICAL: If entered_cases=0 and entered_units=0 but quantity>0,
+      // the entry was counted via pan sizes or old method — decompose instead
+      const hasStoredInput = existingCases !== null && existingCases !== undefined
+        && (existingCases > 0 || (existingUnits ?? 0) > 0 || totalUnits === 0);
+      if (hasStoredInput) {
         initialCounts[key] = {
           cases: existingCases,
           units: existingUnits ?? 0,
