@@ -50,6 +50,8 @@ interface CountItem {
   image_url: string | null;
   pan_sizes: PanSizesConfig | null;
   is_recipe: boolean;
+  /** Per-shortcut counting mode: inherit uses global settings */
+  count_by: 'inherit' | 'cases_and_units' | 'units_only' | 'cases_only';
 }
 
 // Count state: cases + individual units (supports decimals for partial cases)
@@ -175,17 +177,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         }
       }
 
-      // Fetch multi-location assignments from junction table
+      // Fetch multi-location assignments from junction table (including count_by override)
       const { data: itemLocations } = await supabase
         .from("inventory_item_locations")
-        .select("item_id, storage_location_id");
+        .select("item_id, storage_location_id, count_by");
       
       // Build map: item_id -> list of storage_location_ids
       const multiLocMap = new Map<string, string[]>();
+      // Build map: "itemId|storLocId" -> count_by override
+      const countByMap = new Map<string, string>();
       for (const il of itemLocations || []) {
         const existing = multiLocMap.get(il.item_id) || [];
         existing.push(il.storage_location_id);
         multiLocMap.set(il.item_id, existing);
+        countByMap.set(`${il.item_id}|${il.storage_location_id}`, il.count_by || 'inherit');
       }
 
       // Get storage location names for lookup
@@ -253,6 +258,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
             image_url: item.image_url,
             pan_sizes: (item as any).pan_sizes ?? null,
             is_recipe: isRecipe,
+            count_by: (locId ? countByMap.get(`${item.id}|${locId}`) : 'inherit') as CountItem['count_by'] || 'inherit',
             _existingQuantity: countData?.quantity ?? 0,
             _existingCases: countData?.entered_cases ?? null,
             _existingUnits: countData?.entered_units ?? null,
@@ -1337,9 +1343,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const count = counts[splitKey] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
           const packQty = item.pack_quantity || 1;
-          const costPerUnit = (item.cost_per_unit || 0) / packQty;
           const isHighlighted = highlightedItemId === splitKey;
           const isErrorHighlighted = errorHighlightedItemId === splitKey;
+          
+          // Determine which counting inputs to show based on count_by override
+          const countBy = item.count_by || 'inherit';
+          const showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
+          const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
           
           return (
             <Card 
@@ -1426,7 +1436,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   ) : (
                   <div className="flex items-center gap-3">
-                    {/* Cases pill stepper */}
+                    {/* Cases pill stepper — hidden if count_by=units_only */}
+                    {showCases && (
                     <div className="flex-1">
                       <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
                         Cases
@@ -1461,8 +1472,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
+                    )}
 
-                    {/* Units pill stepper */}
+                    {/* Units pill stepper — hidden if count_by=cases_only */}
+                    {showUnits && (
                     <div className="flex-1">
                       <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
                         Units
@@ -1500,6 +1513,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                   )}
 
