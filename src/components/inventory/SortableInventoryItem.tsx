@@ -30,10 +30,7 @@ export function SortableInventoryItem({
   onContextMenu,
 }: SortableInventoryItemProps) {
   const {
-    attributes,
-    listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
