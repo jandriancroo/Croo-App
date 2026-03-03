@@ -1300,6 +1300,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                       setSelectedItemIds(next);
+                                    } else if (isShortcut) {
+                                      setShortcutConfigItem({
+                                        itemId: item.id,
+                                        itemName: (item as any).common_name || item.name,
+                                        storageLocationId: loc.id,
+                                        storageLocationName: loc.name,
+                                      });
                                     } else {
                                       openEditDialog(item);
                                     }
