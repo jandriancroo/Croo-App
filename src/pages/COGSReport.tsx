@@ -12,8 +12,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 export const COGSReportContent = ({ locationId }: { locationId: string }) => {
-  const navigate = useNavigate();
-  
   
   // Week period: Mon-Sun
   const [weekStart, setWeekStart] = useState(() => 
