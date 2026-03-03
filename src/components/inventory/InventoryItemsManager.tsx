@@ -1929,6 +1929,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         </DialogContent>
       </Dialog>
 
+      {/* Shortcut Config Sheet */}
+      <ShortcutConfigSheet
+        open={!!shortcutConfigItem}
+        onOpenChange={(open) => { if (!open) setShortcutConfigItem(null); }}
+        itemId={shortcutConfigItem?.itemId || ""}
+        itemName={shortcutConfigItem?.itemName || ""}
+        storageLocationId={shortcutConfigItem?.storageLocationId || ""}
+        storageLocationName={shortcutConfigItem?.storageLocationName || ""}
+        locationId={locationId}
+      />
+
       {/* Bulk Pan Size Dialog */}
       <BulkPanSizeDialog
         open={showBulkPanDialog}
