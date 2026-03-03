@@ -26,6 +26,7 @@ import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
+import ShortcutConfigSheet from "./ShortcutConfigSheet";
 import StorageLocationManager from "./StorageLocationManager";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Suspense } from "react";
