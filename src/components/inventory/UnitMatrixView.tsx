@@ -4,7 +4,7 @@
  * Cells are tappable to toggle enabled/disabled pan sizes per item.
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { AlertTriangle, Filter } from "lucide-react";
 import { ALL_CONTAINERS, type PanSizesConfig, getPanUnits } from "./PanSizesSection";
+import BaselineConfigSheet from "./BaselineConfigSheet";
 
 interface UnitMatrixViewProps {
   locationId: string;
@@ -114,6 +115,8 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [baselineSheetItem, setBaselineSheetItem] = useState<any | null>(null);
+  const [baselineSheetPanKey, setBaselineSheetPanKey] = useState<string | null>(null);
   
   const { data: items, isLoading } = useQuery({
     queryKey: ["inventory-items", locationId],
@@ -193,8 +196,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     const panKey = colKey.replace("pan_", "");
     const panConfig = item.pan_sizes as PanSizesConfig | null;
     
+    // No pan config yet — open sheet to set up baseline
     if (!panConfig?.enabled) {
-      toast.error("Enable pan sizes for this item first");
+      setBaselineSheetPanKey(panKey);
+      setBaselineSheetItem(item);
       return;
     }
     
@@ -202,8 +207,9 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     const isEnabled = panConfig.enabled_keys.includes(panKey);
     
     if (isCurrentBaseline && isEnabled) {
-      // Already baseline — no action
-      toast("This is already the baseline", { description: "Tap a different enabled cell to set it as baseline" });
+      // Tap baseline → open sheet to edit it
+      setBaselineSheetPanKey(panKey);
+      setBaselineSheetItem(item);
       return;
     }
     
@@ -214,7 +220,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
         description: "Set as baseline or disable?",
         action: {
           label: "Set Baseline",
-          onClick: () => setBaseline.mutate({ itemId, panKey, currentConfig: panConfig }),
+          onClick: () => {
+            setBaselineSheetPanKey(panKey);
+            setBaselineSheetItem(item);
+          },
         },
         cancel: {
           label: "Disable",
@@ -227,7 +236,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     
     // Not enabled — enable it
     togglePanKey.mutate({ itemId, panKey, currentConfig: panConfig });
-  }, [togglePanKey, setBaseline]);
+  }, [togglePanKey]);
 
   const categories = useMemo(() => {
     if (!items) return [];
@@ -429,6 +438,14 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <AlertTriangle className="h-3 w-3 text-destructive" /> = missing price
         </span>
       </div>
+
+      <BaselineConfigSheet
+        open={!!baselineSheetItem}
+        onOpenChange={(open) => { if (!open) { setBaselineSheetItem(null); setBaselineSheetPanKey(null); } }}
+        item={baselineSheetItem}
+        locationId={locationId}
+        tappedPanKey={baselineSheetPanKey}
+      />
     </div>
   );
 }
