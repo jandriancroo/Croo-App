@@ -375,7 +375,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                             <td
                               key={col.key}
                               className={`px-1.5 py-1.5 text-center ${
-                                isBaseline ? "bg-primary/5" : ""
+                                isBaseline ? "bg-primary/15 ring-1 ring-inset ring-primary/30" : ""
                               } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
                               onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                             >
