@@ -1,18 +1,16 @@
 /**
  * UnitMatrixView — Spreadsheet-like grid for validating all item units, 
  * pan sizes, and pricing at a glance. Horizontally scrollable with frozen item name column.
+ * Cells are tappable to toggle enabled/disabled pan sizes per item.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Check, AlertTriangle, Filter } from "lucide-react";
+import { AlertTriangle, Filter } from "lucide-react";
 import { ALL_CONTAINERS, type PanSizesConfig, getPanUnits } from "./PanSizesSection";
 
 interface UnitMatrixViewProps {
@@ -21,12 +19,12 @@ interface UnitMatrixViewProps {
 
 /** The unit columns we show in the matrix */
 const UNIT_COLUMNS = [
-  { key: "case", label: "Case", description: "Full vendor case" },
-  { key: "unit", label: "Unit", description: "Individual unit from case" },
-  { key: "oz", label: "oz", description: "Ounces (weight)" },
+  { key: "case", label: "Case", description: "Full vendor case", toggleable: false },
+  { key: "unit", label: "Unit", description: "Individual unit from case", toggleable: false },
+  { key: "oz", label: "oz", description: "Ounces (weight)", toggleable: false },
   ...ALL_CONTAINERS
     .filter(c => c.blazeDefault || ["full_pan", "half_pan", "dough_box"].includes(c.key))
-    .map(c => ({ key: `pan_${c.key}`, label: c.label, description: c.description })),
+    .map(c => ({ key: `pan_${c.key}`, label: c.label, description: c.description, toggleable: true })),
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -44,11 +42,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Other: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
 };
 
-/** Parse pack_size string to extract weight in oz. E.g. "6/5 LB" → 30 oz per unit = 480 oz per case */
+/** Parse pack_size string to extract weight in oz */
 function parsePackSizeOz(packSize: string | null, packQuantity: number | null): { ozPerUnit: number | null; ozPerCase: number | null } {
   if (!packSize) return { ozPerUnit: null, ozPerCase: null };
   
-  // Match patterns like "6/5 LB", "4/3 LB", "2/.8 GA", "32/2.75 OZ", "1/5 GA", "4#", "2.5#"
   const match = packSize.match(/(?:(\d+)\/)?([\d.]+)\s*(LB|OZ|GA|#|KG)/i);
   if (!match) return { ozPerUnit: null, ozPerCase: null };
   
@@ -58,24 +55,14 @@ function parsePackSizeOz(packSize: string | null, packQuantity: number | null): 
   
   let ozPerSubUnit = 0;
   switch (unit) {
-    case "LB":
-    case "#":
-      ozPerSubUnit = amount * 16;
-      break;
-    case "OZ":
-      ozPerSubUnit = amount;
-      break;
-    case "GA":
-      ozPerSubUnit = amount * 128; // 1 gallon = 128 oz
-      break;
-    case "KG":
-      ozPerSubUnit = amount * 35.274;
-      break;
-    default:
-      return { ozPerUnit: null, ozPerCase: null };
+    case "LB": case "#": ozPerSubUnit = amount * 16; break;
+    case "OZ": ozPerSubUnit = amount; break;
+    case "GA": ozPerSubUnit = amount * 128; break;
+    case "KG": ozPerSubUnit = amount * 35.274; break;
+    default: return { ozPerUnit: null, ozPerCase: null };
   }
   
-  const ozPerUnit = ozPerSubUnit; // oz per individual sub-unit
+  const ozPerUnit = ozPerSubUnit;
   const effectivePackQty = packQuantity || countInPack;
   const ozPerCase = ozPerUnit * effectivePackQty;
   
@@ -94,33 +81,14 @@ function computeCellValues(item: any): Record<string, CellValue> {
   const cost = item.blended_price ? Number(item.blended_price) : (item.cost_per_unit ? Number(item.cost_per_unit) : null);
   const packQty = item.pack_quantity_override || item.pack_quantity || 1;
   const panConfig = item.pan_sizes as PanSizesConfig | null;
-  const { ozPerUnit, ozPerCase } = parsePackSizeOz(item.pack_size, packQty);
+  const { ozPerCase } = parsePackSizeOz(item.pack_size, packQty);
   
-  // Case column
-  cells["case"] = {
-    qty: 1,
-    cost: cost,
-    enabled: true, // Cases always relevant for vendor items
-  };
+  cells["case"] = { qty: 1, cost: cost, enabled: true };
+  cells["unit"] = { qty: packQty, cost: cost && packQty > 0 ? cost / packQty : null, enabled: packQty > 1 };
+  cells["oz"] = { qty: ozPerCase, cost: ozPerCase && cost ? cost / ozPerCase : null, enabled: ozPerCase != null && ozPerCase > 0 };
   
-  // Unit column (individual items from a case)
-  cells["unit"] = {
-    qty: packQty,
-    cost: cost && packQty > 0 ? cost / packQty : null,
-    enabled: packQty > 1,
-  };
-  
-  // Oz column
-  cells["oz"] = {
-    qty: ozPerCase,
-    cost: ozPerCase && cost ? cost / ozPerCase : null,
-    enabled: ozPerCase != null && ozPerCase > 0,
-  };
-  
-  // Pan columns
   for (const container of ALL_CONTAINERS) {
     const colKey = `pan_${container.key}`;
-    // Check if this column exists in our UNIT_COLUMNS
     if (!UNIT_COLUMNS.find(c => c.key === colKey)) continue;
     
     if (panConfig?.enabled) {
@@ -128,19 +96,12 @@ function computeCellValues(item: any): Record<string, CellValue> {
       const isEnabled = panConfig.enabled_keys.includes(container.key);
       const isBaseline = panConfig.baseline_key === container.key;
       
-      // Cost per pan: if we know cost per individual unit and pan units
       let panCost: number | null = null;
       if (units != null && cost != null && packQty > 0) {
-        const costPerIndividualUnit = cost / packQty;
-        panCost = costPerIndividualUnit * units;
+        panCost = (cost / packQty) * units;
       }
       
-      cells[colKey] = {
-        qty: units,
-        cost: panCost,
-        enabled: isEnabled,
-        isBaseline,
-      };
+      cells[colKey] = { qty: units, cost: panCost, enabled: isEnabled, isBaseline };
     } else {
       cells[colKey] = { qty: null, cost: null, enabled: false };
     }
@@ -170,14 +131,65 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     },
   });
 
-  // Get unique categories
+  // Toggle pan key mutation
+  const togglePanKey = useMutation({
+    mutationFn: async ({ itemId, panKey, currentConfig }: { itemId: string; panKey: string; currentConfig: PanSizesConfig | null }) => {
+      if (!currentConfig?.enabled) {
+        toast.error("Pan sizes not configured for this item");
+        throw new Error("Pan sizes not enabled");
+      }
+      
+      const newEnabledKeys = currentConfig.enabled_keys.includes(panKey)
+        ? currentConfig.enabled_keys.filter(k => k !== panKey)
+        : [...currentConfig.enabled_keys, panKey];
+      
+      const newConfig: PanSizesConfig = { ...currentConfig, enabled_keys: newEnabledKeys };
+      
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ pan_sizes: newConfig as any })
+        .eq("id", itemId);
+      if (error) throw error;
+      return { itemId, newConfig };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+    },
+    onError: (err: any) => {
+      if (err.message !== "Pan sizes not enabled") {
+        toast.error("Failed to update pan size");
+      }
+    },
+  });
+
+  const handleCellTap = useCallback((itemId: string, colKey: string, item: any) => {
+    // Only pan columns are toggleable
+    const col = UNIT_COLUMNS.find(c => c.key === colKey);
+    if (!col?.toggleable) return;
+    
+    const panKey = colKey.replace("pan_", "");
+    const panConfig = item.pan_sizes as PanSizesConfig | null;
+    
+    if (!panConfig?.enabled) {
+      toast.error("Enable pan sizes for this item first");
+      return;
+    }
+    
+    // Don't allow disabling the baseline
+    if (panConfig.baseline_key === panKey && panConfig.enabled_keys.includes(panKey)) {
+      toast.error("Can't disable the baseline pan size");
+      return;
+    }
+    
+    togglePanKey.mutate({ itemId, panKey, currentConfig: panConfig });
+  }, [togglePanKey]);
+
   const categories = useMemo(() => {
     if (!items) return [];
     const cats = new Set(items.map(i => i.category).filter(Boolean));
     return Array.from(cats).sort() as string[];
   }, [items]);
 
-  // Filter items
   const filteredItems = useMemo(() => {
     if (!items) return [];
     return items.filter(item => {
@@ -191,7 +203,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     });
   }, [items, categoryFilter, searchQuery]);
 
-  // Compute cell values for all items
   const matrixData = useMemo(() => {
     return filteredItems.map(item => ({
       item,
@@ -199,7 +210,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     }));
   }, [filteredItems]);
 
-  // Columns to actually render (only ones used by UNIT_COLUMNS)
   const visibleColumns = UNIT_COLUMNS;
 
   if (isLoading) {
@@ -229,7 +239,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground ml-auto">
-          {filteredItems.length} items
+          {filteredItems.length} items • tap pan cells to toggle
         </span>
       </div>
 
@@ -237,7 +247,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
       <div className="border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            {/* Header */}
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm text-left px-3 py-2 font-semibold min-w-[180px] max-w-[220px]">
@@ -249,6 +258,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                 {visibleColumns.map(col => (
                   <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label}</span>
+                    {col.toggleable && <span className="text-[8px] block text-muted-foreground/50">tap to toggle</span>}
                   </th>
                 ))}
               </tr>
@@ -265,7 +275,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                       idx % 2 === 0 ? "" : "bg-muted/10"
                     }`}
                   >
-                    {/* Frozen item name */}
                     <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 font-medium truncate max-w-[220px]">
                       <div className="flex items-center gap-1.5">
                         {hasIssue && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
@@ -273,7 +282,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                       </div>
                     </td>
                     
-                    {/* Category badge */}
                     <td className="px-2 py-1.5">
                       {item.category && (
                         <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[item.category] || CATEGORY_COLORS.Other}`}>
@@ -282,17 +290,25 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                       )}
                     </td>
                     
-                    {/* Unit columns */}
                     {visibleColumns.map(col => {
                       const cell = cells[col.key];
                       if (!cell) return <td key={col.key} className="px-1.5 py-1.5 text-center">—</td>;
                       
                       const { qty, cost, enabled, isBaseline } = cell;
+                      const isToggleable = col.toggleable;
+                      const panConfig = item.pan_sizes as PanSizesConfig | null;
+                      const hasPanConfig = panConfig?.enabled;
                       
                       if (!enabled) {
                         return (
-                          <td key={col.key} className="px-1.5 py-1.5 text-center">
-                            <span className="text-muted-foreground/30">—</span>
+                          <td
+                            key={col.key}
+                            className={`px-1.5 py-1.5 text-center ${isToggleable && hasPanConfig ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
+                            onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
+                          >
+                            <span className="text-muted-foreground/30">
+                              {isToggleable && hasPanConfig ? '○' : '—'}
+                            </span>
                           </td>
                         );
                       }
@@ -302,7 +318,8 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                           key={col.key}
                           className={`px-1.5 py-1.5 text-center ${
                             isBaseline ? "bg-primary/5" : ""
-                          }`}
+                          } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
+                          onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
                         >
                           <div className="flex flex-col items-center gap-0">
                             {qty != null ? (
@@ -332,7 +349,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-1">
+      <div className="flex flex-wrap items-center gap-4 text-[10px] text-muted-foreground px-1">
         <span className="flex items-center gap-1">
           <span className="w-3 h-3 rounded bg-primary/10 border border-primary/30" /> Baseline
         </span>
@@ -343,7 +360,10 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <span className="font-mono text-muted-foreground text-[9px]">$0.72</span> = cost per unit
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-muted-foreground/30">—</span> = disabled
+          <span className="text-muted-foreground/30">○</span> = disabled (tap to enable)
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="text-muted-foreground/30">—</span> = not available
         </span>
         <span className="flex items-center gap-1">
           <AlertTriangle className="h-3 w-3 text-destructive" /> = missing price
