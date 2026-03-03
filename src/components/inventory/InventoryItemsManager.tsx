@@ -114,6 +114,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
+  const [pickedItemId, setPickedItemId] = useState<string | null>(null);
+  const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
