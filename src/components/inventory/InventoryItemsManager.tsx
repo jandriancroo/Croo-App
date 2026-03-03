@@ -13,7 +13,7 @@ import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTrian
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { useAuth } from "@/lib/auth";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
