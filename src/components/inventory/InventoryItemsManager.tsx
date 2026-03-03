@@ -76,7 +76,7 @@ interface SyncProgress {
 }
 
 
-const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
+const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { canEditRecipes, canEditProductGroups, canEditUsageRates, canEditCategories, canEditCommonNames, canEditPanBaselines, canTriggerSync } = useInventoryPermissions();
