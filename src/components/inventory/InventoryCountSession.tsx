@@ -1343,8 +1343,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const count = counts[splitKey] || { cases: 0, units: 0 };
           const itemCost = getItemCost(item);
           const packQty = item.pack_quantity || 1;
-          const costPerUnit = (item.cost_per_unit || 0) / packQty;
           const isHighlighted = highlightedItemId === splitKey;
+          const isErrorHighlighted = errorHighlightedItemId === splitKey;
+          
+          // Determine which counting inputs to show based on count_by override
+          const countBy = item.count_by || 'inherit';
+          const showCases = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'cases_only';
+          const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
           const isErrorHighlighted = errorHighlightedItemId === splitKey;
           
           return (
