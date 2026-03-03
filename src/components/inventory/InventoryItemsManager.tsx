@@ -157,6 +157,16 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   }, [reorderItemsMutation]);
 
+  const handleMoveItem = useCallback((groupItems: any[], itemIndex: number, direction: 'up' | 'down', isShortcutList?: Set<string>) => {
+    const newIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+    if (newIndex < 0 || newIndex >= groupItems.length) return;
+    const reordered = arrayMove(groupItems, itemIndex, newIndex);
+    const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
+    if (primaryOnly.length > 0) {
+      reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
+    }
+  }, [reorderItemsMutation]);
+
 
 
 
