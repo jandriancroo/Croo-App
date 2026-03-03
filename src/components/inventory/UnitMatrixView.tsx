@@ -296,7 +296,7 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                       
                       const { qty, cost, enabled, isBaseline } = cell;
                       const isToggleable = col.toggleable;
-                      const panConfig = item.pan_sizes as PanSizesConfig | null;
+                      const panConfig = item.pan_sizes as unknown as PanSizesConfig | null;
                       const hasPanConfig = panConfig?.enabled;
                       
                       if (!enabled) {
