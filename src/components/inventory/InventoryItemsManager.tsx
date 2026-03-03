@@ -1406,6 +1406,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </p>
           )}
           </>}
+        </div>
       </Card>
 
       {/* Hidden / Inactive Items */}
