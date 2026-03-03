@@ -27,6 +27,7 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import StorageLocationManager from "./StorageLocationManager";
+import UnitMatrixView from "./UnitMatrixView";
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
