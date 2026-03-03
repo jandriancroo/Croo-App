@@ -1425,69 +1425,65 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
            <DialogHeader>
-             <div className="flex items-center justify-between gap-2 pr-6">
-               <DialogTitle className="sr-only">Edit Item</DialogTitle>
-               {editingItem && (
-                 <Select
-                   value={categoryValue || "__none__"}
-                   onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
-                   disabled={!canEditCategories}
-                 >
-                   <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
-                     <SelectValue placeholder="No category" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="__none__">No category</SelectItem>
-                     {INVENTORY_CATEGORIES.map(cat => (
-                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-               )}
-             </div>
+             <DialogTitle className="sr-only">Edit Item</DialogTitle>
            </DialogHeader>
-          {editingItem && (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  {editingCommonName ? (
-                    <Input
-                      autoFocus
-                      className="h-7 text-sm font-medium flex-1"
-                      placeholder="Common name (e.g. Spring Mix)"
-                      value={commonNameValue}
-                      onChange={(e) => setCommonNameValue(e.target.value)}
-                      onBlur={() => setEditingCommonName(false)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") setEditingCommonName(false);
-                        if (e.key === "Escape") {
-                          setCommonNameValue(editingItem.common_name || "");
-                          setEditingCommonName(false);
-                        }
-                      }}
-                      disabled={!canEditCommonNames}
-                    />
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium truncate">
-                        {commonNameValue || editingItem.name}
-                      </p>
-                      {canEditCommonNames && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => setEditingCommonName(true)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-                {commonNameValue ? (
-                  <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
-                ) : null}
+           {editingItem && (
+             <div className="space-y-4">
+               <div className="space-y-1">
+                 <div className="flex items-center gap-2 pr-6">
+                   {editingCommonName ? (
+                     <Input
+                       autoFocus
+                       className="h-7 text-sm font-medium flex-1"
+                       placeholder="Common name (e.g. Spring Mix)"
+                       value={commonNameValue}
+                       onChange={(e) => setCommonNameValue(e.target.value)}
+                       onBlur={() => setEditingCommonName(false)}
+                       onKeyDown={(e) => {
+                         if (e.key === "Enter") setEditingCommonName(false);
+                         if (e.key === "Escape") {
+                           setCommonNameValue(editingItem.common_name || "");
+                           setEditingCommonName(false);
+                         }
+                       }}
+                       disabled={!canEditCommonNames}
+                     />
+                   ) : (
+                     <>
+                       <p className="text-sm font-medium truncate min-w-0 flex-1">
+                         {commonNameValue || editingItem.name}
+                       </p>
+                       {canEditCommonNames && (
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                           onClick={() => setEditingCommonName(true)}
+                         >
+                           <Pencil className="h-3 w-3" />
+                         </Button>
+                       )}
+                     </>
+                   )}
+                   <Select
+                     value={categoryValue || "__none__"}
+                     onValueChange={(val) => setCategoryValue(val === "__none__" ? "" : val)}
+                     disabled={!canEditCategories}
+                   >
+                     <SelectTrigger className="h-7 w-auto gap-1.5 px-3 py-0 text-xs rounded-full font-medium bg-primary text-primary-foreground border-primary hover:bg-primary/90 flex-shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-primary-foreground">
+                       <SelectValue placeholder="No category" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="__none__">No category</SelectItem>
+                       {INVENTORY_CATEGORIES.map(cat => (
+                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 </div>
+                 {commonNameValue ? (
+                   <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
+                 ) : null}
               </div>
 
               {/* Storage Location */}
