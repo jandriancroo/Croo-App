@@ -1063,9 +1063,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </Card>
         );
       })()}
+      </>}
 
-
-
+      {mode === "items" && <>
       <Card>
         <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
