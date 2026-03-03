@@ -105,27 +105,8 @@ export function SortableInventoryItem({
                 className="h-3.5 w-3.5 flex-shrink-0 pointer-events-none"
               />
             )}
-            {!isShortcut ? (
-              <div
-                ref={setActivatorNodeRef}
-                {...attributes}
-                {...listeners}
-                className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0"
-              >
-                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <div
-                  ref={setActivatorNodeRef}
-                  {...attributes}
-                  {...listeners}
-                  className="touch-none cursor-grab active:cursor-grabbing"
-                >
-                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-                </div>
-                <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
-              </div>
+            {isShortcut && (
+              <Link2 className="h-3.5 w-3.5 text-orange-500/60 flex-shrink-0" />
             )}
           </>
         )}
