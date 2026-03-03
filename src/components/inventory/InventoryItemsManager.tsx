@@ -1150,7 +1150,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
           {/* Matrix sub-view */}
           {itemsSubView === "matrix" && (
-            <UnitMatrixView locationId={locationId} />
+            <Suspense fallback={<div className="text-sm text-muted-foreground text-center py-8">Loading matrix...</div>}>
+              <UnitMatrixView locationId={locationId} />
+            </Suspense>
           )}
 
           {/* List sub-view */}
