@@ -112,6 +112,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [showShortcutDialog, setShowShortcutDialog] = useState(false);
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
