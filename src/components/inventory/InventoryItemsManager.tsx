@@ -27,7 +27,10 @@ import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
 import StorageLocationManager from "./StorageLocationManager";
-import UnitMatrixView from "./UnitMatrixView";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { Suspense } from "react";
+
+const UnitMatrixView = lazyWithRetry(() => import("./UnitMatrixView"));
 import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
 import {
   DndContext,
@@ -1147,7 +1150,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
           {/* Matrix sub-view */}
           {itemsSubView === "matrix" && (
-            <UnitMatrixView locationId={locationId} />
+            <Suspense fallback={<div className="text-sm text-muted-foreground text-center py-8">Loading matrix...</div>}>
+              <UnitMatrixView locationId={locationId} />
+            </Suspense>
           )}
 
           {/* List sub-view */}
