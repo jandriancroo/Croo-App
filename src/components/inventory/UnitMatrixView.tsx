@@ -162,8 +162,31 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     },
   });
 
+  // Set baseline mutation
+  const setBaseline = useMutation({
+    mutationFn: async ({ itemId, panKey, currentConfig }: { itemId: string; panKey: string; currentConfig: PanSizesConfig }) => {
+      const newConfig: PanSizesConfig = { ...currentConfig, baseline_key: panKey };
+      // Ensure the new baseline is in enabled_keys
+      if (!newConfig.enabled_keys.includes(panKey)) {
+        newConfig.enabled_keys = [...newConfig.enabled_keys, panKey];
+      }
+      
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ pan_sizes: newConfig as any })
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      toast.success("Baseline updated");
+    },
+    onError: () => {
+      toast.error("Failed to update baseline");
+    },
+  });
+
   const handleCellTap = useCallback((itemId: string, colKey: string, item: any) => {
-    // Only pan columns are toggleable
     const col = UNIT_COLUMNS.find(c => c.key === colKey);
     if (!col?.toggleable) return;
     
@@ -175,14 +198,36 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
       return;
     }
     
-    // Don't allow disabling the baseline
-    if (panConfig.baseline_key === panKey && panConfig.enabled_keys.includes(panKey)) {
-      toast.error("Can't disable the baseline pan size");
+    const isCurrentBaseline = panConfig.baseline_key === panKey;
+    const isEnabled = panConfig.enabled_keys.includes(panKey);
+    
+    if (isCurrentBaseline && isEnabled) {
+      // Already baseline — no action
+      toast("This is already the baseline", { description: "Tap a different enabled cell to set it as baseline" });
       return;
     }
     
+    if (isEnabled) {
+      // Enabled but not baseline — offer to set as baseline or disable
+      const container = ALL_CONTAINERS.find(c => c.key === panKey);
+      toast(`${container?.label || panKey}`, {
+        description: "Set as baseline or disable?",
+        action: {
+          label: "Set Baseline",
+          onClick: () => setBaseline.mutate({ itemId, panKey, currentConfig: panConfig }),
+        },
+        cancel: {
+          label: "Disable",
+          onClick: () => togglePanKey.mutate({ itemId, panKey, currentConfig: panConfig }),
+        },
+        duration: 5000,
+      });
+      return;
+    }
+    
+    // Not enabled — enable it
     togglePanKey.mutate({ itemId, panKey, currentConfig: panConfig });
-  }, [togglePanKey]);
+  }, [togglePanKey, setBaseline]);
 
   const categories = useMemo(() => {
     if (!items) return [];

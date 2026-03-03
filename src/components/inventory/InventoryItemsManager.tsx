@@ -26,6 +26,7 @@ import PanSizesSection from "./PanSizesSection";
 import type { PanSizesConfig } from "./PanSizesSection";
 
 import BulkPanSizeDialog from "./BulkPanSizeDialog";
+import ShortcutConfigSheet from "./ShortcutConfigSheet";
 import StorageLocationManager from "./StorageLocationManager";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 import { Suspense } from "react";
@@ -118,6 +119,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutTarget, setShortcutTarget] = useState<string | null>(null);
   const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
+  const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemId, setPickedItemId] = useState<string | null>(null);
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
@@ -1298,6 +1300,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                       const next = new Set(selectedItemIds);
                                       if (selectedItemIds.has(item.id)) next.delete(item.id); else next.add(item.id);
                                       setSelectedItemIds(next);
+                                    } else if (isShortcut) {
+                                      setShortcutConfigItem({
+                                        itemId: item.id,
+                                        itemName: (item as any).common_name || item.name,
+                                        storageLocationId: loc.id,
+                                        storageLocationName: loc.name,
+                                      });
                                     } else {
                                       openEditDialog(item);
                                     }
@@ -1919,6 +1928,17 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Shortcut Config Sheet */}
+      <ShortcutConfigSheet
+        open={!!shortcutConfigItem}
+        onOpenChange={(open) => { if (!open) setShortcutConfigItem(null); }}
+        itemId={shortcutConfigItem?.itemId || ""}
+        itemName={shortcutConfigItem?.itemName || ""}
+        storageLocationId={shortcutConfigItem?.storageLocationId || ""}
+        storageLocationName={shortcutConfigItem?.storageLocationName || ""}
+        locationId={locationId}
+      />
 
       {/* Bulk Pan Size Dialog */}
       <BulkPanSizeDialog
