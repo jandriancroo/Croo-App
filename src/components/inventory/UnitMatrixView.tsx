@@ -203,11 +203,21 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
     });
   }, [items, categoryFilter, searchQuery]);
 
-  const matrixData = useMemo(() => {
-    return filteredItems.map(item => ({
-      item,
-      cells: computeCellValues(item),
-    }));
+  const groupedData = useMemo(() => {
+    const groups: { category: string; rows: { item: any; cells: Record<string, CellValue> }[] }[] = [];
+    const catMap = new Map<string, { item: any; cells: Record<string, CellValue> }[]>();
+    
+    for (const item of filteredItems) {
+      const cat = item.category || "Other";
+      if (!catMap.has(cat)) catMap.set(cat, []);
+      catMap.get(cat)!.push({ item, cells: computeCellValues(item) });
+    }
+    
+    // Sort categories alphabetically
+    for (const [category, rows] of Array.from(catMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      groups.push({ category, rows });
+    }
+    return groups;
   }, [filteredItems]);
 
   const visibleColumns = UNIT_COLUMNS;
@@ -252,9 +262,6 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
                 <th className="sticky left-0 z-10 bg-muted/90 backdrop-blur-sm text-left px-3 py-2 font-semibold min-w-[180px] max-w-[220px]">
                   Item
                 </th>
-                <th className="text-left px-2 py-2 font-medium text-muted-foreground min-w-[70px]">
-                  Cat
-                </th>
                 {visibleColumns.map(col => (
                   <th key={col.key} className="text-center px-1.5 py-2 font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">
                     <span className="text-[10px]">{col.label}</span>
@@ -264,85 +271,93 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
               </tr>
             </thead>
             <tbody>
-              {matrixData.map(({ item, cells }, idx) => {
-                const displayName = (item as any).common_name || item.name;
-                const hasIssue = !item.cost_per_unit && !item.blended_price;
-                
-                return (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
-                      idx % 2 === 0 ? "" : "bg-muted/10"
-                    }`}
-                  >
-                    <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 font-medium truncate max-w-[220px]">
-                      <div className="flex items-center gap-1.5">
-                        {hasIssue && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
-                        <span className="truncate" title={displayName}>{displayName}</span>
-                      </div>
+              {groupedData.map(({ category, rows }) => (
+                <>
+                  {/* Category header row */}
+                  <tr key={`cat-${category}`} className="bg-muted/40">
+                    <td
+                      colSpan={visibleColumns.length + 1}
+                      className="sticky left-0 z-10 px-3 py-1.5"
+                    >
+                      <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold ${CATEGORY_COLORS[category] || CATEGORY_COLORS.Other}`}>
+                        {category}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-2">{rows.length} items</span>
                     </td>
+                  </tr>
+                  {rows.map(({ item, cells }, idx) => {
+                    const displayName = (item as any).common_name || item.name;
+                    const hasIssue = !item.cost_per_unit && !item.blended_price;
                     
-                    <td className="px-2 py-1.5">
-                      {item.category && (
-                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[item.category] || CATEGORY_COLORS.Other}`}>
-                          {item.category}
-                        </span>
-                      )}
-                    </td>
-                    
-                    {visibleColumns.map(col => {
-                      const cell = cells[col.key];
-                      if (!cell) return <td key={col.key} className="px-1.5 py-1.5 text-center">—</td>;
-                      
-                      const { qty, cost, enabled, isBaseline } = cell;
-                      const isToggleable = col.toggleable;
-                      const panConfig = item.pan_sizes as unknown as PanSizesConfig | null;
-                      const hasPanConfig = panConfig?.enabled;
-                      
-                      if (!enabled) {
-                        return (
-                          <td
-                            key={col.key}
-                            className={`px-1.5 py-1.5 text-center ${isToggleable && hasPanConfig ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
-                            onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
-                          >
-                            <span className="text-muted-foreground/30">
-                              {isToggleable && hasPanConfig ? '○' : '—'}
-                            </span>
-                          </td>
-                        );
-                      }
-                      
-                      return (
-                        <td
-                          key={col.key}
-                          className={`px-1.5 py-1.5 text-center ${
-                            isBaseline ? "bg-primary/5" : ""
-                          } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
-                          onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
-                        >
-                          <div className="flex flex-col items-center gap-0">
-                            {qty != null ? (
-                              <span className={`font-mono font-semibold text-[11px] ${
-                                isBaseline ? "text-primary" : "text-foreground"
-                              }`}>
-                                {qty % 1 === 0 ? qty : qty.toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground/50">—</span>
-                            )}
-                            {cost != null && cost > 0 ? (
-                              <span className="text-[9px] text-muted-foreground font-mono">
-                                ${cost < 1 ? cost.toFixed(3) : cost.toFixed(2)}
-                              </span>
-                            ) : null}
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`border-b border-border/50 hover:bg-muted/30 transition-colors ${
+                          idx % 2 === 0 ? "" : "bg-muted/10"
+                        }`}
+                      >
+                        <td className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-1.5 font-medium truncate max-w-[220px]">
+                          <div className="flex items-center gap-1.5">
+                            {hasIssue && <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />}
+                            <span className="truncate" title={displayName}>{displayName}</span>
                           </div>
                         </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
+                        
+                        {visibleColumns.map(col => {
+                          const cell = cells[col.key];
+                          if (!cell) return <td key={col.key} className="px-1.5 py-1.5 text-center">—</td>;
+                          
+                          const { qty, cost, enabled, isBaseline } = cell;
+                          const isToggleable = col.toggleable;
+                          const panConfig = item.pan_sizes as unknown as PanSizesConfig | null;
+                          const hasPanConfig = panConfig?.enabled;
+                          
+                          if (!enabled) {
+                            return (
+                              <td
+                                key={col.key}
+                                className={`px-1.5 py-1.5 text-center ${isToggleable && hasPanConfig ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
+                                onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
+                              >
+                                <span className="text-muted-foreground/30">
+                                  {isToggleable && hasPanConfig ? '○' : '—'}
+                                </span>
+                              </td>
+                            );
+                          }
+                          
+                          return (
+                            <td
+                              key={col.key}
+                              className={`px-1.5 py-1.5 text-center ${
+                                isBaseline ? "bg-primary/5" : ""
+                              } ${isToggleable ? 'cursor-pointer hover:bg-muted/50 active:bg-muted' : ''}`}
+                              onClick={isToggleable ? () => handleCellTap(item.id, col.key, item) : undefined}
+                            >
+                              <div className="flex flex-col items-center gap-0">
+                                {qty != null ? (
+                                  <span className={`font-mono font-semibold text-[11px] ${
+                                    isBaseline ? "text-primary" : "text-foreground"
+                                  }`}>
+                                    {qty % 1 === 0 ? qty : qty.toFixed(2)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/50">—</span>
+                                )}
+                                {cost != null && cost > 0 ? (
+                                  <span className="text-[9px] text-muted-foreground font-mono">
+                                    ${cost < 1 ? cost.toFixed(3) : cost.toFixed(2)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </>
+              ))}
             </tbody>
           </table>
         </div>
