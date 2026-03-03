@@ -1426,7 +1426,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
            <DialogHeader>
              <div className="flex items-center justify-between gap-2 pr-6">
-               <DialogTitle className="text-base">Edit Item</DialogTitle>
+               <DialogTitle className="sr-only">Edit Item</DialogTitle>
                {editingItem && (
                  <Select
                    value={categoryValue || "__none__"}
