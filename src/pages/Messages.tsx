@@ -171,7 +171,7 @@ export default function Messages() {
           <FilterChipBar filters={filters} viewMode={viewMode} onViewModeChange={handleViewModeChange} />
           {chatListContent}
         </div>
-        <div className="flex-1 bg-card rounded-lg flex min-w-0">
+        <div className="flex-1 bg-card rounded-lg flex min-w-0 h-full">
           {chatWindowContent}
         </div>
       </div>
