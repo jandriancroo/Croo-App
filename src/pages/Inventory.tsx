@@ -511,15 +511,15 @@ const Inventory = () => {
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Count</span>
             </TabsTrigger>
-            <TabsTrigger value="variance" className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4" />
-              <span className="hidden sm:inline">Variance</span>
-            </TabsTrigger>
-            <TabsTrigger value="cogs" className="flex items-center gap-2" onClick={() => navigate(`/inventory/${locationId}/cogs`)}>
+            <TabsTrigger value="cogs-variance" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
               <span className="hidden sm:inline">COGS</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Items</span>
+            </TabsTrigger>
+            <TabsTrigger value="setup" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Setup</span>
             </TabsTrigger>
