@@ -678,12 +678,17 @@ const Inventory = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="variance" className="mt-4">
+          <TabsContent value="cogs-variance" className="mt-4 space-y-6">
+            <COGSReportContent locationId={locationId!} />
             <InventoryVarianceReport locationId={locationId!} />
           </TabsContent>
 
           <TabsContent value="items" className="mt-4">
-            <InventoryItemsManager locationId={locationId!} />
+            <InventoryItemsManager locationId={locationId!} mode="items" />
+          </TabsContent>
+
+          <TabsContent value="setup" className="mt-4">
+            <InventoryItemsManager locationId={locationId!} mode="setup" />
           </TabsContent>
         </Tabs>
       </div>
