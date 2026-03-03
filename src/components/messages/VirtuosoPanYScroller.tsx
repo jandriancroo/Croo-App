@@ -17,6 +17,7 @@ export const VirtuosoPanYScroller = forwardRef<HTMLDivElement, DivProps>(
           ...style,
           touchAction: 'pan-y',
           WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
         }}
       />
     );
