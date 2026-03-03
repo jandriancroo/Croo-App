@@ -117,6 +117,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemId, setPickedItemId] = useState<string | null>(null);
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
+  const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
