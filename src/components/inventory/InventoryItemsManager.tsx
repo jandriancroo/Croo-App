@@ -13,7 +13,7 @@ import { MapPin, Package, Loader2, Pencil, FlaskConical, EyeOff, Eye, AlertTrian
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { useAuth } from "@/lib/auth";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { toast } from "sonner";
@@ -90,7 +90,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [showRecipeDialog, setShowRecipeDialog] = useState(false);
   const [editRecipeId, setEditRecipeId] = useState<string | null>(null);
   const [categoryValue, setCategoryValue] = useState<string>("");
-  const [useCommonName, setUseCommonName] = useState(false);
+  const [editingCommonName, setEditingCommonName] = useState(false);
   const [commonNameValue, setCommonNameValue] = useState("");
   const [storageLocationValue, setStorageLocationValue] = useState<string>("");
   const [storageLocationIds, setStorageLocationIds] = useState<Set<string>>(new Set());
@@ -430,7 +430,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     setIsDailyTracked(!!item.is_daily_tracked);
     setOverrideValue(item.pack_quantity_override?.toString() || "");
     setCategoryValue(item.category || "");
-    setUseCommonName(!!item.common_name);
+    setEditingCommonName(false);
     setCommonNameValue(item.common_name || "");
     setStorageLocationValue(item.storage_location_id || "");
     setPanSizesConfig(item.pan_sizes ? (item.pan_sizes as PanSizesConfig) : null);
@@ -454,7 +454,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     if (!editingItem) return;
     const override = overrideValue.trim() === "" ? null : parseInt(overrideValue);
     const category = categoryValue || null;
-    const common_name = useCommonName && commonNameValue.trim() ? commonNameValue.trim() : null;
+    const common_name = commonNameValue.trim() || null;
     const storage_location_id = storageLocationValue || null;
 
     updateItemMutation.mutate({ itemId: editingItem.id, override, category, common_name, storage_location_id, pan_sizes: panSizesConfig, is_daily_tracked: isDailyTracked });
@@ -1429,7 +1429,47 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           </DialogHeader>
           {editingItem && (
             <div className="space-y-4">
-              <p className="text-sm font-medium">{editingItem.name}</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  {editingCommonName ? (
+                    <Input
+                      autoFocus
+                      className="h-7 text-sm font-medium flex-1"
+                      placeholder="Common name (e.g. Spring Mix)"
+                      value={commonNameValue}
+                      onChange={(e) => setCommonNameValue(e.target.value)}
+                      onBlur={() => setEditingCommonName(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setEditingCommonName(false);
+                        if (e.key === "Escape") {
+                          setCommonNameValue(editingItem.common_name || "");
+                          setEditingCommonName(false);
+                        }
+                      }}
+                      disabled={!canEditCommonNames}
+                    />
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium truncate">
+                        {commonNameValue || editingItem.name}
+                      </p>
+                      {canEditCommonNames && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditingCommonName(true)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+                {commonNameValue ? (
+                  <p className="text-[10px] text-muted-foreground truncate">{editingItem.name}</p>
+                ) : null}
+              </div>
 
               {/* Storage Location */}
               <div className="space-y-2">
@@ -1527,37 +1567,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 </p>
               </div>
 
-              {/* Common Name — Brand Admin+ only */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="use-common-name"
-                    checked={useCommonName}
-                    onCheckedChange={(checked) => {
-                      setUseCommonName(!!checked);
-                      if (!checked) setCommonNameValue("");
-                    }}
-                    disabled={!canEditCommonNames}
-                  />
-                  <Label htmlFor="use-common-name" className="text-sm cursor-pointer">
-                    Use common name
-                  </Label>
-                </div>
-                {useCommonName && (
-                  <div className="space-y-1">
-                    <Input
-                      id="common-name"
-                      placeholder="e.g., Sausage, Mozzarella, Pepperoni"
-                      value={commonNameValue}
-                      onChange={(e) => setCommonNameValue(e.target.value)}
-                      disabled={!canEditCommonNames}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      A simple name shown instead of the vendor item name
-                    </p>
-                  </div>
-                )}
-              </div>
+              {/* Common name is now edited inline at the top */}
 
               {/* Pan Sizes */}
               <PanSizesSection
