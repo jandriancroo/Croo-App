@@ -438,6 +438,14 @@ export default function UnitMatrixView({ locationId }: UnitMatrixViewProps) {
           <AlertTriangle className="h-3 w-3 text-destructive" /> = missing price
         </span>
       </div>
+
+      <BaselineConfigSheet
+        open={!!baselineSheetItem}
+        onOpenChange={(open) => { if (!open) { setBaselineSheetItem(null); setBaselineSheetPanKey(null); } }}
+        item={baselineSheetItem}
+        locationId={locationId}
+        tappedPanKey={baselineSheetPanKey}
+      />
     </div>
   );
 }
