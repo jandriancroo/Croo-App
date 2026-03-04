@@ -419,8 +419,20 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     };
     const onTouchMove = (e: TouchEvent) => {
       const dy = e.touches[0].clientY - startY;
-      // Only block downward pulls when already at top of page
+      // Only block downward pulls when already at top of page.
+      // Skip if the touch is inside a scrollable container (e.g. Virtuoso, chat)
+      // to avoid blocking legitimate scroll-up gestures.
       if (dy > 0 && window.scrollY <= 0) {
+        const target = e.target as HTMLElement | null;
+        // Walk up the DOM to check if we're inside a scrollable child
+        let el = target;
+        while (el && el !== document.body) {
+          if (el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
+            // User is inside a scrollable container that hasn't reached the top — allow scroll
+            return;
+          }
+          el = el.parentElement;
+        }
         e.preventDefault();
       }
     };
