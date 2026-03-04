@@ -77,25 +77,29 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     const vv = window.visualViewport;
     if (!vv) return;
 
+    let lastOffset = '';
     const update = () => {
       const raw = window.innerHeight - vv.height - vv.offsetTop;
       const isKeyboardOpen = raw > 120;
       const nextOffset = isKeyboardOpen ? `${Math.round(raw)}px` : '0px';
-      document.documentElement.style.setProperty('--kb-offset', nextOffset);
-      if (isKeyboardOpen) {
-        document.documentElement.dataset.kb = 'open';
-      } else {
-        delete (document.documentElement.dataset as any).kb;
+      // Only mutate DOM when value actually changes
+      if (nextOffset !== lastOffset) {
+        lastOffset = nextOffset;
+        document.documentElement.style.setProperty('--kb-offset', nextOffset);
+        if (isKeyboardOpen) {
+          document.documentElement.dataset.kb = 'open';
+        } else {
+          delete (document.documentElement.dataset as any).kb;
+        }
       }
     };
 
     update();
+    // Only listen for resize (keyboard open/close), not scroll
     vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
 
     return () => {
       vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
       document.documentElement.style.removeProperty('--kb-offset');
       delete (document.documentElement.dataset as any).kb;
     };
@@ -157,8 +161,9 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
 
       return messagesWithParent.reverse() as Message[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: Infinity, // Never auto-refetch — realtime subscription handles new messages
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
     enabled: !!chatId,
   });
 
@@ -241,13 +246,17 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   }, [chatId]);
 
   // Resolve signed URLs for attachments (only for messages within 24h)
-  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
+  // Use ref to avoid dependency on signedAttachmentUrls which causes re-render loops
+  const signedUrlsRef = useRef(signedAttachmentUrls);
+  signedUrlsRef.current = signedAttachmentUrls;
+  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
   useEffect(() => {
     const resolveSignedUrls = async () => {
       const now = Date.now();
+      const currentSigned = signedUrlsRef.current;
       const toResolve = messages.filter((m) => {
-        if (!m.attachment_url || signedAttachmentUrls[m.id]) return false;
+        if (!m.attachment_url || currentSigned[m.id]) return false;
         const msgAge = now - new Date(m.created_at).getTime();
         return msgAge <= SIGNED_URL_AGE_LIMIT_MS;
       });
@@ -277,7 +286,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     };
 
     resolveSignedUrls();
-  }, [messages, signedAttachmentUrls]);
+  }, [messages]); // Only re-run when messages change, not when signedAttachmentUrls changes
 
 
   // Mark announcement as opened
