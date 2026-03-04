@@ -174,26 +174,36 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
             alignToBottom
-            overscan={800}
-            increaseViewportBy={{ top: 400, bottom: 400 }}
+            overscan={400}
+            increaseViewportBy={{ top: 200, bottom: 200 }}
             
             atBottomStateChange={(atBottom) => {
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
             }}
-            startReached={deferredStartReached}
             components={{
               Scroller: MobileScroller,
-              Header: () => hasMoreEarlier ? (
-                <div className="flex justify-center py-2">
-                  {loadingEarlier ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading...
-                    </div>
-                  ) : null}
+              Header: () => (
+                <div className="flex justify-center py-3">
+                  {hasMoreEarlier ? (
+                    loadingEarlier ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : (
+                      <button
+                        onClick={loadEarlierMessages}
+                        className="text-sm text-primary font-medium px-4 py-1.5 rounded-full bg-primary/10 hover:bg-primary/15 active:bg-primary/20 transition-colors"
+                      >
+                        Load older messages
+                      </button>
+                    )
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50">Beginning of conversation</span>
+                  )}
                 </div>
-              ) : null,
+              ),
             }}
             className="h-full"
             itemContent={(virtualIndex, message) => {
