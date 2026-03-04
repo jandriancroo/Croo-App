@@ -161,8 +161,9 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
 
       return messagesWithParent.reverse() as Message[];
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: Infinity, // Never auto-refetch — realtime subscription handles new messages
     refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
     enabled: !!chatId,
   });
 
