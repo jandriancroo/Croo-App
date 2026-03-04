@@ -78,7 +78,29 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isPending = message.isPending;
   const isDeleted = message.is_deleted_for_everyone;
-  const displayUrl = isDeleted ? null : (signedAttachmentUrl || message.attachment_url);
+
+  // Determine if image is old (>24h) and has no signed URL yet
+  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;
+  const msgAge = Date.now() - new Date(message.created_at).getTime();
+  const isOldAttachment = msgAge > SIGNED_URL_AGE_LIMIT_MS && message.attachment_type?.startsWith('image/') && !signedAttachmentUrl;
+  
+  const [onDemandUrl, setOnDemandUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(false);
+
+  const loadOnDemand = useCallback(async () => {
+    if (!message.attachment_url || loadingUrl) return;
+    setLoadingUrl(true);
+    const match = message.attachment_url.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+    if (match) {
+      const { data } = await supabase.storage
+        .from(match[1])
+        .createSignedUrl(decodeURIComponent(match[2]), 60 * 60);
+      if (data?.signedUrl) setOnDemandUrl(data.signedUrl);
+    }
+    setLoadingUrl(false);
+  }, [message.attachment_url, loadingUrl]);
+
+  const displayUrl = isDeleted ? null : (onDemandUrl || signedAttachmentUrl || (isOldAttachment ? null : message.attachment_url));
 
   const bubbleTailClass = isLastInCluster
     ? isOwnMessage
