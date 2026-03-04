@@ -226,20 +226,11 @@ export function MessageBubble({
                     className="flex items-center gap-2 text-sm hover:underline"
                   >
                     <File className="h-4 w-4" />
-                  />
-                ) : (
-                  <a
-                    href={displayUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm hover:underline"
-                  >
-                    <File className="h-4 w-4" />
                     {message.content || 'Attachment'}
                   </a>
                 )}
               </div>
-            )}
+            ) : null}
 
             {message.content && (
               <div className="text-[15px] leading-relaxed">
