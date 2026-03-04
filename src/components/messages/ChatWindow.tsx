@@ -44,8 +44,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     replyToMessage, setReplyToMessage,
     settingsOpen, setSettingsOpen,
     deleteDialogOpen, setDeleteDialogOpen,
-    smackTalkPopup, setSmackTalkPopup,
-    isArcadeChat,
     viewingImage, setViewingImage,
     signedAttachmentUrls,
     hasMoreEarlier, loadingEarlier,
