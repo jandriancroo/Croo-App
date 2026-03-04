@@ -4,8 +4,10 @@ import { forwardRef } from 'react';
 type DivProps = React.HTMLAttributes<HTMLDivElement>;
 
 /**
- * Prevents iOS Safari from allowing a small horizontal "drag" while vertically scrolling.
- * Used as react-virtuoso Scroller component.
+ * Improved scroller for react-virtuoso on mobile.
+ * - overscrollBehaviorY: 'none' prevents iOS rubber-banding from interfering
+ * - touchAction: 'pan-y pinch-zoom' restricts to vertical scroll + zoom
+ * - WebkitOverflowScrolling: 'touch' enables native momentum on iOS
  */
 export const VirtuosoPanYScroller = forwardRef<HTMLDivElement, DivProps>(
   function VirtuosoPanYScroller({ style, ...props }, ref) {
@@ -15,9 +17,9 @@ export const VirtuosoPanYScroller = forwardRef<HTMLDivElement, DivProps>(
         {...props}
         style={{
           ...style,
-          touchAction: 'pan-y',
+          overscrollBehaviorY: 'none',
+          touchAction: 'pan-y pinch-zoom',
           WebkitOverflowScrolling: 'touch',
-          overscrollBehavior: 'contain',
         }}
       />
     );
