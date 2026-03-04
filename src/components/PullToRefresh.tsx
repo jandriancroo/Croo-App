@@ -52,9 +52,15 @@ export const PullToRefresh = ({
     const el = containerRef.current;
     if (!el) return;
 
+    const getScrollTop = () => {
+      // In PWA standalone mode, #root is the scroll container (html/body are overflow:hidden)
+      const rootEl = document.getElementById('root');
+      return Math.max(window.scrollY, rootEl?.scrollTop || 0);
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       if (isRefreshing) return;
-      if (window.scrollY <= 0) {
+      if (getScrollTop() <= 0) {
         startY.current = e.touches[0].clientY;
         isPulling.current = true;
       }
@@ -62,6 +68,13 @@ export const PullToRefresh = ({
 
     const onTouchMove = (e: TouchEvent) => {
       if (!isPulling.current || isRefreshing) return;
+      // Re-check scroll position — user may have been at top on touchstart
+      // but a concurrent scroll brought them away from top
+      if (getScrollTop() > 0) {
+        isPulling.current = false;
+        setPullDistance(0);
+        return;
+      }
       const diff = e.touches[0].clientY - startY.current;
       if (diff > 0) {
         e.preventDefault(); // Block native pull-to-refresh on iOS
