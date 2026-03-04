@@ -41,7 +41,7 @@ export interface ChatDetails {
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
-  is_arcade?: boolean;
+  
   group_image_url: string | null;
   created_by: string;
 }
