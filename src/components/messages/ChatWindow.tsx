@@ -143,7 +143,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative overscroll-none">
         {/* Scroll to bottom + mark as read button */}
         {isScrolledUp && displayMessages.length > 0 && (
           <button
