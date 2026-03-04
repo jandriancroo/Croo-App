@@ -195,7 +195,21 @@ export function MessageBubble({
               );
             })()}
 
-            {displayUrl && (
+            {isOldAttachment && !onDemandUrl ? (
+              <button
+                onClick={loadOnDemand}
+                className="rounded-lg w-[180px] h-[120px] bg-muted/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/80 active:bg-muted transition-colors"
+              >
+                {loadingUrl ? (
+                  <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                ) : (
+                  <>
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/60" />
+                    <span className="text-xs text-muted-foreground/70">Tap to load</span>
+                  </>
+                )}
+              </button>
+            ) : displayUrl ? (
               <div className="mb-1">
                 {message.attachment_type?.startsWith('image/') ? (
                   <LazyImage
@@ -203,6 +217,15 @@ export function MessageBubble({
                     alt="Attachment"
                     className="rounded-lg max-w-[240px] cursor-pointer hover:opacity-90 transition-opacity"
                     onClick={() => onImageClick(displayUrl)}
+                  />
+                ) : (
+                  <a
+                    href={displayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm hover:underline"
+                  >
+                    <File className="h-4 w-4" />
                   />
                 ) : (
                   <a
