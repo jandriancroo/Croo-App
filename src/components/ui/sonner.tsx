@@ -4,49 +4,6 @@ import { dockToast } from "@/contexts/DockToastContext";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth < 768;
-};
-
-// Wrap sonner toast to redirect to dock on mobile
-const toast = Object.assign(
-  (message: string | { title?: string; description?: string }) => {
-    const text = typeof message === 'string' ? message : (message.title || message.description || '');
-    if (isMobileDevice()) {
-      if (text) dockToast(text);
-      return 0;
-    }
-    return sonnerToast(typeof message === 'string' ? message : text);
-  },
-  {
-    success: (message: string, data?: any) => {
-      if (isMobileDevice()) { dockToast(message); return 0; }
-      return sonnerToast.success(message, data);
-    },
-    error: (message: string, data?: any) => {
-      if (isMobileDevice()) { dockToast(message); return 0; }
-      return sonnerToast.error(message, data);
-    },
-    info: (message: string, data?: any) => {
-      if (isMobileDevice()) { dockToast(message); return 0; }
-      return sonnerToast.info(message, data);
-    },
-    warning: (message: string, data?: any) => {
-      if (isMobileDevice()) { dockToast(message); return 0; }
-      return sonnerToast.warning(message, data);
-    },
-    loading: (message: string, data?: any) => {
-      if (isMobileDevice()) { dockToast(message); return 0; }
-      return sonnerToast.loading(message, data);
-    },
-    dismiss: sonnerToast.dismiss,
-    promise: sonnerToast.promise,
-    custom: sonnerToast.custom,
-    message: sonnerToast.message,
-  }
-);
-
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
@@ -68,6 +25,55 @@ const Toaster = ({ ...props }: ToasterProps) => {
       {...props}
     />
   );
+};
+
+// Smart toast that uses dock on mobile, sonner on desktop
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768;
+};
+
+const toast = (message: string | { title?: string; description?: string }) => {
+  const text = typeof message === 'string' ? message : (message.title || message.description || '');
+  
+  if (isMobileDevice()) {
+    dockToast(text);
+  } else {
+    sonnerToast(text);
+  }
+};
+
+// Also provide typed versions for common toast types
+toast.success = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.success(message);
+  }
+};
+
+toast.error = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.error(message);
+  }
+};
+
+toast.info = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.info(message);
+  }
+};
+
+toast.warning = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.warning(message);
+  }
 };
 
 export { Toaster, toast };

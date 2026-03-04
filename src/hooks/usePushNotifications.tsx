@@ -329,7 +329,7 @@ export const usePushNotifications = () => {
 
         const receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('[Push] Notification received:', notification);
-          toast(notification.title || 'New notification');
+          toast({ title: notification.title || 'New notification', description: notification.body });
         });
 
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
