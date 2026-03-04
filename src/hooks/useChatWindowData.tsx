@@ -72,7 +72,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isNearBottomRef = useRef(true);
 
