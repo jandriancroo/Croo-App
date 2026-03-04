@@ -1,14 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast as sonnerToast, useSonner } from "sonner";
 import { dockToast } from "@/contexts/DockToastContext";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
-
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth < 768;
-};
 
 // Intercepts all sonner toasts on mobile and redirects to dock toast
 function DockToastInterceptor() {
@@ -16,13 +11,10 @@ function DockToastInterceptor() {
   const seenIds = useRef(new Set<string | number>());
 
   useEffect(() => {
-    if (!isMobileDevice()) return;
-
     for (const t of toasts) {
       if (seenIds.current.has(t.id)) continue;
       seenIds.current.add(t.id);
 
-      // Extract text from the toast
       const title = typeof t.title === 'function' ? '' : (typeof t.title === 'string' ? t.title : '');
       const desc = typeof t.description === 'function' ? '' : (typeof t.description === 'string' ? t.description : '');
       const text = title || desc || '';
@@ -31,8 +23,14 @@ function DockToastInterceptor() {
         dockToast(text);
       }
 
-      // Dismiss sonner's version so it doesn't render
+      // Dismiss immediately so sonner never renders it
       sonnerToast.dismiss(t.id);
+    }
+
+    // Cleanup old IDs periodically
+    if (seenIds.current.size > 500) {
+      const arr = Array.from(seenIds.current);
+      seenIds.current = new Set(arr.slice(-100));
     }
   }, [toasts]);
 
@@ -41,6 +39,19 @@ function DockToastInterceptor() {
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // On mobile: only mount the interceptor, skip rendering sonner entirely
+  if (isMobile) {
+    return <DockToastInterceptor />;
+  }
 
   return (
     <>
