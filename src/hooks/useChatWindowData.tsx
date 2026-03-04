@@ -227,8 +227,9 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
       console.error('Error loading earlier messages:', error);
     } finally {
       setLoadingEarlier(false);
+      loadingRef.current = false;
     }
-  };
+  }, [hasMoreEarlier, messages, chatId]);
 
   // Reset earlier messages when chat changes
   useEffect(() => {
