@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Virtuoso } from 'react-virtuoso';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { AnnouncementStats } from './AnnouncementStats';
-import { SmackTalkPopup } from './SmackTalkPopup';
+
 import { DateSeparator } from './DateSeparator';
 import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
