@@ -1346,7 +1346,7 @@ export default function CompleteChecklist() {
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-2xl">
-            <img src={previewImage || ''} alt="Photo preview" className="w-full rounded" />
+            <img src={previewImage || ''} alt="Photo preview" className="w-full max-h-[70vh] object-contain rounded" />
           </DialogContent>
         </Dialog>
 
