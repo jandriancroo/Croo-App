@@ -104,10 +104,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     };
   }, []);
 
-  const checkIfNearBottom = useCallback(() => {
-    // With Virtuoso, we track via atBottomStateChange instead
-    return !isScrolledUp;
-  }, [isScrolledUp]);
 
   const scrollToBottom = useCallback((instant = false) => {
     if (virtuosoRef.current) {
