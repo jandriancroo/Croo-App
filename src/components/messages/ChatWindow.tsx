@@ -192,11 +192,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
             }}
-            startReached={() => {
-              if (hasMoreEarlier && !loadingEarlier) {
-                loadEarlierMessages();
-              }
-            }}
+            startReached={deferredStartReached}
             components={{
               Scroller: MobileScroller,
               Header: () => hasMoreEarlier ? (
