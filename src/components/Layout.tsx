@@ -427,18 +427,16 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         const pageScrollTop = window.scrollY || rootEl?.scrollTop || 0;
         if (pageScrollTop > 0) return; // page is scrolled down, allow normal touch
 
-        // Walk up from touch target: if ANY ancestor is a scrollable container,
-        // allow the touch so normal scrolling works (even if scrollTop is 0,
-        // because the user may be scrolling DOWN within that container).
+        // Walk up from touch target: if ANY ancestor is a scrollable container
+        // (or IS the #root scroll container), allow the touch.
         const target = e.target as HTMLElement | null;
         let el = target;
-        while (el && el !== document.body) {
+        while (el && el !== document.documentElement) {
           const style = window.getComputedStyle(el);
           const overflowY = style.overflowY;
           const isScrollable = el.scrollHeight > el.clientHeight &&
             (overflowY === 'auto' || overflowY === 'scroll');
           if (isScrollable) {
-            // This element can scroll — don't block the gesture
             return;
           }
           el = el.parentElement;
