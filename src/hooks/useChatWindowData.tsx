@@ -246,13 +246,17 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   }, [chatId]);
 
   // Resolve signed URLs for attachments (only for messages within 24h)
-  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
+  // Use ref to avoid dependency on signedAttachmentUrls which causes re-render loops
+  const signedUrlsRef = useRef(signedAttachmentUrls);
+  signedUrlsRef.current = signedAttachmentUrls;
+  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;
 
   useEffect(() => {
     const resolveSignedUrls = async () => {
       const now = Date.now();
+      const currentSigned = signedUrlsRef.current;
       const toResolve = messages.filter((m) => {
-        if (!m.attachment_url || signedAttachmentUrls[m.id]) return false;
+        if (!m.attachment_url || currentSigned[m.id]) return false;
         const msgAge = now - new Date(m.created_at).getTime();
         return msgAge <= SIGNED_URL_AGE_LIMIT_MS;
       });
@@ -282,7 +286,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     };
 
     resolveSignedUrls();
-  }, [messages, signedAttachmentUrls]);
+  }, [messages]); // Only re-run when messages change, not when signedAttachmentUrls changes
 
 
   // Mark announcement as opened
