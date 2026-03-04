@@ -36,6 +36,7 @@ const MobileScroller = forwardRef<HTMLDivElement, React.HTMLProps<HTMLDivElement
     style={{
       ...props.style,
       overscrollBehavior: 'contain',
+      WebkitOverflowScrolling: 'touch',
       touchAction: 'pan-y',
     }}
   />
