@@ -129,7 +129,7 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
             </div>
             <Slider
               value={[zoom]}
-              min={1}
+              min={0.5}
               max={3}
               step={0.1}
               onValueChange={(value) => setZoom(value[0])}
