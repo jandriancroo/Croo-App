@@ -202,7 +202,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               const showName = isFirstInCluster && !isOwnMessage;
               
               return (
-                <div className={`py-0.5 ${message.isNew ? 'animate-fade-in' : ''}`}>
+                <div className={`py-0.5 px-4 sm:px-6 ${message.isNew ? 'animate-fade-in' : ''}`}>
                   {showDateSeparator && <DateSeparator date={messageDate} />}
                   <MemoizedMessageBubble
                     message={message}
