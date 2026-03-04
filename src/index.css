@@ -509,7 +509,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     @apply bg-background text-foreground font-manrope;
     font-weight: 500;
     -webkit-text-size-adjust: 100%;
-    overflow-x: clip;
+    overflow-x: hidden;
     width: 100%;
     position: relative;
     overscroll-behavior: none;
