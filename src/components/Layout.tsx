@@ -411,8 +411,20 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   // This prevents the viewport from separating from the sticky header on any swipe,
   // whether it starts on the header or content area. The custom PullToRefresh component
   // handles the actual refresh UX within its own container.
+  // Block native iOS pull-to-refresh / rubber-banding at the top of the page.
+  // In PWA standalone mode, CSS overscroll-behavior handles this, so we skip
+  // the document-level touchmove handler (which can interfere with iOS scroll
+  // gesture recognition when using passive:false + preventDefault).
   useEffect(() => {
     if (!isMobile) return;
+
+    const isStandalone =
+      document.documentElement.getAttribute('data-standalone') === 'true' ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    // In standalone mode, rely on CSS overscroll-behavior-y: none on #root.
+    if (isStandalone) return;
+
     let startY = 0;
     const onTouchStart = (e: TouchEvent) => {
       startY = e.touches[0].clientY;
@@ -420,21 +432,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     const onTouchMove = (e: TouchEvent) => {
       const dy = e.touches[0].clientY - startY;
       if (dy <= 0) return; // Only care about downward pulls
-
-      // In standalone/PWA mode, #root is the scroll container (window.scrollY stays 0).
-      // In normal browser mode, window is the scroll container.
-      // Check both to handle either case correctly.
-      const rootEl = document.getElementById('root');
-      const scrollTop = Math.max(window.scrollY, rootEl?.scrollTop ?? 0);
-
-      if (scrollTop > 0) return; // Page is scrolled down — allow normal scroll
+      if (window.scrollY > 0) return; // Page is scrolled down — allow normal scroll
 
       const target = e.target as HTMLElement | null;
-      // Walk up the DOM to check if we're inside a scrollable child
       let el = target;
       while (el && el !== document.body) {
         if (el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
-          // User is inside a scrollable container that hasn't reached the top — allow scroll
           return;
         }
         el = el.parentElement;

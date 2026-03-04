@@ -560,17 +560,17 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     #root {
       min-height: 100%;
       height: 100%;
-      overflow-y: auto;
+      overflow-y: scroll;
       -webkit-overflow-scrolling: touch;
-      overscroll-behavior-y: contain;
+      overscroll-behavior-y: none;
     }
   }
   html[data-standalone="true"] #root {
     min-height: 100%;
     height: 100%;
-    overflow-y: auto;
+    overflow-y: scroll;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: none;
   }
 
   /* Headings use bold weight */
