@@ -92,6 +92,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }, 150);
   }, [hasMoreEarlier, loadingEarlier, loadEarlierMessages]);
 
+  // Cleanup timer on unmount / chat switch
+  useEffect(() => {
+    return () => {
+      if (startReachedTimer.current) clearTimeout(startReachedTimer.current);
+    };
+  }, [chatId]);
+
   const displayMessages = messages;
 
   return (
