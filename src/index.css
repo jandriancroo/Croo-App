@@ -533,17 +533,11 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     }
   }
   html[data-standalone="true"] {
-    height: 100dvh;
-    overflow: clip;
+    background-color: hsl(var(--primary));
     overscroll-behavior: none;
   }
   html[data-standalone="true"] body {
-    height: 100%;
-    overflow: clip;
     overscroll-behavior: none;
-  }
-  html[data-standalone="true"] {
-    background-color: hsl(var(--primary));
   }
 
   #root {
