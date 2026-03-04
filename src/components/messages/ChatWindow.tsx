@@ -10,7 +10,7 @@ import { AnnouncementStats } from './AnnouncementStats';
 import { DateSeparator } from './DateSeparator';
 import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
-import { VirtuosoPanYScroller } from './VirtuosoPanYScroller';
+
 import {
   AlertDialog,
   AlertDialogAction,
