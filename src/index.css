@@ -513,29 +513,27 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     overscroll-behavior-x: none;
   }
 
-  /* PWA standalone mode: Let the page scroll naturally via html/body.
-     position:fixed dock handles itself. We just need safe-area awareness
-     and overscroll prevention. Older approach of overflow:hidden on html/body
-     and #root as scroll container breaks touch scrolling on many iOS versions. */
   @media (display-mode: standalone) {
     html {
-      height: -webkit-fill-available;
-      overscroll-behavior: none;
+      /* Use min-height, NOT height — a fixed height on <html> prevents
+         body content from overflowing and scrolling naturally on iOS. */
+      min-height: -webkit-fill-available;
+      overscroll-behavior-y: none;
     }
     body {
       min-height: 100dvh;
       min-height: -webkit-fill-available;
-      overscroll-behavior: none;
+      overscroll-behavior-y: none;
     }
   }
   html[data-standalone="true"] {
-    height: -webkit-fill-available;
-    overscroll-behavior: none;
+    min-height: -webkit-fill-available;
+    overscroll-behavior-y: none;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
     min-height: -webkit-fill-available;
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
   }
 
   #root {
