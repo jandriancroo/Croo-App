@@ -77,25 +77,29 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     const vv = window.visualViewport;
     if (!vv) return;
 
+    let lastOffset = '';
     const update = () => {
       const raw = window.innerHeight - vv.height - vv.offsetTop;
       const isKeyboardOpen = raw > 120;
       const nextOffset = isKeyboardOpen ? `${Math.round(raw)}px` : '0px';
-      document.documentElement.style.setProperty('--kb-offset', nextOffset);
-      if (isKeyboardOpen) {
-        document.documentElement.dataset.kb = 'open';
-      } else {
-        delete (document.documentElement.dataset as any).kb;
+      // Only mutate DOM when value actually changes
+      if (nextOffset !== lastOffset) {
+        lastOffset = nextOffset;
+        document.documentElement.style.setProperty('--kb-offset', nextOffset);
+        if (isKeyboardOpen) {
+          document.documentElement.dataset.kb = 'open';
+        } else {
+          delete (document.documentElement.dataset as any).kb;
+        }
       }
     };
 
     update();
+    // Only listen for resize (keyboard open/close), not scroll
     vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
 
     return () => {
       vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
       document.documentElement.style.removeProperty('--kb-offset');
       delete (document.documentElement.dataset as any).kb;
     };
