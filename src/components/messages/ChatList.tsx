@@ -215,7 +215,6 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
             <AvatarImage
               src={
                 chat.chat_members?.find((m) => m.user_id !== currentUserId)?.profiles?.profile_photo_url ||
-                chat.chat_members?.[0]?.profiles?.profile_photo_url ||
                 undefined
               }
             />
