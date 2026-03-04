@@ -286,7 +286,7 @@ export function useChatActions({
     handleSend,
     handleReaction,
     handleGifSelect,
-    handleSmackTalk,
+    
     handleDeleteChat,
     handleUnsendMessage,
     handleFileUpload,
