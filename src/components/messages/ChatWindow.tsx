@@ -69,27 +69,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     onChatDeleted,
   });
 
-  // Build smack talk map for game scores
-  const smackTalkMap = new Map<string, { text: string; senderName: string }[]>();
-  messages.forEach((msg) => {
-    if (msg.content?.startsWith('GAME_SCORE:')) {
-      smackTalkMap.set(msg.id, []);
-    }
-  });
-  messages.forEach((msg) => {
-    if (msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id) {
-      const smacks = smackTalkMap.get(msg.parent_message_id) || [];
-      smacks.push({
-        text: msg.content.replace('SMACK_TALK:', ''),
-        senderName: getDisplayName(msg.profiles?.full_name, msg.profiles?.nickname) || 'Someone'
-      });
-      smackTalkMap.set(msg.parent_message_id, smacks);
-    }
-  });
-
-  const displayMessages = messages.filter(
-    msg => !(msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id)
-  );
+  const displayMessages = messages;
 
   return (
     <div className="flex flex-col h-full min-h-0">
