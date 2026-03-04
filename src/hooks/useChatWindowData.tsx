@@ -335,18 +335,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     markChatAsRead(chatId, currentUserId);
   }, [chatId, currentUserId]);
 
-  // Track scroll position
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    
-    const handleScroll = () => {
-      checkIfNearBottom();
-    };
-    
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [checkIfNearBottom]);
+  // Scroll position is now tracked via Virtuoso's atBottomStateChange callback
 
   // Auto-scroll to bottom when opening a chat
   useEffect(() => {
