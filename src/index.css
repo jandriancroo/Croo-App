@@ -510,8 +510,7 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     -webkit-text-size-adjust: 100%;
     overflow-x: hidden;
     width: 100%;
-    position: relative;
-    overscroll-behavior: none;
+    overscroll-behavior-x: none;
   }
 
   /* PWA standalone mode: Let the page scroll naturally via html/body.
