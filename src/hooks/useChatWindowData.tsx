@@ -162,7 +162,10 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     enabled: !!chatId,
   });
 
-  const messages = [...earlierMessages, ...recentMessages];
+  const messages = useMemo(
+    () => [...earlierMessages, ...recentMessages],
+    [earlierMessages, recentMessages]
+  );
 
   // Load earlier messages
   const loadEarlierMessages = async () => {
