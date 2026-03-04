@@ -158,10 +158,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             data={displayMessages}
             firstItemIndex={firstItemIndex}
             initialTopMostItemIndex={displayMessages.length - 1}
-            followOutput="smooth"
+            followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
             alignToBottom
             atBottomStateChange={(atBottom) => {
               setIsScrolledUp(!atBottom);
+              data.isNearBottomRef.current = atBottom;
             }}
             startReached={() => {
               if (hasMoreEarlier && !loadingEarlier) {
@@ -182,12 +183,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               Scroller: VirtuosoPanYScroller,
             }}
             className="h-full px-4 sm:px-6"
-            itemContent={(index, message) => {
+            itemContent={(virtualIndex, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
+              const arrayIndex = virtualIndex - firstItemIndex;
                
               const messageDate = new Date(message.created_at);
-              const prevMessage = index > 0 ? displayMessages[index - 1] : null;
-              const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
+              const prevMessage = arrayIndex > 0 ? displayMessages[arrayIndex - 1] : null;
+              const nextMessage = arrayIndex < displayMessages.length - 1 ? displayMessages[arrayIndex + 1] : null;
               const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
               
               const prevSameSender = prevMessage && prevMessage.sender_id === message.sender_id && 
