@@ -515,32 +515,28 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     overscroll-behavior: none;
   }
 
-  /* PWA standalone mode: use 100dvh viewport lock WITHOUT position:fixed on html/body.
-     position:fixed on html/body breaks position:fixed on child elements in iOS Safari
-     standalone mode (the dock can't find the real viewport). Instead we use height: 100dvh
-     + overflow: hidden on html, and let #root be the scroll container. */
+  /* PWA standalone mode: Let the page scroll naturally via html/body.
+     position:fixed dock handles itself. We just need safe-area awareness
+     and overscroll prevention. Older approach of overflow:hidden on html/body
+     and #root as scroll container breaks touch scrolling on many iOS versions. */
   @media (display-mode: standalone) {
     html {
-      height: 100dvh;
       height: -webkit-fill-available;
-      overflow: hidden;
       overscroll-behavior: none;
     }
     body {
-      height: 100%;
-      overflow: hidden;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
       overscroll-behavior: none;
     }
   }
   html[data-standalone="true"] {
-    height: 100dvh;
     height: -webkit-fill-available;
-    overflow: hidden;
     overscroll-behavior: none;
   }
   html[data-standalone="true"] body {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     overscroll-behavior: none;
   }
 
@@ -549,23 +545,6 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     max-width: 100%;
     min-height: 100vh;
     position: relative;
-  }
-
-  @media (display-mode: standalone) {
-    #root {
-      min-height: 100%;
-      height: 100%;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior-y: contain;
-    }
-  }
-  html[data-standalone="true"] #root {
-    min-height: 100%;
-    height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
   }
 
   /* Headings use bold weight */
