@@ -7,7 +7,6 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
-import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { toast } from 'sonner';
 
 export interface Chat {
