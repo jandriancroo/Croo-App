@@ -515,12 +515,50 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     overscroll-behavior: none;
   }
 
+  /* PWA standalone mode: lock html+body to viewport, prevent OS-level
+     rubber-banding and gesture hijacking on iOS. Only inner containers scroll. */
+  @media (display-mode: standalone) {
+    html, body {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+  html[data-standalone="true"],
+  html[data-standalone="true"] body {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
   #root {
     width: 100%;
-    /* Avoid iOS/Safari viewport rounding/clipping issues caused by 100vw */
     max-width: 100%;
     min-height: 100vh;
     position: relative;
+  }
+
+  @media (display-mode: standalone) {
+    #root {
+      min-height: 100%;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+    }
+  }
+  html[data-standalone="true"] #root {
+    min-height: 100%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   /* Headings use bold weight */

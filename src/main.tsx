@@ -14,6 +14,14 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 const savedTextSize = localStorage.getItem('app-text-size') || 'default';
 document.documentElement.setAttribute('data-text-size', savedTextSize);
 
+// Mark standalone mode on html element for CSS targeting (iOS fallback)
+const isStandaloneMode =
+  window.matchMedia?.('(display-mode: standalone)')?.matches ||
+  (window.navigator as any).standalone === true;
+if (isStandaloneMode) {
+  document.documentElement.setAttribute('data-standalone', 'true');
+}
+
 // Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
 // __APP_VERSION__ is injected at build time in vite.config.ts.
 declare const __APP_VERSION__: string;
