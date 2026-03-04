@@ -419,21 +419,26 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     };
     const onTouchMove = (e: TouchEvent) => {
       const dy = e.touches[0].clientY - startY;
-      // Only block downward pulls when already at top of page.
-      // Skip if the touch is inside a scrollable container (e.g. Virtuoso, chat)
-      // to avoid blocking legitimate scroll-up gestures.
+      // Only block downward pulls (finger moving down = pulling page down from top).
+      // This prevents iOS rubber-band / pull-to-refresh on the outer viewport.
       if (dy > 0) {
         // Check both window scroll AND #root scroll (PWA uses #root as scroller)
         const rootEl = document.getElementById('root');
         const pageScrollTop = window.scrollY || rootEl?.scrollTop || 0;
         if (pageScrollTop > 0) return; // page is scrolled down, allow normal touch
 
+        // Walk up from touch target: if ANY ancestor is a scrollable container,
+        // allow the touch so normal scrolling works (even if scrollTop is 0,
+        // because the user may be scrolling DOWN within that container).
         const target = e.target as HTMLElement | null;
-        // Walk up the DOM to check if we're inside a scrollable child
         let el = target;
         while (el && el !== document.body) {
-          if (el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
-            // User is inside a scrollable container that hasn't reached the top — allow scroll
+          const style = window.getComputedStyle(el);
+          const overflowY = style.overflowY;
+          const isScrollable = el.scrollHeight > el.clientHeight &&
+            (overflowY === 'auto' || overflowY === 'scroll');
+          if (isScrollable) {
+            // This element can scroll — don't block the gesture
             return;
           }
           el = el.parentElement;
