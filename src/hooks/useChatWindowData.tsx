@@ -55,9 +55,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [smackTalkPopup, setSmackTalkPopup] = useState<{ text: string; senderName: string } | null>(null);
-  const [processedSmackTalks, setProcessedSmackTalks] = useState<Set<string>>(new Set());
-  const [isArcadeChat, setIsArcadeChat] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [signedAttachmentUrls, setSignedAttachmentUrls] = useState<Record<string, string>>({});
   const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
