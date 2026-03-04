@@ -63,6 +63,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
   const [hasMoreEarlier, setHasMoreEarlier] = useState(true);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [firstItemIndex, setFirstItemIndex] = useState(10000); // large start for prepend room
   const [showNewMessageBubble, setShowNewMessageBubble] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [newMessage, setNewMessage] = useState('');
