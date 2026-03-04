@@ -1199,7 +1199,7 @@ export default function CompleteChecklist() {
                               <img
                                   src={photoUrl}
                                   alt={`Checklist photo ${idx + 1}`}
-                                  className={`object-cover w-full rounded ${isMultiPhoto ? 'border aspect-square' : 'h-32 sm:h-40 max-h-[168px]'}`}
+                                  className={`object-cover w-full rounded ${isMultiPhoto ? 'border aspect-square' : 'h-32 sm:h-48 max-h-[240px]'}`}
                                   loading="lazy"
                                 />
                                 {isMultiPhoto && <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
@@ -1346,7 +1346,7 @@ export default function CompleteChecklist() {
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-2xl">
-            <img src={previewImage || ''} alt="Photo preview" className="w-full rounded" />
+            <img src={previewImage || ''} alt="Photo preview" className="w-full max-h-[70vh] object-contain rounded" />
           </DialogContent>
         </Dialog>
 
