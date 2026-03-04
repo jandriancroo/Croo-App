@@ -173,10 +173,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           <Virtuoso
             ref={virtuosoRef}
             data={displayMessages}
+            totalCount={displayMessages.length}
             firstItemIndex={firstItemIndex}
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
             alignToBottom
+            overscan={800}
+            increaseViewportBy={{ top: 400, bottom: 400 }}
+            startReachedThreshold={200}
             atBottomStateChange={(atBottom) => {
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
@@ -187,6 +191,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               }
             }}
             components={{
+              Scroller: HardenedScroller,
               Header: () => hasMoreEarlier ? (
                 <div className="flex justify-center py-2">
                   {loadingEarlier ? (
