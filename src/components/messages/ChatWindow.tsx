@@ -215,14 +215,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     chatId={chatId}
                     currentUserId={currentUserId}
                     isAnnouncement={chatDetails?.is_announcement || false}
-                    isArcadeChat={isArcadeChat}
                     isGroupChat={chatDetails?.is_group || false}
                     canUnsend={isAdmin}
-                    smackTalks={smackTalks}
                     signedAttachmentUrl={signedAttachmentUrls[message.id]}
                     onReaction={actions.handleReaction}
                     onReply={setReplyToMessage}
-                    onSmackTalk={actions.handleSmackTalk}
                     onImageClick={setViewingImage}
                     onUnsend={actions.handleUnsendMessage}
                     sending={sending}
