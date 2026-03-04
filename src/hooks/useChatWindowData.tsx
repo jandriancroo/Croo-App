@@ -305,14 +305,19 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
 
   // Scroll position is now tracked via Virtuoso's atBottomStateChange callback
 
-  // Auto-scroll to bottom when opening a chat
+  // Auto-scroll to bottom only on initial chat open (not on every message count change)
+  const initialScrollDone = useRef(false);
   useEffect(() => {
-    if (recentMessages.length > 0 && !messagesLoading) {
+    initialScrollDone.current = false;
+  }, [chatId]);
+  useEffect(() => {
+    if (recentMessages.length > 0 && !messagesLoading && !initialScrollDone.current) {
+      initialScrollDone.current = true;
       requestAnimationFrame(() => {
         scrollToBottom(true);
       });
     }
-  }, [chatId, recentMessages.length, messagesLoading, scrollToBottom]);
+  }, [recentMessages.length, messagesLoading, scrollToBottom]);
 
   // Realtime subscription
   useEffect(() => {
