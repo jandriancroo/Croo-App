@@ -181,7 +181,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 </div>
               ) : null,
             }}
-            className="h-full px-4 sm:px-6 overflow-x-hidden"
+            className="h-full"
             itemContent={(virtualIndex, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
               const arrayIndex = virtualIndex - firstItemIndex;
