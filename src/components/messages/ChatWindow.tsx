@@ -286,14 +286,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         />
       )}
 
-      {/* Smack Talk Popup */}
-      {smackTalkPopup && (
-        <SmackTalkPopup
-          text={smackTalkPopup.text}
-          senderName={smackTalkPopup.senderName}
-          onComplete={() => setSmackTalkPopup(null)}
-        />
-      )}
 
       {/* Image Viewer */}
       <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
