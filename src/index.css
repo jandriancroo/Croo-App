@@ -516,7 +516,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   }
 
   /* PWA standalone mode: lock html+body to viewport, prevent OS-level
-     rubber-banding and gesture hijacking on iOS. Only inner containers scroll. */
+     rubber-banding and gesture hijacking on iOS. Only inner containers scroll.
+     The html element gets bg-primary so the safe-area behind the dynamic island
+     stays teal (matching the mobile header). */
   @media (display-mode: standalone) {
     html, body {
       position: fixed;
@@ -525,6 +527,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-overflow-scrolling: touch;
+    }
+    html {
+      background-color: hsl(var(--primary));
     }
   }
   html[data-standalone="true"],
@@ -535,6 +540,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     overflow: hidden;
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+  }
+  html[data-standalone="true"] {
+    background-color: hsl(var(--primary));
   }
 
   #root {
