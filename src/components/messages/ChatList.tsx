@@ -50,29 +50,6 @@ interface ChatListProps {
 }
 
 const formatMessagePreview = (content: string): string => {
-  // Parse game score messages into friendly format
-  if (content?.startsWith("GAME_SCORE:")) {
-    const parts = content.replace("GAME_SCORE:", "").split(":");
-    if (parts.length >= 3) {
-      const gameType = parts[0];
-      const score = parts[1];
-      const playerName = parts[2];
-      const gameNames: Record<string, string> = {
-        snake: "Snake",
-        marcman: "MarcMan",
-        minesweeper: "Minesweeper",
-        basketball: "Basketball",
-        pizza: "Pizza Paddle"
-      };
-      const gameName = gameNames[gameType] || gameType;
-      return `🎮 ${playerName} scored ${score} in ${gameName}!`;
-    }
-  }
-  // Parse smack talk messages
-  if (content?.startsWith("SMACK_TALK:")) {
-    const smackText = content.replace("SMACK_TALK:", "");
-    return `⚡ ${smackText}`;
-  }
   return content;
 };
 
