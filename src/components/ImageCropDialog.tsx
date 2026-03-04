@@ -115,6 +115,7 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
               onZoomChange={onZoomChange}
               onCropComplete={onCropAreaChange}
               objectFit="contain"
+              restrictPosition={false}
             />
           </div>
           <div className="space-y-2">
