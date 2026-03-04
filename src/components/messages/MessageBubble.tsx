@@ -7,8 +7,8 @@ import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { ReadReceipts } from './ReadReceipts';
-import { SmackTalkPicker } from './SmackTalkPicker';
 import { LazyImage } from './LazyImage';
+
 interface ParentMessageData {
   content: string | null;
   profiles: {
@@ -45,14 +45,11 @@ interface MessageBubbleProps {
   chatId: string;
   currentUserId: string | null;
   isAnnouncement: boolean;
-  isArcadeChat: boolean;
   isGroupChat: boolean;
   canUnsend?: boolean;
-  smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
-  onSmackTalk: (text: string, messageId?: string) => void;
   onImageClick: (url: string) => void;
   onUnsend?: (messageId: string) => void;
   sending: boolean;
@@ -68,14 +65,11 @@ export function MessageBubble({
   chatId,
   currentUserId,
   isAnnouncement,
-  isArcadeChat,
   isGroupChat,
   canUnsend = false,
-  smackTalks = [],
   signedAttachmentUrl,
   onReaction,
   onReply,
-  onSmackTalk,
   onImageClick,
   onUnsend,
   sending,
@@ -84,17 +78,14 @@ export function MessageBubble({
   const isDeleted = message.is_deleted_for_everyone;
   const displayUrl = isDeleted ? null : (signedAttachmentUrl || message.attachment_url);
 
-  // Bubble tail class - only show on last message of cluster
   const bubbleTailClass = isLastInCluster
     ? isOwnMessage
       ? 'bubble-tail-right'
       : 'bubble-tail-left'
     : '';
 
-  // Cluster spacing - tighter for same sender
   const clusterSpacing = isFirstInCluster ? 'mt-3' : 'mt-0.5';
 
-  // Deleted message — render minimal placeholder
   if (isDeleted) {
     return (
       <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
@@ -110,7 +101,6 @@ export function MessageBubble({
 
   return (
     <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
-      {/* Avatar - only show on last message of cluster for non-own messages */}
       <div className="w-8 flex-shrink-0">
         {showAvatar && !isOwnMessage && (
           <Avatar className="h-8 w-8">
@@ -123,7 +113,6 @@ export function MessageBubble({
       </div>
 
       <div className={`flex flex-col min-w-0 max-w-[75%] overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}>
-        {/* Name and time - only on first message of cluster */}
         {showName && isFirstInCluster && (
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-medium text-muted-foreground">
@@ -141,7 +130,6 @@ export function MessageBubble({
           </div>
         )}
 
-        {/* Bubble */}
         <div className="relative">
           <div
             className={`
@@ -152,19 +140,16 @@ export function MessageBubble({
               }
               ${isLastInCluster && isOwnMessage ? 'rounded-br-sm' : ''}
               ${isLastInCluster && !isOwnMessage ? 'rounded-bl-sm' : ''}
-              ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''}
               ${isPending ? 'opacity-70' : ''}
               ${bubbleTailClass}
             `}
           >
-            {/* Sending indicator */}
             {isPending && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-foreground/20 rounded-b-lg overflow-hidden">
                 <div className="h-full bg-primary-foreground/60 animate-pulse" style={{ width: '60%' }} />
               </div>
             )}
 
-            {/* Reply reference */}
             {message.parent_message && (() => {
               const parent = Array.isArray(message.parent_message)
                 ? message.parent_message[0]
@@ -186,7 +171,6 @@ export function MessageBubble({
               );
             })()}
 
-            {/* Attachment - uses LazyImage for performance */}
             {displayUrl && (
               <div className="mb-1">
                 {message.attachment_type?.startsWith('image/') ? (
@@ -210,20 +194,17 @@ export function MessageBubble({
               </div>
             )}
 
-            {/* Message content */}
             {message.content && (
               <div className="text-[15px] leading-relaxed">
                 <MessageContent
                   content={message.content}
                   chatId={chatId}
                   senderName={message.profiles?.full_name}
-                  smackTalks={smackTalks}
                 />
               </div>
             )}
           </div>
 
-          {/* Delivery status for own messages - only in 1:1 chats */}
           {isOwnMessage && isLastInCluster && !isPending && !isGroupChat && (
             <div className="flex justify-end mt-0.5 pr-1">
               <ReadReceipts
@@ -236,14 +217,10 @@ export function MessageBubble({
           )}
         </div>
 
-        {/* Reactions & Actions - only show on last message or when not an announcement */}
         {!isAnnouncement && !isPending && isLastInCluster && (
           <>
             <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <ReactionPicker onSelect={(reaction) => onReaction(message.id, reaction)} />
-              {isArcadeChat && message.content?.startsWith('GAME_SCORE:') && (
-                <SmackTalkPicker onSelect={(text) => onSmackTalk(text, message.id)} disabled={sending} />
-              )}
               <Button
                 variant="ghost"
                 size="sm"
