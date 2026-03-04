@@ -518,22 +518,20 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
       /* Use min-height, NOT height — a fixed height on <html> prevents
          body content from overflowing and scrolling naturally on iOS. */
       min-height: -webkit-fill-available;
-      overscroll-behavior-y: none;
+      /* No overscroll-behavior-y: none — keep native iOS rubber-band bounce.
+         PullToRefresh component handles the pull-down refresh gesture. */
     }
     body {
       min-height: 100dvh;
       min-height: -webkit-fill-available;
-      overscroll-behavior-y: none;
     }
   }
   html[data-standalone="true"] {
     min-height: -webkit-fill-available;
-    overscroll-behavior-y: none;
   }
   html[data-standalone="true"] body {
     min-height: 100dvh;
     min-height: -webkit-fill-available;
-    overscroll-behavior-y: none;
   }
 
   #root {
