@@ -407,52 +407,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     checkExtras();
   }, [user?.id, isSuperAdmin, isBrandAdmin]);
 
-  // Block ALL native iOS overscroll/rubber-banding when at top of page pulling down.
-  // This prevents the viewport from separating from the sticky header on any swipe,
-  // whether it starts on the header or content area. The custom PullToRefresh component
-  // handles the actual refresh UX within its own container.
-  useEffect(() => {
-    if (!isMobile) return;
-    let startY = 0;
-    const onTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      const dy = e.touches[0].clientY - startY;
-      // Only block downward pulls (finger moving down = pulling page down from top).
-      // This prevents iOS rubber-band / pull-to-refresh on the outer viewport.
-      if (dy > 0) {
-        // Check both window scroll AND #root scroll (PWA uses #root as scroller)
-        const rootEl = document.getElementById('root');
-        const pageScrollTop = window.scrollY || rootEl?.scrollTop || 0;
-        if (pageScrollTop > 0) return; // page is scrolled down, allow normal touch
-
-        // Walk up from touch target: if ANY ancestor is a scrollable container,
-        // allow the touch so normal scrolling works (even if scrollTop is 0,
-        // because the user may be scrolling DOWN within that container).
-        const target = e.target as HTMLElement | null;
-        let el = target;
-        while (el && el !== document.body) {
-          const style = window.getComputedStyle(el);
-          const overflowY = style.overflowY;
-          const isScrollable = el.scrollHeight > el.clientHeight &&
-            (overflowY === 'auto' || overflowY === 'scroll');
-          if (isScrollable) {
-            // This element can scroll — don't block the gesture
-            return;
-          }
-          el = el.parentElement;
-        }
-        e.preventDefault();
-      }
-    };
-    document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => {
-      document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
-    };
-  }, [isMobile]);
+   // iOS overscroll/rubber-band prevention is handled entirely by CSS:
+   //   overscroll-behavior: none  on html/body (in index.css PWA rules)
+   // No touchmove preventDefault needed — that approach kills scroll gestures
+   // because iOS cancels the entire gesture if ANY touchmove is prevented.
 
   // Fetch user profile for avatar
   const { data: userProfile } = useQuery({
