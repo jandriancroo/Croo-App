@@ -372,7 +372,11 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         {pinnedChats.length > 0 && (
           <>
             <div className="flex flex-wrap gap-3 px-4 py-3 justify-center">
-              {pinnedChats.map(renderPinnedBubble)}
+              {[...pinnedChats].sort((a, b) => {
+                const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
+                const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
+                return aIsShifts - bIsShifts;
+              }).map(renderPinnedBubble)}
             </div>
             {unpinnedChats.length > 0 && (
               <div className="mx-3 border-t border-border" />
