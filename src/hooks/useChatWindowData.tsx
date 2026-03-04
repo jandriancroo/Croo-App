@@ -167,10 +167,11 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     [earlierMessages, recentMessages]
   );
 
-  // Load earlier messages
-  const loadEarlierMessages = async () => {
-    if (!hasMoreEarlier || loadingEarlier) return;
-    
+  // Load earlier messages — debounced to prevent iOS touch gesture interruption
+  const loadingRef = useRef(false);
+  const loadEarlierMessages = useCallback(async () => {
+    if (!hasMoreEarlier || loadingRef.current) return;
+    loadingRef.current = true;
     setLoadingEarlier(true);
     
     try {
