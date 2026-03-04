@@ -53,9 +53,7 @@ export function useChatActions({
           body: {
             user_ids: members.map(m => m.user_id),
             sender_id: currentUserId,
-            title: type === 'smack_talk'
-              ? `⚡ ${getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'Someone'} says:`
-              : getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
+            title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
             body,
             notification_type: 'chat_messages',
             data: { chat_id: chatId, type }
