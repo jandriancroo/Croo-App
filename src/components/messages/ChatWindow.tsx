@@ -180,7 +180,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             alignToBottom
             overscan={800}
             increaseViewportBy={{ top: 400, bottom: 400 }}
-            startReachedThreshold={200}
+            
             atBottomStateChange={(atBottom) => {
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
