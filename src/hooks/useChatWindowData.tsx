@@ -431,6 +431,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     messagesEndRef,
     firstItemIndex,
     virtuosoRef,
+    isNearBottomRef,
     isScrolledUp,
     setIsScrolledUp,
     scrollToBottom,
