@@ -515,26 +515,33 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
     overscroll-behavior: none;
   }
 
-  /* PWA standalone mode: lock html+body to viewport, prevent OS-level
-     rubber-banding and gesture hijacking on iOS. Only inner containers scroll. */
+  /* PWA standalone mode: use 100dvh viewport lock WITHOUT position:fixed on html/body.
+     position:fixed on html/body breaks position:fixed on child elements in iOS Safari
+     standalone mode (the dock can't find the real viewport). Instead we use height: 100dvh
+     + overflow: hidden on html, and let #root be the scroll container. */
   @media (display-mode: standalone) {
-    html, body {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
+    html {
+      height: 100dvh;
+      height: -webkit-fill-available;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+    body {
       height: 100%;
       overflow: hidden;
       overscroll-behavior: none;
-      -webkit-overflow-scrolling: touch;
     }
   }
-  html[data-standalone="true"],
+  html[data-standalone="true"] {
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   html[data-standalone="true"] body {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
   }
 
   #root {
