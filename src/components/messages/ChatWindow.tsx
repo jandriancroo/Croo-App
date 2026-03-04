@@ -180,7 +180,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                   ) : null}
                 </div>
               ) : null,
-              Scroller: VirtuosoPanYScroller,
             }}
             className="h-full px-4 sm:px-6"
             itemContent={(virtualIndex, message) => {
