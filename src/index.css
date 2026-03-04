@@ -491,9 +491,9 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
   html {
     font-size: 16px;
-    /* Prevent horizontal scroll without creating an inner clipping container
-       that cuts off neumorphic shadows inside the layout gutters. */
-    overflow-x: clip;
+    /* Prevent horizontal scroll. Avoid overflow-x:clip — iOS Safari 
+       can interpret it as clipping BOTH axes, killing vertical scroll. */
+    overflow-x: hidden;
     width: 100%;
     position: relative;
   }
