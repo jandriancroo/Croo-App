@@ -532,14 +532,15 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
       background-color: hsl(var(--primary));
     }
   }
-  html[data-standalone="true"],
+  html[data-standalone="true"] {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   html[data-standalone="true"] body {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
   }
   html[data-standalone="true"] {
     background-color: hsl(var(--primary));
