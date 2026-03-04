@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,12 +162,16 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     enabled: !!chatId,
   });
 
-  const messages = [...earlierMessages, ...recentMessages];
+  const messages = useMemo(
+    () => [...earlierMessages, ...recentMessages],
+    [earlierMessages, recentMessages]
+  );
 
-  // Load earlier messages
-  const loadEarlierMessages = async () => {
-    if (!hasMoreEarlier || loadingEarlier) return;
-    
+  // Load earlier messages — debounced to prevent iOS touch gesture interruption
+  const loadingRef = useRef(false);
+  const loadEarlierMessages = useCallback(async () => {
+    if (!hasMoreEarlier || loadingRef.current) return;
+    loadingRef.current = true;
     setLoadingEarlier(true);
     
     try {
@@ -223,8 +227,9 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
       console.error('Error loading earlier messages:', error);
     } finally {
       setLoadingEarlier(false);
+      loadingRef.current = false;
     }
-  };
+  }, [hasMoreEarlier, messages, chatId]);
 
   // Reset earlier messages when chat changes
   useEffect(() => {

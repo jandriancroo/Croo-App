@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
@@ -80,6 +80,17 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     scrollToBottom,
     onChatDeleted,
   });
+
+  // Defer startReached to avoid state updates during active touch gestures
+  const startReachedTimer = useRef<ReturnType<typeof setTimeout>>();
+  const deferredStartReached = useCallback(() => {
+    if (startReachedTimer.current) clearTimeout(startReachedTimer.current);
+    startReachedTimer.current = setTimeout(() => {
+      if (hasMoreEarlier && !loadingEarlier) {
+        loadEarlierMessages();
+      }
+    }, 150);
+  }, [hasMoreEarlier, loadingEarlier, loadEarlierMessages]);
 
   const displayMessages = messages;
 
@@ -181,11 +192,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
             }}
-            startReached={() => {
-              if (hasMoreEarlier && !loadingEarlier) {
-                loadEarlierMessages();
-              }
-            }}
+            startReached={deferredStartReached}
             components={{
               Scroller: MobileScroller,
               Header: () => hasMoreEarlier ? (
