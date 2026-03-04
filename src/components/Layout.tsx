@@ -723,11 +723,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       label: 'Hiring',
       icon: Briefcase
     }] : []), 
-    ...(FEATURE_FLAGS.ARCADE_ENABLED ? [{
-      path: '/games',
-      label: 'Arcade',
-      icon: Gamepad2
-    }] : []), {
+    {
       path: '/settings',
       label: 'Settings',
       icon: SettingsIcon
