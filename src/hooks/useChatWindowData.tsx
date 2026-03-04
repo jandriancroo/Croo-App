@@ -105,18 +105,9 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   }, []);
 
   const checkIfNearBottom = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return true;
-    const threshold = 150;
-    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-    isNearBottomRef.current = isNear;
-    setIsScrolledUp(!isNear);
-    if (isNear) {
-      setShowNewMessageBubble(false);
-      setNewMessageCount(0);
-    }
-    return isNear;
-  }, []);
+    // With Virtuoso, we track via atBottomStateChange instead
+    return !isScrolledUp;
+  }, [isScrolledUp]);
 
   const scrollToBottom = useCallback((instant = false) => {
     if (virtuosoRef.current) {
