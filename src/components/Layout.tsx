@@ -92,14 +92,16 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
         </div>
       )}
       <div className={`relative z-10 flex items-center justify-evenly px-2 ${canViewSalesAndLabor ? 'pt-1' : 'pt-3'} pb-0`}>
-        {/* Toast overlay that slides in */}
+        {/* Toast overlay that slides in — matches dock background */}
         <div 
-          className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
-            isVisible ? 'translate-x-0' : 'translate-x-full'
+          className={`absolute inset-0 flex items-center justify-center gap-2 transition-all duration-300 ease-out pointer-events-none ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
           }`}
         >
-          <Check className="h-5 w-5" />
-          <span className="font-medium text-sm">{message}</span>
+          <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-accent-foreground/15 backdrop-blur-sm">
+            <Check className="h-4 w-4 text-accent-foreground" />
+            <span className="font-medium text-sm text-accent-foreground">{message}</span>
+          </div>
         </div>
 
         {/* Smart dock content (e.g., inventory counting) */}
