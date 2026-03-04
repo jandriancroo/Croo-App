@@ -185,8 +185,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             className="h-full px-4 sm:px-6"
             itemContent={(index, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
-              const smackTalks = smackTalkMap.get(message.id) || [];
-              
+               
               const messageDate = new Date(message.created_at);
               const prevMessage = index > 0 ? displayMessages[index - 1] : null;
               const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
