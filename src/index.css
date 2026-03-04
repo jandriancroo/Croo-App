@@ -521,29 +521,32 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
      stays teal (matching the mobile header). */
   @media (display-mode: standalone) {
     html, body {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      height: 100%;
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-overflow-scrolling: touch;
     }
     html {
       background-color: hsl(var(--primary));
+      height: 100dvh;
+      height: -webkit-fill-available;
+    }
+    body {
+      height: 100%;
     }
   }
-  html[data-standalone="true"],
-  html[data-standalone="true"] body {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    width: 100vw;
-    height: 100vh;
+  /* JS fallback for iOS standalone detection */
+  html[data-standalone="true"] {
     overflow: hidden;
     overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  html[data-standalone="true"] {
     background-color: hsl(var(--primary));
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+  html[data-standalone="true"] body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
   }
 
   #root {
