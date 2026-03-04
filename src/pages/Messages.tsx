@@ -140,7 +140,7 @@ export default function Messages() {
       />
     </div>
   ) : selectedChatId ? (
-    <div className="w-full">
+    <div className="w-full h-full overflow-hidden">
       <ChatWindow
         chatId={selectedChatId}
         chatDetails={chats.find(c => c.id === selectedChatId) || null}

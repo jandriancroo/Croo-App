@@ -120,7 +120,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative overflow-hidden">
         {/* Scroll to bottom + mark as read button */}
         {isScrolledUp && displayMessages.length > 0 && (
           <button
@@ -181,7 +181,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 </div>
               ) : null,
             }}
-            className="h-full px-4 sm:px-6 overflow-x-hidden"
+            className="h-full"
             itemContent={(virtualIndex, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
               const arrayIndex = virtualIndex - firstItemIndex;
@@ -202,7 +202,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               const showName = isFirstInCluster && !isOwnMessage;
               
               return (
-                <div className={`py-0.5 ${message.isNew ? 'animate-fade-in' : ''}`}>
+                <div className={`py-0.5 px-4 sm:px-6 ${message.isNew ? 'animate-fade-in' : ''}`}>
                   {showDateSeparator && <DateSeparator date={messageDate} />}
                   <MemoizedMessageBubble
                     message={message}
