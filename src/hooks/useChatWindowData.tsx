@@ -101,13 +101,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     };
   }, []);
 
-  // Disable pull-to-refresh on body while chat is open (iOS/Android)
-  useEffect(() => {
-    document.body.style.overscrollBehaviorY = 'none';
-    return () => {
-      document.body.style.overscrollBehaviorY = 'auto';
-    };
-  }, []);
 
 
   const scrollToBottom = useCallback((instant = false) => {

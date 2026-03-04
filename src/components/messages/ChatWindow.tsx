@@ -10,7 +10,7 @@ import { AnnouncementStats } from './AnnouncementStats';
 import { DateSeparator } from './DateSeparator';
 import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
-import { VirtuosoPanYScroller } from './VirtuosoPanYScroller';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,7 +120,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages - Virtualized */}
-      <div className="flex-1 min-h-0 relative overscroll-none">
+      <div className="flex-1 min-h-0 relative">
         {/* Scroll to bottom + mark as read button */}
         {isScrolledUp && displayMessages.length > 0 && (
           <button
@@ -180,7 +180,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                   ) : null}
                 </div>
               ) : null,
-              Scroller: VirtuosoPanYScroller,
             }}
             className="h-full px-4 sm:px-6"
             itemContent={(virtualIndex, message) => {
