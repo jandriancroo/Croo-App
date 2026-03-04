@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
@@ -91,6 +91,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       }
     }, 150);
   }, [hasMoreEarlier, loadingEarlier, loadEarlierMessages]);
+
+  // Cleanup timer on unmount / chat switch
+  useEffect(() => {
+    return () => {
+      if (startReachedTimer.current) clearTimeout(startReachedTimer.current);
+    };
+  }, [chatId]);
 
   const displayMessages = messages;
 
