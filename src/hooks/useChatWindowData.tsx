@@ -175,8 +175,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     if (!hasMoreEarlier || loadingEarlier) return;
     
     setLoadingEarlier(true);
-    const scrollContainer = messagesContainerRef.current;
-    const scrollHeightBefore = scrollContainer?.scrollHeight || 0;
     
     try {
       const oldestMessage = messages[0];
@@ -223,14 +221,10 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
         return { ...msg, parent_message: parent || null };
       });
 
-      setEarlierMessages(prev => [...messagesWithParent.reverse(), ...prev]);
-      
-      requestAnimationFrame(() => {
-        if (scrollContainer) {
-          const scrollHeightAfter = scrollContainer.scrollHeight;
-          scrollContainer.scrollTop = scrollHeightAfter - scrollHeightBefore;
-        }
-      });
+      const newMessages = messagesWithParent.reverse();
+      // Shift firstItemIndex down to make room for prepended items
+      setFirstItemIndex(prev => prev - newMessages.length);
+      setEarlierMessages(prev => [...newMessages, ...prev]);
     } catch (error) {
       console.error('Error loading earlier messages:', error);
     } finally {
