@@ -200,28 +200,6 @@ export function useChatActions({
     }
   }, [currentUserId, chatId, setSending, scrollToBottom, sendPushNotification]);
 
-  const handleSmackTalk = useCallback(async (smackText: string, targetMessageId?: string) => {
-    if (!currentUserId) return;
-    setSending(true);
-    try {
-      const content = `SMACK_TALK:${smackText}`;
-      const { error } = await supabase.from('messages').insert({
-        chat_id: chatId,
-        sender_id: currentUserId,
-        content,
-        parent_message_id: targetMessageId || null,
-      });
-      if (error) throw error;
-
-      sendPushNotification(smackText, 'smack_talk');
-      scrollToBottom();
-    } catch (error: any) {
-      console.error('Error sending smack talk:', error);
-      toast.error('Failed to send smack talk');
-    } finally {
-      setSending(false);
-    }
-  }, [currentUserId, chatId, setSending, scrollToBottom, sendPushNotification]);
 
   const handleDeleteChat = useCallback(async () => {
     try {
