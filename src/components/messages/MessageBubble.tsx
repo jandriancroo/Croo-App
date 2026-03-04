@@ -1,8 +1,10 @@
+import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, File, Clock, Trash2 } from 'lucide-react';
+import { MessageSquare, File, Clock, Trash2, ImageIcon, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
@@ -76,7 +78,29 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isPending = message.isPending;
   const isDeleted = message.is_deleted_for_everyone;
-  const displayUrl = isDeleted ? null : (signedAttachmentUrl || message.attachment_url);
+
+  // Determine if image is old (>24h) and has no signed URL yet
+  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;
+  const msgAge = Date.now() - new Date(message.created_at).getTime();
+  const isOldAttachment = msgAge > SIGNED_URL_AGE_LIMIT_MS && message.attachment_type?.startsWith('image/') && !signedAttachmentUrl;
+  
+  const [onDemandUrl, setOnDemandUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(false);
+
+  const loadOnDemand = useCallback(async () => {
+    if (!message.attachment_url || loadingUrl) return;
+    setLoadingUrl(true);
+    const match = message.attachment_url.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+    if (match) {
+      const { data } = await supabase.storage
+        .from(match[1])
+        .createSignedUrl(decodeURIComponent(match[2]), 60 * 60);
+      if (data?.signedUrl) setOnDemandUrl(data.signedUrl);
+    }
+    setLoadingUrl(false);
+  }, [message.attachment_url, loadingUrl]);
+
+  const displayUrl = isDeleted ? null : (onDemandUrl || signedAttachmentUrl || (isOldAttachment ? null : message.attachment_url));
 
   const bubbleTailClass = isLastInCluster
     ? isOwnMessage
@@ -171,7 +195,21 @@ export function MessageBubble({
               );
             })()}
 
-            {displayUrl && (
+            {isOldAttachment && !onDemandUrl ? (
+              <button
+                onClick={loadOnDemand}
+                className="rounded-lg w-[180px] h-[120px] bg-muted/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/80 active:bg-muted transition-colors"
+              >
+                {loadingUrl ? (
+                  <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                ) : (
+                  <>
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/60" />
+                    <span className="text-xs text-muted-foreground/70">Tap to load</span>
+                  </>
+                )}
+              </button>
+            ) : displayUrl ? (
               <div className="mb-1">
                 {message.attachment_type?.startsWith('image/') ? (
                   <LazyImage
@@ -192,7 +230,7 @@ export function MessageBubble({
                   </a>
                 )}
               </div>
-            )}
+            ) : null}
 
             {message.content && (
               <div className="text-[15px] leading-relaxed">

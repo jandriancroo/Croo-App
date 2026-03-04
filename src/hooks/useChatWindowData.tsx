@@ -240,10 +240,17 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     setNewMessageCount(0);
   }, [chatId]);
 
-  // Resolve signed URLs for attachments
+  // Resolve signed URLs for attachments (only for messages within 24h)
+  const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000; // 24 hours
+
   useEffect(() => {
     const resolveSignedUrls = async () => {
-      const toResolve = messages.filter((m) => m.attachment_url && !signedAttachmentUrls[m.id]);
+      const now = Date.now();
+      const toResolve = messages.filter((m) => {
+        if (!m.attachment_url || signedAttachmentUrls[m.id]) return false;
+        const msgAge = now - new Date(m.created_at).getTime();
+        return msgAge <= SIGNED_URL_AGE_LIMIT_MS;
+      });
       if (toResolve.length === 0) return;
 
       const results = await Promise.all(
