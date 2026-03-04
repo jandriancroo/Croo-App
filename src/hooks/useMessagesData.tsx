@@ -7,7 +7,6 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
-import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { toast } from 'sonner';
 
 export interface Chat {
@@ -15,7 +14,7 @@ export interface Chat {
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
-  is_arcade?: boolean;
+  
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -126,9 +125,6 @@ export function useMessagesData() {
     
     let filtered = chatList;
     
-    if (!FEATURE_FLAGS.ARCADE_ENABLED) {
-      filtered = filtered.filter(chat => !chat.is_arcade);
-    }
     
     if (mode === 'announcements') {
       filtered = filtered.filter(chat => chat.is_announcement);

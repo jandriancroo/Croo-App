@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getDisplayName } from '@/utils/displayName';
+
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -41,7 +41,7 @@ export interface ChatDetails {
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
-  is_arcade?: boolean;
+  
   group_image_url: string | null;
   created_by: string;
 }
@@ -55,9 +55,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [smackTalkPopup, setSmackTalkPopup] = useState<{ text: string; senderName: string } | null>(null);
-  const [processedSmackTalks, setProcessedSmackTalks] = useState<Set<string>>(new Set());
-  const [isArcadeChat, setIsArcadeChat] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [signedAttachmentUrls, setSignedAttachmentUrls] = useState<Record<string, string>>({});
   const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
@@ -277,39 +274,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     resolveSignedUrls();
   }, [messages, signedAttachmentUrls]);
 
-  // Check if arcade chat
-  useEffect(() => {
-    const checkArcadeChat = async () => {
-      if (!chatId) return;
-      const { data } = await supabase
-        .from('chats')
-        .select('is_arcade')
-        .eq('id', chatId)
-        .single();
-      setIsArcadeChat(data?.is_arcade || false);
-    };
-    checkArcadeChat();
-  }, [chatId]);
-
-  // Show smack talk popup for new messages
-  const handleNewSmackTalk = useCallback((message: Message) => {
-    if (!message.content?.startsWith('SMACK_TALK:')) return;
-    if (message.sender_id === currentUserId) return;
-    if (processedSmackTalks.has(message.id)) return;
-    
-    const smackText = message.content.replace('SMACK_TALK:', '');
-    const senderName = getDisplayName(message.profiles?.full_name, message.profiles?.nickname) || 'Someone';
-    
-    setProcessedSmackTalks(prev => new Set([...prev, message.id]));
-    setSmackTalkPopup({ text: smackText, senderName });
-  }, [currentUserId, processedSmackTalks]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      const latestMessage = messages[messages.length - 1];
-      handleNewSmackTalk(latestMessage);
-    }
-  }, [messages, handleNewSmackTalk]);
 
   // Mark announcement as opened
   useEffect(() => {
@@ -451,9 +415,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     setSettingsOpen,
     deleteDialogOpen,
     setDeleteDialogOpen,
-    smackTalkPopup,
-    setSmackTalkPopup,
-    isArcadeChat,
     viewingImage,
     setViewingImage,
     signedAttachmentUrls,

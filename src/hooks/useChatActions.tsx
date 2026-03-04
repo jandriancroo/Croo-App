@@ -53,9 +53,7 @@ export function useChatActions({
           body: {
             user_ids: members.map(m => m.user_id),
             sender_id: currentUserId,
-            title: type === 'smack_talk'
-              ? `⚡ ${getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'Someone'} says:`
-              : getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
+            title: getDisplayName(senderProfile?.full_name, senderProfile?.nickname) || 'New Message',
             body,
             notification_type: 'chat_messages',
             data: { chat_id: chatId, type }
@@ -202,28 +200,6 @@ export function useChatActions({
     }
   }, [currentUserId, chatId, setSending, scrollToBottom, sendPushNotification]);
 
-  const handleSmackTalk = useCallback(async (smackText: string, targetMessageId?: string) => {
-    if (!currentUserId) return;
-    setSending(true);
-    try {
-      const content = `SMACK_TALK:${smackText}`;
-      const { error } = await supabase.from('messages').insert({
-        chat_id: chatId,
-        sender_id: currentUserId,
-        content,
-        parent_message_id: targetMessageId || null,
-      });
-      if (error) throw error;
-
-      sendPushNotification(smackText, 'smack_talk');
-      scrollToBottom();
-    } catch (error: any) {
-      console.error('Error sending smack talk:', error);
-      toast.error('Failed to send smack talk');
-    } finally {
-      setSending(false);
-    }
-  }, [currentUserId, chatId, setSending, scrollToBottom, sendPushNotification]);
 
   const handleDeleteChat = useCallback(async () => {
     try {
@@ -310,7 +286,7 @@ export function useChatActions({
     handleSend,
     handleReaction,
     handleGifSelect,
-    handleSmackTalk,
+    
     handleDeleteChat,
     handleUnsendMessage,
     handleFileUpload,

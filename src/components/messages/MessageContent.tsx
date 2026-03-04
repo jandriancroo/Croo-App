@@ -1,14 +1,7 @@
 import { useMemo } from 'react';
 
 import { ShiftOfferMessage } from "./ShiftOfferMessage";
-import { GameScoreMessage } from "./GameScoreMessage";
-import { SmackTalkMessage } from "./SmackTalkMessage";
 import { SharedTaskMessage } from "./SharedTaskMessage";
-
-interface SmackTalkOverlay {
-  text: string;
-  senderName: string;
-}
 
 interface Profile {
   id: string;
@@ -19,34 +12,15 @@ interface MessageContentProps {
   content: string;
   chatId: string;
   senderName?: string;
-  smackTalks?: SmackTalkOverlay[];
-  chatMembers?: Profile[]; // Now passed from parent - no more N+1 queries!
+  chatMembers?: Profile[];
 }
 
-export function MessageContent({ content, chatId, senderName, smackTalks = [], chatMembers = [] }: MessageContentProps) {
-  // Memoize mention rendering for performance - MUST be before any early returns
+export function MessageContent({ content, chatId, senderName, chatMembers = [] }: MessageContentProps) {
   const renderedContent = useMemo(() => {
     // Check if this is a shift offer message
     if (content?.startsWith("SHIFT_OFFER:")) {
       const offerId = content.replace("SHIFT_OFFER:", "");
       return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
-    }
-
-    // Check if this is a game score message
-    if (content?.startsWith("GAME_SCORE:")) {
-      const parts = content.replace("GAME_SCORE:", "").split(":");
-      if (parts.length >= 3) {
-        const gameType = parts[0];
-        const score = parseInt(parts[1], 10);
-        const playerName = parts.slice(2).join(":");
-        return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} smackTalks={smackTalks} />;
-      }
-    }
-
-    // Check if this is a smack talk message
-    if (content?.startsWith("SMACK_TALK:")) {
-      const smackText = content.replace("SMACK_TALK:", "");
-      return <SmackTalkMessage text={smackText} senderName={senderName || 'Someone'} />;
     }
 
     // Check if this is a shared task message
@@ -65,7 +39,6 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [], c
 
     const mentionedUsers: { name: string; startIndex: number; endIndex: number }[] = [];
 
-    // Find all potential @mentions
     chatMembers.forEach((profile) => {
       const fullNamePattern = new RegExp(`@${profile.full_name}\\b`, 'gi');
       let match;
@@ -79,19 +52,16 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [], c
       }
     });
 
-    // Sort mentions by position (for proper rendering)
     mentionedUsers.sort((a, b) => a.startIndex - b.startIndex);
 
     if (mentionedUsers.length === 0) {
       return <span className="whitespace-pre-wrap">{content}</span>;
     }
 
-    // Build JSX with mentions highlighted
     const elements: React.ReactNode[] = [];
     let lastIndex = 0;
 
     mentionedUsers.forEach((mention, idx) => {
-      // Add text before mention
       if (mention.startIndex > lastIndex) {
         elements.push(
           <span key={`text-${idx}`}>
@@ -100,7 +70,6 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [], c
         );
       }
 
-      // Add highlighted mention
       elements.push(
         <span
           key={`mention-${idx}`}
@@ -113,7 +82,6 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [], c
       lastIndex = mention.endIndex;
     });
 
-    // Add remaining text
     if (lastIndex < content.length) {
       elements.push(
         <span key="text-final">

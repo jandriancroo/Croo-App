@@ -1,4 +1,3 @@
-import { getDisplayName } from '@/utils/displayName';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
@@ -7,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Virtuoso } from 'react-virtuoso';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { AnnouncementStats } from './AnnouncementStats';
-import { SmackTalkPopup } from './SmackTalkPopup';
+
 import { DateSeparator } from './DateSeparator';
 import { MemoizedMessageBubble } from './MemoizedMessageBubble';
 import { IMessageInput } from './iMessageInput';
@@ -44,8 +43,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     replyToMessage, setReplyToMessage,
     settingsOpen, setSettingsOpen,
     deleteDialogOpen, setDeleteDialogOpen,
-    smackTalkPopup, setSmackTalkPopup,
-    isArcadeChat,
     viewingImage, setViewingImage,
     signedAttachmentUrls,
     hasMoreEarlier, loadingEarlier,
@@ -71,27 +68,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     onChatDeleted,
   });
 
-  // Build smack talk map for game scores
-  const smackTalkMap = new Map<string, { text: string; senderName: string }[]>();
-  messages.forEach((msg) => {
-    if (msg.content?.startsWith('GAME_SCORE:')) {
-      smackTalkMap.set(msg.id, []);
-    }
-  });
-  messages.forEach((msg) => {
-    if (msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id) {
-      const smacks = smackTalkMap.get(msg.parent_message_id) || [];
-      smacks.push({
-        text: msg.content.replace('SMACK_TALK:', ''),
-        senderName: getDisplayName(msg.profiles?.full_name, msg.profiles?.nickname) || 'Someone'
-      });
-      smackTalkMap.set(msg.parent_message_id, smacks);
-    }
-  });
-
-  const displayMessages = messages.filter(
-    msg => !(msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id)
-  );
+  const displayMessages = messages;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -207,8 +184,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             className="h-full px-4 sm:px-6"
             itemContent={(index, message) => {
               const isOwnMessage = currentUserId && message.sender_id === currentUserId;
-              const smackTalks = smackTalkMap.get(message.id) || [];
-              
+               
               const messageDate = new Date(message.created_at);
               const prevMessage = index > 0 ? displayMessages[index - 1] : null;
               const nextMessage = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
@@ -237,14 +213,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     chatId={chatId}
                     currentUserId={currentUserId}
                     isAnnouncement={chatDetails?.is_announcement || false}
-                    isArcadeChat={isArcadeChat}
                     isGroupChat={chatDetails?.is_group || false}
                     canUnsend={isAdmin}
-                    smackTalks={smackTalks}
                     signedAttachmentUrl={signedAttachmentUrls[message.id]}
                     onReaction={actions.handleReaction}
                     onReply={setReplyToMessage}
-                    onSmackTalk={actions.handleSmackTalk}
                     onImageClick={setViewingImage}
                     onUnsend={actions.handleUnsendMessage}
                     sending={sending}
@@ -311,14 +284,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         />
       )}
 
-      {/* Smack Talk Popup */}
-      {smackTalkPopup && (
-        <SmackTalkPopup
-          text={smackTalkPopup.text}
-          senderName={smackTalkPopup.senderName}
-          onComplete={() => setSmackTalkPopup(null)}
-        />
-      )}
 
       {/* Image Viewer */}
       <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>

@@ -37,14 +37,11 @@ interface MemoizedMessageBubbleProps {
   chatId: string;
   currentUserId: string | null;
   isAnnouncement: boolean;
-  isArcadeChat: boolean;
   isGroupChat: boolean;
   canUnsend?: boolean;
-  smackTalks?: { text: string; senderName: string }[];
   signedAttachmentUrl?: string;
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
-  onSmackTalk: (text: string, messageId?: string) => void;
   onImageClick: (url: string) => void;
   onUnsend?: (messageId: string) => void;
   sending: boolean;
@@ -65,7 +62,6 @@ export const MemoizedMessageBubble = memo(
     if (prevProps.isLastInCluster !== nextProps.isLastInCluster) return false;
     if (prevProps.showAvatar !== nextProps.showAvatar) return false;
     if (prevProps.showName !== nextProps.showName) return false;
-    if (prevProps.smackTalks?.length !== nextProps.smackTalks?.length) return false;
     if (prevProps.sending !== nextProps.sending) return false;
     if (prevProps.canUnsend !== nextProps.canUnsend) return false;
     if (prevProps.message.profiles?.full_name !== nextProps.message.profiles?.full_name) return false;
