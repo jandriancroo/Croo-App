@@ -81,24 +81,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     onChatDeleted,
   });
 
-  // Defer startReached to avoid state updates during active touch gestures
-  const startReachedTimer = useRef<ReturnType<typeof setTimeout>>();
-  const deferredStartReached = useCallback(() => {
-    if (startReachedTimer.current) clearTimeout(startReachedTimer.current);
-    startReachedTimer.current = setTimeout(() => {
-      if (hasMoreEarlier && !loadingEarlier) {
-        loadEarlierMessages();
-      }
-    }, 150);
-  }, [hasMoreEarlier, loadingEarlier, loadEarlierMessages]);
-
-  // Cleanup timer on unmount / chat switch
-  useEffect(() => {
-    return () => {
-      if (startReachedTimer.current) clearTimeout(startReachedTimer.current);
-    };
-  }, [chatId]);
-
   const displayMessages = messages;
 
   return (
