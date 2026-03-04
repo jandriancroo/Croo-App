@@ -53,6 +53,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     newMessage, setNewMessage,
     sending, setSending,
     uploading, setUploading,
+    firstItemIndex,
     virtuosoRef,
     isScrolledUp, setIsScrolledUp,
     scrollToBottom, loadEarlierMessages,
@@ -178,6 +179,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           <Virtuoso
             ref={virtuosoRef}
             data={displayMessages}
+            firstItemIndex={firstItemIndex}
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput="smooth"
             alignToBottom

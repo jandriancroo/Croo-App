@@ -63,6 +63,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
   const [hasMoreEarlier, setHasMoreEarlier] = useState(true);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [firstItemIndex, setFirstItemIndex] = useState(10000); // large start for prepend room
   const [showNewMessageBubble, setShowNewMessageBubble] = useState(false);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [newMessage, setNewMessage] = useState('');
@@ -71,7 +72,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   const [isScrolledUp, setIsScrolledUp] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isNearBottomRef = useRef(true);
 
@@ -104,19 +104,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     };
   }, []);
 
-  const checkIfNearBottom = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return true;
-    const threshold = 150;
-    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-    isNearBottomRef.current = isNear;
-    setIsScrolledUp(!isNear);
-    if (isNear) {
-      setShowNewMessageBubble(false);
-      setNewMessageCount(0);
-    }
-    return isNear;
-  }, []);
 
   const scrollToBottom = useCallback((instant = false) => {
     if (virtuosoRef.current) {
@@ -184,8 +171,6 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     if (!hasMoreEarlier || loadingEarlier) return;
     
     setLoadingEarlier(true);
-    const scrollContainer = messagesContainerRef.current;
-    const scrollHeightBefore = scrollContainer?.scrollHeight || 0;
     
     try {
       const oldestMessage = messages[0];
@@ -232,14 +217,10 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
         return { ...msg, parent_message: parent || null };
       });
 
-      setEarlierMessages(prev => [...messagesWithParent.reverse(), ...prev]);
-      
-      requestAnimationFrame(() => {
-        if (scrollContainer) {
-          const scrollHeightAfter = scrollContainer.scrollHeight;
-          scrollContainer.scrollTop = scrollHeightAfter - scrollHeightBefore;
-        }
-      });
+      const newMessages = messagesWithParent.reverse();
+      // Shift firstItemIndex down to make room for prepended items
+      setFirstItemIndex(prev => prev - newMessages.length);
+      setEarlierMessages(prev => [...newMessages, ...prev]);
     } catch (error) {
       console.error('Error loading earlier messages:', error);
     } finally {
@@ -251,6 +232,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   useEffect(() => {
     setEarlierMessages([]);
     setHasMoreEarlier(true);
+    setFirstItemIndex(10000);
     setShowNewMessageBubble(false);
     setNewMessageCount(0);
   }, [chatId]);
@@ -349,18 +331,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     markChatAsRead(chatId, currentUserId);
   }, [chatId, currentUserId]);
 
-  // Track scroll position
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    
-    const handleScroll = () => {
-      checkIfNearBottom();
-    };
-    
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [checkIfNearBottom]);
+  // Scroll position is now tracked via Virtuoso's atBottomStateChange callback
 
   // Auto-scroll to bottom when opening a chat
   useEffect(() => {
@@ -489,7 +460,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
     uploading,
     setUploading,
     messagesEndRef,
-    messagesContainerRef,
+    firstItemIndex,
     virtuosoRef,
     isScrolledUp,
     setIsScrolledUp,
