@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
@@ -27,6 +28,22 @@ import {
 } from '@/components/ui/dialog';
 import { useChatWindowData, type ChatDetails } from '@/hooks/useChatWindowData';
 import { useChatActions } from '@/hooks/useChatActions';
+
+const HardenedScroller = forwardRef<HTMLDivElement, React.HTMLProps<HTMLDivElement>>((props, ref) => (
+  <div
+    ref={ref}
+    {...props}
+    style={{
+      ...props.style,
+      overscrollBehaviorY: 'none',
+      overscrollBehavior: 'none',
+      touchAction: 'pan-y pinch-zoom',
+      WebkitOverflowScrolling: 'touch',
+      transform: 'translateZ(0)',
+      willChange: 'scroll-position, transform',
+    }}
+  />
+));
 
 interface ChatWindowProps {
   chatId: string;
@@ -156,10 +173,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           <Virtuoso
             ref={virtuosoRef}
             data={displayMessages}
+            totalCount={displayMessages.length}
             firstItemIndex={firstItemIndex}
             initialTopMostItemIndex={displayMessages.length - 1}
             followOutput={(isAtBottom) => isAtBottom ? 'smooth' : false}
             alignToBottom
+            overscan={800}
+            increaseViewportBy={{ top: 400, bottom: 400 }}
+            
             atBottomStateChange={(atBottom) => {
               setIsScrolledUp(!atBottom);
               data.isNearBottomRef.current = atBottom;
@@ -170,6 +191,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               }
             }}
             components={{
+              Scroller: HardenedScroller,
               Header: () => hasMoreEarlier ? (
                 <div className="flex justify-center py-2">
                   {loadingEarlier ? (
