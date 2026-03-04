@@ -893,12 +893,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       My Team
                     </DropdownMenuItem>
                   )}
-                  {FEATURE_FLAGS.ARCADE_ENABLED && (
-                    <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
-                      <Gamepad2 className="h-4 w-4" />
-                      Arcade
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                     <SettingsIcon className="h-4 w-4" />
                     Settings

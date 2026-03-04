@@ -204,12 +204,6 @@ const AppContent = () => {
         <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
         <Route path="/inventory/:locationId/cogs" element={<ProtectedRoute><COGSReport /></ProtectedRoute>} />
-        <Route path="/games" element={<ProtectedRoute><Games /></ProtectedRoute>} />
-        <Route path="/games/snake" element={<ProtectedRoute><SnakeGame /></ProtectedRoute>} />
-        <Route path="/games/minesweeper" element={<ProtectedRoute><MinesweeperGame /></ProtectedRoute>} />
-        <Route path="/games/basketball" element={<ProtectedRoute><BasketballGame /></ProtectedRoute>} />
-        <Route path="/games/pizza" element={<ProtectedRoute><PizzaPaddleGame /></ProtectedRoute>} />
-        <Route path="/games/marcman" element={<ProtectedRoute><MarcManGame /></ProtectedRoute>} />
         <Route path="/qr-generator" element={<QRCodeGenerator />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

@@ -125,9 +125,6 @@ export function useMessagesData() {
     
     let filtered = chatList;
     
-    if (!FEATURE_FLAGS.ARCADE_ENABLED) {
-      filtered = filtered.filter(chat => !chat.is_arcade);
-    }
     
     if (mode === 'announcements') {
       filtered = filtered.filter(chat => chat.is_announcement);
