@@ -491,11 +491,10 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
 
   html {
     font-size: 16px;
-    /* Prevent horizontal scroll. Avoid overflow-x:clip — iOS Safari 
-       can interpret it as clipping BOTH axes, killing vertical scroll. */
-    overflow-x: hidden;
+    /* Do NOT set overflow-x on <html> — iOS Safari can interpret it as
+       creating a fixed-size BFC that clips vertical scroll too.
+       Horizontal overflow is handled on <body> instead. */
     width: 100%;
-    position: relative;
   }
 
   /* Increase base font size on mobile for better readability */
