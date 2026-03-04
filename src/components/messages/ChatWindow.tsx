@@ -187,7 +187,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               }
             }}
             components={{
-              Scroller: HardenedScroller,
+              Scroller: MobileScroller,
               Header: () => hasMoreEarlier ? (
                 <div className="flex justify-center py-2">
                   {loadingEarlier ? (
