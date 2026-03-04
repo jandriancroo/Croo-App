@@ -422,9 +422,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       if (dy <= 0) return; // Only care about downward pulls
 
       // In standalone/PWA mode, #root is the scroll container (window.scrollY stays 0).
-      // Check the actual scroll container instead of window.
+      // In normal browser mode, window is the scroll container.
+      // Check both to handle either case correctly.
       const rootEl = document.getElementById('root');
-      const scrollTop = rootEl ? rootEl.scrollTop : window.scrollY;
+      const scrollTop = Math.max(window.scrollY, rootEl?.scrollTop ?? 0);
 
       if (scrollTop > 0) return; // Page is scrolled down — allow normal scroll
 
