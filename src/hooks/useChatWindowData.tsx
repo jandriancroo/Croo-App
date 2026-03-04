@@ -236,6 +236,7 @@ export function useChatWindowData(chatId: string, chatDetails: ChatDetails | nul
   useEffect(() => {
     setEarlierMessages([]);
     setHasMoreEarlier(true);
+    setFirstItemIndex(10000);
     setShowNewMessageBubble(false);
     setNewMessageCount(0);
   }, [chatId]);
