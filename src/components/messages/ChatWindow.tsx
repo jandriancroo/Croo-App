@@ -1,4 +1,4 @@
-import { getDisplayName } from '@/utils/displayName';
+import { Button } from '@/components/ui/button';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown } from 'lucide-react';
