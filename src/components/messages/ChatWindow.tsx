@@ -29,18 +29,14 @@ import {
 import { useChatWindowData, type ChatDetails } from '@/hooks/useChatWindowData';
 import { useChatActions } from '@/hooks/useChatActions';
 
-const HardenedScroller = forwardRef<HTMLDivElement, React.HTMLProps<HTMLDivElement>>((props, ref) => (
+const MobileScroller = forwardRef<HTMLDivElement, React.HTMLProps<HTMLDivElement>>((props, ref) => (
   <div
     ref={ref}
     {...props}
     style={{
       ...props.style,
-      overscrollBehaviorY: 'none',
-      overscrollBehavior: 'none',
-      touchAction: 'pan-y pinch-zoom',
-      WebkitOverflowScrolling: 'touch',
-      transform: 'translateZ(0)',
-      willChange: 'scroll-position, transform',
+      overscrollBehavior: 'contain',
+      touchAction: 'pan-y',
     }}
   />
 ));
