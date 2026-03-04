@@ -422,7 +422,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       // Only block downward pulls when already at top of page.
       // Skip if the touch is inside a scrollable container (e.g. Virtuoso, chat)
       // to avoid blocking legitimate scroll-up gestures.
-      if (dy > 0 && window.scrollY <= 0) {
+      if (dy > 0) {
+        // Check both window scroll AND #root scroll (PWA uses #root as scroller)
+        const rootEl = document.getElementById('root');
+        const pageScrollTop = window.scrollY || rootEl?.scrollTop || 0;
+        if (pageScrollTop > 0) return; // page is scrolled down, allow normal touch
+
         const target = e.target as HTMLElement | null;
         // Walk up the DOM to check if we're inside a scrollable child
         let el = target;
