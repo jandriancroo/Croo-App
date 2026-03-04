@@ -1181,7 +1181,7 @@ export default function PunchClockCustomization() {
         imageSrc={cropImageSrc}
         onCropComplete={handleCropComplete}
         cropShape="rect"
-        aspect={16 / 9}
+        aspect={3 / 4}
       />
     </Layout>
   );
