@@ -14,7 +14,7 @@ export interface Chat {
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
-  is_arcade?: boolean;
+  
   created_by: string;
   created_at: string;
   updated_at: string;
