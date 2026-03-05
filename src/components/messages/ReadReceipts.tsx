@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Check, CheckCheck, Eye } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUserRole } from '@/hooks/useUserRole';
 import { cn } from '@/lib/utils';
 
 interface ReadReceiptsProps {
