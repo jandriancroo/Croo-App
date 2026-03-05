@@ -220,7 +220,7 @@ function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQui
       </p>
       <div className="space-y-2">
         {unassignedItems.map((task) => (
-          <DraggableTask key={task.id} task={task} onDelete={onDelete} />
+          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} />
         ))}
       </div>
     </Card>
