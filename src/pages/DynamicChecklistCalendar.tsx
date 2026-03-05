@@ -227,12 +227,13 @@ function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQui
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: { 
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage }: { 
   dayIndex: number; 
   dayName: string; 
   tasks: ChecklistItem[];
   holidays: Holiday[];
   blackoutDates: string[];
+  onUpdateRefImage: (id: string, url: string | null) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
