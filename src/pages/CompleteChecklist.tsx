@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
+import { useUserPosition } from '@/hooks/useUserPosition';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -34,6 +35,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   manager_shift?: string | null;
+  position?: string | null;
   order_index?: number;
 }
 interface Checklist {
@@ -43,6 +45,7 @@ interface Checklist {
   location_id: string | null;
   frequency: string;
   enable_am_pm_division?: boolean;
+  position_filtering_enabled?: boolean;
   lock_until_time?: string | null;
 }
 interface ResponseWithCompleter {
@@ -89,7 +92,19 @@ export default function CompleteChecklist() {
     user
   } = useAuth();
   const { isAdmin, isManager, isShiftManager } = useUserRole();
+  const { currentLocation } = useLocation();
+  const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  
+  // Position filter toggle - default to true (show only my position) when position filtering is enabled
+  const posFilterKey = `positionFilter_${id}`;
+  const [showOnlyMyPosition, setShowOnlyMyPosition] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(posFilterKey);
+      return stored !== 'false'; // default true
+    }
+    return true;
+  });
   
   // Hide completed items toggle - persists per checklist in localStorage
   const hideCompletedKey = `hideCompleted_${id}`;
@@ -167,7 +182,7 @@ export default function CompleteChecklist() {
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
-  const { currentLocation } = useLocation();
+  // currentLocation already declared above
   const navigate = useNavigate();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   useEffect(() => {
@@ -948,16 +963,39 @@ export default function CompleteChecklist() {
           </div>
           {checklist.description && <p className="text-xs text-muted-foreground">{checklist.description}</p>}
           
-          {/* Hide Completed Toggle */}
-          <div className="flex items-center gap-2 pt-2">
-            <Switch
-              id="hide-completed"
-              checked={hideCompleted}
-              onCheckedChange={toggleHideCompleted}
-            />
-            <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
-              Hide completed items
-            </Label>
+          {/* Toggles */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="hide-completed"
+                checked={hideCompleted}
+                onCheckedChange={toggleHideCompleted}
+              />
+              <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
+                Hide completed
+              </Label>
+            </div>
+            
+            {/* Position filter toggle — only show when position filtering is enabled and user has a position */}
+            {checklist?.position_filtering_enabled && userPosition && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="position-filter"
+                  checked={showOnlyMyPosition}
+                  onCheckedChange={(checked) => {
+                    setShowOnlyMyPosition(checked);
+                    if (checked) {
+                      localStorage.setItem(posFilterKey, 'true');
+                    } else {
+                      localStorage.setItem(posFilterKey, 'false');
+                    }
+                  }}
+                />
+                <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
+                  My tasks ({userPosition})
+                </Label>
+              </div>
+            )}
           </div>
         </div>
 
@@ -973,12 +1011,29 @@ export default function CompleteChecklist() {
               return !hasResponse;
             });
 
+            // Position filtering: if enabled and user has position and toggle is on, filter
+            const hasPositionFiltering = checklist?.position_filtering_enabled;
+            if (hasPositionFiltering && userPosition && showOnlyMyPosition) {
+              filteredItems = filteredItems.filter(item => 
+                !item.position || item.position === userPosition
+              );
+            }
+
+            // If position filtering is enabled, sort/group by position
+            if (hasPositionFiltering) {
+              filteredItems = [...filteredItems].sort((a, b) => {
+                const aPos = a.position || '\uffff'; // unassigned last
+                const bPos = b.position || '\uffff';
+                if (aPos !== bPos) return aPos.localeCompare(bPos);
+                return (a.order_index || 0) - (b.order_index || 0);
+              });
+            }
+
             // If AM/PM division is enabled, sort and group items
             const hasAmPmDivision = checklist?.enable_am_pm_division;
             let sortedItems = filteredItems;
             
             if (hasAmPmDivision) {
-              // Sort: AM first (by order_index), then PM (by order_index), then unassigned (by order_index)
               sortedItems = [...filteredItems].sort((a, b) => {
                 const shiftOrder = { 'am': 0, 'pm': 1, null: 2, undefined: 2 };
                 const aOrder = shiftOrder[a.manager_shift as keyof typeof shiftOrder] ?? 2;
@@ -988,8 +1043,8 @@ export default function CompleteChecklist() {
               });
             }
 
-            // Render items with optional divider
-            let lastShift: string | null | undefined = undefined;
+            // Track position headers for dividers
+            let lastRenderedPosition: string | null | undefined = undefined;
             let renderedDivider = false;
             
             return sortedItems.map((item, idx) => {
@@ -1001,7 +1056,14 @@ export default function CompleteChecklist() {
               if (showDivider) {
                 renderedDivider = true;
               }
-          const isCompleted = responsesWithCompleters[item.id]?.completedBy;
+
+              // Position section headers
+              const showPositionHeader = hasPositionFiltering && 
+                item.position !== lastRenderedPosition;
+              if (showPositionHeader) {
+                lastRenderedPosition = item.position;
+              }
+
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
           const hasResponse = isImageItem 
@@ -1011,7 +1073,16 @@ export default function CompleteChecklist() {
           
           return (
             <div key={item.id}>
-              {/* AM/PM Division Divider */}
+              {/* Position Section Header */}
+              {showPositionHeader && (
+                <div className="flex items-center gap-3 py-3 my-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                  <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10">
+                    {item.position || 'General'}
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                </div>
+              )}
               {showDivider && (
                 <div className="flex items-center gap-3 py-4 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />

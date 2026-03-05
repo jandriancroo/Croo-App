@@ -32,6 +32,7 @@ interface ChecklistItem {
   reference_notes?: string;
   order_index: number;
   manager_shift?: 'am' | 'pm' | null;
+  position?: string | null;
 }
 
 interface SortableChecklistItemProps {
@@ -41,9 +42,11 @@ interface SortableChecklistItemProps {
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
   showAmPmSelector?: boolean;
+  showPositionSelector?: boolean;
+  availablePositions?: string[];
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector, showPositionSelector, availablePositions }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -170,6 +173,26 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAm
             </Select>
           </div>
         )}
+
+        {showPositionSelector && availablePositions && availablePositions.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Position:</Label>
+            <Select
+              value={item.position || 'none'}
+              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="All positions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">All Positions</SelectItem>
+                {availablePositions.map(pos => (
+                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -192,6 +215,8 @@ export default function EditChecklist() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
+  const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
+  const [availablePositions, setAvailablePositions] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
 
   useEffect(() => {
@@ -274,9 +299,35 @@ export default function EditChecklist() {
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
+      setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+
+      // Fetch available positions for this location
+      if (checklist.location_id) {
+        const { data: locData } = await supabase
+          .from('locations')
+          .select('organization_id')
+          .eq('id', checklist.location_id)
+          .single();
+        
+        if (locData?.organization_id) {
+          const { data: orgLocs } = await supabase
+            .from('locations')
+            .select('id')
+            .eq('organization_id', locData.organization_id);
+          
+          const locIds = orgLocs?.map(l => l.id) || [checklist.location_id];
+          const { data: templates } = await supabase
+            .from('shift_templates')
+            .select('position')
+            .in('location_id', locIds);
+          
+          const uniquePositions = [...new Set((templates || []).map(t => t.position).filter(Boolean))] as string[];
+          setAvailablePositions(uniquePositions.sort());
+        }
+      }
+
       setItems((checklistItems || []).map(item => {
-        // Map legacy 'temperature' type to 'image' with requires_temperature_validation
         const itemType = item.item_type === 'temperature' ? 'image' : item.item_type;
         const requiresTempValidation = item.item_type === 'temperature' || item.requires_temperature_validation || false;
 
@@ -294,6 +345,7 @@ export default function EditChecklist() {
           reference_notes: item.reference_notes || undefined,
           order_index: item.order_index,
           manager_shift: (item as any).manager_shift || null,
+          position: (item as any).position || null,
         };
       }));
     } catch (error: any) {
@@ -335,6 +387,7 @@ export default function EditChecklist() {
         template_type: templateType,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
         enable_am_pm_division: enableAmPmDivision,
+        position_filtering_enabled: positionFilteringEnabled,
         updated_at: new Date().toISOString(),
       };
 
@@ -389,6 +442,7 @@ export default function EditChecklist() {
           reference_notes: item.reference_notes || null,
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
+          position: positionFilteringEnabled ? (item.position || null) : null,
         };
 
         if (item.id) {
@@ -698,6 +752,26 @@ export default function EditChecklist() {
                 />
               </div>
             </div>
+            <div className="space-y-2 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="position-filtering">Position Filtering</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Assign items to positions from shift templates — users see their position's tasks first
+                  </p>
+                </div>
+                <Switch
+                  id="position-filtering"
+                  checked={positionFilteringEnabled}
+                  onCheckedChange={setPositionFilteringEnabled}
+                />
+              </div>
+              {positionFilteringEnabled && availablePositions.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  No positions found. Create positions in Schedule Templates first.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -718,6 +792,8 @@ export default function EditChecklist() {
                     updateItem={updateItem}
                     removeItem={removeItem}
                     showAmPmSelector={enableAmPmDivision}
+                    showPositionSelector={positionFilteringEnabled}
+                    availablePositions={availablePositions}
                   />
                 ))}
               </SortableContext>
