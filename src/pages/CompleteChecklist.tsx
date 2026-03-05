@@ -1026,7 +1026,7 @@ export default function CompleteChecklist() {
                   }}
                 />
                 <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
-                  My tasks ({userPosition})
+                  My tasks ({formatPositionLabel(userPosition)})
                 </Label>
               </div>
             )}
