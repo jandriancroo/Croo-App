@@ -94,6 +94,7 @@ const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPr
 const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
 const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
 const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
+const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
 
 const queryClient = new QueryClient();
 
@@ -224,6 +225,7 @@ const AppContent = () => {
         <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
         <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
         <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
+        <Route path="/timeline-style-preview" element={<ProtectedRoute><TimelineStylePreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
