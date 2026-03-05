@@ -545,7 +545,8 @@ export function useTasksData() {
           id,
           created_at,
           created_by,
-          category:logbook_categories(name)
+          category:logbook_categories(name),
+          logbook_entry_values(value_text)
         `)
         .eq('location_id', currentLocation.id)
         .eq('entry_date', historyDateStr);
@@ -565,16 +566,31 @@ export function useTasksData() {
         });
       }
 
-      return entries.map(e => ({
-        id: e.id,
-        title: (e.category as any)?.name || 'Logbook Entry',
-        completed_at: e.created_at,
-        completed_by: e.created_by,
-        accent_color: null,
-        task_style: 'logbook' as const,
-        completerName: creatorsMap[e.created_by]?.full_name || null,
-        completerPhoto: creatorsMap[e.created_by]?.profile_photo_url || null,
-      }));
+      return entries.map(e => {
+        let title = (e.category as any)?.name || 'Logbook Entry';
+        // For Safe Count entries, append AM/PM shift label
+        if (title.toLowerCase() === 'safe count') {
+          try {
+            const valText = (e as any).logbook_entry_values?.[0]?.value_text;
+            if (valText) {
+              const parsed = JSON.parse(valText);
+              if (parsed?.shift) {
+                title = `Safe Count (${parsed.shift})`;
+              }
+            }
+          } catch { /* ignore parse errors */ }
+        }
+        return {
+          id: e.id,
+          title,
+          completed_at: e.created_at,
+          completed_by: e.created_by,
+          accent_color: null,
+          task_style: 'logbook' as const,
+          completerName: creatorsMap[e.created_by]?.full_name || null,
+          completerPhoto: creatorsMap[e.created_by]?.profile_photo_url || null,
+        };
+      });
     },
     enabled: !!currentLocation?.id,
   });
