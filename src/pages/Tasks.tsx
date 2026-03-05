@@ -53,11 +53,13 @@ export default function Tasks() {
   }
 
   // SVG circle params
-  const circleSize = 36;
-  const strokeWidth = 3;
+  const circleSize = 44;
+  const strokeWidth = 3.5;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (completionPercent / 100) * circumference;
+  const completedCount = historyStats?.filter(s => Math.round(s.completionRate * 100) === 100).length || 0;
+  const totalCount = historyStats?.length || 0;
 
   return (
     <Layout>
@@ -74,15 +76,26 @@ export default function Tasks() {
                   )}
                 </TabsList>
               </div>
-              {/* Completion circle - right aligned */}
-              <div className="relative flex items-center gap-2 mt-1">
+              {/* Completion indicator - right aligned */}
+              <div className="flex items-center gap-2.5 mt-1">
                 <div className="relative">
                   <svg width={circleSize} height={circleSize} className="-rotate-90">
                     <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
-                    <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-500" />
+                    <circle
+                      cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none"
+                      stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'}
+                      strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+                      strokeLinecap="round" className="transition-all duration-500"
+                    />
                   </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-foreground">
+                    {completionPercent}%
+                  </span>
                 </div>
-                <span className="text-xl font-bold text-foreground">{completionPercent}%</span>
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-muted-foreground leading-tight">Checklists</span>
+                  <span className="text-xs font-semibold text-foreground leading-tight">{completedCount}/{totalCount}</span>
+                </div>
               </div>
             </div>
             <PageHeaderDivider />
