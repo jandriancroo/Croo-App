@@ -150,10 +150,29 @@ export default function ScheduleTemplates() {
     }));
   };
 
+  const handleRenamePosition = async (oldName: string, newName: string) => {
+    if (!newName.trim() || newName.trim() === oldName) { setEditingPositionName(null); return; }
+    try {
+      const { error } = await supabase
+        .from('shift_templates')
+        .update({ position: newName.trim() })
+        .eq('position', oldName)
+        .eq('location_id', currentLocation?.id);
+      if (error) throw error;
+      toast.success(`Renamed "${oldName}" to "${newName.trim()}"`);
+      setEditingPositionName(null);
+      setEditPositionValue('');
+      fetchTemplates();
+      fetchPositions();
+    } catch (error: any) {
+      toast.error('Failed to rename position');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const positionValue = showCustomPosition ? customPosition : formData.position;
-    if (!positionValue.trim()) { toast.error("Please select or enter a position"); return; }
+    const positionValue = formData.position;
+    if (!positionValue.trim()) { toast.error("Please select a position"); return; }
 
     try {
       const templateName = `${positionValue} ${formatTime12Hour(formData.start_time)} - ${formatTime12Hour(formData.end_time)}`;
