@@ -1112,7 +1112,7 @@ export default function CompleteChecklist() {
                 <div className="flex items-center gap-3 py-3 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                   <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10">
-                    {item.position || 'General'}
+                    {formatPositionLabel(item.position)}
                   </span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 </div>
