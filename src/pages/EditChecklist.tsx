@@ -694,17 +694,7 @@ export default function EditChecklist() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Template Type</Label>
-                <Select value={templateType} onValueChange={(value: 'standard' | 'dynamic') => setTemplateType(value)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Assigned Roles</Label>
                 <div className="flex flex-wrap gap-2">
