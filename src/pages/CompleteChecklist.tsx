@@ -1021,13 +1021,6 @@ export default function CompleteChecklist() {
 
             // If position filtering is enabled, sort/group by position
             if (hasPositionFiltering) {
-              // Collect unique positions for dividers
-              const positions = [...new Set(filteredItems.map(i => i.position || null))].sort((a, b) => {
-                if (!a) return 1;
-                if (!b) return -1;
-                return a.localeCompare(b);
-              });
-
               filteredItems = [...filteredItems].sort((a, b) => {
                 const aPos = a.position || '\uffff'; // unassigned last
                 const bPos = b.position || '\uffff';
