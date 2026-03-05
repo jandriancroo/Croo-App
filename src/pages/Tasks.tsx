@@ -35,16 +35,10 @@ export default function Tasks() {
 
   // Calculate completion percentage
   const completionPercent = useMemo(() => {
-    const allItems = [
-      ...(historyStats || []).map(s => ({ level: Math.round(s.completionRate * 100) })),
-      ...completedTempTasks.filter(t => t.task_style !== 'alarm' && t.task_style !== 'alarm-missed').map(() => ({ level: 100 })),
-      ...eventCompletions.map(() => ({ level: 100 })),
-      ...logbookEntries.map(() => ({ level: 100 })),
-    ];
-    if (allItems.length === 0) return 0;
-    const total = allItems.reduce((sum, i) => sum + i.level, 0);
-    return Math.round(total / allItems.length);
-  }, [historyStats, completedTempTasks, eventCompletions, logbookEntries]);
+    if (!historyStats || historyStats.length === 0) return 0;
+    const total = historyStats.reduce((sum, s) => sum + Math.round(s.completionRate * 100), 0);
+    return Math.round(total / historyStats.length);
+  }, [historyStats]);
 
   // Only show skeleton on true initial load (no cached data yet)
   const hasNoData = checklists.length === 0 && !submissionStats;
