@@ -182,7 +182,7 @@ export default function CompleteChecklist() {
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
-  const { currentLocation } = useLocation();
+  // currentLocation already declared above
   const navigate = useNavigate();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   useEffect(() => {
