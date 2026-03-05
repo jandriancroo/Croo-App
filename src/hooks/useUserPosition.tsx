@@ -53,9 +53,6 @@ export function useUserPosition(userId?: string, locationId?: string) {
         }
 
         // 2. Fallback: today's scheduled shift
-        const today = new Date();
-        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
-        const todayStr = formatter.format(today);
 
         const { data: todayShifts } = await supabase
           .from('scheduled_shifts')
