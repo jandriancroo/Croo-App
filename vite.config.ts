@@ -39,22 +39,29 @@ export default defineConfig(({ mode }) => {
       // We handle SW registration manually in main.tsx
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['favicon.png'],
+      includeAssets: ['croo-logo-inverted.webp'],
       manifest: {
         name: 'CrooHQ - Food Service Made Smart',
         short_name: 'CrooHQ',
         description: 'All-in-one platform for restaurant scheduling, time tracking, task management, and team communication.',
-        theme_color: '#D4A574',
-        background_color: '#F5F1E8',
+        theme_color: '#3D2B1F',
+        background_color: '#3D2B1F',
         display: 'standalone',
         orientation: 'any',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: '/favicon.png',
+            src: '/croo-logo-inverted.webp',
             sizes: '512x512',
+            type: 'image/webp',
             purpose: 'any maskable'
+          },
+          {
+            src: '/croo-logo-transparent.webp',
+            sizes: '512x512',
+            type: 'image/webp',
+            purpose: 'any'
           },
           {
             src: '/notification-icon.png',
