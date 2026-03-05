@@ -1,4 +1,42 @@
 
+## Scaling Optimization Roadmap
+
+### ✅ Phase 1 — Completed (March 2026)
+
+**Indexes Added (40+ composite indexes):**
+- sales_cache, labor_cache, time_punches, checklists, alert_queue, maintenance_queue, email_queue, logbook, alarm tasks, user_locations, user_roles, messages, chat_members, availability, wages, tips, notifications, certifications, writeups, location_hours
+
+**Queue Functions Rewritten (FOR loops → set-based SQL):**
+- `queue_nightly_maintenance()` — single bulk INSERT instead of per-location loop
+- `queue_nightly_emails()` — single bulk INSERT with EXISTS subquery instead of per-location loop
+
+### 🔲 Phase 2 — Before 40 Locations
+
+**Rewrite `check_alerts_sql()` to set-based:**
+- Current: FOR loop iterates each location, runs nested queries per checklist
+- Target: Single CTE-based query that checks all locations/checklists in one pass, bulk-inserts into alert_queue
+- Risk: Medium (complex function with many alert types)
+
+**Rewrite `trigger_alarm_tasks_sql()` to set-based:**
+- Current: FOR loop per alarm task with time window calculations
+- Target: Window functions + joins to process all tasks in parallel
+- Risk: Medium (touches alarm task system — verify with locked features list)
+
+**Rewrite `send_hourly_sales_pulse()` to set-based:**
+- Current: FOR loop per location with sales/labor lookups
+- Target: Single query joining locations → sales_cache → labor_cache → user_roles
+
+**Stagger QuBeyond Sales Sync:**
+- Hash location_id to offset sync timing across the 7-min window
+- Implementation: Add offset calculation to sales-service edge function
+
+### 🔲 Phase 3 — Before 100 Locations
+
+- Connection pooling awareness in edge functions
+- Read replicas for dashboard reads
+- Regional sharding for maintenance/alert processing
+
+---
 
 ## Make Checklist Completion More Robust on Manager Dashboard
 
