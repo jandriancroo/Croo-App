@@ -56,12 +56,14 @@ export function MentionInput({
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('chat_members')
-        .select('profiles(id, full_name, profile_photo_url)')
+        .select('profiles(id, full_name, profile_photo_url, is_active, appears_on_schedule)')
         .eq('chat_id', chatId);
 
       if (error) throw error;
-      // Filter out current user from suggestions
-      const members = data?.map((m: any) => m.profiles).filter((p: Profile) => p && p.id !== user?.id) || [];
+      // Filter out current user, inactive, and not-on-schedule from suggestions
+      const members = data?.map((m: any) => m.profiles).filter((p: any) => 
+        p && p.id !== user?.id && p.is_active !== false && p.appears_on_schedule !== false
+      ) || [];
       setChatMembers(members);
     } catch (error) {
       console.error('Error fetching chat members:', error);
