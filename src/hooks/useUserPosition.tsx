@@ -19,44 +19,36 @@ export function useUserPosition(userId?: string, locationId?: string) {
 
     const detect = async () => {
       try {
-        // 1. Check for active punch (clock_in without matching clock_out)
-        const { data: activePunch } = await supabase
+        // 1. Check if user is currently clocked in by finding the most recent punch today
+        const today = new Date();
+        const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' });
+        const todayStr = formatter.format(today);
+
+        // Get the most recent punch of any type today
+        const { data: lastPunch } = await supabase
           .from('time_punches')
-          .select('shift_id')
+          .select('shift_id, punch_type')
           .eq('user_id', userId)
           .eq('location_id', locationId)
-          .eq('punch_type', 'clock_in')
+          .gte('punch_time', todayStr + 'T00:00:00')
+          .lte('punch_time', todayStr + 'T23:59:59')
           .order('punch_time', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
-        if (activePunch?.shift_id) {
-          // Check if there's a clock_out after this clock_in
-          const { data: clockOut } = await supabase
-            .from('time_punches')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('location_id', locationId)
-            .eq('punch_type', 'clock_out')
-            .gt('punch_time', new Date().toISOString().split('T')[0]) // today
-            .order('punch_time', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+        // Only consider them clocked in if the last punch today is a clock_in (not clock_out/break)
+        if (lastPunch?.punch_type === 'clock_in' && lastPunch?.shift_id) {
+          const { data: shift } = await supabase
+            .from('scheduled_shifts')
+            .select('template:shift_templates(position)')
+            .eq('id', lastPunch.shift_id)
+            .single();
 
-          // If still clocked in, get position from shift template
-          if (!clockOut) {
-            const { data: shift } = await supabase
-              .from('scheduled_shifts')
-              .select('template:shift_templates(position)')
-              .eq('id', activePunch.shift_id)
-              .single();
-
-            const templatePosition = (shift as any)?.template?.position;
-            if (templatePosition) {
-              setPosition(templatePosition);
-              setLoading(false);
-              return;
-            }
+          const templatePosition = (shift as any)?.template?.position;
+          if (templatePosition) {
+            setPosition(templatePosition);
+            setLoading(false);
+            return;
           }
         }
 
