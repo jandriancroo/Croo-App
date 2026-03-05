@@ -161,6 +161,17 @@ export function useTasksData() {
         }
 
         const isMonthly = checklist.frequency === 'monthly';
+        
+        // Filter out monthly checklists outside their visibility window
+        if (isMonthly && checklist.visible_days_before_month_end) {
+          const viewDate = new Date(historyDateStr + 'T12:00:00');
+          const lastDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+          const daysUntilMonthEnd = lastDayOfMonth.getDate() - viewDate.getDate();
+          if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) {
+            return null; // Not visible on this date
+          }
+        }
+
         let periodStart: Date;
         let periodEnd: Date;
 
@@ -173,7 +184,7 @@ export function useTasksData() {
         }
 
         return { ...checklist, itemCount, periodStart, periodEnd };
-      }).filter(c => c.itemCount > 0);
+      }).filter((c): c is NonNullable<typeof c> => c !== null && c.itemCount > 0);
 
       if (checklistInfo.length === 0) return [];
 
