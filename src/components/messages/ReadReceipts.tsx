@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Check, CheckCheck, Eye } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUserRole } from '@/hooks/useUserRole';
 import { cn } from '@/lib/utils';
 
 interface ReadReceiptsProps {
@@ -31,14 +30,9 @@ interface ChatMember {
 }
 
 export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: ReadReceiptsProps) {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [allMembers, setAllMembers] = useState<ChatMember[]>([]);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    markAsRead();
-  }, [messageId]);
 
   // Only fetch full data when popover opens
   useEffect(() => {
@@ -80,26 +74,8 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
     }
   };
 
-  const markAsRead = async () => {
-    if (!currentUserId || senderId === currentUserId) return;
-
-    try {
-      await supabase
-        .from('message_read_receipts')
-        .insert({
-          message_id: messageId,
-          user_id: currentUserId
-        });
-    } catch (error: any) {
-      if (!error.message?.includes('duplicate')) {
-        console.error('Error marking as read:', error);
-      }
-    }
-  };
-
-  // Only show receipts for sent messages from admins and higher
+  // Only show read receipt UI for the sender
   if (senderId !== currentUserId) return null;
-  if (roleLoading || !isAdmin) return null;
 
   const readUserIds = new Set(receipts.map(r => r.user_id));
   const isReadByOthers = receipts.some(r => r.user_id !== senderId);
