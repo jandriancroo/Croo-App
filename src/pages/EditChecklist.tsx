@@ -534,28 +534,22 @@ export default function EditChecklist() {
     }
   };
 
-  const addItem = (afterIndex?: number) => {
+  const addItem = (atIndex?: number) => {
     const newItem: ChecklistItem = {
       question: '',
       item_type: 'confirmation',
       is_required: true,
       order_index: 0,
     };
-    if (afterIndex !== undefined) {
-      const newItems = [...items];
-      newItems.splice(afterIndex + 1, 0, newItem);
-      setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
-      setTimeout(() => {
-        const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
-        inputs[afterIndex + 1]?.focus();
-      }, 50);
-    } else {
-      setItems([newItem, ...items].map((it, i) => ({ ...it, order_index: i })));
-      setTimeout(() => {
-        const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
-        inputs[0]?.focus();
-      }, 50);
-    }
+    const insertAt = atIndex !== undefined ? atIndex : 0;
+    const newItems = [...items];
+    newItems.splice(insertAt, 0, newItem);
+    setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
+    setFocusedItemIndex(insertAt);
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
+      inputs[insertAt]?.focus();
+    }, 50);
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
