@@ -79,10 +79,6 @@ interface TasksHistoryTimelineProps {
   viewMode: 'grouped' | 'timeline';
   onTaskClick: (task: CompletedTask) => void;
 }
-  logbookEntries: LogbookEntry[];
-  selectedDate: Date;
-  onTaskClick: (task: CompletedTask) => void;
-}
 
 interface TimelineItem {
   id: string;
