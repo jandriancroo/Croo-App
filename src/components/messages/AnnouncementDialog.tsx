@@ -84,6 +84,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
         .from('profiles')
         .select('id, full_name, profile_photo_url')
         .eq('is_active', true)
+        .eq('appears_on_schedule', true)
         .neq('id', user.id);
 
       if (userIds.length > 0) {

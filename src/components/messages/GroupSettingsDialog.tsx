@@ -72,21 +72,54 @@ export function GroupSettingsDialog({
 
   const fetchAvailableUsers = async () => {
     try {
-      const { data: memberData } = await supabase
-        .from('chat_members')
-        .select('user_id')
-        .eq('chat_id', chatId);
+      // Get current members and chat's location
+      const [{ data: memberData }, { data: chatData }] = await Promise.all([
+        supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId),
+        supabase
+          .from('chats')
+          .select('location_id')
+          .eq('id', chatId)
+          .single()
+      ]);
 
       const memberIds = memberData?.map(m => m.user_id) || [];
+      const locationId = chatData?.location_id;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, profile_photo_url')
-        .eq('is_active', true)
-        .not('id', 'in', `(${memberIds.join(',')})`);
+      // If chat has a location, only show users at that location
+      if (locationId) {
+        const { data: locationUsers } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .eq('location_id', locationId);
 
-      if (error) throw error;
-      setAvailableUsers(data || []);
+        const locationUserIds = locationUsers?.map(u => u.user_id) || [];
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .eq('appears_on_schedule', true)
+          .in('id', locationUserIds.filter(id => !memberIds.includes(id)))
+          .order('full_name');
+
+        if (error) throw error;
+        setAvailableUsers(data || []);
+      } else {
+        // Fallback: no location scoping (shouldn't happen for normal chats)
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .eq('appears_on_schedule', true)
+          .not('id', 'in', `(${memberIds.join(',')})`)
+          .order('full_name');
+
+        if (error) throw error;
+        setAvailableUsers(data || []);
+      }
     } catch (error: any) {
       console.error('Error fetching available users:', error);
     }
