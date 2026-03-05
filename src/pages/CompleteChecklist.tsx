@@ -1011,12 +1011,36 @@ export default function CompleteChecklist() {
               return !hasResponse;
             });
 
+            // Position filtering: if enabled and user has position and toggle is on, filter
+            const hasPositionFiltering = checklist?.position_filtering_enabled;
+            if (hasPositionFiltering && userPosition && showOnlyMyPosition) {
+              filteredItems = filteredItems.filter(item => 
+                !item.position || item.position === userPosition
+              );
+            }
+
+            // If position filtering is enabled, sort/group by position
+            if (hasPositionFiltering) {
+              // Collect unique positions for dividers
+              const positions = [...new Set(filteredItems.map(i => i.position || null))].sort((a, b) => {
+                if (!a) return 1;
+                if (!b) return -1;
+                return a.localeCompare(b);
+              });
+
+              filteredItems = [...filteredItems].sort((a, b) => {
+                const aPos = a.position || '\uffff'; // unassigned last
+                const bPos = b.position || '\uffff';
+                if (aPos !== bPos) return aPos.localeCompare(bPos);
+                return (a.order_index || 0) - (b.order_index || 0);
+              });
+            }
+
             // If AM/PM division is enabled, sort and group items
             const hasAmPmDivision = checklist?.enable_am_pm_division;
             let sortedItems = filteredItems;
             
             if (hasAmPmDivision) {
-              // Sort: AM first (by order_index), then PM (by order_index), then unassigned (by order_index)
               sortedItems = [...filteredItems].sort((a, b) => {
                 const shiftOrder = { 'am': 0, 'pm': 1, null: 2, undefined: 2 };
                 const aOrder = shiftOrder[a.manager_shift as keyof typeof shiftOrder] ?? 2;
