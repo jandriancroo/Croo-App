@@ -139,8 +139,10 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
     <div className="space-y-4">
       {groups.map(group => {
         const GroupIcon = group.icon;
-        const completedCount = group.items.filter(i => i.completionLevel === 100).length;
-        
+        const isAlarmGroup = group.label === 'Alarm Checks';
+        const completedCount = isAlarmGroup
+          ? group.items.filter(i => i.type === 'alarm').length
+          : group.items.filter(i => i.completionLevel === 100).length;
 
         return (
           <div key={group.label}>
