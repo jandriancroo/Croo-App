@@ -527,13 +527,26 @@ export default function EditChecklist() {
     }
   };
 
-  const addItem = () => {
-    setItems([...items, {
+  const addItem = (afterIndex?: number) => {
+    const newItem: ChecklistItem = {
       question: '',
       item_type: 'confirmation',
       is_required: true,
       order_index: items.length,
-    }]);
+    };
+    if (afterIndex !== undefined) {
+      const newItems = [...items];
+      newItems.splice(afterIndex + 1, 0, newItem);
+      setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
+    } else {
+      setItems([...items, newItem]);
+    }
+    // Focus the new input after render
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
+      const targetIdx = afterIndex !== undefined ? afterIndex + 1 : items.length;
+      inputs[targetIdx]?.focus();
+    }, 50);
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
