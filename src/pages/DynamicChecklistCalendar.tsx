@@ -26,6 +26,7 @@ interface ChecklistItem {
   days_of_week: number[] | null;
   requires_temperature_validation: boolean;
   reference_image_url: string | null;
+  reference_notes: string | null;
 }
 
 interface Checklist {
