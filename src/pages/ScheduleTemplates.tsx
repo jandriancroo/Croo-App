@@ -60,8 +60,6 @@ export default function ScheduleTemplates() {
   // Shift template dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
-  const [customPosition, setCustomPosition] = useState("");
-  const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [formData, setFormData] = useState({
     start_time: "09:00",
     end_time: "17:00",
@@ -74,6 +72,8 @@ export default function ScheduleTemplates() {
   // Positions panel state
   const [positionsOpen, setPositionsOpen] = useState(false);
   const [newPositionValue, setNewPositionValue] = useState('');
+  const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
+  const [editPositionValue, setEditPositionValue] = useState('');
 
   useEffect(() => {
     if (roleLoading) return;
@@ -123,8 +123,6 @@ export default function ScheduleTemplates() {
 
   const resetForm = () => {
     setFormData({ start_time: "09:00", end_time: "17:00", color: "#ef4444", position: "", days_of_week: [0,1,2,3,4,5,6], allowed_roles: ["team_member"] });
-    setCustomPosition("");
-    setShowCustomPosition(false);
     setEditingTemplate(null);
   };
 
@@ -132,14 +130,11 @@ export default function ScheduleTemplates() {
 
   const openEditDialog = (template: ShiftTemplate) => {
     setEditingTemplate(template);
-    const isPredefined = positions.includes(template.position || "");
-    setShowCustomPosition(!isPredefined && !!template.position);
-    setCustomPosition(!isPredefined ? template.position || "" : "");
     setFormData({
       start_time: template.start_time,
       end_time: template.end_time,
       color: template.color || "#ef4444",
-      position: isPredefined ? template.position || "" : "",
+      position: template.position || "",
       days_of_week: template.days_of_week || [0,1,2,3,4,5,6],
       allowed_roles: (template.allowed_roles || [template.role]).filter(Boolean),
     });
@@ -155,10 +150,29 @@ export default function ScheduleTemplates() {
     }));
   };
 
+  const handleRenamePosition = async (oldName: string, newName: string) => {
+    if (!newName.trim() || newName.trim() === oldName) { setEditingPositionName(null); return; }
+    try {
+      const { error } = await supabase
+        .from('shift_templates')
+        .update({ position: newName.trim() })
+        .eq('position', oldName)
+        .eq('location_id', currentLocation?.id);
+      if (error) throw error;
+      toast.success(`Renamed "${oldName}" to "${newName.trim()}"`);
+      setEditingPositionName(null);
+      setEditPositionValue('');
+      fetchTemplates();
+      fetchPositions();
+    } catch (error: any) {
+      toast.error('Failed to rename position');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const positionValue = showCustomPosition ? customPosition : formData.position;
-    if (!positionValue.trim()) { toast.error("Please select or enter a position"); return; }
+    const positionValue = formData.position;
+    if (!positionValue.trim()) { toast.error("Please select a position"); return; }
 
     try {
       const templateName = `${positionValue} ${formatTime12Hour(formData.start_time)} - ${formatTime12Hour(formData.end_time)}`;
@@ -322,14 +336,42 @@ export default function ScheduleTemplates() {
               <div className="flex flex-wrap gap-2">
                 {positions.map(pos => (
                   <div key={pos} className="flex items-center gap-1 bg-muted px-2.5 py-1 rounded-md text-sm">
-                    <span>{pos}</span>
-                    {positionsOpen && (
-                      <button
-                        onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
-                        className="ml-1 hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                    {positionsOpen && editingPositionName === pos ? (
+                      <>
+                        <Input
+                          value={editPositionValue}
+                          onChange={e => setEditPositionValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleRenamePosition(pos, editPositionValue); if (e.key === 'Escape') setEditingPositionName(null); }}
+                          autoFocus
+                          className="h-6 w-24 text-xs px-1"
+                        />
+                        <button onClick={() => handleRenamePosition(pos, editPositionValue)} className="hover:text-foreground transition-colors">
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => setEditingPositionName(null)} className="hover:text-foreground transition-colors">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span>{pos}</span>
+                        {positionsOpen && (
+                          <>
+                            <button
+                              onClick={() => { setEditingPositionName(pos); setEditPositionValue(pos); }}
+                              className="ml-1 hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
+                              className="hover:text-destructive transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
@@ -456,24 +498,14 @@ export default function ScheduleTemplates() {
 
               <div>
                 <Label htmlFor="position">Position</Label>
-                {!showCustomPosition ? (
-                  <Select value={formData.position} onValueChange={(value) => {
-                    if (value === "custom") { setShowCustomPosition(true); setFormData({ ...formData, position: "" }); }
-                    else { setFormData({ ...formData, position: value }); }
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
-                    <SelectContent>
-                      {positions.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
-                      <SelectItem value="custom">+ Add New Position</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="space-y-2">
-                    <Input id="position" value={customPosition} onChange={(e) => setCustomPosition(e.target.value)} placeholder="Enter position name" required />
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { setShowCustomPosition(false); setCustomPosition(""); }}>
-                      ← Back to list
-                    </Button>
-                  </div>
+                <Select value={formData.position} onValueChange={(value) => setFormData({ ...formData, position: value })}>
+                  <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
+                  <SelectContent>
+                    {positions.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {positions.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">Add positions in the Positions panel below</p>
                 )}
               </div>
 
