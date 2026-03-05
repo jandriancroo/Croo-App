@@ -358,24 +358,19 @@ export function TasksHistoryTimeline({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Day header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold">
-          {dayLabel}
-        </div>
-        <span className="text-xs sm:text-sm text-muted-foreground">{dateLabel}</span>
-        <div className="flex-1 h-px bg-border hidden sm:block" />
-        <div className="flex items-center gap-1.5 ml-auto">
-          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
-            {regularCount}
+    <div className="space-y-2">
+      {/* Compact stats + view toggle */}
+      <div className="flex items-center gap-1.5">
+        <Badge variant="secondary" className="text-[10px] px-1.5">
+          {regularCount}
+        </Badge>
+        {(alarmCount > 0 || missedAlarmCount > 0) && (
+          <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5">
+            <Bell className="h-2.5 w-2.5" />
+            {alarmCount}/{alarmCount + missedAlarmCount}
           </Badge>
-          {(alarmCount > 0 || missedAlarmCount > 0) && (
-            <Badge variant="outline" className="text-[10px] sm:text-xs gap-0.5 px-1.5">
-              <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-              {alarmCount}/{alarmCount + missedAlarmCount}
-            </Badge>
-          )}
+        )}
+        <div className="flex-1" />
           {/* View toggle */}
           <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
             <button
