@@ -1153,66 +1153,49 @@ export default function CompleteChecklist() {
               
               {/* Card with content */}
               <Card className="overflow-hidden relative">
-              {/* Option C: For image items with response — bottom bar overlay (only when ALL required photos uploaded) */}
-              {hasResponse && isImageItem && <div 
-                  className="absolute inset-0 z-10 flex flex-col" 
-                  style={{ pointerEvents: 'auto' }}
-                >
-                    {/* Photo area with centered temperature badge */}
-                    <div className="flex-1 flex items-center justify-center bg-background/40 backdrop-blur-[2px]">
-                      {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
-                       responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                        responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-full text-sm font-bold shadow-[0_0_16px_rgba(239,68,68,0.7)] animate-pulse">
-                            <ThumbsDown className="h-4 w-4" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Unsafe
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-bold shadow-[0_0_16px_rgba(34,197,94,0.7)]">
-                            <ThumbsUp className="h-4 w-4" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F Safe
-                          </div>
-                        )
-                      )}
-                    </div>
+              {/* For completed image items — bottom bar with completion info (no blur overlay) */}
+              {hasResponse && isImageItem && (
+                <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
+                  <div 
+                    className={`shrink-0 ${canUndoItems ? 'cursor-pointer' : ''}`}
+                    onClick={() => canUndoItems && handleUndoClick(item.id)}
+                    title={canUndoItems ? 'Tap to undo' : undefined}
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  </div>
+                  
+                  {completerInfo && (
+                    <>
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                        <AvatarFallback className="text-[10px]">
+                          {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium truncate">
+                        {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                      </span>
+                    </>
+                  )}
 
-                    <div className="flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
-                      <div 
-                        className={`shrink-0 ${canUndoItems ? 'cursor-pointer' : ''}`}
-                        onClick={() => canUndoItems && handleUndoClick(item.id)}
-                        title={canUndoItems ? 'Tap to undo' : undefined}
-                      >
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      </div>
-                      
-                      {completerInfo && (
-                        <>
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                            <AvatarFallback className="text-[10px]">
-                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium truncate">
-                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                          </span>
-                          <span className="text-[10px] text-muted-foreground ml-auto">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                          </span>
-                        </>
-                      )}
-
-                      {currentPhotos.length > 0 && <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setPreviewImage(currentPhotos[0]);
-                          }}
-                          className="shrink-0 p-1.5 rounded-full hover:bg-background transition-colors"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>}
-                    </div>
-                  </div>}
+                  {/* Temperature badge inline */}
+                  {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
+                   responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
+                    responsesWithCompleters[item.id]?.temperatureValid === false ? (
+                      <Badge variant="destructive" className="ml-auto text-xs">
+                        <ThumbsDown className="h-3 w-3 mr-1" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
+                      </Badge>
+                    ) : (
+                      <Badge className="ml-auto text-xs bg-green-600">
+                        <ThumbsUp className="h-3 w-3 mr-1" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
+                      </Badge>
+                    )
+                  )}
+                </div>
+              )}
                 
                 {/* Option C: For non-image items with response — inline completion row replaces content */}
                 {hasResponse && !isImageItem ? (
@@ -1274,7 +1257,7 @@ export default function CompleteChecklist() {
                     </div>
                 </CardHeader>
                 )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0 pb-2'} ${hasResponse ? 'pointer-events-none' : ''}`}>
+                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'number' && <Input type="number" inputMode="decimal" value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter a number" required={item.is_required} className="text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
