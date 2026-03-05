@@ -71,6 +71,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         {/* Row 1: question input + position badge + delete */}
         <div className="flex items-center gap-1.5">
           <Input
+            data-checklist-item-input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
             onKeyDown={(e) => {
