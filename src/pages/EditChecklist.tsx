@@ -56,31 +56,31 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex gap-2 p-3 border rounded-lg bg-background ${isDragging ? 'opacity-50 z-50' : ''}`}
+      className={`flex gap-1.5 p-2 border rounded-lg bg-background ${isDragging ? 'opacity-50 z-50' : ''}`}
     >
       <button
-        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1"
+        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1.5 shrink-0"
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="h-5 w-5" />
+        <GripVertical className="h-4 w-4" />
       </button>
       
-      <div className="flex-1 space-y-3 min-w-0">
-        {/* Top row: question + position badge + delete */}
-        <div className="flex items-start gap-2">
+      <div className="flex-1 space-y-1.5 min-w-0">
+        {/* Row 1: question input + position badge + delete */}
+        <div className="flex items-center gap-1.5">
           <Input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
-            placeholder="Question/Task Name"
-            className="flex-1 min-w-0"
+            placeholder="Task name"
+            className="flex-1 min-w-0 h-8 text-sm"
           />
           {showPositionSelector && availablePositions && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
               onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
             >
-              <SelectTrigger className="w-auto min-w-0 h-8 px-2 text-xs border-dashed shrink-0">
+              <SelectTrigger className="w-auto min-w-0 h-7 px-2 text-[11px] border-dashed shrink-0">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>
@@ -91,18 +91,18 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               </SelectContent>
             </Select>
           )}
-          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-8 w-8">
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-7 w-7">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Type + shift selectors */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Row 2: type + shift + min photos + temp alert — all inline */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Select
             value={item.item_type}
             onValueChange={(value) => updateItem(index, 'item_type', value)}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-28 h-7 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -119,15 +119,42 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               value={item.manager_shift || 'none'}
               onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
             >
-              <SelectTrigger className="w-24">
+              <SelectTrigger className="w-20 h-7 text-xs">
                 <SelectValue placeholder="Shift" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="none">All</SelectItem>
                 <SelectItem value="am">AM</SelectItem>
                 <SelectItem value="pm">PM</SelectItem>
               </SelectContent>
             </Select>
+          )}
+
+          {(item.item_type === 'image' || item.item_type === 'temperature') && (
+            <Select
+              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
+              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
+            >
+              <SelectTrigger className="w-20 h-7 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <SelectItem key={n} value={String(n)}>{n} photo{n > 1 ? 's' : ''}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {item.item_type === 'temperature' && (
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
+              <Checkbox
+                checked={item.temperature_alert_enabled || false}
+                onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
+                className="h-3.5 w-3.5"
+              />
+              Temp alerts
+            </label>
           )}
         </div>
 
@@ -138,66 +165,33 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))
             }
             placeholder="Options (comma-separated)"
-            className="text-sm"
+            className="text-xs h-7"
           />
         )}
 
-        {(item.item_type === 'image' || item.item_type === 'temperature') && (
-          <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
-            <Select
-              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
-              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
-            >
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6].map(n => (
-                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {item.item_type === 'temperature' && (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id={`temp-alert-${index}`}
-              checked={item.temperature_alert_enabled || false}
-              onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
-            />
-            <Label htmlFor={`temp-alert-${index}`} className="text-sm font-normal text-muted-foreground">
-              Alert managers on unsafe temps
-            </Label>
-          </div>
-        )}
-
-        {/* Reference notes - always visible for all types */}
-        <Textarea
-          value={item.reference_notes || ''}
-          onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
-          placeholder="Instructions / notes (optional)"
-          rows={2}
-          className="text-sm"
-        />
-
-        {/* Collapsible reference materials */}
+        {/* Collapsible notes + reference materials */}
         <Collapsible open={showReference} onOpenChange={setShowReference}>
           <CollapsibleTrigger asChild>
-            <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1">
               {showReference ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              Reference materials
+              {item.reference_notes ? 'Notes ✓' : 'Notes & reference'}
             </button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-2">
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><Upload className="h-3 w-3" /> Photo</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                className="text-xs"
+          <CollapsibleContent className="space-y-1.5 pt-1.5">
+            <Textarea
+              value={item.reference_notes || ''}
+              onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+              placeholder="Instructions / notes (optional)"
+              rows={2}
+              className="text-xs"
+            />
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="space-y-0.5">
+                <Label className="text-[10px] flex items-center gap-1"><Upload className="h-2.5 w-2.5" /> Photo</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  className="text-[10px] h-7"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleReferenceImageUpload(index, file);
