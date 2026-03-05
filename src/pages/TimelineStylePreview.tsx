@@ -309,13 +309,13 @@ function OptionE() {
                 const anchorTime = isChecklist ? item.dueTime : (item.completedAt || item.dueTime);
 
                 return (
-                  <div key={item.id} className={cn('flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}>
-                    <span className="text-[10px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
-                    <span className={cn('text-xs font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
+                  <div key={item.id} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}>
+                    <span className="text-[11px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
+                    <span className={cn('text-sm font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
                     {isMissed ? (
-                      <span className="text-[9px] font-bold text-destructive uppercase">Missed</span>
+                      <span className="text-[10px] font-bold text-destructive uppercase">Missed</span>
                     ) : isChecklist && !isComplete ? (
-                      <span className="text-[10px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
+                      <span className="text-[11px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
                     ) : isComplete ? (
                       <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
                     ) : (
