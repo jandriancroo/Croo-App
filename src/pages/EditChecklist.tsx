@@ -727,9 +727,14 @@ export default function EditChecklist() {
 
         {/* Checklist Items */}
         <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-base">Checklist Items</CardTitle>
-            <CardDescription className="text-xs">Drag to reorder</CardDescription>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Checklist Items</CardTitle>
+              <CardDescription className="text-xs">Drag to reorder · Enter to add next</CardDescription>
+            </div>
+            <Button onClick={() => addItem()} variant="outline" size="icon" className="h-8 w-8 shrink-0">
+              <Plus className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3 px-4">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
