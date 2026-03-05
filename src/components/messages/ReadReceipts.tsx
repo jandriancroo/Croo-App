@@ -30,7 +30,6 @@ interface ChatMember {
 }
 
 export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: ReadReceiptsProps) {
-  const { isAdmin, loading: roleLoading } = useUserRole();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [allMembers, setAllMembers] = useState<ChatMember[]>([]);
   const [open, setOpen] = useState(false);
