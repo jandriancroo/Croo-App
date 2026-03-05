@@ -299,9 +299,35 @@ export default function EditChecklist() {
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
+      setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
+
+      // Fetch available positions for this location
+      if (checklist.location_id) {
+        const { data: locData } = await supabase
+          .from('locations')
+          .select('organization_id')
+          .eq('id', checklist.location_id)
+          .single();
+        
+        if (locData?.organization_id) {
+          const { data: orgLocs } = await supabase
+            .from('locations')
+            .select('id')
+            .eq('organization_id', locData.organization_id);
+          
+          const locIds = orgLocs?.map(l => l.id) || [checklist.location_id];
+          const { data: templates } = await supabase
+            .from('shift_templates')
+            .select('position')
+            .in('location_id', locIds);
+          
+          const uniquePositions = [...new Set((templates || []).map(t => t.position).filter(Boolean))] as string[];
+          setAvailablePositions(uniquePositions.sort());
+        }
+      }
+
       setItems((checklistItems || []).map(item => {
-        // Map legacy 'temperature' type to 'image' with requires_temperature_validation
         const itemType = item.item_type === 'temperature' ? 'image' : item.item_type;
         const requiresTempValidation = item.item_type === 'temperature' || item.requires_temperature_validation || false;
 
@@ -319,6 +345,7 @@ export default function EditChecklist() {
           reference_notes: item.reference_notes || undefined,
           order_index: item.order_index,
           manager_shift: (item as any).manager_shift || null,
+          position: (item as any).position || null,
         };
       }));
     } catch (error: any) {
