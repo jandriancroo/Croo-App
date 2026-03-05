@@ -1228,8 +1228,8 @@ export default function CompleteChecklist() {
                   </CardContent>
                 ) : (
                   <>
-                {/* Hide CardHeader for completed image items and for incomplete items with no reference material */}
-                {!(hasResponse && isImageItem) && (item.reference_notes || item.reference_image_url || item.reference_link || item.reference_video_url) && (
+                {/* Show non-image reference material in header (links, video, notes without ref image) */}
+                {!(hasResponse && isImageItem) && !( isImageItem && item.reference_image_url) && (item.reference_notes || item.reference_image_url || item.reference_link || item.reference_video_url) && (
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
                   <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
                       {item.reference_notes && (
@@ -1250,9 +1250,6 @@ export default function CompleteChecklist() {
                               <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
                             </div>
                           </div>
-                          {item.reference_notes && (
-                            <p className="text-[10px] text-muted-foreground italic leading-tight">📋 {item.reference_notes}</p>
-                          )}
                         </div>}
                       
                       {item.reference_link && <div className="space-y-0.5">
