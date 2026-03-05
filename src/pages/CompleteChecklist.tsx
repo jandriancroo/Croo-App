@@ -1307,21 +1307,22 @@ export default function CompleteChecklist() {
                                 <Eye className="h-2.5 w-2.5" />
                                 Standard
                               </Badge>
-                              <div 
-                                className="relative cursor-pointer group/ref rounded-lg overflow-hidden border border-primary/20 bg-muted/20"
-                                onClick={() => setPreviewImage(item.reference_image_url!)}
-                              >
+                              <div className="relative rounded-lg overflow-hidden border border-primary/20 bg-muted/20">
                                 <img 
                                   src={item.reference_image_url} 
                                   alt="Reference standard" 
-                                  className="w-full aspect-[3/4] object-cover" 
+                                  className="w-full aspect-square object-cover" 
                                 />
-                                <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors flex items-center justify-center">
-                                  <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage(item.reference_image_url!)}
+                                  className="absolute top-1.5 right-1.5 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
                               </div>
                               {item.reference_notes && (
-                                <p className="text-[10px] text-muted-foreground italic leading-tight">📋 {item.reference_notes}</p>
+                                <p className="text-[10px] text-muted-foreground italic leading-tight line-clamp-2">📋 {item.reference_notes}</p>
                               )}
                             </div>
 
@@ -1332,24 +1333,17 @@ export default function CompleteChecklist() {
                                 Your Photo
                               </Badge>
                               {currentPhotos.length > 0 ? (
-                                <div 
-                                  className="relative cursor-pointer group/photo rounded-lg overflow-hidden border"
-                                  onClick={() => setPreviewImage(currentPhotos[0])}
-                                >
+                                <div className="relative rounded-lg overflow-hidden border">
                                   <img
                                     src={currentPhotos[0]}
                                     alt="Your photo"
-                                    className="w-full aspect-[3/4] object-cover"
+                                    className="w-full aspect-square object-cover"
                                     loading="lazy"
                                   />
                                   <button
                                     type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setPreviewImage(currentPhotos[0]);
-                                    }}
-                                    className="absolute top-2 right-2 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                    onClick={() => setPreviewImage(currentPhotos[0])}
+                                    className="absolute top-1.5 right-1.5 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
                                   >
                                     <Eye className="h-4 w-4" />
                                   </button>
@@ -1363,7 +1357,7 @@ export default function CompleteChecklist() {
                                     document.getElementById(`image-camera-${item.id}-1`)?.click();
                                   }}
                                 >
-                                  <div className="flex flex-col items-center justify-center aspect-[3/4] rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors">
+                                  <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors">
                                     <Camera className="h-8 w-8 text-muted-foreground mb-1" />
                                     <span className="text-[10px] text-muted-foreground">Tap to snap</span>
                                   </div>
