@@ -9,21 +9,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { useUserRole } from '@/hooks/useUserRole';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { compressImage } from '@/utils/imageCompression';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   is_required: boolean;
-  requires_temperature_validation?: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
   reference_image_url?: string;
@@ -41,14 +42,16 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
+  handleReferenceImageUpload: (index: number, file: File) => void;
   showAmPmSelector?: boolean;
   showPositionSelector?: boolean;
   availablePositions?: string[];
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector, showPositionSelector, availablePositions }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [showReference, setShowReference] = useState(false);
 
   return (
     <div
@@ -64,32 +67,70 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAm
         <GripVertical className="h-5 w-5" />
       </button>
       
-      <div className="flex-1 space-y-3">
+      <div className="flex-1 space-y-3 min-w-0">
+        {/* Top row: question + position badge + delete */}
         <div className="flex items-start gap-2">
           <Input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
             placeholder="Question/Task Name"
-            className="flex-1"
+            className="flex-1 min-w-0"
           />
-          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0">
+          {showPositionSelector && availablePositions && availablePositions.length > 0 && (
+            <Select
+              value={item.position || 'none'}
+              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="w-auto min-w-0 h-8 px-2 text-xs border-dashed shrink-0">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">All Positions</SelectItem>
+                {availablePositions.map(pos => (
+                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-8 w-8">
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <Select
-          value={item.item_type}
-          onValueChange={(value) => updateItem(index, 'item_type', value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="text">Text</SelectItem>
-            <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-            <SelectItem value="image">Photo</SelectItem>
-            <SelectItem value="confirmation">Checkmark</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Type + shift selectors */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select
+            value={item.item_type}
+            onValueChange={(value) => updateItem(index, 'item_type', value)}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="confirmation">Check</SelectItem>
+              <SelectItem value="text">Text</SelectItem>
+              <SelectItem value="image">Photo</SelectItem>
+              <SelectItem value="temperature">Temp Photo</SelectItem>
+              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {showAmPmSelector && (
+            <Select
+              value={item.manager_shift || 'none'}
+              onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="w-24">
+                <SelectValue placeholder="Shift" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="am">AM</SelectItem>
+                <SelectItem value="pm">PM</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
 
         {item.item_type === 'multiple_choice' && (
           <Input
@@ -102,97 +143,93 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAm
           />
         )}
 
-        {item.item_type === 'image' && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
-              <Select
-                value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
-                onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
-              >
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id={`temp-validation-${index}`}
-                checked={item.requires_temperature_validation || false}
-                onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation', checked)}
-              />
-              <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
-                Requires Temperature Validation
-              </Label>
-            </div>
-            {item.requires_temperature_validation && (
-              <div className="flex items-center space-x-2 ml-6">
-                <Checkbox
-                  id={`temp-alert-${index}`}
-                  checked={item.temperature_alert_enabled || false}
-                  onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
-                />
-                <Label htmlFor={`temp-alert-${index}`} className="text-sm font-normal text-muted-foreground">
-                  Send push notification to managers when out of range
-                </Label>
-              </div>
-            )}
-          </div>
-        )}
-
-        {item.item_type === 'confirmation' && (
-          <Textarea
-            value={item.reference_notes || ''}
-            onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
-            placeholder="Instructions (optional)"
-            rows={2}
-            className="text-sm"
-          />
-        )}
-
-        {showAmPmSelector && (
+        {(item.item_type === 'image' || item.item_type === 'temperature') && (
           <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Shift:</Label>
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
             <Select
-              value={item.manager_shift || 'none'}
-              onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
+              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
+              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
             >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="None" />
+              <SelectTrigger className="w-20">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="am">AM</SelectItem>
-                <SelectItem value="pm">PM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {showPositionSelector && availablePositions && availablePositions.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Position:</Label>
-            <Select
-              value={item.position || 'none'}
-              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All positions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">All Positions</SelectItem>
-                {availablePositions.map(pos => (
-                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         )}
+
+        {item.item_type === 'temperature' && (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={`temp-alert-${index}`}
+              checked={item.temperature_alert_enabled || false}
+              onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
+            />
+            <Label htmlFor={`temp-alert-${index}`} className="text-sm font-normal text-muted-foreground">
+              Alert managers on unsafe temps
+            </Label>
+          </div>
+        )}
+
+        {/* Reference notes - always visible for all types */}
+        <Textarea
+          value={item.reference_notes || ''}
+          onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+          placeholder="Instructions / notes (optional)"
+          rows={2}
+          className="text-sm"
+        />
+
+        {/* Collapsible reference materials */}
+        <Collapsible open={showReference} onOpenChange={setShowReference}>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              {showReference ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              Reference materials
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 pt-2">
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Upload className="h-3 w-3" /> Photo</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                className="text-xs"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleReferenceImageUpload(index, file);
+                }}
+              />
+              {item.reference_image_url && (
+                <img src={item.reference_image_url} alt="Reference" className="rounded max-h-20 object-cover" />
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><LinkIcon className="h-3 w-3" /> Link</Label>
+              <Input
+                type="url"
+                value={item.reference_link || ''}
+                onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                placeholder="https://..."
+                className="text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs flex items-center gap-1"><Video className="h-3 w-3" /> Video</Label>
+              <Input
+                type="url"
+                value={item.reference_video_url || ''}
+                onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
+                placeholder="https://youtube.com/..."
+                className="text-xs"
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
   );
@@ -238,13 +275,11 @@ export default function EditChecklist() {
 
   const normalizeTimeForInput = (value: string | null | undefined) => {
     if (!value) return '';
-    // DB may store HH:mm:ss while <input type="time"> expects HH:mm
     return value.slice(0, 5);
   };
 
   const normalizeTimeForDb = (value: string | null | undefined) => {
     if (!value) return null;
-    // Ensure HH:mm:ss for consistency (Postgres accepts HH:mm too, but we standardize)
     if (/^\d{2}:\d{2}$/.test(value)) return `${value}:00`;
     return value;
   };
@@ -278,7 +313,6 @@ export default function EditChecklist() {
 
       if (itemsError) throw itemsError;
 
-      // Fetch role tags
       const { data: roleTags, error: roleTagsError } = await supabase
         .from('checklist_role_tags')
         .select('role')
@@ -302,7 +336,7 @@ export default function EditChecklist() {
       setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
 
-      // Fetch available positions for this location
+      // Fetch available positions
       if (checklist.location_id) {
         const { data: locData } = await supabase
           .from('locations')
@@ -328,15 +362,17 @@ export default function EditChecklist() {
       }
 
       setItems((checklistItems || []).map(item => {
-        const itemType = item.item_type === 'temperature' ? 'image' : item.item_type;
-        const requiresTempValidation = item.item_type === 'temperature' || item.requires_temperature_validation || false;
+        // temperature is now a first-class type — also migrate old image+requires_temp items
+        let itemType = item.item_type as string;
+        if (itemType === 'image' && item.requires_temperature_validation) {
+          itemType = 'temperature';
+        }
 
         return {
           id: item.id,
           question: item.question,
-          item_type: itemType as 'text' | 'multiple_choice' | 'image' | 'confirmation',
+          item_type: itemType as ChecklistItem['item_type'],
           is_required: item.is_required,
-          requires_temperature_validation: requiresTempValidation,
           temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
           options: item.options as string[] | undefined,
           reference_image_url: item.reference_image_url || undefined,
@@ -377,7 +413,6 @@ export default function EditChecklist() {
       const lockDb = lockTimeEnabled ? normalizeTimeForDb(lockUntilTime) : null;
       const dueDb = normalizeTimeForDb(dueByTime);
 
-      // Update checklist
       const checklistUpdate = {
         title,
         description,
@@ -391,8 +426,6 @@ export default function EditChecklist() {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('[EditChecklist] Saving checklist update:', { id, ...checklistUpdate });
-
       const { error: checklistError } = await supabase
         .from('checklists')
         .update(checklistUpdate)
@@ -400,7 +433,7 @@ export default function EditChecklist() {
 
       if (checklistError) throw checklistError;
 
-      // Delete items that were removed (query DB ids → delete missing)
+      // Delete removed items
       const currentIds = new Set(items.filter(i => i.id).map(i => i.id as string));
       const { data: dbItems, error: dbItemsError } = await supabase
         .from('checklist_items')
@@ -418,24 +451,23 @@ export default function EditChecklist() {
           .from('checklist_items')
           .delete()
           .in('id', removedIds);
-
         if (deleteError) throw deleteError;
       }
 
-      // Filter out empty items before saving
       const validItems = items.filter(item => item.question.trim() !== '');
 
-      // Update existing items and insert new ones
       for (let index = 0; index < validItems.length; index++) {
         const item = validItems[index];
+        // Store temperature as 'temperature' item_type directly
+        const dbItemType = item.item_type;
         const itemData = {
           checklist_id: id,
           question: item.question,
-          item_type: item.item_type,
+          item_type: dbItemType,
           is_required: item.is_required,
-          requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
-          temperature_alert_enabled: item.item_type === 'image' && item.requires_temperature_validation ? (item.temperature_alert_enabled || false) : false,
-          options: item.item_type === 'multiple_choice' ? item.options : null,
+          requires_temperature_validation: dbItemType === 'temperature',
+          temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
+          options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
           reference_image_url: item.reference_image_url || null,
           reference_link: item.reference_link || null,
           reference_video_url: item.reference_video_url || null,
@@ -450,36 +482,30 @@ export default function EditChecklist() {
             .from('checklist_items')
             .update(itemData)
             .eq('id', item.id);
-
           if (updateError) throw updateError;
         } else {
           const { error: insertError } = await supabase
             .from('checklist_items')
             .insert(itemData);
-
           if (insertError) throw insertError;
         }
       }
 
-      // Delete existing role tags
+      // Role tags
       const { error: deleteRoleTagsError } = await supabase
         .from('checklist_role_tags')
         .delete()
         .eq('checklist_id', id);
-
       if (deleteRoleTagsError) throw deleteRoleTagsError;
 
-      // Insert new role tags if any are selected
       if (selectedRoles.length > 0) {
         const roleTagsToInsert = selectedRoles.map(role => ({
           checklist_id: id,
           role: role as 'admin' | 'manager' | 'team_member',
         }));
-
         const { error: roleTagsError } = await supabase
           .from('checklist_role_tags')
           .insert(roleTagsToInsert);
-
         if (roleTagsError) throw roleTagsError;
       }
 
@@ -487,7 +513,6 @@ export default function EditChecklist() {
         title: 'Success',
         description: 'Checklist updated successfully',
       });
-
       navigate('/tasks');
     } catch (error: any) {
       console.error('Error updating checklist:', error);
@@ -504,7 +529,7 @@ export default function EditChecklist() {
   const addItem = () => {
     setItems([...items, {
       question: '',
-      item_type: 'text',
+      item_type: 'confirmation',
       is_required: true,
       order_index: items.length,
     }]);
@@ -512,14 +537,12 @@ export default function EditChecklist() {
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
     try {
-      // Compress image to reduce memory usage on mobile
       const compressedFile = await compressImage(file, 1200, 1200, 0.8);
       const fileName = `references/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('checklist-images')
         .upload(fileName, compressedFile);
-
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage
@@ -527,16 +550,9 @@ export default function EditChecklist() {
         .getPublicUrl(fileName);
 
       updateItem(index, 'reference_image_url', data.publicUrl);
-      toast({
-        title: 'Success',
-        description: 'Reference image uploaded',
-      });
+      toast({ title: 'Success', description: 'Reference image uploaded' });
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: 'Failed to upload image',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to upload image', variant: 'destructive' });
     }
   };
 
@@ -582,205 +598,126 @@ export default function EditChecklist() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 max-w-4xl space-y-6">
+      <div className="container mx-auto p-4 max-w-4xl space-y-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Edit Checklist Template</h1>
-            <p className="text-muted-foreground">Update your checklist template</p>
-          </div>
+          <h1 className="text-xl font-bold">Edit Checklist</h1>
         </div>
 
+        {/* Condensed Basic Info */}
         <Card>
-          <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Update the checklist details</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Morning Kitchen Check"
-              />
+          <CardContent className="pt-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="title" className="text-xs">Title</Label>
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Morning Kitchen Check" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="frequency" className="text-xs">Frequency</Label>
+                <Select value={frequency} onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setFrequency(value)}>
+                  <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this checklist"
-              />
+            <div className="space-y-1">
+              <Label htmlFor="description" className="text-xs">Description</Label>
+              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description" rows={2} />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="frequency">Frequency</Label>
-              <Select value={frequency} onValueChange={(value: 'daily' | 'weekly' | 'monthly') => setFrequency(value)}>
-                <SelectTrigger id="frequency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             {frequency === 'monthly' && (
-              <div className="space-y-2">
-                <Label htmlFor="visible_days">Show During Last X Days of Month</Label>
-                <Select 
-                  value={visibleDaysBeforeMonthEnd?.toString() || '7'} 
-                  onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+              <div className="space-y-1">
+                <Label className="text-xs">Show During Last X Days of Month</Label>
+                <Select value={visibleDaysBeforeMonthEnd?.toString() || '7'} onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="3">Last 3 days</SelectItem>
                     <SelectItem value="5">Last 5 days</SelectItem>
-                    <SelectItem value="7">Last 7 days (1 week)</SelectItem>
+                    <SelectItem value="7">Last 7 days</SelectItem>
                     <SelectItem value="10">Last 10 days</SelectItem>
-                    <SelectItem value="14">Last 14 days (2 weeks)</SelectItem>
+                    <SelectItem value="14">Last 14 days</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  This checklist will only appear during the selected window at the end of each month
-                </p>
               </div>
             )}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="lock_time_toggle">Lock Until Time</Label>
-                <Switch
-                  id="lock_time_toggle"
-                  checked={lockTimeEnabled}
-                  onCheckedChange={(checked) => {
-                    setLockTimeEnabled(checked);
-                    if (!checked) setLockUntilTime('');
-                  }}
-                />
-              </div>
-              {lockTimeEnabled && (
-                <Input
-                  id="lock_until_time"
-                  type="time"
-                  value={lockUntilTime}
-                  onChange={(e) => setLockUntilTime(e.target.value)}
-                  placeholder="Select time"
-                />
-              )}
-              <p className="text-xs text-muted-foreground">
-                {lockTimeEnabled 
-                  ? 'Checklist will be visible but locked until this time each day'
-                  : 'Enable to lock this checklist until a specific time each day'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="due_by_time">Alert Time</Label>
-              <Input
-                id="due_by_time"
-                type="time"
-                value={dueByTime}
-                onChange={(e) => setDueByTime(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Push notification alerts will be sent if this checklist is incomplete after this time
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="template_type">Template Type</Label>
-              <Select value={templateType} onValueChange={(value: 'standard' | 'dynamic') => setTemplateType(value)}>
-                <SelectTrigger id="template_type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard Checklist</SelectItem>
-                  <SelectItem value="dynamic">Dynamic Calendar Template</SelectItem>
-                </SelectContent>
-              </Select>
-              {templateType === 'dynamic' && (
-                <p className="text-xs text-muted-foreground">
-                  Go to calendar view to assign tasks to specific days
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Assigned Roles (Optional)</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                If no roles are selected, all users can see this checklist
-              </p>
-              <div className="space-y-2">
-                {['admin', 'manager', 'shift_manager', 'team_member'].map((role) => (
-                  <div key={role} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`role-${role}`}
-                      checked={selectedRoles.includes(role)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedRoles([...selectedRoles, role]);
-                        } else {
-                          setSelectedRoles(selectedRoles.filter(r => r !== role));
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`role-${role}`} className="text-sm font-normal">
-                      {role === 'manager' ? 'Manager' : role === 'shift_manager' ? 'Shift Manager' : role === 'team_member' ? 'Team Member' : 'Admin'}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="am-pm-division">AM/PM Manager Division</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Separate checklist items by shift responsibility
-                  </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Lock Until Time</Label>
+                  <Switch checked={lockTimeEnabled} onCheckedChange={(checked) => { setLockTimeEnabled(checked); if (!checked) setLockUntilTime(''); }} />
                 </div>
-                <Switch
-                  id="am-pm-division"
-                  checked={enableAmPmDivision}
-                  onCheckedChange={setEnableAmPmDivision}
-                />
+                {lockTimeEnabled && <Input type="time" value={lockUntilTime} onChange={(e) => setLockUntilTime(e.target.value)} />}
+                <p className="text-[10px] text-muted-foreground">{lockTimeEnabled ? 'Locked until this time each day' : 'Lock checklist until a time'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Alert Time</Label>
+                <Input type="time" value={dueByTime} onChange={(e) => setDueByTime(e.target.value)} />
+                <p className="text-[10px] text-muted-foreground">Alert if incomplete after this time</p>
               </div>
             </div>
-            <div className="space-y-2 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="position-filtering">Position Filtering</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Assign items to positions from shift templates — users see their position's tasks first
-                  </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Template Type</Label>
+                <Select value={templateType} onValueChange={(value: 'standard' | 'dynamic') => setTemplateType(value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="dynamic">Dynamic Calendar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Assigned Roles</Label>
+                <div className="flex flex-wrap gap-2">
+                  {['admin', 'manager', 'shift_manager', 'team_member'].map((role) => (
+                    <label key={role} className="flex items-center gap-1 text-xs cursor-pointer">
+                      <Checkbox
+                        checked={selectedRoles.includes(role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedRoles([...selectedRoles, role]);
+                          else setSelectedRoles(selectedRoles.filter(r => r !== role));
+                        }}
+                      />
+                      {role === 'manager' ? 'Mgr' : role === 'shift_manager' ? 'Shift Mgr' : role === 'team_member' ? 'Team' : 'Admin'}
+                    </label>
+                  ))}
                 </div>
-                <Switch
-                  id="position-filtering"
-                  checked={positionFilteringEnabled}
-                  onCheckedChange={setPositionFilteringEnabled}
-                />
               </div>
-              {positionFilteringEnabled && availablePositions.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  No positions found. Create positions in Schedule Templates first.
-                </p>
-              )}
             </div>
+
+            {/* Toggle row */}
+            <div className="flex flex-wrap gap-4 pt-2 border-t">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={enableAmPmDivision} onCheckedChange={setEnableAmPmDivision} />
+                AM/PM Division
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <Switch checked={positionFilteringEnabled} onCheckedChange={setPositionFilteringEnabled} />
+                Position Filtering
+              </label>
+            </div>
+            {positionFilteringEnabled && availablePositions.length === 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">No positions found. Create positions in Schedule Templates first.</p>
+            )}
           </CardContent>
         </Card>
 
+        {/* Checklist Items */}
         <Card>
-          <CardHeader>
-            <CardTitle>Checklist Items</CardTitle>
-            <CardDescription>Drag items to reorder</CardDescription>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-base">Checklist Items</CardTitle>
+            <CardDescription className="text-xs">Drag to reorder</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 px-4">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={items.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
                 {items.map((item, index) => (
@@ -791,6 +728,7 @@ export default function EditChecklist() {
                     index={index}
                     updateItem={updateItem}
                     removeItem={removeItem}
+                    handleReferenceImageUpload={handleReferenceImageUpload}
                     showAmPmSelector={enableAmPmDivision}
                     showPositionSelector={positionFilteringEnabled}
                     availablePositions={availablePositions}
@@ -806,21 +744,9 @@ export default function EditChecklist() {
         </Card>
 
         <div className="flex gap-4">
-          <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">
-            Cancel
-          </Button>
+          <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </>
-            )}
+            {saving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : (<><Save className="mr-2 h-4 w-4" />Save Changes</>)}
           </Button>
         </div>
       </div>
