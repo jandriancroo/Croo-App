@@ -243,7 +243,7 @@ export function MessageBubble({
             )}
           </div>
 
-          {isOwnMessage && isLastInCluster && !isPending && !isGroupChat && (
+          {isOwnMessage && isLastInCluster && !isPending && (
             <div className="flex justify-end mt-0.5 pr-1">
               <ReadReceipts
                 messageId={message.id}

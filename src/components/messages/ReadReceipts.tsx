@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, CheckCheck } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Check, CheckCheck, Eye } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole } from '@/hooks/useUserRole';
+import { cn } from '@/lib/utils';
 
 interface ReadReceiptsProps {
   messageId: string;
@@ -16,37 +18,39 @@ interface Receipt {
   read_at: string;
   profiles: {
     full_name: string;
+    profile_photo_url: string | null;
+  };
+}
+
+interface ChatMember {
+  user_id: string;
+  profiles: {
+    full_name: string;
+    profile_photo_url: string | null;
   };
 }
 
 export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: ReadReceiptsProps) {
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [totalMembers, setTotalMembers] = useState(0);
+  const [allMembers, setAllMembers] = useState<ChatMember[]>([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    fetchReceipts();
     markAsRead();
+  }, [messageId]);
 
-    const channel = supabase
-      .channel(`receipts-${messageId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'message_read_receipts',
-          filter: `message_id=eq.${messageId}`
-        },
-        () => {
-          fetchReceipts();
-        }
-      )
-      .subscribe();
+  // Only fetch full data when popover opens
+  useEffect(() => {
+    if (open) {
+      fetchReceipts();
+    }
+  }, [open, messageId]);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+  // Lightweight check for read status indicator
+  useEffect(() => {
+    if (senderId !== currentUserId) return;
+    fetchReceipts();
   }, [messageId]);
 
   const fetchReceipts = async () => {
@@ -54,17 +58,17 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
       const [receiptsRes, membersRes] = await Promise.all([
         supabase
           .from('message_read_receipts')
-          .select('user_id, read_at, profiles(full_name)')
+          .select('user_id, read_at, profiles(full_name, profile_photo_url)')
           .eq('message_id', messageId),
         supabase
           .from('chat_members')
-          .select('user_id', { count: 'exact' })
+          .select('user_id, profiles(full_name, profile_photo_url)')
           .eq('chat_id', chatId)
       ]);
 
       if (receiptsRes.error) throw receiptsRes.error;
       setReceipts(receiptsRes.data as Receipt[]);
-      setTotalMembers(membersRes.count || 0);
+      setAllMembers((membersRes.data || []) as ChatMember[]);
     } catch (error: any) {
       console.error('Error fetching receipts:', error);
     }
@@ -81,7 +85,6 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
           user_id: currentUserId
         });
     } catch (error: any) {
-      // Ignore duplicate errors
       if (!error.message?.includes('duplicate')) {
         console.error('Error marking as read:', error);
       }
@@ -92,46 +95,81 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
   if (senderId !== currentUserId) return null;
   if (roleLoading || !isAdmin) return null;
 
-  const readCount = receipts.length;
+  const readUserIds = new Set(receipts.map(r => r.user_id));
   const isReadByOthers = receipts.some(r => r.user_id !== senderId);
+  
+  // Exclude sender from both lists
+  const readByOthers = receipts.filter(r => r.user_id !== senderId);
+  const unreadMembers = allMembers.filter(m => m.user_id !== senderId && !readUserIds.has(m.user_id));
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-            {isReadByOthers ? (
-              <>
-                <CheckCheck className="h-3 w-3 text-primary" />
-                <span className="text-primary">Read</span>
-              </>
-            ) : (
-              <>
-                <Check className="h-3 w-3" />
-                <span>Sent</span>
-              </>
-            )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <div className="text-xs">
-            {isReadByOthers ? (
-              <>
-                <p className="font-semibold mb-1">Read by {readCount - 1}:</p>
-                {receipts
-                  .filter(r => r.user_id !== senderId)
-                  .slice(0, 5)
-                  .map(r => (
-                    <p key={r.user_id}>{r.profiles.full_name}</p>
-                  ))}
-                {readCount > 6 && <p className="text-muted-foreground">+{readCount - 6} more</p>}
-              </>
-            ) : (
-              <p>Message sent</p>
-            )}
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+          {isReadByOthers ? (
+            <>
+              <CheckCheck className="h-3 w-3 text-primary" />
+              <span className="text-primary">Read</span>
+            </>
+          ) : (
+            <>
+              <Check className="h-3 w-3" />
+              <span>Sent</span>
+            </>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="end" side="top">
+        <div className="max-h-64 overflow-y-auto">
+          {/* Read section */}
+          {readByOthers.length > 0 && (
+            <div>
+              <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border flex items-center gap-1.5">
+                <Eye className="h-3 w-3" />
+                Read · {readByOthers.length}
+              </div>
+              {readByOthers.map(r => (
+                <div key={r.user_id} className="flex items-center gap-2.5 px-3 py-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={r.profiles.profile_photo_url || undefined} />
+                    <AvatarFallback className="text-[10px]">{r.profiles.full_name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm truncate flex-1">{r.profiles.full_name}</span>
+                  <CheckCheck className="h-3 w-3 text-primary flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Unread section */}
+          {unreadMembers.length > 0 && (
+            <div>
+              <div className={cn(
+                "px-3 py-2 text-xs font-semibold text-muted-foreground flex items-center gap-1.5",
+                readByOthers.length > 0 && "border-t border-border"
+              )}>
+                Unread · {unreadMembers.length}
+              </div>
+              {unreadMembers.map(m => (
+                <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2 opacity-50">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={m.profiles.profile_photo_url || undefined} />
+                    <AvatarFallback className="text-[10px]">{m.profiles.full_name?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm truncate flex-1">{m.profiles.full_name}</span>
+                  <Check className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {readByOthers.length === 0 && unreadMembers.length === 0 && (
+            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+              No recipients yet
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
