@@ -252,11 +252,11 @@ export function TasksHistoryTimeline({
   eventCompletions,
   logbookEntries,
   selectedDate,
+  viewMode,
   onTaskClick 
 }: TasksHistoryTimelineProps) {
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
-  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
 
   // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
