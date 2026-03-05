@@ -751,14 +751,13 @@ export default function EditChecklist() {
                     showAmPmSelector={enableAmPmDivision}
                     showPositionSelector={positionFilteringEnabled}
                     availablePositions={availablePositions}
+                    onEnterKey={(idx) => addItem(idx)}
                   />
                 ))}
               </SortableContext>
             </DndContext>
-
-            <Button onClick={addItem} variant="outline" className="w-full">
-              Add Item
-            </Button>
+          </CardContent>
+        </Card>
           </CardContent>
         </Card>
 
