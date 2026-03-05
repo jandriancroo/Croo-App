@@ -141,7 +141,7 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
       {groups.map(group => {
         const GroupIcon = group.icon;
         const completedCount = group.items.filter(i => i.completionLevel === 100).length;
-        const missedCount = group.items.filter(i => i.type === 'alarm-missed').length;
+        
 
         return (
           <div key={group.label}>
