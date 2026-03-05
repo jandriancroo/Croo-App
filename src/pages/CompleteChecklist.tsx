@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
+import { useUserPosition } from '@/hooks/useUserPosition';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -34,6 +35,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   manager_shift?: string | null;
+  position?: string | null;
   order_index?: number;
 }
 interface Checklist {
@@ -43,6 +45,7 @@ interface Checklist {
   location_id: string | null;
   frequency: string;
   enable_am_pm_division?: boolean;
+  position_filtering_enabled?: boolean;
   lock_until_time?: string | null;
 }
 interface ResponseWithCompleter {
