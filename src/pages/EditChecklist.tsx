@@ -46,6 +46,9 @@ interface SortableChecklistItemProps {
   showPositionSelector?: boolean;
   availablePositions?: string[];
   onEnterKey?: (index: number) => void;
+  isFocused?: boolean;
+  onFocus?: (index: number) => void;
+  onBlur?: () => void;
 }
 
 function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey }: SortableChecklistItemProps) {
