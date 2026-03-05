@@ -755,6 +755,9 @@ export default function EditChecklist() {
                     showPositionSelector={positionFilteringEnabled}
                     availablePositions={availablePositions}
                     onEnterKey={(idx) => addItem(idx)}
+                    isFocused={focusedItemIndex === index}
+                    onFocus={(idx) => setFocusedItemIndex(idx)}
+                    onBlur={() => setFocusedItemIndex(null)}
                   />
                 ))}
               </SortableContext>
