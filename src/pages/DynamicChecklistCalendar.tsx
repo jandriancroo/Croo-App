@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Plus, X } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2 } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
@@ -22,6 +22,7 @@ interface ChecklistItem {
   order_index: number;
   days_of_week: number[] | null;
   requires_temperature_validation: boolean;
+  reference_image_url: string | null;
 }
 
 interface Checklist {
@@ -37,11 +38,12 @@ interface Holiday {
   holiday_type: string;
 }
 
-function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id: string) => void }) {
+function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const style = transform
     ? {
@@ -50,33 +52,113 @@ function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id
       }
     : undefined;
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUpdateRefImage) return;
+
+    try {
+      const fileName = `checklist-refs/${task.id}-${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from('checklist-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('checklist-images')
+        .getPublicUrl(fileName);
+
+      await supabase
+        .from('checklist_items')
+        .update({ reference_image_url: data.publicUrl })
+        .eq('id', task.id);
+
+      onUpdateRefImage(task.id, data.publicUrl);
+      toast.success('Reference photo added');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload photo');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveImage = async () => {
+    if (!onUpdateRefImage) return;
+    await supabase
+      .from('checklist_items')
+      .update({ reference_image_url: null })
+      .eq('id', task.id);
+    onUpdateRefImage(task.id, null);
+    toast.success('Reference photo removed');
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="p-2 bg-card border rounded flex items-center justify-between group"
+      className="p-2 bg-card border rounded group"
     >
-      <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
-        <p className="text-sm">{task.question}</p>
-        <p className="text-xs text-muted-foreground">{task.item_type}</p>
+      <div className="flex items-center justify-between">
+        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
+          <p className="text-sm">{task.question}</p>
+          <p className="text-xs text-muted-foreground">{task.item_type}</p>
+        </div>
+        <div className="flex items-center gap-0.5">
+          {onUpdateRefImage && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => fileInputRef.current?.click()}
+                title="Add reference photo"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onDelete(task.id)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
-      {onDelete && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onDelete(task.id)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+      {task.reference_image_url && (
+        <div className="mt-1.5 relative group/img">
+          <img src={task.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover w-full" />
+          {onUpdateRefImage && (
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-5 w-5 absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 transition-opacity"
+              onClick={handleRemoveImage}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
+function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
   unassignedItems: ChecklistItem[]; 
   onDelete: (id: string) => void; 
+  onUpdateRefImage: (id: string, url: string | null) => void;
   onQuickAdd: () => void;
   newQuestion: string;
   setNewQuestion: (value: string) => void;
@@ -138,19 +220,20 @@ function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion
       </p>
       <div className="space-y-2">
         {unassignedItems.map((task) => (
-          <DraggableTask key={task.id} task={task} onDelete={onDelete} />
+          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} />
         ))}
       </div>
     </Card>
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: { 
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage }: { 
   dayIndex: number; 
   dayName: string; 
   tasks: ChecklistItem[];
   holidays: Holiday[];
   blackoutDates: string[];
+  onUpdateRefImage: (id: string, url: string | null) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
@@ -203,7 +286,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: {
       </div>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <DraggableTask key={task.id} task={task} />
+          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} />
         ))}
       </div>
     </div>
@@ -406,6 +489,7 @@ export default function DynamicChecklistCalendar() {
         ...data,
         days_of_week: null,
         requires_temperature_validation: data.requires_temperature_validation || false,
+        reference_image_url: data.reference_image_url || null,
       };
 
       setItems([...items, newItem]);
@@ -444,6 +528,20 @@ export default function DynamicChecklistCalendar() {
       console.error('Error deleting task:', error);
       toast.error('Failed to delete task');
     }
+  };
+
+  const handleUpdateRefImage = (itemId: string, url: string | null) => {
+    const updateItem = (item: ChecklistItem) =>
+      item.id === itemId ? { ...item, reference_image_url: url } : item;
+    
+    setItems(prev => prev.map(updateItem));
+    setUnassignedItems(prev => prev.map(updateItem));
+    
+    const newAssignedByDay = new Map(assignedByDay);
+    newAssignedByDay.forEach((tasks, day) => {
+      newAssignedByDay.set(day, tasks.map(updateItem));
+    });
+    setAssignedByDay(newAssignedByDay);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -561,7 +659,7 @@ export default function DynamicChecklistCalendar() {
           onDragEnd={handleDragEnd}
         >
           <div className="grid lg:grid-cols-4 gap-6">
-            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
+            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
 
             <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -573,6 +671,7 @@ export default function DynamicChecklistCalendar() {
                     tasks={assignedByDay.get(index) || []}
                     holidays={holidays}
                     blackoutDates={blackoutDates}
+                    onUpdateRefImage={handleUpdateRefImage}
                   />
                 ))}
               </div>
