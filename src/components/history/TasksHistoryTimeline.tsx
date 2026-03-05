@@ -148,7 +148,7 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
             <div className="flex items-center gap-2 mb-1">
               <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
               <span className="text-xs font-semibold text-foreground">{group.label}</span>
-              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length}</span>
             </div>
             <div className="space-y-0.5 ml-5">
               {group.items.map(item => {
