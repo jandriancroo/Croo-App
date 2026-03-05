@@ -192,34 +192,35 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
                   type="file"
                   accept="image/*"
                   className="text-[10px] h-7"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleReferenceImageUpload(index, file);
-                }}
-              />
-              {item.reference_image_url && (
-                <img src={item.reference_image_url} alt="Reference" className="rounded max-h-20 object-cover" />
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><LinkIcon className="h-3 w-3" /> Link</Label>
-              <Input
-                type="url"
-                value={item.reference_link || ''}
-                onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                placeholder="https://..."
-                className="text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1"><Video className="h-3 w-3" /> Video</Label>
-              <Input
-                type="url"
-                value={item.reference_video_url || ''}
-                onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                placeholder="https://youtube.com/..."
-                className="text-xs"
-              />
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleReferenceImageUpload(index, file);
+                  }}
+                />
+                {item.reference_image_url && (
+                  <img src={item.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover" />
+                )}
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
+                <Input
+                  type="url"
+                  value={item.reference_link || ''}
+                  onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                  placeholder="https://..."
+                  className="text-[10px] h-7"
+                />
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-[10px] flex items-center gap-1"><Video className="h-2.5 w-2.5" /> Video</Label>
+                <Input
+                  type="url"
+                  value={item.reference_video_url || ''}
+                  onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
+                  placeholder="https://youtube.com/..."
+                  className="text-[10px] h-7"
+                />
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
