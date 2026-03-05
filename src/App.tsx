@@ -94,6 +94,7 @@ const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPr
 const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
 const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
 const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
+const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
 
 const queryClient = new QueryClient();
 
