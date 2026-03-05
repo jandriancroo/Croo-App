@@ -241,7 +241,7 @@ function OptionD() {
         };
 
         return (
-          <div key={item.id} className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}>
+            <div key={item.id} className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}>
             {/* Time */}
             <span className="text-[11px] font-mono text-muted-foreground w-16 text-right shrink-0">{anchorTime || ''}</span>
             
@@ -250,10 +250,8 @@ function OptionD() {
             
             {/* Content */}
             <div className="flex-1 min-w-0 flex items-center gap-2">
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
               <span className={cn('text-sm font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
-              {item.type !== 'alarm' && item.type !== 'alarm-missed' && (
-                <span className="text-[9px] text-muted-foreground uppercase tracking-wider shrink-0">{typeConfig[item.type].label}</span>
-              )}
             </div>
 
             {/* Status */}
