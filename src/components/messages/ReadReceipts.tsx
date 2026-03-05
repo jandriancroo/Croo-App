@@ -74,7 +74,8 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
     }
   };
 
-  // markAsRead is now handled in MessageBubble for all users
+  // Only show read receipt UI for the sender
+  if (senderId !== currentUserId) return null;
 
   const readUserIds = new Set(receipts.map(r => r.user_id));
   const isReadByOthers = receipts.some(r => r.user_id !== senderId);
