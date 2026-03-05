@@ -46,7 +46,7 @@ interface SortableChecklistItemProps {
   availablePositions?: string[];
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector, showPositionSelector, availablePositions }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
