@@ -963,16 +963,39 @@ export default function CompleteChecklist() {
           </div>
           {checklist.description && <p className="text-xs text-muted-foreground">{checklist.description}</p>}
           
-          {/* Hide Completed Toggle */}
-          <div className="flex items-center gap-2 pt-2">
-            <Switch
-              id="hide-completed"
-              checked={hideCompleted}
-              onCheckedChange={toggleHideCompleted}
-            />
-            <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
-              Hide completed items
-            </Label>
+          {/* Toggles */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="hide-completed"
+                checked={hideCompleted}
+                onCheckedChange={toggleHideCompleted}
+              />
+              <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
+                Hide completed
+              </Label>
+            </div>
+            
+            {/* Position filter toggle — only show when position filtering is enabled and user has a position */}
+            {checklist?.position_filtering_enabled && userPosition && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="position-filter"
+                  checked={showOnlyMyPosition}
+                  onCheckedChange={(checked) => {
+                    setShowOnlyMyPosition(checked);
+                    if (checked) {
+                      localStorage.setItem(posFilterKey, 'true');
+                    } else {
+                      localStorage.setItem(posFilterKey, 'false');
+                    }
+                  }}
+                />
+                <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
+                  My tasks ({userPosition})
+                </Label>
+              </div>
+            )}
           </div>
         </div>
 
