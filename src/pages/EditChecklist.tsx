@@ -83,6 +83,8 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
                 onEnterKey?.(index);
               }
             }}
+            onFocus={() => onFocus?.(index)}
+            onBlur={() => onBlur?.()}
             placeholder="Task name"
             className="flex-1 min-w-0 h-8 text-sm"
           />
