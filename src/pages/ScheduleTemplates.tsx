@@ -60,8 +60,6 @@ export default function ScheduleTemplates() {
   // Shift template dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
-  const [customPosition, setCustomPosition] = useState("");
-  const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [formData, setFormData] = useState({
     start_time: "09:00",
     end_time: "17:00",
