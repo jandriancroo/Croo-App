@@ -1153,7 +1153,7 @@ export default function CompleteChecklist() {
               
               {/* Card with content */}
               <Card className="overflow-hidden relative">
-              {/* Option C: For image items with response — bottom bar overlay */}
+              {/* Option C: For image items with response — bottom bar overlay (only when ALL required photos uploaded) */}
               {hasResponse && isImageItem && <div 
                   className="absolute inset-0 z-10 flex flex-col" 
                   style={{ pointerEvents: 'auto' }}
