@@ -1294,8 +1294,11 @@ export default function CompleteChecklist() {
                     return (
                       <div className="space-y-3">
                         {isMultiPhoto && (
-                          <div className="text-sm text-muted-foreground">
-                            {currentPhotos.length} / {minPhotos} photos uploaded
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {currentPhotos.length} / {minPhotos} photos uploaded
+                            </span>
+                            {isComplete && <CheckCircle2 className="h-4 w-4 text-green-600" />}
                           </div>
                         )}
 
