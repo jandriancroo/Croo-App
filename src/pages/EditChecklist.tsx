@@ -51,7 +51,7 @@ interface SortableChecklistItemProps {
   onBlur?: () => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -60,7 +60,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex gap-1.5 p-2 border rounded-lg bg-background ${isDragging ? 'opacity-50 z-50' : ''}`}
+      className={`flex gap-1.5 p-2 border rounded-lg bg-background transition-colors ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
         className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1.5 shrink-0"
