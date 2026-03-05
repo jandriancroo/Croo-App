@@ -212,24 +212,24 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
           <div
             key={item.id}
             onClick={item.onClick}
-            className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}
+            className={cn('flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}
           >
-            <span className="text-[11px] font-mono text-muted-foreground w-16 text-right shrink-0">{anchorTime || ''}</span>
-            <div className={cn('w-2 h-2 rounded-full shrink-0', dotColorMap[item.type])} />
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <Icon className={cn('h-3.5 w-3.5 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
-              <span className={cn('text-sm font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
+            <span className="text-[10px] font-mono text-muted-foreground w-14 text-right shrink-0">{anchorTime || ''}</span>
+            <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotColorMap[item.type])} />
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <Icon className={cn('h-3 w-3 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
+              <span className={cn('text-xs font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
             </div>
             {isMissed ? (
-              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />
             ) : isChecklist && !isComplete ? (
-              <span className="text-[11px] font-semibold text-amber-600 shrink-0">{item.completedItems}/{item.totalItems}</span>
+              <span className="text-[10px] font-semibold text-amber-600 shrink-0">{item.completedItems}/{item.totalItems}</span>
             ) : isComplete ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
             ) : (
-              <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20 shrink-0" />
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/20 shrink-0" />
             )}
-            {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} size="md" />}
+            {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} size="sm" />}
             <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
           </div>
         );
