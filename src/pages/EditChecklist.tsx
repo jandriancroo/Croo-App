@@ -96,6 +96,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             onValueChange={(value) => updateItem(index, 'item_type', value)}
           >
             <SelectTrigger className="w-auto min-w-0 h-7 px-2 shrink-0 gap-1">
+              {item.item_type === 'number' && <Hash className="h-3.5 w-3.5" />}
               {item.item_type === 'confirmation' && <CheckSquare className="h-3.5 w-3.5" />}
               {item.item_type === 'text' && <Type className="h-3.5 w-3.5" />}
               {item.item_type === 'image' && <Camera className="h-3.5 w-3.5" />}
