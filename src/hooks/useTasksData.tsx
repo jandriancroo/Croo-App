@@ -293,6 +293,7 @@ export function useTasksData() {
           completedCount: cappedCompletedCount,
           contributors,
           lastCompletedAt,
+          dueByTime: checklist.due_by_time || null,
         };
       });
     },
