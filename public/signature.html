@@ -9,44 +9,44 @@
   .copy-btn { margin-top: 16px; padding: 10px 20px; background: #212121; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
   .copy-btn:hover { background: #444; }
   .instructions { margin-top: 12px; font-size: 13px; color: #666; }
+  .instructions b { color: #333; }
 </style>
 </head>
 <body>
 
 <div class="sig-wrapper">
   <div id="signature">
-    <table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#212121;line-height:1.4;">
+    <!--[if mso]><table cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+    <table width="400" cellpadding="0" cellspacing="0" border="0" style="width:400px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#212121;line-height:1.4;border-collapse:collapse;">
       <tr>
-        <td style="padding-right:16px;vertical-align:top;border-right:2px solid #212121;">
-          <img src="https://croohq.lovable.app/croo-logo-transparent.webp" alt="CrooHQ" width="80" style="display:block;" />
+        <td width="60" valign="top" style="width:60px;padding:0 12px 0 0;vertical-align:top;border-right:2px solid #3D2B1F;">
+          <img src="https://croohq.com/croo-logo-dark.png" alt="CrooHQ" width="55" height="55" style="display:block;width:55px;height:55px;border:0;outline:none;" />
         </td>
-        <td style="padding-left:16px;vertical-align:top;">
-          <div style="font-size:16px;font-weight:bold;color:#212121;">Jordan Andrian</div>
-          <div style="font-size:12px;color:#666;margin-top:2px;">CrooHQ</div>
-          <div style="margin-top:10px;font-size:13px;">
-            <a href="mailto:jordan@croohq.com" style="color:#212121;text-decoration:none;">jordan@croohq.com</a>
-          </div>
-          <div style="margin-top:4px;font-size:13px;">
-            <a href="https://www.croohq.com" target="_blank" rel="nofollow noreferrer" style="color:#212121;text-decoration:none;">www.croohq.com</a>
-          </div>
-          <div style="margin-top:4px;font-size:13px;">
-            <a href="https://instagram.com/croohq" target="_blank" rel="nofollow noreferrer" style="color:#212121;text-decoration:none;">@croohq</a>
-          </div>
+        <td valign="top" style="padding:0 0 0 12px;vertical-align:top;">
+          <span style="font-size:15px;font-weight:bold;color:#3D2B1F;display:block;line-height:1.2;">Jordan Andrian</span>
+          <span style="font-size:11px;color:#888;display:block;margin-top:1px;line-height:1.3;">CrooHQ</span>
+          <span style="font-size:12px;display:block;margin-top:6px;line-height:1.3;"><a href="mailto:jordan@croohq.com" style="color:#3D2B1F;text-decoration:none;">jordan@croohq.com</a></span>
+          <span style="font-size:12px;display:block;margin-top:2px;line-height:1.3;"><a href="https://www.croohq.com" style="color:#3D2B1F;text-decoration:none;">www.croohq.com</a></span>
+          <span style="font-size:12px;display:block;margin-top:2px;line-height:1.3;"><a href="https://instagram.com/croohq" style="color:#3D2B1F;text-decoration:none;">@croohq</a></span>
         </td>
       </tr>
       <tr>
-        <td colspan="2" style="padding-top:14px;">
-          <div style="border-top:1px solid #e0e0e0;padding-top:10px;font-size:10px;color:#999;line-height:1.5;">
+        <td colspan="2" style="padding:10px 0 0 0;">
+          <div style="border-top:1px solid #e0e0e0;padding-top:8px;font-size:9px;color:#aaa;line-height:1.4;">
             IMPORTANT: The contents of this email and any attachments are confidential. They are intended for the named recipient(s) only. If you have received this email by mistake, please notify the sender immediately and do not disclose the contents to anyone or make copies thereof.
           </div>
         </td>
       </tr>
     </table>
+    <!--[if mso]></td></tr></table><![endif]-->
   </div>
 </div>
 
 <button class="copy-btn" onclick="copySignature()">📋 Copy Signature to Clipboard</button>
-<div class="instructions">Click the button above, then paste into your email client's signature settings.</div>
+<div class="instructions">
+  <b>For Apple Mail:</b> Select the signature above with your mouse (click & drag), then press ⌘C to copy. Paste into Mail → Settings → Signatures.<br/>
+  Or try the button — it works in most browsers.
+</div>
 
 <script>
 async function copySignature() {
@@ -54,18 +54,13 @@ async function copySignature() {
   const html = sig.innerHTML;
   const btn = document.querySelector('.copy-btn');
   try {
-    // Use Clipboard API with HTML blob for rich formatting
     const blob = new Blob([html], { type: 'text/html' });
     const plainBlob = new Blob([sig.innerText], { type: 'text/plain' });
     await navigator.clipboard.write([
-      new ClipboardItem({
-        'text/html': blob,
-        'text/plain': plainBlob
-      })
+      new ClipboardItem({ 'text/html': blob, 'text/plain': plainBlob })
     ]);
     btn.textContent = '✅ Copied!';
   } catch (e) {
-    // Fallback: select and copy
     const range = document.createRange();
     range.selectNodeContents(sig);
     const sel = window.getSelection();
