@@ -38,11 +38,12 @@ interface Holiday {
   holiday_type: string;
 }
 
-function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id: string) => void }) {
+function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const style = transform
     ? {
@@ -51,25 +52,104 @@ function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id
       }
     : undefined;
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUpdateRefImage) return;
+
+    try {
+      const fileName = `checklist-refs/${task.id}-${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from('checklist-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('checklist-images')
+        .getPublicUrl(fileName);
+
+      await supabase
+        .from('checklist_items')
+        .update({ reference_image_url: data.publicUrl })
+        .eq('id', task.id);
+
+      onUpdateRefImage(task.id, data.publicUrl);
+      toast.success('Reference photo added');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload photo');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveImage = async () => {
+    if (!onUpdateRefImage) return;
+    await supabase
+      .from('checklist_items')
+      .update({ reference_image_url: null })
+      .eq('id', task.id);
+    onUpdateRefImage(task.id, null);
+    toast.success('Reference photo removed');
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="p-2 bg-card border rounded flex items-center justify-between group"
+      className="p-2 bg-card border rounded group"
     >
-      <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
-        <p className="text-sm">{task.question}</p>
-        <p className="text-xs text-muted-foreground">{task.item_type}</p>
+      <div className="flex items-center justify-between">
+        <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
+          <p className="text-sm">{task.question}</p>
+          <p className="text-xs text-muted-foreground">{task.item_type}</p>
+        </div>
+        <div className="flex items-center gap-0.5">
+          {onUpdateRefImage && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => fileInputRef.current?.click()}
+                title="Add reference photo"
+              >
+                <ImagePlus className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onDelete(task.id)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
-      {onDelete && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onDelete(task.id)}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+      {task.reference_image_url && (
+        <div className="mt-1.5 relative group/img">
+          <img src={task.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover w-full" />
+          {onUpdateRefImage && (
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-5 w-5 absolute top-1 right-1 opacity-0 group-hover/img:opacity-100 transition-opacity"
+              onClick={handleRemoveImage}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
