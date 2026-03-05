@@ -49,17 +49,32 @@
 <div class="instructions">Click the button above, then paste into your email client's signature settings.</div>
 
 <script>
-function copySignature() {
+async function copySignature() {
   const sig = document.getElementById('signature');
-  const range = document.createRange();
-  range.selectNodeContents(sig);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-  document.execCommand('copy');
-  sel.removeAllRanges();
+  const html = sig.innerHTML;
   const btn = document.querySelector('.copy-btn');
-  btn.textContent = '✅ Copied!';
+  try {
+    // Use Clipboard API with HTML blob for rich formatting
+    const blob = new Blob([html], { type: 'text/html' });
+    const plainBlob = new Blob([sig.innerText], { type: 'text/plain' });
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': blob,
+        'text/plain': plainBlob
+      })
+    ]);
+    btn.textContent = '✅ Copied!';
+  } catch (e) {
+    // Fallback: select and copy
+    const range = document.createRange();
+    range.selectNodeContents(sig);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('copy');
+    sel.removeAllRanges();
+    btn.textContent = '✅ Copied!';
+  }
   setTimeout(() => btn.textContent = '📋 Copy Signature to Clipboard', 2000);
 }
 </script>
