@@ -1211,11 +1211,12 @@ export default function CompleteChecklist() {
                 ) : (
                   <>
                 {/* Hide CardHeader for completed image items and for incomplete items with no reference material */}
-                {!(hasResponse && isImageItem) && (item.reference_image_url || item.reference_link || item.reference_video_url) && (
+                {!(hasResponse && isImageItem) && (item.reference_notes || item.reference_image_url || item.reference_link || item.reference_video_url) && (
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
-                  {/* Reference Material Display */}
                   <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
-                      <div className="font-medium text-muted-foreground">Reference:</div>
+                      {item.reference_notes && (
+                        <p className="text-muted-foreground whitespace-pre-wrap">{item.reference_notes}</p>
+                      )}
                       
                       {item.reference_image_url && <div className="space-y-1">
                           <Badge variant="secondary" className="text-[10px] h-4">Photo</Badge>
