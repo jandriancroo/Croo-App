@@ -29,6 +29,7 @@ interface ChecklistItem {
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
+  position?: string | null;
 }
 
 export default function CreateChecklist() {
