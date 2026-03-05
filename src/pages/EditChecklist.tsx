@@ -758,8 +758,6 @@ export default function EditChecklist() {
             </DndContext>
           </CardContent>
         </Card>
-          </CardContent>
-        </Card>
 
         <div className="flex gap-4">
           <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">Cancel</Button>
