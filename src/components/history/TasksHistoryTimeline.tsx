@@ -168,7 +168,7 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
                     {isMissed ? (
                       <span className="text-[9px] font-bold text-destructive uppercase">Missed</span>
                     ) : isChecklist && !isComplete ? (
-                      <span className="text-[11px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
+                      <span className="text-[10px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
                     ) : isComplete ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     ) : (
