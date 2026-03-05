@@ -292,10 +292,11 @@ function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: {
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
+function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpdateRefNotes, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
   unassignedItems: ChecklistItem[]; 
   onDelete: (id: string) => void; 
   onUpdateRefImage: (id: string, url: string | null) => void;
+  onUpdateRefNotes: (id: string, notes: string | null) => void;
   onQuickAdd: () => void;
   newQuestion: string;
   setNewQuestion: (value: string) => void;
