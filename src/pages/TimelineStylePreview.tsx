@@ -241,7 +241,7 @@ function OptionD() {
         };
 
         return (
-          <div key={item.id} className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}>
+            <div key={item.id} className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}>
             {/* Time */}
             <span className="text-[11px] font-mono text-muted-foreground w-16 text-right shrink-0">{anchorTime || ''}</span>
             
@@ -250,10 +250,8 @@ function OptionD() {
             
             {/* Content */}
             <div className="flex-1 min-w-0 flex items-center gap-2">
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
               <span className={cn('text-sm font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
-              {item.type !== 'alarm' && item.type !== 'alarm-missed' && (
-                <span className="text-[9px] text-muted-foreground uppercase tracking-wider shrink-0">{typeConfig[item.type].label}</span>
-              )}
             </div>
 
             {/* Status */}
@@ -299,9 +297,9 @@ function OptionE() {
         return (
           <div key={group.label}>
             <div className="flex items-center gap-2 mb-1.5">
-              <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
-              <span className="text-xs font-semibold text-foreground">{group.label}</span>
-              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+              <GroupIcon className={cn('h-4 w-4', group.color)} />
+              <span className="text-sm font-semibold text-foreground">{group.label}</span>
+              <span className="text-[11px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
             </div>
             <div className="space-y-0.5 ml-5">
               {group.items.map(item => {
@@ -311,13 +309,13 @@ function OptionE() {
                 const anchorTime = isChecklist ? item.dueTime : (item.completedAt || item.dueTime);
 
                 return (
-                  <div key={item.id} className={cn('flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}>
-                    <span className="text-[10px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
-                    <span className={cn('text-xs font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
+                  <div key={item.id} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}>
+                    <span className="text-[11px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
+                    <span className={cn('text-sm font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
                     {isMissed ? (
-                      <span className="text-[9px] font-bold text-destructive uppercase">Missed</span>
+                      <span className="text-[10px] font-bold text-destructive uppercase">Missed</span>
                     ) : isChecklist && !isComplete ? (
-                      <span className="text-[10px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
+                      <span className="text-[11px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
                     ) : isComplete ? (
                       <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
                     ) : (
