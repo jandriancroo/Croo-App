@@ -130,14 +130,11 @@ export default function ScheduleTemplates() {
 
   const openEditDialog = (template: ShiftTemplate) => {
     setEditingTemplate(template);
-    const isPredefined = positions.includes(template.position || "");
-    setShowCustomPosition(!isPredefined && !!template.position);
-    setCustomPosition(!isPredefined ? template.position || "" : "");
     setFormData({
       start_time: template.start_time,
       end_time: template.end_time,
       color: template.color || "#ef4444",
-      position: isPredefined ? template.position || "" : "",
+      position: template.position || "",
       days_of_week: template.days_of_week || [0,1,2,3,4,5,6],
       allowed_roles: (template.allowed_roles || [template.role]).filter(Boolean),
     });
