@@ -144,6 +144,7 @@ export function useTasksData() {
           template_type,
           frequency,
           visible_days_before_month_end,
+          due_by_time,
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
@@ -292,6 +293,7 @@ export function useTasksData() {
           completedCount: cappedCompletedCount,
           contributors,
           lastCompletedAt,
+          dueByTime: checklist.due_by_time || null,
         };
       });
     },
