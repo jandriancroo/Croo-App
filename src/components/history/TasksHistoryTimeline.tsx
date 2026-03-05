@@ -145,10 +145,10 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
 
         return (
           <div key={group.label}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <GroupIcon className={cn('h-4 w-4', group.color)} />
-              <span className="text-sm font-semibold text-foreground">{group.label}</span>
-              <span className="text-[11px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+            <div className="flex items-center gap-2 mb-1">
+              <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
+              <span className="text-xs font-semibold text-foreground">{group.label}</span>
+              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
             </div>
             <div className="space-y-0.5 ml-5">
               {group.items.map(item => {
@@ -161,14 +161,14 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
                   <div
                     key={item.id}
                     onClick={item.onClick}
-                    className={cn('flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}
+                    className={cn('flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}
                   >
-                    <span className="text-[11px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
-                    <span className={cn('text-sm font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
+                    <span className={cn('text-xs font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
                     {isMissed ? (
-                      <span className="text-[10px] font-bold text-destructive uppercase">Missed</span>
+                      <span className="text-[9px] font-bold text-destructive uppercase">Missed</span>
                     ) : isChecklist && !isComplete ? (
-                      <span className="text-[11px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
+                      <span className="text-[10px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
                     ) : isComplete ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     ) : (
@@ -212,24 +212,24 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
           <div
             key={item.id}
             onClick={item.onClick}
-            className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}
+            className={cn('flex items-center gap-2 py-1.5 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}
           >
-            <span className="text-[11px] font-mono text-muted-foreground w-16 text-right shrink-0">{anchorTime || ''}</span>
-            <div className={cn('w-2 h-2 rounded-full shrink-0', dotColorMap[item.type])} />
-            <div className="flex-1 min-w-0 flex items-center gap-2">
-              <Icon className={cn('h-3.5 w-3.5 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
-              <span className={cn('text-sm font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
+            <span className="text-[10px] font-mono text-muted-foreground w-14 text-right shrink-0">{anchorTime || ''}</span>
+            <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotColorMap[item.type])} />
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <Icon className={cn('h-3 w-3 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
+              <span className={cn('text-xs font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
             </div>
             {isMissed ? (
-              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />
             ) : isChecklist && !isComplete ? (
-              <span className="text-[11px] font-semibold text-amber-600 shrink-0">{item.completedItems}/{item.totalItems}</span>
+              <span className="text-[10px] font-semibold text-amber-600 shrink-0">{item.completedItems}/{item.totalItems}</span>
             ) : isComplete ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
             ) : (
-              <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20 shrink-0" />
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/20 shrink-0" />
             )}
-            {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} size="md" />}
+            {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} size="sm" />}
             <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
           </div>
         );
@@ -252,9 +252,6 @@ export function TasksHistoryTimeline({
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
   const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
-  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-  const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
-  const dateLabel = format(selectedDate, 'MMMM d, yyyy');
 
   // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
@@ -361,47 +358,41 @@ export function TasksHistoryTimeline({
   }
 
   return (
-    <div className="space-y-3">
-      {/* Day header */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold">
-          {dayLabel}
-        </div>
-        <span className="text-xs sm:text-sm text-muted-foreground">{dateLabel}</span>
-        <div className="flex-1 h-px bg-border hidden sm:block" />
-        <div className="flex items-center gap-1.5 ml-auto">
-          <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
-            {regularCount}
+    <div className="space-y-2">
+      {/* Compact stats + view toggle */}
+      <div className="flex items-center gap-1.5">
+        <Badge variant="secondary" className="text-[10px] px-1.5">
+          {regularCount}
+        </Badge>
+        {(alarmCount > 0 || missedAlarmCount > 0) && (
+          <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5">
+            <Bell className="h-2.5 w-2.5" />
+            {alarmCount}/{alarmCount + missedAlarmCount}
           </Badge>
-          {(alarmCount > 0 || missedAlarmCount > 0) && (
-            <Badge variant="outline" className="text-[10px] sm:text-xs gap-0.5 px-1.5">
-              <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-              {alarmCount}/{alarmCount + missedAlarmCount}
-            </Badge>
-          )}
-          {/* View toggle */}
-          <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
-            <button
-              onClick={() => setViewMode('grouped')}
-              className={cn(
-                'p-1 rounded-full transition-colors',
-                viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              aria-label="Grouped view"
-            >
-              <Layers className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={cn(
-                'p-1 rounded-full transition-colors',
-                viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              aria-label="Timeline view"
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        )}
+        <div className="flex-1" />
+        {/* View toggle */}
+        <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
+          <button
+            onClick={() => setViewMode('grouped')}
+            className={cn(
+              'p-1 rounded-full transition-colors',
+              viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+            aria-label="Grouped view"
+          >
+            <Layers className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={cn(
+              'p-1 rounded-full transition-colors',
+              viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+            aria-label="Timeline view"
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
       
