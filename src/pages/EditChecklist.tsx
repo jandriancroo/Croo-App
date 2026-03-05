@@ -46,9 +46,12 @@ interface SortableChecklistItemProps {
   showPositionSelector?: boolean;
   availablePositions?: string[];
   onEnterKey?: (index: number) => void;
+  isFocused?: boolean;
+  onFocus?: (index: number) => void;
+  onBlur?: () => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -57,7 +60,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex gap-1.5 p-2 border rounded-lg bg-background ${isDragging ? 'opacity-50 z-50' : ''}`}
+      className={`flex gap-1.5 p-2 border rounded-lg bg-background transition-colors ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
         className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1.5 shrink-0"
@@ -80,6 +83,8 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
                 onEnterKey?.(index);
               }
             }}
+            onFocus={() => onFocus?.(index)}
+            onBlur={() => onBlur?.()}
             placeholder="Task name"
             className="flex-1 min-w-0 h-8 text-sm"
           />
@@ -257,6 +262,7 @@ export default function EditChecklist() {
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
   const [availablePositions, setAvailablePositions] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -528,28 +534,22 @@ export default function EditChecklist() {
     }
   };
 
-  const addItem = (afterIndex?: number) => {
+  const addItem = (atIndex?: number) => {
     const newItem: ChecklistItem = {
       question: '',
       item_type: 'confirmation',
       is_required: true,
       order_index: 0,
     };
-    if (afterIndex !== undefined) {
-      const newItems = [...items];
-      newItems.splice(afterIndex + 1, 0, newItem);
-      setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
-      setTimeout(() => {
-        const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
-        inputs[afterIndex + 1]?.focus();
-      }, 50);
-    } else {
-      setItems([newItem, ...items].map((it, i) => ({ ...it, order_index: i })));
-      setTimeout(() => {
-        const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
-        inputs[0]?.focus();
-      }, 50);
-    }
+    const insertAt = atIndex !== undefined ? atIndex : 0;
+    const newItems = [...items];
+    newItems.splice(insertAt, 0, newItem);
+    setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
+    setFocusedItemIndex(insertAt);
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
+      inputs[insertAt]?.focus();
+    }, 50);
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
@@ -755,6 +755,9 @@ export default function EditChecklist() {
                     showPositionSelector={positionFilteringEnabled}
                     availablePositions={availablePositions}
                     onEnterKey={(idx) => addItem(idx)}
+                    isFocused={focusedItemIndex === index}
+                    onFocus={(idx) => setFocusedItemIndex(idx)}
+                    onBlur={() => setFocusedItemIndex(null)}
                   />
                 ))}
               </SortableContext>
