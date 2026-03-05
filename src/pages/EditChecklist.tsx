@@ -792,6 +792,8 @@ export default function EditChecklist() {
                     updateItem={updateItem}
                     removeItem={removeItem}
                     showAmPmSelector={enableAmPmDivision}
+                    showPositionSelector={positionFilteringEnabled}
+                    availablePositions={availablePositions}
                   />
                 ))}
               </SortableContext>
