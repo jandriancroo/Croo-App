@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
@@ -8,6 +8,8 @@ import { format, addDays, subDays } from "date-fns";
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { useTasksData } from '@/hooks/useTasksData';
+import { Layers, LayoutList } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Lazy-load Edit tab components to defer DnD bundle
 const EditTabContent = lazy(() => import('@/components/tasks/EditTabContent'));
@@ -26,10 +28,23 @@ export default function Tasks() {
     logbookEntries,
     historyDate,
     setHistoryDate,
-    historyDateStr,
   } = useTasksData();
 
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
+
+  // Calculate completion percentage
+  const completionPercent = useMemo(() => {
+    const allItems = [
+      ...(historyStats || []).map(s => ({ level: Math.round(s.completionRate * 100) })),
+      ...completedTempTasks.filter(t => t.task_style !== 'alarm' && t.task_style !== 'alarm-missed').map(() => ({ level: 100 })),
+      ...eventCompletions.map(() => ({ level: 100 })),
+      ...logbookEntries.map(() => ({ level: 100 })),
+    ];
+    if (allItems.length === 0) return 0;
+    const total = allItems.reduce((sum, i) => sum + i.level, 0);
+    return Math.round(total / allItems.length);
+  }, [historyStats, completedTempTasks, eventCompletions, logbookEntries]);
 
   // Only show skeleton on true initial load (no cached data yet)
   const hasNoData = checklists.length === 0 && !submissionStats;
@@ -43,6 +58,13 @@ export default function Tasks() {
     );
   }
 
+  // SVG circle params
+  const circleSize = 36;
+  const strokeWidth = 3;
+  const radius = (circleSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (completionPercent / 100) * circumference;
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -50,7 +72,37 @@ export default function Tasks() {
           <div className="mb-4">
             <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
               <div className="space-y-3">
-                <h1 className="text-3xl font-bold">Tasks</h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-bold">Tasks</h1>
+                  {/* Completion circle */}
+                  <div className="relative flex items-center gap-1.5">
+                    <svg width={circleSize} height={circleSize} className="-rotate-90">
+                      <circle
+                        cx={circleSize / 2}
+                        cy={circleSize / 2}
+                        r={radius}
+                        fill="none"
+                        stroke="hsl(var(--muted))"
+                        strokeWidth={strokeWidth}
+                      />
+                      <circle
+                        cx={circleSize / 2}
+                        cy={circleSize / 2}
+                        r={radius}
+                        fill="none"
+                        stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        className="transition-all duration-500"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">
+                      {completionPercent}%
+                    </span>
+                  </div>
+                </div>
                 <TabsList>
                   <TabsTrigger value="history">History</TabsTrigger>
                   {(isAdmin || isManager) && (
@@ -63,14 +115,42 @@ export default function Tasks() {
           </div>
 
           <TabsContent value="history" className="space-y-4">
-            <DateNavigator
-              onPrev={() => setHistoryDate(subDays(historyDate, 1))}
-              onNext={() => setHistoryDate(addDays(historyDate, 1))}
-              label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
-                ? `Today, ${format(historyDate, 'MMM d')}` 
-                : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
-              canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
-            />
+            {/* View toggle + Date navigator row */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-muted rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors',
+                    viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                  )}
+                  aria-label="Grouped view"
+                >
+                  <Layers className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors',
+                    viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                  )}
+                  aria-label="Timeline view"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex-1">
+                <DateNavigator
+                  onPrev={() => setHistoryDate(subDays(historyDate, 1))}
+                  onNext={() => setHistoryDate(addDays(historyDate, 1))}
+                  label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
+                    ? `Today, ${format(historyDate, 'MMM d')}` 
+                    : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
+                  canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
+                  className="w-full"
+                />
+              </div>
+            </div>
 
             <TasksHistoryTimeline
               historyStats={historyStats}
@@ -78,6 +158,7 @@ export default function Tasks() {
               eventCompletions={eventCompletions}
               logbookEntries={logbookEntries}
               selectedDate={historyDate}
+              viewMode={viewMode}
               onTaskClick={setSelectedCompletedTask}
             />
           </TabsContent>

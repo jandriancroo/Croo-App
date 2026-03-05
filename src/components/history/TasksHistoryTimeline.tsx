@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,9 +15,7 @@ import {
   BookOpen,
   History as HistoryIcon,
   ChevronRight,
-  AlertTriangle,
-  LayoutList,
-  Layers
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -76,6 +74,7 @@ interface TasksHistoryTimelineProps {
   eventCompletions: EventCompletion[];
   logbookEntries: LogbookEntry[];
   selectedDate: Date;
+  viewMode: 'grouped' | 'timeline';
   onTaskClick: (task: CompletedTask) => void;
 }
 
@@ -247,11 +246,11 @@ export function TasksHistoryTimeline({
   eventCompletions,
   logbookEntries,
   selectedDate,
+  viewMode,
   onTaskClick 
 }: TasksHistoryTimelineProps) {
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
-  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
 
   // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
@@ -356,34 +355,6 @@ export function TasksHistoryTimeline({
 
   return (
     <div className="space-y-2">
-      {/* Compact stats + view toggle */}
-      <div className="flex items-center gap-1.5">
-        <div className="flex-1" />
-        {/* View toggle */}
-        <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
-          <button
-            onClick={() => setViewMode('grouped')}
-            className={cn(
-              'p-1 rounded-full transition-colors',
-              viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            )}
-            aria-label="Grouped view"
-          >
-            <Layers className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode('timeline')}
-            className={cn(
-              'p-1 rounded-full transition-colors',
-              viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-            )}
-            aria-label="Timeline view"
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-      
       {/* Content */}
       {viewMode === 'grouped' ? (
         <GroupedView items={timelineItems} />
