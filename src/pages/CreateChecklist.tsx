@@ -29,6 +29,7 @@ interface ChecklistItem {
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
+  position?: string | null;
 }
 
 export default function CreateChecklist() {
@@ -48,6 +49,8 @@ export default function CreateChecklist() {
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
   const [bulkText, setBulkText] = useState('');
   const [didLoadDraft, setDidLoadDraft] = useState(false);
+  const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
+  const [availablePositions, setAvailablePositions] = useState<string[]>([]);
 
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
@@ -55,6 +58,32 @@ export default function CreateChecklist() {
   const navigate = useNavigate();
 
   const draftKey = `createChecklistDraft:${currentLocation?.id ?? 'no-location'}`;
+
+  // Fetch available positions from shift templates
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+    const fetchPositions = async () => {
+      const { data: locData } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .single();
+      if (locData?.organization_id) {
+        const { data: orgLocs } = await supabase
+          .from('locations')
+          .select('id')
+          .eq('organization_id', locData.organization_id);
+        const locIds = orgLocs?.map(l => l.id) || [currentLocation.id];
+        const { data: templates } = await supabase
+          .from('shift_templates')
+          .select('position')
+          .in('location_id', locIds);
+        const uniquePositions = [...new Set((templates || []).map(t => t.position).filter(Boolean))] as string[];
+        setAvailablePositions(uniquePositions.sort());
+      }
+    };
+    fetchPositions();
+  }, [currentLocation?.id]);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -299,6 +328,7 @@ export default function CreateChecklist() {
         created_by: userId,
         location_id: locationId,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
+        position_filtering_enabled: positionFilteringEnabled,
       })
       .select()
       .single();
@@ -319,6 +349,7 @@ export default function CreateChecklist() {
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
+      position: positionFilteringEnabled ? (item.position || null) : null,
     }));
 
     const { error: itemsError } = await supabase
@@ -357,6 +388,7 @@ export default function CreateChecklist() {
         template_type: 'dynamic',
         created_by: userId,
         location_id: locationId,
+        position_filtering_enabled: positionFilteringEnabled,
       })
       .select()
       .single();
@@ -376,6 +408,7 @@ export default function CreateChecklist() {
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
+      position: positionFilteringEnabled ? (item.position || null) : null,
     }));
 
     const { error: itemsError } = await supabase
@@ -569,6 +602,24 @@ export default function CreateChecklist() {
                   ))}
                 </div>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="position-filtering">Position Filtering</Label>
+                    <p className="text-xs text-muted-foreground">Assign items to shift positions so crew sees only their tasks</p>
+                  </div>
+                  <Switch
+                    id="position-filtering"
+                    checked={positionFilteringEnabled}
+                    onCheckedChange={setPositionFilteringEnabled}
+                  />
+                </div>
+                {positionFilteringEnabled && availablePositions.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    No positions found. Create positions in Schedule Templates first.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -708,6 +759,26 @@ export default function CreateChecklist() {
                               placeholder="Add instructions or notes that will appear with the confirmation checkmark"
                               rows={3}
                             />
+                          </div>
+                        )}
+
+                        {positionFilteringEnabled && availablePositions.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm text-muted-foreground whitespace-nowrap">Position:</Label>
+                            <Select
+                              value={item.position || 'none'}
+                              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="All positions" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">All Positions</SelectItem>
+                                {availablePositions.map(pos => (
+                                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         )}
 
