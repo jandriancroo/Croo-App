@@ -1237,8 +1237,22 @@ export default function CompleteChecklist() {
                       )}
                       
                       {item.reference_image_url && <div className="space-y-1">
-                          <Badge variant="secondary" className="text-[10px] h-4">Photo</Badge>
-                          <img src={item.reference_image_url} alt="Reference" className="rounded max-h-32 object-cover border" />
+                          <Badge variant="secondary" className="text-[10px] h-4 gap-1">
+                            <Eye className="h-2.5 w-2.5" />
+                            Reference Standard
+                          </Badge>
+                          <div 
+                            className="relative cursor-pointer group/ref" 
+                            onClick={() => setPreviewImage(item.reference_image_url!)}
+                          >
+                            <img src={item.reference_image_url} alt="Reference standard" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
+                            <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors rounded flex items-center justify-center">
+                              <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
+                            </div>
+                          </div>
+                          {item.reference_notes && (
+                            <p className="text-[10px] text-muted-foreground italic leading-tight">📋 {item.reference_notes}</p>
+                          )}
                         </div>}
                       
                       {item.reference_link && <div className="space-y-0.5">
