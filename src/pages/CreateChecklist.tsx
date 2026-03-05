@@ -49,6 +49,8 @@ export default function CreateChecklist() {
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
   const [bulkText, setBulkText] = useState('');
   const [didLoadDraft, setDidLoadDraft] = useState(false);
+  const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
+  const [availablePositions, setAvailablePositions] = useState<string[]>([]);
 
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
