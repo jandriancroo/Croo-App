@@ -262,10 +262,25 @@ export function TasksHistoryTimeline({
     // Add checklists with their last completion time
     historyStats?.forEach(stat => {
       const isMonthlyChecklist = stat.title?.toLowerCase().includes('monthly');
-      const displayTime = (!isMonthlyChecklist && stat.lastCompletedAt)
-        ? formatInTimeZone(new Date(stat.lastCompletedAt), timezone, 'h:mm a')
-        : undefined;
-      const completedAt = isMonthlyChecklist ? undefined : (stat.lastCompletedAt || undefined);
+      
+      // Use due_by_time as the anchor time for checklists
+      let displayTime: string | undefined;
+      let sortTime: string | undefined;
+      
+      if (stat.dueByTime && !isMonthlyChecklist) {
+        // Parse HH:MM due_by_time and format for display
+        const [hours, minutes] = stat.dueByTime.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        displayTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+        // Create a sortable timestamp from the due time
+        const sortDate = new Date(selectedDate);
+        sortDate.setHours(hours, minutes, 0, 0);
+        sortTime = sortDate.toISOString();
+      } else if (!isMonthlyChecklist && stat.lastCompletedAt) {
+        displayTime = formatInTimeZone(new Date(stat.lastCompletedAt), timezone, 'h:mm a');
+        sortTime = stat.lastCompletedAt;
+      }
       
       items.push({
         id: `checklist-${stat.id}`,
@@ -275,7 +290,7 @@ export function TasksHistoryTimeline({
         contributors: stat.contributors,
         totalItems: stat.itemCount,
         completedItems: stat.completedCount,
-        completedAt,
+        completedAt: sortTime,
         displayTime,
         onClick: () => navigate(`/complete-checklist/${stat.id}?date=${format(selectedDate, 'yyyy-MM-dd')}`),
       });
