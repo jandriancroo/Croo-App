@@ -74,6 +74,8 @@ export default function ScheduleTemplates() {
   // Positions panel state
   const [positionsOpen, setPositionsOpen] = useState(false);
   const [newPositionValue, setNewPositionValue] = useState('');
+  const [editingPositionName, setEditingPositionName] = useState<string | null>(null);
+  const [editPositionValue, setEditPositionValue] = useState('');
 
   useEffect(() => {
     if (roleLoading) return;
