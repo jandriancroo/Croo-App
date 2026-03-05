@@ -356,13 +356,15 @@ export function TasksHistoryTimeline({
   }
 
   return (
-    <div className="space-y-2">
-      {/* Content */}
-      {viewMode === 'grouped' ? (
-        <GroupedView items={timelineItems} />
-      ) : (
-        <TimelineView items={timelineItems} />
-      )}
+    <Card>
+      <CardContent className="py-3 px-3">
+        {viewMode === 'grouped' ? (
+          <GroupedView items={timelineItems} />
+        ) : (
+          <TimelineView items={timelineItems} />
+        )}
+      </CardContent>
+    </Card>
     </div>
   );
 }
