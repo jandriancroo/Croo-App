@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -63,7 +63,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
       className={`flex gap-1.5 p-2 border rounded-lg bg-background transition-colors ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
-        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1.5 shrink-0"
+        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0"
         {...attributes}
         {...listeners}
       >
@@ -71,14 +71,14 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
       </button>
       
       <div className="flex-1 space-y-1.5 min-w-0">
-        {/* Row 1: question input + position badge + delete */}
-        <div className="flex items-center gap-1.5">
-          <Input
+        {/* Row 1: title (auto-grow) + type icons + position + delete */}
+        <div className="flex items-start gap-1.5">
+          <Textarea
             data-checklist-item-input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onEnterKey?.(index);
               }
@@ -86,8 +86,31 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             onFocus={() => onFocus?.(index)}
             onBlur={() => onBlur?.()}
             placeholder="Task name"
-            className="flex-1 min-w-0 h-8 text-sm"
+            rows={1}
+            className="flex-1 min-w-0 min-h-[32px] text-sm resize-none py-1.5"
           />
+
+          {/* Type icon buttons */}
+          <div className="flex items-center shrink-0">
+            {([
+              { type: 'confirmation', icon: CheckSquare, tip: 'Check' },
+              { type: 'text', icon: Type, tip: 'Text' },
+              { type: 'image', icon: Camera, tip: 'Photo' },
+              { type: 'temperature', icon: Thermometer, tip: 'Temp' },
+              { type: 'multiple_choice', icon: List, tip: 'Multi' },
+            ] as const).map(({ type, icon: Icon, tip }) => (
+              <button
+                key={type}
+                type="button"
+                title={tip}
+                onClick={() => updateItem(index, 'item_type', type)}
+                className={`p-1 rounded transition-colors ${item.item_type === type ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            ))}
+          </div>
+
           {showPositionSelector && availablePositions && availablePositions.length > 0 && (
             <Select
               value={item.position || 'none'}
@@ -109,67 +132,53 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
           </Button>
         </div>
 
-        {/* Row 2: type + shift + min photos + temp alert — all inline */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Select
-            value={item.item_type}
-            onValueChange={(value) => updateItem(index, 'item_type', value)}
-          >
-            <SelectTrigger className="w-28 h-7 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="confirmation">Check</SelectItem>
-              <SelectItem value="text">Text</SelectItem>
-              <SelectItem value="image">Photo</SelectItem>
-              <SelectItem value="temperature">Temp Photo</SelectItem>
-              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Conditional row: shift + min photos + temp alert */}
+        {(showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {showAmPmSelector && (
+              <Select
+                value={item.manager_shift || 'none'}
+                onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
+              >
+                <SelectTrigger className="w-20 h-7 text-xs">
+                  <SelectValue placeholder="Shift" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">All</SelectItem>
+                  <SelectItem value="am">AM</SelectItem>
+                  <SelectItem value="pm">PM</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
-          {showAmPmSelector && (
-            <Select
-              value={item.manager_shift || 'none'}
-              onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
-            >
-              <SelectTrigger className="w-20 h-7 text-xs">
-                <SelectValue placeholder="Shift" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">All</SelectItem>
-                <SelectItem value="am">AM</SelectItem>
-                <SelectItem value="pm">PM</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+            {(item.item_type === 'image' || item.item_type === 'temperature') && (
+              <Select
+                value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
+                onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
+              >
+                <SelectTrigger className="w-20 h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n} photo{n > 1 ? 's' : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-          {(item.item_type === 'image' || item.item_type === 'temperature') && (
-            <Select
-              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
-              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
-            >
-              <SelectTrigger className="w-20 h-7 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6].map(n => (
-                  <SelectItem key={n} value={String(n)}>{n} photo{n > 1 ? 's' : ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {item.item_type === 'temperature' && (
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
-              <Checkbox
-                checked={item.temperature_alert_enabled || false}
-                onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
-                className="h-3.5 w-3.5"
-              />
-              Temp alerts
-            </label>
-          )}
-        </div>
+            {item.item_type === 'temperature' && (
+              <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
+                <Checkbox
+                  checked={item.temperature_alert_enabled || false}
+                  onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
+                  className="h-3.5 w-3.5"
+                />
+                Temp alerts
+              </label>
+            )}
+          </div>
+        )}
 
         {item.item_type === 'multiple_choice' && (
           <Input
@@ -190,21 +199,21 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               {item.reference_notes ? 'Notes ✓' : 'Notes & reference'}
             </button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1.5 pt-1.5">
+          <CollapsibleContent className="space-y-2 pt-1.5">
             <Textarea
               value={item.reference_notes || ''}
               onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
               placeholder="Instructions / notes (optional)"
               rows={2}
-              className="text-xs"
+              className="text-xs w-full"
             />
-            <div className="grid grid-cols-3 gap-1.5">
-              <div className="space-y-0.5">
-                <Label className="text-[10px] flex items-center gap-1"><Upload className="h-2.5 w-2.5" /> Photo</Label>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] flex items-center gap-1"><Upload className="h-2.5 w-2.5" /> Reference Photo</Label>
                 <Input
                   type="file"
                   accept="image/*"
-                  className="text-[10px] h-7"
+                  className="text-[10px] h-7 w-full"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleReferenceImageUpload(index, file);
@@ -214,25 +223,27 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
                   <img src={item.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover" />
                 )}
               </div>
-              <div className="space-y-0.5">
-                <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
-                <Input
-                  type="url"
-                  value={item.reference_link || ''}
-                  onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                  placeholder="https://..."
-                  className="text-[10px] h-7"
-                />
-              </div>
-              <div className="space-y-0.5">
-                <Label className="text-[10px] flex items-center gap-1"><Video className="h-2.5 w-2.5" /> Video</Label>
-                <Input
-                  type="url"
-                  value={item.reference_video_url || ''}
-                  onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                  placeholder="https://youtube.com/..."
-                  className="text-[10px] h-7"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
+                  <Input
+                    type="url"
+                    value={item.reference_link || ''}
+                    onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                    placeholder="https://..."
+                    className="text-xs h-7 w-full"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <Label className="text-[10px] flex items-center gap-1"><Video className="h-2.5 w-2.5" /> Video</Label>
+                  <Input
+                    type="url"
+                    value={item.reference_video_url || ''}
+                    onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
+                    placeholder="https://youtube.com/..."
+                    className="text-xs h-7 w-full"
+                  />
+                </div>
               </div>
             </div>
           </CollapsibleContent>
