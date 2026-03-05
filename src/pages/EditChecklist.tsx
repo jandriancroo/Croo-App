@@ -193,6 +193,8 @@ export default function EditChecklist() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
+  const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
+  const [availablePositions, setAvailablePositions] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
 
   useEffect(() => {
