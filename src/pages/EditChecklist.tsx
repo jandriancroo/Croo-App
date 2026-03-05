@@ -387,6 +387,7 @@ export default function EditChecklist() {
         template_type: templateType,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
         enable_am_pm_division: enableAmPmDivision,
+        position_filtering_enabled: positionFilteringEnabled,
         updated_at: new Date().toISOString(),
       };
 
