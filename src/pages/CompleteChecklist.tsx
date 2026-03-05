@@ -94,6 +94,7 @@ export default function CompleteChecklist() {
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
   const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
+  const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
   
   // Position filter toggle - default to true (show only my position) when position filtering is enabled
@@ -125,6 +126,39 @@ export default function CompleteChecklist() {
       localStorage.removeItem(hideCompletedKey);
     }
   };
+
+  // Fetch shift template start times for position labels
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+    const fetchPositionTimes = async () => {
+      const { data } = await supabase
+        .from('shift_templates')
+        .select('position, start_time')
+        .eq('location_id', currentLocation.id)
+        .not('position', 'is', null);
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((t: any) => {
+          if (t.position && t.start_time && !map[t.position]) {
+            map[t.position] = t.start_time;
+          }
+        });
+        setPositionStartTimes(map);
+      }
+    };
+    fetchPositionTimes();
+  }, [currentLocation?.id]);
+
+  const formatPositionLabel = useCallback((position: string | null | undefined) => {
+    if (!position) return 'General';
+    const startTime = positionStartTimes[position];
+    if (!startTime) return position;
+    const [hours, minutes] = startTime.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${position} · ${displayHour}:${minutes} ${ampm}`;
+  }, [positionStartTimes]);
 
   // Clear localStorage when checklist reaches 100% completion
   useEffect(() => {
@@ -992,7 +1026,7 @@ export default function CompleteChecklist() {
                   }}
                 />
                 <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
-                  My tasks ({userPosition})
+                  My tasks ({formatPositionLabel(userPosition)})
                 </Label>
               </div>
             )}
@@ -1078,7 +1112,7 @@ export default function CompleteChecklist() {
                 <div className="flex items-center gap-3 py-3 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                   <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10">
-                    {item.position || 'General'}
+                    {formatPositionLabel(item.position)}
                   </span>
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 </div>
