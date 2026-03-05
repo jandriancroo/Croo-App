@@ -94,6 +94,7 @@ export default function CompleteChecklist() {
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
   const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
+  const [positionStartTimes, setPositionStartTimes] = useState<Record<string, string>>({});
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
   
   // Position filter toggle - default to true (show only my position) when position filtering is enabled
