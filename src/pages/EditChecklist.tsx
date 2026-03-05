@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
