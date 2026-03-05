@@ -58,17 +58,23 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
       const [receiptsRes, membersRes] = await Promise.all([
         supabase
           .from('message_read_receipts')
-          .select('user_id, read_at, profiles(full_name, profile_photo_url)')
+          .select('user_id, read_at, profiles(full_name, profile_photo_url, is_active, appears_on_schedule)')
           .eq('message_id', messageId),
         supabase
           .from('chat_members')
-          .select('user_id, profiles(full_name, profile_photo_url)')
+          .select('user_id, profiles(full_name, profile_photo_url, is_active, appears_on_schedule)')
           .eq('chat_id', chatId)
       ]);
 
       if (receiptsRes.error) throw receiptsRes.error;
-      setReceipts(receiptsRes.data as Receipt[]);
-      setAllMembers((membersRes.data || []) as ChatMember[]);
+      
+      // Filter out inactive and not-on-schedule users
+      const filterActive = (items: any[]) => items.filter((item: any) => 
+        item.profiles?.is_active !== false && item.profiles?.appears_on_schedule !== false
+      );
+      
+      setReceipts(filterActive(receiptsRes.data || []) as Receipt[]);
+      setAllMembers(filterActive(membersRes.data || []) as ChatMember[]);
     } catch (error: any) {
       console.error('Error fetching receipts:', error);
     }
