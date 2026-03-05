@@ -529,6 +529,20 @@ export default function DynamicChecklistCalendar() {
     }
   };
 
+  const handleUpdateRefImage = (itemId: string, url: string | null) => {
+    const updateItem = (item: ChecklistItem) =>
+      item.id === itemId ? { ...item, reference_image_url: url } : item;
+    
+    setItems(prev => prev.map(updateItem));
+    setUnassignedItems(prev => prev.map(updateItem));
+    
+    const newAssignedByDay = new Map(assignedByDay);
+    newAssignedByDay.forEach((tasks, day) => {
+      newAssignedByDay.set(day, tasks.map(updateItem));
+    });
+    setAssignedByDay(newAssignedByDay);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const task = event.active.data.current?.task;
     setActiveTask(task || null);
