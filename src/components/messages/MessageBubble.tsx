@@ -78,6 +78,23 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isPending = message.isPending;
   const isDeleted = message.is_deleted_for_everyone;
+  const markedRef = useRef<string | null>(null);
+
+  // Mark message as read for non-sender users
+  useEffect(() => {
+    if (!currentUserId || message.sender_id === currentUserId || isPending) return;
+    if (markedRef.current === message.id) return;
+    markedRef.current = message.id;
+
+    supabase
+      .from('message_read_receipts')
+      .insert({ message_id: message.id, user_id: currentUserId })
+      .then(({ error }) => {
+        if (error && !error.message?.includes('duplicate')) {
+          console.error('Error marking as read:', error);
+        }
+      });
+  }, [message.id, currentUserId, message.sender_id, isPending]);
 
   // Determine if image is old (>24h) and has no signed URL yet
   const SIGNED_URL_AGE_LIMIT_MS = 24 * 60 * 60 * 1000;

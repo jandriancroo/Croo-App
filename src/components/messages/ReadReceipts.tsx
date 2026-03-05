@@ -76,26 +76,7 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
     }
   };
 
-  const markAsRead = async () => {
-    if (!currentUserId || senderId === currentUserId) return;
-
-    try {
-      await supabase
-        .from('message_read_receipts')
-        .insert({
-          message_id: messageId,
-          user_id: currentUserId
-        });
-    } catch (error: any) {
-      if (!error.message?.includes('duplicate')) {
-        console.error('Error marking as read:', error);
-      }
-    }
-  };
-
-  // Only show receipts for sent messages from admins and higher
-  if (senderId !== currentUserId) return null;
-  if (roleLoading || !isAdmin) return null;
+  // markAsRead is now handled in MessageBubble for all users
 
   const readUserIds = new Set(receipts.map(r => r.user_id));
   const isReadByOthers = receipts.some(r => r.user_id !== senderId);
