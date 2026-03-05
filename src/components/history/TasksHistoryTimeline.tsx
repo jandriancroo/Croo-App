@@ -367,4 +367,3 @@ export function TasksHistoryTimeline({
     </Card>
   );
 }
-}
