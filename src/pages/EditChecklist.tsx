@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -22,7 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number';
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
@@ -96,6 +96,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             onValueChange={(value) => updateItem(index, 'item_type', value)}
           >
             <SelectTrigger className="w-auto min-w-0 h-7 px-2 shrink-0 gap-1">
+              {item.item_type === 'number' && <Hash className="h-3.5 w-3.5" />}
               {item.item_type === 'confirmation' && <CheckSquare className="h-3.5 w-3.5" />}
               {item.item_type === 'text' && <Type className="h-3.5 w-3.5" />}
               {item.item_type === 'image' && <Camera className="h-3.5 w-3.5" />}
@@ -105,6 +106,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
               <SelectItem value="text"><span className="flex items-center gap-2"><Type className="h-3.5 w-3.5" /> Text</span></SelectItem>
+              <SelectItem value="number"><span className="flex items-center gap-2"><Hash className="h-3.5 w-3.5" /> Number</span></SelectItem>
               <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
               <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
