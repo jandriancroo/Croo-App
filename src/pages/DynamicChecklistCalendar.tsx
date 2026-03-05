@@ -671,6 +671,7 @@ export default function DynamicChecklistCalendar() {
                     tasks={assignedByDay.get(index) || []}
                     holidays={holidays}
                     blackoutDates={blackoutDates}
+                    onUpdateRefImage={handleUpdateRefImage}
                   />
                 ))}
               </div>
