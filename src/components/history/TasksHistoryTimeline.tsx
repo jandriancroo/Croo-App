@@ -34,6 +34,7 @@ interface ChecklistStat {
   completedCount: number;
   contributors: Contributor[];
   lastCompletedAt?: string | null;
+  dueByTime?: string | null;
 }
 
 interface CompletedTask {
