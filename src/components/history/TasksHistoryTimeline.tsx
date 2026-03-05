@@ -361,15 +361,6 @@ export function TasksHistoryTimeline({
     <div className="space-y-2">
       {/* Compact stats + view toggle */}
       <div className="flex items-center gap-1.5">
-        <Badge variant="secondary" className="text-[10px] px-1.5">
-          {regularCount}
-        </Badge>
-        {(alarmCount > 0 || missedAlarmCount > 0) && (
-          <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5">
-            <Bell className="h-2.5 w-2.5" />
-            {alarmCount}/{alarmCount + missedAlarmCount}
-          </Badge>
-        )}
         <div className="flex-1" />
         {/* View toggle */}
         <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
