@@ -425,7 +425,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
       </div>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} />
+          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} />
         ))}
       </div>
     </div>
