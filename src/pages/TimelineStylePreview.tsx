@@ -297,9 +297,9 @@ function OptionE() {
         return (
           <div key={group.label}>
             <div className="flex items-center gap-2 mb-1.5">
-              <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
-              <span className="text-xs font-semibold text-foreground">{group.label}</span>
-              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+              <GroupIcon className={cn('h-4 w-4', group.color)} />
+              <span className="text-sm font-semibold text-foreground">{group.label}</span>
+              <span className="text-[11px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
             </div>
             <div className="space-y-0.5 ml-5">
               {group.items.map(item => {
