@@ -339,13 +339,10 @@ function OptionE() {
 // Main Preview Page
 // ============================================================
 export default function TimelineStylePreview() {
-  const [selected, setSelected] = useState<string>('A');
+  const [selected, setSelected] = useState<string>('E');
   const options = [
-    { id: 'A', label: 'Pill Timeline', desc: 'Colored pills on vertical timeline, larger for checklists/tasks' },
-    { id: 'B', label: 'Time Slots', desc: 'Schedule-style time column with grouped items per slot' },
-    { id: 'C', label: 'Accent Bars', desc: 'Left-border color bars with clean row layout' },
-    { id: 'D', label: 'Minimal Rows', desc: 'Clean divider rows with dot indicators and chevrons' },
     { id: 'E', label: 'Grouped', desc: 'Items grouped by type with section headers' },
+    { id: 'D', label: 'Timeline', desc: 'Clean divider rows with dot indicators and chevrons' },
   ];
 
   return (
