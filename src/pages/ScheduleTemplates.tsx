@@ -336,14 +336,42 @@ export default function ScheduleTemplates() {
               <div className="flex flex-wrap gap-2">
                 {positions.map(pos => (
                   <div key={pos} className="flex items-center gap-1 bg-muted px-2.5 py-1 rounded-md text-sm">
-                    <span>{pos}</span>
-                    {positionsOpen && (
-                      <button
-                        onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
-                        className="ml-1 hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                    {positionsOpen && editingPositionName === pos ? (
+                      <>
+                        <Input
+                          value={editPositionValue}
+                          onChange={e => setEditPositionValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleRenamePosition(pos, editPositionValue); if (e.key === 'Escape') setEditingPositionName(null); }}
+                          autoFocus
+                          className="h-6 w-24 text-xs px-1"
+                        />
+                        <button onClick={() => handleRenamePosition(pos, editPositionValue)} className="hover:text-foreground transition-colors">
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => setEditingPositionName(null)} className="hover:text-foreground transition-colors">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span>{pos}</span>
+                        {positionsOpen && (
+                          <>
+                            <button
+                              onClick={() => { setEditingPositionName(pos); setEditPositionValue(pos); }}
+                              className="ml-1 hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
+                              className="hover:text-destructive transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
