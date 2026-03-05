@@ -70,46 +70,25 @@ export default function Tasks() {
       <div className="space-y-4">
         <Tabs defaultValue="history" className="w-full">
           <div className="mb-4">
-            <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
-              <div className="space-y-3 flex-1">
-                <div className="flex items-center justify-between w-full">
-                  <h1 className="text-3xl font-bold">Tasks</h1>
-                  {/* Completion circle - right side */}
-                  <div className="relative flex items-center gap-2">
-                    <svg width={circleSize} height={circleSize} className="-rotate-90">
-                      <circle
-                        cx={circleSize / 2}
-                        cy={circleSize / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="hsl(var(--muted))"
-                        strokeWidth={strokeWidth}
-                      />
-                      <circle
-                        cx={circleSize / 2}
-                        cy={circleSize / 2}
-                        r={radius}
-                        fill="none"
-                        stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        className="transition-all duration-500"
-                      />
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">
-                      {completionPercent}
-                    </span>
-                    <span className="text-lg font-bold text-foreground ml-1">{completionPercent}%</span>
-                  </div>
-                </div>
+            <div className="flex justify-between items-start gap-4">
+              <div className="space-y-3">
+                <h1 className="text-3xl font-bold">Tasks</h1>
                 <TabsList>
                   <TabsTrigger value="history">History</TabsTrigger>
                   {(isAdmin || isManager) && (
                     <TabsTrigger value="edit">Edit</TabsTrigger>
                   )}
                 </TabsList>
+              </div>
+              {/* Completion circle - right aligned */}
+              <div className="relative flex items-center gap-2 mt-1">
+                <div className="relative">
+                  <svg width={circleSize} height={circleSize} className="-rotate-90">
+                    <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
+                    <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-500" />
+                  </svg>
+                </div>
+                <span className="text-xl font-bold text-foreground">{completionPercent}%</span>
               </div>
             </div>
             <PageHeaderDivider />
