@@ -1401,19 +1401,31 @@ export default function CompleteChecklist() {
                       </div>
                     );
                   })()}
-                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && <div className="flex items-center justify-center space-x-2 min-h-[60px]">
-                      <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
-                      <Label 
-                        htmlFor={`confirm-${item.id}`} 
-                        className="text-sm font-normal cursor-pointer leading-relaxed text-muted-foreground"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleResponseChange(item.id, !responses[item.id]);
-                        }}
-                      >
-                        Click to Complete
-                      </Label>
-                    </div>}
+                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && (
+                    <div 
+                      className="flex items-center justify-center min-h-[72px] cursor-pointer group"
+                      onClick={() => handleResponseChange(item.id, !responses[item.id])}
+                    >
+                      <div className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-200",
+                        responses[item.id] 
+                          ? "bg-primary/10 text-primary" 
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted group-active:scale-95"
+                      )}>
+                        <div className={cn(
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0",
+                          responses[item.id] 
+                            ? "border-primary bg-primary" 
+                            : "border-muted-foreground/40"
+                        )}>
+                          {responses[item.id] && <Check className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={3} />}
+                        </div>
+                        <span className="text-sm font-medium">
+                          {responses[item.id] ? 'Completed' : 'Tap to Complete'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
                   </>
                 )}
