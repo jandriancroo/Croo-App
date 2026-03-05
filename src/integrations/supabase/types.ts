@@ -1075,6 +1075,7 @@ export type Database = {
           manager_shift: string | null
           options: Json | null
           order_index: number
+          position: string | null
           question: string
           reference_image_url: string | null
           reference_link: string | null
@@ -1093,6 +1094,7 @@ export type Database = {
           manager_shift?: string | null
           options?: Json | null
           order_index: number
+          position?: string | null
           question: string
           reference_image_url?: string | null
           reference_link?: string | null
@@ -1111,6 +1113,7 @@ export type Database = {
           manager_shift?: string | null
           options?: Json | null
           order_index?: number
+          position?: string | null
           question?: string
           reference_image_url?: string | null
           reference_link?: string | null
@@ -1327,6 +1330,7 @@ export type Database = {
           is_active: boolean | null
           location_id: string | null
           lock_until_time: string | null
+          position_filtering_enabled: boolean | null
           template_type: string | null
           title: string
           updated_at: string | null
@@ -1345,6 +1349,7 @@ export type Database = {
           is_active?: boolean | null
           location_id?: string | null
           lock_until_time?: string | null
+          position_filtering_enabled?: boolean | null
           template_type?: string | null
           title: string
           updated_at?: string | null
@@ -1363,6 +1368,7 @@ export type Database = {
           is_active?: boolean | null
           location_id?: string | null
           lock_until_time?: string | null
+          position_filtering_enabled?: boolean | null
           template_type?: string | null
           title?: string
           updated_at?: string | null
