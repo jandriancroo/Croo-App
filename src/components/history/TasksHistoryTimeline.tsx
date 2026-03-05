@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 import { 
   ClipboardCheck, 
@@ -12,7 +13,11 @@ import {
   Bell,
   Calendar,
   BookOpen,
-  History as HistoryIcon
+  History as HistoryIcon,
+  ChevronRight,
+  AlertTriangle,
+  LayoutList,
+  Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -74,18 +79,168 @@ interface TasksHistoryTimelineProps {
   onTaskClick: (task: CompletedTask) => void;
 }
 
-const getTimelineDotColor = (level: number) => {
-  if (level === 100) return 'bg-emerald-500';
-  if (level >= 80) return 'bg-amber-500';
-  return 'bg-destructive';
+interface TimelineItem {
+  id: string;
+  type: 'checklist' | 'task' | 'alarm' | 'alarm-missed' | 'event' | 'logbook';
+  title: string;
+  description?: string | null;
+  completionLevel: number;
+  contributors: Contributor[];
+  totalItems?: number;
+  completedItems?: number;
+  accentColor?: string;
+  completedAt?: string;
+  displayTime?: string;
+  onClick?: () => void;
+}
+
+// ── Shared helper ──
+function ContributorAvatars({ contributors, size = 'md' }: { contributors: Contributor[]; size?: 'sm' | 'md' }) {
+  const sizeClass = size === 'md' ? 'h-5 w-5' : 'h-4 w-4';
+  const textSize = size === 'md' ? 'text-[8px]' : 'text-[7px]';
+  return (
+    <div className="flex items-center -space-x-1.5">
+      {contributors.slice(0, 4).map((c, i) => (
+        <Avatar key={i} className={cn(sizeClass, 'ring-1 ring-background shrink-0')}>
+          {c.photo && <AvatarImage src={c.photo} />}
+          <AvatarFallback className={cn(textSize, 'font-medium bg-primary/20 text-primary')}>{c.name?.charAt(0) || '?'}</AvatarFallback>
+        </Avatar>
+      ))}
+      {contributors.length > 4 && (
+        <Avatar className={cn(sizeClass, 'ring-1 ring-background shrink-0')}>
+          <AvatarFallback className={cn(textSize, 'font-medium bg-muted')}>+{contributors.length - 4}</AvatarFallback>
+        </Avatar>
+      )}
+    </div>
+  );
+}
+
+// ── Type config ──
+const typeConfig = {
+  checklist: { icon: ClipboardCheck, label: 'Checklist' },
+  task: { icon: ClipboardList, label: 'Task' },
+  alarm: { icon: Bell, label: 'Alarm' },
+  'alarm-missed': { icon: Bell, label: 'Alarm' },
+  event: { icon: Calendar, label: 'Event' },
+  logbook: { icon: BookOpen, label: 'Logbook' },
 };
 
-const getCompletionColor = (level: number) => {
-  if (level === 100) return 'text-emerald-500';
-  if (level >= 80) return 'text-amber-500';
-  return 'text-destructive';
-};
+// ══════════════════════════════════════════
+// GROUPED VIEW (Option E from preview)
+// ══════════════════════════════════════════
+function GroupedView({ items }: { items: TimelineItem[] }) {
+  const groups = [
+    { label: 'Events & Logbook', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', items: items.filter(i => i.type === 'event' || i.type === 'logbook') },
+    { label: 'Tasks', icon: ClipboardList, color: 'text-primary', items: items.filter(i => i.type === 'task') },
+    { label: 'Checklists', icon: ClipboardCheck, color: 'text-emerald-600 dark:text-emerald-400', items: items.filter(i => i.type === 'checklist') },
+    { label: 'Alarm Checks', icon: Bell, color: 'text-amber-600 dark:text-amber-400', items: items.filter(i => i.type === 'alarm' || i.type === 'alarm-missed') },
+  ].filter(g => g.items.length > 0);
 
+  return (
+    <div className="space-y-4">
+      {groups.map(group => {
+        const GroupIcon = group.icon;
+        const completedCount = group.items.filter(i => i.completionLevel === 100).length;
+        const missedCount = group.items.filter(i => i.type === 'alarm-missed').length;
+
+        return (
+          <div key={group.label}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <GroupIcon className={cn('h-4 w-4', group.color)} />
+              <span className="text-sm font-semibold text-foreground">{group.label}</span>
+              <span className="text-[11px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+            </div>
+            <div className="space-y-0.5 ml-5">
+              {group.items.map(item => {
+                const isMissed = item.type === 'alarm-missed';
+                const isComplete = item.completionLevel === 100;
+                const isChecklist = item.type === 'checklist';
+                const anchorTime = isChecklist ? item.displayTime : (item.displayTime);
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={item.onClick}
+                    className={cn('flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/40 transition-colors', isMissed && 'opacity-50')}
+                  >
+                    <span className="text-[11px] font-mono text-muted-foreground w-14 shrink-0">{anchorTime}</span>
+                    <span className={cn('text-sm font-medium flex-1 truncate', isMissed && 'line-through text-muted-foreground')}>{item.title}</span>
+                    {isMissed ? (
+                      <span className="text-[10px] font-bold text-destructive uppercase">Missed</span>
+                    ) : isChecklist && !isComplete ? (
+                      <span className="text-[11px] font-bold text-amber-600">{item.completedItems}/{item.totalItems}</span>
+                    ) : isComplete ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    ) : (
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-muted-foreground/20 shrink-0" />
+                    )}
+                    {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// TIMELINE VIEW (Option D from preview)
+// ══════════════════════════════════════════
+function TimelineView({ items }: { items: TimelineItem[] }) {
+  return (
+    <div className="divide-y divide-border/40">
+      {items.map(item => {
+        const isMissed = item.type === 'alarm-missed';
+        const isComplete = item.completionLevel === 100;
+        const isChecklist = item.type === 'checklist';
+        const anchorTime = isChecklist ? item.displayTime : (item.displayTime);
+        const Icon = typeConfig[item.type].icon;
+
+        const dotColorMap: Record<string, string> = {
+          checklist: isComplete ? 'bg-emerald-500' : item.completionLevel > 0 ? 'bg-amber-500' : 'bg-muted-foreground/30',
+          task: 'bg-primary',
+          alarm: 'bg-amber-400',
+          'alarm-missed': 'bg-destructive',
+          event: 'bg-blue-400',
+          logbook: 'bg-green-400',
+        };
+
+        return (
+          <div
+            key={item.id}
+            onClick={item.onClick}
+            className={cn('flex items-center gap-3 py-2 px-1 cursor-pointer hover:bg-muted/20 transition-colors', isMissed && 'opacity-50')}
+          >
+            <span className="text-[11px] font-mono text-muted-foreground w-16 text-right shrink-0">{anchorTime || ''}</span>
+            <div className={cn('w-2 h-2 rounded-full shrink-0', dotColorMap[item.type])} />
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', isMissed ? 'text-destructive' : 'text-muted-foreground')} />
+              <span className={cn('text-sm font-medium truncate', isMissed && 'line-through')}>{item.title}</span>
+            </div>
+            {isMissed ? (
+              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+            ) : isChecklist && !isComplete ? (
+              <span className="text-[11px] font-semibold text-amber-600 shrink-0">{item.completedItems}/{item.totalItems}</span>
+            ) : isComplete ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+            ) : (
+              <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/20 shrink-0" />
+            )}
+            {item.contributors.length > 0 && <ContributorAvatars contributors={item.contributors} size="md" />}
+            <ChevronRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════
 export function TasksHistoryTimeline({ 
   historyStats, 
   completedTempTasks, 
@@ -96,39 +251,21 @@ export function TasksHistoryTimeline({
 }: TasksHistoryTimelineProps) {
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
+  const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const dayLabel = isToday ? 'Today' : format(selectedDate, 'EEEE');
   const dateLabel = format(selectedDate, 'MMMM d, yyyy');
 
   // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
-    const items: Array<{
-      id: string;
-      type: 'checklist' | 'task' | 'alarm' | 'alarm-missed' | 'event' | 'logbook';
-      title: string;
-      description?: string | null;
-      completionLevel: number;
-      contributors: Contributor[];
-      totalItems?: number;
-      completedItems?: number;
-      accentColor?: string;
-      completedAt?: string; // ISO timestamp for sorting and display
-      displayTime?: string; // Formatted time for display
-      onClick?: () => void;
-    }> = [];
+    const items: TimelineItem[] = [];
 
     // Add checklists with their last completion time
-    // For monthly checklists, don't show a time since they accumulate across days
     historyStats?.forEach(stat => {
       const isMonthlyChecklist = stat.title?.toLowerCase().includes('monthly');
-      
-      // Only show time for non-monthly checklists (daily/weekly)
       const displayTime = (!isMonthlyChecklist && stat.lastCompletedAt)
         ? formatInTimeZone(new Date(stat.lastCompletedAt), timezone, 'h:mm a')
         : undefined;
-      
-      // Monthly checklists should sort by title at the bottom (no time = end of list)
-      // Daily checklists sort by their last completion time
       const completedAt = isMonthlyChecklist ? undefined : (stat.lastCompletedAt || undefined);
       
       items.push({
@@ -145,7 +282,7 @@ export function TasksHistoryTimeline({
       });
     });
 
-    // Add completed tasks with their completion times
+    // Add completed tasks
     completedTempTasks.forEach(task => {
       const isAlarm = task.task_style === 'alarm';
       const isMissedAlarm = task.task_style === 'alarm-missed';
@@ -170,7 +307,6 @@ export function TasksHistoryTimeline({
     // Add event completions
     eventCompletions.forEach(event => {
       const displayTime = formatInTimeZone(new Date(event.completed_at), timezone, 'h:mm a');
-      
       items.push({
         id: `event-${event.id}`,
         type: 'event',
@@ -184,10 +320,9 @@ export function TasksHistoryTimeline({
       });
     });
 
-    // Add logbook entries (safe counts, drawer counts)
+    // Add logbook entries
     logbookEntries.forEach(entry => {
       const displayTime = formatInTimeZone(new Date(entry.completed_at), timezone, 'h:mm a');
-      
       items.push({
         id: `logbook-${entry.id}`,
         type: 'logbook',
@@ -200,12 +335,11 @@ export function TasksHistoryTimeline({
       });
     });
 
-    // Sort all items chronologically by completion time (earliest first)
-    // Items without times (monthly checklists) go to the BOTTOM
+    // Sort chronologically; items without times go to bottom
     return items.sort((a, b) => {
       if (!a.completedAt && !b.completedAt) return 0;
-      if (!a.completedAt) return 1;  // No time = bottom of list
-      if (!b.completedAt) return -1; // Has time = above items without time
+      if (!a.completedAt) return 1;
+      if (!b.completedAt) return -1;
       return new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
     });
   }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
@@ -228,7 +362,7 @@ export function TasksHistoryTimeline({
 
   return (
     <div className="space-y-3">
-      {/* Day header - compact on mobile */}
+      {/* Day header */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full text-xs sm:text-sm font-semibold">
           {dayLabel}
@@ -245,152 +379,38 @@ export function TasksHistoryTimeline({
               {alarmCount}/{alarmCount + missedAlarmCount}
             </Badge>
           )}
+          {/* View toggle */}
+          <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
+            <button
+              onClick={() => setViewMode('grouped')}
+              className={cn(
+                'p-1 rounded-full transition-colors',
+                viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              )}
+              aria-label="Grouped view"
+            >
+              <Layers className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={cn(
+                'p-1 rounded-full transition-colors',
+                viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+              )}
+              aria-label="Timeline view"
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
       
-      <div className="relative ml-2 sm:ml-4">
-        {/* Vertical line */}
-        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-border" />
-        
-        {timelineItems.map((item) => {
-          // --- Alarm pills (small, compact) ---
-          if (item.type === 'alarm') {
-            const contributor = item.contributors[0];
-            return (
-              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8 cursor-pointer" onClick={item.onClick}>
-                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 ring-2 ring-background" />
-                </div>
-                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-amber-500/15 border border-amber-500/30 rounded-full text-[10px] sm:text-xs">
-                  <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-amber-600 shrink-0" />
-                  {item.displayTime && <span className="text-amber-700 dark:text-amber-400 font-medium shrink-0">{item.displayTime}</span>}
-                  <span className="text-foreground font-medium">{item.title}</span>
-                  <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
-                  {contributor && (
-                    <>
-                      <span className="text-muted-foreground mx-0.5">·</span>
-                      <Avatar className="h-4 w-4 shrink-0">
-                        {contributor.photo && <AvatarImage src={contributor.photo} />}
-                        <AvatarFallback className="text-[8px] font-medium bg-primary/20 text-primary">{contributor.name?.charAt(0) || '?'}</AvatarFallback>
-                      </Avatar>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          }
-
-          // --- Missed alarm pills (small, red) ---
-          if (item.type === 'alarm-missed') {
-            return (
-              <div key={item.id} className="relative flex items-center mb-1 pl-4 sm:pl-8">
-                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-destructive ring-2 ring-background" />
-                </div>
-                <div className="flex items-center gap-1 sm:gap-2 py-0.5 px-2 bg-destructive/10 border border-destructive/30 rounded-full text-[10px] sm:text-xs">
-                  <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-destructive shrink-0" />
-                  {item.displayTime && <span className="text-destructive font-medium shrink-0">{item.displayTime}</span>}
-                  <span className="text-muted-foreground font-medium">{item.title}</span>
-                  <span className="text-destructive font-semibold text-[9px] sm:text-[10px] uppercase tracking-wider">Missed</span>
-                </div>
-              </div>
-            );
-          }
-
-          // --- Determine pill styling by type ---
-          let pillBg: string;
-          let pillTextColor: string;
-          let dotColor: string;
-          let PillIcon: typeof ClipboardCheck;
-
-          if (item.type === 'checklist') {
-            const isComplete = item.completionLevel === 100;
-            pillBg = isComplete 
-              ? 'bg-emerald-500/10 border-emerald-500/30' 
-              : item.completionLevel >= 50 
-                ? 'bg-amber-500/10 border-amber-500/30' 
-                : 'bg-muted/50 border-border';
-            pillTextColor = isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground';
-            dotColor = getTimelineDotColor(item.completionLevel);
-            PillIcon = ClipboardCheck;
-          } else if (item.type === 'event') {
-            pillBg = 'bg-blue-500/15 border-blue-500/30';
-            pillTextColor = 'text-blue-600 dark:text-blue-400';
-            dotColor = 'bg-blue-400';
-            PillIcon = Calendar;
-          } else if (item.type === 'logbook') {
-            pillBg = 'bg-green-500/15 border-green-500/30';
-            pillTextColor = 'text-green-600 dark:text-green-400';
-            dotColor = 'bg-green-400';
-            PillIcon = BookOpen;
-          } else {
-            // Quick tasks - teal/primary
-            pillBg = 'bg-primary/10 border-primary/30';
-            pillTextColor = 'text-primary';
-            dotColor = 'bg-primary';
-            PillIcon = ClipboardList;
-          }
-
-          const isLarger = item.type === 'checklist' || item.type === 'task';
-
-          return (
-            <div 
-              key={item.id} 
-              className="relative flex items-center mb-1.5 pl-4 sm:pl-8 cursor-pointer"
-              onClick={item.onClick}
-            >
-              {/* Timeline dot */}
-              <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-2 ring-background ${dotColor}`} />
-              </div>
-              
-              {/* Pill */}
-              <div className={`flex items-center gap-1.5 sm:gap-2 ${isLarger ? 'py-1 px-3 text-xs sm:text-sm' : 'py-0.5 px-2 text-[10px] sm:text-xs'} border rounded-full ${pillBg}`}>
-                <PillIcon className={`${isLarger ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5 sm:h-3 sm:w-3'} shrink-0 ${pillTextColor}`} />
-                
-                {item.displayTime && (
-                  <span className={`font-medium shrink-0 ${pillTextColor}`}>{item.displayTime}</span>
-                )}
-                
-                <span className="text-foreground font-medium truncate max-w-[140px] sm:max-w-[220px]">{item.title}</span>
-                
-                {/* Completion indicator */}
-                {item.type === 'checklist' && item.completionLevel < 100 ? (
-                  <span className={`font-semibold shrink-0 ${getCompletionColor(item.completionLevel)}`}>
-                    {item.completedItems}/{item.totalItems}
-                  </span>
-                ) : (
-                  <CheckCircle2 className={`${isLarger ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5 sm:h-3 sm:w-3'} text-emerald-500 shrink-0`} />
-                )}
-                
-                {/* Contributors */}
-                {item.contributors.length > 0 && (
-                  <>
-                    <span className="text-muted-foreground mx-0.5">·</span>
-                    <div className="flex items-center -space-x-1.5">
-                      {item.contributors.slice(0, 4).map((contributor, idx) => (
-                        <Avatar key={idx} className={`${isLarger ? 'h-5 w-5' : 'h-4 w-4'} ring-1 ring-background shrink-0`}>
-                          {contributor.photo && <AvatarImage src={contributor.photo} />}
-                          <AvatarFallback className={`${isLarger ? 'text-[8px]' : 'text-[7px]'} font-medium bg-primary/20 text-primary`}>
-                            {contributor.name?.charAt(0) || '?'}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {item.contributors.length > 4 && (
-                        <Avatar className={`${isLarger ? 'h-5 w-5' : 'h-4 w-4'} ring-1 ring-background shrink-0`}>
-                          <AvatarFallback className={`${isLarger ? 'text-[8px]' : 'text-[7px]'} font-medium bg-muted`}>
-                            +{item.contributors.length - 4}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* Content */}
+      {viewMode === 'grouped' ? (
+        <GroupedView items={timelineItems} />
+      ) : (
+        <TimelineView items={timelineItems} />
+      )}
     </div>
   );
 }
