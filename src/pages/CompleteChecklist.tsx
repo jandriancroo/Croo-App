@@ -1050,8 +1050,8 @@ export default function CompleteChecklist() {
               });
             }
 
-            // Render items with optional divider
-            let lastShift: string | null | undefined = undefined;
+            // Track position headers for dividers
+            let lastRenderedPosition: string | null | undefined = undefined;
             let renderedDivider = false;
             
             return sortedItems.map((item, idx) => {
