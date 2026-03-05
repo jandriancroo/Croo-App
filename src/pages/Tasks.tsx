@@ -80,6 +80,16 @@ export default function Tasks() {
                   )}
                 </TabsList>
               </div>
+              {/* Completion circle - right aligned */}
+              <div className="relative flex items-center gap-2 mt-1">
+                <div className="relative">
+                  <svg width={circleSize} height={circleSize} className="-rotate-90">
+                    <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
+                    <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-500" />
+                  </svg>
+                </div>
+                <span className="text-xl font-bold text-foreground">{completionPercent}%</span>
+              </div>
             </div>
             <PageHeaderDivider />
           </div>
