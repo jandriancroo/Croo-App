@@ -598,8 +598,25 @@ export default function CreateChecklist() {
                   ))}
                 </div>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="position-filtering">Position Filtering</Label>
+                    <p className="text-xs text-muted-foreground">Assign items to shift positions so crew sees only their tasks</p>
+                  </div>
+                  <Switch
+                    id="position-filtering"
+                    checked={positionFilteringEnabled}
+                    onCheckedChange={setPositionFilteringEnabled}
+                  />
+                </div>
+                {positionFilteringEnabled && availablePositions.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    No positions found. Create positions in Schedule Templates first.
+                  </p>
+                )}
+              </div>
             </CardContent>
-          </Card>
 
           <Card>
             <CardHeader>
