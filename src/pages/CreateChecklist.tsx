@@ -59,6 +59,32 @@ export default function CreateChecklist() {
 
   const draftKey = `createChecklistDraft:${currentLocation?.id ?? 'no-location'}`;
 
+  // Fetch available positions from shift templates
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+    const fetchPositions = async () => {
+      const { data: locData } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .single();
+      if (locData?.organization_id) {
+        const { data: orgLocs } = await supabase
+          .from('locations')
+          .select('id')
+          .eq('organization_id', locData.organization_id);
+        const locIds = orgLocs?.map(l => l.id) || [currentLocation.id];
+        const { data: templates } = await supabase
+          .from('shift_templates')
+          .select('position')
+          .in('location_id', locIds);
+        const uniquePositions = [...new Set((templates || []).map(t => t.position).filter(Boolean))] as string[];
+        setAvailablePositions(uniquePositions.sort());
+      }
+    };
+    fetchPositions();
+  }, [currentLocation?.id]);
+
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
       navigate('/');
