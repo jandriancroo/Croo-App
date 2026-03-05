@@ -15,9 +15,7 @@ import {
   BookOpen,
   History as HistoryIcon,
   ChevronRight,
-  AlertTriangle,
-  LayoutList,
-  Layers
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
