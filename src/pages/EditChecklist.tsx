@@ -442,6 +442,7 @@ export default function EditChecklist() {
           reference_notes: item.reference_notes || null,
           order_index: index,
           manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
+          position: positionFilteringEnabled ? (item.position || null) : null,
         };
 
         if (item.id) {
