@@ -139,8 +139,10 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
     <div className="space-y-4">
       {groups.map(group => {
         const GroupIcon = group.icon;
-        const completedCount = group.items.filter(i => i.completionLevel === 100).length;
-        
+        const isAlarmGroup = group.label === 'Alarm Checks';
+        const completedCount = isAlarmGroup
+          ? group.items.filter(i => i.type === 'alarm').length
+          : group.items.filter(i => i.completionLevel === 100).length;
 
         return (
           <div key={group.label}>
@@ -354,13 +356,14 @@ export function TasksHistoryTimeline({
   }
 
   return (
-    <div className="space-y-2">
-      {/* Content */}
-      {viewMode === 'grouped' ? (
-        <GroupedView items={timelineItems} />
-      ) : (
-        <TimelineView items={timelineItems} />
-      )}
-    </div>
+    <Card>
+      <CardContent className="py-3 px-3">
+        {viewMode === 'grouped' ? (
+          <GroupedView items={timelineItems} />
+        ) : (
+          <TimelineView items={timelineItems} />
+        )}
+      </CardContent>
+    </Card>
   );
 }

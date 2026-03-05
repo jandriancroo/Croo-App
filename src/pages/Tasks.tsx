@@ -71,11 +71,11 @@ export default function Tasks() {
         <Tabs defaultValue="history" className="w-full">
           <div className="mb-4">
             <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
+              <div className="space-y-3 flex-1">
+                <div className="flex items-center justify-between w-full">
                   <h1 className="text-3xl font-bold">Tasks</h1>
-                  {/* Completion circle */}
-                  <div className="relative flex items-center gap-1.5">
+                  {/* Completion circle - right side */}
+                  <div className="relative flex items-center gap-2">
                     <svg width={circleSize} height={circleSize} className="-rotate-90">
                       <circle
                         cx={circleSize / 2}
@@ -99,8 +99,9 @@ export default function Tasks() {
                       />
                     </svg>
                     <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">
-                      {completionPercent}%
+                      {completionPercent}
                     </span>
+                    <span className="text-lg font-bold text-foreground ml-1">{completionPercent}%</span>
                   </div>
                 </div>
                 <TabsList>
