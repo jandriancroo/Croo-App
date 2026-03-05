@@ -6,10 +6,17 @@
 <style>
   body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
   .sig-wrapper { background: #fff; padding: 24px; border-radius: 8px; max-width: 500px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  .copy-btn { margin-top: 16px; padding: 10px 20px; background: #212121; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
-  .copy-btn:hover { background: #444; }
-  .instructions { margin-top: 12px; font-size: 13px; color: #666; }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .copy-btn, .img-btn { padding: 10px 20px; background: #212121; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .copy-btn:hover, .img-btn:hover { background: #444; }
+  .img-btn { background: #4A7A8C; }
+  .img-btn:hover { background: #3a6a7c; }
+  .instructions { margin-top: 12px; font-size: 13px; color: #666; line-height: 1.6; }
   .instructions b { color: #333; }
+  .section-title { margin-top: 24px; font-size: 15px; font-weight: bold; color: #333; }
+  .image-preview { margin-top: 12px; display: none; }
+  .image-preview img { max-width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+  .image-sig-code { margin-top: 12px; display: none; background: #f0f0f0; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -76,10 +83,26 @@
   </div>
 </div>
 
-<button class="copy-btn" onclick="copySignature()">📋 Copy Signature to Clipboard</button>
+<div class="btn-row">
+  <button class="copy-btn" onclick="copySignature()">📋 Copy HTML Signature</button>
+  <button class="img-btn" onclick="downloadAsImage()">📸 Download as Image</button>
+</div>
+
+<div class="image-preview" id="imagePreview">
+  <p class="section-title">✅ Image Signature Ready</p>
+  <img id="previewImg" />
+  <div class="instructions" style="margin-top:8px;">
+    <b>How to use in Spark / iOS Mail / Apple Mail:</b><br/>
+    1. Save the downloaded image to your Photos<br/>
+    2. Open your mail app → Settings → Signatures<br/>
+    3. In the signature field, insert the image (tap the photo icon or paste it)<br/>
+    4. That's it — the signature will appear as a clean image in every email
+  </div>
+</div>
+
 <div class="instructions">
-  <b>For Apple Mail:</b> Select the signature above with your mouse (click & drag), then press ⌘C to copy. Paste into Mail → Settings → Signatures.<br/>
-  Or try the button — it works in most browsers.
+  <b>Option 1 — HTML (Gmail web):</b> Click "Copy HTML Signature" and paste into Gmail → Settings → Signature.<br/>
+  <b>Option 2 — Image (Spark, iOS Mail, Apple Mail):</b> Click "Download as Image" to get a PNG you can paste/insert into any mail app's signature settings.
 </div>
 
 <script>
@@ -104,7 +127,154 @@ async function copySignature() {
     sel.removeAllRanges();
     btn.textContent = '✅ Copied!';
   }
-  setTimeout(() => btn.textContent = '📋 Copy Signature to Clipboard', 2000);
+  setTimeout(() => btn.textContent = '📋 Copy HTML Signature', 2000);
+}
+
+async function downloadAsImage() {
+  const btn = document.querySelector('.img-btn');
+  btn.textContent = '⏳ Rendering...';
+  btn.disabled = true;
+
+  try {
+    // Load the logo as base64 first
+    const logoImg = await loadImageAsBase64('https://croohq.com/croo-logo-transparent.webp');
+    
+    const scale = 2; // 2x for retina
+    const canvas = document.createElement('canvas');
+    const w = 500;
+    const h = 200;
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+
+    // Draw logo
+    if (logoImg) {
+      ctx.drawImage(logoImg, 20, 20, 70, 70);
+    }
+
+    // Name
+    ctx.fillStyle = '#333333';
+    ctx.font = 'bold 20px Arial, Helvetica, sans-serif';
+    ctx.fillText('Jordan Andrian', 110, 45);
+
+    // Title
+    ctx.fillStyle = '#555555';
+    ctx.font = '14px Arial, Helvetica, sans-serif';
+    ctx.fillText('CrooHQ', 110, 65);
+
+    // LinkedIn button
+    ctx.fillStyle = '#4A7A8C';
+    roundRect(ctx, 290, 28, 36, 32, 4);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px Arial, Helvetica, sans-serif';
+    ctx.fillText('in', 300, 50);
+
+    // Teal divider
+    ctx.fillStyle = '#6BA8A4';
+    ctx.fillRect(110, 80, 370, 2);
+
+    // Arrow + website
+    ctx.fillStyle = '#6BA8A4';
+    ctx.font = '14px Arial, sans-serif';
+    ctx.fillText('➤', 110, 102);
+    ctx.fillStyle = '#555555';
+    ctx.font = '13px Arial, Helvetica, sans-serif';
+    ctx.fillText('www.croohq.com', 130, 102);
+
+    // Email icon + email
+    ctx.fillStyle = '#6BA8A4';
+    ctx.font = '14px Arial, sans-serif';
+    ctx.fillText('✉', 280, 102);
+    ctx.fillStyle = '#555555';
+    ctx.font = '13px Arial, Helvetica, sans-serif';
+    ctx.fillText('jordan@croohq.com', 300, 102);
+
+    // Bottom teal divider
+    ctx.fillStyle = '#6BA8A4';
+    ctx.fillRect(110, 114, 370, 2);
+
+    // Disclaimer
+    ctx.fillStyle = '#999999';
+    ctx.font = '9px Arial, Helvetica, sans-serif';
+    const disclaimer = 'IMPORTANT: The contents of this email and any attachments are confidential. They are intended for the named recipient(s) only. If you have received this email by mistake, please notify the sender immediately and do not disclose the contents to anyone or make copies thereof.';
+    wrapText(ctx, disclaimer, 20, 145, 460, 12);
+
+    // Convert to PNG and download
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      
+      // Show preview
+      const preview = document.getElementById('imagePreview');
+      const previewImg = document.getElementById('previewImg');
+      previewImg.src = url;
+      preview.style.display = 'block';
+
+      // Auto download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'jordan-andrian-signature.png';
+      a.click();
+
+      btn.textContent = '✅ Downloaded!';
+      setTimeout(() => {
+        btn.textContent = '📸 Download as Image';
+        btn.disabled = false;
+      }, 2000);
+    }, 'image/png');
+
+  } catch (err) {
+    console.error('Image generation error:', err);
+    btn.textContent = '❌ Error — try again';
+    btn.disabled = false;
+    setTimeout(() => btn.textContent = '📸 Download as Image', 2000);
+  }
+}
+
+function loadImageAsBase64(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, x, y);
+      line = words[i] + ' ';
+      y += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, y);
 }
 </script>
 
