@@ -143,6 +143,7 @@ export function useTasksData() {
           title,
           template_type,
           frequency,
+          visible_days_before_month_end,
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
