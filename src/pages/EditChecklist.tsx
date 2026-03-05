@@ -106,6 +106,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
             <SelectContent>
               <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
               <SelectItem value="text"><span className="flex items-center gap-2"><Type className="h-3.5 w-3.5" /> Text</span></SelectItem>
+              <SelectItem value="number"><span className="flex items-center gap-2"><Hash className="h-3.5 w-3.5" /> Number</span></SelectItem>
               <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
               <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
               <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
