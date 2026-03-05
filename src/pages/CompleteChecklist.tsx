@@ -1285,6 +1285,8 @@ export default function CompleteChecklist() {
                     const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const isComplete = currentPhotos.length >= minPhotos;
 
+                    const hasSplitView = !!item.reference_image_url && !isMultiPhoto;
+
                     return (
                       <div className="space-y-3">
                         {isMultiPhoto && (
@@ -1296,7 +1298,95 @@ export default function CompleteChecklist() {
                           </div>
                         )}
 
-                        {/* Display existing photos */}
+                        {/* Split View: Reference on left, Camera/Photo on right */}
+                        {hasSplitView && !hasResponse ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Left: Reference Standard */}
+                            <div className="space-y-1.5">
+                              <Badge variant="secondary" className="text-[10px] h-4 gap-1">
+                                <Eye className="h-2.5 w-2.5" />
+                                Standard
+                              </Badge>
+                              <div 
+                                className="relative cursor-pointer group/ref rounded-lg overflow-hidden border border-primary/20 bg-muted/20"
+                                onClick={() => setPreviewImage(item.reference_image_url!)}
+                              >
+                                <img 
+                                  src={item.reference_image_url} 
+                                  alt="Reference standard" 
+                                  className="w-full aspect-[3/4] object-cover" 
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors flex items-center justify-center">
+                                  <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
+                                </div>
+                              </div>
+                              {item.reference_notes && (
+                                <p className="text-[10px] text-muted-foreground italic leading-tight">📋 {item.reference_notes}</p>
+                              )}
+                            </div>
+
+                            {/* Right: Camera / Uploaded Photo */}
+                            <div className="space-y-1.5">
+                              <Badge variant="outline" className="text-[10px] h-4 gap-1">
+                                <Camera className="h-2.5 w-2.5" />
+                                Your Photo
+                              </Badge>
+                              {currentPhotos.length > 0 ? (
+                                <div 
+                                  className="relative cursor-pointer group/photo rounded-lg overflow-hidden border"
+                                  onClick={() => setPreviewImage(currentPhotos[0])}
+                                >
+                                  <img
+                                    src={currentPhotos[0]}
+                                    alt="Your photo"
+                                    className="w-full aspect-[3/4] object-cover"
+                                    loading="lazy"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setPreviewImage(currentPhotos[0]);
+                                    }}
+                                    className="absolute top-2 right-2 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <Label 
+                                  htmlFor={`image-camera-${item.id}-1`}
+                                  className="cursor-pointer"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    document.getElementById(`image-camera-${item.id}-1`)?.click();
+                                  }}
+                                >
+                                  <div className="flex flex-col items-center justify-center aspect-[3/4] rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors">
+                                    <Camera className="h-8 w-8 text-muted-foreground mb-1" />
+                                    <span className="text-[10px] text-muted-foreground">Tap to snap</span>
+                                  </div>
+                                </Label>
+                              )}
+                              <Input
+                                id={`image-camera-${item.id}-1`}
+                                type="file"
+                                accept="image/*"
+                                capture={isIOS ? "environment" : undefined}
+                                className="hidden"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleImageUpload(item.id, file);
+                                  e.target.value = '';
+                                }}
+                                required={item.is_required && !isComplete}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                        {/* Display existing photos (non-split view) */}
                         {currentPhotos.length > 0 && (
                           <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-1'}`}>
                             {currentPhotos.map((photoUrl, idx) => (
@@ -1328,7 +1418,7 @@ export default function CompleteChecklist() {
                           </div>
                         )}
 
-                        {/* Upload buttons — compact "Snap a Photo" style */}
+                        {/* Upload buttons */}
                         {!isComplete && (
                           <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                             {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
@@ -1366,6 +1456,8 @@ export default function CompleteChecklist() {
                               );
                             })}
                           </div>
+                        )}
+                          </>
                         )}
 
                         {/* Temperature manual override (for low-memory camera failures) */}
