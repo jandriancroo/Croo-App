@@ -4,7 +4,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
+
 import { 
   ClipboardCheck, 
   ClipboardList, 
@@ -360,7 +360,72 @@ export function TasksHistoryTimeline({
             );
           }
 
-          // Regular card for checklists and tasks - mobile optimized
+          // Checklist pill style - matches alarm/event compact layout
+          if (item.type === 'checklist') {
+            const isComplete = item.completionLevel === 100;
+            const bgColor = isComplete 
+              ? 'bg-emerald-500/10 border-emerald-500/30' 
+              : item.completionLevel >= 50 
+                ? 'bg-amber-500/10 border-amber-500/30' 
+                : 'bg-muted/50 border-border';
+            const dotColor = getTimelineDotColor(item.completionLevel);
+            
+            return (
+              <div 
+                key={item.id} 
+                className="relative flex items-center mb-1 pl-4 sm:pl-8 cursor-pointer"
+                onClick={item.onClick}
+              >
+                {/* Timeline dot */}
+                <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ring-2 ring-background ${dotColor}`} />
+                </div>
+                
+                {/* Compact pill */}
+                <div className={`flex items-center gap-1 sm:gap-2 py-0.5 px-2 border rounded-full text-[10px] sm:text-xs ${bgColor}`}>
+                  <ClipboardCheck className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground shrink-0" />
+                  {item.displayTime && (
+                    <span className="text-muted-foreground font-medium shrink-0">{item.displayTime}</span>
+                  )}
+                  <span className="text-foreground font-medium truncate max-w-[120px] sm:max-w-[200px]">{item.title}</span>
+                  
+                  {isComplete ? (
+                    <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500 shrink-0" />
+                  ) : (
+                    <span className={`font-semibold shrink-0 ${getCompletionColor(item.completionLevel)}`}>
+                      {item.completedItems}/{item.totalItems}
+                    </span>
+                  )}
+                  
+                  {/* Contributor avatars */}
+                  {item.contributors.length > 0 && (
+                    <>
+                      <span className="text-muted-foreground mx-0.5">·</span>
+                      <div className="flex items-center -space-x-1">
+                        {item.contributors.slice(0, 3).map((contributor, idx) => (
+                          <Avatar key={idx} className="h-4 w-4 ring-1 ring-background shrink-0">
+                            {contributor.photo && <AvatarImage src={contributor.photo} />}
+                            <AvatarFallback className="text-[7px] font-medium bg-primary/20 text-primary">
+                              {contributor.name?.charAt(0) || '?'}
+                            </AvatarFallback>
+                          </Avatar>
+                        ))}
+                        {item.contributors.length > 3 && (
+                          <Avatar className="h-4 w-4 ring-1 ring-background shrink-0">
+                            <AvatarFallback className="text-[7px] font-medium bg-muted">
+                              +{item.contributors.length - 3}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          // Regular card for manual tasks
           return (
             <div key={item.id} className="relative flex items-start mb-2 pl-4 sm:pl-8">
               {/* Timeline dot */}
@@ -375,28 +440,22 @@ export function TasksHistoryTimeline({
                 onClick={item.onClick}
               >
                 <CardContent className="py-1.5 px-2 sm:py-2 sm:px-3">
-                  {/* Single row: icon + title + time/completion */}
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div 
                       className="p-1 rounded shrink-0"
                       style={{ 
-                        backgroundColor: (item.type === 'task' && item.accentColor)
+                        backgroundColor: item.accentColor
                           ? `${item.accentColor}20` 
                           : 'hsl(var(--muted))'
                       }}
                     >
-                      {item.type === 'checklist' ? (
-                        <ClipboardCheck className="h-4 w-4" />
-                      ) : (
-                        <ClipboardList className="h-4 w-4" />
-                      )}
+                      <ClipboardList className="h-4 w-4" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <span className="font-medium text-sm truncate block">{item.title}</span>
                     </div>
 
-                    {/* Show time for items with displayTime */}
                     {item.displayTime && (
                       <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">
                         {item.displayTime}
@@ -414,7 +473,6 @@ export function TasksHistoryTimeline({
                     </div>
                   </div>
                   
-                  {/* Contributors row - compact avatars only on mobile */}
                   <div className="flex items-center justify-between mt-1 gap-2">
                     <div className="flex items-center gap-0.5">
                       {item.contributors.slice(0, 5).map((contributor, idx) => (
@@ -438,17 +496,7 @@ export function TasksHistoryTimeline({
                         {item.contributors.map(c => c.name).join(', ')}
                       </span>
                     </div>
-                    
-                    {item.type === 'checklist' && item.totalItems && (
-                      <span className="text-[10px] text-muted-foreground">
-                        {item.completedItems}/{item.totalItems} items
-                      </span>
-                    )}
                   </div>
-                  
-                  {item.completionLevel < 100 && (
-                    <Progress value={item.completionLevel} className="h-1 mt-1.5" />
-                  )}
                 </CardContent>
               </Card>
             </div>
