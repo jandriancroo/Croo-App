@@ -408,6 +408,7 @@ export default function CreateChecklist() {
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,
+      position: positionFilteringEnabled ? (item.position || null) : null,
     }));
 
     const { error: itemsError } = await supabase
