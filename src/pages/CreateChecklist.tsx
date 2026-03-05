@@ -762,6 +762,26 @@ export default function CreateChecklist() {
                           </div>
                         )}
 
+                        {positionFilteringEnabled && availablePositions.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm text-muted-foreground whitespace-nowrap">Position:</Label>
+                            <Select
+                              value={item.position || 'none'}
+                              onValueChange={(value) => updateItem(index, 'position', value === 'none' ? null : value)}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="All positions" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">All Positions</SelectItem>
+                                {availablePositions.map(pos => (
+                                  <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
                         {/* Reference Materials Section */}
                         <div className="border-t pt-4 space-y-4">
                           <Label className="text-sm font-semibold">Reference Materials (Optional)</Label>
