@@ -42,6 +42,8 @@ interface SortableChecklistItemProps {
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
   showAmPmSelector?: boolean;
+  showPositionSelector?: boolean;
+  availablePositions?: string[];
 }
 
 function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector }: SortableChecklistItemProps) {
