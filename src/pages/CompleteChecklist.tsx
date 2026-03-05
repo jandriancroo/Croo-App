@@ -1241,6 +1241,7 @@ export default function CompleteChecklist() {
                 )}
                 <CardContent className={`${hasResponse && isImageItem ? 'p-0' : 'pt-0 pb-2'} ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
+                  {item.item_type === 'number' && <Input type="number" inputMode="decimal" value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter a number" required={item.is_required} className="text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
                           <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
