@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

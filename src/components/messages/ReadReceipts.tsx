@@ -36,10 +36,6 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
   const [allMembers, setAllMembers] = useState<ChatMember[]>([]);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    markAsRead();
-  }, [messageId]);
-
   // Only fetch full data when popover opens
   useEffect(() => {
     if (open) {
