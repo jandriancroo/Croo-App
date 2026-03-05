@@ -388,6 +388,7 @@ export default function CreateChecklist() {
         template_type: 'dynamic',
         created_by: userId,
         location_id: locationId,
+        position_filtering_enabled: positionFilteringEnabled,
       })
       .select()
       .single();
