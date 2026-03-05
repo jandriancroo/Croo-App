@@ -617,6 +617,7 @@ export default function CreateChecklist() {
                 )}
               </div>
             </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
