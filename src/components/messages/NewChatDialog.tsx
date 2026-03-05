@@ -77,6 +77,7 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
           .from('profiles')
           .select('id, full_name, profile_photo_url')
           .eq('is_active', true)
+          .eq('appears_on_schedule', true)
           .neq('id', user.id)
           .in('id', userIds)
           .order('full_name');
