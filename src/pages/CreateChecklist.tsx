@@ -328,6 +328,7 @@ export default function CreateChecklist() {
         created_by: userId,
         location_id: locationId,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
+        position_filtering_enabled: positionFilteringEnabled,
       })
       .select()
       .single();
