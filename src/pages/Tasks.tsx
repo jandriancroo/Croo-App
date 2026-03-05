@@ -66,7 +66,9 @@ export default function Tasks() {
             <DateNavigator
               onPrev={() => setHistoryDate(subDays(historyDate, 1))}
               onNext={() => setHistoryDate(addDays(historyDate, 1))}
-              label={`${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
+              label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
+                ? `Today, ${format(historyDate, 'MMM d')}` 
+                : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
               canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
             />
 
