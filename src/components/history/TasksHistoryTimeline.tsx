@@ -371,29 +371,28 @@ export function TasksHistoryTimeline({
           </Badge>
         )}
         <div className="flex-1" />
-          {/* View toggle */}
-          <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
-            <button
-              onClick={() => setViewMode('grouped')}
-              className={cn(
-                'p-1 rounded-full transition-colors',
-                viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              aria-label="Grouped view"
-            >
-              <Layers className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={cn(
-                'p-1 rounded-full transition-colors',
-                viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-              )}
-              aria-label="Timeline view"
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        {/* View toggle */}
+        <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
+          <button
+            onClick={() => setViewMode('grouped')}
+            className={cn(
+              'p-1 rounded-full transition-colors',
+              viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+            aria-label="Grouped view"
+          >
+            <Layers className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setViewMode('timeline')}
+            className={cn(
+              'p-1 rounded-full transition-colors',
+              viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+            aria-label="Timeline view"
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
       
