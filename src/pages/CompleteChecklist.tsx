@@ -92,7 +92,19 @@ export default function CompleteChecklist() {
     user
   } = useAuth();
   const { isAdmin, isManager, isShiftManager } = useUserRole();
+  const { currentLocation } = useLocation();
+  const { position: userPosition, loading: positionLoading } = useUserPosition(user?.id, currentLocation?.id);
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  
+  // Position filter toggle - default to true (show only my position) when position filtering is enabled
+  const posFilterKey = `positionFilter_${id}`;
+  const [showOnlyMyPosition, setShowOnlyMyPosition] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(posFilterKey);
+      return stored !== 'false'; // default true
+    }
+    return true;
+  });
   
   // Hide completed items toggle - persists per checklist in localStorage
   const hideCompletedKey = `hideCompleted_${id}`;
