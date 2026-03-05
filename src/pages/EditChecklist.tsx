@@ -262,6 +262,7 @@ export default function EditChecklist() {
   const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
   const [availablePositions, setAvailablePositions] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
