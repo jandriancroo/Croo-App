@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -45,9 +45,10 @@ interface SortableChecklistItemProps {
   showAmPmSelector?: boolean;
   showPositionSelector?: boolean;
   availablePositions?: string[];
+  onEnterKey?: (index: number) => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [showReference, setShowReference] = useState(false);
@@ -70,8 +71,15 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
         {/* Row 1: question input + position badge + delete */}
         <div className="flex items-center gap-1.5">
           <Input
+            data-checklist-item-input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onEnterKey?.(index);
+              }
+            }}
             placeholder="Task name"
             className="flex-1 min-w-0 h-8 text-sm"
           />
@@ -520,13 +528,26 @@ export default function EditChecklist() {
     }
   };
 
-  const addItem = () => {
-    setItems([...items, {
+  const addItem = (afterIndex?: number) => {
+    const newItem: ChecklistItem = {
       question: '',
       item_type: 'confirmation',
       is_required: true,
       order_index: items.length,
-    }]);
+    };
+    if (afterIndex !== undefined) {
+      const newItems = [...items];
+      newItems.splice(afterIndex + 1, 0, newItem);
+      setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
+    } else {
+      setItems([...items, newItem]);
+    }
+    // Focus the new input after render
+    setTimeout(() => {
+      const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
+      const targetIdx = afterIndex !== undefined ? afterIndex + 1 : items.length;
+      inputs[targetIdx]?.focus();
+    }, 50);
   };
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
@@ -707,9 +728,14 @@ export default function EditChecklist() {
 
         {/* Checklist Items */}
         <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-base">Checklist Items</CardTitle>
-            <CardDescription className="text-xs">Drag to reorder</CardDescription>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Checklist Items</CardTitle>
+              <CardDescription className="text-xs">Drag to reorder · Enter to add next</CardDescription>
+            </div>
+            <Button onClick={() => addItem()} variant="outline" size="icon" className="h-8 w-8 shrink-0">
+              <Plus className="h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3 px-4">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -726,14 +752,11 @@ export default function EditChecklist() {
                     showAmPmSelector={enableAmPmDivision}
                     showPositionSelector={positionFilteringEnabled}
                     availablePositions={availablePositions}
+                    onEnterKey={(idx) => addItem(idx)}
                   />
                 ))}
               </SortableContext>
             </DndContext>
-
-            <Button onClick={addItem} variant="outline" className="w-full">
-              Add Item
-            </Button>
           </CardContent>
         </Card>
 
