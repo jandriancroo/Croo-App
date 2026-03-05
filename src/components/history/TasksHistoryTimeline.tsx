@@ -76,6 +76,11 @@ interface TasksHistoryTimelineProps {
   eventCompletions: EventCompletion[];
   logbookEntries: LogbookEntry[];
   selectedDate: Date;
+  viewMode: 'grouped' | 'timeline';
+  onTaskClick: (task: CompletedTask) => void;
+}
+  logbookEntries: LogbookEntry[];
+  selectedDate: Date;
   onTaskClick: (task: CompletedTask) => void;
 }
 
