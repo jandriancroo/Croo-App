@@ -4,12 +4,15 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, X, ImagePlus, Trash2, Eye, Camera } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
@@ -23,6 +26,7 @@ interface ChecklistItem {
   days_of_week: number[] | null;
   requires_temperature_validation: boolean;
   reference_image_url: string | null;
+  reference_notes: string | null;
 }
 
 interface Checklist {
@@ -38,12 +42,17 @@ interface Holiday {
   holiday_type: string;
 }
 
-function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void }) {
+function DraggableTask({ task, onDelete, onUpdateRefImage, onUpdateRefNotes }: { task: ChecklistItem; onDelete?: (id: string) => void; onUpdateRefImage?: (id: string, url: string | null) => void; onUpdateRefNotes?: (id: string, notes: string | null) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogNotes, setDialogNotes] = useState(task.reference_notes || '');
+  const [dialogImageUrl, setDialogImageUrl] = useState(task.reference_image_url || '');
+  const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const style = transform
     ? {
@@ -52,9 +61,16 @@ function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistIt
       }
     : undefined;
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenDialog = () => {
+    setDialogNotes(task.reference_notes || '');
+    setDialogImageUrl(task.reference_image_url || '');
+    setDialogOpen(true);
+  };
+
+  const handleDialogImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !onUpdateRefImage) return;
+    if (!file) return;
+    setUploading(true);
 
     try {
       const fileName = `checklist-refs/${task.id}-${Date.now()}.${file.name.split('.').pop()}`;
@@ -68,31 +84,52 @@ function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistIt
         .from('checklist-images')
         .getPublicUrl(fileName);
 
-      await supabase
-        .from('checklist_items')
-        .update({ reference_image_url: data.publicUrl })
-        .eq('id', task.id);
-
-      onUpdateRefImage(task.id, data.publicUrl);
-      toast.success('Reference photo added');
+      setDialogImageUrl(data.publicUrl);
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload photo');
     }
+    setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSaveReference = async () => {
+    try {
+      const updates: Record<string, any> = {
+        reference_image_url: dialogImageUrl || null,
+        reference_notes: dialogNotes.trim() || null,
+      };
+
+      await supabase
+        .from('checklist_items')
+        .update(updates)
+        .eq('id', task.id);
+
+      onUpdateRefImage?.(task.id, dialogImageUrl || null);
+      onUpdateRefNotes?.(task.id, dialogNotes.trim() || null);
+      setDialogOpen(false);
+      toast.success('Reference standard saved');
+    } catch (error) {
+      console.error('Save error:', error);
+      toast.error('Failed to save reference');
+    }
   };
 
   const handleRemoveImage = async () => {
     if (!onUpdateRefImage) return;
     await supabase
       .from('checklist_items')
-      .update({ reference_image_url: null })
+      .update({ reference_image_url: null, reference_notes: null })
       .eq('id', task.id);
     onUpdateRefImage(task.id, null);
-    toast.success('Reference photo removed');
+    onUpdateRefNotes?.(task.id, null);
+    toast.success('Reference removed');
   };
 
+  const hasReference = !!task.reference_image_url || !!task.reference_notes;
+
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -105,24 +142,15 @@ function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistIt
         </div>
         <div className="flex items-center gap-0.5">
           {onUpdateRefImage && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => fileInputRef.current?.click()}
-                title="Add reference photo"
-              >
-                <ImagePlus className="h-3.5 w-3.5" />
-              </Button>
-            </>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-6 w-6 transition-opacity ${hasReference ? 'opacity-100 text-primary' : 'opacity-0 group-hover:opacity-100'}`}
+              onClick={handleOpenDialog}
+              title={hasReference ? "Edit reference standard" : "Add reference standard"}
+            >
+              <ImagePlus className="h-3.5 w-3.5" />
+            </Button>
           )}
           {onDelete && (
             <Button
@@ -138,7 +166,15 @@ function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistIt
       </div>
       {task.reference_image_url && (
         <div className="mt-1.5 relative group/img">
-          <img src={task.reference_image_url} alt="Reference" className="rounded max-h-16 object-cover w-full" />
+          <img 
+            src={task.reference_image_url} 
+            alt="Reference" 
+            className="rounded max-h-16 object-cover w-full cursor-pointer" 
+            onClick={() => setPreviewOpen(true)}
+          />
+          {task.reference_notes && (
+            <p className="text-[10px] text-muted-foreground italic mt-0.5 line-clamp-1">📋 {task.reference_notes}</p>
+          )}
           {onUpdateRefImage && (
             <Button
               variant="destructive"
@@ -151,14 +187,116 @@ function DraggableTask({ task, onDelete, onUpdateRefImage }: { task: ChecklistIt
           )}
         </div>
       )}
+      {!task.reference_image_url && task.reference_notes && (
+        <p className="text-[10px] text-muted-foreground italic mt-1 line-clamp-1">📋 {task.reference_notes}</p>
+      )}
     </div>
+
+    {/* Reference Standard Dialog */}
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogContent className="max-w-md max-w-[calc(100vw-2rem)]">
+        <DialogHeader>
+          <DialogTitle className="text-base">Reference Standard</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Set the quality standard for "{task.question}". This helps team members understand expectations.
+          </p>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Photo section */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Reference Photo</Label>
+            {dialogImageUrl ? (
+              <div className="relative group/preview">
+                <img 
+                  src={dialogImageUrl} 
+                  alt="Reference" 
+                  className="rounded-lg w-full max-h-48 object-cover border"
+                />
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 bg-background/80 hover:bg-background shadow-sm"
+                    onClick={() => setPreviewOpen(true)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="h-7 w-7 shadow-sm"
+                    onClick={() => setDialogImageUrl('')}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleDialogImageUpload}
+                />
+                <Button
+                  variant="outline"
+                  className="w-full h-24 border-dashed flex flex-col gap-1"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <span className="text-sm text-muted-foreground">Uploading...</span>
+                  ) : (
+                    <>
+                      <Camera className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Tap to add photo</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Notes section */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Description</Label>
+            <Textarea
+              value={dialogNotes}
+              onChange={e => setDialogNotes(e.target.value)}
+              placeholder="Describe what a properly completed task looks like..."
+              className="min-h-[80px] text-sm resize-none"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Tip: Be specific — "All items aligned, labels facing forward" works better than "Clean shelf"
+            </p>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleSaveReference} disabled={!dialogImageUrl && !dialogNotes.trim()}>
+            Save Standard
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Image Preview Dialog */}
+    <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+      <DialogContent className="max-w-2xl">
+        <img src={dialogOpen ? dialogImageUrl : (task.reference_image_url || '')} alt="Reference preview" className="w-full max-h-[70vh] object-contain rounded" />
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
+function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onUpdateRefNotes, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
   unassignedItems: ChecklistItem[]; 
   onDelete: (id: string) => void; 
   onUpdateRefImage: (id: string, url: string | null) => void;
+  onUpdateRefNotes: (id: string, notes: string | null) => void;
   onQuickAdd: () => void;
   newQuestion: string;
   setNewQuestion: (value: string) => void;
@@ -220,20 +358,21 @@ function UnassignedDropzone({ unassignedItems, onDelete, onUpdateRefImage, onQui
       </p>
       <div className="space-y-2">
         {unassignedItems.map((task) => (
-          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} />
+          <DraggableTask key={task.id} task={task} onDelete={onDelete} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} />
         ))}
       </div>
     </Card>
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage }: { 
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpdateRefImage, onUpdateRefNotes }: { 
   dayIndex: number; 
   dayName: string; 
   tasks: ChecklistItem[];
   holidays: Holiday[];
   blackoutDates: string[];
   onUpdateRefImage: (id: string, url: string | null) => void;
+  onUpdateRefNotes: (id: string, notes: string | null) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
@@ -286,7 +425,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates, onUpd
       </div>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} />
+          <DraggableTask key={task.id} task={task} onUpdateRefImage={onUpdateRefImage} onUpdateRefNotes={onUpdateRefNotes} />
         ))}
       </div>
     </div>
@@ -490,6 +629,7 @@ export default function DynamicChecklistCalendar() {
         days_of_week: null,
         requires_temperature_validation: data.requires_temperature_validation || false,
         reference_image_url: data.reference_image_url || null,
+        reference_notes: data.reference_notes || null,
       };
 
       setItems([...items, newItem]);
@@ -533,6 +673,20 @@ export default function DynamicChecklistCalendar() {
   const handleUpdateRefImage = (itemId: string, url: string | null) => {
     const updateItem = (item: ChecklistItem) =>
       item.id === itemId ? { ...item, reference_image_url: url } : item;
+    
+    setItems(prev => prev.map(updateItem));
+    setUnassignedItems(prev => prev.map(updateItem));
+    
+    const newAssignedByDay = new Map(assignedByDay);
+    newAssignedByDay.forEach((tasks, day) => {
+      newAssignedByDay.set(day, tasks.map(updateItem));
+    });
+    setAssignedByDay(newAssignedByDay);
+  };
+
+  const handleUpdateRefNotes = (itemId: string, notes: string | null) => {
+    const updateItem = (item: ChecklistItem) =>
+      item.id === itemId ? { ...item, reference_notes: notes } : item;
     
     setItems(prev => prev.map(updateItem));
     setUnassignedItems(prev => prev.map(updateItem));
@@ -659,7 +813,7 @@ export default function DynamicChecklistCalendar() {
           onDragEnd={handleDragEnd}
         >
           <div className="grid lg:grid-cols-4 gap-6">
-            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
+            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onUpdateRefImage={handleUpdateRefImage} onUpdateRefNotes={handleUpdateRefNotes} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
 
             <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -672,6 +826,7 @@ export default function DynamicChecklistCalendar() {
                     holidays={holidays}
                     blackoutDates={blackoutDates}
                     onUpdateRefImage={handleUpdateRefImage}
+                    onUpdateRefNotes={handleUpdateRefNotes}
                   />
                 ))}
               </div>
