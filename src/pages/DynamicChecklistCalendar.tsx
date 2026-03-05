@@ -825,6 +825,7 @@ export default function DynamicChecklistCalendar() {
                     holidays={holidays}
                     blackoutDates={blackoutDates}
                     onUpdateRefImage={handleUpdateRefImage}
+                    onUpdateRefNotes={handleUpdateRefNotes}
                   />
                 ))}
               </div>
