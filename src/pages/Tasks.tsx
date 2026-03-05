@@ -53,13 +53,11 @@ export default function Tasks() {
   }
 
   // SVG circle params
-  const circleSize = 44;
-  const strokeWidth = 3.5;
+  const circleSize = 62;
+  const strokeWidth = 4.5;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (completionPercent / 100) * circumference;
-  const completedCount = historyStats?.filter(s => Math.round(s.completionRate * 100) === 100).length || 0;
-  const totalCount = historyStats?.length || 0;
 
   return (
     <Layout>
