@@ -32,6 +32,7 @@ interface ChecklistItem {
   reference_notes?: string;
   order_index: number;
   manager_shift?: 'am' | 'pm' | null;
+  position?: string | null;
 }
 
 interface SortableChecklistItemProps {
