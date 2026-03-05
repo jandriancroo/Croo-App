@@ -456,24 +456,14 @@ export default function ScheduleTemplates() {
 
               <div>
                 <Label htmlFor="position">Position</Label>
-                {!showCustomPosition ? (
-                  <Select value={formData.position} onValueChange={(value) => {
-                    if (value === "custom") { setShowCustomPosition(true); setFormData({ ...formData, position: "" }); }
-                    else { setFormData({ ...formData, position: value }); }
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
-                    <SelectContent>
-                      {positions.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
-                      <SelectItem value="custom">+ Add New Position</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="space-y-2">
-                    <Input id="position" value={customPosition} onChange={(e) => setCustomPosition(e.target.value)} placeholder="Enter position name" required />
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { setShowCustomPosition(false); setCustomPosition(""); }}>
-                      ← Back to list
-                    </Button>
-                  </div>
+                <Select value={formData.position} onValueChange={(value) => setFormData({ ...formData, position: value })}>
+                  <SelectTrigger><SelectValue placeholder="Select a position" /></SelectTrigger>
+                  <SelectContent>
+                    {positions.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {positions.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">Add positions in the Positions panel below</p>
                 )}
               </div>
 
