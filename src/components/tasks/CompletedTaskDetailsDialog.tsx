@@ -80,7 +80,7 @@ export function CompletedTaskDetailsDialog({
                   <img
                     src={task.completerPhoto}
                     alt=""
-                    className="h-6 w-6 rounded-full object-cover"
+                    className="h-10 w-10 rounded-full object-cover"
                   />
                 )}
                 <span className="font-medium">{task.completerName}</span>
