@@ -281,10 +281,10 @@ function OptionD() {
 // ============================================================
 function OptionE() {
   const groups = [
-    { label: 'Checklists', icon: ClipboardCheck, color: 'text-emerald-600 dark:text-emerald-400', items: mockItems.filter(i => i.type === 'checklist') },
-    { label: 'Tasks', icon: ClipboardList, color: 'text-primary', items: mockItems.filter(i => i.type === 'task') },
-    { label: 'Alarm Checks', icon: Bell, color: 'text-amber-600 dark:text-amber-400', items: mockItems.filter(i => i.type === 'alarm' || i.type === 'alarm-missed') },
     { label: 'Events & Logbook', icon: Calendar, color: 'text-blue-600 dark:text-blue-400', items: mockItems.filter(i => i.type === 'event' || i.type === 'logbook') },
+    { label: 'Tasks', icon: ClipboardList, color: 'text-primary', items: mockItems.filter(i => i.type === 'task') },
+    { label: 'Checklists', icon: ClipboardCheck, color: 'text-emerald-600 dark:text-emerald-400', items: mockItems.filter(i => i.type === 'checklist') },
+    { label: 'Alarm Checks', icon: Bell, color: 'text-amber-600 dark:text-amber-400', items: mockItems.filter(i => i.type === 'alarm' || i.type === 'alarm-missed') },
   ].filter(g => g.items.length > 0);
 
   return (
