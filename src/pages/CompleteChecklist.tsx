@@ -1308,9 +1308,10 @@ export default function CompleteChecklist() {
                                     e.stopPropagation();
                                     setPreviewImage(photoUrl);
                                   }}
-                                  className="absolute bottom-1 right-1 p-1 bg-background/80 rounded-full hover:bg-background transition-colors"
+                                  className="absolute top-2 right-2 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
                                 >
-                                  <Eye className="h-3.5 w-3.5" />
+                                  <Eye className="h-5 w-5" />
+                                </button>
                                 </button>
                               </div>
                             ))}
