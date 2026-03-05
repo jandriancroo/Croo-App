@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -141,14 +141,14 @@ function GroupedView({ items }: { items: TimelineItem[] }) {
       {groups.map(group => {
         const GroupIcon = group.icon;
         const completedCount = group.items.filter(i => i.completionLevel === 100).length;
-        const missedCount = group.items.filter(i => i.type === 'alarm-missed').length;
+        
 
         return (
           <div key={group.label}>
             <div className="flex items-center gap-2 mb-1">
               <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
               <span className="text-xs font-semibold text-foreground">{group.label}</span>
-              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length - missedCount}</span>
+              <span className="text-[10px] text-muted-foreground">{completedCount}/{group.items.length}</span>
             </div>
             <div className="space-y-0.5 ml-5">
               {group.items.map(item => {
@@ -341,9 +341,6 @@ export function TasksHistoryTimeline({
     });
   }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
 
-  const alarmCount = timelineItems.filter(i => i.type === 'alarm').length;
-  const missedAlarmCount = timelineItems.filter(i => i.type === 'alarm-missed').length;
-  const regularCount = timelineItems.filter(i => i.type !== 'alarm' && i.type !== 'alarm-missed').length;
 
   if (timelineItems.length === 0) {
     return (
@@ -361,15 +358,6 @@ export function TasksHistoryTimeline({
     <div className="space-y-2">
       {/* Compact stats + view toggle */}
       <div className="flex items-center gap-1.5">
-        <Badge variant="secondary" className="text-[10px] px-1.5">
-          {regularCount}
-        </Badge>
-        {(alarmCount > 0 || missedAlarmCount > 0) && (
-          <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5">
-            <Bell className="h-2.5 w-2.5" />
-            {alarmCount}/{alarmCount + missedAlarmCount}
-          </Badge>
-        )}
         <div className="flex-1" />
         {/* View toggle */}
         <div className="flex items-center bg-muted rounded-full p-0.5 ml-1">
