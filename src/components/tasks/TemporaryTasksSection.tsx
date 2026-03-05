@@ -86,10 +86,12 @@ export function TemporaryTasksSection() {
 
       if (error) throw error;
       
-      // Filter out expired tasks
+      // Filter out expired tasks and system-generated tasks (audit fixes, catering, etc.)
       return (data || []).filter(task => {
-        if (!task.expires_at) return true;
-        return !isPast(new Date(task.expires_at));
+        if (task.expires_at && isPast(new Date(task.expires_at))) return false;
+        // Hide system-generated tasks (linked to audits or write-ups)
+        if (task.audit_id || task.write_up_id) return false;
+        return true;
       });
     },
     enabled: !!currentLocation?.id,
