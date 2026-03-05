@@ -488,6 +488,7 @@ export default function DynamicChecklistCalendar() {
         ...data,
         days_of_week: null,
         requires_temperature_validation: data.requires_temperature_validation || false,
+        reference_image_url: data.reference_image_url || null,
       };
 
       setItems([...items, newItem]);
