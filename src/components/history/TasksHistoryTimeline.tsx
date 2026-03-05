@@ -252,7 +252,6 @@ export function TasksHistoryTimeline({
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
   const [viewMode, setViewMode] = useState<'grouped' | 'timeline'>('grouped');
-  const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   // Combine all items into timeline, sorted chronologically
   const timelineItems = useMemo(() => {
