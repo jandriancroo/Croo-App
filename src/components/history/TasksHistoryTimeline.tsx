@@ -341,9 +341,6 @@ export function TasksHistoryTimeline({
     });
   }, [historyStats, completedTempTasks, eventCompletions, logbookEntries, navigate, selectedDate, onTaskClick, timezone]);
 
-  const alarmCount = timelineItems.filter(i => i.type === 'alarm').length;
-  const missedAlarmCount = timelineItems.filter(i => i.type === 'alarm-missed').length;
-  const regularCount = timelineItems.filter(i => i.type !== 'alarm' && i.type !== 'alarm-missed').length;
 
   if (timelineItems.length === 0) {
     return (
