@@ -1063,7 +1063,14 @@ export default function CompleteChecklist() {
               if (showDivider) {
                 renderedDivider = true;
               }
-          const isCompleted = responsesWithCompleters[item.id]?.completedBy;
+
+              // Position section headers
+              const showPositionHeader = hasPositionFiltering && 
+                item.position !== lastRenderedPosition;
+              if (showPositionHeader) {
+                lastRenderedPosition = item.position;
+              }
+
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
           const hasResponse = isImageItem 
@@ -1073,7 +1080,16 @@ export default function CompleteChecklist() {
           
           return (
             <div key={item.id}>
-              {/* AM/PM Division Divider */}
+              {/* Position Section Header */}
+              {showPositionHeader && (
+                <div className="flex items-center gap-3 py-3 my-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                  <span className="text-sm font-semibold text-primary px-3 py-1 rounded-full bg-primary/10">
+                    {item.position || 'General'}
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                </div>
+              )}
               {showDivider && (
                 <div className="flex items-center gap-3 py-4 my-2">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
