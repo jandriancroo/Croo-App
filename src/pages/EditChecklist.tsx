@@ -73,6 +73,12 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
           <Input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                onEnterKey?.(index);
+              }
+            }}
             placeholder="Task name"
             className="flex-1 min-w-0 h-8 text-sm"
           />
