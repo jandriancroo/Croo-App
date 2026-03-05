@@ -123,8 +123,6 @@ export default function ScheduleTemplates() {
 
   const resetForm = () => {
     setFormData({ start_time: "09:00", end_time: "17:00", color: "#ef4444", position: "", days_of_week: [0,1,2,3,4,5,6], allowed_roles: ["team_member"] });
-    setCustomPosition("");
-    setShowCustomPosition(false);
     setEditingTemplate(null);
   };
 
