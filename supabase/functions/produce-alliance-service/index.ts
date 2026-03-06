@@ -7,107 +7,34 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// PRODUCE ALLIANCE SERVICE
-// Actions: test, items, orders, sync_items, save_credentials
-// Portal: https://pos.producealliance.com
-// Auth: username/password form login → cookie session
-// AJAX endpoints discovered: GetInvoiceProducts, GetInvoices, VerifyOrderGuideByLocation
+// PRODUCE ALLIANCE SERVICE — Buyers Edge Platform
+// Portal: https://producealliance.info
+// Auth: Username/Password form login → JSESSIONID cookie
+// Order list: Angular app at /ng/#/restaurantBackOffice/viewOrders
+// Order detail: JSP page at /viewOrder.jsp (HTML table with line items)
 // ============================================================================
 
-const PA_BASE_URL = 'https://pos.producealliance.com';
+const PA_BASE_URL = 'https://producealliance.info';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 interface PACredentials {
   username: string;
   password: string;
+  restaurant_id: string;
+  // Legacy field — mapped to restaurant_id
   pa_location_id?: string;
 }
 
 interface PASession {
   cookies: string;
-  locationId: string;
+  restaurantId: string;
 }
 
 // ============================================================================
-// AUTHENTICATION
+// COOKIE HELPERS
 // ============================================================================
-
-async function loginToPA(credentials: PACredentials): Promise<PASession | null> {
-  console.log('[PA Auth] Logging in as:', credentials.username);
-
-  try {
-    // Step 1: GET login page for anti-forgery token + cookies
-    const loginPageResp = await fetch(`${PA_BASE_URL}/account/login`, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-
-    const loginPageHtml = await loginPageResp.text();
-    const loginCookies = extractCookies(loginPageResp.headers);
-    
-    let verificationToken = '';
-    const tokenMatch = loginPageHtml.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/);
-    if (tokenMatch) verificationToken = tokenMatch[1];
-
-    // Step 2: POST credentials
-    const formData = new URLSearchParams();
-    formData.append('Username', credentials.username);
-    formData.append('Password', credentials.password);
-    if (verificationToken) formData.append('__RequestVerificationToken', verificationToken);
-
-    const loginResp = await fetch(`${PA_BASE_URL}/Account/Login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': loginCookies,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': `${PA_BASE_URL}/account/login`,
-      },
-      body: formData.toString(),
-      redirect: 'manual',
-    });
-
-    const postCookies = extractCookies(loginResp.headers);
-    const allCookies = mergeCookies(loginCookies, postCookies);
-    console.log('[PA Auth] Login response status:', loginResp.status);
-
-    if (loginResp.status === 302 || loginResp.status === 301) {
-      const redirectUrl = loginResp.headers.get('location') || '';
-      console.log('[PA Auth] Login successful, redirect to:', redirectUrl);
-
-      const redirectResp = await fetch(
-        redirectUrl.startsWith('http') ? redirectUrl : `${PA_BASE_URL}${redirectUrl}`,
-        {
-          method: 'GET',
-          headers: { 'Cookie': allCookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-          redirect: 'manual',
-        }
-      );
-      const finalCookies = mergeCookies(allCookies, extractCookies(redirectResp.headers));
-      await redirectResp.text().catch(() => '');
-
-      return { cookies: finalCookies, locationId: credentials.pa_location_id || '18046' };
-    }
-
-    if (loginResp.status === 200) {
-      const body = await loginResp.text();
-      if (body.includes('Invalid') || body.includes('Login to get started')) {
-        console.error('[PA Auth] Login failed — invalid credentials');
-        return null;
-      }
-      return { cookies: allCookies, locationId: credentials.pa_location_id || '18046' };
-    }
-
-    await loginResp.text().catch(() => '');
-    return null;
-  } catch (error) {
-    console.error('[PA Auth] Login error:', error);
-    return null;
-  }
-}
 
 function extractCookies(headers: Headers): string {
-  // Deno doesn't support getAll on Headers, use workaround
   const cookies: string[] = [];
   for (const [key, value] of headers.entries()) {
     if (key.toLowerCase() === 'set-cookie') {
@@ -138,604 +65,538 @@ function mergeCookies(existing: string, newCookies: string): string {
 }
 
 // ============================================================================
-// DATA FETCHING — AJAX endpoints
+// AUTHENTICATION — Buyers Edge Platform
 // ============================================================================
 
-async function fetchPAItems(session: PASession): Promise<any[]> {
-  console.log('[PA API] Fetching Order Guide items, location:', session.locationId);
+async function loginToPA(credentials: PACredentials): Promise<PASession | null> {
+  const restaurantId = credentials.restaurant_id || credentials.pa_location_id || '';
+  console.log('[PA Auth] Logging in as:', credentials.username, 'restaurantId:', restaurantId);
 
-  // Load ordering page first to establish session state
-  const homeResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: {
-      'Cookie': session.cookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-    redirect: 'follow',
-  });
-  const homeHtml = await homeResp.text();
-  if (homeHtml.includes('Login to get started')) {
-    throw new Error('PA session expired');
-  }
-  const updatedCookies = mergeCookies(session.cookies, extractCookies(homeResp.headers));
-
-  // Strategy: Use the PRICING PAGE as the source of truth for Order Guide items.
-  // The pricing page returns exactly the items on the Order Guide (LineCount matches).
-  // GetInvoiceProducts returns the FULL catalog (all 58+ items) which includes items
-  // not on the order guide. The pricing page is the most reliable filter.
-  
-  // First get pricing items (= order guide items with actual data)
-  const pricingItems = await fetchPAPricing(session);
-  
-  if (pricingItems.length > 0) {
-    console.log(`[PA API] Using ${pricingItems.length} items from pricing page (= Order Guide items)`);
-    // The pricing page items are the order guide items - normalize and return them
-    return pricingItems.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      unit: p.unit?.toLowerCase() || 'case',
-      price: p.price,
-      itemNumber: p.itemNumber || null,
-      brand: p.brand || null,
-      packSize: p.packSize || null,
-      packQuantity: p.packQuantity || null,
-      category: p.category || null,
-      imageUrl: null,
-    }));
-  }
-
-  // Fallback: if pricing page fails, use AJAX catalog 
-  console.log('[PA API] Pricing page returned 0 items, falling back to AJAX catalog fetch');
-  return await fetchPAItemsAjax(session, updatedCookies);
-}
-
-function parseOrderGuideHtml(html: string): any[] {
-  const items: any[] = [];
-  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  let rowMatch;
-  let rowCount = 0;
-  
-  while ((rowMatch = rowRegex.exec(html)) !== null) {
-    const rowHtml = rowMatch[1];
-    const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-    const cells: string[] = [];
-    let tdMatch;
-    while ((tdMatch = tdRegex.exec(rowHtml)) !== null) {
-      cells.push(tdMatch[1].trim());
-    }
-    if (cells.length < 4) continue;
-    rowCount++;
-    
-    const displayHtml = cells[1];
-    const isDisplayed = /checked/i.test(displayHtml);
-    let productId = cells[2].replace(/<[^>]*>/g, '').trim();
-    let description = cells[3].replace(/<[^>]*>/g, '').trim();
-    
-    if (!productId || !description || /^PA Product/i.test(productId) || /^Description$/i.test(description)) continue;
-    if (!isDisplayed) continue;
-    
-    items.push({ id: productId, name: description, unit: 'case', itemNumber: productId });
-  }
-  
-  console.log(`[PA API] Order Guide parse: ${rowCount} total rows, ${items.length} displayed items`);
-  return items;
-}
-
-// Fallback AJAX catalog fetch (old method)
-async function fetchPAItemsAjax(session: PASession, cookies: string): Promise<any[]> {
-  const baseHeaders: Record<string, string> = {
-    'Cookie': cookies,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-  };
-
-  const attempts = [
-    { ct: 'application/json', body: JSON.stringify({ locationId: session.locationId, DDLLocationID: session.locationId }) },
-    { ct: 'application/x-www-form-urlencoded', body: `DDLLocationID=${session.locationId}&page=1&pageSize=1000` },
-    { ct: 'application/x-www-form-urlencoded', body: `sort=&group=&filter=&DDLLocationID=${session.locationId}` },
-  ];
-
-  for (const { ct, body } of attempts) {
-    try {
-      const resp = await fetch(`${PA_BASE_URL}/Ordering/GetInvoiceProducts`, {
-        method: 'POST',
-        headers: { ...baseHeaders, 'Content-Type': ct },
-        body,
-        redirect: 'follow',
-      });
-      if (resp.ok) {
-        const text = await resp.text();
-        const result = tryParseItems(text, 'GetInvoiceProducts');
-        if (result.length > 0) return result;
-      } else {
-        await resp.text().catch(() => '');
-      }
-    } catch (e) {
-      console.warn('[PA API] AJAX fallback error:', e);
-    }
-  }
-  return [];
-}
-
-function tryParseItems(text: string, source: string): any[] {
   try {
-    const data = JSON.parse(text);
-    console.log(`[PA API] ${source} JSON keys:`, Object.keys(data).join(', '));
+    // Step 1: GET the landing page to collect initial cookies
+    const homeResp = await fetch(PA_BASE_URL, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: { 'User-Agent': UA },
+    });
+    const homeHtml = await homeResp.text();
+    let allCookies = extractCookies(homeResp.headers);
+    console.log('[PA Auth] Home page status:', homeResp.status, 'cookies:', allCookies ? 'yes' : 'none');
 
-    // Direct array
-    if (Array.isArray(data) && data.length > 0) {
-      logSampleItem(data[0], source);
-      return data.map(normalizeItem);
-    }
+    // Step 2: Try multiple login endpoints
+    const loginAttempts = [
+      // J2EE standard security check
+      {
+        url: `${PA_BASE_URL}/j_security_check`,
+        body: `j_username=${encodeURIComponent(credentials.username)}&j_password=${encodeURIComponent(credentials.password)}`,
+        ct: 'application/x-www-form-urlencoded',
+      },
+      // Direct login endpoint
+      {
+        url: `${PA_BASE_URL}/login`,
+        body: `username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}`,
+        ct: 'application/x-www-form-urlencoded',
+      },
+      // JSON login
+      {
+        url: `${PA_BASE_URL}/api/login`,
+        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
+        ct: 'application/json',
+      },
+      // Angular app login API
+      {
+        url: `${PA_BASE_URL}/ng/api/login`,
+        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
+        ct: 'application/json',
+      },
+      // REST authenticate
+      {
+        url: `${PA_BASE_URL}/authenticate`,
+        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
+        ct: 'application/json',
+      },
+    ];
 
-    // Kendo format { Data: [...], Total: N }
-    for (const key of Object.keys(data)) {
-      if (Array.isArray(data[key]) && data[key].length > 0) {
-        console.log(`[PA API] Found ${data[key].length} items at ${source}.${key}`);
-        logSampleItem(data[key][0], source);
-        return data[key].map(normalizeItem);
+    for (const attempt of loginAttempts) {
+      try {
+        console.log('[PA Auth] Trying:', attempt.url);
+        const loginResp = await fetch(attempt.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': attempt.ct,
+            'Cookie': allCookies,
+            'User-Agent': UA,
+            'Referer': PA_BASE_URL,
+          },
+          body: attempt.body,
+          redirect: 'manual',
+        });
+
+        const newCookies = extractCookies(loginResp.headers);
+        const mergedCookies = mergeCookies(allCookies, newCookies);
+        const status = loginResp.status;
+        const location = loginResp.headers.get('location') || '';
+        const body = await loginResp.text();
+        
+        console.log('[PA Auth]', attempt.url, '→', status, 'redirect:', location || 'none', 'cookies:', newCookies ? 'yes' : 'none', 'body len:', body.length);
+
+        // Success indicators:
+        // 1. 302 redirect (not back to login page)
+        if ((status === 302 || status === 301) && !location.includes('login') && !location.includes('error')) {
+          console.log('[PA Auth] Login successful via redirect to:', location);
+          
+          // Follow the redirect to get final cookies
+          const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
+          const redirectResp = await fetch(redirectUrl, {
+            method: 'GET',
+            headers: { 'Cookie': mergedCookies, 'User-Agent': UA },
+            redirect: 'manual',
+          });
+          const finalCookies = mergeCookies(mergedCookies, extractCookies(redirectResp.headers));
+          await redirectResp.text().catch(() => '');
+          
+          return { cookies: finalCookies, restaurantId };
+        }
+
+        // 2. 200 with JSON success
+        if (status === 200 && attempt.ct === 'application/json') {
+          try {
+            const json = JSON.parse(body);
+            if (json.success || json.authenticated || json.token || json.sessionId) {
+              console.log('[PA Auth] Login successful via JSON response');
+              return { cookies: mergedCookies, restaurantId };
+            }
+          } catch { /* not JSON */ }
+        }
+
+        // 3. 200 with redirect in body or no login form (already authenticated)
+        if (status === 200 && !body.includes('Sign in') && !body.includes('j_security_check') && !body.includes('login') && newCookies) {
+          console.log('[PA Auth] Login appears successful (no login form in response)');
+          return { cookies: mergedCookies, restaurantId };
+        }
+
+        // Update cookies for next attempt
+        if (newCookies) allCookies = mergedCookies;
+      } catch (e) {
+        console.warn('[PA Auth] Error with', attempt.url, ':', e);
       }
     }
 
-    console.log(`[PA API] ${source} response sample:`, JSON.stringify(data).slice(0, 500));
+    console.error('[PA Auth] All login attempts failed');
+    return null;
+  } catch (error) {
+    console.error('[PA Auth] Login error:', error);
+    return null;
+  }
+}
+
+// Verify session is valid by trying to access a protected page
+async function verifySession(session: PASession): Promise<boolean> {
+  try {
+    const resp = await fetch(`${PA_BASE_URL}/viewOrder.jsp?restaurantId=${session.restaurantId}`, {
+      method: 'GET',
+      headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+      redirect: 'manual',
+    });
+    const status = resp.status;
+    const body = await resp.text();
+    // If we get redirected to login or see login form, session is invalid
+    if (status === 302 || status === 301) return false;
+    if (body.includes('Sign in') || body.includes('j_security_check')) return false;
+    return true;
   } catch {
-    console.log(`[PA API] ${source} non-JSON, length:`, text.length);
+    return false;
   }
-  return [];
-}
-
-function logSampleItem(item: any, source: string) {
-  console.log(`[PA API] ${source} sample item keys:`, Object.keys(item).join(', '));
-  console.log(`[PA API] ${source} sample item:`, JSON.stringify(item).slice(0, 500));
-}
-
-// Parse pack size info from item name
-// Patterns: "4/5#" → qty=4, size="4/5#"  |  "5#" → qty=1, size="5#"  |  "12 CT" → qty=12, size="12 CT"
-// "#10" is a can size, not weight. "6/#10" → qty=6, size="6/#10"
-function parsePackFromName(name: string): { packSize: string | null; packQuantity: number | null } {
-  if (!name) return { packSize: null, packQuantity: null };
-  const trimmed = name.trim();
-
-  // Match count/weight# pattern: "4/5#", "6/2#", "4/1#", "8/1#", "16/1 QT"
-  const countSlashWeight = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*#(?!\d)/);
-  if (countSlashWeight) {
-    const qty = parseInt(countSlashWeight[1]);
-    return { packSize: `${qty}/${countSlashWeight[2]}#`, packQuantity: qty };
-  }
-
-  // Match count/#10 (can size): "6/#10"
-  const countCan = trimmed.match(/(\d+)\/#(\d+)/);
-  if (countCan) {
-    const qty = parseInt(countCan[1]);
-    return { packSize: `${qty}/#${countCan[2]}`, packQuantity: qty };
-  }
-
-  // Match count/weight LB: "4/3 LB"
-  const countSlashLb = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(?:LB|lb)/);
-  if (countSlashLb) {
-    const qty = parseInt(countSlashLb[1]);
-    return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty };
-  }
-
-  // Match count/weight QT: "16/1 QT"
-  const countSlashQt = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*QT/i);
-  if (countSlashQt) {
-    const qty = parseInt(countSlashQt[1]);
-    return { packSize: `${qty}/${countSlashQt[2]} QT`, packQuantity: qty };
-  }
-
-  // Match N CT pattern: "12 CT", "24 CT", "3 CT"
-  const nCt = trimmed.match(/(\d+)\s*CT\b/i);
-  if (nCt) {
-    const qty = parseInt(nCt[1]);
-    return { packSize: `${qty} CT`, packQuantity: qty };
-  }
-
-  // Match N PINT: "12 PINT"
-  const nPint = trimmed.match(/(\d+)\s*PINT\b/i);
-  if (nPint) {
-    const qty = parseInt(nPint[1]);
-    return { packSize: `${qty} PINT`, packQuantity: qty };
-  }
-
-  // Match standalone weight#: "5#", "10#", "2.5#", "1#" (but NOT dimension like 1/8")
-  const standalone = trimmed.match(/\b(\d+(?:\.\d+)?)\s*#(?!\d)/);
-  if (standalone) {
-    return { packSize: `${standalone[1]}#`, packQuantity: 1 };
-  }
-
-  // Match N OZ: "4 OZ", "6 OZ"
-  const nOz = trimmed.match(/(\d+(?:\.\d+)?)\s*OZ\b/i);
-  if (nOz) {
-    return { packSize: `${nOz[1]} OZ`, packQuantity: 1 };
-  }
-
-  return { packSize: null, packQuantity: null };
-}
-
-function normalizeItem(raw: any): any {
-  const name = (raw.PADescription || raw.Description || raw.Name || raw.ProductName || raw.ProductDescription || raw.name || raw.ItemName || '').trim();
-  const parsed = parsePackFromName(name);
-  
-  return {
-    id: raw.PAProductID || raw.Id || raw.ItemId || raw.ProductId || raw.ProductID || raw.id || raw.InvoiceProductID || '',
-    name,
-    itemNumber: raw.ItemNumber || raw.ProductNumber || raw.ItemNo || raw.Code || raw.itemNumber || raw.ProductCode || raw.SpecificationID || null,
-    brand: raw.Brand || raw.BrandName || raw.brand || null,
-    price: raw.Price || raw.UnitPrice || raw.CurrentPrice || raw.price || raw.Cost || raw.ExtPrice || raw.LastPrice || null,
-    unit: raw.Unit || raw.UOM || raw.UnitOfMeasure || raw.unit || raw.Pack || 'case',
-    packSize: raw.PackSize || raw.Size || raw.PackDescription || raw.packSize || raw.Sizing || raw.SizeDiameter || parsed.packSize || null,
-    packQuantity: parsed.packQuantity || null,
-    category: raw.Category || raw.CategoryName || raw.GroupName || raw.category || raw.ProductCategory || raw.StorageZone || null,
-    imageUrl: raw.ImageURL || raw.imageUrl || null,
-    variety: raw.Variety || null,
-  };
 }
 
 // ============================================================================
-// ORDER HISTORY — /Ordering/GetInvoices
+// ORDER LIST — Fetch orders from Angular API or scrape
 // ============================================================================
 
-async function fetchPAOrders(session: PASession): Promise<any[]> {
-  console.log('[PA API] Fetching invoices/orders');
+interface PAOrderSummary {
+  webOrderId: string;
+  orderDate: string;
+  deliveryDate: string | null;
+  status: string;
+  totalAmount: number | null;
+  totalCases: number | null;
+}
 
-  // First load the ordering page to establish session state
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: {
-      'Cookie': session.cookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+async function fetchOrderList(session: PASession, startDate: string, endDate: string): Promise<PAOrderSummary[]> {
+  console.log('[PA Orders] Fetching order list, restaurant:', session.restaurantId, 'range:', startDate, '→', endDate);
+
+  // Try multiple API patterns the Angular app might use
+  const apiAttempts = [
+    // REST API patterns
+    {
+      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
     },
-    redirect: 'follow',
-  });
-  const pageHtml = await pageResp.text();
-  const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
-
-  // Log order/invoice related AJAX endpoints from the page JS
-  const ajaxUrlRegex = /url[:\s]*["']([^"']*(?:order|invoice|Order|Invoice)[^"']*)["']/gi;
-  const foundEndpoints: string[] = [];
-  let m;
-  while ((m = ajaxUrlRegex.exec(pageHtml)) !== null) {
-    if (!foundEndpoints.includes(m[1])) foundEndpoints.push(m[1]);
-  }
-  console.log('[PA API] Found order/invoice endpoints:', JSON.stringify(foundEndpoints));
-
-  // Also look for the order/invoice table setup 
-  const orderTableRegex = /(?:tblorder|tblinvoice|storeHomeOrder|storeHomeInvoice|GetOrder|GetInvoice)[^;]{0,500}/gi;
-  const orderTableMatches: string[] = [];
-  while ((m = orderTableRegex.exec(pageHtml)) !== null) {
-    orderTableMatches.push(m[0].replace(/\s+/g, ' ').trim().slice(0, 200));
-  }
-  console.log('[PA API] Order/invoice table JS:', JSON.stringify(orderTableMatches.slice(0, 10)));
-
-  // Use the correct partial data endpoints discovered from page JS
-  const endpoints = [
-    { url: '/Ordering/GetOrdersPartialData', body: `locationid=${session.locationId}` },
-    { url: '/Ordering/GetInvoicesPartialData', body: `locationid=${session.locationId}` },
-    { url: '/Ordering/GetInvoices', body: `DDLLocationID=${session.locationId}` },
-    { url: '/Ordering/GetOrders', body: `DDLLocationID=${session.locationId}` },
+    {
+      url: `${PA_BASE_URL}/ng/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    {
+      url: `${PA_BASE_URL}/rest/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    // restaurantBackOffice API
+    {
+      url: `${PA_BASE_URL}/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    {
+      url: `${PA_BASE_URL}/ng/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    // Servlet/JSP patterns
+    {
+      url: `${PA_BASE_URL}/getOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    {
+      url: `${PA_BASE_URL}/orderList.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
+    // viewOrders JSP (the Angular route might have a JSP backend)
+    {
+      url: `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+    },
   ];
 
-  for (const endpoint of endpoints) {
+  for (const attempt of apiAttempts) {
     try {
-      console.log('[PA API] Trying', endpoint.url);
-      const resp = await fetch(`${PA_BASE_URL}${endpoint.url}`, {
-        method: 'POST',
+      const resp = await fetch(attempt.url, {
+        method: attempt.method,
         headers: {
-          'Cookie': updatedCookies,
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': session.cookies,
+          'User-Agent': UA,
+          'Accept': 'application/json, text/html, */*',
           'X-Requested-With': 'XMLHttpRequest',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
+          'Referer': `${PA_BASE_URL}/ng/`,
         },
-        body: endpoint.body,
         redirect: 'follow',
       });
 
       const text = await resp.text();
-      console.log('[PA API]', endpoint.url, '→', resp.status, 'len:', text.length);
-      
-      if (resp.ok && text.length > 5) {
-        try {
-          const data = JSON.parse(text);
-          console.log('[PA API]', endpoint.url, 'keys:', Object.keys(data).join(', '));
-          
-          const items = data.Data || data.data || data.Invoices || data.Orders || data;
-          if (Array.isArray(items) && items.length > 0) {
-            console.log('[PA API] Found', items.length, 'from', endpoint.url);
-            if (items[0]) console.log('[PA API] Sample:', JSON.stringify(items[0]).slice(0, 500));
-            return items;
-          }
-          
-          for (const key of Object.keys(data)) {
-            if (Array.isArray(data[key]) && data[key].length > 0) {
-              console.log('[PA API] Found', data[key].length, 'at', key);
-              return data[key];
-            }
-          }
-          
-          console.log('[PA API]', endpoint.url, ':', JSON.stringify(data).slice(0, 300));
-        } catch {
-          console.log('[PA API]', endpoint.url, 'non-JSON:', text.slice(0, 200));
+      console.log('[PA Orders]', attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+
+      if (!resp.ok || text.length < 10) continue;
+
+      // Try JSON parse
+      try {
+        const data = JSON.parse(text);
+        const orders = extractOrdersFromJson(data);
+        if (orders.length > 0) {
+          console.log('[PA Orders] Found', orders.length, 'orders from API');
+          return orders;
+        }
+      } catch {
+        // Not JSON — try HTML parsing
+        const orders = extractOrdersFromHtml(text);
+        if (orders.length > 0) {
+          console.log('[PA Orders] Found', orders.length, 'orders from HTML');
+          return orders;
         }
       }
     } catch (e) {
-      console.warn('[PA API]', endpoint.url, 'error:', e);
+      console.warn('[PA Orders] Error:', e);
+    }
+  }
+
+  console.log('[PA Orders] No API found — returning empty list');
+  return [];
+}
+
+function extractOrdersFromJson(data: any): PAOrderSummary[] {
+  // Handle various JSON structures
+  const items = Array.isArray(data) ? data : data.data || data.orders || data.Data || data.Orders || [];
+  if (!Array.isArray(items)) return [];
+  
+  console.log('[PA Orders] JSON keys:', Object.keys(Array.isArray(data) ? (data[0] || {}) : data).join(', '));
+  if (items[0]) console.log('[PA Orders] Sample item keys:', Object.keys(items[0]).join(', '));
+
+  return items.map((o: any) => ({
+    webOrderId: String(o.webOrderId || o.WebOrderId || o.orderId || o.OrderId || o.id || o.Id || ''),
+    orderDate: o.orderDate || o.OrderDate || o.dateCreated || o.DateCreated || '',
+    deliveryDate: o.deliveryDate || o.DeliveryDate || null,
+    status: o.status || o.Status || 'unknown',
+    totalAmount: o.totalAmount || o.TotalAmount || o.orderTotal || o.OrderTotal || o.total || null,
+    totalCases: o.totalCases || o.TotalCases || null,
+  })).filter((o: PAOrderSummary) => o.webOrderId);
+}
+
+function extractOrdersFromHtml(html: string): PAOrderSummary[] {
+  const orders: PAOrderSummary[] = [];
+  
+  // Look for order links like viewOrder.jsp?webOrderId=XXXX
+  const linkRegex = /webOrderId[=:]?\s*["']?(\d+)/gi;
+  const orderIds = new Set<string>();
+  let m;
+  while ((m = linkRegex.exec(html)) !== null) {
+    orderIds.add(m[1]);
+  }
+
+  // Also look for table rows with order data
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRegex.exec(html)) !== null) {
+    const cells: string[] = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
+      cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+    }
+    
+    // Look for rows containing an order ID
+    for (const cell of cells) {
+      const idMatch = cell.match(/^\d{5,}$/);
+      if (idMatch && !orderIds.has(idMatch[0])) {
+        orderIds.add(idMatch[0]);
+      }
+    }
+  }
+
+  for (const id of orderIds) {
+    orders.push({
+      webOrderId: id,
+      orderDate: '',
+      deliveryDate: null,
+      status: 'unknown',
+      totalAmount: null,
+      totalCases: null,
+    });
+  }
+
+  return orders;
+}
+
+// ============================================================================
+// ORDER DETAIL — Parse JSP page for line items
+// ============================================================================
+
+interface PALineItem {
+  item_code: string;
+  description: string;
+  pa_product_id: string;
+  unit_price: number;
+  quantity: number;
+  cost: number;
+}
+
+interface PAOrderDetail {
+  webOrderId: string;
+  deliveryDate: string | null;
+  totalCases: number | null;
+  totalAmount: number | null;
+  lineItems: PALineItem[];
+}
+
+async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
+  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
+  console.log('[PA Detail] Fetching order:', webOrderId);
+
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Cookie': session.cookies,
+        'User-Agent': UA,
+        'Referer': `${PA_BASE_URL}/ng/`,
+      },
+      redirect: 'follow',
+    });
+
+    if (!resp.ok) {
+      console.warn('[PA Detail] HTTP', resp.status, 'for order', webOrderId);
+      await resp.text().catch(() => '');
+      return null;
+    }
+
+    const html = await resp.text();
+    console.log('[PA Detail] Got HTML for order', webOrderId, 'len:', html.length);
+
+    // Check if we got redirected to login
+    if (html.includes('Sign in') || html.includes('j_security_check')) {
+      console.warn('[PA Detail] Session expired — got login page');
+      return null;
+    }
+
+    return parseOrderDetailJsp(html, webOrderId);
+  } catch (e) {
+    console.error('[PA Detail] Error fetching order', webOrderId, ':', e);
+    return null;
+  }
+}
+
+function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
+  const lineItems: PALineItem[] = [];
+
+  // Extract delivery date: "Delivery Date: 03/06/2026"
+  let deliveryDate: string | null = null;
+  const deliveryMatch = html.match(/Delivery\s*Date[:\s]*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  if (deliveryMatch) {
+    const parts = deliveryMatch[1].split('/');
+    deliveryDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+  }
+
+  // Extract total cases: "Total Cases: 8.00"
+  let totalCases: number | null = null;
+  const casesMatch = html.match(/Total\s*Cases[:\s]*([\d.]+)/i);
+  if (casesMatch) totalCases = parseFloat(casesMatch[1]);
+
+  // Extract total amount: "Total: $190.50"
+  let totalAmount: number | null = null;
+  const totalMatch = html.match(/Total[:\s]*\$([\d,.]+)/i);
+  if (totalMatch) totalAmount = parseFloat(totalMatch[1].replace(/,/g, ''));
+
+  // Parse the line items table
+  // Columns: Item | Description | PA Product ID | Unit Price | Quantity | Cost
+  const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+  let tableMatch;
+  
+  while ((tableMatch = tableRegex.exec(html)) !== null) {
+    const tableHtml = tableMatch[1];
+    
+    // Check if this table has the expected headers
+    if (!tableHtml.includes('PA Product ID') && !tableHtml.includes('Unit Price') && !tableHtml.includes('Description')) {
+      continue;
+    }
+
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let rowMatch;
+    let isHeader = true;
+
+    while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
+      const rowHtml = rowMatch[1];
+      
+      // Skip header rows
+      if (rowHtml.includes('<th') || rowHtml.includes('PA Product ID')) {
+        isHeader = false;
+        continue;
+      }
+      if (isHeader) continue;
+
+      const cells: string[] = [];
+      const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+      let cellMatch;
+      while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+        cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+      }
+
+      // Expected columns: Item(0), Description(1), PA Product ID(2), Unit Price(3), Quantity(4), Cost(5)
+      if (cells.length >= 6) {
+        const unitPrice = parseFloat(cells[3]?.replace(/[$,]/g, '') || '0');
+        const quantity = parseFloat(cells[4] || '0');
+        const cost = parseFloat(cells[5]?.replace(/[$,]/g, '') || '0');
+
+        if (cells[0] && cells[1] && (quantity > 0 || cost > 0)) {
+          lineItems.push({
+            item_code: cells[0],
+            description: cells[1],
+            pa_product_id: cells[2] || '',
+            unit_price: unitPrice,
+            quantity,
+            cost,
+          });
+        }
+      }
+    }
+
+    if (lineItems.length > 0) break; // Found the right table
+  }
+
+  // Fallback: try parsing without strict table detection
+  if (lineItems.length === 0) {
+    console.log('[PA Detail] Table parsing found 0 items, trying fallback regex');
+    // Look for rows with item codes (numeric) followed by description and price
+    const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let rowMatch;
+    while ((rowMatch = rowRegex.exec(html)) !== null) {
+      const cells: string[] = [];
+      const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+      let cellMatch;
+      while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
+        cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
+      }
+      
+      if (cells.length >= 5) {
+        // Check if first cell looks like an item code (numeric)
+        const itemCode = cells[0];
+        if (/^\d{3,}$/.test(itemCode)) {
+          const prices = cells.filter(c => /^\d+\.?\d*$/.test(c));
+          if (prices.length >= 2) {
+            lineItems.push({
+              item_code: itemCode,
+              description: cells[1],
+              pa_product_id: cells[2] || '',
+              unit_price: parseFloat(prices[0]) || 0,
+              quantity: parseFloat(prices[1]) || 0,
+              cost: parseFloat(prices[2] || prices[0]) || 0,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  console.log('[PA Detail] Order', webOrderId, ':', lineItems.length, 'line items, delivery:', deliveryDate, 'total:', totalAmount);
+  return { webOrderId, deliveryDate, totalCases, totalAmount, lineItems };
+}
+
+// ============================================================================
+// PRICING — parse weekly pricing from the portal
+// ============================================================================
+
+async function fetchPAPricing(session: PASession): Promise<any[]> {
+  console.log('[PA Pricing] Fetching pricing for restaurant:', session.restaurantId);
+  
+  // Try to access a pricing page
+  const pricingUrls = [
+    `${PA_BASE_URL}/weeklyPricing.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/pricing.jsp?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/pricing?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/ng/api/pricing?restaurantId=${session.restaurantId}`,
+  ];
+
+  for (const url of pricingUrls) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+        redirect: 'follow',
+      });
+      
+      if (!resp.ok) { await resp.text().catch(() => ''); continue; }
+      
+      const text = await resp.text();
+      if (text.includes('Sign in') || text.length < 100) continue;
+      
+      console.log('[PA Pricing]', url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+      
+      // Try JSON
+      try {
+        const data = JSON.parse(text);
+        const items = Array.isArray(data) ? data : data.data || data.items || data.Data || [];
+        if (Array.isArray(items) && items.length > 0) {
+          console.log('[PA Pricing] Got', items.length, 'items from API');
+          return items;
+        }
+      } catch {
+        // Try HTML parsing
+        const items = parsePricingHtml(text);
+        if (items.length > 0) return items;
+      }
+    } catch (e) {
+      console.warn('[PA Pricing] Error:', e);
     }
   }
 
   return [];
 }
 
-// ============================================================================
-// PRICING — fetch current prices via PricesDetailPage
-// ============================================================================
-
-async function fetchPAPricing(session: PASession): Promise<any[]> {
-  try {
-    console.log('[PA Pricing] Starting pricing fetch for location:', session.locationId);
-    
-    // Load ordering page first
-    const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-      method: 'GET',
-      headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      redirect: 'follow',
-    });
-    await pageResp.text();
-    const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
-
-    // Get price list dates
-    const priceListResp = await fetch(`${PA_BASE_URL}/Ordering/GetPriceListPartialData`, {
-      method: 'POST',
-      headers: {
-        'Cookie': updatedCookies,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Requested-With': 'XMLHttpRequest',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-      },
-      body: `locationid=${session.locationId}`,
-    });
-
-    console.log('[PA Pricing] GetPriceListPartialData status:', priceListResp.status);
-    if (!priceListResp.ok) {
-      console.log('[PA Pricing] Failed to fetch price list dates');
-      return [];
-    }
-    const priceListData = await priceListResp.json();
-    const priceDates = priceListData.Data || priceListData.data || [];
-    console.log('[PA Pricing] Price dates count:', priceDates.length);
-    if (!Array.isArray(priceDates) || priceDates.length === 0) return [];
-
-    const dateBegin = priceDates[0].DateBegin || priceDates[0].dateBegin;
-    console.log('[PA Pricing] Using date:', dateBegin);
-
-    // Fetch pricing HTML page
-    const pricingResp = await fetch(
-      `${PA_BASE_URL}/Ordering/PricesDetailPage?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
-      {
-        method: 'GET',
-        headers: { 'Cookie': updatedCookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        redirect: 'follow',
-      }
-    );
-
-    console.log('[PA Pricing] PricesDetailPage status:', pricingResp.status);
-    if (!pricingResp.ok) {
-      console.log('[PA Pricing] PricesDetailPage failed');
-      return [];
-    }
-    const html = await pricingResp.text();
-    console.log('[PA Pricing] HTML length:', html.length, 'first 500:', html.slice(0, 500).replace(/\s+/g, ' '));
-    const items = parsePricingHtml(html);
-    console.log('[PA Pricing] Parsed', items.length, 'items from pricing HTML');
-    if (items.length > 0) {
-      console.log('[PA Pricing] Sample parsed item:', JSON.stringify(items[0]));
-    }
-    return items;
-  } catch (e) {
-    console.warn('[PA Pricing] Error fetching pricing:', e);
-    return [];
-  }
-}
-
-// ============================================================================
-// ACTION HANDLERS
-// ============================================================================
-
-async function handleTest(supabase: any, body: any): Promise<Response> {
-  const { locationId, testCredentials } = body;
-  
-  // Use testCredentials if provided (for testing before saving), otherwise fetch from DB
-  let credentials: PACredentials | null = null;
-  if (testCredentials?.username && testCredentials?.password) {
-    credentials = { username: testCredentials.username, password: testCredentials.password, pa_location_id: testCredentials.pa_location_id };
-  } else {
-    credentials = await getCredentials(supabase, locationId);
-  }
-  
-  if (!credentials) return jsonResponse({ authenticated: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ authenticated: false, error: 'Login failed — check credentials' });
-
-  return jsonResponse({ authenticated: true, success: true, message: 'Produce Alliance connection successful!' });
-}
-
-async function handleItems(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  const items = await fetchPAItems(session);
-
-  // Also fetch current pricing and merge
-  const pricing = await fetchPAPricing(session);
-  if (pricing.length > 0) {
-    const priceMapById = new Map(pricing.map((p: any) => [String(p.id), p]));
-    const priceMapByName = new Map(pricing.map((p: any) => [p.name?.toUpperCase()?.trim(), p]));
-    for (const item of items) {
-      const priceInfo = priceMapById.get(String(item.id)) || priceMapByName.get(item.name?.toUpperCase()?.trim());
-      if (priceInfo) {
-        item.price = priceInfo.price;
-        item.unit = priceInfo.unit?.toLowerCase() || item.unit;
-      }
-    }
-  }
-
-  return jsonResponse({ success: true, data: { items, count: items.length } });
-}
-
-// Helper: persist PA orders to pa_orders table
-async function persistPAOrders(supabase: any, locationId: string, rawOrders: any[], parseMSDate: (d: string | null) => string | null) {
-  let persisted = 0;
-  for (const order of rawOrders) {
-    const orderId = order.OrderID;
-    if (!orderId) continue;
-
-    const orderDate = parseMSDate(order.DateCreated);
-    if (!orderDate) continue;
-
-    const deliveryDate = parseMSDate(order.DeliveryDate);
-    const lineItems = (order.OrderDetails || []).map((item: any) => ({
-      name: item.ProductName || item.Name || item.Description,
-      quantity: item.Quantity || item.Qty || 0,
-      unit: item.UOM || item.Unit || 'CS',
-      price: item.Price || item.UnitPrice || 0,
-      total: item.ExtendedPrice || item.Total || item.Amount || 0,
-    }));
-
-    const { error } = await supabase
-      .from('pa_orders')
-      .upsert({
-        location_id: locationId,
-        pa_order_id: String(orderId),
-        order_number: order.OrderNumber || String(orderId),
-        order_date: orderDate.split('T')[0],
-        delivery_date: deliveryDate ? deliveryDate.split('T')[0] : null,
-        status: order.Status || 'delivered',
-        total_amount: order.OrderTotal || null,
-        items: lineItems,
-        raw_data: order,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'location_id,pa_order_id' });
-
-    if (!error) persisted++;
-  }
-  console.log(`[PA Orders] Persisted ${persisted} of ${rawOrders.length} orders for location ${locationId}`);
-  return persisted;
-}
-
-async function handleOrders(supabase: any, body: any): Promise<Response> {
-  const { locationId, fetchDetails } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  const rawOrders = await fetchPAOrders(session);
-  
-  // Parse MS date format /Date(timestamp)/
-  const parseMSDate = (d: string | null) => {
-    if (!d) return null;
-    const match = d.match(/\/Date\((\d+)\)\//);
-    return match ? new Date(parseInt(match[1])).toISOString() : null;
-  };
-
-  // Persist orders to pa_orders table
-  const persistedCount = await persistPAOrders(supabase, locationId, rawOrders, parseMSDate);
-
-  const orders = rawOrders.map((o: any) => ({
-    orderId: o.OrderID,
-    orderTotal: o.OrderTotal,
-    dateCreated: parseMSDate(o.DateCreated),
-    deliveryDate: parseMSDate(o.DeliveryDate),
-    hasNote: o.isNote === 'Yes',
-    lineItems: o.OrderDetails || [],
-  }));
-
-  // Optionally fetch line-item details for recent orders
-  if (fetchDetails && orders.length > 0) {
-    // Need fresh cookies from the ordering page
-    const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-      method: 'GET',
-      headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      redirect: 'follow',
-    });
-    await pageResp.text();
-    const detailCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
-
-    const detailCount = Math.min(orders.length, 5);
-    for (let i = 0; i < detailCount; i++) {
-      const oid = orders[i].orderId;
-      console.log(`[PA API] Fetching detail for order ${oid}`);
-      
-      // Try multiple URL patterns — the "View" button opens a page like the price list
-      const urls = [
-        `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${oid}&locationid=${session.locationId}&download=false`,
-        `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${oid}&download=false`,
-        `${PA_BASE_URL}/Ordering/OrderDetailPage?orderid=${oid}&locationid=${session.locationId}&download=false`,
-        `${PA_BASE_URL}/Ordering/InvoiceDetailPage?orderid=${oid}&locationid=${session.locationId}&download=false`,
-      ];
-
-      for (const url of urls) {
-        try {
-          const detailResp = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Cookie': detailCookies,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-            },
-            redirect: 'follow',
-          });
-          
-          console.log(`[PA API] Order detail ${url.split('/Ordering/')[1]?.split('?')[0]} → ${detailResp.status}, len: ${detailResp.headers.get('content-length') || '?'}`);
-          
-          if (detailResp.ok) {
-            const contentType = detailResp.headers.get('content-type') || '';
-            const rawBytes = new Uint8Array(await detailResp.arrayBuffer());
-            const text = new TextDecoder('utf-8', { fatal: false }).decode(rawBytes);
-            const isPdf = text.startsWith('%PDF');
-            
-            console.log(`[PA API] Order ${oid} type: ${contentType}, isPdf: ${isPdf}, len: ${text.length}`);
-            
-            if (isPdf) {
-              // Extract text from PDF streams
-              const parsed = await parsePdfOrderDetail(rawBytes);
-              if (parsed.length > 0) {
-                orders[i].lineItems = parsed;
-                console.log(`[PA API] Order ${oid}: ${parsed.length} line items from PDF`);
-                break;
-              }
-            } else {
-              console.log(`[PA API] Order ${oid} first 500:`, text.slice(0, 500).replace(/\s+/g, ' '));
-              const parsed = parseOrderDetailHtml(text);
-              if (parsed.length > 0) {
-                orders[i].lineItems = parsed;
-                console.log(`[PA API] Order ${oid}: ${parsed.length} line items from HTML`);
-                break;
-              }
-            }
-          } else {
-            await detailResp.text().catch(() => '');
-          }
-        } catch (e) {
-          console.warn(`[PA API] Detail fetch error for ${oid}:`, e);
-        }
-      }
-    }
-  }
-
-  return jsonResponse({ success: true, data: { orders, count: orders.length, persisted: persistedCount } });
-}
-
-function parseOrderDetailHtml(html: string): any[] {
+function parsePricingHtml(html: string): any[] {
   const items: any[] = [];
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let match;
@@ -746,16 +607,14 @@ function parseOrderDetailHtml(html: string): any[] {
     while ((cellMatch = cellRegex.exec(match[1])) !== null) {
       cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
     }
-    // Look for rows with item data (typically: item#, description, qty, unit, price, total)
-    if (cells.length >= 4) {
-      const qtyVal = parseFloat(cells.find(c => /^\d+\.?\d*$/.test(c)) || '0');
-      const priceVal = parseFloat((cells.find(c => /\$/.test(c)) || '').replace(/[$,]/g, ''));
-      if (qtyVal > 0 || priceVal > 0) {
+    if (cells.length >= 3) {
+      const priceVal = cells.find(c => /^\$?[\d.]+$/.test(c.replace(/[$,]/g, '')));
+      if (priceVal) {
         items.push({
+          id: cells[0],
           name: cells[1] || cells[0],
-          quantity: qtyVal,
-          price: priceVal || 0,
-          raw: cells,
+          price: parseFloat(priceVal.replace(/[$,]/g, '')),
+          unit: cells.find(c => /^(cs|ea|lb|bg|ct|cn|bx|pk)$/i.test(c)) || 'case',
         });
       }
     }
@@ -763,165 +622,172 @@ function parseOrderDetailHtml(html: string): any[] {
   return items;
 }
 
-// Parse order line items from PDF binary (wkhtmltopdf with FlateDecode streams)
-async function parsePdfOrderDetail(bytes: Uint8Array): Promise<any[]> {
-  try {
-    const rawText = new TextDecoder('latin1').decode(bytes);
-    const allTextParts: string[] = [];
-    
-    // Find and decompress FlateDecode streams
-    let searchFrom = 0;
-    let streamCount = 0;
-    let decompressedCount = 0;
-    
-    while (true) {
-      // Handle both \n and \r\n after "stream"
-      let streamIdx = rawText.indexOf('stream\r\n', searchFrom);
-      let dataStart = streamIdx === -1 ? -1 : streamIdx + 'stream\r\n'.length;
-      if (streamIdx === -1) {
-        streamIdx = rawText.indexOf('stream\n', searchFrom);
-        dataStart = streamIdx === -1 ? -1 : streamIdx + 'stream\n'.length;
-      }
-      if (streamIdx === -1) break;
-      
-      // Find endstream (could be \nendstream or \r\nendstream)
-      let endIdx = rawText.indexOf('\r\nendstream', dataStart);
-      if (endIdx === -1) endIdx = rawText.indexOf('\nendstream', dataStart);
-      if (endIdx === -1) { searchFrom = dataStart; continue; }
-      
-      streamCount++;
-      
-      // Check header for FlateDecode
-      const headerStart = Math.max(0, streamIdx - 500);
-      const header = rawText.slice(headerStart, streamIdx);
-      
-      if (header.includes('FlateDecode')) {
-        const compressedBytes = bytes.slice(dataStart, endIdx);
-        console.log(`[PA PDF] Stream ${streamCount}: compressed ${compressedBytes.length} bytes, first 4: ${compressedBytes[0]?.toString(16)} ${compressedBytes[1]?.toString(16)}`);
-        try {
-          const decompressed = await decompressDeflate(compressedBytes);
-          const streamText = new TextDecoder('latin1').decode(decompressed);
-          
-          // Log first decompressed stream content for debugging
-          if (decompressedCount === 0) {
-            console.log(`[PA PDF] Stream ${streamCount} decompressed ${decompressed.length} bytes, first 500:`, streamText.slice(0, 500));
-          }
-          
-          // Extract text from BT...ET blocks  
-          const btRegex = /BT\s*([\s\S]*?)ET/g;
-          let btMatch;
-          while ((btMatch = btRegex.exec(streamText)) !== null) {
-            const block = btMatch[1];
-            // Tj operator
-            const tjRegex = /\(([^)]*)\)\s*Tj/g;
-            let tj;
-            while ((tj = tjRegex.exec(block)) !== null) {
-              const decoded = tj[1].replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\');
-              if (decoded.trim()) allTextParts.push(decoded.trim());
-            }
-            // TJ array operator
-            const tjArrRegex = /\[([^\]]*)\]\s*TJ/g;
-            let tja;
-            while ((tja = tjArrRegex.exec(block)) !== null) {
-              const innerRegex = /\(([^)]*)\)/g;
-              let inner;
-              let combined = '';
-              while ((inner = innerRegex.exec(tja[1])) !== null) {
-                combined += inner[1].replace(/\\\(/g, '(').replace(/\\\)/g, ')');
-              }
-              if (combined.trim()) allTextParts.push(combined.trim());
-            }
-          }
-          decompressedCount++;
-        } catch (e) {
-          console.log(`[PA PDF] Stream ${streamCount} decompress failed:`, e?.message || e);
-        }
-      }
-      
-      searchFrom = endIdx + 10;
-    }
-    
-    console.log(`[PA PDF] Found ${streamCount} streams, decompressed ${decompressedCount}, extracted ${allTextParts.length} text parts`);
-    if (allTextParts.length > 0) {
-      console.log('[PA PDF] Sample:', JSON.stringify(allTextParts.slice(0, 40)));
-    }
-    
-    // Parse line items from text parts
-    // Typical order: Item#, Description, Qty, Unit, Price, Extended
-    const items: any[] = [];
-    
-    for (let i = 0; i < allTextParts.length; i++) {
-      const part = allTextParts[i];
-      // Look for dollar amounts
-      if (/^\$[\d,]+\.\d{2}$/.test(part)) {
-        const price = parseFloat(part.replace(/[$,]/g, ''));
-        let name = '';
-        let qty = 0;
-        let unit = '';
-        
-        for (let j = i - 1; j >= Math.max(0, i - 8); j--) {
-          const prev = allTextParts[j];
-          if (/^\d+\.?\d*$/.test(prev) && !qty) {
-            qty = parseFloat(prev);
-          } else if (/^(cs|ea|lb|bg|ct|cn|bx|pk|dz|hd|bn|bh|fl|jg)$/i.test(prev) && !unit) {
-            unit = prev;
-          } else if (prev.length > 3 && !/^\$/.test(prev) && !/^\d+\.?\d*$/.test(prev) && !name) {
-            name = prev;
-          }
-        }
-        
-        if (name && (qty > 0 || price > 0)) {
-          if (!items.some(it => it.name === name && it.price === price)) {
-            items.push({ name, quantity: qty, unit: unit || 'cs', price });
-          }
-        }
-      }
-    }
-    
-    return items;
-  } catch (e) {
-    console.warn('[PA PDF] Parse error:', e);
-    return [];
+// Parse pack size info from item name
+function parsePackFromName(name: string): { packSize: string | null; packQuantity: number | null } {
+  if (!name) return { packSize: null, packQuantity: null };
+  const trimmed = name.trim();
+
+  const countSlashWeight = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*#(?!\d)/);
+  if (countSlashWeight) {
+    const qty = parseInt(countSlashWeight[1]);
+    return { packSize: `${qty}/${countSlashWeight[2]}#`, packQuantity: qty };
   }
+  const countCan = trimmed.match(/(\d+)\/#(\d+)/);
+  if (countCan) {
+    const qty = parseInt(countCan[1]);
+    return { packSize: `${qty}/#${countCan[2]}`, packQuantity: qty };
+  }
+  const countSlashLb = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(?:LB|lb)/);
+  if (countSlashLb) {
+    const qty = parseInt(countSlashLb[1]);
+    return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty };
+  }
+  const nCt = trimmed.match(/(\d+)\s*CT\b/i);
+  if (nCt) {
+    const qty = parseInt(nCt[1]);
+    return { packSize: `${qty} CT`, packQuantity: qty };
+  }
+  const standalone = trimmed.match(/\b(\d+(?:\.\d+)?)\s*#(?!\d)/);
+  if (standalone) return { packSize: `${standalone[1]}#`, packQuantity: 1 };
+  const nLb = trimmed.match(/(\d+(?:\.\d+)?)\s*(?:lb|LB)\b/);
+  if (nLb) return { packSize: `${nLb[1]} LB`, packQuantity: 1 };
+
+  return { packSize: null, packQuantity: null };
 }
 
-async function decompressDeflate(data: Uint8Array): Promise<Uint8Array> {
-  // Try raw deflate first, then with zlib header
-  for (const format of ['raw' as const, 'deflate' as const]) {
-    try {
-      const ds = new DecompressionStream(format);
-      const writer = ds.writable.getWriter();
-      const reader = ds.readable.getReader();
-      
-      writer.write(data).catch(() => {});
-      writer.close().catch(() => {});
-      
-      const chunks: Uint8Array[] = [];
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
+// ============================================================================
+// ACTION HANDLERS
+// ============================================================================
+
+async function handleTest(supabase: any, body: any): Promise<Response> {
+  const { locationId, testCredentials } = body;
+  
+  let credentials: PACredentials | null = null;
+  if (testCredentials?.username && testCredentials?.password) {
+    credentials = {
+      username: testCredentials.username,
+      password: testCredentials.password,
+      restaurant_id: testCredentials.restaurant_id || testCredentials.pa_location_id || '',
+    };
+  } else {
+    credentials = await getCredentials(supabase, locationId);
+  }
+  
+  if (!credentials) return jsonResponse({ authenticated: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ authenticated: false, error: 'Login failed — check credentials' });
+
+  // Verify we can actually access data
+  const verified = await verifySession(session);
+  return jsonResponse({
+    authenticated: true,
+    verified,
+    success: true,
+    message: verified ? 'Produce Alliance connection successful!' : 'Login succeeded but session verification failed — may need to check restaurantId',
+  });
+}
+
+async function handleItems(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Get items from recent orders (the Buyers Edge portal shows items via orders)
+  const now = new Date();
+  const startDate = `${now.getFullYear()}-${now.getMonth()}-${now.getDate() - 30}`;
+  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  
+  const orders = await fetchOrderList(session, startDate, endDate);
+  
+  // Also try pricing
+  const pricing = await fetchPAPricing(session);
+  
+  // Collect unique items from pricing
+  const items = pricing.length > 0 ? pricing : [];
+
+  return jsonResponse({ success: true, data: { items, count: items.length, orderCount: orders.length } });
+}
+
+async function handleOrders(supabase: any, body: any): Promise<Response> {
+  const { locationId, startDate, endDate, fetchDetails = true, maxDetails = 10 } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
+
+  // Calculate date range
+  const now = new Date();
+  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
+  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+
+  const orderList = await fetchOrderList(session, sd, ed);
+  console.log('[PA Orders] Got', orderList.length, 'orders in range');
+
+  // Fetch details for orders
+  const orderDetails: PAOrderDetail[] = [];
+  if (fetchDetails && orderList.length > 0) {
+    const toFetch = orderList.slice(0, maxDetails);
+    for (const order of toFetch) {
+      const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed);
+      if (detail) {
+        orderDetails.push(detail);
+        // Brief pause to avoid hammering
+        await new Promise(r => setTimeout(r, 300));
       }
-      
-      const totalLen = chunks.reduce((s, c) => s + c.length, 0);
-      const result = new Uint8Array(totalLen);
-      let offset = 0;
-      for (const chunk of chunks) {
-        result.set(chunk, offset);
-        offset += chunk.length;
-      }
-      return result;
-    } catch {
-      continue;
     }
   }
-  throw new Error('Decompression failed');
+
+  // Persist to pa_orders
+  let persisted = 0;
+  for (const detail of orderDetails) {
+    const items = detail.lineItems.map(li => ({
+      name: li.description,
+      item_code: li.item_code,
+      pa_product_id: li.pa_product_id,
+      quantity: li.quantity,
+      unit: 'case',
+      price: li.unit_price,
+      total: li.cost,
+    }));
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: detail.webOrderId,
+        order_number: detail.webOrderId,
+        order_date: detail.deliveryDate || new Date().toISOString().split('T')[0],
+        delivery_date: detail.deliveryDate,
+        status: 'delivered',
+        total_amount: detail.totalAmount,
+        items,
+        raw_data: detail,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (!error) persisted++;
+  }
+
+  return jsonResponse({
+    success: true,
+    data: {
+      orderSummaries: orderList,
+      orderDetails,
+      count: orderList.length,
+      detailsFetched: orderDetails.length,
+      persisted,
+    }
+  });
 }
 
 async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   const { locationId, triggeredBy } = body;
 
-  // Create sync log
   const { data: syncLog } = await supabase
     .from('inventory_sync_logs')
     .insert({
@@ -930,7 +796,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
       sync_type: 'manual',
       status: 'in_progress',
       triggered_by: triggeredBy || null,
-      metadata: { method: 'ajax' },
+      metadata: { method: 'buyers_edge' },
     })
     .select('id')
     .single();
@@ -948,128 +814,94 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     return jsonResponse({ success: false, error: 'PA login failed' });
   }
 
-  const items = await fetchPAItems(session);
-  console.log('[PA Sync] Got', items.length, 'items to sync');
-
-  // Merge pricing data (contains actual UOM)
-  const pricing = await fetchPAPricing(session);
-  console.log('[PA Sync] Got', pricing.length, 'pricing entries to merge UOM');
-  if (pricing.length > 0) {
-    // Log sample pricing entry for debugging
-    console.log('[PA Sync] Sample pricing entry:', JSON.stringify(pricing[0]));
-    
-    // Build maps by both ID and normalized name for matching
-    const priceMapById = new Map(pricing.map((p: any) => [String(p.id), p]));
-    const priceMapByName = new Map(pricing.map((p: any) => [p.name?.toUpperCase()?.trim(), p]));
-    
-    let matched = 0;
-    for (const item of items) {
-      // Try matching by ID first, then by name
-      const priceInfo = priceMapById.get(String(item.id)) || priceMapByName.get(item.name?.toUpperCase()?.trim());
-      if (priceInfo) {
-        item.price = priceInfo.price ?? item.price;
-        const pricingUnit = priceInfo.unit?.toLowerCase()?.trim();
-        if (pricingUnit && pricingUnit !== 'case' && pricingUnit !== 'cs') {
-          item.unit = pricingUnit;
-        } else if (pricingUnit) {
-          item.unit = pricingUnit;
-        }
-        matched++;
+  // Fetch recent orders to get latest items and prices
+  const now = new Date();
+  const startDate = `${now.getFullYear()}-${now.getMonth()}-1`;
+  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  
+  const orderList = await fetchOrderList(session, startDate, endDate);
+  
+  // Fetch details for recent orders
+  const allItems = new Map<string, PALineItem>();
+  let ordersProcessed = 0;
+  
+  for (const order of orderList.slice(0, 5)) {
+    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate);
+    if (detail) {
+      for (const li of detail.lineItems) {
+        // Use pa_product_id as unique key
+        allItems.set(li.pa_product_id || li.item_code, li);
       }
+      ordersProcessed++;
+      await new Promise(r => setTimeout(r, 300));
     }
-    console.log('[PA Sync] Matched', matched, 'of', items.length, 'items with pricing UOM');
-  } else {
-    console.log('[PA Sync] WARNING: No pricing data returned — units will default to "case"');
   }
 
-  if (items.length === 0) {
+  // Also try pricing
+  const pricing = await fetchPAPricing(session);
+  
+  console.log('[PA Sync] Got', allItems.size, 'unique items from', ordersProcessed, 'orders,', pricing.length, 'from pricing');
+
+  if (allItems.size === 0 && pricing.length === 0) {
     await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No items found' });
-    return jsonResponse({ success: true, message: 'No items found on PA portal', synced: 0 });
+    return jsonResponse({ success: true, message: 'No items found', synced: 0 });
   }
 
-  // Upsert items WITHOUT storage location — user assigns manually
+  // Sync items to inventory
   let synced = 0;
-
-  for (const item of items) {
-    let existingItem = null;
-    if (item.id) {
-      const { data } = await supabase
-        .from('inventory_items')
-        .select('id, user_hidden')
-        .eq('location_id', locationId)
-        .eq('pa_item_id', String(item.id))
-        .maybeSingle();
-      existingItem = data;
-    }
-    if (!existingItem && item.name) {
-      const { data } = await supabase
-        .from('inventory_items')
-        .select('id, user_hidden')
-        .eq('location_id', locationId)
-        .ilike('name', item.name)
-        .maybeSingle();
-      existingItem = data;
-    }
-
-    // Parse pack info from item name
-    const parsedPack = parsePackFromName(item.name || '');
+  for (const [, item] of allItems) {
+    const parsedPack = parsePackFromName(item.description);
     
+    // Check if item exists by pa_item_id
+    let existingItem = null;
+    if (item.pa_product_id) {
+      const { data } = await supabase
+        .from('inventory_items')
+        .select('id, user_hidden')
+        .eq('location_id', locationId)
+        .eq('pa_item_id', item.pa_product_id)
+        .maybeSingle();
+      existingItem = data;
+    }
+    if (!existingItem) {
+      const { data } = await supabase
+        .from('inventory_items')
+        .select('id, user_hidden')
+        .eq('location_id', locationId)
+        .ilike('name', item.description)
+        .maybeSingle();
+      existingItem = data;
+    }
+
     const itemData = {
-      name: (item.name || '').trim(),
-      unit: item.unit?.toLowerCase() || 'case',
-      cost_per_unit: item.price,
-      pack_size: item.packSize || parsedPack.packSize || null,
-      pack_quantity: item.packQuantity || parsedPack.packQuantity || null,
-      brand: item.brand || null,
-      item_number: item.itemNumber || null,
+      name: item.description.trim(),
+      unit: 'case',
+      cost_per_unit: item.unit_price,
+      pack_size: parsedPack.packSize,
+      pack_quantity: parsedPack.packQuantity,
+      item_number: item.item_code || null,
       vendor_source: 'produce_alliance',
       is_active: true,
     };
 
     if (existingItem) {
-      // Don't overwrite storage_location_id if user already assigned one
-      // Don't re-activate items the user has manually hidden
       const updateData = { ...itemData };
       if (existingItem.user_hidden) {
-        delete (updateData as any).is_active; // preserve hidden state
+        delete (updateData as any).is_active;
       }
       await supabase.from('inventory_items').update(updateData).eq('id', existingItem.id);
     } else {
       await supabase.from('inventory_items').insert({
         location_id: locationId,
-        pa_item_id: item.id ? String(item.id) : null,
-        storage_location_id: null, // User assigns manually
+        pa_item_id: item.pa_product_id || null,
+        storage_location_id: null,
         ...itemData,
       });
     }
     synced++;
   }
 
-  // Deactivate PA items that are NOT on the order guide
-  const syncedPaIds = items.map(i => String(i.id)).filter(Boolean);
-  if (syncedPaIds.length > 0) {
-    const { data: allPaItems } = await supabase
-      .from('inventory_items')
-      .select('id, pa_item_id, user_hidden')
-      .eq('location_id', locationId)
-      .eq('vendor_source', 'produce_alliance')
-      .eq('is_active', true);
-    
-    const toDeactivate = (allPaItems || []).filter(
-      (item: any) => item.pa_item_id && !syncedPaIds.includes(String(item.pa_item_id))
-    );
-    
-    if (toDeactivate.length > 0) {
-      const deactivateIds = toDeactivate.map((i: any) => i.id);
-      await supabase.from('inventory_items')
-        .update({ is_active: false })
-        .in('id', deactivateIds);
-      console.log(`[PA Sync] Deactivated ${toDeactivate.length} items not on order guide`);
-    }
-  }
-
-  // ---- Blended price calculation for linked items ----
-  // Find hidden items that have a linked_item_id pointing to an active item
+  // Blended price calculation for linked items
   const { data: linkedItems } = await supabase
     .from('inventory_items')
     .select('id, linked_item_id, cost_per_unit')
@@ -1078,7 +910,6 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     .not('linked_item_id', 'is', null);
 
   if (linkedItems && linkedItems.length > 0) {
-    // Group by linked_item_id (primary item)
     const linkMap = new Map<string, number[]>();
     for (const li of linkedItems) {
       if (!li.linked_item_id || li.cost_per_unit == null) continue;
@@ -1088,46 +919,42 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
     }
 
     for (const [primaryId, hiddenPrices] of linkMap.entries()) {
-      // Get the primary item's cost
       const { data: primary } = await supabase
         .from('inventory_items')
         .select('cost_per_unit')
         .eq('id', primaryId)
         .single();
-
       if (!primary?.cost_per_unit) continue;
-
       const allPrices = [Number(primary.cost_per_unit), ...hiddenPrices];
       const avg = allPrices.reduce((sum, p) => sum + p, 0) / allPrices.length;
       const blended = Math.round(avg * 100) / 100;
-
-      await supabase
-        .from('inventory_items')
-        .update({ blended_price: blended })
-        .eq('id', primaryId);
-
-      console.log(`[PA Sync] Blended price for ${primaryId}: $${blended} (from ${allPrices.length} prices: ${allPrices.map(p => '$' + p.toFixed(2)).join(', ')})`);
+      await supabase.from('inventory_items').update({ blended_price: blended }).eq('id', primaryId);
     }
   }
 
-  await updateSyncLog(supabase, syncLogId, 'completed', synced, 0, []);
-  return jsonResponse({ success: true, synced });
+  await updateSyncLog(supabase, syncLogId, 'completed', synced, ordersProcessed, []);
+  return jsonResponse({ success: true, synced, ordersProcessed });
 }
 
 async function handleSaveCredentials(supabase: any, body: any): Promise<Response> {
-  const { locationId, username, password, paLocationId } = body;
+  const { locationId, username, password, restaurantId, paLocationId } = body;
 
   if (!locationId || !username || !password) {
     return jsonResponse({ success: false, error: 'Missing locationId, username, or password' }, 400);
   }
 
+  const rid = restaurantId || paLocationId || '';
+  if (!rid) {
+    return jsonResponse({ success: false, error: 'Missing restaurantId — find it in the PA portal URL' }, 400);
+  }
+
   // Test credentials
-  const testSession = await loginToPA({ username, password, pa_location_id: paLocationId || '18046' });
+  const testSession = await loginToPA({ username, password, restaurant_id: rid });
   if (!testSession) {
     return jsonResponse({ success: false, error: 'Login failed — invalid credentials' });
   }
 
-  const credentials: PACredentials = { username, password, pa_location_id: paLocationId || '18046' };
+  const credentials: PACredentials = { username, password, restaurant_id: rid };
 
   const { error } = await supabase
     .from('location_integrations')
@@ -1144,10 +971,6 @@ async function handleSaveCredentials(supabase: any, body: any): Promise<Response
   return jsonResponse({ success: true, message: 'Produce Alliance connected!' });
 }
 
-// ============================================================================
-// EXPLORE — discover links on the ordering page
-// ============================================================================
-
 async function handleExplore(supabase: any, body: any): Promise<Response> {
   const { locationId } = body;
   const credentials = await getCredentials(supabase, locationId);
@@ -1156,247 +979,74 @@ async function handleExplore(supabase: any, body: any): Promise<Response> {
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: {
-      'Cookie': session.cookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-    redirect: 'follow',
-  });
+  // Explore the portal to discover endpoints
+  const pagesToTry = [
+    `${PA_BASE_URL}/ng/`,
+    `${PA_BASE_URL}/ng/index.html`,
+    `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}`,
+  ];
 
-  const pageHtml = await pageResp.text();
+  const results: any[] = [];
+  for (const url of pagesToTry) {
+    try {
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+        redirect: 'follow',
+      });
+      const text = await resp.text();
+      
+      // Extract API endpoints from JS
+      const apiRegex = /(?:url|api|endpoint|service)[:\s]*['"]([^'"]*(?:order|pricing|restaurant|invoice)[^'"]*)['"]/gi;
+      const endpoints: string[] = [];
+      let m;
+      while ((m = apiRegex.exec(text)) !== null) {
+        if (!endpoints.includes(m[1])) endpoints.push(m[1]);
+      }
 
-  // Extract all links
-  const linkRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  const links: { href: string; text: string }[] = [];
-  let match;
-  while ((match = linkRegex.exec(pageHtml)) !== null) {
-    links.push({ href: match[1], text: match[2].replace(/<[^>]+>/g, '').trim() });
-  }
+      // Extract links
+      const linkRegex = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
+      const links: string[] = [];
+      while ((m = linkRegex.exec(text)) !== null) {
+        if (!links.includes(m[1])) links.push(m[1]);
+      }
 
-  // Extract navigation/sidebar items
-  const navRegex = /class="[^"]*(?:nav|menu|sidebar|tab)[^"]*"[^>]*>([\s\S]*?)<\//gi;
-  const navItems: string[] = [];
-  while ((match = navRegex.exec(pageHtml)) !== null) {
-    const text = match[1].replace(/<[^>]+>/g, '').trim();
-    if (text) navItems.push(text);
-  }
-
-  // Look for pricing-related links
-  const pricingLinks = links.filter(l => 
-    /pric|cost|rate|pdf|report|export|download/i.test(l.href + ' ' + l.text)
-  );
-
-  // Search for pricing AJAX endpoint
-  const pricingAjaxMatches = pageHtml.match(/url[:\s]*["'][^"']*[Pp]rice[^"']*["']/gi);
-  console.log('[PA Explore] Pricing AJAX URLs:', JSON.stringify(pricingAjaxMatches));
-
-  // Search for GetPrices or similar endpoints
-  const getPricesMatches = pageHtml.match(/(?:Get|Load|Fetch)[A-Za-z]*[Pp]rice[^"'\s)}\]]*["')}\]]/gi);
-  console.log('[PA Explore] GetPrices matches:', JSON.stringify(getPricesMatches));
-
-  // Find the tblpricestablesummary AJAX setup - search around it
-  const tblPricesIdx = pageHtml.indexOf('tblpricestablesummary');
-  if (tblPricesIdx > -1) {
-    // Go back further to find the AJAX url
-    const context = pageHtml.slice(Math.max(0, tblPricesIdx - 2000), tblPricesIdx + 1000).replace(/\s+/g, ' ');
-    console.log('[PA Explore] tblpricestablesummary context:', context);
-  }
-
-  // Search for Order Guide related JS/AJAX
-  const ogJsRegex = /(?:function\s+getItems|OrderGuide|orderguide|GetOrderGuide|tblOrderGuide)[^;]{0,800}/gi;
-  const ogMatches: string[] = [];
-  let ogm;
-  while ((ogm = ogJsRegex.exec(pageHtml)) !== null) {
-    ogMatches.push(ogm[0].replace(/\s+/g, ' ').trim().slice(0, 400));
-  }
-  console.log('[PA Explore] OrderGuide JS matches:', JSON.stringify(ogMatches));
-
-  // Also search for the specific getItems function
-  const getItemsIdx = pageHtml.indexOf('function getItems');
-  if (getItemsIdx > -1) {
-    const context = pageHtml.slice(getItemsIdx, getItemsIdx + 1500).replace(/\s+/g, ' ');
-    console.log('[PA Explore] getItems function:', context);
-  }
-
-  // Log full HTML for debugging (first 5000 chars)
-  console.log('[PA Explore] Page HTML (5000 chars):', pageHtml.replace(/\s+/g, ' ').slice(0, 5000));
-  console.log('[PA Explore] All links:', JSON.stringify(links));
-  console.log('[PA Explore] Pricing links:', JSON.stringify(pricingLinks));
-
-  return jsonResponse({
-    success: true,
-    data: {
-      allLinks: links,
-      pricingLinks,
-      navItems,
-      pageLength: pageHtml.length,
+      results.push({
+        url: url.replace(PA_BASE_URL, ''),
+        status: resp.status,
+        contentLength: text.length,
+        endpoints,
+        links: links.slice(0, 20),
+        sample: text.replace(/\s+/g, ' ').slice(0, 2000),
+      });
+    } catch (e) {
+      results.push({ url: url.replace(PA_BASE_URL, ''), error: String(e) });
     }
-  });
+  }
+
+  return jsonResponse({ success: true, data: { pages: results } });
 }
 
-// ============================================================================
-// PRICING — fetch pricing list PDF
-// ============================================================================
-
-async function handlePricing(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
+// Fetch a single order detail — lightweight action for testing
+async function handleFetchOrder(supabase: any, body: any): Promise<Response> {
+  const { locationId, webOrderId, startDate, endDate } = body;
+  
+  if (!webOrderId) return jsonResponse({ success: false, error: 'webOrderId is required' }, 400);
+  
   const credentials = await getCredentials(supabase, locationId);
   if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
 
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Step 1: Load ordering page to establish session state
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: {
-      'Cookie': session.cookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-    redirect: 'follow',
-  });
-  await pageResp.text();
-  const updatedCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
+  const now = new Date();
+  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
+  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 
-  // Step 2: Get price list dates from AJAX endpoint
-  console.log('[PA Pricing] Fetching price list dates...');
-  const priceListResp = await fetch(`${PA_BASE_URL}/Ordering/GetPriceListPartialData`, {
-    method: 'POST',
-    headers: {
-      'Cookie': updatedCookies,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-Requested-With': 'XMLHttpRequest',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Referer': `${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`,
-    },
-    body: `locationid=${session.locationId}`,
-    redirect: 'follow',
-  });
+  const detail = await fetchOrderDetail(session, webOrderId, sd, ed);
+  if (!detail) return jsonResponse({ success: false, error: 'Could not fetch order detail' });
 
-  if (!priceListResp.ok) {
-    console.log('[PA Pricing] GetPriceListPartialData →', priceListResp.status);
-    return jsonResponse({ success: false, error: 'Failed to fetch price list dates' });
-  }
-
-  const priceListData = await priceListResp.json();
-  console.log('[PA Pricing] Price list data:', JSON.stringify(priceListData).slice(0, 1000));
-
-  const priceDates = priceListData.Data || priceListData.data || [];
-  if (!Array.isArray(priceDates) || priceDates.length === 0) {
-    return jsonResponse({ success: true, data: { priceLists: [], message: 'No price lists available' } });
-  }
-
-  // Step 3: Fetch the most recent pricing page (HTML version for parsing)
-  const latestDate = priceDates[0];
-  const dateBegin = latestDate.DateBegin || latestDate.dateBegin;
-  console.log('[PA Pricing] Fetching latest price list for date:', dateBegin);
-
-  const pricingPageResp = await fetch(
-    `${PA_BASE_URL}/Ordering/PricesDetailPage?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
-    {
-      method: 'GET',
-      headers: {
-        'Cookie': updatedCookies,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      redirect: 'follow',
-    }
-  );
-
-  console.log('[PA Pricing] PricesDetailPage status:', pricingPageResp.status, 'content-type:', pricingPageResp.headers.get('content-type'));
-
-  if (!pricingPageResp.ok) {
-    // Try PDF version instead
-    console.log('[PA Pricing] HTML failed, trying PDF...');
-    const pdfResp = await fetch(
-      `${PA_BASE_URL}/Ordering/PricesDetail?date=${encodeURIComponent(dateBegin)}&locationid=${session.locationId}&download=false`,
-      {
-        method: 'GET',
-        headers: {
-          'Cookie': updatedCookies,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-        redirect: 'follow',
-      }
-    );
-
-    const pdfContentType = pdfResp.headers.get('content-type') || '';
-    console.log('[PA Pricing] PDF status:', pdfResp.status, 'content-type:', pdfContentType);
-
-    if (pdfResp.ok && pdfContentType.includes('pdf')) {
-      const pdfBytes = new Uint8Array(await pdfResp.arrayBuffer());
-      console.log('[PA Pricing] Got PDF, size:', pdfBytes.byteLength, 'bytes');
-      return jsonResponse({
-        success: true,
-        data: {
-          type: 'pdf',
-          dateBegin,
-          dateEnd: latestDate.DateEnd || latestDate.dateEnd,
-          lineCount: latestDate.LineCount || latestDate.lineCount,
-          pdfSize: pdfBytes.byteLength,
-          allDates: priceDates,
-        }
-      });
-    }
-
-    const text = await pdfResp.text();
-    console.log('[PA Pricing] Response (500 chars):', text.slice(0, 500));
-    return jsonResponse({ success: false, error: 'Could not fetch pricing data' });
-  }
-
-  // Parse the HTML pricing page for item prices
-  const pricingHtml = await pricingPageResp.text();
-  console.log('[PA Pricing] Got pricing page HTML, length:', pricingHtml.length);
-  console.log('[PA Pricing] HTML sample (2000 chars):', pricingHtml.replace(/\s+/g, ' ').slice(0, 2000));
-
-  // Try to extract pricing data from the HTML table
-  const items = parsePricingHtml(pricingHtml);
-
-  return jsonResponse({
-    success: true,
-    data: {
-      type: 'html',
-      dateBegin,
-      dateEnd: latestDate.DateEnd || latestDate.dateEnd,
-      lineCount: latestDate.LineCount || latestDate.lineCount,
-      items,
-      itemCount: items.length,
-      allDates: priceDates,
-    }
-  });
-}
-
-function parsePricingHtml(html: string): any[] {
-  const items: any[] = [];
-  
-  // Table format: [itemId, name, unit, quantity, price($XX.XX)]
-  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  let match;
-  while ((match = rowRegex.exec(html)) !== null) {
-    const cells: string[] = [];
-    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-    let cellMatch;
-    while ((cellMatch = cellRegex.exec(match[1])) !== null) {
-      cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
-    }
-    // Expected: [id, name, unit, qty, price]
-    if (cells.length >= 5) {
-      const priceStr = cells[4];
-      if (priceStr && /\$/.test(priceStr)) {
-        items.push({
-          id: cells[0],
-          name: cells[1],
-          unit: cells[2],
-          quantity: parseFloat(cells[3]) || 1,
-          price: parseFloat(priceStr.replace(/[$,]/g, '')) || 0,
-        });
-      }
-    }
-  }
-  
-  return items;
+  return jsonResponse({ success: true, data: detail });
 }
 
 // ============================================================================
@@ -1414,7 +1064,12 @@ async function getCredentials(supabase: any, locationId: string): Promise<PACred
     .maybeSingle();
 
   if (error || !data) return null;
-  return data.credentials as unknown as PACredentials;
+  const creds = data.credentials as unknown as PACredentials;
+  // Migrate legacy pa_location_id to restaurant_id
+  if (!creds.restaurant_id && creds.pa_location_id) {
+    creds.restaurant_id = creds.pa_location_id;
+  }
+  return creds;
 }
 
 function jsonResponse(data: any, status = 200): Response {
@@ -1440,347 +1095,6 @@ async function updateSyncLog(
 }
 
 // ============================================================================
-// TEST VISION — fetch one order PDF, send to Gemini Vision for line items
-// ============================================================================
-
-async function fetchOrderPdf(session: PASession, orderId: string): Promise<string | null> {
-  // Establish cookies
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home?DDLLocationID=${session.locationId}`, {
-    method: 'GET',
-    headers: { 'Cookie': session.cookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    redirect: 'follow',
-  });
-  await pageResp.text();
-  const detailCookies = mergeCookies(session.cookies, extractCookies(pageResp.headers));
-
-  const urls = [
-    `${PA_BASE_URL}/Ordering/OrderDetail?orderid=${orderId}&locationid=${session.locationId}&download=false`,
-    `${PA_BASE_URL}/Ordering/OrderDetailPage?orderid=${orderId}&locationid=${session.locationId}&download=false`,
-    `${PA_BASE_URL}/Ordering/InvoiceDetailPage?orderid=${orderId}&locationid=${session.locationId}&download=false`,
-  ];
-
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url, {
-        method: 'GET',
-        headers: { 'Cookie': detailCookies, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        redirect: 'follow',
-      });
-      if (resp.ok) {
-        const rawBytes = new Uint8Array(await resp.arrayBuffer());
-        const isPdf = rawBytes[0] === 0x25 && rawBytes[1] === 0x50;
-        if (isPdf && rawBytes.length > 100) {
-          let binary = '';
-          for (let i = 0; i < rawBytes.length; i++) binary += String.fromCharCode(rawBytes[i]);
-          return btoa(binary);
-        }
-      }
-      await resp.text().catch(() => '');
-    } catch (e) {
-      console.warn(`[PA Vision] Error fetching ${url}:`, e);
-    }
-  }
-  return null;
-}
-
-async function extractLineItemsFromPdf(pdfBase64: string, apiKey: string): Promise<any[]> {
-  const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: `Extract ALL line items from this produce order PDF. For each item return: product name, quantity ordered, unit of measure EXACTLY as shown (e.g. cs, ea, lb, bg, ct, cn, bx, pk, dz, hd, bn, bh, fl, jg, bunch, flat, each, case, pound — use the abbreviation from the document), and unit price. Return as JSON array: [{"name":"...","quantity":1,"unit":"cs","price":12.50}]. Only return the JSON array, nothing else.` },
-          { type: 'image_url', image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
-        ],
-      }],
-    }),
-  });
-
-  if (!aiResp.ok) {
-    console.error('[PA Vision] AI error:', aiResp.status);
-    return [];
-  }
-
-  const aiResult = await aiResp.json();
-  const content = aiResult.choices?.[0]?.message?.content || '';
-  try {
-    const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-    return JSON.parse(cleaned);
-  } catch {
-    console.warn('[PA Vision] Could not parse AI response');
-    return [];
-  }
-}
-
-async function handleTestVision(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  const rawOrders = await fetchPAOrders(session);
-  if (rawOrders.length === 0) return jsonResponse({ success: false, error: 'No orders found' });
-
-  const firstOrder = rawOrders[0];
-  const orderId = firstOrder.OrderID;
-  console.log(`[PA Vision] Testing with order ${orderId}`);
-
-  const pdfBase64 = await fetchOrderPdf(session, orderId);
-  if (!pdfBase64) return jsonResponse({ success: false, error: 'Could not fetch order PDF' });
-
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
-
-  const lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
-
-  return jsonResponse({
-    success: true,
-    data: { orderId, orderTotal: firstOrder.OrderTotal, lineItems, lineItemCount: lineItems.length },
-  });
-}
-
-// ============================================================================
-// SYNC INVENTORY — process recent orders via Vision and upsert to inventory
-// ============================================================================
-
-async function handleSyncInventory(supabase: any, body: any): Promise<Response> {
-  const { locationId, maxOrders = 3, triggeredBy } = body;
-  const errors: string[] = [];
-
-  // Create sync log entry
-  const { data: syncLog } = await supabase
-    .from('inventory_sync_logs')
-    .insert({
-      location_id: locationId,
-      sync_source: 'produce_alliance',
-      sync_type: 'manual',
-      status: 'in_progress',
-      triggered_by: triggeredBy || null,
-    })
-    .select('id')
-    .single();
-  const syncLogId = syncLog?.id;
-
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) {
-    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA integration not configured']);
-    return jsonResponse({ success: false, error: 'PA integration not configured' });
-  }
-
-  const session = await loginToPA(credentials);
-  if (!session) {
-    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['PA login failed']);
-    return jsonResponse({ success: false, error: 'PA login failed' });
-  }
-
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) {
-    await updateSyncLog(supabase, syncLogId, 'failed', 0, 0, ['LOVABLE_API_KEY not configured']);
-    return jsonResponse({ success: false, error: 'LOVABLE_API_KEY not configured' });
-  }
-
-  // Step 1: Get orders and persist to pa_orders
-  const rawOrders = await fetchPAOrders(session);
-  if (rawOrders.length === 0) {
-    await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No orders found' });
-    return jsonResponse({ success: true, synced: 0, message: 'No orders found' });
-  }
-
-  // Persist all fetched orders
-  const parseMSDate = (d: string | null) => {
-    if (!d) return null;
-    const match = d.match(/\/Date\((\d+)\)\//);
-    return match ? new Date(parseInt(match[1])).toISOString() : null;
-  };
-  await persistPAOrders(supabase, locationId, rawOrders, parseMSDate);
-
-  const ordersToProcess = rawOrders.slice(0, maxOrders);
-  console.log(`[PA Sync] Processing ${ordersToProcess.length} of ${rawOrders.length} orders`);
-
-  // Step 2: Process each order via Vision with retry
-  const allItems = new Map<string, any>(); // name -> latest data
-  let ordersProcessed = 0;
-
-  for (const order of ordersToProcess) {
-    const orderId = order.OrderID;
-    console.log(`[PA Sync] Processing order ${orderId}`);
-    
-    const pdfBase64 = await fetchOrderPdf(session, orderId);
-    if (!pdfBase64) {
-      const errMsg = `Could not fetch PDF for order ${orderId}`;
-      console.warn(`[PA Sync] ${errMsg}`);
-      errors.push(errMsg);
-      continue;
-    }
-
-    // Retry Vision extraction up to 2 times
-    let lineItems: any[] = [];
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      lineItems = await extractLineItemsFromPdf(pdfBase64, LOVABLE_API_KEY);
-      if (lineItems.length > 0) break;
-      if (attempt < 2) {
-        console.warn(`[PA Sync] Vision attempt ${attempt} failed for order ${orderId}, retrying...`);
-        await new Promise(r => setTimeout(r, 1000));
-      } else {
-        const errMsg = `Vision extraction failed for order ${orderId} after ${attempt} attempts`;
-        console.warn(`[PA Sync] ${errMsg}`);
-        errors.push(errMsg);
-      }
-    }
-
-    console.log(`[PA Sync] Order ${orderId}: ${lineItems.length} items extracted`);
-    
-    for (const item of lineItems) {
-      if (item.name) {
-        allItems.set(item.name.toLowerCase(), item);
-      }
-    }
-    ordersProcessed++;
-  }
-
-  // Step 4: Update EXISTING items only — never create new items from order PDFs
-  // Order PDFs use abbreviated names that don't match catalog entries, so creating
-  // new items from them causes duplicates and phantom entries.
-  let synced = 0;
-  let skippedNew = 0;
-  for (const [, item] of allItems) {
-    // Try matching by exact name first
-    let existing = null;
-    const { data: exactMatch } = await supabase
-      .from('inventory_items')
-      .select('id')
-      .eq('location_id', locationId)
-      .ilike('name', item.name)
-      .maybeSingle();
-    existing = exactMatch;
-
-    // Also try matching by pa_item_id if name has a stable ID pattern
-    if (!existing) {
-      const stablePaItemId = `pa_${item.name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 60)}`;
-      const { data: paMatch } = await supabase
-        .from('inventory_items')
-        .select('id')
-        .eq('location_id', locationId)
-        .eq('pa_item_id', stablePaItemId)
-        .maybeSingle();
-      existing = paMatch;
-    }
-
-    if (existing) {
-      // Only update price — don't overwrite name, unit, or storage location
-      const updateData: any = {};
-      if (item.price) updateData.cost_per_unit = item.price;
-      if (Object.keys(updateData).length > 0) {
-        await supabase.from('inventory_items').update(updateData).eq('id', existing.id);
-      }
-      synced++;
-    } else {
-      // Do NOT create new items from order PDFs — they use abbreviated names
-      // that don't match catalog entries and cause duplicates
-      skippedNew++;
-      console.log(`[PA Sync] Skipped new item from order PDF (not in inventory): "${item.name}"`);
-    }
-  }
-  console.log(`[PA Sync] Updated ${synced} existing items, skipped ${skippedNew} unmatched items`);
-
-  // Update sync log
-  await updateSyncLog(supabase, syncLogId, errors.length > 0 && synced === 0 ? 'failed' : 'completed', synced, ordersProcessed, errors, {
-    totalOrdersAvailable: rawOrders.length,
-  });
-
-  return jsonResponse({
-    success: true,
-    synced,
-    ordersProcessed,
-    totalOrdersAvailable: rawOrders.length,
-    errors: errors.length > 0 ? errors : undefined,
-  });
-}
-
-// ============================================================================
-// DISCOVER LOCATIONS — find available PA location IDs for an account
-// ============================================================================
-
-async function handleDiscoverLocations(supabase: any, body: any): Promise<Response> {
-  const { locationId } = body;
-  const credentials = await getCredentials(supabase, locationId);
-  if (!credentials) return jsonResponse({ success: false, error: 'PA integration not configured' });
-
-  const session = await loginToPA(credentials);
-  if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
-
-  // Fetch the ordering home page WITHOUT specifying DDLLocationID to see the default
-  const pageResp = await fetch(`${PA_BASE_URL}/Ordering/Home`, {
-    method: 'GET',
-    headers: {
-      'Cookie': session.cookies,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    },
-    redirect: 'follow',
-  });
-  const pageHtml = await pageResp.text();
-
-  // Look for DDLLocationID dropdown or select elements
-  const selectRegex = /<select[^>]*id=["']?DDLLocationID["']?[^>]*>([\s\S]*?)<\/select>/i;
-  const selectMatch = pageHtml.match(selectRegex);
-  
-  // Also look for any location-related dropdowns
-  const allSelectRegex = /<select[^>]*(?:location|DDL)[^>]*>([\s\S]*?)<\/select>/gi;
-  const allSelects: string[] = [];
-  let sm;
-  while ((sm = allSelectRegex.exec(pageHtml)) !== null) {
-    allSelects.push(sm[0].slice(0, 500));
-  }
-
-  // Extract option values from any location select
-  const optionRegex = /<option[^>]*value=["']?(\d+)["']?[^>]*>(.*?)<\/option>/gi;
-  const locations: { id: string; name: string; selected: boolean }[] = [];
-  const selectHtml = selectMatch ? selectMatch[0] : allSelects.join('');
-  let om;
-  while ((om = optionRegex.exec(selectHtml)) !== null) {
-    locations.push({
-      id: om[1],
-      name: om[2].replace(/<[^>]+>/g, '').trim(),
-      selected: om[0].includes('selected'),
-    });
-  }
-
-  // Also search for locationID assignments in JS
-  const jsLocationRegex = /locationID\s*[:=]\s*["']?(\d+)["']?/gi;
-  const jsLocations: string[] = [];
-  let jm;
-  while ((jm = jsLocationRegex.exec(pageHtml)) !== null) {
-    jsLocations.push(jm[1]);
-  }
-
-  // Look for the current URL's DDLLocationID
-  const urlLocationMatch = pageResp.url.match(/DDLLocationID=(\d+)/i);
-
-  console.log('[PA Discover] URL:', pageResp.url);
-  console.log('[PA Discover] Found locations:', JSON.stringify(locations));
-  console.log('[PA Discover] JS locationIDs:', JSON.stringify([...new Set(jsLocations)]));
-  console.log('[PA Discover] URL location:', urlLocationMatch?.[1]);
-  console.log('[PA Discover] Select elements found:', allSelects.length);
-
-  return jsonResponse({
-    success: true,
-    data: {
-      currentUrl: pageResp.url,
-      urlLocationId: urlLocationMatch?.[1] || null,
-      dropdownLocations: locations,
-      jsLocationIds: [...new Set(jsLocations)],
-      selectCount: allSelects.length,
-      defaultLocationId: session.locationId,
-    }
-  });
-}
-
-// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -1798,7 +1112,7 @@ serve(async (req) => {
     try { body = await req.json(); } catch { /* no body */ }
 
     const action = body.action || 'test';
-    console.log('[PA Service] Action:', action);
+    console.log('[PA Service] Action:', action, 'locationId:', body.locationId);
 
     switch (action) {
       case 'test': return await handleTest(supabase, body);
@@ -1807,10 +1121,7 @@ serve(async (req) => {
       case 'sync_items': return await handleSyncItems(supabase, body);
       case 'save_credentials': return await handleSaveCredentials(supabase, body);
       case 'explore': return await handleExplore(supabase, body);
-      case 'pricing': return await handlePricing(supabase, body);
-      case 'test_vision': return await handleTestVision(supabase, body);
-      case 'sync_inventory': return await handleSyncInventory(supabase, body);
-      case 'discover_locations': return await handleDiscoverLocations(supabase, body);
+      case 'fetch_order': return await handleFetchOrder(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
