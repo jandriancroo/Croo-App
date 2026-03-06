@@ -54,7 +54,7 @@ function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: 
   return (
     <div>
       <div className="flex gap-[4px] items-end" style={{ height: 28 }}>
-        {top6.map(h => {
+        {top.map(h => {
           const intensity = max > 0 ? h.val / max : 0;
           return <div key={h.hour} className="flex-1 rounded-[3px] min-w-[14px]" style={{ backgroundColor: getBarColor(intensity), height: `${Math.max(15, intensity * 100)}%` }} />;
         })}
