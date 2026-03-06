@@ -726,19 +726,20 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
 async function fetchPAPricing(session: PASession): Promise<any[]> {
   console.log('[PA Pricing] Fetching pricing for restaurant:', session.restaurantId);
   
-  // Try to access a pricing page
+  const authHeaders = getAuthHeaders(session);
+  
   const pricingUrls = [
+    `${PA_BASE_URL}/api/pricing?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/restaurant-dashboard/pricing?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/weeklyPricing.jsp?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/pricing.jsp?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/api/pricing?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/ng/api/pricing?restaurantId=${session.restaurantId}`,
   ];
 
   for (const url of pricingUrls) {
     try {
       const resp = await fetch(url, {
         method: 'GET',
-        headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+        headers: authHeaders,
         redirect: 'follow',
       });
       
@@ -749,7 +750,6 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
       
       console.log('[PA Pricing]', url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
       
-      // Try JSON
       try {
         const data = JSON.parse(text);
         const items = Array.isArray(data) ? data : data.data || data.items || data.Data || [];
@@ -758,7 +758,6 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
           return items;
         }
       } catch {
-        // Try HTML parsing
         const items = parsePricingHtml(text);
         if (items.length > 0) return items;
       }
