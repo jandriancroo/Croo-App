@@ -337,7 +337,11 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
       const text = await resp.text();
       console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
 
-      if (!resp.ok || text.length < 10) continue;
+      if (!resp.ok) {
+        console.log('[PA Orders] Error body (first 500):', text.substring(0, 500));
+        continue;
+      }
+      if (text.length < 10) continue;
 
       try {
         const data = JSON.parse(text);
