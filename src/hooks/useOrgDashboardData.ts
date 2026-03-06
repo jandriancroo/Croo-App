@@ -255,6 +255,18 @@ export function useOrgLocationData(locationIds: string[]) {
         // NOT living_projection (that's pace). Override is a manual goal override.
         const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
 
+        // WTD labor (sum per location)
+        const locLaborWtd = laborWtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostWtd = locLaborWtd.length > 0
+          ? locLaborWtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
+        // MTD labor
+        const locLaborMtd = laborMtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostMtd = locLaborMtd.length > 0
+          ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
         result[locId] = {
           salesToday: todayNet,
           paceToday: pace,
