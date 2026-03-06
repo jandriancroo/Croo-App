@@ -634,8 +634,11 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
   while ((tableMatch = tableRegex.exec(html)) !== null) {
     const tableHtml = tableMatch[1];
     
-    // Check if this table has the expected headers
-    if (!tableHtml.includes('PA Product ID') && !tableHtml.includes('Unit Price') && !tableHtml.includes('Description')) {
+    // The viewOrder.jsp table may not have explicit headers — look for tables with
+    // numeric item codes (5-digit patterns like 01212, 03792) in <td> cells
+    const hasItemCodes = (tableHtml.match(/<td[^>]*>\d{4,5}<\/td>/g) || []).length >= 2;
+    const hasHeaders = tableHtml.includes('PA Product ID') || tableHtml.includes('Unit Price') || tableHtml.includes('Description');
+    if (!hasItemCodes && !hasHeaders) {
       continue;
     }
 
