@@ -884,6 +884,7 @@ export function MobileScheduleView({
         scheduleId={scheduleId}
         templates={templates}
         locationId={currentLocation?.id}
+        currentWeekStart={currentWeekStart}
         onShiftUpdated={() => {
           onUpdate?.();
           setShiftDialogOpen(false);
