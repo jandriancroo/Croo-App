@@ -131,9 +131,38 @@ export function useOrgLocationData(locationIds: string[]) {
         const todayRow = locSales.find(r => r.sale_date === todayStr);
         const salesToday = Number(todayRow?.net_sales) || 0;
 
-        // Pace: living_projection is the pace value computed by the edge function
-        const rawPace = Number(todayRow?.living_projection) || 0;
-        const paceToday = rawPace > 0 ? Math.max(rawPace, salesToday) : null;
+        // Pace: calculated from hourly_data (actuals for past hours + projections for future)
+        // living_projection is actually the GOAL, not pace. Pace is never stored — must be derived.
+        let paceToday: number | null = null;
+        if (todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
+          const nowLA = new Date(now.toLocaleString('en-US', { timeZone: LA_TZ }));
+          const currentHour = nowLA.getHours();
+          const currentMinutes = nowLA.getMinutes();
+          let paceSum = 0;
+          for (const entry of todayRow.hourly_data as any[]) {
+            const hourStr = String(entry.hour || '');
+            const h = parseInt(hourStr);
+            if (isNaN(h)) continue;
+            const actual = Number(entry.sales) || 0;
+            const projected = Number(entry.projected) || 0;
+            if (h < currentHour) {
+              // Completed hour: use actual (it already happened)
+              paceSum += actual;
+            } else if (h === currentHour) {
+              // Current hour: if <30 min in, use full projection; else use actual + remaining fraction
+              if (currentMinutes < 30) {
+                paceSum += projected;
+              } else {
+                const remainFrac = (60 - currentMinutes) / 60;
+                paceSum += actual + (projected * remainFrac);
+              }
+            } else {
+              // Future hour: use projection
+              paceSum += projected;
+            }
+          }
+          paceToday = paceSum > 0 ? Math.max(paceSum, salesToday) : null;
+        }
 
         // Goal: override > initial > projected
         const goalToday = Number(todayRow?.override_projection) || Number(todayRow?.initial_projection) || Number(todayRow?.projected_sales) || null;
