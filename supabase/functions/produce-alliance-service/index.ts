@@ -545,64 +545,96 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
 
   let authHeaders = getAuthHeaders(session);
 
-  // The PA portal uses clearSession.jsp to establish servlet sessions for JSP pages.
-  // The Angular app navigates via clearSession.jsp?FCUID=<username>&dest=<target>
-  // This reads the tokenStore cookie and sets up a valid JSESSIONID.
+  // The PA portal requires a J2EE servlet session for JSP pages.
+  // Strategy: Use j_security_check with a fresh JSESSIONID from login.jsp,
+  // then follow the post-login redirect to establish the authenticated session.
   try {
     const fcuid = credentials?.username || 'Blaze-1341';
     
-    // Step 1: Hit clearSession.jsp to establish servlet session
-    // This mirrors the browser's navigation pattern from the Angular app
-    const clearSessionUrl = `${PA_BASE_URL}/clearSession.jsp?FCUID=${encodeURIComponent(fcuid)}&dest=/ng/%23/restaurantBackOffice/viewOrders`;
-    const clearResp = await fetch(clearSessionUrl, {
+    // Step 1: Hit login.jsp to get a fresh JSESSIONID for form-based auth
+    const loginResp = await fetch(`${PA_BASE_URL}/login.jsp`, {
       method: 'GET',
-      headers: {
-        'User-Agent': UA,
-        'Cookie': session.cookies,
-        'Referer': `${PA_BASE_URL}/ng/`,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
+      headers: { 'User-Agent': UA, 'Cookie': session.cookies, 'Accept': 'text/html,*/*' },
       redirect: 'manual',
     });
-    const clearCookies = extractCookies(clearResp.headers);
-    let jspCookies = mergeCookies(session.cookies, clearCookies);
-    await clearResp.text().catch(() => '');
-    console.log('[PA Detail] clearSession.jsp:', clearResp.status, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'present' : 'absent');
+    const loginCookies = extractCookies(loginResp.headers);
+    let jspCookies = mergeCookies(session.cookies, loginCookies);
+    const loginBody = await loginResp.text().catch(() => '');
+    console.log('[PA Detail] login.jsp:', loginResp.status, 'body:', loginBody.length, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'yes' : 'no');
 
-    // Step 2: Follow redirect if 302 (clearSession.jsp usually redirects to dest)
-    if (clearResp.status === 302 || clearResp.status === 301) {
-      const location = clearResp.headers.get('location') || '';
-      if (location) {
-        const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
-        const redirResp = await fetch(redirectUrl, {
+    // If login.jsp redirected (already authenticated), follow it
+    if (loginResp.status === 302 || loginResp.status === 301) {
+      const loc = loginResp.headers.get('location') || '';
+      console.log('[PA Detail] login.jsp redirected to:', loc.substring(0, 100));
+      if (loc && !loc.includes('logout')) {
+        const fullUrl = loc.startsWith('http') ? loc : `${PA_BASE_URL}${loc}`;
+        const r = await fetch(fullUrl, {
           method: 'GET',
-          headers: { 'Cookie': jspCookies, 'User-Agent': UA, 'Referer': clearSessionUrl },
+          headers: { 'Cookie': jspCookies, 'User-Agent': UA },
           redirect: 'manual',
         });
-        const redirCookies = extractCookies(redirResp.headers);
-        jspCookies = mergeCookies(jspCookies, redirCookies);
-        await redirResp.text().catch(() => '');
-        console.log('[PA Detail] clearSession redirect:', redirResp.status, 'to:', location.substring(0, 100));
+        const rc = extractCookies(r.headers);
+        jspCookies = mergeCookies(jspCookies, rc);
+        await r.text().catch(() => '');
       }
     }
 
-    // Step 3: If we still don't have JSESSIONID, try j_security_check as fallback
-    if (!jspCookies.includes('JSESSIONID') && credentials) {
+    // Step 2: j_security_check form login
+    if (credentials) {
       const formResp = await fetch(`${PA_BASE_URL}/j_security_check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Cookie': jspCookies,
           'User-Agent': UA,
-          'Referer': `${PA_BASE_URL}/viewOrder.jsp`,
+          'Referer': `${PA_BASE_URL}/login.jsp`,
+          'Origin': PA_BASE_URL,
         },
         body: `j_username=${encodeURIComponent(credentials.username)}&j_password=${encodeURIComponent(credentials.password)}`,
         redirect: 'manual',
       });
       const formCookies = extractCookies(formResp.headers);
       jspCookies = mergeCookies(jspCookies, formCookies);
+      const formLocation = formResp.headers.get('location') || '';
       await formResp.text().catch(() => '');
-      console.log('[PA Detail] j_security_check fallback:', formResp.status);
+      console.log('[PA Detail] j_security_check:', formResp.status, 'redirect:', formLocation.substring(0, 100));
+      
+      // Follow redirect chain after login (up to 5 hops)
+      let nextUrl = formLocation;
+      let hops = 0;
+      while (nextUrl && hops < 5) {
+        const fullUrl = nextUrl.startsWith('http') ? nextUrl : `${PA_BASE_URL}${nextUrl}`;
+        
+        // If we reached the target viewOrder, we'll get it in the main fetch below
+        if (fullUrl.includes('viewOrder.jsp') && fullUrl.includes(webOrderId)) {
+          break;
+        }
+        
+        const hopResp = await fetch(fullUrl, {
+          method: 'GET',
+          headers: { 'Cookie': jspCookies, 'User-Agent': UA, 'Referer': `${PA_BASE_URL}/login.jsp` },
+          redirect: 'manual',
+        });
+        const hopCookies = extractCookies(hopResp.headers);
+        jspCookies = mergeCookies(jspCookies, hopCookies);
+        const hopBody = await hopResp.text().catch(() => '');
+        const hopLocation = hopResp.headers.get('location') || '';
+        console.log('[PA Detail] Post-login hop', hops, ':', hopResp.status, fullUrl.replace(PA_BASE_URL, '').substring(0, 80), 'body:', hopBody.length, 'next:', hopLocation.substring(0, 60));
+        
+        // If we got order content, parse it directly
+        if (hopResp.status === 200 && hopBody.length > 1000 && (hopBody.includes('<th') || hopBody.includes('Delivery Date'))) {
+          console.log('[PA Detail] Got order content from redirect chain');
+          return parseOrderDetailJsp(hopBody, webOrderId);
+        }
+        
+        if (hopLocation.includes('logout') || hopLocation.includes('error')) {
+          console.warn('[PA Detail] Login redirect went to logout/error');
+          break;
+        }
+        
+        nextUrl = (hopResp.status === 302 || hopResp.status === 301) ? hopLocation : '';
+        hops++;
+      }
     }
 
     // Update session cookies for the JSP request
