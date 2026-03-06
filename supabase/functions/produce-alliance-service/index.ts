@@ -154,6 +154,16 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
               console.warn('[PA Auth] Session probe failed:', e);
             }
             
+            // Add tokenStore cookie — the JSP pages read this cookie to authenticate
+            // (mirrors what the Angular app sets in the browser)
+            const tokenStoreValue = encodeURIComponent(JSON.stringify({
+              access_token: json.access_token,
+              refresh_token: json.refresh_token || '',
+              expires_by: String(Date.now() + (json.expires_in || 1800) * 1000),
+            }));
+            sessionCookies = mergeCookies(sessionCookies, `tokenStore=${tokenStoreValue}`);
+            console.log('[PA Auth] Added tokenStore cookie for JSP auth');
+            
             return {
               accessToken: json.access_token,
               refreshToken: json.refresh_token || '',
