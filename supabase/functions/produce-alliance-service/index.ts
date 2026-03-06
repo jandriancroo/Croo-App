@@ -337,87 +337,111 @@ interface PAOrderSummary {
 async function fetchOrderList(session: PASession, startDate: string, endDate: string): Promise<PAOrderSummary[]> {
   console.log('[PA Orders] Fetching order list, restaurant:', session.restaurantId, 'range:', startDate, '→', endDate);
 
-  // Try multiple API patterns the Angular app might use
-  const apiAttempts = [
-    // REST API patterns
+  const authHeaders = getAuthHeaders(session);
+
+  // Try the actual Buyers Edge REST API first (discovered from DevTools)
+  const restApiAttempts = [
+    // Primary: POST with filter params (Angular app uses this)
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+        startDate,
+        endDate,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Alt: query params  
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+      body: null,
+      contentType: null,
+    },
+    // Alt: different endpoint naming
     {
       url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
       method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/ng/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/rest/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // restaurantBackOffice API
-    {
-      url: `${PA_BASE_URL}/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/ng/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // Servlet/JSP patterns
-    {
-      url: `${PA_BASE_URL}/getOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/orderList.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // viewOrders JSP (the Angular route might have a JSP backend)
-    {
-      url: `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
+      body: null,
+      contentType: null,
     },
   ];
 
-  for (const attempt of apiAttempts) {
+  for (const attempt of restApiAttempts) {
     try {
+      const headers: Record<string, string> = { ...authHeaders };
+      if (attempt.contentType) headers['Content-Type'] = attempt.contentType;
+      
       const resp = await fetch(attempt.url, {
         method: attempt.method,
-        headers: {
-          'Cookie': session.cookies,
-          'User-Agent': UA,
-          'Accept': 'application/json, text/html, */*',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Referer': `${PA_BASE_URL}/ng/`,
-        },
+        headers,
+        body: attempt.body,
         redirect: 'follow',
       });
 
       const text = await resp.text();
-      console.log('[PA Orders]', attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+      console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
 
       if (!resp.ok || text.length < 10) continue;
 
-      // Try JSON parse
       try {
         const data = JSON.parse(text);
+        console.log('[PA Orders] JSON response keys:', Object.keys(data).join(', '));
+        
         const orders = extractOrdersFromJson(data);
         if (orders.length > 0) {
-          console.log('[PA Orders] Found', orders.length, 'orders from API');
+          console.log('[PA Orders] ✅ Found', orders.length, 'orders from REST API');
           return orders;
+        }
+        
+        // Even if 0 orders, if we got a valid JSON response the endpoint works
+        if (Array.isArray(data) || data.data || data.orders) {
+          console.log('[PA Orders] Valid API response but 0 orders in range');
+          return [];
         }
       } catch {
-        // Not JSON — try HTML parsing
-        const orders = extractOrdersFromHtml(text);
-        if (orders.length > 0) {
-          console.log('[PA Orders] Found', orders.length, 'orders from HTML');
-          return orders;
-        }
+        console.log('[PA Orders] Response not JSON');
       }
     } catch (e) {
       console.warn('[PA Orders] Error:', e);
     }
   }
 
-  console.log('[PA Orders] No API found — returning empty list');
+  // Fallback: legacy JSP scraping (cookie-based)
+  if (session.cookies) {
+    const legacyUrls = [
+      `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      `${PA_BASE_URL}/viewOrder.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+    ];
+
+    for (const url of legacyUrls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: authHeaders,
+          redirect: 'follow',
+        });
+
+        const text = await resp.text();
+        console.log('[PA Orders] Legacy', url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+
+        if (!resp.ok || text.length < 100) continue;
+        if (text.includes('Sign in') || text.includes('j_security_check')) continue;
+
+        const orders = extractOrdersFromHtml(text);
+        if (orders.length > 0) {
+          console.log('[PA Orders] Found', orders.length, 'orders from HTML');
+          return orders;
+        }
+      } catch (e) {
+        console.warn('[PA Orders] Legacy error:', e);
+      }
+    }
+  }
+
+  console.log('[PA Orders] No orders found');
   return [];
 }
 
