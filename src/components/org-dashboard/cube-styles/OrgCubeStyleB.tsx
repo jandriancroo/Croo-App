@@ -173,9 +173,9 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     ? data.salesMtd >= data.salesPrevMonth
     : null;
 
-  // Status label for badge
+  // Status label for badge (text only, no emojis)
   const STATUS_LABELS: Record<string, string> = {
-    fire: '🔥 On Fire', ahead: '📈 Ahead', track: '✅ On Track', behind: '⚠️ Behind',
+    fire: 'On Fire', ahead: 'Ahead', track: 'On Track', behind: 'Behind',
   };
   const statusLabel = derivedStatus !== 'neutral' ? STATUS_LABELS[derivedStatus] : undefined;
 
