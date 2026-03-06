@@ -230,7 +230,7 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
         
         console.log('[PA Auth]', attempt.url, '→', status, 'redirect:', location || 'none');
 
-        if ((status === 302 || status === 301) && !location.includes('login') && !location.includes('error')) {
+        if ((status === 302 || status === 301) && !location.includes('login') && !location.includes('error') && !location.includes('logout')) {
           console.log('[PA Auth] Form login successful, following redirect...');
           
           const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
