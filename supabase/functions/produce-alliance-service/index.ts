@@ -710,18 +710,24 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
       }
       
       if (cells.length >= 5) {
-        // Check if first cell looks like an item code (numeric)
-        const itemCode = cells[0];
-        if (/^\d{3,}$/.test(itemCode)) {
-          const prices = cells.filter(c => /^\d+\.?\d*$/.test(c));
-          if (prices.length >= 2) {
+        // Check for spacer column, then look for numeric item code
+        const hasSpacerCol = cells[0] === '' || cells[0] === '&nbsp;' || cells[0] === '\u00a0';
+        const offset = hasSpacerCol ? 1 : 0;
+        const itemCode = cells[offset];
+        if (/^\d{3,}$/.test(itemCode) && cells.length >= (offset + 5)) {
+          const description = cells[offset + 1];
+          const paProductId = cells[offset + 2] || '';
+          const unitPrice = parseFloat(cells[offset + 3]?.replace(/[$,]/g, '') || '0');
+          const quantity = parseFloat(cells[offset + 4] || '0');
+          const cost = parseFloat(cells[offset + 5]?.replace(/[$,]/g, '') || '0');
+          if (quantity > 0 || cost > 0) {
             lineItems.push({
               item_code: itemCode,
-              description: cells[1],
-              pa_product_id: cells[2] || '',
-              unit_price: parseFloat(prices[0]) || 0,
-              quantity: parseFloat(prices[1]) || 0,
-              cost: parseFloat(prices[2] || prices[0]) || 0,
+              description,
+              pa_product_id: paProductId,
+              unit_price: unitPrice,
+              quantity,
+              cost,
             });
           }
         }
