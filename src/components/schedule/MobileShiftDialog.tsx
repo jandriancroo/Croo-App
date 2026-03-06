@@ -234,6 +234,29 @@ export function MobileShiftDialog({
         });
       }
 
+      // Optimistically update cache so Schedule Tools reflects changes instantly
+      if (currentWeekStart && (currentLocation?.id || locationId)) {
+        const locId = currentLocation?.id || locationId;
+        const scheduleKey = ['schedule', locId, format(currentWeekStart, 'yyyy-MM-dd')];
+        
+        if (!isCreating && shift) {
+          // Update existing shift in cache
+          const updatedUserId = selectedUserId === 'unassigned' ? null : selectedUserId;
+          queryClient.setQueryData(scheduleKey, (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              shifts: old.shifts.map((s: any) =>
+                s.id === shift.id
+                  ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: selectedTemplateId || null }
+                  : s
+              ),
+            };
+          });
+        }
+        // For creates, the refetch will pick up the new shift
+      }
+
       toast.success(isApprovingClaim ? 'Shift claim approved!' : (isCreating ? 'Shift created' : 'Shift updated'));
       onShiftUpdated?.();
       onOpenChange(false);
