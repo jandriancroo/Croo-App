@@ -75,3 +75,6 @@ verify_jwt = false
 
 [functions.document-validation]
 verify_jwt = false
+
+[functions.fresh-kds-service]
+verify_jwt = false
