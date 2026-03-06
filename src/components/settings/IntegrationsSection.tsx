@@ -114,7 +114,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // PA state
-  const [paCredentials, setPaCredentials] = useState({ username: '', password: '', pa_location_id: '' });
+  const [paCredentials, setPaCredentials] = useState({ username: '', password: '', restaurant_id: '' });
+  const [paIsDiscovering, setPaIsDiscovering] = useState(false);
   const [paIsActive, setPaIsActive] = useState(true);
   const [paShowPassword, setPaShowPassword] = useState(false);
   const [paIsTesting, setPaIsTesting] = useState(false);
@@ -211,7 +212,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   useEffect(() => {
     if (paIntegration) {
       const creds = paIntegration.credentials as any;
-      setPaCredentials({ username: creds?.username || '', password: creds?.password || '', pa_location_id: creds?.pa_location_id || '' });
+      setPaCredentials({ username: creds?.username || '', password: creds?.password || '', restaurant_id: creds?.restaurant_id || '' });
       setPaIsActive(paIntegration.is_active);
     }
   }, [paIntegration]);
@@ -238,7 +239,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     if (!locationId || !paCredentials.username || !paCredentials.password) { toast.error('Please enter username and password'); return; }
     setPaIsSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('produce-alliance-service', { body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password, paLocationId: paCredentials.pa_location_id || undefined } });
+      const { data, error } = await supabase.functions.invoke('produce-alliance-service', { body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password, restaurantId: paCredentials.restaurant_id || undefined } });
       if (error) throw error;
       if (data?.success) { toast.success('Produce Alliance credentials saved!'); queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'produce_alliance'] }); }
       else { toast.error(data?.error || 'Failed to save credentials'); }
@@ -686,8 +687,27 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pa-location-id" className="text-sm">PA Location ID</Label>
-              <Input id="pa-location-id" value={paCredentials.pa_location_id} onChange={(e) => setPaCredentials(prev => ({ ...prev, pa_location_id: e.target.value }))} placeholder="e.g., 18046" className="h-9" />
+              <Label htmlFor="pa-restaurant-id" className="text-sm">Restaurant ID</Label>
+              <div className="flex gap-2">
+                <Input id="pa-restaurant-id" value={paCredentials.restaurant_id} readOnly disabled placeholder="Auto-discovered" className="h-9 bg-muted/50" />
+                <Button type="button" variant="outline" size="sm" className="h-9 whitespace-nowrap" disabled={paIsDiscovering || !paCredentials.username || !paCredentials.password} onClick={async () => {
+                  setPaIsDiscovering(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke('produce-alliance-service', { body: { action: 'discover_restaurant_id', username: paCredentials.username, password: paCredentials.password } });
+                    if (error) throw error;
+                    if (data?.restaurantId) {
+                      setPaCredentials(prev => ({ ...prev, restaurant_id: String(data.restaurantId) }));
+                      toast.success(`Discovered Restaurant ID: ${data.restaurantId}`);
+                    } else {
+                      toast.error('Could not discover Restaurant ID');
+                    }
+                  } catch (e) { toast.error('Discovery failed: ' + (e instanceof Error ? e.message : 'Unknown error')); }
+                  finally { setPaIsDiscovering(false); }
+                }}>
+                  {paIsDiscovering ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Discover'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Auto-discovered from PA portal login</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={testPaConnection} disabled={paIsTesting || !paCredentials.username || !paCredentials.password}>
