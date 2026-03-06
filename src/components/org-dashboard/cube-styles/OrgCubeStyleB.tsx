@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CubeStyleProps, getPaceStatus, STATUS_COLORS,
+  CubeStyleProps, getPaceStatus, deriveStatus, STATUS_COLORS,
   pctChange,
 } from './shared';
 
