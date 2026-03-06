@@ -167,8 +167,10 @@ export function useOrgLocationData(locationIds: string[]) {
         const sparklineDays = sparklineResult.data?.filter(s => s.location_id === locId) || [];
         const last7 = Array(7).fill(0);
         for (const day of sparklineDays) {
-          const dayDt = DateTime.fromISO(day.sale_date, { zone: LA_TZ });
-          const idx = Math.round(dayDt.diff(now.minus({ days: 6 }).startOf('day'), 'days').days);
+          // Calculate index based on date difference from sparklineStart
+          const dayDate = new Date(day.sale_date + 'T12:00:00'); // noon to avoid TZ issues
+          const startDate = new Date(sparklineStartD.getFullYear(), sparklineStartD.getMonth(), sparklineStartD.getDate(), 12);
+          const idx = Math.round((dayDate.getTime() - startDate.getTime()) / (86400000));
           if (idx >= 0 && idx < 7) last7[idx] = day.net_sales || 0;
         }
 
