@@ -637,15 +637,13 @@ export function LaborTotals({
             </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
         {dailyTotals.map((day, index) => {
-        const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-        const isToday = dayStr === getTodayPST();
         const sales = projectedSales[index] || 0;
         const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
         return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
