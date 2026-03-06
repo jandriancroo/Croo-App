@@ -1,8 +1,8 @@
 import { Layout } from '@/components/Layout';
-import { motion, AnimatePresence } from 'framer-motion';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { deriveStatus, STATUS_COLORS, pctChange } from '@/components/org-dashboard/cube-styles/shared';
 import { useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Mock data for preview
 const MOCK_LOCATIONS: OrgLocationData[] = [
