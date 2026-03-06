@@ -542,10 +542,19 @@ export function LaborTotals({
         };
       }
       
-      // For today and future: calculate from scheduled shifts
+      // For today and future: calculate from scheduled shifts with OT/DT
       const dayShifts = shifts.filter(s => s.shift_date === dayStr);
       let totalHours = 0;
       let totalWages = 0;
+
+      const dailyOT = laborRules?.daily_overtime_threshold ?? 8;
+      const dailyDT = laborRules?.daily_double_time_threshold ?? 12;
+      const otMult = laborRules?.overtime_multiplier ?? 1.5;
+      const dtMult = laborRules?.double_time_multiplier ?? 2.0;
+
+      // Group shifts by employee to calculate per-employee daily OT/DT
+      const hoursByEmployee: Record<string, { hours: number; wage: number }> = {};
+
       dayShifts.forEach(shift => {
         if (!shift.user_id) return;
         const profile = profiles.find(p => p.id === shift.user_id);
@@ -559,7 +568,6 @@ export function LaborTotals({
           hours -= 1;
           minutes += 60;
         }
-        // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
         if (hours < 0) {
           hours += 24;
         }
@@ -571,10 +579,30 @@ export function LaborTotals({
         }
         totalHours += shiftHours;
 
-        // Use wage from database function for this specific shift, fallback to profile wage, then to default
         const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 15;
-        totalWages += shiftHours * wage;
+
+        if (!hoursByEmployee[shift.user_id]) {
+          hoursByEmployee[shift.user_id] = { hours: 0, wage };
+        }
+        hoursByEmployee[shift.user_id].hours += shiftHours;
+        // Use the latest wage found for this employee
+        hoursByEmployee[shift.user_id].wage = wage;
       });
+
+      // Calculate wages with OT/DT multipliers per employee
+      Object.values(hoursByEmployee).forEach(({ hours: empHours, wage }) => {
+        if (empHours <= dailyOT) {
+          totalWages += empHours * wage;
+        } else if (empHours <= dailyDT) {
+          totalWages += dailyOT * wage;
+          totalWages += (empHours - dailyOT) * wage * otMult;
+        } else {
+          totalWages += dailyOT * wage;
+          totalWages += (dailyDT - dailyOT) * wage * otMult;
+          totalWages += (empHours - dailyDT) * wage * dtMult;
+        }
+      });
+
       return {
         date: format(day, 'EEE'),
         hours: totalHours,
