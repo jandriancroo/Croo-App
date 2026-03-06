@@ -610,7 +610,7 @@ export function LaborTotals({
         isActual: false
       };
     });
-  }, [shifts, profiles, weekDays, shiftWages, actualLabor]);
+  }, [shifts, profiles, weekDays, shiftWages, actualLabor, laborRules]);
   const weeklyTotals = useMemo(() => {
     const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
     const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);
