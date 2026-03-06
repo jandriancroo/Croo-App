@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
   formatCurrency, formatCurrencyFull, pctChange,
   HourlyHeatmap,
 } from './shared';
 
-type Period = 'day' | 'week' | 'month';
+export type OrgPeriod = 'day' | 'week' | 'month';
 
 /** Daily bar chart for week/month views */
 function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; labels?: string[]; variant?: 'default' | 'light' }) {
@@ -53,9 +52,12 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
 
 const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+interface OrgCubeStyleBProps extends CubeStyleProps {
+  period?: OrgPeriod;
+}
+
 /** Style B: Glass Scoreboard — Full-bleed status color background, white text, compact */
-export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
-  const [period, setPeriod] = useState<Period>('day');
+export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgCubeStyleBProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
 
@@ -81,7 +83,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
     ? (data.goalToday && data.goalToday > 0 ? Math.min((data.salesToday / data.goalToday) * 100, 120) : 0)
     : 0;
 
-  // Pace/Goal display per period
   const showPaceGoal = period === 'day';
   const compPrev = period === 'week' ? data.salesPrevWeek
     : period === 'month' ? data.salesPrevMonth
@@ -90,19 +91,32 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
     : period === 'month' ? 'Prev Mo'
     : '';
 
+  // Labor per period
+  const laborCostForPeriod = period === 'day' ? data.laborCost
+    : period === 'week' ? (data.laborCostWtd ?? data.laborCost)
+    : (data.laborCostMtd ?? data.laborCost);
+
+  const laborSalesForPeriod = period === 'day' ? data.salesToday
+    : period === 'week' ? data.salesWtd
+    : data.salesMtd;
+
+  const laborPctForPeriod = laborCostForPeriod !== null && laborSalesForPeriod > 0
+    ? (laborCostForPeriod / laborSalesForPeriod) * 100
+    : null;
+
   // Metric cubes per period
   const metricCubes = period === 'day' ? [
     { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
     { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-    { label: 'Labor', val: data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—', sub: data.laborCost !== null ? formatCurrency(data.laborCost) : '' },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
   ] : period === 'week' ? [
     { label: 'Prev Wk', val: data.salesPrevWeek !== null ? formatCurrency(data.salesPrevWeek) : '—', sub: pctChange(data.salesWtd, data.salesPrevWeek) },
     { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-    { label: 'Labor', val: data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—', sub: data.laborCost !== null ? formatCurrency(data.laborCost) : '' },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
   ] : [
     { label: 'Prev Mo', val: data.salesPrevMonth !== null ? formatCurrency(data.salesPrevMonth) : '—', sub: pctChange(data.salesMtd, data.salesPrevMonth) },
     { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
-    { label: 'Labor', val: data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—', sub: data.laborCost !== null ? formatCurrency(data.laborCost) : '' },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
   ];
 
   return (
@@ -118,7 +132,7 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
       <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
 
       <div className="relative z-10 px-4 py-2.5 space-y-1.5">
-        {/* Row 1: Name + status + period toggle + hero number */}
+        {/* Row 1: Name + status + hero number */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <p className="text-base font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
@@ -126,28 +140,9 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
               {pace.label || '—'}
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Period toggle */}
-            <div
-              className="flex bg-black/20 rounded-full p-[2px] gap-[2px]"
-              onClick={e => e.stopPropagation()}
-            >
-              {(['day', 'week', 'month'] as Period[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
-                    period === p ? 'bg-white/30 text-white' : 'text-white/60 hover:text-white/80'
-                  }`}
-                >
-                  {p === 'day' ? 'D' : p === 'week' ? 'W' : 'M'}
-                </button>
-              ))}
-            </div>
-            <p className="text-3xl font-black tracking-tighter leading-none drop-shadow-sm">
-              {formatCurrencyFull(heroSales)}
-            </p>
-          </div>
+          <p className="text-3xl font-black tracking-tighter leading-none drop-shadow-sm shrink-0">
+            {formatCurrencyFull(heroSales)}
+          </p>
         </div>
 
         {/* Row 2: Pace/Goal or Comparison + graph + metric cubes */}
@@ -190,7 +185,7 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
             )}
           </div>
 
-          {/* Center: Graph — hourly (day), daily bars (week), daily bars (month) */}
+          {/* Center: Graph — hourly (day), daily bars (week/month) */}
           <div className="flex-1 flex flex-col justify-center opacity-90">
             {period === 'day' ? (
               <HourlyHeatmap data={data.hourlyData} height={28} variant="light" showLabels />

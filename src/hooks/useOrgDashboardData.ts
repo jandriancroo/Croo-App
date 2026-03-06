@@ -96,7 +96,7 @@ export function useOrgLocationData(locationIds: string[]) {
       const sparklineStart = laDate(sparklineStartD);
 
       // Fetch all sales cache data in parallel
-      const [salesResult, laborResult, sparklineResult, prevWeekResult, prevMonthResult] = await Promise.all([
+      const [salesResult, laborResult, sparklineResult, prevWeekResult, prevMonthResult, laborWtdResult, laborMtdResult] = await Promise.all([
         // Today + WTD + MTD sales (all in one query since date range covers it)
         supabase
           .from('sales_cache')
@@ -136,6 +136,22 @@ export function useOrgLocationData(locationIds: string[]) {
           .in('location_id', locationIds)
           .gte('sale_date', prevMonthStart)
           .lte('sale_date', prevMonthEnd),
+
+        // WTD labor
+        supabase
+          .from('labor_cache')
+          .select('location_id, labor_cost, source')
+          .in('location_id', locationIds)
+          .gte('labor_date', weekStartStr)
+          .lte('labor_date', todayStr),
+
+        // MTD labor
+        supabase
+          .from('labor_cache')
+          .select('location_id, labor_cost, source')
+          .in('location_id', locationIds)
+          .gte('labor_date', monthStartStr)
+          .lte('labor_date', todayStr),
       ]);
 
       const result: Record<string, Omit<OrgLocationData, 'locationId' | 'locationName' | 'storeNumber'>> = {};
@@ -199,6 +215,18 @@ export function useOrgLocationData(locationIds: string[]) {
         // Pace = living > override > projected
         const pace = todaySales?.living_projection ?? todaySales?.override_projection ?? todaySales?.projected_sales ?? null;
 
+        // WTD labor (sum per location, prefer punch_clock per day but aggregate all)
+        const locLaborWtd = laborWtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostWtd = locLaborWtd.length > 0
+          ? locLaborWtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
+        // MTD labor
+        const locLaborMtd = laborMtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostMtd = locLaborMtd.length > 0
+          ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
         result[locId] = {
           salesToday: todayNet,
           paceToday: pace,
@@ -211,6 +239,8 @@ export function useOrgLocationData(locationIds: string[]) {
           salesLastYearDay: todaySales?.yoy_net_sales ?? null,
           laborPercent,
           laborCost,
+          laborCostWtd,
+          laborCostMtd,
           hourlyData: hourly,
         };
       }

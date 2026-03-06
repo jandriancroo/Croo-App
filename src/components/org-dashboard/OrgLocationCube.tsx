@@ -21,6 +21,8 @@ export interface OrgLocationData {
   // Layer 4: Labor
   laborPercent: number | null;
   laborCost: number | null;
+  laborCostWtd: number | null;
+  laborCostMtd: number | null;
   // Layer 5: Hourly heatmap (24 slots, index = hour)
   hourlyData: number[];
 }
