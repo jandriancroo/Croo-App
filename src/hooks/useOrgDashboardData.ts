@@ -15,6 +15,8 @@ interface LocationInfo {
   id: string;
   name: string;
   store_number: string | null;
+  org_name: string | null;
+  brand_name: string | null;
 }
 
 /**
