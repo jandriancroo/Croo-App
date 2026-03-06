@@ -5,7 +5,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData';
 import { OrgLocationCube, OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgFavoritesBar } from '@/components/org-dashboard/OrgFavoritesBar';
-import { useAuth } from '@/lib/auth';
+
 
 const FAVORITES_KEY = 'org-dash-favorites';
 

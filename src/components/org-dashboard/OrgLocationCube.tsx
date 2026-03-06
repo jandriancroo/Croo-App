@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus, Flame, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Flame } from "lucide-react";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
 export interface OrgLocationData {
