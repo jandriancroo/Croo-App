@@ -596,6 +596,7 @@ export default function Schedule() {
             profiles={profiles} isAdmin={isAdmin || isManager}
             onShiftUpdated={fetchScheduleData} isCreating={true}
             scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
+            currentWeekStart={currentWeekStart}
           />
         )}
 
