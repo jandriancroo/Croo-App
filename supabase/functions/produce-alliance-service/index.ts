@@ -428,20 +428,39 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
 }
 
 function extractOrdersFromJson(data: any): PAOrderSummary[] {
-  // Handle various JSON structures
-  const items = Array.isArray(data) ? data : data.data || data.orders || data.Data || data.Orders || [];
-  if (!Array.isArray(items)) return [];
+  // The PA API returns: { records, selectedProductCounts, extraParams, dataList }
+  // Orders are in dataList (array of order objects)
+  let items: any[];
+  if (Array.isArray(data)) {
+    items = data;
+  } else {
+    items = data.dataList || data.data || data.orders || data.content || data.Data || data.Orders || [];
+  }
+  if (!Array.isArray(items)) {
+    console.log('[PA Orders] No array found in response. Top-level keys:', Object.keys(data).join(', '));
+    // Log a sample of each top-level key to identify the right one
+    for (const key of Object.keys(data)) {
+      const val = data[key];
+      if (Array.isArray(val)) {
+        console.log(`[PA Orders] "${key}" is array[${val.length}]`, val[0] ? 'sample keys: ' + Object.keys(val[0]).join(', ') : '(empty)');
+      } else {
+        console.log(`[PA Orders] "${key}" is ${typeof val}:`, JSON.stringify(val)?.substring(0, 200));
+      }
+    }
+    return [];
+  }
   
-  console.log('[PA Orders] JSON keys:', Object.keys(Array.isArray(data) ? (data[0] || {}) : data).join(', '));
+  console.log(`[PA Orders] Found ${items.length} items in response`);
   if (items[0]) console.log('[PA Orders] Sample item keys:', Object.keys(items[0]).join(', '));
+  if (items[0]) console.log('[PA Orders] Sample item:', JSON.stringify(items[0]).substring(0, 500));
 
   return items.map((o: any) => ({
-    webOrderId: String(o.webOrderId || o.WebOrderId || o.orderId || o.OrderId || o.id || o.Id || ''),
-    orderDate: o.orderDate || o.OrderDate || o.dateCreated || o.DateCreated || '',
-    deliveryDate: o.deliveryDate || o.DeliveryDate || null,
-    status: o.status || o.Status || 'unknown',
-    totalAmount: o.totalAmount || o.TotalAmount || o.orderTotal || o.OrderTotal || o.total || null,
-    totalCases: o.totalCases || o.TotalCases || null,
+    webOrderId: String(o.webOrderId || o.WebOrderId || o.orderId || o.OrderId || o.id || o.Id || o.WEB_ORDER_ID || ''),
+    orderDate: o.orderDate || o.OrderDate || o.dateCreated || o.DateCreated || o.ORDER_DATE || o.orderPlacedDate || '',
+    deliveryDate: o.deliveryDate || o.DeliveryDate || o.DELIVERY_DATE || null,
+    status: o.status || o.Status || o.ORDER_STATUS || 'unknown',
+    totalAmount: o.totalAmount || o.TotalAmount || o.orderTotal || o.OrderTotal || o.total || o.TOTAL_AMOUNT || null,
+    totalCases: o.totalCases || o.TotalCases || o.TOTAL_CASES || null,
   })).filter((o: PAOrderSummary) => o.webOrderId);
 }
 
