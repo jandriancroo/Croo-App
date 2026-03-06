@@ -84,10 +84,11 @@ interface OrgCubeStyleBProps extends CubeStyleProps {
 }
 
 /** Shared header row — identical in collapsed and expanded, mobile-responsive */
-function HeaderRow({ data, period, paceAboveGoal }: {
+function HeaderRow({ data, period, paceAboveGoal, statusLabel }: {
   data: CubeStyleProps['data'];
   period: OrgPeriod;
   paceAboveGoal: boolean | null;
+  statusLabel?: string;
 }) {
   const heroSales = period === 'day' ? data.salesToday : period === 'week' ? data.salesWtd : data.salesMtd;
   const goalVal = period === 'day' ? data.goalToday : null;
@@ -95,11 +96,16 @@ function HeaderRow({ data, period, paceAboveGoal }: {
 
   return (
     <div className="flex items-center justify-between gap-2 min-w-0">
-      {/* Left: Location name + store number */}
+      {/* Left: Location name + store number + status badge */}
       <div className="flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
         <p className="text-sm font-bold truncate drop-shadow-sm">{data.locationName}</p>
         {data.storeNumber && (
           <span className="text-xs font-semibold opacity-70 shrink-0">{data.storeNumber}</span>
+        )}
+        {statusLabel && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm shrink-0 hidden sm:inline-block">
+            {statusLabel}
+          </span>
         )}
       </div>
 
@@ -110,17 +116,17 @@ function HeaderRow({ data, period, paceAboveGoal }: {
             {/* Desktop: labeled columns */}
             <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Goal</p>
-              <p className="text-xs font-black leading-tight">{goalVal !== null ? fmtFull(goalVal) : '—'}</p>
+              <p className="text-xs font-black leading-tight">{goalVal !== null && goalVal > 0 ? fmtFull(goalVal) : '—'}</p>
             </div>
             <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Pace</p>
-              <p className="text-xs font-black leading-tight">{paceVal !== null ? fmtFull(paceVal) : '—'}</p>
+              <p className="text-xs font-black leading-tight">{paceVal !== null && paceVal > 0 ? fmtFull(paceVal) : '—'}</p>
             </div>
             {/* Mobile: compact */}
             <div className="flex items-center gap-1.5 sm:hidden text-[10px] font-bold opacity-80">
-              <span>{goalVal !== null ? fmtFull(goalVal) : '—'}</span>
+              <span>{goalVal !== null && goalVal > 0 ? fmtFull(goalVal) : '—'}</span>
               <span className="opacity-40">/</span>
-              <span>{paceVal !== null ? fmtFull(paceVal) : '—'}</span>
+              <span>{paceVal !== null && paceVal > 0 ? fmtFull(paceVal) : '—'}</span>
             </div>
           </>
         )}
