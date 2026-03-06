@@ -11,6 +11,7 @@ import { MessageReactions } from './MessageReactions';
 import { ReadReceipts } from './ReadReceipts';
 import { LazyImage } from './LazyImage';
 
+
 interface ParentMessageData {
   content: string | null;
   profiles: {
@@ -79,6 +80,44 @@ export function MessageBubble({
   const isPending = message.isPending;
   const isDeleted = message.is_deleted_for_everyone;
   const markedRef = useRef<string | null>(null);
+
+  // Long-press for mobile message actions
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMovedRef = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isPending || isDeleted || isAnnouncement) return;
+    touchMovedRef.current = false;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    longPressTimer.current = setTimeout(() => {
+      if (!touchMovedRef.current) {
+        setShowMobileActions(true);
+      }
+    }, 500);
+  }, [isPending, isDeleted, isAnnouncement]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+    if (dx > 8 || dy > 8) {
+      touchMovedRef.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStartRef.current = null;
+  }, []);
 
   // Mark message as read for non-sender users
   useEffect(() => {
@@ -153,7 +192,12 @@ export function MessageBubble({
         )}
       </div>
 
-      <div className={`flex flex-col min-w-0 max-w-[75%] overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}>
+      <div
+        className={`flex flex-col min-w-0 max-w-[75%] overflow-hidden ${isOwnMessage ? 'items-end' : ''}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {showName && isFirstInCluster && (
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-xs font-medium text-muted-foreground">
@@ -272,9 +316,10 @@ export function MessageBubble({
           )}
         </div>
 
+        {/* Desktop hover actions */}
         {!isAnnouncement && !isPending && isLastInCluster && (
           <>
-            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="hidden sm:flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <ReactionPicker onSelect={(reaction) => onReaction(message.id, reaction)} />
               <Button
                 variant="ghost"
@@ -298,6 +343,70 @@ export function MessageBubble({
             </div>
             <MessageReactions messageId={message.id} currentUserId={currentUserId} />
           </>
+        )}
+
+        {/* Mobile long-press actions overlay */}
+        {showMobileActions && !isAnnouncement && !isPending && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowMobileActions(false)}>
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+            <div
+              className="relative w-full max-w-sm mx-4 mb-8 bg-popover rounded-2xl shadow-xl border border-border overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Quick reactions row */}
+              <div className="flex items-center justify-center gap-3 px-4 py-3 border-b border-border">
+                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="text-2xl hover:scale-125 active:scale-110 transition-transform"
+                    onClick={() => {
+                      onReaction(message.id, emoji);
+                      setShowMobileActions(false);
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Action buttons */}
+              <button
+                className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-3 hover:bg-accent active:bg-accent transition-colors"
+                onClick={() => {
+                  onReply(message);
+                  setShowMobileActions(false);
+                }}
+              >
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                Reply
+              </button>
+              
+              {canUnsend && onUnsend && (
+                <button
+                  className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-3 text-destructive hover:bg-destructive/10 active:bg-destructive/10 transition-colors"
+                  onClick={() => {
+                    onUnsend(message.id);
+                    setShowMobileActions(false);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete for everyone
+                </button>
+              )}
+
+              <button
+                className="w-full px-4 py-3.5 text-left text-sm text-muted-foreground font-medium border-t border-border hover:bg-accent active:bg-accent transition-colors"
+                onClick={() => setShowMobileActions(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile: always show reactions if any exist */}
+        {!isAnnouncement && !isPending && !isLastInCluster && (
+          <MessageReactions messageId={message.id} currentUserId={currentUserId} />
         )}
       </div>
     </div>
