@@ -566,7 +566,7 @@ export function LaborTotals({
         isActual: false
       };
     });
-  }, [shifts, profiles, weekDays, shiftWages, isLoadingWages, actualLabor]);
+  }, [shifts, profiles, weekDays, shiftWages, actualLabor]);
   const weeklyTotals = useMemo(() => {
     const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
     const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);
@@ -619,14 +619,10 @@ export function LaborTotals({
               {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
             {dailyTotals.map((day, index) => {
-              const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-              const isToday = dayStr === getTodayPST();
               return (
                 <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
-                  {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
-                      <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
-                      {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
-                    </>}
+                  <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                  {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
               );
             })}
@@ -641,15 +637,13 @@ export function LaborTotals({
             </span> : <span className="text-xs text-muted-foreground">-</span>}
         </div>
         {dailyTotals.map((day, index) => {
-        const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-        const isToday = dayStr === getTodayPST();
         const sales = projectedSales[index] || 0;
         const laborPercent = sales > 0 ? day.wages / sales * 100 : 0;
         const isGood = laborPercent > 0 && laborPercent <= 30;
         const isWarning = laborPercent > 30 && laborPercent <= 35;
         const isBad = laborPercent > 35;
         return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : sales > 0 ? <span className={`text-xs font-semibold ${isGood ? 'text-green-600' : isWarning ? 'text-yellow-600' : isBad ? 'text-red-600' : ''}`}>
                   {laborPercent.toFixed(1)}%
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
@@ -666,11 +660,9 @@ export function LaborTotals({
         })()}
         </div>
         {dailyTotals.map((day, index) => {
-        const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-        const isToday = dayStr === getTodayPST();
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
         return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
