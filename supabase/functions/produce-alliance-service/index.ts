@@ -324,117 +324,71 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
 
   const authHeaders = getAuthHeaders(session);
 
-  // Try the actual Buyers Edge REST API first (discovered from DevTools)
-  // Convert dates to MM/DD/YYYY for Angular app compatibility
-  const toSlashDate = (d: string) => {
+  // From browser DevTools capture: dates go in query params (non-zero-padded),
+  // POST body is pagination/filter only, X-UI-URL carries restaurant context
+  const toNonPadded = (d: string) => {
     const [y, m, dd] = d.split('-');
-    return `${parseInt(m)}/${parseInt(dd)}/${y}`;
+    return `${y}-${parseInt(m)}-${parseInt(dd)}`;
   };
-  const slashStart = toSlashDate(startDate);
-  const slashEnd = toSlashDate(endDate);
+  const qStart = toNonPadded(startDate);
+  const qEnd = toNonPadded(endDate);
 
-  const restApiAttempts = [
-    // Primary: POST with MM/DD/YYYY dates, restaurantId as string (Angular app format)
-    {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+  const orderUrl = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?startDate=${qStart}&endDate=${qEnd}&includeOnlySubmit=false`;
+  
+  const postBody = JSON.stringify({
+    limit: 100,
+    offset: 0,
+    filters: {},
+    orderByFields: { DISTRIBUTOR_NAME: "ASC", RESTAURANT_ID: "DESC" },
+  });
+
+  const headers: Record<string, string> = {
+    ...authHeaders,
+    'Content-Type': 'application/json',
+    'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewOrders?restaurantId=${session.restaurantId}&startDate=${qStart}&endDate=${qEnd}`,
+  };
+
+  console.log('[PA Orders] POST', orderUrl, 'body:', postBody);
+
+  try {
+    const resp = await fetch(orderUrl, {
       method: 'POST',
-      body: JSON.stringify({
-        restaurantId: session.restaurantId,
-        startDate: slashStart,
-        endDate: slashEnd,
-        includeOnlySubmit: false,
-      }),
-      contentType: 'application/json',
-    },
-    // Variation: restaurantId as integer
-    {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
-      method: 'POST',
-      body: JSON.stringify({
-        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
-        startDate: slashStart,
-        endDate: slashEnd,
-        includeOnlySubmit: false,
-      }),
-      contentType: 'application/json',
-    },
-    // Fallback: POST with ISO dates
-    {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
-      method: 'POST',
-      body: JSON.stringify({
-        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
-        startDate,
-        endDate,
-        includeOnlySubmit: false,
-      }),
-      contentType: 'application/json',
-    },
-    // Alt: query params  
-    {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
-      method: 'GET',
-      body: null,
-      contentType: null,
-    },
-    // Alt: different endpoint naming
-    {
-      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
-      method: 'GET',
-      body: null,
-      contentType: null,
-    },
-  ];
+      headers,
+      body: postBody,
+      redirect: 'follow',
+    });
 
-  for (const attempt of restApiAttempts) {
-    try {
-      const headers: Record<string, string> = { ...authHeaders };
-      if (attempt.contentType) headers['Content-Type'] = attempt.contentType;
-      
-      const resp = await fetch(attempt.url, {
-        method: attempt.method,
-        headers,
-        body: attempt.body,
-        redirect: 'follow',
-      });
+    const text = await resp.text();
+    console.log('[PA Orders] Response:', resp.status, 'len:', text.length);
 
-      const text = await resp.text();
-      console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
-
-      if (!resp.ok) {
-        // Try to extract the actual error message from Java stack trace
-        try {
-          const errJson = JSON.parse(text);
-          const msg = errJson.message || errJson.error || errJson.localizedMessage || '';
-          console.log('[PA Orders] Error:', resp.status, msg, 'body payload:', attempt.body?.substring(0, 200));
-        } catch {
-          console.log('[PA Orders] Error body (first 500):', text.substring(0, 500));
-        }
-        continue;
+    if (!resp.ok) {
+      try {
+        const errJson = JSON.parse(text);
+        console.error('[PA Orders] Error:', resp.status, errJson.message || errJson.error || text.substring(0, 500));
+      } catch {
+        console.error('[PA Orders] Error body:', text.substring(0, 500));
       }
-      if (text.length < 10) continue;
-
+    } else if (text.length > 2) {
       try {
         const data = JSON.parse(text);
-        console.log('[PA Orders] JSON response keys:', Object.keys(data).join(', '));
+        console.log('[PA Orders] JSON keys:', Array.isArray(data) ? `array[${data.length}]` : Object.keys(data).join(', '));
         
         const orders = extractOrdersFromJson(data);
         if (orders.length > 0) {
-          console.log('[PA Orders] ✅ Found', orders.length, 'orders from REST API');
+          console.log('[PA Orders] ✅ Found', orders.length, 'orders');
           return orders;
         }
         
-        // Even if 0 orders, if we got a valid JSON response the endpoint works
-        if (Array.isArray(data) || data.data || data.orders) {
-          console.log('[PA Orders] Valid API response but 0 orders in range');
+        if (Array.isArray(data) || data.data || data.orders || data.content) {
+          console.log('[PA Orders] Valid response but 0 orders in range');
           return [];
         }
       } catch {
-        console.log('[PA Orders] Response not JSON');
+        console.log('[PA Orders] Response not JSON:', text.substring(0, 200));
       }
-    } catch (e) {
-      console.warn('[PA Orders] Error:', e);
     }
+  } catch (e) {
+    console.error('[PA Orders] Fetch error:', e);
   }
 
   // Fallback: legacy JSP scraping (cookie-based)
