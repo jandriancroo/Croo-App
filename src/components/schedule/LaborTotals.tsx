@@ -619,14 +619,10 @@ export function LaborTotals({
               {canViewAllWages && <span className="text-[10px] font-bold text-primary">(${weeklyTotals.wages.toFixed(0)})</span>}
             </div>
             {dailyTotals.map((day, index) => {
-              const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-              const isToday = dayStr === getTodayPST();
               return (
                 <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center gap-1">
-                  {isLoadingWages ? <span className="text-xs text-muted-foreground">...</span> : <>
-                      <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
-                      {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
-                    </>}
+                  <span className="text-xs font-semibold">{day.hours.toFixed(1)}h</span>
+                  {canViewAllWages && <span className="text-[10px] text-muted-foreground">(${day.wages.toFixed(0)})</span>}
                 </div>
               );
             })}
