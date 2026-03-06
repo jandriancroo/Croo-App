@@ -13,6 +13,7 @@ import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { Trash2, ArrowUp, ArrowRightLeft } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
+import { format } from 'date-fns';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 
