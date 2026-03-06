@@ -96,7 +96,9 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
     // Generate a device_id like the Angular app does
     const deviceId = crypto.randomUUID();
     
-    const tokenUrl = `${PA_BASE_URL}/oauth/token`;
+    // The Angular app's apiUrl is the base — token endpoint is at /api/oauth/token
+    // Evidence: /oauth/token returns 302 redirect, /api/oauth/token returns 401 (actual API)
+    const tokenUrl = `${PA_BASE_URL}/api/oauth/token`;
     const formBody = `username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}&grant_type=password&device_id=${deviceId}&client_id=${PA_CLIENT_ID}`;
     
     console.log('[PA Auth] POST', tokenUrl, 'with Basic auth + form body');
