@@ -36,13 +36,13 @@ function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: 
   const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
   const count = maxBars ?? 6;
   const top = [...allHours].sort((a, b) => b.val - a.val).slice(0, count).sort((a, b) => a.hour - b.hour);
-  const max = Math.max(...top6.map(h => h.val), 1);
+  const max = Math.max(...top.map(h => h.val), 1);
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     return hour > 12 ? `${hour - 12}p` : `${hour}a`;
   };
-  if (top6.length === 0) return null;
+  if (top.length === 0) return null;
 
   const getBarColor = (intensity: number) => {
     if (variant === 'light') return intensity > 0.7 ? 'rgba(255,255,255,0.9)' : intensity > 0.4 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)';
