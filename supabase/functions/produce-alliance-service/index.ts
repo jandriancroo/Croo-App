@@ -85,113 +85,64 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
     let allCookies = extractCookies(homeResp.headers);
     console.log('[PA Auth] Home page status:', homeResp.status, 'cookies:', allCookies ? 'yes' : 'none');
 
-    // Step 2: Try OAuth2 token endpoints (Spring Security OAuth2 standard)
-    const oauthAttempts = [
-      // Standard Spring OAuth2
-      `${PA_BASE_URL}/oauth/token`,
-      // Common alternatives
-      `${PA_BASE_URL}/api/oauth/token`,
-      `${PA_BASE_URL}/api/auth/token`,
-      `${PA_BASE_URL}/api/authenticate`,
-      `${PA_BASE_URL}/api/login`,
-    ];
+    // Step 2: OAuth2 token — Spring Security with client credentials
+    // Source: Angular app bundle (FC_ui chunk 8792)
+    // Client ID: fc-client-2.0, Client Secret: fc-client-secret
+    // Authorization: Basic base64(fc-client-2.0:fc-client-secret)
+    const PA_CLIENT_ID = 'fc-client-2.0';
+    const PA_CLIENT_SECRET = 'fc-client-secret';
+    const basicAuth = btoa(`${PA_CLIENT_ID}:${PA_CLIENT_SECRET}`);
+    
+    // Generate a device_id like the Angular app does
+    const deviceId = crypto.randomUUID();
+    
+    const tokenUrl = `${PA_BASE_URL}/oauth/token`;
+    const formBody = `username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}&grant_type=password&device_id=${deviceId}&client_id=${PA_CLIENT_ID}`;
+    
+    console.log('[PA Auth] POST', tokenUrl, 'with Basic auth + form body');
+    
+    try {
+      const resp = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'Authorization': `Basic ${basicAuth}`,
+          'Cookie': allCookies,
+          'User-Agent': UA,
+          'Accept': 'application/json, */*',
+          'Referer': `${PA_BASE_URL}/ng/`,
+        },
+        body: formBody,
+        redirect: 'manual',
+      });
 
-    for (const tokenUrl of oauthAttempts) {
-      // Try form-encoded password grant (most common Spring OAuth2 pattern)
-      try {
-        console.log('[PA Auth] Trying OAuth2:', tokenUrl);
-        const formBody = `grant_type=password&username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}`;
-        
-        const resp = await fetch(tokenUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Cookie': allCookies,
-            'User-Agent': UA,
-            'Accept': 'application/json, */*',
-            'Referer': `${PA_BASE_URL}/ng/`,
-          },
-          body: formBody,
-          redirect: 'manual',
-        });
+      const newCookies = extractCookies(resp.headers);
+      if (newCookies) allCookies = mergeCookies(allCookies, newCookies);
+      
+      const text = await resp.text();
+      console.log('[PA Auth] OAuth2 response:', resp.status, 'len:', text.length);
 
-        const newCookies = extractCookies(resp.headers);
-        if (newCookies) allCookies = mergeCookies(allCookies, newCookies);
-        
-        const text = await resp.text();
-        console.log('[PA Auth]', tokenUrl, '→', resp.status, 'len:', text.length);
-
-        if (resp.status === 200 && text.length > 10) {
-          try {
-            const json = JSON.parse(text);
-            if (json.access_token) {
-              console.log('[PA Auth] ✅ OAuth2 login successful! Token type:', json.token_type || 'bearer');
-              return {
-                accessToken: json.access_token,
-                refreshToken: json.refresh_token || '',
-                cookies: allCookies,
-                restaurantId,
-              };
-            }
-          } catch { /* not JSON */ }
-        }
-      } catch (e) {
-        console.warn('[PA Auth] Error with', tokenUrl, ':', e);
+      if (resp.status === 200 && text.length > 10) {
+        try {
+          const json = JSON.parse(text);
+          if (json.access_token) {
+            console.log('[PA Auth] ✅ OAuth2 login successful! Token type:', json.token_type || 'bearer', 'expires_in:', json.expires_in);
+            return {
+              accessToken: json.access_token,
+              refreshToken: json.refresh_token || '',
+              cookies: allCookies,
+              restaurantId,
+            };
+          }
+        } catch { /* not JSON */ }
       }
-
-      // Also try JSON body variant
-      try {
-        const resp = await fetch(tokenUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cookie': allCookies,
-            'User-Agent': UA,
-            'Accept': 'application/json, */*',
-            'Referer': `${PA_BASE_URL}/ng/`,
-          },
-          body: JSON.stringify({
-            username: credentials.username,
-            password: credentials.password,
-            grant_type: 'password',
-          }),
-          redirect: 'manual',
-        });
-
-        const newCookies = extractCookies(resp.headers);
-        if (newCookies) allCookies = mergeCookies(allCookies, newCookies);
-        
-        const text = await resp.text();
-        console.log('[PA Auth] JSON variant', tokenUrl, '→', resp.status, 'len:', text.length);
-
-        if (resp.status === 200 && text.length > 10) {
-          try {
-            const json = JSON.parse(text);
-            if (json.access_token) {
-              console.log('[PA Auth] ✅ OAuth2 login successful (JSON)! Token type:', json.token_type || 'bearer');
-              return {
-                accessToken: json.access_token,
-                refreshToken: json.refresh_token || '',
-                cookies: allCookies,
-                restaurantId,
-              };
-            }
-            // Some APIs return token in different field
-            if (json.token || json.sessionToken || json.jwt) {
-              const token = json.token || json.sessionToken || json.jwt;
-              console.log('[PA Auth] ✅ Login successful (alt token field)');
-              return {
-                accessToken: token,
-                refreshToken: json.refresh_token || json.refreshToken || '',
-                cookies: allCookies,
-                restaurantId,
-              };
-            }
-          } catch { /* not JSON */ }
-        }
-      } catch (e) {
-        console.warn('[PA Auth] JSON error with', tokenUrl, ':', e);
+      
+      // Log failure details for debugging
+      if (resp.status !== 200) {
+        console.error('[PA Auth] OAuth2 failed:', resp.status, text.substring(0, 500));
       }
+    } catch (e) {
+      console.error('[PA Auth] OAuth2 error:', e);
     }
 
     // Step 3: Fallback — try J2EE form login (legacy approach)
