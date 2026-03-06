@@ -34,6 +34,7 @@ function fmtFull(val: number): string {
 
 function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: string; maxBars?: number }) {
   const isMobile = useIsMobile();
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
   const count = maxBars ?? (isMobile ? 4 : 6);
   const top = [...allHours].sort((a, b) => b.val - a.val).slice(0, count).sort((a, b) => a.hour - b.hour);
@@ -45,7 +46,8 @@ function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: 
   };
   if (top.length === 0) return null;
 
-  const getBarColor = (intensity: number) => {
+  const getBarColor = (intensity: number, isSelected: boolean) => {
+    if (isSelected) return 'hsl(var(--primary))';
     if (variant === 'light') return intensity > 0.7 ? 'rgba(255,255,255,0.9)' : intensity > 0.4 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)';
     if (variant === 'muted') return intensity > 0.7 ? 'hsl(var(--primary))' : intensity > 0.4 ? 'hsl(var(--primary)/0.5)' : 'hsl(var(--muted))';
     if (variant === 'dark') return intensity > 0.7 ? 'rgba(255,255,255,0.85)' : intensity > 0.4 ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.15)';
@@ -55,17 +57,36 @@ function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: 
   return (
     <div>
       <div className="flex gap-[4px] items-end" style={{ height: 28 }}>
-        {top.map(h => {
+        {top.map((h, i) => {
           const intensity = max > 0 ? h.val / max : 0;
-          return <div key={h.hour} className="flex-1 rounded-[3px] min-w-[14px]" style={{ backgroundColor: getBarColor(intensity), height: `${Math.max(15, intensity * 100)}%` }} />;
+          const isSelected = selectedIdx === i;
+          return (
+            <div
+              key={h.hour}
+              className="flex-1 rounded-[3px] min-w-[14px] cursor-pointer transition-all"
+              style={{
+                backgroundColor: getBarColor(intensity, isSelected),
+                height: `${Math.max(15, intensity * 100)}%`,
+                opacity: selectedIdx !== null && !isSelected ? 0.4 : 1,
+              }}
+              onClick={(e) => { e.stopPropagation(); setSelectedIdx(prev => prev === i ? null : i); }}
+            />
+          );
         })}
       </div>
       <div className="flex gap-[4px]">
-        {top.map(h => (
-          <div key={h.hour} className="flex-1 text-center min-w-[14px]">
-            <span className={`text-[9px] font-bold ${variant === 'light' || variant === 'dark' ? 'opacity-70' : 'text-muted-foreground'}`}>{formatHour(h.hour)}</span>
-          </div>
-        ))}
+        {top.map((h, i) => {
+          const isSelected = selectedIdx === i;
+          return (
+            <div key={h.hour} className="flex-1 text-center min-w-[14px]">
+              {isSelected ? (
+                <span className="text-[9px] font-black text-foreground">${h.val.toLocaleString()}</span>
+              ) : (
+                <span className={`text-[9px] font-bold ${variant === 'light' || variant === 'dark' ? 'opacity-70' : 'text-muted-foreground'}`}>{formatHour(h.hour)}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
