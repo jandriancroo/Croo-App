@@ -162,13 +162,22 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
   const derivedStatus = deriveStatus(data);
   const statusColor = STATUS_COLORS[derivedStatus];
 
+  // Arrow: use pace vs goal, then fallback to YoY or WTD comparisons
   const paceAboveGoal = period === 'day' && data.paceToday !== null && data.goalToday !== null && data.goalToday > 0
     ? data.paceToday >= data.goalToday
+    : period === 'day' && data.salesToday > 100 && data.salesLastYearDay !== null && data.salesLastYearDay > 0
+    ? data.salesToday >= data.salesLastYearDay
     : period === 'week' && data.salesPrevWeek !== null
     ? data.salesWtd >= data.salesPrevWeek
     : period === 'month' && data.salesPrevMonth !== null
     ? data.salesMtd >= data.salesPrevMonth
     : null;
+
+  // Status label for badge
+  const STATUS_LABELS: Record<string, string> = {
+    fire: '🔥 On Fire', ahead: '📈 Ahead', track: '✅ On Track', behind: '⚠️ Behind',
+  };
+  const statusLabel = derivedStatus !== 'neutral' ? STATUS_LABELS[derivedStatus] : undefined;
 
   if (isLoading) {
     return (
