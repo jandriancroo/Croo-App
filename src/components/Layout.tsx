@@ -490,22 +490,30 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
   const headerLogoAlt = (orgLogo?.logo_url || cachedLogoUrl) ? (orgDisplayName || 'Organization') : 'Croo';
 
-  // Fetch org name for org-dash header label
+  // Fetch org/brand name for org-dash header label
   const isOnOrgDash = location.pathname === '/org-dash';
   const orgIdFromUrl = searchParams.get('org');
+  const brandIdFromUrl = searchParams.get('brand');
   const { data: orgDashName } = useQuery({
-    queryKey: ['org-dash-name-v2', orgIdFromUrl],
+    queryKey: ['org-dash-name-v2', orgIdFromUrl, brandIdFromUrl],
     queryFn: async () => {
+      if (brandIdFromUrl) {
+        const { data } = await supabase
+          .from('brands')
+          .select('name')
+          .eq('id', brandIdFromUrl)
+          .single();
+        return data?.name ?? null;
+      }
       if (!orgIdFromUrl) return null;
       const { data } = await supabase
         .from('organizations')
         .select('name')
         .eq('id', orgIdFromUrl)
         .single();
-      if (!data) return null;
-      return data.name;
+      return data?.name ?? null;
     },
-    enabled: isOnOrgDash && !!orgIdFromUrl,
+    enabled: isOnOrgDash && !!(orgIdFromUrl || brandIdFromUrl),
     staleTime: 5 * 60 * 1000,
   });
 

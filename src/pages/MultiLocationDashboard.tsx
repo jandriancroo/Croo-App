@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { useSearchParams } from 'react-router-dom';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData';
+import { useOrgLocations, useOrgLocationData, useBrandLocations } from '@/hooks/useOrgDashboardData';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgSearchBar, SearchTag } from '@/components/org-dashboard/OrgSearchBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
@@ -33,6 +33,8 @@ export default function MultiLocationDashboard() {
   const { organizationId: contextOrgId } = useAppLocation();
   const [searchParams] = useSearchParams();
   const urlOrgId = searchParams.get('org');
+  const urlBrandId = searchParams.get('brand');
+  const isBrandMode = !!urlBrandId;
   const organizationId = urlOrgId || contextOrgId;
 
   const [period, setPeriod] = useState<OrgPeriod>('day');
@@ -40,7 +42,12 @@ export default function MultiLocationDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTags, setSearchTags] = useState<SearchTag[]>([]);
 
-  const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
+  // Use brand hook when brand param present, otherwise org hook
+  const { data: orgLocations = [], isLoading: orgLocsLoading } = useOrgLocations(isBrandMode ? null : (organizationId ?? null));
+  const { data: brandLocations = [], isLoading: brandLocsLoading } = useBrandLocations(isBrandMode ? urlBrandId : null);
+  
+  const allLocations = isBrandMode ? brandLocations : orgLocations;
+  const locsLoading = isBrandMode ? brandLocsLoading : orgLocsLoading;
 
   const searchableLocations = useMemo(() =>
     allLocations.map(l => ({
@@ -88,11 +95,13 @@ export default function MultiLocationDashboard() {
     setExpandedId(prev => prev === locId ? null : locId);
   }, []);
 
+  const dashTitle = isBrandMode ? 'Brand Dashboard' : 'Org Dashboard';
+
   return (
     <Layout>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl md:text-2xl font-bold">Org Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold">{dashTitle}</h1>
           <span className="text-xs text-muted-foreground">
             {allLocations.length} store{allLocations.length !== 1 ? 's' : ''}
           </span>
@@ -160,7 +169,7 @@ export default function MultiLocationDashboard() {
         {!locsLoading && sortedLocationIds.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <p className="text-muted-foreground text-sm">
-              {searchTags.length > 0 ? 'No stores match your search.' : 'No locations found for this organization.'}
+              {searchTags.length > 0 ? 'No stores match your search.' : 'No locations found.'}
             </p>
           </div>
         )}

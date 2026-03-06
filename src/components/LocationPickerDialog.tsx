@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Building2, MapPin, ChevronRight, Star, ExternalLink } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Star, ExternalLink, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -16,6 +16,13 @@ interface Organization {
   id: string;
   name: string;
   brand_name: string | null;
+  logo_url: string | null;
+  brand_id?: string | null;
+}
+
+interface BrandInfo {
+  id: string;
+  name: string;
   logo_url: string | null;
 }
 
@@ -48,8 +55,10 @@ export function LocationPickerDialog({
   
   // Check if user has multi-location access
   const hasMultiLocationAccess = role === 'super_admin' || role === 'brand_admin' || role === 'org_admin';
+  const isSuperAdmin = role === 'super_admin';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [brands, setBrands] = useState<BrandInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
   const [allLocationsEnabled, setAllLocationsEnabled] = useState(false);
@@ -84,9 +93,12 @@ export function LocationPickerDialog({
     try {
       if (canSeeAllOrgs) {
         // Super admin: see all orgs and all locations
-        const [orgsResult, locsResult] = await Promise.all([
-          supabase.from('organizations').select('id, name, brand_name, logo_url, brands(name, logo_url)').eq('is_active', true).order('name'),
+        const [orgsResult, locsResult, brandsResult] = await Promise.all([
+          supabase.from('organizations').select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)').eq('is_active', true).order('name'),
           supabase.from('locations').select('*, organizations(name, brand_name, brands(name))').order('name'),
+          isSuperAdmin 
+            ? supabase.from('brands').select('id, name, logo_url').eq('is_active', true).order('name')
+            : Promise.resolve({ data: [] }),
         ]);
 
         // Map organizations to include brand name/logo fallback from the brands table
@@ -96,9 +108,11 @@ export function LocationPickerDialog({
             ...org,
             brand_name: org.brand_name || brand?.name || null,
             logo_url: org.logo_url || brand?.logo_url || null,
+            brand_id: org.brand_id || null,
           };
         });
         setOrganizations(orgs as Organization[]);
+        setBrands((brandsResult.data || []) as BrandInfo[]);
         setLocations(
           (locsResult.data || []).map((loc: any) => ({
             ...loc,
@@ -109,7 +123,7 @@ export function LocationPickerDialog({
         // Org admin: see their org's locations
         const { data: orgMemberships } = await supabase
           .from('organization_members')
-          .select('organization_id, organizations(id, name, brand_name, logo_url, brands(name, logo_url))')
+          .select('organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url))')
           .eq('user_id', user!.id)
           .eq('org_role', 'admin');
 
@@ -120,7 +134,8 @@ export function LocationPickerDialog({
             return { 
               ...org, 
               brand_name: org.brand_name || org.brands?.name || null,
-              logo_url: org.logo_url || org.brands?.logo_url || null 
+              logo_url: org.logo_url || org.brands?.logo_url || null,
+              brand_id: org.brand_id || null,
             };
           }
           return null;
@@ -146,7 +161,7 @@ export function LocationPickerDialog({
         // User has all_locations_enabled - get all locations in their org
         const { data: userLocs } = await supabase
           .from('user_locations')
-          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brands(name, logo_url)))')
+          .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url)))')
           .eq('user_id', user!.id)
           .limit(1);
 
@@ -157,7 +172,8 @@ export function LocationPickerDialog({
           const orgData = { 
             ...rawOrgData, 
             brand_name: rawOrgData.brand_name || rawOrgData.brands?.name || null,
-            logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null 
+            logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null,
+            brand_id: (rawOrgData as any).brand_id || null,
           };
           setOrganizations([orgData as Organization]);
           
@@ -189,12 +205,13 @@ export function LocationPickerDialog({
         if (orgIds.length > 0) {
           const { data: orgsData } = await supabase
             .from('organizations')
-            .select('id, name, brand_name, logo_url, brands(name, logo_url)')
+            .select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)')
             .in('id', orgIds);
           const orgs = (orgsData || []).map((org: any) => ({
             ...org,
             brand_name: org.brand_name || org.brands?.name || null,
             logo_url: org.logo_url || org.brands?.logo_url || null,
+            brand_id: org.brand_id || null,
           }));
           setOrganizations(orgs as Organization[]);
         }
@@ -251,6 +268,100 @@ export function LocationPickerDialog({
     return acc;
   }, {} as Record<string, Location[]>);
 
+  // Group organizations by brand for super_admin
+  const orgsByBrand = useMemo(() => {
+    if (!isSuperAdmin || brands.length === 0) return null;
+    
+    const grouped = new Map<string, Organization[]>();
+    const ungrouped: Organization[] = [];
+    
+    for (const org of organizations) {
+      if (org.brand_id) {
+        const existing = grouped.get(org.brand_id) || [];
+        existing.push(org);
+        grouped.set(org.brand_id, existing);
+      } else {
+        ungrouped.push(org);
+      }
+    }
+    
+    // Only show brand grouping if there's at least one brand with orgs
+    if (grouped.size === 0) return null;
+    
+    return { grouped, ungrouped };
+  }, [isSuperAdmin, brands, organizations]);
+
+  const renderLocationItem = (location: Location) => (
+    <Button
+      key={location.id}
+      variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
+      className="w-full justify-between h-auto py-2 px-2"
+      onClick={() => handleSelectLocation(location)}
+    >
+      <div className="flex items-center gap-2">
+        <button
+          onClick={(e) => handleSetDefault(e, location.id)}
+          className="p-0.5 hover:scale-110 transition-transform"
+          title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
+        >
+          <Star 
+            className={`h-3.5 w-3.5 ${
+              defaultLocationId === location.id 
+                ? 'fill-yellow-400 text-yellow-400' 
+                : 'text-muted-foreground hover:text-yellow-400'
+            }`} 
+          />
+        </button>
+        <div className="text-left">
+          <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
+          {location.location_type === 'checklist_only' && (
+            <div className="text-xs text-muted-foreground">Checklist Only</div>
+          )}
+        </div>
+      </div>
+      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+    </Button>
+  );
+
+  const renderOrgSection = (org: Organization, indent = true) => (
+    <div key={org.id} className="space-y-1">
+      <button
+        className={`flex items-center gap-2 text-xs font-medium px-1 w-full text-left group ${
+          hasMultiLocationAccess 
+            ? 'hover:bg-muted/50 rounded-md py-1 -my-1 cursor-pointer transition-colors' 
+            : 'text-muted-foreground cursor-default'
+        }`}
+        onClick={() => {
+          if (hasMultiLocationAccess) {
+            onOpenChange(false);
+            navigate(`/org-dash?org=${org.id}`);
+          }
+        }}
+        disabled={!hasMultiLocationAccess}
+      >
+        {org.logo_url ? (
+          <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
+        ) : (
+          <Building2 className="h-3 w-3" />
+        )}
+        {org.brand_name && !orgsByBrand ? (
+          <span className="flex-1">
+            <span className="text-foreground font-semibold">{org.brand_name}</span>
+            <span className="text-muted-foreground"> — {org.name}</span>
+          </span>
+        ) : (
+          <span className="flex-1 text-muted-foreground">{org.name}</span>
+        )}
+        {hasMultiLocationAccess && (
+          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
+      </button>
+      <div className={`space-y-0.5 ${indent ? 'pl-5' : 'pl-5'}`}>
+        {locationsByOrg[org.id]?.map(renderLocationItem)}
+      </div>
+    </div>
+  );
+
   const content = (
     <>
       {loading ? (
@@ -261,109 +372,50 @@ export function LocationPickerDialog({
         </div>
       ) : (
         <div className="space-y-4 p-4">
-          {organizations.length > 0 ? (
-            organizations.map((org) => (
-              <div key={org.id} className="space-y-1">
-                <button
-                  className={`flex items-center gap-2 text-xs font-medium px-1 w-full text-left group ${
-                    hasMultiLocationAccess 
-                      ? 'hover:bg-muted/50 rounded-md py-1 -my-1 cursor-pointer transition-colors' 
-                      : 'text-muted-foreground cursor-default'
-                  }`}
-                  onClick={() => {
-                    if (hasMultiLocationAccess) {
-                      onOpenChange(false);
-                      navigate(`/org-dash?org=${org.id}`);
-                    }
-                  }}
-                  disabled={!hasMultiLocationAccess}
-                >
-                  {org.logo_url ? (
-                    <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
-                  ) : (
-                    <Building2 className="h-3 w-3" />
-                  )}
-                  {org.brand_name ? (
-                    <span className="flex-1">
-                      <span className="text-foreground font-semibold">{org.brand_name}</span>
-                      <span className="text-muted-foreground"> — {org.name}</span>
-                    </span>
-                  ) : (
-                    <span className="flex-1 text-muted-foreground">{org.name}</span>
-                  )}
-                  {hasMultiLocationAccess && (
-                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-                </button>
-                <div className="space-y-0.5 pl-5">
-                  {locationsByOrg[org.id]?.map((location) => (
-                    <Button
-                      key={location.id}
-                      variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                      className="w-full justify-between h-auto py-2 px-2"
-                      onClick={() => handleSelectLocation(location)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => handleSetDefault(e, location.id)}
-                          className="p-0.5 hover:scale-110 transition-transform"
-                          title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
-                        >
-                          <Star 
-                            className={`h-3.5 w-3.5 ${
-                              defaultLocationId === location.id 
-                                ? 'fill-yellow-400 text-yellow-400' 
-                                : 'text-muted-foreground hover:text-yellow-400'
-                            }`} 
-                          />
-                        </button>
-                        <div className="text-left">
-                          <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
-                          {location.location_type === 'checklist_only' && (
-                            <div className="text-xs text-muted-foreground">Checklist Only</div>
-                          )}
-                        </div>
+          {/* Brand-grouped layout for super_admin */}
+          {orgsByBrand ? (
+            <>
+              {brands
+                .filter(brand => orgsByBrand.grouped.has(brand.id))
+                .map(brand => {
+                  const brandOrgs = orgsByBrand.grouped.get(brand.id) || [];
+                  return (
+                    <div key={brand.id} className="space-y-2">
+                      {/* Brand header */}
+                      <button
+                        className="flex items-center gap-2 text-xs font-bold px-1 w-full text-left group hover:bg-muted/50 rounded-md py-1.5 -my-1 cursor-pointer transition-colors"
+                        onClick={() => {
+                          onOpenChange(false);
+                          navigate(`/org-dash?brand=${brand.id}`);
+                        }}
+                      >
+                        {brand.logo_url ? (
+                          <img src={brand.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
+                        ) : (
+                          <Layers className="h-4 w-4 text-primary" />
+                        )}
+                        <span className="flex-1 text-foreground uppercase tracking-wide">{brand.name}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal opacity-0 group-hover:opacity-100 transition-opacity">
+                          Brand Dash
+                        </span>
+                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                      {/* Orgs within brand */}
+                      <div className="pl-3 space-y-3 border-l-2 border-primary/20 ml-2">
+                        {brandOrgs.map(org => renderOrgSection(org))}
                       </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ))
+                    </div>
+                  );
+                })}
+              {/* Ungrouped orgs (no brand) */}
+              {orgsByBrand.ungrouped.map(org => renderOrgSection(org))}
+            </>
+          ) : organizations.length > 0 ? (
+            organizations.map(org => renderOrgSection(org))
           ) : (
             // No organizations, just show locations flat
             <div className="space-y-0.5">
-              {locations.map((location) => (
-                <Button
-                  key={location.id}
-                  variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                  className="w-full justify-between h-auto py-2 px-2"
-                  onClick={() => handleSelectLocation(location)}
-                >
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => handleSetDefault(e, location.id)}
-                      className="p-0.5 hover:scale-110 transition-transform"
-                      title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
-                    >
-                      <Star 
-                        className={`h-3.5 w-3.5 ${
-                          defaultLocationId === location.id 
-                            ? 'fill-yellow-400 text-yellow-400' 
-                            : 'text-muted-foreground hover:text-yellow-400'
-                        }`} 
-                      />
-                    </button>
-                    <div className="text-left">
-                      <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
-                      {location.location_type === 'checklist_only' && (
-                        <div className="text-xs text-muted-foreground">Checklist Only</div>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              ))}
+              {locations.map(renderLocationItem)}
             </div>
           )}
 
@@ -375,34 +427,7 @@ export function LocationPickerDialog({
                 Other Locations
               </div>
               <div className="space-y-0.5 pl-5">
-                {locationsByOrg['unassigned'].map((location) => (
-                  <Button
-                    key={location.id}
-                    variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                    className="w-full justify-between h-auto py-2 px-2"
-                    onClick={() => handleSelectLocation(location)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={(e) => handleSetDefault(e, location.id)}
-                        className="p-0.5 hover:scale-110 transition-transform"
-                        title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
-                      >
-                        <Star 
-                          className={`h-3.5 w-3.5 ${
-                            defaultLocationId === location.id 
-                              ? 'fill-yellow-400 text-yellow-400' 
-                              : 'text-muted-foreground hover:text-yellow-400'
-                          }`} 
-                        />
-                      </button>
-                      <div className="text-left">
-                        <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                ))}
+                {locationsByOrg['unassigned'].map(renderLocationItem)}
               </div>
             </div>
           )}
