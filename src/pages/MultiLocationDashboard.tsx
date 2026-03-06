@@ -196,7 +196,19 @@ export default function MultiLocationDashboard() {
 
           {toolbar}
 
-          {renderCards(MOCK_DATA.map(m => ({ id: m.locationId, data: m })))}
+          {renderCards(
+            MOCK_DATA
+              .filter(m => {
+                if (searchTags.length === 0) return true;
+                return searchTags.some(tag => {
+                  if (tag.type === 'location') return tag.id === m.locationId;
+                  if (tag.type === 'org') return true; // all mock data is same org
+                  if (tag.type === 'brand') return true;
+                  return false;
+                });
+              })
+              .map(m => ({ id: m.locationId, data: m }))
+          )}
 
           <div className="flex justify-center">
             <button
