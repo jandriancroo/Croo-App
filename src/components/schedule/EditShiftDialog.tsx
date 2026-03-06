@@ -277,6 +277,13 @@ export function EditShiftDialog({
         .eq("id", shift.id);
 
       if (error) throw error;
+
+      // Optimistically remove from cache so Schedule Tools updates instantly
+      queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+        if (!old) return old;
+        return { ...old, shifts: old.shifts.filter((s: any) => s.id !== shift.id) };
+      });
+
       toast.success("Shift deleted");
       onUpdate();
       onOpenChange(false);
