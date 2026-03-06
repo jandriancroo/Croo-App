@@ -246,13 +246,12 @@ export function useOrgLocationData(locationIds: string[]) {
           }
         }
 
-        // Pace = living_projection (actual sales + remaining projected hours), synced every 7 min
-        // Match SalesSummary: pace is always >= actual sales today
-        const rawPace = Number(todaySales?.living_projection) || Number(todaySales?.override_projection) || 0;
+        // Pace = living_projection ONLY (actual sales + remaining projected hours, synced every 7 min)
+        // living_projection is the ONLY pace source — it's what SalesSummary displays as "Pace"
+        const rawPace = Number(todaySales?.living_projection) || 0;
         const pace = rawPace > 0 ? Math.max(rawPace, todayNet) : null;
 
-        // Goal = the FIXED daily projection target (initial or legacy projected_sales)
-        // NOT living_projection (that's pace). Override is a manual goal override.
+        // Goal = fixed daily target: manual override > initial_projection > legacy projected_sales
         const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
 
         // WTD labor (sum per location)
