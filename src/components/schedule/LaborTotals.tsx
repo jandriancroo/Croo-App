@@ -86,11 +86,6 @@ export function LaborTotals({
     return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}-${s.start_time}-${s.end_time}`).join('|');
   }, [shifts]);
 
-  // Track whether we've ever loaded wages (for initial load vs edit-triggered reload)
-  const hasEverLoadedWages = useMemo(() => {
-    return Object.keys(shiftWages).length > 0 || !isLoadingWages;
-  }, [shiftWages, isLoadingWages]);
-
   // Use React Query for wage fetching with staleTime
   const { data: shiftWages = {}, isLoading: isLoadingWages } = useQuery({
     queryKey: ['shift-wages', shiftsKey],
