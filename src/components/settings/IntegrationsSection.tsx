@@ -212,7 +212,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   useEffect(() => {
     if (paIntegration) {
       const creds = paIntegration.credentials as any;
-      setPaCredentials({ username: creds?.username || '', password: creds?.password || '', pa_location_id: creds?.pa_location_id || '' });
+      setPaCredentials({ username: creds?.username || '', password: creds?.password || '', restaurant_id: creds?.restaurant_id || '' });
       setPaIsActive(paIntegration.is_active);
     }
   }, [paIntegration]);
