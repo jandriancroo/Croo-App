@@ -302,7 +302,19 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
   const slashEnd = toSlashDate(endDate);
 
   const restApiAttempts = [
-    // Primary: POST with MM/DD/YYYY dates (Angular app format)
+    // Primary: POST with MM/DD/YYYY dates, restaurantId as string (Angular app format)
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: session.restaurantId,
+        startDate: slashStart,
+        endDate: slashEnd,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Variation: restaurantId as integer
     {
       url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
       method: 'POST',
