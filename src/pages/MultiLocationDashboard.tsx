@@ -4,22 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
-import { OrgFavoritesBar } from '@/components/org-dashboard/OrgFavoritesBar';
+import { OrgSearchBar, SearchTag } from '@/components/org-dashboard/OrgSearchBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
-import { List, LayoutList } from 'lucide-react';
-
-const FAVORITES_KEY = 'org-dash-favorites';
-
-function loadFavorites(orgId: string): string[] {
-  try {
-    const stored = localStorage.getItem(`${FAVORITES_KEY}-${orgId}`);
-    return stored ? JSON.parse(stored) : [];
-  } catch { return []; }
-}
-
-function saveFavorites(orgId: string, ids: string[]) {
-  localStorage.setItem(`${FAVORITES_KEY}-${orgId}`, JSON.stringify(ids));
-}
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 // Mock data for preview
 const MOCK_DATA: OrgLocationData[] = [
@@ -65,21 +52,21 @@ const MOCK_DATA: OrgLocationData[] = [
   },
 ];
 
-/** Global period selector pill */
+/** Compact D/W/M period selector */
 function PeriodSelector({ period, onChange }: { period: OrgPeriod; onChange: (p: OrgPeriod) => void }) {
   return (
     <div className="flex bg-muted rounded-full p-[3px] gap-[2px]">
       {(['day', 'week', 'month'] as OrgPeriod[]).map(p => (
         <button
           key={p}
-          onClick={() => onChange(p)}
-          className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+          onClick={(e) => { e.stopPropagation(); onChange(p); }}
+          className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all ${
             period === p
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          {p === 'day' ? 'Day' : p === 'week' ? 'Week' : 'Month'}
+          {p === 'day' ? 'D' : p === 'week' ? 'W' : 'M'}
         </button>
       ))}
     </div>
@@ -96,64 +83,77 @@ export default function MultiLocationDashboard() {
   const [period, setPeriod] = useState<OrgPeriod>('day');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [searchTags, setSearchTags] = useState<SearchTag[]>([]);
 
   // === Live mode state ===
   const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [showAll, setShowAll] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => {
-    if (organizationId && allLocations.length > 0 && !initialized) {
-      const saved = loadFavorites(organizationId);
-      const valid = saved.filter(id => allLocations.some(l => l.id === id));
-      setFavorites(valid);
-      setInitialized(true);
+  // Build searchable locations with org/brand metadata
+  const searchableLocations = useMemo(() =>
+    allLocations.map(l => ({
+      id: l.id,
+      name: l.name,
+      storeNumber: l.store_number,
+      orgName: l.org_name,
+      brandName: l.brand_name,
+    })),
+    [allLocations]
+  );
+
+  // Filter locations based on search tags
+  const filteredLocationIds = useMemo(() => {
+    if (searchTags.length === 0) return allLocations.map(l => l.id);
+
+    const locIds = new Set<string>();
+    for (const tag of searchTags) {
+      if (tag.type === 'location') {
+        locIds.add(tag.id);
+      } else if (tag.type === 'org') {
+        for (const loc of allLocations) {
+          if (loc.org_name === tag.label) locIds.add(loc.id);
+        }
+      } else if (tag.type === 'brand') {
+        for (const loc of allLocations) {
+          if (loc.brand_name === tag.label) locIds.add(loc.id);
+        }
+      }
     }
-  }, [organizationId, allLocations, initialized]);
+    return Array.from(locIds);
+  }, [searchTags, allLocations]);
 
-  const handleFavoritesChange = useCallback((ids: string[]) => {
-    setFavorites(ids);
-    if (organizationId) saveFavorites(organizationId, ids);
-  }, [organizationId]);
-
-  const displayLocationIds = useMemo(() => {
-    if (showAll) return allLocations.map(l => l.id);
-    if (favorites.length > 0) return favorites;
-    return allLocations.slice(0, 5).map(l => l.id);
-  }, [allLocations, favorites, showAll]);
-
-  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(displayLocationIds);
+  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(filteredLocationIds);
 
   const sortedLocationIds = useMemo(() => {
-    if (favorites.length > 0 && !showAll) return favorites;
-    return [...displayLocationIds].sort((a, b) => {
+    return [...filteredLocationIds].sort((a, b) => {
       const aSales = locationData[a]?.salesToday ?? 0;
       const bSales = locationData[b]?.salesToday ?? 0;
       return bSales - aSales;
     });
-  }, [displayLocationIds, locationData, favorites, showAll]);
+  }, [filteredLocationIds, locationData]);
 
   const handleToggleExpand = useCallback((locId: string) => {
     setExpandedId(prev => prev === locId ? null : locId);
   }, []);
 
-  // Toolbar: collapse toggle + period selector
+  // Toolbar: search bar + D/W/M + expand/collapse arrow
   const toolbar = (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => { setIsCollapsed(prev => !prev); setExpandedId(null); }}
-          className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
-          title={isCollapsed ? 'Expand all' : 'Collapse all'}
-        >
-          {isCollapsed ? <LayoutList className="h-4 w-4 text-muted-foreground" /> : <List className="h-4 w-4 text-muted-foreground" />}
-        </button>
-        <span className="text-xs text-muted-foreground">
-          {isCollapsed ? 'Collapsed' : 'Expanded'}
-        </span>
-      </div>
+    <div className="flex items-center gap-2">
+      <OrgSearchBar
+        locations={searchableLocations}
+        tags={searchTags}
+        onTagsChange={setSearchTags}
+      />
       <PeriodSelector period={period} onChange={setPeriod} />
+      <button
+        onClick={() => { setIsCollapsed(prev => !prev); setExpandedId(null); }}
+        className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors"
+        title={isCollapsed ? 'Expand all' : 'Collapse all'}
+      >
+        {isCollapsed
+          ? <ChevronDown className="h-4 w-4 text-primary-foreground" />
+          : <ChevronUp className="h-4 w-4 text-primary-foreground" />
+        }
+      </button>
     </div>
   );
 
@@ -224,16 +224,6 @@ export default function MultiLocationDashboard() {
 
         {toolbar}
 
-        {allLocations.length > 0 && (
-          <OrgFavoritesBar
-            allLocations={allLocations.map(l => ({ id: l.id, name: l.name, storeNumber: l.store_number }))}
-            favorites={favorites}
-            onFavoritesChange={handleFavoritesChange}
-            showAll={showAll}
-            onToggleShowAll={() => setShowAll(prev => !prev)}
-          />
-        )}
-
         {locsLoading && (
           <div className={`space-y-${isCollapsed ? '1.5' : '3'}`}>
             {[1, 2, 3].map(i => (
@@ -264,9 +254,11 @@ export default function MultiLocationDashboard() {
           dataLoading,
         )}
 
-        {!locsLoading && allLocations.length === 0 && (
+        {!locsLoading && sortedLocationIds.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-muted-foreground text-sm">No locations found for this organization.</p>
+            <p className="text-muted-foreground text-sm">
+              {searchTags.length > 0 ? 'No stores match your search.' : 'No locations found for this organization.'}
+            </p>
           </div>
         )}
       </div>

@@ -15,6 +15,8 @@ interface LocationInfo {
   id: string;
   name: string;
   store_number: string | null;
+  org_name: string | null;
+  brand_name: string | null;
 }
 
 /**
@@ -39,13 +41,24 @@ export function useOrgLocations(organizationId: string | null) {
 
       const { data: locations } = await supabase
         .from('locations')
-        .select('id, name, store_number')
+        .select('id, name, store_number, organization_id')
         .eq('organization_id', organizationId)
         .eq('is_active', true)
         .in('id', userLocIds)
         .order('name');
 
-      return (locations || []) as LocationInfo[];
+      // Fetch org name + brand name
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('name, brand_name')
+        .eq('id', organizationId)
+        .single();
+
+      return (locations || []).map(l => ({
+        ...l,
+        org_name: orgData?.name ?? null,
+        brand_name: orgData?.brand_name ?? null,
+      })) as LocationInfo[];
     },
     enabled: !!organizationId && !!user?.id,
     staleTime: 5 * 60 * 1000,
