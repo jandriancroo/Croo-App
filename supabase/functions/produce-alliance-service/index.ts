@@ -634,8 +634,11 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
   while ((tableMatch = tableRegex.exec(html)) !== null) {
     const tableHtml = tableMatch[1];
     
-    // Check if this table has the expected headers
-    if (!tableHtml.includes('PA Product ID') && !tableHtml.includes('Unit Price') && !tableHtml.includes('Description')) {
+    // The viewOrder.jsp table may not have explicit headers — look for tables with
+    // numeric item codes (5-digit patterns like 01212, 03792) in <td> cells
+    const hasItemCodes = (tableHtml.match(/<td[^>]*>\d{4,5}<\/td>/g) || []).length >= 2;
+    const hasHeaders = tableHtml.includes('PA Product ID') || tableHtml.includes('Unit Price') || tableHtml.includes('Description');
+    if (!hasItemCodes && !hasHeaders) {
       continue;
     }
 
@@ -660,17 +663,27 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
         cells.push(cellMatch[1].replace(/<[^>]+>/g, '').trim());
       }
 
-      // Expected columns: Item(0), Description(1), PA Product ID(2), Unit Price(3), Quantity(4), Cost(5)
+      // viewOrder.jsp has 7 cells per row: spacer(&nbsp;) | item_code | description | pa_product_id | unit_price | qty | cost
+      // Also handle 6-cell rows (no spacer)
       if (cells.length >= 6) {
-        const unitPrice = parseFloat(cells[3]?.replace(/[$,]/g, '') || '0');
-        const quantity = parseFloat(cells[4] || '0');
-        const cost = parseFloat(cells[5]?.replace(/[$,]/g, '') || '0');
+        // Detect spacer: first cell is empty, &nbsp;, or non-numeric
+        const hasSpacerCol = cells.length >= 7 && (
+          cells[0] === '' || cells[0] === '&nbsp;' || cells[0] === '\u00a0' || !/\d/.test(cells[0])
+        );
+        const offset = hasSpacerCol ? 1 : 0;
+        
+        const itemCode = cells[offset];
+        const description = cells[offset + 1];
+        const paProductId = cells[offset + 2] || '';
+        const unitPrice = parseFloat(cells[offset + 3]?.replace(/[$,]/g, '') || '0');
+        const quantity = parseFloat(cells[offset + 4] || '0');
+        const cost = parseFloat(cells[offset + 5]?.replace(/[$,]/g, '') || '0');
 
-        if (cells[0] && cells[1] && (quantity > 0 || cost > 0)) {
+        if (itemCode && description && /^\d+/.test(itemCode) && (quantity > 0 || cost > 0)) {
           lineItems.push({
-            item_code: cells[0],
-            description: cells[1],
-            pa_product_id: cells[2] || '',
+            item_code: itemCode,
+            description,
+            pa_product_id: paProductId,
             unit_price: unitPrice,
             quantity,
             cost,
@@ -697,18 +710,24 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
       }
       
       if (cells.length >= 5) {
-        // Check if first cell looks like an item code (numeric)
-        const itemCode = cells[0];
-        if (/^\d{3,}$/.test(itemCode)) {
-          const prices = cells.filter(c => /^\d+\.?\d*$/.test(c));
-          if (prices.length >= 2) {
+        // Check for spacer column, then look for numeric item code
+        const hasSpacerCol = cells[0] === '' || cells[0] === '&nbsp;' || cells[0] === '\u00a0';
+        const offset = hasSpacerCol ? 1 : 0;
+        const itemCode = cells[offset];
+        if (/^\d{3,}$/.test(itemCode) && cells.length >= (offset + 5)) {
+          const description = cells[offset + 1];
+          const paProductId = cells[offset + 2] || '';
+          const unitPrice = parseFloat(cells[offset + 3]?.replace(/[$,]/g, '') || '0');
+          const quantity = parseFloat(cells[offset + 4] || '0');
+          const cost = parseFloat(cells[offset + 5]?.replace(/[$,]/g, '') || '0');
+          if (quantity > 0 || cost > 0) {
             lineItems.push({
               item_code: itemCode,
-              description: cells[1],
-              pa_product_id: cells[2] || '',
-              unit_price: parseFloat(prices[0]) || 0,
-              quantity: parseFloat(prices[1]) || 0,
-              cost: parseFloat(prices[2] || prices[0]) || 0,
+              description,
+              pa_product_id: paProductId,
+              unit_price: unitPrice,
+              quantity,
+              cost,
             });
           }
         }
