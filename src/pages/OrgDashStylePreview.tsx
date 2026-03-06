@@ -131,12 +131,13 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
   const laborPct = data.laborPercent;
 
   return (
-    <div className="rounded-2xl bg-card border border-border/50 shadow-[4px_4px_12px_hsl(var(--foreground)/0.06),-3px_-3px_10px_hsl(var(--background)/0.8)]">
-      <div className="px-4 py-3 space-y-2">
+    <div className="rounded-2xl bg-card border border-border/50 shadow-[4px_4px_12px_hsl(var(--foreground)/0.06),-3px_-3px_10px_hsl(var(--background)/0.8)] relative overflow-hidden">
+      {/* Left accent stripe */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: STATUS_COLORS[derivedStatus] }} />
+      <div className="pl-5 pr-4 py-3 space-y-2">
         {/* Header */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full ${statusDot} shadow-sm`} />
             <p className="text-sm font-bold text-foreground">{data.locationName}</p>
             <span className="text-xs text-muted-foreground font-medium">{data.storeNumber}</span>
             {statusLabel && (
