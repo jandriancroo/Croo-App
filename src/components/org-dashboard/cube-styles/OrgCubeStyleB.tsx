@@ -76,8 +76,8 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
               </div>
             ))}
           </div>
-          <div className="flex-1 opacity-70">
-            <HourlyHeatmap data={data.hourlyData} height={18} variant="light" />
+          <div className="flex-1 opacity-80">
+            <HourlyHeatmap data={data.hourlyData} height={20} variant="light" showLabels />
           </div>
         </div>
       </div>
