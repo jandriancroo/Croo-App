@@ -246,10 +246,20 @@ export function useOrgLocationData(locationIds: string[]) {
           }
         }
 
-        // Pace = living_projection ONLY (actual sales + remaining projected hours, synced every 7 min)
-        // living_projection is the ONLY pace source — it's what SalesSummary displays as "Pace"
-        const rawPace = Number(todaySales?.living_projection) || 0;
-        const pace = rawPace > 0 ? Math.max(rawPace, todayNet) : null;
+        // Pace = calculate from hourly data (actuals + remaining projections)
+        // This matches how SalesSummary computes todayPaceAdjusted
+        // living_projection in the cache can be stale, so we compute it fresh
+        let calculatedPace = 0;
+        if (todaySales?.hourly_data && Array.isArray(todaySales.hourly_data)) {
+          for (const entry of todaySales.hourly_data as Array<{ hour: string; sales: number; projected?: number }>) {
+            const actualSales = Number(entry.sales) || 0;
+            const projected = Number(entry.projected) || 0;
+            // Use actual if we have sales, otherwise use projected for future hours
+            calculatedPace += actualSales > 0 ? actualSales : projected;
+          }
+        }
+        // Pace should never be less than actual sales
+        const pace = calculatedPace > 0 ? Math.max(calculatedPace, todayNet) : (Number(todaySales?.living_projection) || null);
 
         // Goal = fixed daily target: manual override > initial_projection > legacy projected_sales
         const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
