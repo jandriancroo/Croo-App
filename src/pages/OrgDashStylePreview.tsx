@@ -33,8 +33,9 @@ function fmtFull(val: number): string {
 }
 
 function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: string; maxBars?: number }) {
+  const isMobile = useIsMobile();
   const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
-  const count = maxBars ?? 6;
+  const count = maxBars ?? (isMobile ? 4 : 6);
   const top = [...allHours].sort((a, b) => b.val - a.val).slice(0, count).sort((a, b) => a.hour - b.hour);
   const max = Math.max(...top.map(h => h.val), 1);
   const formatHour = (hour: number) => {
