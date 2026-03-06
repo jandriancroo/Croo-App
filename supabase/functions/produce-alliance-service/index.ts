@@ -543,7 +543,29 @@ interface PAOrderDetail {
 async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
   console.log('[PA Detail] Fetching order:', webOrderId);
 
-  const authHeaders = getAuthHeaders(session);
+  // Ensure we have a valid servlet session for JSP pages
+  // The JSP needs JSESSIONID — warm up by hitting the landing page with tokenStore cookie
+  let authHeaders = getAuthHeaders(session);
+  try {
+    const warmupResp = await fetch(`${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}`, {
+      method: 'GET',
+      headers: {
+        ...authHeaders,
+        'Accept': 'text/html',
+        'Referer': `${PA_BASE_URL}/ng/`,
+      },
+      redirect: 'manual',
+    });
+    const warmupCookies = extractCookies(warmupResp.headers);
+    if (warmupCookies) {
+      session.cookies = mergeCookies(session.cookies, warmupCookies);
+      authHeaders = getAuthHeaders(session);
+      console.log('[PA Detail] Warmed up servlet session, JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'present' : 'absent');
+    }
+    await warmupResp.text().catch(() => '');
+  } catch (e) {
+    console.warn('[PA Detail] Warmup failed:', e);
+  }
 
   // Try REST API first
   try {
