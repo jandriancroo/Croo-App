@@ -136,10 +136,12 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: STATUS_COLORS[derivedStatus] }} />
       <div className="pl-5 pr-4 py-3 space-y-2">
         {/* Header - single row */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-foreground">{data.locationName}</p>
-            <span className="text-xs text-muted-foreground font-medium">{data.storeNumber}</span>
+         <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-foreground leading-tight">{data.locationName}</p>
+              <span className="text-[10px] text-muted-foreground font-medium">{data.storeNumber}</span>
+            </div>
             {statusLabel && (
               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
                 derivedStatus === 'fire' || derivedStatus === 'ahead' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
