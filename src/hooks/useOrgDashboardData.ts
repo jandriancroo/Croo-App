@@ -62,23 +62,38 @@ export function useOrgLocationData(locationIds: string[]) {
     queryFn: async () => {
       if (locationIds.length === 0) return {};
 
-      const now = DateTime.now().setZone(LA_TZ);
-      const todayStr = now.toFormat('yyyy-MM-dd');
+      const now = new Date();
+      const todayStr = laDate(now);
       
-      // Get start of week (Monday) and start of month
-      const startOfWeek = now.startOf('week'); // luxon weeks start Monday
-      const startOfMonth = now.startOf('month');
-      const weekStartStr = startOfWeek.toFormat('yyyy-MM-dd');
-      const monthStartStr = startOfMonth.toFormat('yyyy-MM-dd');
+      // Week start (Monday) in LA timezone
+      const nowLA = new Date(formatInTimeZone(now, LA_TZ, "yyyy-MM-dd'T'HH:mm:ss"));
+      const dayOfWeek = nowLA.getDay(); // 0=Sun
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const weekStart = new Date(nowLA);
+      weekStart.setDate(weekStart.getDate() - mondayOffset);
+      const weekStartStr = laDate(weekStart);
       
-      // Previous period dates for comparison
-      const prevWeekStart = startOfWeek.minus({ weeks: 1 }).toFormat('yyyy-MM-dd');
-      const prevWeekEnd = startOfWeek.minus({ days: 1 }).toFormat('yyyy-MM-dd');
-      const prevMonthStart = startOfMonth.minus({ months: 1 }).toFormat('yyyy-MM-dd');
-      const prevMonthEnd = startOfMonth.minus({ days: 1 }).toFormat('yyyy-MM-dd');
+      // Month start
+      const monthStart = new Date(nowLA.getFullYear(), nowLA.getMonth(), 1);
+      const monthStartStr = laDate(monthStart);
+      
+      // Previous period dates
+      const prevWeekStartD = new Date(weekStart);
+      prevWeekStartD.setDate(prevWeekStartD.getDate() - 7);
+      const prevWeekEndD = new Date(weekStart);
+      prevWeekEndD.setDate(prevWeekEndD.getDate() - 1);
+      const prevWeekStart = laDate(prevWeekStartD);
+      const prevWeekEnd = laDate(prevWeekEndD);
+      
+      const prevMonthStartD = new Date(nowLA.getFullYear(), nowLA.getMonth() - 1, 1);
+      const prevMonthEndD = new Date(nowLA.getFullYear(), nowLA.getMonth(), 0);
+      const prevMonthStart = laDate(prevMonthStartD);
+      const prevMonthEnd = laDate(prevMonthEndD);
       
       // Last 7 days for sparkline
-      const sparklineStart = now.minus({ days: 6 }).toFormat('yyyy-MM-dd');
+      const sparklineStartD = new Date(nowLA);
+      sparklineStartD.setDate(sparklineStartD.getDate() - 6);
+      const sparklineStart = laDate(sparklineStartD);
 
       // Fetch all sales cache data in parallel
       const [salesResult, laborResult, sparklineResult, prevWeekResult, prevMonthResult] = await Promise.all([
