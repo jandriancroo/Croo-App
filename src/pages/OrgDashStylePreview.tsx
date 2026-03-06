@@ -60,7 +60,7 @@ function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: 
         })}
       </div>
       <div className="flex gap-[4px]">
-        {top6.map(h => (
+        {top.map(h => (
           <div key={h.hour} className="flex-1 text-center min-w-[14px]">
             <span className={`text-[9px] font-bold ${variant === 'light' || variant === 'dark' ? 'opacity-70' : 'text-muted-foreground'}`}>{formatHour(h.hour)}</span>
           </div>
