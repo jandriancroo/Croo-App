@@ -32,9 +32,10 @@ function fmtFull(val: number): string {
   return `$${Math.round(val).toLocaleString()}`;
 }
 
-function PeakHourHeatmap({ data, variant }: { data: number[]; variant: string }) {
+function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: string; maxBars?: number }) {
   const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
-  const top6 = [...allHours].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
+  const count = maxBars ?? 6;
+  const top = [...allHours].sort((a, b) => b.val - a.val).slice(0, count).sort((a, b) => a.hour - b.hour);
   const max = Math.max(...top6.map(h => h.val), 1);
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a';
