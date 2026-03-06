@@ -1,6 +1,6 @@
 import {
-  CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName, getLaborColor,
-  formatCurrency, formatCurrencyFull, pctChange, pctChangeColor,
+  CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
+  formatCurrency, formatCurrencyFull, pctChange,
   HourlyHeatmap,
 } from './shared';
 
