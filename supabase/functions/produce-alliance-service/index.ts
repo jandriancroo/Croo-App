@@ -129,10 +129,35 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
           const json = JSON.parse(text);
           if (json.access_token) {
             console.log('[PA Auth] ✅ OAuth2 login successful! Token type:', json.token_type || 'bearer', 'expires_in:', json.expires_in);
+            
+            // Hit session endpoint to get XSRF-TOKEN cookie (needed for POST requests)
+            let sessionCookies = allCookies;
+            try {
+              const sessionResp = await fetch(`${PA_BASE_URL}/api/common/session`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${json.access_token}`,
+                  'Cookie': allCookies,
+                  'User-Agent': UA,
+                  'Accept': 'application/json',
+                  'Referer': `${PA_BASE_URL}/ng/`,
+                  'Origin': PA_BASE_URL,
+                },
+              });
+              const sessionNewCookies = extractCookies(sessionResp.headers);
+              if (sessionNewCookies) {
+                sessionCookies = mergeCookies(allCookies, sessionNewCookies);
+                console.log('[PA Auth] Session cookies updated, XSRF:', sessionCookies.includes('XSRF-TOKEN') ? 'present' : 'absent');
+              }
+              await sessionResp.text().catch(() => '');
+            } catch (e) {
+              console.warn('[PA Auth] Session probe failed:', e);
+            }
+            
             return {
               accessToken: json.access_token,
               refreshToken: json.refresh_token || '',
-              cookies: allCookies,
+              cookies: sessionCookies,
               restaurantId,
             };
           }
@@ -230,12 +255,14 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
   }
 }
 
-// Build auth headers for API requests
-function getAuthHeaders(session: PASession): Record<string, string> {
+// Build auth headers for API requests (matching Angular HttpClient behavior)
+function getAuthHeaders(session: PASession, isPost = false): Record<string, string> {
   const headers: Record<string, string> = {
     'User-Agent': UA,
     'Accept': 'application/json, text/plain, */*',
     'Referer': `${PA_BASE_URL}/ng/`,
+    'Origin': PA_BASE_URL,
+    'X-Requested-With': 'XMLHttpRequest',
   };
   
   if (session.accessToken) {
@@ -243,6 +270,11 @@ function getAuthHeaders(session: PASession): Record<string, string> {
   }
   if (session.cookies) {
     headers['Cookie'] = session.cookies;
+    // Extract XSRF-TOKEN from cookies (Spring Security CSRF protection)
+    const xsrfMatch = session.cookies.match(/XSRF-TOKEN=([^;]+)/);
+    if (xsrfMatch) {
+      headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfMatch[1]);
+    }
   }
   
   return headers;
@@ -1364,6 +1396,150 @@ async function handleDiscoverRestaurantId(_supabase: any, body: any): Promise<Re
   return jsonResponse({ success: true, results });
 }
 
+// Debug action: capture full session + error response for troubleshooting
+async function handleDebug(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'Login failed' });
+
+  const results: any = { cookies: session.cookies, token: session.accessToken?.substring(0, 20) + '...' };
+
+  // 1. Full session response
+  try {
+    const sessionResp = await fetch(`${PA_BASE_URL}/api/common/session`, {
+      method: 'GET',
+      headers: getAuthHeaders(session),
+    });
+    results.sessionStatus = sessionResp.status;
+    results.sessionBody = await sessionResp.text();
+  } catch (e) { results.sessionError = String(e); }
+
+  // 2. Linked users
+  try {
+    const linkedResp = await fetch(`${PA_BASE_URL}/api/common/linked-users`, {
+      method: 'GET',
+      headers: getAuthHeaders(session),
+    });
+    results.linkedUsersStatus = linkedResp.status;
+    const text = await linkedResp.text();
+    try { results.linkedUsers = JSON.parse(text); } catch { results.linkedUsersRaw = text.substring(0, 2000); }
+  } catch (e) { results.linkedUsersError = String(e); }
+
+  // 3. Try order fetch - get FULL error body
+  const orderPayload = {
+    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+    startDate: '3/1/2026',
+    endDate: '3/6/2026',
+    includeOnlySubmit: false,
+  };
+  try {
+    const orderResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(session, true), 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(orderPayload),
+    });
+    results.orderStatus = orderResp.status;
+    const text = await orderResp.text();
+    try {
+      const errJson = JSON.parse(text);
+      // Extract the actual exception class and message from the Java stack trace
+      results.orderError = {
+        message: errJson.message || errJson.localizedMessage,
+        exceptionClass: errJson.stackTrace?.[0]?.className,
+        cause: errJson.cause,
+        status: errJson.status,
+        error: errJson.error,
+        // Get the first few stack frames
+        topFrames: errJson.stackTrace?.slice(0, 5)?.map((f: any) => `${f.className}.${f.methodName}(${f.fileName}:${f.lineNumber})`),
+      };
+    } catch {
+      results.orderErrorRaw = text.substring(0, 3000);
+    }
+  } catch (e) { results.orderFetchError = String(e); }
+
+  // 4. Fetch Angular app HTML and find JS bundle URLs, then search for API endpoints
+  try {
+    const ngResp = await fetch(`${PA_BASE_URL}/ng/`, {
+      method: 'GET',
+      headers: { ...getAuthHeaders(session), 'Accept': 'text/html' },
+    });
+    const ngHtml = await ngResp.text();
+    
+    // Extract script src URLs
+    const scriptRegex = /src="([^"]*\.js[^"]*)"/g;
+    const scripts: string[] = [];
+    let sm;
+    while ((sm = scriptRegex.exec(ngHtml)) !== null) {
+      scripts.push(sm[1]);
+    }
+    results.angularScripts = scripts;
+    
+    // Fetch the main JS bundle and search for API endpoints
+    const mainScript = scripts.find(s => s.includes('main'));
+    if (mainScript) {
+      const scriptUrl = mainScript.startsWith('http') ? mainScript : `${PA_BASE_URL}/ng/${mainScript}`;
+      const jsResp = await fetch(scriptUrl, {
+        method: 'GET',
+        headers: { 'User-Agent': UA },
+      });
+      const jsText = await jsResp.text();
+      
+      // Search for order-related API endpoints
+      const apiPatterns = [
+        /["']([^"']*(?:order|Order)[^"']*?)["']/g,
+        /["']([^"']*restaurant-dashboard[^"']*?)["']/g,
+        /["']\/api\/([^"']*?)["']/g,
+      ];
+      
+      const foundEndpoints: string[] = [];
+      for (const pattern of apiPatterns) {
+        let m;
+        while ((m = pattern.exec(jsText)) !== null) {
+          const ep = m[1] || m[0];
+          if (ep.length < 200 && !ep.includes('{') && !foundEndpoints.includes(ep)) {
+            foundEndpoints.push(ep);
+          }
+        }
+      }
+      results.discoveredEndpoints = foundEndpoints;
+    }
+  } catch (e) { results.angularError = String(e); }
+
+  // 5. Try alternative order endpoints
+  const altEndpoints = [
+    { url: `/api/restaurant-dashboard/get-orders`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId), startDate: '3/1/2026', endDate: '3/6/2026' } },
+    { url: `/api/restaurant-dashboard/orders`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/restaurant-dashboard/get-order-list`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/weborder/list`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/order/list?restaurantId=${session.restaurantId}`, method: 'GET', body: null },
+  ];
+  
+  results.altEndpoints = [];
+  for (const alt of altEndpoints) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}${alt.url}`, {
+        method: alt.method,
+        headers: { ...getAuthHeaders(session, true), 'Content-Type': 'application/json; charset=UTF-8' },
+        body: alt.body ? JSON.stringify(alt.body) : undefined,
+      });
+      const text = await resp.text();
+      results.altEndpoints.push({
+        url: alt.url,
+        status: resp.status,
+        len: text.length,
+        preview: text.substring(0, 500),
+      });
+    } catch (e) {
+      results.altEndpoints.push({ url: alt.url, error: String(e) });
+    }
+  }
+
+  return jsonResponse({ success: true, debug: results });
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -1393,6 +1569,7 @@ serve(async (req) => {
       case 'explore': return await handleExplore(supabase, body);
       case 'fetch_order': return await handleFetchOrder(supabase, body);
       case 'discover_restaurant_id': return await handleDiscoverRestaurantId(supabase, body);
+      case 'debug': return await handleDebug(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
