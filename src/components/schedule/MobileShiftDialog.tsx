@@ -53,6 +53,7 @@ interface MobileShiftDialogProps {
     color: string | null;
   }>;
   locationId?: string | null;
+  currentWeekStart?: Date;
 }
 
 export function MobileShiftDialog({ 
@@ -65,8 +66,11 @@ export function MobileShiftDialog({
   isCreating = false,
   scheduleId,
   templates = [],
-  locationId
+  locationId,
+  currentWeekStart
 }: MobileShiftDialogProps) {
+  const queryClient = useQueryClient();
+  const { currentLocation } = useAppLocation();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
