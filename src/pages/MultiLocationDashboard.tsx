@@ -88,17 +88,25 @@ export default function MultiLocationDashboard() {
   // === Live mode state ===
   const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
 
-  // Build searchable locations with org/brand metadata
-  const searchableLocations = useMemo(() =>
-    allLocations.map(l => ({
+  // Build searchable locations - use mock data in preview, live data otherwise
+  const searchableLocations = useMemo(() => {
+    if (previewMode) {
+      return MOCK_DATA.map(m => ({
+        id: m.locationId,
+        name: m.locationName,
+        storeNumber: m.storeNumber ?? null,
+        orgName: 'DDM Pizza' as string | null,
+        brandName: 'Blaze Pizza' as string | null,
+      }));
+    }
+    return allLocations.map(l => ({
       id: l.id,
       name: l.name,
       storeNumber: l.store_number,
       orgName: l.org_name,
       brandName: l.brand_name,
-    })),
-    [allLocations]
-  );
+    }));
+  }, [allLocations, previewMode]);
 
   // Filter locations based on search tags
   const filteredLocationIds = useMemo(() => {
@@ -188,7 +196,19 @@ export default function MultiLocationDashboard() {
 
           {toolbar}
 
-          {renderCards(MOCK_DATA.map(m => ({ id: m.locationId, data: m })))}
+          {renderCards(
+            MOCK_DATA
+              .filter(m => {
+                if (searchTags.length === 0) return true;
+                return searchTags.some(tag => {
+                  if (tag.type === 'location') return tag.id === m.locationId;
+                  if (tag.type === 'org') return true; // all mock data is same org
+                  if (tag.type === 'brand') return true;
+                  return false;
+                });
+              })
+              .map(m => ({ id: m.locationId, data: m }))
+          )}
 
           <div className="flex justify-center">
             <button
