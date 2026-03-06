@@ -125,7 +125,7 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
   const derivedStatus = deriveStatus(data);
   const STATUS_LABELS: Record<string, string> = { fire: 'On Fire', ahead: 'Ahead', track: 'On Track', behind: 'Behind' };
   const statusLabel = derivedStatus !== 'neutral' ? STATUS_LABELS[derivedStatus] : undefined;
-  const statusDot = derivedStatus === 'fire' || derivedStatus === 'ahead' ? 'bg-green-500' : derivedStatus === 'track' ? 'bg-yellow-500' : derivedStatus === 'behind' ? 'bg-red-500' : 'bg-muted-foreground';
+  const statusColor = STATUS_COLORS[derivedStatus];
   const goalPct = data.goalToday && data.goalToday > 0 ? Math.min((data.salesToday / data.goalToday) * 100, 120) : 0;
   const paceAboveGoal = data.paceToday !== null && data.goalToday !== null && data.goalToday > 0 ? data.paceToday >= data.goalToday : null;
   const laborPct = data.laborPercent;
