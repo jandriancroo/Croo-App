@@ -1,87 +1,92 @@
-import { Card } from "@/components/ui/card";
-import { Flame, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
-  CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
-  formatCurrencyFull, formatCurrency, pctChange, pctChangeColor,
-  Sparkline, HourlyHeatmap, LaborGauge,
+  CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName, getLaborColor,
+  formatCurrency, formatCurrencyFull, pctChange, pctChangeColor,
+  HourlyHeatmap,
 } from './shared';
 
-/** Style B: Gradient Panels — Bold gradient backgrounds, oversized hero numbers */
+/** Style B: Glass Scoreboard — Full-bleed status color background, white text, big numbers */
 export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
+  const laborColor = getLaborColor(data.laborPercent);
 
   if (isLoading) {
-    return <Card className="p-4 space-y-3 animate-pulse h-56"><div className="h-6 bg-muted rounded w-1/2" /><div className="h-12 bg-muted rounded" /><div className="h-8 bg-muted rounded" /></Card>;
+    return (
+      <div className="rounded-xl p-4 space-y-3 animate-pulse bg-muted/30 h-52">
+        <div className="h-6 bg-muted rounded w-1/2" />
+        <div className="h-12 bg-muted rounded" />
+      </div>
+    );
   }
 
+  // Goal progress
+  const goalPct = data.goalToday && data.goalToday > 0
+    ? Math.min((data.salesToday / data.goalToday) * 100, 120)
+    : 0;
+
   return (
-    <Card
-      className="overflow-hidden cursor-pointer hover:scale-[1.01] transition-all duration-200 relative"
+    <div
+      className="rounded-xl cursor-pointer hover:scale-[1.02] transition-all duration-200 relative overflow-hidden"
       onClick={onClick}
       style={{
-        background: `linear-gradient(135deg, ${statusColor}12 0%, ${statusColor}06 40%, transparent 100%)`,
+        background: `linear-gradient(145deg, ${statusColor}dd, ${statusColor}99)`,
+        color: 'white',
       }}
     >
-      {/* Decorative circle */}
-      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-10" style={{ backgroundColor: statusColor }} />
-
+      {/* Decorative circles */}
+      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
+      <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
+      
       <div className="relative z-10 p-4 space-y-3">
-        {/* L1: Giant hero */}
-        <div>
-          <p className="text-[11px] font-medium text-muted-foreground">{getDisplayName(data)}</p>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="text-4xl font-black tracking-tighter">{formatCurrencyFull(data.salesToday)}</span>
-            {pace.label && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: statusColor, backgroundColor: `${statusColor}15` }}>
-                {pace.label}
-              </span>
-            )}
+        {/* L1: Store + massive number */}
+        <div className="flex items-start justify-between">
+          <p className="text-xs font-medium opacity-80 truncate">{getDisplayName(data)}</p>
+          <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+            {pace.label || '—'}
+          </span>
+        </div>
+        <p className="text-5xl font-black tracking-tighter leading-none drop-shadow-sm">
+          {formatCurrencyFull(data.salesToday)}
+        </p>
+
+        {/* L2: Goal progress bar */}
+        <div className="space-y-1">
+          <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white/80 rounded-full transition-all"
+              style={{ width: `${Math.min(goalPct, 100)}%` }}
+            />
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-            {data.paceToday !== null && <span>Pace: <span className="font-bold" style={{ color: statusColor }}>{formatCurrency(data.paceToday)}</span></span>}
-            {data.goalToday !== null && <span>Goal: <span className="font-semibold">{formatCurrency(data.goalToday)}</span></span>}
+          <div className="flex justify-between text-[10px] opacity-70">
+            <span>Pace: {data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</span>
+            <span>Goal: {data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</span>
           </div>
         </div>
 
-        {/* L2: Sparkline — taller */}
-        <Sparkline data={data.last7Days} color={statusColor} height={32} />
-
-        {/* L3: Comparison pills */}
+        {/* L3: Comparison row */}
         <div className="flex gap-2">
-          <div className="flex-1 rounded-md bg-muted/50 px-2 py-1.5 text-center">
-            <p className="text-[9px] text-muted-foreground">WTD</p>
-            <p className="text-xs font-bold">{formatCurrency(data.salesWtd)}</p>
-            <p className="text-[10px] font-medium" style={{ color: pctChangeColor(data.salesWtd, data.salesPrevWeek) }}>
-              {pctChange(data.salesWtd, data.salesPrevWeek)}
-            </p>
+          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
+            <p className="text-[8px] opacity-70">WTD</p>
+            <p className="text-xs font-black">{formatCurrency(data.salesWtd)}</p>
+            <p className="text-[9px] font-semibold">{pctChange(data.salesWtd, data.salesPrevWeek)}</p>
           </div>
-          <div className="flex-1 rounded-md bg-muted/50 px-2 py-1.5 text-center">
-            <p className="text-[9px] text-muted-foreground">MTD</p>
-            <p className="text-xs font-bold">{formatCurrency(data.salesMtd)}</p>
-            <p className="text-[10px] font-medium" style={{ color: pctChangeColor(data.salesMtd, data.salesPrevMonth) }}>
-              {pctChange(data.salesMtd, data.salesPrevMonth)}
-            </p>
+          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
+            <p className="text-[8px] opacity-70">MTD</p>
+            <p className="text-xs font-black">{formatCurrency(data.salesMtd)}</p>
+            <p className="text-[9px] font-semibold">{pctChange(data.salesMtd, data.salesPrevMonth)}</p>
           </div>
-          {data.salesLastYearDay !== null && (
-            <div className="flex-1 rounded-md bg-muted/50 px-2 py-1.5 text-center">
-              <p className="text-[9px] text-muted-foreground">vs LY</p>
-              <p className="text-[10px] font-bold" style={{ color: pctChangeColor(data.salesToday, data.salesLastYearDay) }}>
-                {pctChange(data.salesToday, data.salesLastYearDay)}
-              </p>
-            </div>
-          )}
+          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
+            <p className="text-[8px] opacity-70">Labor</p>
+            <p className="text-xs font-black">{data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—'}</p>
+            <p className="text-[9px] opacity-70">{data.laborCost !== null ? formatCurrency(data.laborCost) : ''}</p>
+          </div>
         </div>
 
-        {/* L4 + L5: Labor + Heatmap side by side */}
-        <div className="flex items-center gap-3">
-          <LaborGauge percent={data.laborPercent} size={40} />
-          <div className="flex-1">
-            <p className="text-[9px] text-muted-foreground mb-0.5">Hourly Activity</p>
-            <HourlyHeatmap data={data.hourlyData} />
-          </div>
+        {/* L5: Heatmap - inverted colors */}
+        <div className="opacity-80">
+          <HourlyHeatmap data={data.hourlyData} height={14} variant="light" />
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

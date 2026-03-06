@@ -81,7 +81,7 @@ export function Sparkline({ data, color, height = 24 }: { data: number[]; color:
 }
 
 // Hourly heatmap component
-export function HourlyHeatmap({ data, height = 16 }: { data: number[]; height?: number }) {
+export function HourlyHeatmap({ data, height = 16, variant = 'default' }: { data: number[]; height?: number; variant?: 'default' | 'light' }) {
   const max = Math.max(...data, 1);
   const businessHours = data.slice(7, 24);
 
@@ -89,10 +89,18 @@ export function HourlyHeatmap({ data, height = 16 }: { data: number[]; height?: 
     <div className="flex gap-[1px] items-end" style={{ height }}>
       {businessHours.map((val, i) => {
         const intensity = max > 0 ? val / max : 0;
-        let bg = 'hsl(var(--muted))';
-        if (intensity > 0.7) bg = '#22c55e';
-        else if (intensity > 0.4) bg = '#eab308';
-        else if (intensity > 0.05) bg = 'hsl(var(--muted-foreground)/0.3)';
+        let bg: string;
+        if (variant === 'light') {
+          bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)' 
+            : intensity > 0.4 ? 'rgba(255,255,255,0.5)' 
+            : intensity > 0.05 ? 'rgba(255,255,255,0.2)' 
+            : 'rgba(255,255,255,0.08)';
+        } else {
+          bg = intensity > 0.7 ? '#22c55e' 
+            : intensity > 0.4 ? '#eab308' 
+            : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)' 
+            : 'hsl(var(--muted))';
+        }
         return (
           <div
             key={i}

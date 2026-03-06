@@ -2,77 +2,95 @@ import { Card } from "@/components/ui/card";
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName, getLaborColor,
   formatCurrency, formatCurrencyFull, pctChange, pctChangeColor,
-  HourlyHeatmap, LaborGauge,
+  HourlyHeatmap,
 } from './shared';
 
-/** Style E: Tile Grid — Colorful tiles with prominent heatmap and metric blocks */
+/** Style E: Mosaic Grid — Colored block tiles, each metric in its own cell */
 export function OrgCubeStyleE({ data, isLoading, onClick }: CubeStyleProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
   const laborColor = getLaborColor(data.laborPercent);
 
   if (isLoading) {
-    return <Card className="p-3 space-y-2 animate-pulse"><div className="h-6 bg-muted rounded w-1/2" /><div className="h-10 bg-muted rounded" /><div className="grid grid-cols-3 gap-1"><div className="h-12 bg-muted rounded" /><div className="h-12 bg-muted rounded" /><div className="h-12 bg-muted rounded" /></div><div className="h-5 bg-muted rounded" /></Card>;
+    return (
+      <Card className="p-2 animate-pulse">
+        <div className="grid grid-cols-3 grid-rows-3 gap-1.5 h-52">
+          {Array.from({ length: 9 }).map((_, i) => <div key={i} className="bg-muted rounded" />)}
+        </div>
+      </Card>
+    );
   }
 
   return (
-    <Card
-      className="overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200"
-      onClick={onClick}
-      style={{ borderTop: `3px solid ${statusColor}` }}
-    >
-      <div className="p-3 space-y-2">
-        {/* L1: Name + Sales */}
-        <div className="flex items-baseline justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground truncate">{getDisplayName(data)}</span>
-          <span className="text-[10px] font-bold" style={{ color: statusColor }}>{pace.label}</span>
+    <Card className="overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200 p-2" onClick={onClick}>
+      {/* Store name banner */}
+      <div className="flex items-center justify-between px-2 py-1 mb-1.5">
+        <span className="text-[11px] font-semibold text-muted-foreground truncate">{getDisplayName(data)}</span>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusColor }} />
+          <span className="text-[9px] font-bold" style={{ color: statusColor }}>{pace.label}</span>
         </div>
-        <p className="text-3xl font-black tracking-tight">{formatCurrencyFull(data.salesToday)}</p>
+      </div>
 
-        {/* L2+L3: Metric tiles */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <div className="rounded-md p-2 text-center" style={{ backgroundColor: `${statusColor}10` }}>
-            <p className="text-[8px] text-muted-foreground">Pace</p>
-            <p className="text-sm font-black" style={{ color: statusColor }}>
-              {data.paceToday !== null ? formatCurrency(data.paceToday) : '--'}
-            </p>
-          </div>
-          <div className="rounded-md bg-muted/40 p-2 text-center">
-            <p className="text-[8px] text-muted-foreground">WTD</p>
-            <p className="text-sm font-bold">{formatCurrency(data.salesWtd)}</p>
-            <p className="text-[9px] font-medium" style={{ color: pctChangeColor(data.salesWtd, data.salesPrevWeek) }}>
-              {pctChange(data.salesWtd, data.salesPrevWeek)}
-            </p>
-          </div>
-          <div className="rounded-md bg-muted/40 p-2 text-center">
-            <p className="text-[8px] text-muted-foreground">MTD</p>
-            <p className="text-sm font-bold">{formatCurrency(data.salesMtd)}</p>
-            <p className="text-[9px] font-medium" style={{ color: pctChangeColor(data.salesMtd, data.salesPrevMonth) }}>
-              {pctChange(data.salesMtd, data.salesPrevMonth)}
-            </p>
-          </div>
+      {/* Mosaic grid */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {/* Sales - large spanning 2 cols */}
+        <div className="col-span-2 rounded-lg p-2.5 flex flex-col justify-center" style={{ backgroundColor: `${statusColor}12` }}>
+          <p className="text-[8px] font-medium opacity-60">Today's Sales</p>
+          <p className="text-3xl font-black tracking-tighter" style={{ color: statusColor }}>
+            {formatCurrencyFull(data.salesToday)}
+          </p>
         </div>
 
-        {/* L4: Labor bar */}
-        <div className="flex items-center justify-between rounded-md bg-muted/30 px-2 py-1.5">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: laborColor }} />
-            <span className="text-[10px] text-muted-foreground">Labor</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold" style={{ color: laborColor }}>
-              {data.laborPercent !== null ? `${data.laborPercent.toFixed(1)}%` : '--'}
-            </span>
-            {data.laborCost !== null && (
-              <span className="text-muted-foreground font-medium">{formatCurrency(data.laborCost)}</span>
-            )}
-          </div>
+        {/* Pace cell */}
+        <div className="rounded-lg p-2 flex flex-col justify-center items-center bg-muted/40">
+          <p className="text-[8px] text-muted-foreground">Pace</p>
+          <p className="text-sm font-black" style={{ color: statusColor }}>
+            {data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}
+          </p>
+          {data.goalToday !== null && (
+            <p className="text-[8px] text-muted-foreground">of {formatCurrency(data.goalToday)}</p>
+          )}
         </div>
 
-        {/* L5: Heatmap */}
-        <div>
-          <p className="text-[8px] text-muted-foreground mb-0.5">Rush Pattern</p>
-          <HourlyHeatmap data={data.hourlyData} height={18} />
+        {/* WTD */}
+        <div className="rounded-lg p-2 text-center bg-muted/30">
+          <p className="text-[8px] text-muted-foreground">WTD</p>
+          <p className="text-xs font-black">{formatCurrency(data.salesWtd)}</p>
+          <p className="text-[9px] font-bold" style={{ color: pctChangeColor(data.salesWtd, data.salesPrevWeek) }}>
+            {pctChange(data.salesWtd, data.salesPrevWeek)}
+          </p>
+        </div>
+
+        {/* MTD */}
+        <div className="rounded-lg p-2 text-center bg-muted/30">
+          <p className="text-[8px] text-muted-foreground">MTD</p>
+          <p className="text-xs font-black">{formatCurrency(data.salesMtd)}</p>
+          <p className="text-[9px] font-bold" style={{ color: pctChangeColor(data.salesMtd, data.salesPrevMonth) }}>
+            {pctChange(data.salesMtd, data.salesPrevMonth)}
+          </p>
+        </div>
+
+        {/* Labor */}
+        <div className="rounded-lg p-2 text-center" style={{ backgroundColor: `${laborColor}12` }}>
+          <p className="text-[8px] text-muted-foreground">Labor</p>
+          <p className="text-lg font-black" style={{ color: laborColor }}>
+            {data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—'}
+          </p>
+          {data.laborCost !== null && (
+            <p className="text-[9px] text-muted-foreground">{formatCurrency(data.laborCost)}</p>
+          )}
+        </div>
+
+        {/* Heatmap - spans full width */}
+        <div className="col-span-3 rounded-lg bg-muted/20 p-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[8px] text-muted-foreground">Rush Pattern</span>
+            <div className="flex gap-2 text-[7px] text-muted-foreground">
+              <span>7a</span><span>12p</span><span>5p</span><span>10p</span>
+            </div>
+          </div>
+          <HourlyHeatmap data={data.hourlyData} height={20} />
         </div>
       </div>
     </Card>
