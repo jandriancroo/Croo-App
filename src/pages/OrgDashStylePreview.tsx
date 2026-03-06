@@ -174,7 +174,7 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
             <span className="text-[10px] text-muted-foreground font-medium">{data.storeNumber}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-right"><p className="text-[8px] text-muted-foreground">Goal</p><p className="text-xs font-bold text-foreground">{data.goalToday ? fmtFull(data.goalToday) : '—'}</p></div>
+            <div className="text-right hidden md:block"><p className="text-[8px] text-muted-foreground">Goal</p><p className="text-xs font-bold text-foreground">{data.goalToday ? fmtFull(data.goalToday) : '—'}</p></div>
             <div className="text-right"><p className="text-[8px] text-muted-foreground">Pace</p><p className="text-xs font-bold text-foreground">{data.paceToday ? fmtFull(data.paceToday) : '—'}</p></div>
             {paceAboveGoal !== null && <span className={`text-lg font-black ${paceAboveGoal ? 'text-green-500' : 'text-red-500'}`}>{paceAboveGoal ? '▲' : '▼'}</span>}
             <p className="text-2xl font-black tracking-tighter text-foreground">{fmtFull(data.salesToday)}</p>
