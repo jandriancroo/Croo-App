@@ -1,4 +1,3 @@
-import { Card } from "@/components/ui/card";
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName, getLaborColor,
   formatCurrency, formatCurrencyFull, pctChange, pctChangeColor,
