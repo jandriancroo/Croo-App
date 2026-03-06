@@ -4,9 +4,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
-import { OrgFavoritesBar } from '@/components/org-dashboard/OrgFavoritesBar';
+import { OrgSearchBar, SearchTag, SearchableLocation } from '@/components/org-dashboard/OrgSearchBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
-import { List, LayoutList } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const FAVORITES_KEY = 'org-dash-favorites';
 
