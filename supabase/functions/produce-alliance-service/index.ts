@@ -96,7 +96,9 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
     // Generate a device_id like the Angular app does
     const deviceId = crypto.randomUUID();
     
-    const tokenUrl = `${PA_BASE_URL}/oauth/token`;
+    // The Angular app's apiUrl is the base — token endpoint is at /api/oauth/token
+    // Evidence: /oauth/token returns 302 redirect, /api/oauth/token returns 401 (actual API)
+    const tokenUrl = `${PA_BASE_URL}/api/oauth/token`;
     const formBody = `username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}&grant_type=password&device_id=${deviceId}&client_id=${PA_CLIENT_ID}`;
     
     console.log('[PA Auth] POST', tokenUrl, 'with Basic auth + form body');
@@ -1219,6 +1221,102 @@ async function updateSyncLog(
 }
 
 // ============================================================================
+// DISCOVER RESTAURANT ID — Login as each location and probe session/dashboard
+// ============================================================================
+
+async function handleDiscoverRestaurantId(_supabase: any, body: any): Promise<Response> {
+  const stores = [
+    { name: 'Hemet', storeNumber: '1341' },
+    { name: 'Palm Desert', storeNumber: '1156' },
+    { name: 'Palm Springs', storeNumber: '1223' },
+  ];
+  
+  // Allow overriding with custom stores
+  const customStores = body.stores || stores;
+  const password = body.password || 'Produce#1';
+  
+  const results: any[] = [];
+  
+  for (const store of customStores) {
+    const username = `Blaze-${store.storeNumber}`;
+    console.log(`[PA Discover] Probing ${store.name} (${username})...`);
+    
+    const session = await loginToPA({
+      username,
+      password,
+      restaurant_id: '',
+    });
+    
+    if (!session || !session.accessToken) {
+      results.push({ store: store.name, storeNumber: store.storeNumber, error: 'Login failed', hasToken: false });
+      continue;
+    }
+    
+    console.log(`[PA Discover] ✅ ${store.name} logged in, probing for restaurantId...`);
+    
+    // Probe the session endpoint to get user/restaurant info
+    const probeEndpoints = [
+      `${PA_BASE_URL}/api/common/session`,
+      `${PA_BASE_URL}/api/restaurant-dashboard/get-restaurant-info`,
+      `${PA_BASE_URL}/api/common/linked-users`,
+    ];
+    
+    const probeResults: any[] = [];
+    let restaurantId: string | null = null;
+    
+    for (const url of probeEndpoints) {
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.accessToken}`,
+            'User-Agent': UA,
+            'Accept': 'application/json',
+            'Cookie': session.cookies,
+            'Referer': `${PA_BASE_URL}/ng/`,
+          },
+        });
+        const text = await resp.text();
+        console.log(`[PA Discover] ${url.replace(PA_BASE_URL, '')} → ${resp.status} len:${text.length}`);
+        
+        if (resp.ok && text.length > 5) {
+          try {
+            const json = JSON.parse(text);
+            probeResults.push({ endpoint: url.replace(PA_BASE_URL, ''), status: resp.status, data: json });
+            
+            // Try to extract restaurantId from various fields
+            const rid = json.restaurantId || json.restaurant_id || json.RestaurantId 
+              || json.associatedDomainId || json.linkedUser?.[0]?.associatedDomainId
+              || json.id;
+            if (rid) {
+              restaurantId = String(rid);
+              console.log(`[PA Discover] Found restaurantId: ${restaurantId} from ${url.replace(PA_BASE_URL, '')}`);
+            }
+          } catch {
+            probeResults.push({ endpoint: url.replace(PA_BASE_URL, ''), status: resp.status, raw: text.substring(0, 500) });
+          }
+        } else {
+          probeResults.push({ endpoint: url.replace(PA_BASE_URL, ''), status: resp.status });
+        }
+      } catch (e) {
+        probeResults.push({ endpoint: url.replace(PA_BASE_URL, ''), error: String(e) });
+      }
+    }
+    
+    results.push({
+      store: store.name,
+      storeNumber: store.storeNumber,
+      username,
+      loginSuccess: true,
+      restaurantId,
+      probes: probeResults,
+    });
+  }
+  
+  return jsonResponse({ success: true, results });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -1246,6 +1344,7 @@ serve(async (req) => {
       case 'save_credentials': return await handleSaveCredentials(supabase, body);
       case 'explore': return await handleExplore(supabase, body);
       case 'fetch_order': return await handleFetchOrder(supabase, body);
+      case 'discover_restaurant_id': return await handleDiscoverRestaurantId(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
