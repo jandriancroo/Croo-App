@@ -10,7 +10,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { ReadReceipts } from './ReadReceipts';
 import { LazyImage } from './LazyImage';
-import { cn } from '@/lib/utils';
+
 
 interface ParentMessageData {
   content: string | null;
