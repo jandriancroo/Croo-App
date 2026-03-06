@@ -1097,7 +1097,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   let ordersProcessed = 0;
   
   for (const order of orderList.slice(0, 5)) {
-    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate);
+    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
     if (detail) {
       for (const li of detail.lineItems) {
         // Use pa_product_id as unique key
