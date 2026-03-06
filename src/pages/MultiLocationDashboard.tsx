@@ -206,7 +206,7 @@ export default function MultiLocationDashboard() {
   // Live mode
   return (
     <Layout>
-      <div className="p-4 md:p-6 space-y-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl md:text-2xl font-bold">Org Dashboard</h1>
           <div className="flex items-center gap-3">
