@@ -540,31 +540,63 @@ interface PAOrderDetail {
   lineItems: PALineItem[];
 }
 
-async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
+async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string, credentials?: PACredentials | null): Promise<PAOrderDetail | null> {
   console.log('[PA Detail] Fetching order:', webOrderId);
 
-  // Ensure we have a valid servlet session for JSP pages
-  // The JSP needs JSESSIONID — warm up by hitting the landing page with tokenStore cookie
   let authHeaders = getAuthHeaders(session);
+
+  // The JSP pages require a J2EE servlet session (JSESSIONID) established via form login.
+  // The OAuth Bearer token only works for /api/* endpoints. For JSP, we need to do j_security_check.
   try {
-    const warmupResp = await fetch(`${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}`, {
+    // Step 1: Hit the JSP page to get redirected to login and obtain a fresh JSESSIONID
+    const initResp = await fetch(`${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}`, {
       method: 'GET',
-      headers: {
-        ...authHeaders,
-        'Accept': 'text/html',
-        'Referer': `${PA_BASE_URL}/ng/`,
-      },
+      headers: { 'User-Agent': UA, 'Cookie': session.cookies },
       redirect: 'manual',
     });
-    const warmupCookies = extractCookies(warmupResp.headers);
-    if (warmupCookies) {
-      session.cookies = mergeCookies(session.cookies, warmupCookies);
-      authHeaders = getAuthHeaders(session);
-      console.log('[PA Detail] Warmed up servlet session, JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'present' : 'absent');
+    const initCookies = extractCookies(initResp.headers);
+    let jspCookies = mergeCookies(session.cookies, initCookies);
+    await initResp.text().catch(() => '');
+    console.log('[PA Detail] Init JSP:', initResp.status, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'present' : 'absent');
+
+    // Step 2: Do j_security_check form login to authenticate the servlet session
+    if (credentials) {
+      const formResp = await fetch(`${PA_BASE_URL}/j_security_check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': jspCookies,
+          'User-Agent': UA,
+          'Referer': `${PA_BASE_URL}/viewOrder.jsp`,
+        },
+        body: `j_username=${encodeURIComponent(credentials.username)}&j_password=${encodeURIComponent(credentials.password)}`,
+        redirect: 'manual',
+      });
+      const formCookies = extractCookies(formResp.headers);
+      jspCookies = mergeCookies(jspCookies, formCookies);
+      const location = formResp.headers.get('location') || '';
+      await formResp.text().catch(() => '');
+      console.log('[PA Detail] j_security_check:', formResp.status, 'redirect:', location || 'none', 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'updated' : 'same');
+
+      // Follow redirect if any
+      if (formResp.status === 302 || formResp.status === 301) {
+        const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
+        const redirResp = await fetch(redirectUrl, {
+          method: 'GET',
+          headers: { 'Cookie': jspCookies, 'User-Agent': UA },
+          redirect: 'manual',
+        });
+        const redirCookies = extractCookies(redirResp.headers);
+        jspCookies = mergeCookies(jspCookies, redirCookies);
+        await redirResp.text().catch(() => '');
+      }
     }
-    await warmupResp.text().catch(() => '');
+
+    // Update session cookies for the JSP request
+    session.cookies = jspCookies;
+    authHeaders = getAuthHeaders(session);
   } catch (e) {
-    console.warn('[PA Detail] Warmup failed:', e);
+    console.warn('[PA Detail] JSP session setup failed:', e);
   }
 
   // Try REST API first
