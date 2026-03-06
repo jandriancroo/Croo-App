@@ -130,9 +130,9 @@ export function OrgFavoritesBar({
             ) : (
               <button
                 onClick={() => setSearchOpen(true)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md border border-dashed hover:border-solid"
+                className="flex items-center gap-1.5 text-xs font-medium text-foreground px-3 py-1.5 rounded-lg border-2 border-dashed border-muted-foreground/40 hover:border-primary hover:text-primary transition-colors"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-3.5 w-3.5" />
                 Pin Store ({5 - favorites.length} left)
               </button>
             )}
