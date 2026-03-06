@@ -73,6 +73,13 @@ serve(async (req) => {
       orgName = orgData?.name || "";
 
       logStep("Billable location count", { organizationId, orgName, quantity });
+      // Update Stripe customer with org info so it's visible across Stripe
+      if (customerId && orgName) {
+        await stripe.customers.update(customerId, {
+          description: orgName,
+          metadata: { organization_id: organizationId, organization_name: orgName },
+        });
+      }
     }
 
     const origin = req.headers.get("origin") || "https://croohq.lovable.app";
@@ -92,6 +99,7 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
+      customer_creation: customerId ? undefined : "always",
       line_items: [{ price: priceId, quantity }],
       mode: "subscription",
       allow_promotion_codes: true,
