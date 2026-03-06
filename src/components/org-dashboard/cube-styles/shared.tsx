@@ -10,6 +10,36 @@ export function getPaceStatus(pace: number | null, goal: number | null) {
   return { label: 'Behind', pct, status: 'behind' as const };
 }
 
+/** Derive a status color from any available comparison when pace/goal is missing */
+export function deriveStatus(data: OrgLocationData): 'fire' | 'ahead' | 'track' | 'behind' | 'neutral' {
+  // Primary: pace vs goal
+  if (data.paceToday && data.goalToday && data.goalToday > 0) {
+    const pct = (data.paceToday / data.goalToday) * 100;
+    if (pct >= 110) return 'fire';
+    if (pct >= 105) return 'ahead';
+    if (pct >= 95) return 'track';
+    return 'behind';
+  }
+  // Fallback: today vs last year same day
+  if (data.salesToday > 100 && data.salesLastYearDay && data.salesLastYearDay > 0) {
+    const pct = (data.salesToday / data.salesLastYearDay) * 100;
+    if (pct >= 110) return 'fire';
+    if (pct >= 100) return 'ahead';
+    if (pct >= 85) return 'track';
+    return 'behind';
+  }
+  // Fallback: WTD vs prev week
+  if (data.salesWtd > 0 && data.salesPrevWeek && data.salesPrevWeek > 0) {
+    const pct = (data.salesWtd / data.salesPrevWeek) * 100;
+    if (pct >= 105) return 'ahead';
+    if (pct >= 90) return 'track';
+    return 'behind';
+  }
+  // Has sales but no comparisons yet
+  if (data.salesToday > 100) return 'track';
+  return 'neutral';
+}
+
 export const STATUS_COLORS = {
   fire: '#22c55e',
   ahead: '#22c55e',
