@@ -293,8 +293,40 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
   const authHeaders = getAuthHeaders(session);
 
   // Try the actual Buyers Edge REST API first (discovered from DevTools)
+  // Convert dates to MM/DD/YYYY for Angular app compatibility
+  const toSlashDate = (d: string) => {
+    const [y, m, dd] = d.split('-');
+    return `${parseInt(m)}/${parseInt(dd)}/${y}`;
+  };
+  const slashStart = toSlashDate(startDate);
+  const slashEnd = toSlashDate(endDate);
+
   const restApiAttempts = [
-    // Primary: POST with filter params (Angular app uses this)
+    // Primary: POST with MM/DD/YYYY dates, restaurantId as string (Angular app format)
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: session.restaurantId,
+        startDate: slashStart,
+        endDate: slashEnd,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Variation: restaurantId as integer
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+        startDate: slashStart,
+        endDate: slashEnd,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Fallback: POST with ISO dates
     {
       url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
       method: 'POST',
@@ -308,14 +340,14 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
     },
     // Alt: query params  
     {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
       method: 'GET',
       body: null,
       contentType: null,
     },
     // Alt: different endpoint naming
     {
-      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
       method: 'GET',
       body: null,
       contentType: null,
@@ -337,7 +369,18 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
       const text = await resp.text();
       console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
 
-      if (!resp.ok || text.length < 10) continue;
+      if (!resp.ok) {
+        // Try to extract the actual error message from Java stack trace
+        try {
+          const errJson = JSON.parse(text);
+          const msg = errJson.message || errJson.error || errJson.localizedMessage || '';
+          console.log('[PA Orders] Error:', resp.status, msg, 'body payload:', attempt.body?.substring(0, 200));
+        } catch {
+          console.log('[PA Orders] Error body (first 500):', text.substring(0, 500));
+        }
+        continue;
+      }
+      if (text.length < 10) continue;
 
       try {
         const data = JSON.parse(text);
@@ -824,8 +867,10 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
 
   // Get items from recent orders (the Buyers Edge portal shows items via orders)
   const now = new Date();
-  const startDate = `${now.getFullYear()}-${now.getMonth()}-${now.getDate() - 30}`;
-  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const startDate = `${thirtyDaysAgo.getFullYear()}-${pad(thirtyDaysAgo.getMonth() + 1)}-${pad(thirtyDaysAgo.getDate())}`;
+  const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   
   const orders = await fetchOrderList(session, startDate, endDate);
   
@@ -846,10 +891,11 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Calculate date range
+  // Calculate date range (ISO format: YYYY-MM-DD)
   const now = new Date();
-  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
-  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const sd = startDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  const ed = endDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   const orderList = await fetchOrderList(session, sd, ed);
   console.log('[PA Orders] Got', orderList.length, 'orders in range');
@@ -942,8 +988,9 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   // Fetch recent orders to get latest items and prices
   const now = new Date();
-  const startDate = `${now.getFullYear()}-${now.getMonth()}-1`;
-  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const startDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+  const endDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   
   const orderList = await fetchOrderList(session, startDate, endDate);
   
@@ -1166,8 +1213,9 @@ async function handleFetchOrder(supabase: any, body: any): Promise<Response> {
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
   const now = new Date();
-  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
-  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad3 = (n: number) => String(n).padStart(2, '0');
+  const sd = startDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-01`;
+  const ed = endDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-${pad3(now.getDate())}`;
 
   const detail = await fetchOrderDetail(session, webOrderId, sd, ed);
   if (!detail) return jsonResponse({ success: false, error: 'Could not fetch order detail' });
