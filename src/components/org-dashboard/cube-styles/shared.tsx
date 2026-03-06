@@ -15,7 +15,7 @@ export const STATUS_COLORS = {
   ahead: '#22c55e',
   track: '#eab308',
   behind: '#ef4444',
-  neutral: 'hsl(var(--muted-foreground))',
+  neutral: '#6b7280',
 };
 
 export function getLaborColor(pct: number | null): string {
