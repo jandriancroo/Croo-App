@@ -38,8 +38,8 @@ export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
         {/* Row 1: Name + status + hero number all inline */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <p className="text-xs font-medium opacity-80 truncate">{getDisplayName(data)}</p>
-            <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full shrink-0">
+            <p className="text-base font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
+            <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full shrink-0">
               {pace.label || '—'}
             </span>
           </div>
