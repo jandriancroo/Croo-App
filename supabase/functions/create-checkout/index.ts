@@ -53,6 +53,7 @@ serve(async (req) => {
 
     // Calculate billable location count (exclude Sandbox store_number 7777)
     let quantity = 1;
+    let orgName = "";
     if (organizationId) {
       const { count } = await supabase
         .from("locations")
@@ -62,7 +63,16 @@ serve(async (req) => {
         .neq("store_number", "7777"); // Exclude Sandbox
 
       quantity = Math.max(count ?? 1, 1);
-      logStep("Billable location count", { organizationId, quantity });
+
+      // Fetch org name for Stripe metadata
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", organizationId)
+        .single();
+      orgName = orgData?.name || "";
+
+      logStep("Billable location count", { organizationId, orgName, quantity });
     }
 
     const origin = req.headers.get("origin") || "https://croohq.lovable.app";
@@ -70,6 +80,7 @@ serve(async (req) => {
     const subscriptionData: any = {
       metadata: {
         organization_id: organizationId || "",
+        organization_name: orgName,
         created_by_user_id: user.id,
       },
     };
