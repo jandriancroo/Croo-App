@@ -246,23 +246,14 @@ export function useOrgLocationData(locationIds: string[]) {
           }
         }
 
-        // Pace = living_projection (dynamic) or override. NEVER fall back to projected_sales (that's the goal)
-        const pace = todaySales?.living_projection ?? todaySales?.override_projection ?? null;
+        // Pace = living_projection (actual sales + remaining projected hours), synced every 7 min
+        // Match SalesSummary: pace is always >= actual sales today
+        const rawPace = Number(todaySales?.living_projection) || Number(todaySales?.override_projection) || 0;
+        const pace = rawPace > 0 ? Math.max(rawPace, todayNet) : null;
 
-        // WTD labor (sum per location, prefer punch_clock per day but aggregate all)
-        const locLaborWtd = laborWtdResult.data?.filter(l => l.location_id === locId) || [];
-        const laborCostWtd = locLaborWtd.length > 0
-          ? locLaborWtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
-          : null;
-
-        // MTD labor
-        const locLaborMtd = laborMtdResult.data?.filter(l => l.location_id === locId) || [];
-        const laborCostMtd = locLaborMtd.length > 0
-          ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
-          : null;
-
-        // Goal = resolved projection matching SalesSummary logic (override > living > initial > projected_sales)
-        const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.living_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
+        // Goal = the FIXED daily projection target (initial or legacy projected_sales)
+        // NOT living_projection (that's pace). Override is a manual goal override.
+        const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
 
         result[locId] = {
           salesToday: todayNet,
