@@ -1,0 +1,1 @@
+SELECT cron.alter_job(32, schedule := '0 * * * *');
