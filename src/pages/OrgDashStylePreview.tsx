@@ -189,21 +189,13 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
           <p className="text-[9px] text-muted-foreground">{goalPct.toFixed(0)}% of goal</p>
         </div>
 
-        {/* Heatmap + Metrics */}
-        <div className="flex items-stretch gap-3">
+        {/* Heatmap + Labor */}
+        <div className="flex items-end justify-between gap-3">
           <div className="flex-1"><PeakHourHeatmap data={data.hourlyData} variant="muted" /></div>
-          <div className="flex gap-1.5 shrink-0">
-            {[
-              { label: 'WTD', val: fmtFull(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
-              { label: 'MTD', val: fmtFull(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-              { label: 'Labor', val: laborPct !== null ? `${laborPct.toFixed(0)}%` : '—', sub: data.laborCost ? fmtFull(data.laborCost) : '' },
-            ].map(m => (
-              <div key={m.label} className="bg-muted/60 rounded-xl px-2.5 py-1.5 text-center min-w-[52px] shadow-inner">
-                <p className="text-[8px] text-muted-foreground">{m.label}</p>
-                <p className="text-xs font-black text-foreground">{m.val}</p>
-                {m.sub && <p className="text-[9px] font-semibold text-muted-foreground">{m.sub}</p>}
-              </div>
-            ))}
+          <div className="shrink-0 text-right">
+            <p className="text-[8px] text-muted-foreground">Labor</p>
+            <p className="text-xl font-black text-foreground">{laborPct !== null ? `${laborPct.toFixed(0)}%` : '—'}</p>
+            {data.laborCost !== null && <p className="text-[10px] text-muted-foreground font-medium">{fmtFull(data.laborCost)}</p>}
           </div>
         </div>
       </div>
