@@ -88,17 +88,25 @@ export default function MultiLocationDashboard() {
   // === Live mode state ===
   const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
 
-  // Build searchable locations with org/brand metadata
-  const searchableLocations = useMemo(() =>
-    allLocations.map(l => ({
+  // Build searchable locations - use mock data in preview, live data otherwise
+  const searchableLocations = useMemo(() => {
+    if (previewMode) {
+      return MOCK_DATA.map(m => ({
+        id: m.locationId,
+        name: m.locationName,
+        storeNumber: m.storeNumber ?? null,
+        orgName: 'DDM Pizza' as string | null,
+        brandName: 'Blaze Pizza' as string | null,
+      }));
+    }
+    return allLocations.map(l => ({
       id: l.id,
       name: l.name,
       storeNumber: l.store_number,
       orgName: l.org_name,
       brandName: l.brand_name,
-    })),
-    [allLocations]
-  );
+    }));
+  }, [allLocations, previewMode]);
 
   // Filter locations based on search tags
   const filteredLocationIds = useMemo(() => {
