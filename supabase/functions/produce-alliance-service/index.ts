@@ -230,12 +230,14 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
   }
 }
 
-// Build auth headers for API requests
-function getAuthHeaders(session: PASession): Record<string, string> {
+// Build auth headers for API requests (matching Angular HttpClient behavior)
+function getAuthHeaders(session: PASession, isPost = false): Record<string, string> {
   const headers: Record<string, string> = {
     'User-Agent': UA,
     'Accept': 'application/json, text/plain, */*',
     'Referer': `${PA_BASE_URL}/ng/`,
+    'Origin': PA_BASE_URL,
+    'X-Requested-With': 'XMLHttpRequest',
   };
   
   if (session.accessToken) {
@@ -243,6 +245,11 @@ function getAuthHeaders(session: PASession): Record<string, string> {
   }
   if (session.cookies) {
     headers['Cookie'] = session.cookies;
+    // Extract XSRF-TOKEN from cookies (Spring Security CSRF protection)
+    const xsrfMatch = session.cookies.match(/XSRF-TOKEN=([^;]+)/);
+    if (xsrfMatch) {
+      headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfMatch[1]);
+    }
   }
   
   return headers;
