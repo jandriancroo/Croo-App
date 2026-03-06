@@ -154,6 +154,16 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
               console.warn('[PA Auth] Session probe failed:', e);
             }
             
+            // Add tokenStore cookie — the JSP pages read this cookie to authenticate
+            // (mirrors what the Angular app sets in the browser)
+            const tokenStoreValue = encodeURIComponent(JSON.stringify({
+              access_token: json.access_token,
+              refresh_token: json.refresh_token || '',
+              expires_by: String(Date.now() + (json.expires_in || 1800) * 1000),
+            }));
+            sessionCookies = mergeCookies(sessionCookies, `tokenStore=${tokenStoreValue}`);
+            console.log('[PA Auth] Added tokenStore cookie for JSP auth');
+            
             return {
               accessToken: json.access_token,
               refreshToken: json.refresh_token || '',
@@ -530,57 +540,137 @@ interface PAOrderDetail {
   lineItems: PALineItem[];
 }
 
-async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
+async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string, credentials?: PACredentials | null): Promise<PAOrderDetail | null> {
   console.log('[PA Detail] Fetching order:', webOrderId);
 
-  const authHeaders = getAuthHeaders(session);
+  let authHeaders = getAuthHeaders(session);
 
-  // Try REST API first
+  // The JSP pages require a J2EE servlet session (JSESSIONID) established via form login.
+  // The OAuth Bearer token only works for /api/* endpoints. For JSP, we need to do j_security_check.
   try {
-    const apiResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }),
+    // Step 1: Hit the JSP page to get redirected to login and obtain a fresh JSESSIONID
+    const initResp = await fetch(`${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}`, {
+      method: 'GET',
+      headers: { 'User-Agent': UA, 'Cookie': session.cookies },
+      redirect: 'manual',
     });
-    
-    if (apiResp.ok) {
-      const text = await apiResp.text();
-      try {
-        const json = JSON.parse(text);
-        console.log('[PA Detail] Got JSON detail for order', webOrderId, 'keys:', Object.keys(json).join(', '));
-        // If the API returns structured order data, parse it
-        if (json.lineItems || json.items || json.orderLines || json.data) {
-          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || [];
-          return {
-            webOrderId,
-            deliveryDate: json.deliveryDate || json.delivery_date || null,
-            totalCases: json.totalCases || json.total_cases || null,
-            totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
-            lineItems: Array.isArray(items) ? items.map((li: any) => ({
-              item_code: String(li.itemCode || li.item_code || li.productCode || ''),
-              description: li.description || li.name || li.productName || '',
-              pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
-              unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
-              quantity: parseFloat(li.quantity || li.qty || 0),
-              cost: parseFloat(li.cost || li.total || li.lineTotal || 0),
-            })) : [],
-          };
-        }
-      } catch { /* not JSON */ }
-    } else {
-      await apiResp.text().catch(() => '');
+    const initCookies = extractCookies(initResp.headers);
+    let jspCookies = mergeCookies(session.cookies, initCookies);
+    await initResp.text().catch(() => '');
+    console.log('[PA Detail] Init JSP:', initResp.status, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'present' : 'absent');
+
+    // Step 2: Do j_security_check form login to authenticate the servlet session
+    if (credentials) {
+      const formResp = await fetch(`${PA_BASE_URL}/j_security_check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': jspCookies,
+          'User-Agent': UA,
+          'Referer': `${PA_BASE_URL}/viewOrder.jsp`,
+        },
+        body: `j_username=${encodeURIComponent(credentials.username)}&j_password=${encodeURIComponent(credentials.password)}`,
+        redirect: 'manual',
+      });
+      const formCookies = extractCookies(formResp.headers);
+      jspCookies = mergeCookies(jspCookies, formCookies);
+      const location = formResp.headers.get('location') || '';
+      await formResp.text().catch(() => '');
+      console.log('[PA Detail] j_security_check:', formResp.status, 'redirect:', location || 'none', 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'updated' : 'same');
+
+      // Follow redirect if any
+      if (formResp.status === 302 || formResp.status === 301) {
+        const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
+        const redirResp = await fetch(redirectUrl, {
+          method: 'GET',
+          headers: { 'Cookie': jspCookies, 'User-Agent': UA },
+          redirect: 'manual',
+        });
+        const redirCookies = extractCookies(redirResp.headers);
+        jspCookies = mergeCookies(jspCookies, redirCookies);
+        await redirResp.text().catch(() => '');
+      }
     }
+
+    // Update session cookies for the JSP request
+    session.cookies = jspCookies;
+    authHeaders = getAuthHeaders(session);
   } catch (e) {
-    console.warn('[PA Detail] REST API error:', e);
+    console.warn('[PA Detail] JSP session setup failed:', e);
   }
 
-  // Fallback: JSP scraping
-  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
+  // Try REST API endpoints for order detail
+  const detailEndpoints = [
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-details`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/order/${webOrderId}`, method: 'GET', body: undefined },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/view-order?webOrderId=${webOrderId}&restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+  ];
+
+  for (const ep of detailEndpoints) {
+    try {
+      const apiResp = await fetch(ep.url, {
+        method: ep.method,
+        headers: { 
+          ...authHeaders, 
+          'Content-Type': 'application/json',
+          'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewOrders?restaurantId=${session.restaurantId}`,
+        },
+        body: ep.body,
+      });
+      
+      const text = await apiResp.text();
+      console.log('[PA Detail] API', ep.url.replace(PA_BASE_URL, ''), '→', apiResp.status, 'len:', text.length, 'preview:', text.substring(0, 300));
+      
+      if (apiResp.ok && text.length > 50) {
+        try {
+          const json = JSON.parse(text);
+          const keys = Object.keys(json);
+          console.log('[PA Detail] JSON keys:', keys.join(', '));
+          
+          // Check all possible data locations
+          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || json.data?.items || json.dataList || json.orderDetails || [];
+          if (Array.isArray(items) && items.length > 0) {
+            console.log('[PA Detail] ✅ Found', items.length, 'line items from API');
+            return {
+              webOrderId,
+              deliveryDate: json.deliveryDate || json.delivery_date || null,
+              totalCases: json.totalCases || json.total_cases || json.caseCount || null,
+              totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
+              lineItems: items.map((li: any) => ({
+                item_code: String(li.itemCode || li.item_code || li.productCode || li.itemNumber || ''),
+                description: li.description || li.name || li.productName || li.itemName || '',
+                pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
+                unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
+                quantity: parseFloat(li.quantity || li.qty || li.caseCount || 0),
+                cost: parseFloat(li.cost || li.total || li.lineTotal || li.extendedPrice || 0),
+              })),
+            };
+          }
+        } catch { /* not JSON */ }
+      }
+    } catch (e) {
+      console.warn('[PA Detail] API error:', e);
+    }
+  }
+
+  // Fallback: JSP scraping — use non-zero-padded dates to match browser behavior
+  const toNonPadded = (d: string) => {
+    const [y, m, dd] = d.split('-');
+    return `${y}-${parseInt(m)}-${parseInt(dd)}`;
+  };
+  const jspStart = toNonPadded(startDate);
+  const jspEnd = toNonPadded(endDate);
+  const url = `${PA_BASE_URL}/viewOrder.jsp?&webOrderId=${webOrderId}&startDate=${jspStart}&endDate=${jspEnd}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
 
   try {
     const resp = await fetch(url, {
       method: 'GET',
-      headers: authHeaders,
+      headers: {
+        ...authHeaders,
+        'Referer': `${PA_BASE_URL}/ng/`,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
       redirect: 'follow',
     });
 
@@ -929,7 +1019,7 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
   if (fetchDetails && orderList.length > 0) {
     const toFetch = orderList.slice(0, maxDetails);
     for (const order of toFetch) {
-      const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed);
+      const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed, credentials);
       if (detail) {
         orderDetails.push(detail);
         // Brief pause to avoid hammering
@@ -1023,7 +1113,7 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   let ordersProcessed = 0;
   
   for (const order of orderList.slice(0, 5)) {
-    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate);
+    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
     if (detail) {
       for (const li of detail.lineItems) {
         // Use pa_product_id as unique key
@@ -1241,7 +1331,7 @@ async function handleFetchOrder(supabase: any, body: any): Promise<Response> {
   const sd = startDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-01`;
   const ed = endDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-${pad3(now.getDate())}`;
 
-  const detail = await fetchOrderDetail(session, webOrderId, sd, ed);
+  const detail = await fetchOrderDetail(session, webOrderId, sd, ed, credentials);
   if (!detail) return jsonResponse({ success: false, error: 'Could not fetch order detail' });
 
   return jsonResponse({ success: true, data: detail });
