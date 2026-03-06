@@ -1396,6 +1396,84 @@ async function handleDiscoverRestaurantId(_supabase: any, body: any): Promise<Re
   return jsonResponse({ success: true, results });
 }
 
+// Debug action: capture full session + error response for troubleshooting
+async function handleDebug(supabase: any, body: any): Promise<Response> {
+  const { locationId } = body;
+  const credentials = await getCredentials(supabase, locationId);
+  if (!credentials) return jsonResponse({ success: false, error: 'PA not configured' });
+
+  const session = await loginToPA(credentials);
+  if (!session) return jsonResponse({ success: false, error: 'Login failed' });
+
+  const results: any = { cookies: session.cookies, token: session.accessToken?.substring(0, 20) + '...' };
+
+  // 1. Full session response
+  try {
+    const sessionResp = await fetch(`${PA_BASE_URL}/api/common/session`, {
+      method: 'GET',
+      headers: getAuthHeaders(session),
+    });
+    results.sessionStatus = sessionResp.status;
+    results.sessionBody = await sessionResp.text();
+  } catch (e) { results.sessionError = String(e); }
+
+  // 2. Linked users
+  try {
+    const linkedResp = await fetch(`${PA_BASE_URL}/api/common/linked-users`, {
+      method: 'GET',
+      headers: getAuthHeaders(session),
+    });
+    results.linkedUsersStatus = linkedResp.status;
+    const text = await linkedResp.text();
+    try { results.linkedUsers = JSON.parse(text); } catch { results.linkedUsersRaw = text.substring(0, 2000); }
+  } catch (e) { results.linkedUsersError = String(e); }
+
+  // 3. Try order fetch - get FULL error body
+  const orderPayload = {
+    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+    startDate: '3/1/2026',
+    endDate: '3/6/2026',
+    includeOnlySubmit: false,
+  };
+  try {
+    const orderResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(session, true), 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(orderPayload),
+    });
+    results.orderStatus = orderResp.status;
+    const text = await orderResp.text();
+    try {
+      const errJson = JSON.parse(text);
+      // Extract the actual exception class and message from the Java stack trace
+      results.orderError = {
+        message: errJson.message || errJson.localizedMessage,
+        exceptionClass: errJson.stackTrace?.[0]?.className,
+        cause: errJson.cause,
+        status: errJson.status,
+        error: errJson.error,
+        // Get the first few stack frames
+        topFrames: errJson.stackTrace?.slice(0, 5)?.map((f: any) => `${f.className}.${f.methodName}(${f.fileName}:${f.lineNumber})`),
+      };
+    } catch {
+      results.orderErrorRaw = text.substring(0, 3000);
+    }
+  } catch (e) { results.orderFetchError = String(e); }
+
+  // 4. Try GET on restaurant-dashboard to see if there's an index endpoint
+  try {
+    const dashResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard`, {
+      method: 'GET',
+      headers: getAuthHeaders(session),
+    });
+    results.dashboardStatus = dashResp.status;
+    const text = await dashResp.text();
+    results.dashboardBody = text.substring(0, 1000);
+  } catch (e) { results.dashboardError = String(e); }
+
+  return jsonResponse({ success: true, debug: results });
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
