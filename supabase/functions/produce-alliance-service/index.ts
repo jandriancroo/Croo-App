@@ -1315,7 +1315,7 @@ async function handleFetchOrder(supabase: any, body: any): Promise<Response> {
   const sd = startDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-01`;
   const ed = endDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-${pad3(now.getDate())}`;
 
-  const detail = await fetchOrderDetail(session, webOrderId, sd, ed);
+  const detail = await fetchOrderDetail(session, webOrderId, sd, ed, credentials);
   if (!detail) return jsonResponse({ success: false, error: 'Could not fetch order detail' });
 
   return jsonResponse({ success: true, data: detail });
