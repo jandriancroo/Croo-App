@@ -66,6 +66,69 @@ export function useOrgLocations(organizationId: string | null) {
 }
 
 /**
+ * Fetches all locations across all orgs in a brand
+ */
+export function useBrandLocations(brandId: string | null) {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['brand-locations', brandId, user?.id],
+    queryFn: async () => {
+      if (!brandId || !user?.id) return [];
+      
+      // Get user's accessible locations
+      const { data: userLocs } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', user.id);
+      
+      const userLocIds = userLocs?.map(ul => ul.location_id) || [];
+      if (userLocIds.length === 0) return [];
+
+      // Get all orgs in this brand
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id, name, brand_name')
+        .eq('brand_id', brandId as any)
+        .eq('is_active', true);
+      
+      const orgIds = (orgs || []).map(o => o.id);
+      if (orgIds.length === 0) return [];
+
+      // Get all locations in those orgs that user has access to
+      const { data: locations } = await supabase
+        .from('locations')
+        .select('id, name, store_number, organization_id')
+        .in('organization_id', orgIds)
+        .eq('is_active', true)
+        .in('id', userLocIds)
+        .order('name');
+
+      // Map org names
+      const orgMap = new Map((orgs || []).map(o => [o.id, o]));
+      
+      // Get brand name
+      const { data: brand } = await supabase
+        .from('brands')
+        .select('name')
+        .eq('id', brandId)
+        .single();
+
+      return (locations || []).map(l => {
+        const org = orgMap.get(l.organization_id!);
+        return {
+          ...l,
+          org_name: org?.name ?? null,
+          brand_name: brand?.name ?? org?.brand_name ?? null,
+        };
+      }) as LocationInfo[];
+    },
+    enabled: !!brandId && !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
  * Fetches sales/labor data for multiple locations directly from
  * sales_cache + labor_cache tables. No edge function calls.
  * These caches are populated by the same sync pipeline that
