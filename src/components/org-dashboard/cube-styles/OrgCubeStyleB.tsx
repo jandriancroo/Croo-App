@@ -204,66 +204,42 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
   const compLabel = period === 'week' ? 'Prev Wk' : period === 'month' ? 'Prev Mo' : '';
   const heroLabel = period === 'day' ? 'Today' : period === 'week' ? 'WTD' : 'MTD';
 
-  // Expanded body content
+  // Expanded body content — no duplicated pace/goal since header already shows it
   const expandedBody = (
     <div className="space-y-1.5 pt-1.5">
-      <div className="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-3">
-        {/* Pace/Goal or comparison */}
-        <div className="shrink-0 space-y-1 md:min-w-[130px]">
-          {showPaceGoal ? (
-            <>
-              <div className="flex items-baseline gap-3">
-                <div>
-                  <p className="text-[9px] opacity-60">Pace</p>
-                  <p className="text-base md:text-lg font-black leading-tight">{data.paceToday !== null ? fmtFull(data.paceToday) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] opacity-60">Goal</p>
-                  <p className="text-base md:text-lg font-black leading-tight">{data.goalToday !== null ? fmtFull(data.goalToday) : '—'}</p>
-                </div>
-              </div>
-              <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
-                <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${Math.min(goalPct, 100)}%` }} />
-              </div>
-              <p className="text-[9px] opacity-50">{goalPct.toFixed(0)}% of goal</p>
-            </>
+      {/* Progress bar for day view */}
+      {showPaceGoal && (
+        <div className="space-y-0.5">
+          <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
+            <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${Math.min(goalPct, 100)}%` }} />
+          </div>
+          <p className="text-[9px] opacity-50">{goalPct.toFixed(0)}% of goal</p>
+        </div>
+      )}
+      {/* Week/Month: comparison delta */}
+      {!showPaceGoal && compPrev !== null && (
+        <div className="text-[10px] font-bold opacity-80">
+          {pctChange(heroSales, compPrev)} vs {compLabel.toLowerCase()}
+        </div>
+      )}
+
+      {/* Graph + metric cubes */}
+      <div className="flex items-stretch gap-2 md:gap-3">
+        <div className="flex-1 flex flex-col justify-center opacity-90 min-w-0">
+          {period === 'day' ? (
+            <PeakHourHeatmap data={data.hourlyData} variant="light" />
           ) : (
-            <>
-              <div className="flex items-baseline gap-3">
-                <div>
-                  <p className="text-[9px] opacity-60">{heroLabel}</p>
-                  <p className="text-base md:text-lg font-black leading-tight">{fmtFull(heroSales)}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] opacity-60">{compLabel}</p>
-                  <p className="text-base md:text-lg font-black leading-tight">{compPrev !== null ? fmtFull(compPrev) : '—'}</p>
-                </div>
-              </div>
-              <div className="text-[10px] font-bold opacity-80">
-                {compPrev !== null ? pctChange(heroSales, compPrev) : '—'} vs {compLabel.toLowerCase()}
-              </div>
-            </>
+            <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
           )}
         </div>
-
-        {/* Graph + metric cubes */}
-        <div className="flex items-stretch gap-2 md:gap-3 flex-1 min-w-0">
-          <div className="flex-1 flex flex-col justify-center opacity-90 min-w-0">
-            {period === 'day' ? (
-              <PeakHourHeatmap data={data.hourlyData} variant="light" />
-            ) : (
-              <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
-            )}
-          </div>
-          <div className="flex gap-1 md:gap-1.5 shrink-0 items-center">
-            {metricCubes.map(m => (
-              <div key={m.label} className="bg-white/15 rounded-lg px-2 md:px-3 py-1.5 text-center backdrop-blur-sm min-w-[50px] md:min-w-[60px]">
-                <p className="text-[8px] opacity-60">{m.label}</p>
-                <p className="text-xs md:text-sm font-black leading-tight">{m.val}</p>
-                {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
-              </div>
-            ))}
-          </div>
+        <div className="flex gap-1 md:gap-1.5 shrink-0 items-center">
+          {metricCubes.map(m => (
+            <div key={m.label} className="bg-white/15 rounded-lg px-2 md:px-3 py-1.5 text-center backdrop-blur-sm min-w-[50px] md:min-w-[60px]">
+              <p className="text-[8px] opacity-60">{m.label}</p>
+              <p className="text-xs md:text-sm font-black leading-tight">{m.val}</p>
+              {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
+            </div>
+          ))}
         </div>
       </div>
     </div>
