@@ -139,16 +139,41 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     );
   }
 
-  // In collapsed mode, show dense ticker unless this card is expanded
-  if (collapsed && !expanded) {
+  // In collapsed mode, always show the collapsed row
+  // If expanded, also show the full card below it
+  if (collapsed) {
     return (
-      <CollapsedRow
-        data={data}
-        period={period}
-        statusColor={statusColor}
-        pace={pace}
-        onClick={onToggleExpand}
-      />
+      <div>
+        <CollapsedRow
+          data={data}
+          period={period}
+          statusColor={statusColor}
+          pace={pace}
+          onClick={onToggleExpand}
+        />
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="expanded"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="pt-1.5">
+                <FullCard
+                  data={data}
+                  period={period}
+                  statusColor={statusColor}
+                  pace={pace}
+                  onClick={onToggleExpand}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     );
   }
 
