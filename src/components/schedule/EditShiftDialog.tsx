@@ -45,6 +45,8 @@ export function EditShiftDialog({
   isAdmin = false,
   isShiftPublished = true
 }: EditShiftDialogProps) {
+  const queryClient = useQueryClient();
+  const { currentLocation } = useAppLocation();
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
   const [selectedUserId, setSelectedUserId] = useState(shift.user_id || "unassigned");
@@ -57,6 +59,9 @@ export function EditShiftDialog({
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
+
+  // Build schedule query key for optimistic updates
+  const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
 
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
