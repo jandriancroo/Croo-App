@@ -325,12 +325,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
           </div>
         </div>
       </div>
-    </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 
   // Card wrapper
