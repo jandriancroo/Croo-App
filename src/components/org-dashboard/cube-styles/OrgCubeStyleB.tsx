@@ -160,7 +160,6 @@ function HeaderRow({ data, period, paceAboveGoal, statusLabel }: {
 
 /** Style B: Glass Scoreboard */
 export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collapsed = false, expanded = false, onToggleExpand }: OrgCubeStyleBProps) {
-  const pace = getPaceStatus(data.paceToday, data.goalToday);
   // Use deriveStatus for card colorization — falls back to YoY/WTD comparisons when no pace/goal
   const derivedStatus = deriveStatus(data);
   const statusColor = STATUS_COLORS[derivedStatus];
