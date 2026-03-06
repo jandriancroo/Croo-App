@@ -455,12 +455,12 @@ function extractOrdersFromJson(data: any): PAOrderSummary[] {
   if (items[0]) console.log('[PA Orders] Sample item:', JSON.stringify(items[0]).substring(0, 500));
 
   return items.map((o: any) => ({
-    webOrderId: String(o.webOrderId || o.WebOrderId || o.orderId || o.OrderId || o.id || o.Id || o.WEB_ORDER_ID || ''),
-    orderDate: o.orderDate || o.OrderDate || o.dateCreated || o.DateCreated || o.ORDER_DATE || o.orderPlacedDate || '',
-    deliveryDate: o.deliveryDate || o.DeliveryDate || o.DELIVERY_DATE || null,
-    status: o.status || o.Status || o.ORDER_STATUS || 'unknown',
-    totalAmount: o.totalAmount || o.TotalAmount || o.orderTotal || o.OrderTotal || o.total || o.TOTAL_AMOUNT || null,
-    totalCases: o.totalCases || o.TotalCases || o.TOTAL_CASES || null,
+    webOrderId: String(o.webOrderId || o.WebOrderId || o.orderId || o.OrderId || o.id || ''),
+    orderDate: o.orderDate || o.OrderDate || o.dateCreated || '',
+    deliveryDate: o.deliveryDate || o.DeliveryDate || null,
+    status: o.status || o.Status || 'unknown',
+    totalAmount: o.orderTotal || o.totalAmount || o.TotalAmount || o.total || null,
+    totalCases: o.caseCount || o.totalCases || o.TotalCases || null,
   })).filter((o: PAOrderSummary) => o.webOrderId);
 }
 
