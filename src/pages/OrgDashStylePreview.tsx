@@ -1,8 +1,8 @@
 import { Layout } from '@/components/Layout';
-import { motion, AnimatePresence } from 'framer-motion';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { deriveStatus, STATUS_COLORS, pctChange } from '@/components/org-dashboard/cube-styles/shared';
 import { useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Mock data for preview
 const MOCK_LOCATIONS: OrgLocationData[] = [
@@ -32,16 +32,18 @@ function fmtFull(val: number): string {
   return `$${Math.round(val).toLocaleString()}`;
 }
 
-function PeakHourHeatmap({ data, variant }: { data: number[]; variant: string }) {
+function PeakHourHeatmap({ data, variant, maxBars }: { data: number[]; variant: string; maxBars?: number }) {
+  const isMobile = useIsMobile();
   const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
-  const top6 = [...allHours].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
-  const max = Math.max(...top6.map(h => h.val), 1);
+  const count = maxBars ?? (isMobile ? 4 : 6);
+  const top = [...allHours].sort((a, b) => b.val - a.val).slice(0, count).sort((a, b) => a.hour - b.hour);
+  const max = Math.max(...top.map(h => h.val), 1);
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     return hour > 12 ? `${hour - 12}p` : `${hour}a`;
   };
-  if (top6.length === 0) return null;
+  if (top.length === 0) return null;
 
   const getBarColor = (intensity: number) => {
     if (variant === 'light') return intensity > 0.7 ? 'rgba(255,255,255,0.9)' : intensity > 0.4 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)';
@@ -53,13 +55,13 @@ function PeakHourHeatmap({ data, variant }: { data: number[]; variant: string })
   return (
     <div>
       <div className="flex gap-[4px] items-end" style={{ height: 28 }}>
-        {top6.map(h => {
+        {top.map(h => {
           const intensity = max > 0 ? h.val / max : 0;
           return <div key={h.hour} className="flex-1 rounded-[3px] min-w-[14px]" style={{ backgroundColor: getBarColor(intensity), height: `${Math.max(15, intensity * 100)}%` }} />;
         })}
       </div>
       <div className="flex gap-[4px]">
-        {top6.map(h => (
+        {top.map(h => (
           <div key={h.hour} className="flex-1 text-center min-w-[14px]">
             <span className={`text-[9px] font-bold ${variant === 'light' || variant === 'dark' ? 'opacity-70' : 'text-muted-foreground'}`}>{formatHour(h.hour)}</span>
           </div>
