@@ -89,23 +89,38 @@ export function useSubscription() {
     return () => subscription.unsubscribe();
   }, [checkSubscription]);
 
+  // Detect PWA standalone mode where popups are blocked/broken
+  const isStandalone = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
+
+  const openUrl = useCallback((url: string) => {
+    if (isStandalone) {
+      // In PWA mode, navigate in same tab to avoid blocked popups
+      window.location.href = url;
+    } else {
+      window.open(url, '_blank');
+    }
+  }, [isStandalone]);
+
   const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean) => {
     const { data, error } = await supabase.functions.invoke('create-checkout', {
       body: { priceId, skipTrial, organizationId },
     });
     if (error) throw error;
     if (data?.url) {
-      window.open(data.url, '_blank');
+      openUrl(data.url);
     }
-  }, [organizationId]);
+  }, [organizationId, openUrl]);
 
   const openPortal = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke('customer-portal');
     if (error) throw error;
     if (data?.url) {
-      window.open(data.url, '_blank');
+      openUrl(data.url);
     }
-  }, []);
+  }, [openUrl]);
 
   const hasFeature = useCallback((requiredTier: TierKey): boolean => {
     if (!state.subscribed || !state.tierKey) return false;
