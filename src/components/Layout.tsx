@@ -746,14 +746,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       }
                       navigate(item.path);
                     }}
-                    className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                    className={`relative flex items-center gap-2 px-2 lg:px-3 py-1.5 rounded-lg transition-all ${
                       isActive 
                         ? 'bg-white/25 text-primary-foreground font-medium' 
                         : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                     }`}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="text-sm">{item.label}</span>
+                    <span className="text-sm hidden lg:inline">{item.label}</span>
                     {showBadge && (
                       <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                         {unreadCount > 99 ? '99+' : unreadCount}
@@ -768,14 +768,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button 
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                      className={`flex items-center gap-2 px-2 lg:px-3 py-1.5 rounded-lg transition-all ${
                         ['/my-timecard', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
                           ? 'bg-white/25 text-primary-foreground font-medium' 
                           : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                       }`}
                     >
                       <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">Time</span>
+                      <span className="text-sm hidden lg:inline">Time</span>
                       <ChevronDown className="h-3 w-3 flex-shrink-0" />
                     </button>
                   </DropdownMenuTrigger>
