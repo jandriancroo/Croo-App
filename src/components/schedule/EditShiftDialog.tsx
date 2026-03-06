@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -43,6 +45,8 @@ export function EditShiftDialog({
   isAdmin = false,
   isShiftPublished = true
 }: EditShiftDialogProps) {
+  const queryClient = useQueryClient();
+  const { currentLocation } = useAppLocation();
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
   const [selectedUserId, setSelectedUserId] = useState(shift.user_id || "unassigned");
@@ -55,6 +59,9 @@ export function EditShiftDialog({
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [showOfferDialog, setShowOfferDialog] = useState(false);
+
+  // Build schedule query key for optimistic updates
+  const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
 
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -189,6 +196,21 @@ export function EditShiftDialog({
 
       if (updateError) throw updateError;
 
+      // Optimistically update the cache immediately so Schedule Tools reflects changes
+      const updatedUserId = selectedUserId === "unassigned" ? null : selectedUserId;
+      const selectedTemplate = templates.find((t: any) => t.id === position);
+      queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          shifts: old.shifts.map((s: any) =>
+            s.id === shift.id
+              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template }
+              : s
+          ),
+        };
+      });
+
       // If multiple days selected, create/update shifts for other days
       for (const dayIndex of selectedDays) {
         if (dayIndex === shift.day_of_week) continue; // Skip current day
@@ -255,6 +277,13 @@ export function EditShiftDialog({
         .eq("id", shift.id);
 
       if (error) throw error;
+
+      // Optimistically remove from cache so Schedule Tools updates instantly
+      queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+        if (!old) return old;
+        return { ...old, shifts: old.shifts.filter((s: any) => s.id !== shift.id) };
+      });
+
       toast.success("Shift deleted");
       onUpdate();
       onOpenChange(false);

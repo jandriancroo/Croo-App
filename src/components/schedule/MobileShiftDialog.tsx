@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,6 +13,7 @@ import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { Trash2, ArrowUp, ArrowRightLeft } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
+import { format } from 'date-fns';
 import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 
@@ -51,6 +54,7 @@ interface MobileShiftDialogProps {
     color: string | null;
   }>;
   locationId?: string | null;
+  currentWeekStart?: Date;
 }
 
 export function MobileShiftDialog({ 
@@ -63,8 +67,11 @@ export function MobileShiftDialog({
   isCreating = false,
   scheduleId,
   templates = [],
-  locationId
+  locationId,
+  currentWeekStart
 }: MobileShiftDialogProps) {
+  const queryClient = useQueryClient();
+  const { currentLocation } = useAppLocation();
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -228,6 +235,29 @@ export function MobileShiftDialog({
         });
       }
 
+      // Optimistically update cache so Schedule Tools reflects changes instantly
+      if (currentWeekStart && (currentLocation?.id || locationId)) {
+        const locId = currentLocation?.id || locationId;
+        const scheduleKey = ['schedule', locId, format(currentWeekStart, 'yyyy-MM-dd')];
+        
+        if (!isCreating && shift) {
+          // Update existing shift in cache
+          const updatedUserId = selectedUserId === 'unassigned' ? null : selectedUserId;
+          queryClient.setQueryData(scheduleKey, (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              shifts: old.shifts.map((s: any) =>
+                s.id === shift.id
+                  ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: selectedTemplateId || null }
+                  : s
+              ),
+            };
+          });
+        }
+        // For creates, the refetch will pick up the new shift
+      }
+
       toast.success(isApprovingClaim ? 'Shift claim approved!' : (isCreating ? 'Shift created' : 'Shift updated'));
       onShiftUpdated?.();
       onOpenChange(false);
@@ -250,6 +280,16 @@ export function MobileShiftDialog({
         .eq('id', shift.id);
 
       if (error) throw error;
+
+      // Optimistically remove from cache
+      if (currentWeekStart && (currentLocation?.id || locationId)) {
+        const locId = currentLocation?.id || locationId;
+        const scheduleKey = ['schedule', locId, format(currentWeekStart, 'yyyy-MM-dd')];
+        queryClient.setQueryData(scheduleKey, (old: any) => {
+          if (!old) return old;
+          return { ...old, shifts: old.shifts.filter((s: any) => s.id !== shift.id) };
+        });
+      }
 
       toast.success('Shift deleted');
       onShiftUpdated?.();
