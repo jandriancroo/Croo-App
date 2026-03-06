@@ -114,7 +114,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // PA state
-  const [paCredentials, setPaCredentials] = useState({ username: '', password: '', pa_location_id: '' });
+  const [paCredentials, setPaCredentials] = useState({ username: '', password: '', restaurant_id: '' });
+  const [paIsDiscovering, setPaIsDiscovering] = useState(false);
   const [paIsActive, setPaIsActive] = useState(true);
   const [paShowPassword, setPaShowPassword] = useState(false);
   const [paIsTesting, setPaIsTesting] = useState(false);
