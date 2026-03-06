@@ -1460,16 +1460,82 @@ async function handleDebug(supabase: any, body: any): Promise<Response> {
     }
   } catch (e) { results.orderFetchError = String(e); }
 
-  // 4. Try GET on restaurant-dashboard to see if there's an index endpoint
+  // 4. Fetch Angular app HTML and find JS bundle URLs, then search for API endpoints
   try {
-    const dashResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard`, {
+    const ngResp = await fetch(`${PA_BASE_URL}/ng/`, {
       method: 'GET',
-      headers: getAuthHeaders(session),
+      headers: { ...getAuthHeaders(session), 'Accept': 'text/html' },
     });
-    results.dashboardStatus = dashResp.status;
-    const text = await dashResp.text();
-    results.dashboardBody = text.substring(0, 1000);
-  } catch (e) { results.dashboardError = String(e); }
+    const ngHtml = await ngResp.text();
+    
+    // Extract script src URLs
+    const scriptRegex = /src="([^"]*\.js[^"]*)"/g;
+    const scripts: string[] = [];
+    let sm;
+    while ((sm = scriptRegex.exec(ngHtml)) !== null) {
+      scripts.push(sm[1]);
+    }
+    results.angularScripts = scripts;
+    
+    // Fetch the main JS bundle and search for API endpoints
+    const mainScript = scripts.find(s => s.includes('main'));
+    if (mainScript) {
+      const scriptUrl = mainScript.startsWith('http') ? mainScript : `${PA_BASE_URL}/ng/${mainScript}`;
+      const jsResp = await fetch(scriptUrl, {
+        method: 'GET',
+        headers: { 'User-Agent': UA },
+      });
+      const jsText = await jsResp.text();
+      
+      // Search for order-related API endpoints
+      const apiPatterns = [
+        /["']([^"']*(?:order|Order)[^"']*?)["']/g,
+        /["']([^"']*restaurant-dashboard[^"']*?)["']/g,
+        /["']\/api\/([^"']*?)["']/g,
+      ];
+      
+      const foundEndpoints: string[] = [];
+      for (const pattern of apiPatterns) {
+        let m;
+        while ((m = pattern.exec(jsText)) !== null) {
+          const ep = m[1] || m[0];
+          if (ep.length < 200 && !ep.includes('{') && !foundEndpoints.includes(ep)) {
+            foundEndpoints.push(ep);
+          }
+        }
+      }
+      results.discoveredEndpoints = foundEndpoints;
+    }
+  } catch (e) { results.angularError = String(e); }
+
+  // 5. Try alternative order endpoints
+  const altEndpoints = [
+    { url: `/api/restaurant-dashboard/get-orders`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId), startDate: '3/1/2026', endDate: '3/6/2026' } },
+    { url: `/api/restaurant-dashboard/orders`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/restaurant-dashboard/get-order-list`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/weborder/list`, method: 'POST', body: { restaurantId: parseInt(session.restaurantId) } },
+    { url: `/api/order/list?restaurantId=${session.restaurantId}`, method: 'GET', body: null },
+  ];
+  
+  results.altEndpoints = [];
+  for (const alt of altEndpoints) {
+    try {
+      const resp = await fetch(`${PA_BASE_URL}${alt.url}`, {
+        method: alt.method,
+        headers: { ...getAuthHeaders(session, true), 'Content-Type': 'application/json; charset=UTF-8' },
+        body: alt.body ? JSON.stringify(alt.body) : undefined,
+      });
+      const text = await resp.text();
+      results.altEndpoints.push({
+        url: alt.url,
+        status: resp.status,
+        len: text.length,
+        preview: text.substring(0, 500),
+      });
+    } catch (e) {
+      results.altEndpoints.push({ url: alt.url, error: String(e) });
+    }
+  }
 
   return jsonResponse({ success: true, debug: results });
 }
