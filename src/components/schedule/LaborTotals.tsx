@@ -81,6 +81,22 @@ export function LaborTotals({
   const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
   const { user } = useAuth();
 
+  // Fetch labor rules for OT/DT multipliers
+  const { data: laborRules } = useQuery({
+    queryKey: ['labor-rules-schedule', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      const { data } = await supabase
+        .from('labor_rules')
+        .select('daily_overtime_threshold, daily_double_time_threshold, weekly_overtime_threshold, overtime_multiplier, double_time_multiplier')
+        .eq('location_id', currentLocation.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 30 * 60 * 1000,
+  });
+
   // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
     return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}-${s.start_time}-${s.end_time}`).join('|');
