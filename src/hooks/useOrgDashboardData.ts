@@ -190,9 +190,10 @@ export function useOrgLocationData(locationIds: string[]) {
         const hourly = Array(24).fill(0);
         if (todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
           for (const entry of todayRow.hourly_data as any[]) {
-            const h = Number(entry.hour);
-            if (h >= 0 && h < 24) {
-              hourly[h] = Number(entry.sales) || 0;
+            const hourStr = String(entry.hour);
+            const h = parseInt(hourStr.includes(':') ? hourStr.split(':')[0] : hourStr, 10);
+            if (!isNaN(h) && h >= 0 && h < 24) {
+              hourly[h] = Number(entry.sales) || Number(entry.actual) || 0;
             }
           }
         }
