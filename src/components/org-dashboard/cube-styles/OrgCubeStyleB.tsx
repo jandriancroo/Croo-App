@@ -8,7 +8,6 @@ import {
 export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
-  const laborColor = getLaborColor(data.laborPercent);
 
   if (isLoading) {
     return (

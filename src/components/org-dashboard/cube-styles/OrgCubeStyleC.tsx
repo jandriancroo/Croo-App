@@ -18,10 +18,6 @@ export function OrgCubeStyleC({ data, isLoading, onClick }: CubeStyleProps) {
     );
   }
 
-  const paceProgress = data.goalToday && data.goalToday > 0 
-    ? Math.min((data.salesToday / data.goalToday) * 100, 100) 
-    : 0;
-
   return (
     <div
       className="rounded-lg overflow-hidden cursor-pointer hover:shadow-lg hover:shadow-primary/5 transition-all duration-200 border"

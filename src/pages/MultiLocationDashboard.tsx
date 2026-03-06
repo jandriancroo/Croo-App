@@ -69,11 +69,11 @@ const MOCK_DATA: OrgLocationData[] = [
 ];
 
 const STYLE_LABELS = [
-  { id: 'A', name: 'Compact Cards', desc: 'Dense info, status-color accent bar' },
-  { id: 'B', name: 'Gradient Panels', desc: 'Bold gradients, large hero numbers' },
-  { id: 'C', name: 'Dark Analytics', desc: 'Dashboard-style with inline charts' },
-  { id: 'D', name: 'Minimal List', desc: 'Clean rows, sparkline-focused' },
-  { id: 'E', name: 'Tile Grid', desc: 'Colorful tiles with heatmap emphasis' },
+  { id: 'A', name: 'Compact Cards', desc: 'Dense info with colored accent bar, circular labor gauge' },
+  { id: 'B', name: 'Glass Scoreboard', desc: 'Full-color status backgrounds, white text, bold progress bars' },
+  { id: 'C', name: 'Terminal Analytics', desc: 'Dark background, monospace feel, neon accents, structured data rows' },
+  { id: 'D', name: 'Horizontal Ticker', desc: 'Wide row layout with big sparklines, stock-ticker metrics strip' },
+  { id: 'E', name: 'Mosaic Grid', desc: 'Colored block tiles, each metric in its own cell' },
 ];
 
 export default function MultiLocationDashboard() {
