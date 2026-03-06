@@ -9,13 +9,13 @@ const corsHeaders = {
 // ============================================================================
 // PRODUCE ALLIANCE SERVICE — Buyers Edge Platform
 // Portal: https://producealliance.info
-// Auth: Username/Password form login → JSESSIONID cookie
-// Order list: Angular app at /ng/#/restaurantBackOffice/viewOrders
-// Order detail: JSP page at /viewOrder.jsp (HTML table with line items)
+// Auth: OAuth2 Bearer token via POST /oauth/token (grant_type=password)
+// API: REST endpoints at /api/... with Authorization: Bearer <token>
+// Order list: POST /api/restaurant-dashboard/fetch-orders-for-restaurant-by-params
 // ============================================================================
 
 const PA_BASE_URL = 'https://producealliance.info';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15';
 
 interface PACredentials {
   username: string;
@@ -26,6 +26,8 @@ interface PACredentials {
 }
 
 interface PASession {
+  accessToken: string;
+  refreshToken: string;
   cookies: string;
   restaurantId: string;
 }
@@ -65,7 +67,7 @@ function mergeCookies(existing: string, newCookies: string): string {
 }
 
 // ============================================================================
-// AUTHENTICATION — Buyers Edge Platform
+// AUTHENTICATION — OAuth2 Bearer Token
 // ============================================================================
 
 async function loginToPA(credentials: PACredentials): Promise<PASession | null> {
@@ -73,57 +75,145 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
   console.log('[PA Auth] Logging in as:', credentials.username, 'restaurantId:', restaurantId);
 
   try {
-    // Step 1: GET the landing page to collect initial cookies
+    // Step 1: GET the landing page to collect initial cookies (AWSALB, JSESSIONID)
     const homeResp = await fetch(PA_BASE_URL, {
       method: 'GET',
       redirect: 'manual',
       headers: { 'User-Agent': UA },
     });
-    const homeHtml = await homeResp.text();
+    await homeResp.text().catch(() => '');
     let allCookies = extractCookies(homeResp.headers);
     console.log('[PA Auth] Home page status:', homeResp.status, 'cookies:', allCookies ? 'yes' : 'none');
 
-    // Step 2: Try multiple login endpoints
-    const loginAttempts = [
-      // J2EE standard security check
+    // Step 2: Try OAuth2 token endpoints (Spring Security OAuth2 standard)
+    const oauthAttempts = [
+      // Standard Spring OAuth2
+      `${PA_BASE_URL}/oauth/token`,
+      // Common alternatives
+      `${PA_BASE_URL}/api/oauth/token`,
+      `${PA_BASE_URL}/api/auth/token`,
+      `${PA_BASE_URL}/api/authenticate`,
+      `${PA_BASE_URL}/api/login`,
+    ];
+
+    for (const tokenUrl of oauthAttempts) {
+      // Try form-encoded password grant (most common Spring OAuth2 pattern)
+      try {
+        console.log('[PA Auth] Trying OAuth2:', tokenUrl);
+        const formBody = `grant_type=password&username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}`;
+        
+        const resp = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cookie': allCookies,
+            'User-Agent': UA,
+            'Accept': 'application/json, */*',
+            'Referer': `${PA_BASE_URL}/ng/`,
+          },
+          body: formBody,
+          redirect: 'manual',
+        });
+
+        const newCookies = extractCookies(resp.headers);
+        if (newCookies) allCookies = mergeCookies(allCookies, newCookies);
+        
+        const text = await resp.text();
+        console.log('[PA Auth]', tokenUrl, '→', resp.status, 'len:', text.length);
+
+        if (resp.status === 200 && text.length > 10) {
+          try {
+            const json = JSON.parse(text);
+            if (json.access_token) {
+              console.log('[PA Auth] ✅ OAuth2 login successful! Token type:', json.token_type || 'bearer');
+              return {
+                accessToken: json.access_token,
+                refreshToken: json.refresh_token || '',
+                cookies: allCookies,
+                restaurantId,
+              };
+            }
+          } catch { /* not JSON */ }
+        }
+      } catch (e) {
+        console.warn('[PA Auth] Error with', tokenUrl, ':', e);
+      }
+
+      // Also try JSON body variant
+      try {
+        const resp = await fetch(tokenUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': allCookies,
+            'User-Agent': UA,
+            'Accept': 'application/json, */*',
+            'Referer': `${PA_BASE_URL}/ng/`,
+          },
+          body: JSON.stringify({
+            username: credentials.username,
+            password: credentials.password,
+            grant_type: 'password',
+          }),
+          redirect: 'manual',
+        });
+
+        const newCookies = extractCookies(resp.headers);
+        if (newCookies) allCookies = mergeCookies(allCookies, newCookies);
+        
+        const text = await resp.text();
+        console.log('[PA Auth] JSON variant', tokenUrl, '→', resp.status, 'len:', text.length);
+
+        if (resp.status === 200 && text.length > 10) {
+          try {
+            const json = JSON.parse(text);
+            if (json.access_token) {
+              console.log('[PA Auth] ✅ OAuth2 login successful (JSON)! Token type:', json.token_type || 'bearer');
+              return {
+                accessToken: json.access_token,
+                refreshToken: json.refresh_token || '',
+                cookies: allCookies,
+                restaurantId,
+              };
+            }
+            // Some APIs return token in different field
+            if (json.token || json.sessionToken || json.jwt) {
+              const token = json.token || json.sessionToken || json.jwt;
+              console.log('[PA Auth] ✅ Login successful (alt token field)');
+              return {
+                accessToken: token,
+                refreshToken: json.refresh_token || json.refreshToken || '',
+                cookies: allCookies,
+                restaurantId,
+              };
+            }
+          } catch { /* not JSON */ }
+        }
+      } catch (e) {
+        console.warn('[PA Auth] JSON error with', tokenUrl, ':', e);
+      }
+    }
+
+    // Step 3: Fallback — try J2EE form login (legacy approach)
+    console.log('[PA Auth] OAuth2 attempts failed, trying form login fallback...');
+    const formLoginAttempts = [
       {
         url: `${PA_BASE_URL}/j_security_check`,
         body: `j_username=${encodeURIComponent(credentials.username)}&j_password=${encodeURIComponent(credentials.password)}`,
-        ct: 'application/x-www-form-urlencoded',
       },
-      // Direct login endpoint
       {
         url: `${PA_BASE_URL}/login`,
         body: `username=${encodeURIComponent(credentials.username)}&password=${encodeURIComponent(credentials.password)}`,
-        ct: 'application/x-www-form-urlencoded',
-      },
-      // JSON login
-      {
-        url: `${PA_BASE_URL}/api/login`,
-        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
-        ct: 'application/json',
-      },
-      // Angular app login API
-      {
-        url: `${PA_BASE_URL}/ng/api/login`,
-        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
-        ct: 'application/json',
-      },
-      // REST authenticate
-      {
-        url: `${PA_BASE_URL}/authenticate`,
-        body: JSON.stringify({ username: credentials.username, password: credentials.password }),
-        ct: 'application/json',
       },
     ];
 
-    for (const attempt of loginAttempts) {
+    for (const attempt of formLoginAttempts) {
       try {
-        console.log('[PA Auth] Trying:', attempt.url);
+        console.log('[PA Auth] Trying form login:', attempt.url);
         const loginResp = await fetch(attempt.url, {
           method: 'POST',
           headers: {
-            'Content-Type': attempt.ct,
+            'Content-Type': 'application/x-www-form-urlencoded',
             'Cookie': allCookies,
             'User-Agent': UA,
             'Referer': PA_BASE_URL,
@@ -136,16 +226,13 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
         const mergedCookies = mergeCookies(allCookies, newCookies);
         const status = loginResp.status;
         const location = loginResp.headers.get('location') || '';
-        const body = await loginResp.text();
+        await loginResp.text().catch(() => '');
         
-        console.log('[PA Auth]', attempt.url, '→', status, 'redirect:', location || 'none', 'cookies:', newCookies ? 'yes' : 'none', 'body len:', body.length);
+        console.log('[PA Auth]', attempt.url, '→', status, 'redirect:', location || 'none');
 
-        // Success indicators:
-        // 1. 302 redirect (not back to login page)
-        if ((status === 302 || status === 301) && !location.includes('login') && !location.includes('error')) {
-          console.log('[PA Auth] Login successful via redirect to:', location);
+        if ((status === 302 || status === 301) && !location.includes('login') && !location.includes('error') && !location.includes('logout')) {
+          console.log('[PA Auth] Form login successful, following redirect...');
           
-          // Follow the redirect to get final cookies
           const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
           const redirectResp = await fetch(redirectUrl, {
             method: 'GET',
@@ -155,27 +242,27 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
           const finalCookies = mergeCookies(mergedCookies, extractCookies(redirectResp.headers));
           await redirectResp.text().catch(() => '');
           
-          return { cookies: finalCookies, restaurantId };
+          // Extract tokenStore from cookies if available
+          const tokenMatch = finalCookies.match(/tokenStore=([^;]+)/);
+          if (tokenMatch) {
+            try {
+              const tokenStore = JSON.parse(decodeURIComponent(tokenMatch[1]));
+              if (tokenStore.access_token) {
+                console.log('[PA Auth] ✅ Extracted Bearer token from cookie');
+                return {
+                  accessToken: tokenStore.access_token,
+                  refreshToken: tokenStore.refresh_token || '',
+                  cookies: finalCookies,
+                  restaurantId,
+                };
+              }
+            } catch { /* parse error */ }
+          }
+
+          // Fall back to cookie-only session
+          return { accessToken: '', refreshToken: '', cookies: finalCookies, restaurantId };
         }
 
-        // 2. 200 with JSON success
-        if (status === 200 && attempt.ct === 'application/json') {
-          try {
-            const json = JSON.parse(body);
-            if (json.success || json.authenticated || json.token || json.sessionId) {
-              console.log('[PA Auth] Login successful via JSON response');
-              return { cookies: mergedCookies, restaurantId };
-            }
-          } catch { /* not JSON */ }
-        }
-
-        // 3. 200 with redirect in body or no login form (already authenticated)
-        if (status === 200 && !body.includes('Sign in') && !body.includes('j_security_check') && !body.includes('login') && newCookies) {
-          console.log('[PA Auth] Login appears successful (no login form in response)');
-          return { cookies: mergedCookies, restaurantId };
-        }
-
-        // Update cookies for next attempt
         if (newCookies) allCookies = mergedCookies;
       } catch (e) {
         console.warn('[PA Auth] Error with', attempt.url, ':', e);
@@ -190,20 +277,45 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
   }
 }
 
-// Verify session is valid by trying to access a protected page
+// Build auth headers for API requests
+function getAuthHeaders(session: PASession): Record<string, string> {
+  const headers: Record<string, string> = {
+    'User-Agent': UA,
+    'Accept': 'application/json, text/plain, */*',
+    'Referer': `${PA_BASE_URL}/ng/`,
+  };
+  
+  if (session.accessToken) {
+    headers['Authorization'] = `Bearer ${session.accessToken}`;
+  }
+  if (session.cookies) {
+    headers['Cookie'] = session.cookies;
+  }
+  
+  return headers;
+}
+
+// Verify session by hitting the session endpoint
 async function verifySession(session: PASession): Promise<boolean> {
   try {
-    const resp = await fetch(`${PA_BASE_URL}/viewOrder.jsp?restaurantId=${session.restaurantId}`, {
+    const resp = await fetch(`${PA_BASE_URL}/api/common/session`, {
       method: 'GET',
-      headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+      headers: getAuthHeaders(session),
       redirect: 'manual',
     });
-    const status = resp.status;
-    const body = await resp.text();
-    // If we get redirected to login or see login form, session is invalid
-    if (status === 302 || status === 301) return false;
-    if (body.includes('Sign in') || body.includes('j_security_check')) return false;
-    return true;
+    const text = await resp.text();
+    console.log('[PA Verify] Session check:', resp.status, 'len:', text.length);
+    
+    if (resp.status === 200) {
+      try {
+        const json = JSON.parse(text);
+        console.log('[PA Verify] Session valid, user:', json.username || json.userName || 'unknown');
+        return true;
+      } catch {
+        return !text.includes('Sign in') && !text.includes('login');
+      }
+    }
+    return false;
   } catch {
     return false;
   }
@@ -225,87 +337,111 @@ interface PAOrderSummary {
 async function fetchOrderList(session: PASession, startDate: string, endDate: string): Promise<PAOrderSummary[]> {
   console.log('[PA Orders] Fetching order list, restaurant:', session.restaurantId, 'range:', startDate, '→', endDate);
 
-  // Try multiple API patterns the Angular app might use
-  const apiAttempts = [
-    // REST API patterns
+  const authHeaders = getAuthHeaders(session);
+
+  // Try the actual Buyers Edge REST API first (discovered from DevTools)
+  const restApiAttempts = [
+    // Primary: POST with filter params (Angular app uses this)
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+        startDate,
+        endDate,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Alt: query params  
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      method: 'GET',
+      body: null,
+      contentType: null,
+    },
+    // Alt: different endpoint naming
     {
       url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
       method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/ng/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/rest/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // restaurantBackOffice API
-    {
-      url: `${PA_BASE_URL}/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/ng/restaurantBackOffice/getOrders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // Servlet/JSP patterns
-    {
-      url: `${PA_BASE_URL}/getOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    {
-      url: `${PA_BASE_URL}/orderList.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
-    },
-    // viewOrders JSP (the Angular route might have a JSP backend)
-    {
-      url: `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
-      method: 'GET',
+      body: null,
+      contentType: null,
     },
   ];
 
-  for (const attempt of apiAttempts) {
+  for (const attempt of restApiAttempts) {
     try {
+      const headers: Record<string, string> = { ...authHeaders };
+      if (attempt.contentType) headers['Content-Type'] = attempt.contentType;
+      
       const resp = await fetch(attempt.url, {
         method: attempt.method,
-        headers: {
-          'Cookie': session.cookies,
-          'User-Agent': UA,
-          'Accept': 'application/json, text/html, */*',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Referer': `${PA_BASE_URL}/ng/`,
-        },
+        headers,
+        body: attempt.body,
         redirect: 'follow',
       });
 
       const text = await resp.text();
-      console.log('[PA Orders]', attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+      console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
 
       if (!resp.ok || text.length < 10) continue;
 
-      // Try JSON parse
       try {
         const data = JSON.parse(text);
+        console.log('[PA Orders] JSON response keys:', Object.keys(data).join(', '));
+        
         const orders = extractOrdersFromJson(data);
         if (orders.length > 0) {
-          console.log('[PA Orders] Found', orders.length, 'orders from API');
+          console.log('[PA Orders] ✅ Found', orders.length, 'orders from REST API');
           return orders;
+        }
+        
+        // Even if 0 orders, if we got a valid JSON response the endpoint works
+        if (Array.isArray(data) || data.data || data.orders) {
+          console.log('[PA Orders] Valid API response but 0 orders in range');
+          return [];
         }
       } catch {
-        // Not JSON — try HTML parsing
-        const orders = extractOrdersFromHtml(text);
-        if (orders.length > 0) {
-          console.log('[PA Orders] Found', orders.length, 'orders from HTML');
-          return orders;
-        }
+        console.log('[PA Orders] Response not JSON');
       }
     } catch (e) {
       console.warn('[PA Orders] Error:', e);
     }
   }
 
-  console.log('[PA Orders] No API found — returning empty list');
+  // Fallback: legacy JSP scraping (cookie-based)
+  if (session.cookies) {
+    const legacyUrls = [
+      `${PA_BASE_URL}/viewOrders.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      `${PA_BASE_URL}/viewOrder.jsp?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+    ];
+
+    for (const url of legacyUrls) {
+      try {
+        const resp = await fetch(url, {
+          method: 'GET',
+          headers: authHeaders,
+          redirect: 'follow',
+        });
+
+        const text = await resp.text();
+        console.log('[PA Orders] Legacy', url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
+
+        if (!resp.ok || text.length < 100) continue;
+        if (text.includes('Sign in') || text.includes('j_security_check')) continue;
+
+        const orders = extractOrdersFromHtml(text);
+        if (orders.length > 0) {
+          console.log('[PA Orders] Found', orders.length, 'orders from HTML');
+          return orders;
+        }
+      } catch (e) {
+        console.warn('[PA Orders] Legacy error:', e);
+      }
+    }
+  }
+
+  console.log('[PA Orders] No orders found');
   return [];
 }
 
@@ -394,17 +530,56 @@ interface PAOrderDetail {
 }
 
 async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
-  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
   console.log('[PA Detail] Fetching order:', webOrderId);
+
+  const authHeaders = getAuthHeaders(session);
+
+  // Try REST API first
+  try {
+    const apiResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }),
+    });
+    
+    if (apiResp.ok) {
+      const text = await apiResp.text();
+      try {
+        const json = JSON.parse(text);
+        console.log('[PA Detail] Got JSON detail for order', webOrderId, 'keys:', Object.keys(json).join(', '));
+        // If the API returns structured order data, parse it
+        if (json.lineItems || json.items || json.orderLines || json.data) {
+          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || [];
+          return {
+            webOrderId,
+            deliveryDate: json.deliveryDate || json.delivery_date || null,
+            totalCases: json.totalCases || json.total_cases || null,
+            totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
+            lineItems: Array.isArray(items) ? items.map((li: any) => ({
+              item_code: String(li.itemCode || li.item_code || li.productCode || ''),
+              description: li.description || li.name || li.productName || '',
+              pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
+              unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
+              quantity: parseFloat(li.quantity || li.qty || 0),
+              cost: parseFloat(li.cost || li.total || li.lineTotal || 0),
+            })) : [],
+          };
+        }
+      } catch { /* not JSON */ }
+    } else {
+      await apiResp.text().catch(() => '');
+    }
+  } catch (e) {
+    console.warn('[PA Detail] REST API error:', e);
+  }
+
+  // Fallback: JSP scraping
+  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
 
   try {
     const resp = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Cookie': session.cookies,
-        'User-Agent': UA,
-        'Referer': `${PA_BASE_URL}/ng/`,
-      },
+      headers: authHeaders,
       redirect: 'follow',
     });
 
@@ -417,7 +592,6 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     const html = await resp.text();
     console.log('[PA Detail] Got HTML for order', webOrderId, 'len:', html.length);
 
-    // Check if we got redirected to login
     if (html.includes('Sign in') || html.includes('j_security_check')) {
       console.warn('[PA Detail] Session expired — got login page');
       return null;
@@ -552,19 +726,20 @@ function parseOrderDetailJsp(html: string, webOrderId: string): PAOrderDetail {
 async function fetchPAPricing(session: PASession): Promise<any[]> {
   console.log('[PA Pricing] Fetching pricing for restaurant:', session.restaurantId);
   
-  // Try to access a pricing page
+  const authHeaders = getAuthHeaders(session);
+  
   const pricingUrls = [
+    `${PA_BASE_URL}/api/pricing?restaurantId=${session.restaurantId}`,
+    `${PA_BASE_URL}/api/restaurant-dashboard/pricing?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/weeklyPricing.jsp?restaurantId=${session.restaurantId}`,
     `${PA_BASE_URL}/pricing.jsp?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/api/pricing?restaurantId=${session.restaurantId}`,
-    `${PA_BASE_URL}/ng/api/pricing?restaurantId=${session.restaurantId}`,
   ];
 
   for (const url of pricingUrls) {
     try {
       const resp = await fetch(url, {
         method: 'GET',
-        headers: { 'Cookie': session.cookies, 'User-Agent': UA },
+        headers: authHeaders,
         redirect: 'follow',
       });
       
@@ -575,7 +750,6 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
       
       console.log('[PA Pricing]', url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
       
-      // Try JSON
       try {
         const data = JSON.parse(text);
         const items = Array.isArray(data) ? data : data.data || data.items || data.Data || [];
@@ -584,7 +758,6 @@ async function fetchPAPricing(session: PASession): Promise<any[]> {
           return items;
         }
       } catch {
-        // Try HTML parsing
         const items = parsePricingHtml(text);
         if (items.length > 0) return items;
       }
