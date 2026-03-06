@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
   formatCurrency, formatCurrencyFull, pctChange,
   HourlyHeatmap,
 } from './shared';
-import { OrgLocationData } from '../OrgLocationCube';
 
 export type OrgPeriod = 'day' | 'week' | 'month';
 
