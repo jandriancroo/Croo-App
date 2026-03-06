@@ -3,13 +3,14 @@ import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, File, Clock, Trash2, ImageIcon, Loader2 } from 'lucide-react';
+import { MessageSquare, File, Clock, Trash2, ImageIcon, Loader2, SmilePlus, Reply } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { ReadReceipts } from './ReadReceipts';
 import { LazyImage } from './LazyImage';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface ParentMessageData {
   content: string | null;
