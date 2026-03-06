@@ -584,13 +584,23 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     console.warn('[PA Detail] REST API error:', e);
   }
 
-  // Fallback: JSP scraping
-  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
+  // Fallback: JSP scraping — use non-zero-padded dates to match browser behavior
+  const toNonPadded = (d: string) => {
+    const [y, m, dd] = d.split('-');
+    return `${y}-${parseInt(m)}-${parseInt(dd)}`;
+  };
+  const jspStart = toNonPadded(startDate);
+  const jspEnd = toNonPadded(endDate);
+  const url = `${PA_BASE_URL}/viewOrder.jsp?&webOrderId=${webOrderId}&startDate=${jspStart}&endDate=${jspEnd}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
 
   try {
     const resp = await fetch(url, {
       method: 'GET',
-      headers: authHeaders,
+      headers: {
+        ...authHeaders,
+        'Referer': `${PA_BASE_URL}/ng/`,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
       redirect: 'follow',
     });
 
