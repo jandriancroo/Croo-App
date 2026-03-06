@@ -66,9 +66,10 @@ export function useOrgLocations(organizationId: string | null) {
 }
 
 /**
- * Fetches sales/labor data for multiple locations by calling the SAME
- * edge function that SalesSummary uses (fetch-qubeyond-sales).
- * This guarantees identical numbers for goal, pace, sales, labor, etc.
+ * Fetches sales/labor data for multiple locations directly from
+ * sales_cache + labor_cache tables. No edge function calls.
+ * These caches are populated by the same sync pipeline that
+ * SalesSummary uses, so the numbers are identical.
  */
 export function useOrgLocationData(locationIds: string[]) {
   return useQuery({
@@ -79,85 +80,140 @@ export function useOrgLocationData(locationIds: string[]) {
       const now = new Date();
       const todayStr = laDate(now);
 
-      // Call the same edge function SalesSummary uses, for each location in parallel
-      const responses = await Promise.allSettled(
-        locationIds.map(locId =>
-          supabase.functions.invoke('fetch-qubeyond-sales', {
-            body: { locationId: locId, targetDate: todayStr, fastMode: true }
-          }).then(res => ({ locId, data: res.data, error: res.error }))
-        )
-      );
+      // Determine WTD start (Monday)
+      const dayOfWeek = now.getDay(); // 0=Sun
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const monday = new Date(now);
+      monday.setDate(monday.getDate() - mondayOffset);
+      const wtdStart = laDate(monday);
+
+      // MTD start
+      const mtdStart = todayStr.slice(0, 8) + '01';
+
+      // Previous week range (Mon-Sun before current week)
+      const prevSunday = new Date(monday);
+      prevSunday.setDate(prevSunday.getDate() - 1);
+      const prevMonday = new Date(prevSunday);
+      prevMonday.setDate(prevMonday.getDate() - 6);
+      const prevWeekStart = laDate(prevMonday);
+      const prevWeekEnd = laDate(prevSunday);
+
+      // Previous month range
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const prevMonthEnd = new Date(firstOfMonth);
+      prevMonthEnd.setDate(prevMonthEnd.getDate() - 1);
+      const prevMonthStart = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
+      const prevMonthEndStr = laDate(prevMonthEnd);
+
+      // Fetch all sales_cache rows for these locations (today + WTD + MTD + prev periods)
+      const { data: salesRows } = await supabase
+        .from('sales_cache')
+        .select('location_id, sale_date, net_sales, living_projection, override_projection, initial_projection, projected_sales, hourly_data, yoy_net_sales')
+        .in('location_id', locationIds)
+        .gte('sale_date', prevMonthStart)
+        .lte('sale_date', todayStr);
+
+      // Fetch labor for today (prefer punch_clock)
+      const { data: laborRows } = await supabase
+        .from('labor_cache')
+        .select('location_id, labor_date, labor_cost, source')
+        .in('location_id', locationIds)
+        .gte('labor_date', mtdStart)
+        .lte('labor_date', todayStr);
 
       const result: Record<string, Omit<OrgLocationData, 'locationId' | 'locationName' | 'storeNumber'>> = {};
 
-      for (const res of responses) {
-        if (res.status !== 'fulfilled') continue;
-        const { locId, data, error } = res.value;
-        if (error || !data || (data as any).authenticated === false) {
-          // Still provide empty entry so the card renders
-          result[locId] = {
-            salesToday: 0, paceToday: null, goalToday: null,
-            last7Days: Array(7).fill(0),
-            salesWtd: 0, salesPrevWeek: null,
-            salesMtd: 0, salesPrevMonth: null,
-            salesLastYearDay: null,
-            laborPercent: null, laborCost: null,
-            laborCostWtd: null, laborCostMtd: null,
-            hourlyData: Array(24).fill(0),
-          };
-          continue;
-        }
+      for (const locId of locationIds) {
+        const locSales = (salesRows || []).filter(r => r.location_id === locId);
+        const locLabor = (laborRows || []).filter(r => r.location_id === locId);
 
-        const sd = data as any; // SalesData shape from edge function
+        // Today's row
+        const todayRow = locSales.find(r => r.sale_date === todayStr);
+        const salesToday = Number(todayRow?.net_sales) || 0;
 
-        // Hourly data — extract only actual sales for heatmap display
+        // Pace: living_projection is the pace value computed by the edge function
+        const rawPace = Number(todayRow?.living_projection) || 0;
+        const paceToday = rawPace > 0 ? Math.max(rawPace, salesToday) : null;
+
+        // Goal: override > initial > projected
+        const goalToday = Number(todayRow?.override_projection) || Number(todayRow?.initial_projection) || Number(todayRow?.projected_sales) || null;
+
+        // Last year same day
+        const salesLastYearDay = todayRow?.yoy_net_sales != null ? Number(todayRow.yoy_net_sales) : null;
+
+        // WTD
+        const wtdRows = locSales.filter(r => r.sale_date >= wtdStart && r.sale_date <= todayStr);
+        const salesWtd = wtdRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0);
+
+        // Previous week
+        const prevWeekRows = locSales.filter(r => r.sale_date >= prevWeekStart && r.sale_date <= prevWeekEnd);
+        const salesPrevWeek = prevWeekRows.length > 0 ? prevWeekRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0) : null;
+
+        // MTD
+        const mtdRows = locSales.filter(r => r.sale_date >= mtdStart && r.sale_date <= todayStr);
+        const salesMtd = mtdRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0);
+
+        // Previous month
+        const prevMonthRows = locSales.filter(r => r.sale_date >= prevMonthStart && r.sale_date <= prevMonthEndStr);
+        const salesPrevMonth = prevMonthRows.length > 0 ? prevMonthRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0) : null;
+
+        // Hourly data from today's hourly_data JSONB
         const hourly = Array(24).fill(0);
-        if (sd.hourly && Array.isArray(sd.hourly)) {
-          for (const entry of sd.hourly) {
-            const hourStr = entry.hour;
-            const match = hourStr?.match(/^(\d{1,2}):?\d*\s*(AM|PM)?$/i);
-            if (match) {
-              let h = parseInt(match[1]);
-              const ampm = match[2]?.toUpperCase();
-              if (ampm === 'PM' && h !== 12) h += 12;
-              if (ampm === 'AM' && h === 12) h = 0;
-              if (h >= 0 && h < 24) {
-                hourly[h] = Number(entry.sales) || 0;
-              }
+        if (todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
+          for (const entry of todayRow.hourly_data as any[]) {
+            const h = Number(entry.hour);
+            if (h >= 0 && h < 24) {
+              hourly[h] = Number(entry.sales) || 0;
             }
           }
         }
 
-        // Sparkline from weeklyBreakdown
+        // Last 7 days sparkline
         const last7 = Array(7).fill(0);
-        if (sd.weeklyBreakdown && Array.isArray(sd.weeklyBreakdown)) {
-          sd.weeklyBreakdown.forEach((day: any, i: number) => {
-            if (i < 7) last7[i] = Number(day.sales) || 0;
-          });
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(now);
+          d.setDate(d.getDate() - (6 - i));
+          const dStr = laDate(d);
+          const row = locSales.find(r => r.sale_date === dStr);
+          last7[i] = Number(row?.net_sales) || 0;
         }
 
-        // Labor — directly from edge function response (same as SalesSummary)
-        const laborCost = sd.labor?.laborCost ?? null;
-        const laborPercent = sd.labor?.laborPercent ?? null;
-        const laborCostWtd = sd.weeklyLabor?.laborCost ?? null;
-        const laborCostMtd = sd.monthlyLabor?.laborCost ?? null;
+        // Labor today — prefer punch_clock source
+        const todayLabor = locLabor
+          .filter(r => r.labor_date === todayStr)
+          .sort((a, b) => (a.source === 'punch_clock' ? -1 : 1));
+        const laborCost = todayLabor.length > 0 ? Number(todayLabor[0].labor_cost) || null : null;
+        const laborPercent = laborCost != null && salesToday > 0 ? (laborCost / salesToday) * 100 : null;
+
+        // Labor WTD
+        const wtdLabor = locLabor.filter(r => r.labor_date >= wtdStart && r.labor_date <= todayStr);
+        // Deduplicate by date, preferring punch_clock
+        const wtdLaborByDate = new Map<string, number>();
+        for (const r of wtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
+          if (!wtdLaborByDate.has(r.labor_date)) {
+            wtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
+          }
+        }
+        const laborCostWtd = wtdLaborByDate.size > 0 ? Array.from(wtdLaborByDate.values()).reduce((s, v) => s + v, 0) : null;
+
+        // Labor MTD
+        const mtdLabor = locLabor.filter(r => r.labor_date >= mtdStart && r.labor_date <= todayStr);
+        const mtdLaborByDate = new Map<string, number>();
+        for (const r of mtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
+          if (!mtdLaborByDate.has(r.labor_date)) {
+            mtdLaborByDate.set(r.labor_date, Number(r.labor_cost) || 0);
+          }
+        }
+        const laborCostMtd = mtdLaborByDate.size > 0 ? Array.from(mtdLaborByDate.values()).reduce((s, v) => s + v, 0) : null;
 
         result[locId] = {
-          salesToday: Number(sd.daily) || 0,
-          paceToday: sd.projections?.todayPaceAdjusted
-            ? Math.max(Number(sd.projections.todayPaceAdjusted), Number(sd.daily) || 0)
-            : null,
-          goalToday: sd.projections?.todayProjected ? Number(sd.projections.todayProjected) : null,
+          salesToday, paceToday, goalToday,
           last7Days: last7,
-          salesWtd: Number(sd.weekly) || 0,
-          salesPrevWeek: sd.comparison?.prevWeek ?? null,
-          salesMtd: Number(sd.monthly) || 0,
-          salesPrevMonth: sd.comparison?.prevMonth ?? null,
-          salesLastYearDay: sd.lastYear?.sameDay ?? null,
-          laborPercent,
-          laborCost,
-          laborCostWtd,
-          laborCostMtd,
+          salesWtd, salesPrevWeek,
+          salesMtd, salesPrevMonth,
+          salesLastYearDay,
+          laborPercent, laborCost,
+          laborCostWtd, laborCostMtd,
           hourlyData: hourly,
         };
       }
