@@ -113,7 +113,7 @@ export function useOrgLocationData(locationIds: string[]) {
         // Today + WTD + MTD sales (all in one query since date range covers it)
         supabase
           .from('sales_cache')
-          .select('location_id, sale_date, net_sales, hourly_data, projected_sales, living_projection, override_projection, avg_ticket, guest_count, yoy_net_sales')
+          .select('location_id, sale_date, net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, avg_ticket, guest_count, yoy_net_sales')
           .in('location_id', locationIds)
           .gte('sale_date', monthStartStr)
           .lte('sale_date', todayStr),
