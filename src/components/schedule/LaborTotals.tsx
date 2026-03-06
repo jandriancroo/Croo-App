@@ -660,11 +660,9 @@ export function LaborTotals({
         })()}
         </div>
         {dailyTotals.map((day, index) => {
-        const dayStr = format(weekDays[index], 'yyyy-MM-dd');
-        const isToday = dayStr === getTodayPST();
         const salesPerLH = day.hours > 0 ? (projectedSales[index] || 0) / day.hours : 0;
         return <div key={index} className="px-2 py-1 border-r border-border text-center flex items-center justify-center">
-              {isLoadingWages || isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
+              {isLoadingSales ? <span className="text-xs text-muted-foreground">...</span> : day.hours > 0 && salesPerLH > 0 ? <span className="text-xs font-semibold text-foreground">
                   ${salesPerLH.toFixed(2)}
                 </span> : <span className="text-xs text-muted-foreground">-</span>}
             </div>;
