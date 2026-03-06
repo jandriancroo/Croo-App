@@ -196,6 +196,21 @@ export function EditShiftDialog({
 
       if (updateError) throw updateError;
 
+      // Optimistically update the cache immediately so Schedule Tools reflects changes
+      const updatedUserId = selectedUserId === "unassigned" ? null : selectedUserId;
+      const selectedTemplate = templates.find((t: any) => t.id === position);
+      queryClient.setQueryData(scheduleQueryKey, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          shifts: old.shifts.map((s: any) =>
+            s.id === shift.id
+              ? { ...s, start_time: startTime, end_time: endTime, user_id: updatedUserId, template_id: position || null, template: selectedTemplate || s.template }
+              : s
+          ),
+        };
+      });
+
       // If multiple days selected, create/update shifts for other days
       for (const dayIndex of selectedDays) {
         if (dayIndex === shift.day_of_week) continue; // Skip current day
