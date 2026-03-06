@@ -119,7 +119,7 @@ interface OrgCubeStyleBProps extends CubeStyleProps {
   onToggleExpand?: () => void;
 }
 
-/** Shared header row — identical in collapsed and expanded */
+/** Shared header row — identical in collapsed and expanded, mobile-responsive */
 function HeaderRow({ data, period, pace, paceAboveGoal }: {
   data: CubeStyleProps['data'];
   period: OrgPeriod;
@@ -134,9 +134,9 @@ function HeaderRow({ data, period, pace, paceAboveGoal }: {
   const paceVal = period === 'day' ? data.paceToday : null;
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-2 min-w-0">
       {/* Left: Location name + store number */}
-      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+      <div className="flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
         <p className="text-sm font-bold truncate drop-shadow-sm">
           {data.locationName}
         </p>
@@ -148,16 +148,22 @@ function HeaderRow({ data, period, pace, paceAboveGoal }: {
       </div>
 
       {/* Right: Goal | Pace | arrow | Total */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 md:gap-3 shrink-0">
         {period === 'day' && (
           <>
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Goal</p>
               <p className="text-xs font-black leading-tight">{goalVal !== null ? fmtFull(goalVal) : '—'}</p>
             </div>
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Pace</p>
               <p className="text-xs font-black leading-tight">{paceVal !== null ? fmtFull(paceVal) : '—'}</p>
+            </div>
+            {/* Mobile: compact Goal/Pace */}
+            <div className="flex items-center gap-1.5 sm:hidden text-[10px] font-bold opacity-80">
+              <span>{goalVal !== null ? fmtFull(goalVal) : '—'}</span>
+              <span className="opacity-40">/</span>
+              <span>{paceVal !== null ? fmtFull(paceVal) : '—'}</span>
             </div>
           </>
         )}
@@ -176,13 +182,13 @@ function HeaderRow({ data, period, pace, paceAboveGoal }: {
 
         {/* Status arrow */}
         {paceAboveGoal !== null && (
-          <span className="text-lg font-black leading-none drop-shadow-sm">
+          <span className="text-sm md:text-lg font-black leading-none drop-shadow-sm">
             {paceAboveGoal ? '▲' : '▼'}
           </span>
         )}
 
-        {/* Total sales — always full number */}
-        <p className="text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
+        {/* Total sales */}
+        <p className="text-xl md:text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
           {fmtFull(heroSales)}
         </p>
       </div>
