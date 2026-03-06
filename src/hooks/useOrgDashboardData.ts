@@ -213,20 +213,41 @@ export function useOrgLocationData(locationIds: string[]) {
           ? (laborCost / todayNet) * 100 
           : null;
 
-        // Hourly data
+        // Hourly data — extract ONLY actual sales, not projected
+        // Format in sales_cache is array of { hour: string, sales: number, checksCount: number, projected?: number }
         const hourly = Array(24).fill(0);
-        if (todaySales?.hourly_data && typeof todaySales.hourly_data === 'object') {
-          const hd = todaySales.hourly_data as Record<string, any>;
-          for (const [hour, val] of Object.entries(hd)) {
-            const h = parseInt(hour);
-            if (!isNaN(h) && h >= 0 && h < 24) {
-              hourly[h] = typeof val === 'number' ? val : (val?.actual ?? val?.sales ?? 0);
+        if (todaySales?.hourly_data) {
+          if (Array.isArray(todaySales.hourly_data)) {
+            // Array format: [{ hour: "11:00 AM", sales: 350, ... }]
+            for (const entry of todaySales.hourly_data as Array<{ hour: string; sales: number; projected?: number }>) {
+              const hourStr = entry.hour;
+              // Parse hour from "11:00 AM" or "2:00 PM" format
+              const match = hourStr?.match(/^(\d{1,2}):?\d*\s*(AM|PM)?$/i);
+              if (match) {
+                let h = parseInt(match[1]);
+                const ampm = match[2]?.toUpperCase();
+                if (ampm === 'PM' && h !== 12) h += 12;
+                if (ampm === 'AM' && h === 12) h = 0;
+                if (h >= 0 && h < 24) {
+                  hourly[h] = entry.sales || 0; // Only actual sales, NOT projected
+                }
+              }
+            }
+          } else if (typeof todaySales.hourly_data === 'object') {
+            // Object format keyed by hour index
+            const hd = todaySales.hourly_data as Record<string, any>;
+            for (const [hour, val] of Object.entries(hd)) {
+              const h = parseInt(hour);
+              if (!isNaN(h) && h >= 0 && h < 24) {
+                // Only use actual sales field, not projected
+                hourly[h] = typeof val === 'number' ? val : (val?.sales ?? val?.actual ?? 0);
+              }
             }
           }
         }
 
-        // Pace = living > override > projected
-        const pace = todaySales?.living_projection ?? todaySales?.override_projection ?? todaySales?.projected_sales ?? null;
+        // Pace = living_projection (dynamic) or override. NEVER fall back to projected_sales (that's the goal)
+        const pace = todaySales?.living_projection ?? todaySales?.override_projection ?? null;
 
         // WTD labor (sum per location, prefer punch_clock per day but aggregate all)
         const locLaborWtd = laborWtdResult.data?.filter(l => l.location_id === locId) || [];
