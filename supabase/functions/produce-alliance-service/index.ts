@@ -1425,6 +1425,7 @@ serve(async (req) => {
       case 'explore': return await handleExplore(supabase, body);
       case 'fetch_order': return await handleFetchOrder(supabase, body);
       case 'discover_restaurant_id': return await handleDiscoverRestaurantId(supabase, body);
+      case 'debug': return await handleDebug(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
