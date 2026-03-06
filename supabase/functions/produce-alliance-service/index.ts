@@ -9,13 +9,13 @@ const corsHeaders = {
 // ============================================================================
 // PRODUCE ALLIANCE SERVICE — Buyers Edge Platform
 // Portal: https://producealliance.info
-// Auth: Username/Password form login → JSESSIONID cookie
-// Order list: Angular app at /ng/#/restaurantBackOffice/viewOrders
-// Order detail: JSP page at /viewOrder.jsp (HTML table with line items)
+// Auth: OAuth2 Bearer token via POST /oauth/token (grant_type=password)
+// API: REST endpoints at /api/... with Authorization: Bearer <token>
+// Order list: POST /api/restaurant-dashboard/fetch-orders-for-restaurant-by-params
 // ============================================================================
 
 const PA_BASE_URL = 'https://producealliance.info';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Safari/605.1.15';
 
 interface PACredentials {
   username: string;
@@ -26,6 +26,8 @@ interface PACredentials {
 }
 
 interface PASession {
+  accessToken: string;
+  refreshToken: string;
   cookies: string;
   restaurantId: string;
 }
