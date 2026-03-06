@@ -2,10 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
-import { format, startOfWeek, startOfMonth, subDays, subWeeks, subMonths, endOfWeek, endOfMonth, differenceInDays, parseISO } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
 
 const LA_TZ = 'America/Los_Angeles';
+
+// Get formatted date string in LA timezone
+function laDate(date: Date, fmt = 'yyyy-MM-dd'): string {
+  return formatInTimeZone(date, LA_TZ, fmt);
+}
 
 interface LocationInfo {
   id: string;
