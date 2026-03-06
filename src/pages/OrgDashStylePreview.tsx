@@ -135,9 +135,9 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
       {/* Left accent stripe */}
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: STATUS_COLORS[derivedStatus] }} />
       <div className="pl-5 pr-4 py-3 space-y-2">
-        {/* Header */}
+        {/* Header - single row */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <p className="text-sm font-bold text-foreground">{data.locationName}</p>
             <span className="text-xs text-muted-foreground font-medium">{data.storeNumber}</span>
             {statusLabel && (
@@ -148,7 +148,7 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
               }`}>{statusLabel}</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="text-right"><p className="text-[8px] text-muted-foreground">Goal</p><p className="text-xs font-bold text-foreground">{data.goalToday ? fmtFull(data.goalToday) : '—'}</p></div>
             <div className="text-right"><p className="text-[8px] text-muted-foreground">Pace</p><p className="text-xs font-bold text-foreground">{data.paceToday ? fmtFull(data.paceToday) : '—'}</p></div>
             {paceAboveGoal !== null && <span className={`text-lg font-black ${paceAboveGoal ? 'text-green-500' : 'text-red-500'}`}>{paceAboveGoal ? '▲' : '▼'}</span>}
