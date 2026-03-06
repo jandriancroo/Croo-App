@@ -530,17 +530,56 @@ interface PAOrderDetail {
 }
 
 async function fetchOrderDetail(session: PASession, webOrderId: string, startDate: string, endDate: string): Promise<PAOrderDetail | null> {
-  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
   console.log('[PA Detail] Fetching order:', webOrderId);
+
+  const authHeaders = getAuthHeaders(session);
+
+  // Try REST API first
+  try {
+    const apiResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }),
+    });
+    
+    if (apiResp.ok) {
+      const text = await apiResp.text();
+      try {
+        const json = JSON.parse(text);
+        console.log('[PA Detail] Got JSON detail for order', webOrderId, 'keys:', Object.keys(json).join(', '));
+        // If the API returns structured order data, parse it
+        if (json.lineItems || json.items || json.orderLines || json.data) {
+          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || [];
+          return {
+            webOrderId,
+            deliveryDate: json.deliveryDate || json.delivery_date || null,
+            totalCases: json.totalCases || json.total_cases || null,
+            totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
+            lineItems: Array.isArray(items) ? items.map((li: any) => ({
+              item_code: String(li.itemCode || li.item_code || li.productCode || ''),
+              description: li.description || li.name || li.productName || '',
+              pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
+              unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
+              quantity: parseFloat(li.quantity || li.qty || 0),
+              cost: parseFloat(li.cost || li.total || li.lineTotal || 0),
+            })) : [],
+          };
+        }
+      } catch { /* not JSON */ }
+    } else {
+      await apiResp.text().catch(() => '');
+    }
+  } catch (e) {
+    console.warn('[PA Detail] REST API error:', e);
+  }
+
+  // Fallback: JSP scraping
+  const url = `${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}&startDate=${startDate}&endDate=${endDate}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
 
   try {
     const resp = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Cookie': session.cookies,
-        'User-Agent': UA,
-        'Referer': `${PA_BASE_URL}/ng/`,
-      },
+      headers: authHeaders,
       redirect: 'follow',
     });
 
@@ -553,7 +592,6 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     const html = await resp.text();
     console.log('[PA Detail] Got HTML for order', webOrderId, 'len:', html.length);
 
-    // Check if we got redirected to login
     if (html.includes('Sign in') || html.includes('j_security_check')) {
       console.warn('[PA Detail] Session expired — got login page');
       return null;
