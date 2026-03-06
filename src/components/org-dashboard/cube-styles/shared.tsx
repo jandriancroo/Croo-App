@@ -126,7 +126,7 @@ export function HourlyHeatmap({ data, height = 16, variant = 'default', showLabe
             return (
               <div key={i} className="flex-1 min-w-[3px] text-center">
                 {isHot ? (
-                  <span className={`text-[7px] leading-none font-medium ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>
+                  <span className={`text-[10px] leading-tight font-bold ${variant === 'light' ? 'opacity-80' : 'text-muted-foreground'}`}>
                     {formatHour(i)}
                   </span>
                 ) : null}
