@@ -113,7 +113,7 @@ export function useOrgLocationData(locationIds: string[]) {
         // Today + WTD + MTD sales (all in one query since date range covers it)
         supabase
           .from('sales_cache')
-          .select('location_id, sale_date, net_sales, hourly_data, projected_sales, living_projection, override_projection, avg_ticket, guest_count, yoy_net_sales')
+          .select('location_id, sale_date, net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, avg_ticket, guest_count, yoy_net_sales')
           .in('location_id', locationIds)
           .gte('sale_date', monthStartStr)
           .lte('sale_date', todayStr),
@@ -261,10 +261,13 @@ export function useOrgLocationData(locationIds: string[]) {
           ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
           : null;
 
+        // Goal = resolved projection matching SalesSummary logic (override > living > initial > projected_sales)
+        const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.living_projection) || Number(todaySales?.initial_projection) || Number(todaySales?.projected_sales) || null;
+
         result[locId] = {
           salesToday: todayNet,
           paceToday: pace,
-          goalToday: todaySales?.projected_sales ?? null,
+          goalToday: goalVal,
           last7Days: last7,
           salesWtd: wtdSales,
           salesPrevWeek: prevWeekTotal,
