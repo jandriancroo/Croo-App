@@ -4,86 +4,81 @@ import {
   HourlyHeatmap,
 } from './shared';
 
-/** Style B: Glass Scoreboard — Full-bleed status color background, white text, big numbers */
+/** Style B: Glass Scoreboard — Full-bleed status color background, white text, compact */
 export function OrgCubeStyleB({ data, isLoading, onClick }: CubeStyleProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
 
   if (isLoading) {
     return (
-      <div className="rounded-xl p-4 space-y-3 animate-pulse bg-muted/30 h-52">
-        <div className="h-6 bg-muted rounded w-1/2" />
-        <div className="h-12 bg-muted rounded" />
+      <div className="rounded-xl p-3 space-y-2 animate-pulse bg-muted/30 h-28">
+        <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="h-8 bg-muted rounded" />
       </div>
     );
   }
 
-  // Goal progress
   const goalPct = data.goalToday && data.goalToday > 0
     ? Math.min((data.salesToday / data.goalToday) * 100, 120)
     : 0;
 
   return (
     <div
-      className="rounded-xl cursor-pointer hover:scale-[1.02] transition-all duration-200 relative overflow-hidden"
+      className="rounded-xl cursor-pointer hover:scale-[1.01] transition-all duration-200 relative overflow-hidden"
       onClick={onClick}
       style={{
         background: `linear-gradient(145deg, ${statusColor}dd, ${statusColor}99)`,
         color: 'white',
       }}
     >
-      {/* Decorative circles */}
       <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
       <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
       
-      <div className="relative z-10 p-4 space-y-3">
-        {/* L1: Store + massive number */}
-        <div className="flex items-start justify-between">
-          <p className="text-xs font-medium opacity-80 truncate">{getDisplayName(data)}</p>
-          <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
-            {pace.label || '—'}
-          </span>
-        </div>
-        <p className="text-5xl font-black tracking-tighter leading-none drop-shadow-sm">
-          {formatCurrencyFull(data.salesToday)}
-        </p>
-
-        {/* L2: Goal progress bar */}
-        <div className="space-y-1">
-          <div className="h-2 bg-black/20 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white/80 rounded-full transition-all"
-              style={{ width: `${Math.min(goalPct, 100)}%` }}
-            />
+      <div className="relative z-10 px-4 py-2.5 space-y-1.5">
+        {/* Row 1: Name + status + hero number all inline */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <p className="text-xs font-medium opacity-80 truncate">{getDisplayName(data)}</p>
+            <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full shrink-0">
+              {pace.label || '—'}
+            </span>
           </div>
-          <div className="flex justify-between text-[10px] opacity-70">
-            <span>Pace: {data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</span>
-            <span>Goal: {data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</span>
-          </div>
+          <p className="text-3xl font-black tracking-tighter leading-none drop-shadow-sm shrink-0">
+            {formatCurrencyFull(data.salesToday)}
+          </p>
         </div>
 
-        {/* L3: Comparison row */}
-        <div className="flex gap-2">
-          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
-            <p className="text-[8px] opacity-70">WTD</p>
-            <p className="text-xs font-black">{formatCurrency(data.salesWtd)}</p>
-            <p className="text-[9px] font-semibold">{pctChange(data.salesWtd, data.salesPrevWeek)}</p>
-          </div>
-          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
-            <p className="text-[8px] opacity-70">MTD</p>
-            <p className="text-xs font-black">{formatCurrency(data.salesMtd)}</p>
-            <p className="text-[9px] font-semibold">{pctChange(data.salesMtd, data.salesPrevMonth)}</p>
-          </div>
-          <div className="flex-1 bg-white/15 rounded-lg px-2 py-1 text-center backdrop-blur-sm">
-            <p className="text-[8px] opacity-70">Labor</p>
-            <p className="text-xs font-black">{data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—'}</p>
-            <p className="text-[9px] opacity-70">{data.laborCost !== null ? formatCurrency(data.laborCost) : ''}</p>
+        {/* Row 2: Progress bar */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 space-y-0.5">
+            <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
+              <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${Math.min(goalPct, 100)}%` }} />
+            </div>
+            <div className="flex justify-between text-[9px] opacity-60">
+              <span>Pace: {data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</span>
+              <span>Goal: {data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</span>
+            </div>
           </div>
         </div>
 
-        {/* L5: Heatmap - inverted colors */}
-        <div className="opacity-80">
-          <HourlyHeatmap data={data.hourlyData} height={14} variant="light" />
+        {/* Row 3: Metrics + heatmap inline */}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5 shrink-0">
+            {[
+              { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
+              { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
+              { label: 'Labor', val: data.laborPercent !== null ? `${data.laborPercent.toFixed(0)}%` : '—', sub: data.laborCost !== null ? formatCurrency(data.laborCost) : '' },
+            ].map(m => (
+              <div key={m.label} className="bg-white/15 rounded-md px-2 py-1 text-center backdrop-blur-sm min-w-[56px]">
+                <p className="text-[7px] opacity-60">{m.label}</p>
+                <p className="text-[11px] font-black leading-tight">{m.val}</p>
+                {m.sub && <p className="text-[8px] font-semibold opacity-80">{m.sub}</p>}
+              </div>
+            ))}
+          </div>
+          <div className="flex-1 opacity-70">
+            <HourlyHeatmap data={data.hourlyData} height={18} variant="light" />
+          </div>
         </div>
       </div>
     </div>

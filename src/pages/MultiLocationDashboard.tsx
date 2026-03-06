@@ -126,40 +126,28 @@ export default function MultiLocationDashboard() {
   if (previewMode) {
     return (
       <Layout>
-        <div className="p-4 md:p-6 space-y-8 max-w-5xl mx-auto">
+        <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
           <div className="text-center space-y-2">
-            <h1 className="text-2xl md:text-3xl font-bold">Choose Your Org Dashboard Style</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Org Dashboard Preview</h1>
             <p className="text-sm text-muted-foreground">
-              Each style shows the same 5 layers of data — pick the one that feels right. You can always change later.
+              Style B: Glass Scoreboard — review with mock data, then go live.
             </p>
           </div>
 
-          {STYLE_LABELS.map((style, idx) => {
-            const CubeComponent = [OrgCubeStyleA, OrgCubeStyleB, OrgCubeStyleC, OrgCubeStyleD, OrgCubeStyleE][idx];
-            return (
-              <div key={style.id} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold">Style {style.id}: {style.name}</h2>
-                    <p className="text-xs text-muted-foreground">{style.desc}</p>
-                  </div>
-                  <button
-                    onClick={() => { setSelectedStyle(style.id); setPreviewMode(false); }}
-                    className="text-xs font-medium px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    Use This Style
-                  </button>
-                </div>
-                
-                {/* Show 3 cubes per style for preview */}
-                <div className="space-y-3">
-                  {MOCK_DATA.slice(0, 3).map(mock => (
-                    <CubeComponent key={mock.locationId} data={mock} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+          <div className="space-y-3">
+            {MOCK_DATA.map(mock => (
+              <OrgCubeStyleB key={mock.locationId} data={mock} />
+            ))}
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              onClick={() => { setSelectedStyle('B'); setPreviewMode(false); }}
+              className="text-sm font-medium px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Go Live With This Style
+            </button>
+          </div>
         </div>
       </Layout>
     );
