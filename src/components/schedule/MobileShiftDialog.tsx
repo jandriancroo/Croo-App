@@ -281,6 +281,16 @@ export function MobileShiftDialog({
 
       if (error) throw error;
 
+      // Optimistically remove from cache
+      if (currentWeekStart && (currentLocation?.id || locationId)) {
+        const locId = currentLocation?.id || locationId;
+        const scheduleKey = ['schedule', locId, format(currentWeekStart, 'yyyy-MM-dd')];
+        queryClient.setQueryData(scheduleKey, (old: any) => {
+          if (!old) return old;
+          return { ...old, shifts: old.shifts.filter((s: any) => s.id !== shift.id) };
+        });
+      }
+
       toast.success('Shift deleted');
       onShiftUpdated?.();
       onOpenChange(false);
