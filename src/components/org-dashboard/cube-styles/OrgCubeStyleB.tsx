@@ -281,7 +281,7 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
       )}
 
       <div className="relative z-10 px-3 md:px-4 py-2.5">
-        <HeaderRow data={data} period={period} paceAboveGoal={paceAboveGoal} />
+        <HeaderRow data={data} period={period} paceAboveGoal={paceAboveGoal} statusLabel={statusLabel} />
 
         {collapsed ? (
           <AnimatePresence initial={false}>
