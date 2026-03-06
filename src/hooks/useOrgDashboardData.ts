@@ -215,6 +215,18 @@ export function useOrgLocationData(locationIds: string[]) {
         // Pace = living > override > projected
         const pace = todaySales?.living_projection ?? todaySales?.override_projection ?? todaySales?.projected_sales ?? null;
 
+        // WTD labor (sum per location, prefer punch_clock per day but aggregate all)
+        const locLaborWtd = laborWtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostWtd = locLaborWtd.length > 0
+          ? locLaborWtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
+        // MTD labor
+        const locLaborMtd = laborMtdResult.data?.filter(l => l.location_id === locId) || [];
+        const laborCostMtd = locLaborMtd.length > 0
+          ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
+          : null;
+
         result[locId] = {
           salesToday: todayNet,
           paceToday: pace,
@@ -227,6 +239,8 @@ export function useOrgLocationData(locationIds: string[]) {
           salesLastYearDay: todaySales?.yoy_net_sales ?? null,
           laborPercent,
           laborCost,
+          laborCostWtd,
+          laborCostMtd,
           hourlyData: hourly,
         };
       }
