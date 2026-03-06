@@ -599,43 +599,59 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     console.warn('[PA Detail] JSP session setup failed:', e);
   }
 
-  // Try REST API first
-  try {
-    const apiResp = await fetch(`${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }),
-    });
-    
-    if (apiResp.ok) {
+  // Try REST API endpoints for order detail
+  const detailEndpoints = [
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-detail`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-order-details`, method: 'POST', body: JSON.stringify({ webOrderId, restaurantId: parseInt(session.restaurantId) || session.restaurantId }) },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/order/${webOrderId}`, method: 'GET', body: undefined },
+    { url: `${PA_BASE_URL}/api/restaurant-dashboard/view-order?webOrderId=${webOrderId}&restaurantId=${session.restaurantId}`, method: 'GET', body: undefined },
+  ];
+
+  for (const ep of detailEndpoints) {
+    try {
+      const apiResp = await fetch(ep.url, {
+        method: ep.method,
+        headers: { 
+          ...authHeaders, 
+          'Content-Type': 'application/json',
+          'X-UI-URL': `${PA_BASE_URL}/ng/#/restaurantBackOffice/viewOrders?restaurantId=${session.restaurantId}`,
+        },
+        body: ep.body,
+      });
+      
       const text = await apiResp.text();
-      try {
-        const json = JSON.parse(text);
-        console.log('[PA Detail] Got JSON detail for order', webOrderId, 'keys:', Object.keys(json).join(', '));
-        // If the API returns structured order data, parse it
-        if (json.lineItems || json.items || json.orderLines || json.data) {
-          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || [];
-          return {
-            webOrderId,
-            deliveryDate: json.deliveryDate || json.delivery_date || null,
-            totalCases: json.totalCases || json.total_cases || null,
-            totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
-            lineItems: Array.isArray(items) ? items.map((li: any) => ({
-              item_code: String(li.itemCode || li.item_code || li.productCode || ''),
-              description: li.description || li.name || li.productName || '',
-              pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
-              unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
-              quantity: parseFloat(li.quantity || li.qty || 0),
-              cost: parseFloat(li.cost || li.total || li.lineTotal || 0),
-            })) : [],
-          };
-        }
-      } catch { /* not JSON */ }
-    } else {
-      await apiResp.text().catch(() => '');
+      console.log('[PA Detail] API', ep.url.replace(PA_BASE_URL, ''), '→', apiResp.status, 'len:', text.length, 'preview:', text.substring(0, 300));
+      
+      if (apiResp.ok && text.length > 50) {
+        try {
+          const json = JSON.parse(text);
+          const keys = Object.keys(json);
+          console.log('[PA Detail] JSON keys:', keys.join(', '));
+          
+          // Check all possible data locations
+          const items = json.lineItems || json.items || json.orderLines || json.data?.lineItems || json.data?.items || json.dataList || json.orderDetails || [];
+          if (Array.isArray(items) && items.length > 0) {
+            console.log('[PA Detail] ✅ Found', items.length, 'line items from API');
+            return {
+              webOrderId,
+              deliveryDate: json.deliveryDate || json.delivery_date || null,
+              totalCases: json.totalCases || json.total_cases || json.caseCount || null,
+              totalAmount: json.totalAmount || json.total_amount || json.orderTotal || null,
+              lineItems: items.map((li: any) => ({
+                item_code: String(li.itemCode || li.item_code || li.productCode || li.itemNumber || ''),
+                description: li.description || li.name || li.productName || li.itemName || '',
+                pa_product_id: String(li.paProductId || li.pa_product_id || li.productId || ''),
+                unit_price: parseFloat(li.unitPrice || li.unit_price || li.price || 0),
+                quantity: parseFloat(li.quantity || li.qty || li.caseCount || 0),
+                cost: parseFloat(li.cost || li.total || li.lineTotal || li.extendedPrice || 0),
+              })),
+            };
+          }
+        } catch { /* not JSON */ }
+      }
+    } catch (e) {
+      console.warn('[PA Detail] API error:', e);
     }
-  } catch (e) {
-    console.warn('[PA Detail] REST API error:', e);
   }
 
   // Fallback: JSP scraping — use non-zero-padded dates to match browser behavior
