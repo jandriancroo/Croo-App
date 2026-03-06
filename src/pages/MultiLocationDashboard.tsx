@@ -152,7 +152,7 @@ export default function MultiLocationDashboard() {
                 </div>
                 
                 {/* Show 3 cubes per style for preview */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-3">
                   {MOCK_DATA.slice(0, 3).map(mock => (
                     <CubeComponent key={mock.locationId} data={mock} />
                   ))}
