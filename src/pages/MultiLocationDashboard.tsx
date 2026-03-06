@@ -8,18 +8,7 @@ import { OrgSearchBar, SearchTag, SearchableLocation } from '@/components/org-da
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
-const FAVORITES_KEY = 'org-dash-favorites';
-
-function loadFavorites(orgId: string): string[] {
-  try {
-    const stored = localStorage.getItem(`${FAVORITES_KEY}-${orgId}`);
-    return stored ? JSON.parse(stored) : [];
-  } catch { return []; }
-}
-
-function saveFavorites(orgId: string, ids: string[]) {
-  localStorage.setItem(`${FAVORITES_KEY}-${orgId}`, JSON.stringify(ids));
-}
+const SEARCH_TAGS_KEY = 'org-dash-search-tags';
 
 // Mock data for preview
 const MOCK_DATA: OrgLocationData[] = [
