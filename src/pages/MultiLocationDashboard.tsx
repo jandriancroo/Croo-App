@@ -5,11 +5,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgFavoritesBar } from '@/components/org-dashboard/OrgFavoritesBar';
-import { OrgCubeStyleA } from '@/components/org-dashboard/cube-styles/OrgCubeStyleA';
-import { OrgCubeStyleB } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
-import { OrgCubeStyleC } from '@/components/org-dashboard/cube-styles/OrgCubeStyleC';
-import { OrgCubeStyleD } from '@/components/org-dashboard/cube-styles/OrgCubeStyleD';
-import { OrgCubeStyleE } from '@/components/org-dashboard/cube-styles/OrgCubeStyleE';
+import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
 
 const FAVORITES_KEY = 'org-dash-favorites';
 
@@ -31,7 +27,7 @@ const MOCK_DATA: OrgLocationData[] = [
     salesToday: 4823, paceToday: 8950, goalToday: 8200,
     last7Days: [6200, 7100, 5800, 7400, 6900, 8100, 4823],
     salesWtd: 46224, salesPrevWeek: 43100, salesMtd: 128450, salesPrevMonth: 135200,
-    salesLastYearDay: 4200, laborPercent: 24.3, laborCost: 1172,
+    salesLastYearDay: 4200, laborPercent: 24.3, laborCost: 1172, laborCostWtd: 8200, laborCostMtd: 31200,
     hourlyData: [0,0,0,0,0,0,0,120,340,580,720,890,1050,650,420,380,0,0,0,0,0,0,0,0],
   },
   {
@@ -39,7 +35,7 @@ const MOCK_DATA: OrgLocationData[] = [
     salesToday: 3156, paceToday: 5800, goalToday: 6500,
     last7Days: [5100, 4800, 5200, 4900, 5500, 5300, 3156],
     salesWtd: 33956, salesPrevWeek: 35200, salesMtd: 98700, salesPrevMonth: 102300,
-    salesLastYearDay: 3800, laborPercent: 31.2, laborCost: 984,
+    salesLastYearDay: 3800, laborPercent: 31.2, laborCost: 984, laborCostWtd: 6900, laborCostMtd: 28600,
     hourlyData: [0,0,0,0,0,0,0,80,220,410,580,690,820,510,340,290,0,0,0,0,0,0,0,0],
   },
   {
@@ -47,7 +43,7 @@ const MOCK_DATA: OrgLocationData[] = [
     salesToday: 5612, paceToday: 10200, goalToday: 9000,
     last7Days: [7800, 8200, 7400, 8600, 9100, 8800, 5612],
     salesWtd: 55512, salesPrevWeek: 51200, salesMtd: 162300, salesPrevMonth: 155800,
-    salesLastYearDay: 5100, laborPercent: 22.1, laborCost: 1240,
+    salesLastYearDay: 5100, laborPercent: 22.1, laborCost: 1240, laborCostWtd: 8700, laborCostMtd: 33500,
     hourlyData: [0,0,0,0,0,0,0,200,450,680,920,1100,1280,780,520,460,220,0,0,0,0,0,0,0],
   },
   {
@@ -55,7 +51,7 @@ const MOCK_DATA: OrgLocationData[] = [
     salesToday: 2890, paceToday: 5100, goalToday: 5800,
     last7Days: [4200, 4500, 3900, 4100, 4800, 4600, 2890],
     salesWtd: 28990, salesPrevWeek: 30100, salesMtd: 84200, salesPrevMonth: 88900,
-    salesLastYearDay: 3100, laborPercent: 34.8, laborCost: 1006,
+    salesLastYearDay: 3100, laborPercent: 34.8, laborCost: 1006, laborCostWtd: 7050, laborCostMtd: 27800,
     hourlyData: [0,0,0,0,0,0,0,60,180,320,450,560,680,420,280,240,100,0,0,0,0,0,0,0],
   },
   {
@@ -63,18 +59,31 @@ const MOCK_DATA: OrgLocationData[] = [
     salesToday: 4100, paceToday: 7500, goalToday: 7200,
     last7Days: [5900, 6300, 5700, 6100, 6800, 6500, 4100],
     salesWtd: 41400, salesPrevWeek: 39800, salesMtd: 118900, salesPrevMonth: 121500,
-    salesLastYearDay: 3900, laborPercent: 27.5, laborCost: 1128,
+    salesLastYearDay: 3900, laborPercent: 27.5, laborCost: 1128, laborCostWtd: 7900, laborCostMtd: 30400,
     hourlyData: [0,0,0,0,0,0,0,140,310,520,680,820,960,600,390,340,160,0,0,0,0,0,0,0],
   },
 ];
 
-const STYLE_LABELS = [
-  { id: 'A', name: 'Compact Cards', desc: 'Dense info with colored accent bar, circular labor gauge' },
-  { id: 'B', name: 'Glass Scoreboard', desc: 'Full-color status backgrounds, white text, bold progress bars' },
-  { id: 'C', name: 'Terminal Analytics', desc: 'Dark background, monospace feel, neon accents, structured data rows' },
-  { id: 'D', name: 'Horizontal Ticker', desc: 'Wide row layout with big sparklines, stock-ticker metrics strip' },
-  { id: 'E', name: 'Mosaic Grid', desc: 'Colored block tiles, each metric in its own cell' },
-];
+/** Global period selector pill */
+function PeriodSelector({ period, onChange }: { period: OrgPeriod; onChange: (p: OrgPeriod) => void }) {
+  return (
+    <div className="flex bg-muted rounded-full p-[3px] gap-[2px]">
+      {(['day', 'week', 'month'] as OrgPeriod[]).map(p => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+            period === p
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {p === 'day' ? 'Day' : p === 'week' ? 'Week' : 'Month'}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function MultiLocationDashboard() {
   const { organizationId: contextOrgId } = useAppLocation();
@@ -83,9 +92,9 @@ export default function MultiLocationDashboard() {
   const organizationId = urlOrgId || contextOrgId;
 
   const [previewMode, setPreviewMode] = useState(true);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [period, setPeriod] = useState<OrgPeriod>('day');
 
-  // === Live mode state (for after style selection) ===
+  // === Live mode state ===
   const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false);
@@ -122,11 +131,11 @@ export default function MultiLocationDashboard() {
     });
   }, [displayLocationIds, locationData, favorites, showAll]);
 
-  // Preview mode: show 5 design options
+  // Preview mode
   if (previewMode) {
     return (
       <Layout>
-        <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
+        <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
           <div className="text-center space-y-2">
             <h1 className="text-2xl md:text-3xl font-bold">Org Dashboard Preview</h1>
             <p className="text-sm text-muted-foreground">
@@ -134,15 +143,19 @@ export default function MultiLocationDashboard() {
             </p>
           </div>
 
+          <div className="flex justify-center">
+            <PeriodSelector period={period} onChange={setPeriod} />
+          </div>
+
           <div className="space-y-3">
             {MOCK_DATA.map(mock => (
-              <OrgCubeStyleB key={mock.locationId} data={mock} />
+              <OrgCubeStyleB key={mock.locationId} data={mock} period={period} />
             ))}
           </div>
 
           <div className="flex justify-center">
             <button
-              onClick={() => { setSelectedStyle('B'); setPreviewMode(false); }}
+              onClick={() => { setPreviewMode(false); }}
               className="text-sm font-medium px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               Go Live With This Style
@@ -153,19 +166,14 @@ export default function MultiLocationDashboard() {
     );
   }
 
-  // Live mode after style selection
-  const ActiveCube = selectedStyle === 'B' ? OrgCubeStyleB
-    : selectedStyle === 'C' ? OrgCubeStyleC
-    : selectedStyle === 'D' ? OrgCubeStyleD
-    : selectedStyle === 'E' ? OrgCubeStyleE
-    : OrgCubeStyleA;
-
+  // Live mode
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl md:text-2xl font-bold">Org Dashboard</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <PeriodSelector period={period} onChange={setPeriod} />
             <span className="text-xs text-muted-foreground">
               {allLocations.length} store{allLocations.length !== 1 ? 's' : ''}
             </span>
@@ -191,7 +199,7 @@ export default function MultiLocationDashboard() {
         {locsLoading && (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <ActiveCube key={i} data={{} as OrgLocationData} isLoading />
+              <OrgCubeStyleB key={i} data={{} as OrgLocationData} isLoading />
             ))}
           </div>
         )}
@@ -210,9 +218,10 @@ export default function MultiLocationDashboard() {
                 salesMtd: locData?.salesMtd ?? 0, salesPrevMonth: locData?.salesPrevMonth ?? null,
                 salesLastYearDay: locData?.salesLastYearDay ?? null,
                 laborPercent: locData?.laborPercent ?? null, laborCost: locData?.laborCost ?? null,
+                laborCostWtd: locData?.laborCostWtd ?? null, laborCostMtd: locData?.laborCostMtd ?? null,
                 hourlyData: locData?.hourlyData ?? Array(24).fill(0),
               };
-              return <ActiveCube key={locId} data={cubeData} isLoading={dataLoading} />;
+              return <OrgCubeStyleB key={locId} data={cubeData} isLoading={dataLoading} period={period} />;
             })}
           </div>
         )}
