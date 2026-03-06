@@ -139,41 +139,45 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     );
   }
 
-  // In collapsed mode, always show the collapsed row
-  // If expanded, also show the full card below it
+  // In collapsed mode: show ticker OR full card, animated swap
   if (collapsed) {
     return (
-      <div>
-        <CollapsedRow
-          data={data}
-          period={period}
-          statusColor={statusColor}
-          pace={pace}
-          onClick={onToggleExpand}
-        />
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              key="expanded"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="pt-1.5">
-                <FullCard
-                  data={data}
-                  period={period}
-                  statusColor={statusColor}
-                  pace={pace}
-                  onClick={onToggleExpand}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <AnimatePresence initial={false} mode="wait">
+        {expanded ? (
+          <motion.div
+            key="full"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="overflow-hidden"
+          >
+            <FullCard
+              data={data}
+              period={period}
+              statusColor={statusColor}
+              pace={pace}
+              onClick={onToggleExpand}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="collapsed"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <CollapsedRow
+              data={data}
+              period={period}
+              statusColor={statusColor}
+              pace={pace}
+              onClick={onToggleExpand}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     );
   }
 
