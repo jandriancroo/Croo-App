@@ -370,7 +370,14 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
       console.log('[PA Orders]', attempt.method, attempt.url.replace(PA_BASE_URL, ''), '→', resp.status, 'len:', text.length);
 
       if (!resp.ok) {
-        console.log('[PA Orders] Error body (first 500):', text.substring(0, 500));
+        // Try to extract the actual error message from Java stack trace
+        try {
+          const errJson = JSON.parse(text);
+          const msg = errJson.message || errJson.error || errJson.localizedMessage || '';
+          console.log('[PA Orders] Error:', resp.status, msg, 'body payload:', attempt.body?.substring(0, 200));
+        } catch {
+          console.log('[PA Orders] Error body (first 500):', text.substring(0, 500));
+        }
         continue;
       }
       if (text.length < 10) continue;
