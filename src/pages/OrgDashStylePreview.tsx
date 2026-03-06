@@ -136,19 +136,19 @@ function StyleBNeumorphic({ data }: { data: OrgLocationData }) {
       <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: STATUS_COLORS[derivedStatus] }} />
       <div className="pl-5 pr-4 py-3 space-y-2">
         {/* Header - single row */}
-         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
               <p className="text-sm font-bold text-foreground leading-tight">{data.locationName}</p>
-              <span className="text-[10px] text-muted-foreground font-medium">{data.storeNumber}</span>
+              {statusLabel && (
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                  derivedStatus === 'fire' || derivedStatus === 'ahead' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : derivedStatus === 'track' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}>{statusLabel}</span>
+              )}
             </div>
-            {statusLabel && (
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                derivedStatus === 'fire' || derivedStatus === 'ahead' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : derivedStatus === 'track' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-              }`}>{statusLabel}</span>
-            )}
+            <span className="text-[10px] text-muted-foreground font-medium">{data.storeNumber}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-right"><p className="text-[8px] text-muted-foreground">Goal</p><p className="text-xs font-bold text-foreground">{data.goalToday ? fmtFull(data.goalToday) : '—'}</p></div>
