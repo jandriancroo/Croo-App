@@ -178,7 +178,7 @@ export default function MultiLocationDashboard() {
   if (previewMode) {
     return (
       <Layout>
-        <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
+        <div className="p-4 md:p-6 space-y-4">
           <div className="text-center space-y-2">
             <h1 className="text-2xl md:text-3xl font-bold">Org Dashboard Preview</h1>
             <p className="text-sm text-muted-foreground">

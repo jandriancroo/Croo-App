@@ -1,8 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS,
-  formatCurrency, pctChange,
-  HourlyHeatmap,
+  pctChange,
 } from './shared';
 
 export type OrgPeriod = 'day' | 'week' | 'month';
@@ -20,24 +19,11 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
       <div className="flex gap-[3px] items-end" style={{ height: 28 }}>
         {data.map((val, i) => {
           const intensity = max > 0 ? val / max : 0;
-          let bg: string;
-          if (variant === 'light') {
-            bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)'
-              : intensity > 0.4 ? 'rgba(255,255,255,0.5)'
-              : intensity > 0.05 ? 'rgba(255,255,255,0.2)'
-              : 'rgba(255,255,255,0.08)';
-          } else {
-            bg = intensity > 0.7 ? '#22c55e'
-              : intensity > 0.4 ? '#eab308'
-              : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)'
-              : 'hsl(var(--muted))';
-          }
+          const bg = variant === 'light'
+            ? (intensity > 0.7 ? 'rgba(255,255,255,0.9)' : intensity > 0.4 ? 'rgba(255,255,255,0.5)' : intensity > 0.05 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)')
+            : (intensity > 0.7 ? '#22c55e' : intensity > 0.4 ? '#eab308' : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)' : 'hsl(var(--muted))');
           return (
-            <div
-              key={i}
-              className="flex-1 rounded-[2px]"
-              style={{ backgroundColor: bg, height: `${Math.max(10, intensity * 100)}%`, minWidth: 8 }}
-            />
+            <div key={i} className="flex-1 rounded-[2px]" style={{ backgroundColor: bg, height: `${Math.max(10, intensity * 100)}%`, minWidth: 8 }} />
           );
         })}
       </div>
@@ -45,9 +31,7 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
         <div className="flex gap-[3px]">
           {labels.map((label, i) => (
             <div key={i} className="flex-1 text-center">
-              <span className={`text-[9px] font-bold ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>
-                {label}
-              </span>
+              <span className={`text-[9px] font-bold ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>{label}</span>
             </div>
           ))}
         </div>
@@ -58,17 +42,14 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
 
 /** Compact heatmap showing only top 6 peak hours */
 function PeakHourHeatmap({ data, variant = 'light' }: { data: number[]; variant?: 'default' | 'light' }) {
-  // Find top 6 contiguous or near-contiguous peak hours from business hours (7-22)
-  const businessHours = data.slice(7, 23); // indices 0-15 = hours 7-22
+  const businessHours = data.slice(7, 23);
   const indexed = businessHours.map((val, i) => ({ hour: i + 7, val }));
-  // Sort by value desc, take top 6, re-sort by hour
   const top6 = [...indexed].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
   const max = Math.max(...top6.map(h => h.val), 1);
 
   const formatHour = (hour: number) => {
     if (hour === 12) return '12p';
-    if (hour > 12) return `${hour - 12}p`;
-    return `${hour}a`;
+    return hour > 12 ? `${hour - 12}p` : `${hour}a`;
   };
 
   return (
@@ -76,33 +57,16 @@ function PeakHourHeatmap({ data, variant = 'light' }: { data: number[]; variant?
       <div className="flex gap-[4px] items-end" style={{ height: 28 }}>
         {top6.map(h => {
           const intensity = max > 0 ? h.val / max : 0;
-          let bg: string;
-          if (variant === 'light') {
-            bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)'
-              : intensity > 0.4 ? 'rgba(255,255,255,0.5)'
-              : intensity > 0.05 ? 'rgba(255,255,255,0.2)'
-              : 'rgba(255,255,255,0.08)';
-          } else {
-            bg = intensity > 0.7 ? '#22c55e'
-              : intensity > 0.4 ? '#eab308'
-              : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)'
-              : 'hsl(var(--muted))';
-          }
-          return (
-            <div
-              key={h.hour}
-              className="flex-1 rounded-[2px] min-w-[14px]"
-              style={{ backgroundColor: bg, height: `${Math.max(15, intensity * 100)}%` }}
-            />
-          );
+          const bg = variant === 'light'
+            ? (intensity > 0.7 ? 'rgba(255,255,255,0.9)' : intensity > 0.4 ? 'rgba(255,255,255,0.5)' : intensity > 0.05 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)')
+            : (intensity > 0.7 ? '#22c55e' : intensity > 0.4 ? '#eab308' : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)' : 'hsl(var(--muted))');
+          return <div key={h.hour} className="flex-1 rounded-[2px] min-w-[14px]" style={{ backgroundColor: bg, height: `${Math.max(15, intensity * 100)}%` }} />;
         })}
       </div>
       <div className="flex gap-[4px]">
         {top6.map(h => (
           <div key={h.hour} className="flex-1 text-center min-w-[14px]">
-            <span className={`text-[9px] font-bold ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>
-              {formatHour(h.hour)}
-            </span>
+            <span className={`text-[9px] font-bold ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>{formatHour(h.hour)}</span>
           </div>
         ))}
       </div>
@@ -119,45 +83,44 @@ interface OrgCubeStyleBProps extends CubeStyleProps {
   onToggleExpand?: () => void;
 }
 
-/** Shared header row — identical in collapsed and expanded */
-function HeaderRow({ data, period, pace, paceAboveGoal }: {
+/** Shared header row — identical in collapsed and expanded, mobile-responsive */
+function HeaderRow({ data, period, paceAboveGoal }: {
   data: CubeStyleProps['data'];
   period: OrgPeriod;
-  pace: { label: string; pct: number; status: string };
   paceAboveGoal: boolean | null;
 }) {
-  const heroSales = period === 'day' ? data.salesToday
-    : period === 'week' ? data.salesWtd
-    : data.salesMtd;
-
+  const heroSales = period === 'day' ? data.salesToday : period === 'week' ? data.salesWtd : data.salesMtd;
   const goalVal = period === 'day' ? data.goalToday : null;
   const paceVal = period === 'day' ? data.paceToday : null;
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center justify-between gap-2 min-w-0">
       {/* Left: Location name + store number */}
-      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-        <p className="text-sm font-bold truncate drop-shadow-sm">
-          {data.locationName}
-        </p>
+      <div className="flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
+        <p className="text-sm font-bold truncate drop-shadow-sm">{data.locationName}</p>
         {data.storeNumber && (
-          <span className="text-xs font-semibold opacity-70 shrink-0">
-            {data.storeNumber}
-          </span>
+          <span className="text-xs font-semibold opacity-70 shrink-0">{data.storeNumber}</span>
         )}
       </div>
 
       {/* Right: Goal | Pace | arrow | Total */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 md:gap-3 shrink-0">
         {period === 'day' && (
           <>
-            <div className="text-right">
+            {/* Desktop: labeled columns */}
+            <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Goal</p>
               <p className="text-xs font-black leading-tight">{goalVal !== null ? fmtFull(goalVal) : '—'}</p>
             </div>
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Pace</p>
               <p className="text-xs font-black leading-tight">{paceVal !== null ? fmtFull(paceVal) : '—'}</p>
+            </div>
+            {/* Mobile: compact */}
+            <div className="flex items-center gap-1.5 sm:hidden text-[10px] font-bold opacity-80">
+              <span>{goalVal !== null ? fmtFull(goalVal) : '—'}</span>
+              <span className="opacity-40">/</span>
+              <span>{paceVal !== null ? fmtFull(paceVal) : '—'}</span>
             </div>
           </>
         )}
@@ -173,16 +136,12 @@ function HeaderRow({ data, period, pace, paceAboveGoal }: {
             <p className="text-xs font-black leading-tight">{data.salesPrevMonth !== null ? fmtFull(data.salesPrevMonth) : '—'}</p>
           </div>
         )}
-
-        {/* Status arrow */}
         {paceAboveGoal !== null && (
-          <span className="text-lg font-black leading-none drop-shadow-sm">
+          <span className="text-sm md:text-lg font-black leading-none drop-shadow-sm">
             {paceAboveGoal ? '▲' : '▼'}
           </span>
         )}
-
-        {/* Total sales — always full number */}
-        <p className="text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
+        <p className="text-xl md:text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
           {fmtFull(heroSales)}
         </p>
       </div>
@@ -195,7 +154,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
 
-  // Determine if pace is above goal
   const paceAboveGoal = period === 'day' && data.paceToday !== null && data.goalToday !== null && data.goalToday > 0
     ? data.paceToday >= data.goalToday
     : period === 'week' && data.salesPrevWeek !== null
@@ -215,19 +173,14 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     );
   }
 
-  const heroSales = period === 'day' ? data.salesToday
-    : period === 'week' ? data.salesWtd
-    : data.salesMtd;
+  const heroSales = period === 'day' ? data.salesToday : period === 'week' ? data.salesWtd : data.salesMtd;
 
   // Labor per period
   const laborCostForPeriod = period === 'day' ? data.laborCost
     : period === 'week' ? (data.laborCostWtd ?? data.laborCost)
     : (data.laborCostMtd ?? data.laborCost);
-
-  const laborSalesForPeriod = heroSales;
-  const laborPctForPeriod = laborCostForPeriod !== null && laborSalesForPeriod > 0
-    ? (laborCostForPeriod / laborSalesForPeriod) * 100
-    : null;
+  const laborPctForPeriod = laborCostForPeriod !== null && heroSales > 0
+    ? (laborCostForPeriod / heroSales) * 100 : null;
 
   const metricCubes = period === 'day' ? [
     { label: 'WTD', val: fmtFull(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
@@ -246,29 +199,27 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
   const goalPct = period === 'day'
     ? (data.goalToday && data.goalToday > 0 ? Math.min((data.salesToday / data.goalToday) * 100, 120) : 0)
     : 0;
-
   const showPaceGoal = period === 'day';
-  const compPrev = period === 'week' ? data.salesPrevWeek
-    : period === 'month' ? data.salesPrevMonth : null;
+  const compPrev = period === 'week' ? data.salesPrevWeek : period === 'month' ? data.salesPrevMonth : null;
   const compLabel = period === 'week' ? 'Prev Wk' : period === 'month' ? 'Prev Mo' : '';
   const heroLabel = period === 'day' ? 'Today' : period === 'week' ? 'WTD' : 'MTD';
 
-  // Expanded body (below header)
+  // Expanded body content
   const expandedBody = (
     <div className="space-y-1.5 pt-1.5">
-      <div className="flex items-stretch gap-3">
-        {/* Left: Pace/Goal details or comparison */}
-        <div className="shrink-0 space-y-1" style={{ minWidth: '130px' }}>
+      <div className="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-3">
+        {/* Pace/Goal or comparison */}
+        <div className="shrink-0 space-y-1 md:min-w-[130px]">
           {showPaceGoal ? (
             <>
               <div className="flex items-baseline gap-3">
                 <div>
                   <p className="text-[9px] opacity-60">Pace</p>
-                  <p className="text-lg font-black leading-tight">{data.paceToday !== null ? fmtFull(data.paceToday) : '—'}</p>
+                  <p className="text-base md:text-lg font-black leading-tight">{data.paceToday !== null ? fmtFull(data.paceToday) : '—'}</p>
                 </div>
                 <div>
                   <p className="text-[9px] opacity-60">Goal</p>
-                  <p className="text-lg font-black leading-tight">{data.goalToday !== null ? fmtFull(data.goalToday) : '—'}</p>
+                  <p className="text-base md:text-lg font-black leading-tight">{data.goalToday !== null ? fmtFull(data.goalToday) : '—'}</p>
                 </div>
               </div>
               <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
@@ -281,11 +232,11 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
               <div className="flex items-baseline gap-3">
                 <div>
                   <p className="text-[9px] opacity-60">{heroLabel}</p>
-                  <p className="text-lg font-black leading-tight">{fmtFull(heroSales)}</p>
+                  <p className="text-base md:text-lg font-black leading-tight">{fmtFull(heroSales)}</p>
                 </div>
                 <div>
                   <p className="text-[9px] opacity-60">{compLabel}</p>
-                  <p className="text-lg font-black leading-tight">{compPrev !== null ? fmtFull(compPrev) : '—'}</p>
+                  <p className="text-base md:text-lg font-black leading-tight">{compPrev !== null ? fmtFull(compPrev) : '—'}</p>
                 </div>
               </div>
               <div className="text-[10px] font-bold opacity-80">
@@ -295,31 +246,32 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
           )}
         </div>
 
-        {/* Center: Graph */}
-        <div className="flex-1 flex flex-col justify-center opacity-90">
-          {period === 'day' ? (
-            <PeakHourHeatmap data={data.hourlyData} variant="light" />
-          ) : (
-            <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
-          )}
-        </div>
-
-        {/* Right: Metric cubes */}
-        <div className="flex gap-1.5 shrink-0 items-center">
-          {metricCubes.map(m => (
-            <div key={m.label} className="bg-white/15 rounded-lg px-3 py-1.5 text-center backdrop-blur-sm min-w-[60px]">
-              <p className="text-[8px] opacity-60">{m.label}</p>
-              <p className="text-sm font-black leading-tight">{m.val}</p>
-              {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
-            </div>
-          ))}
+        {/* Graph + metric cubes */}
+        <div className="flex items-stretch gap-2 md:gap-3 flex-1 min-w-0">
+          <div className="flex-1 flex flex-col justify-center opacity-90 min-w-0">
+            {period === 'day' ? (
+              <PeakHourHeatmap data={data.hourlyData} variant="light" />
+            ) : (
+              <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
+            )}
+          </div>
+          <div className="flex gap-1 md:gap-1.5 shrink-0 items-center">
+            {metricCubes.map(m => (
+              <div key={m.label} className="bg-white/15 rounded-lg px-2 md:px-3 py-1.5 text-center backdrop-blur-sm min-w-[50px] md:min-w-[60px]">
+                <p className="text-[8px] opacity-60">{m.label}</p>
+                <p className="text-xs md:text-sm font-black leading-tight">{m.val}</p>
+                {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 
-  // Card wrapper
-  const cardContent = (isExpanded: boolean) => (
+  const isExpanded = collapsed ? expanded : true;
+
+  return (
     <div
       className="rounded-xl cursor-pointer hover:scale-[1.003] transition-all duration-200 relative overflow-hidden"
       onClick={collapsed ? onToggleExpand : onClick}
@@ -335,13 +287,12 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
         </>
       )}
 
-      <div className="relative z-10 px-4 py-2.5">
-        <HeaderRow data={data} period={period} pace={pace} paceAboveGoal={paceAboveGoal} />
+      <div className="relative z-10 px-3 md:px-4 py-2.5">
+        <HeaderRow data={data} period={period} paceAboveGoal={paceAboveGoal} />
 
-        {/* Accordion body */}
         {collapsed ? (
           <AnimatePresence initial={false}>
-            {isExpanded && (
+            {expanded && (
               <motion.div
                 key="body"
                 initial={{ height: 0, opacity: 0 }}
@@ -360,6 +311,4 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
       </div>
     </div>
   );
-
-  return cardContent(collapsed ? expanded : true);
 }
