@@ -81,6 +81,22 @@ export function LaborTotals({
   const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
   const { user } = useAuth();
 
+  // Fetch labor rules for OT/DT multipliers
+  const { data: laborRules } = useQuery({
+    queryKey: ['labor-rules-schedule', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      const { data } = await supabase
+        .from('labor_rules')
+        .select('daily_overtime_threshold, daily_double_time_threshold, weekly_overtime_threshold, overtime_multiplier, double_time_multiplier')
+        .eq('location_id', currentLocation.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 30 * 60 * 1000,
+  });
+
   // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
     return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}-${s.start_time}-${s.end_time}`).join('|');
@@ -526,10 +542,19 @@ export function LaborTotals({
         };
       }
       
-      // For today and future: calculate from scheduled shifts
+      // For today and future: calculate from scheduled shifts with OT/DT
       const dayShifts = shifts.filter(s => s.shift_date === dayStr);
       let totalHours = 0;
       let totalWages = 0;
+
+      const dailyOT = laborRules?.daily_overtime_threshold ?? 8;
+      const dailyDT = laborRules?.daily_double_time_threshold ?? 12;
+      const otMult = laborRules?.overtime_multiplier ?? 1.5;
+      const dtMult = laborRules?.double_time_multiplier ?? 2.0;
+
+      // Group shifts by employee to calculate per-employee daily OT/DT
+      const hoursByEmployee: Record<string, { hours: number; wage: number }> = {};
+
       dayShifts.forEach(shift => {
         if (!shift.user_id) return;
         const profile = profiles.find(p => p.id === shift.user_id);
@@ -543,7 +568,6 @@ export function LaborTotals({
           hours -= 1;
           minutes += 60;
         }
-        // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
         if (hours < 0) {
           hours += 24;
         }
@@ -555,10 +579,30 @@ export function LaborTotals({
         }
         totalHours += shiftHours;
 
-        // Use wage from database function for this specific shift, fallback to profile wage, then to default
         const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 15;
-        totalWages += shiftHours * wage;
+
+        if (!hoursByEmployee[shift.user_id]) {
+          hoursByEmployee[shift.user_id] = { hours: 0, wage };
+        }
+        hoursByEmployee[shift.user_id].hours += shiftHours;
+        // Use the latest wage found for this employee
+        hoursByEmployee[shift.user_id].wage = wage;
       });
+
+      // Calculate wages with OT/DT multipliers per employee
+      Object.values(hoursByEmployee).forEach(({ hours: empHours, wage }) => {
+        if (empHours <= dailyOT) {
+          totalWages += empHours * wage;
+        } else if (empHours <= dailyDT) {
+          totalWages += dailyOT * wage;
+          totalWages += (empHours - dailyOT) * wage * otMult;
+        } else {
+          totalWages += dailyOT * wage;
+          totalWages += (dailyDT - dailyOT) * wage * otMult;
+          totalWages += (empHours - dailyDT) * wage * dtMult;
+        }
+      });
+
       return {
         date: format(day, 'EEE'),
         hours: totalHours,
@@ -566,7 +610,7 @@ export function LaborTotals({
         isActual: false
       };
     });
-  }, [shifts, profiles, weekDays, shiftWages, actualLabor]);
+  }, [shifts, profiles, weekDays, shiftWages, actualLabor, laborRules]);
   const weeklyTotals = useMemo(() => {
     const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
     const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);
