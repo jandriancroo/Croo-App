@@ -129,10 +129,35 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
           const json = JSON.parse(text);
           if (json.access_token) {
             console.log('[PA Auth] ✅ OAuth2 login successful! Token type:', json.token_type || 'bearer', 'expires_in:', json.expires_in);
+            
+            // Hit session endpoint to get XSRF-TOKEN cookie (needed for POST requests)
+            let sessionCookies = allCookies;
+            try {
+              const sessionResp = await fetch(`${PA_BASE_URL}/api/common/session`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${json.access_token}`,
+                  'Cookie': allCookies,
+                  'User-Agent': UA,
+                  'Accept': 'application/json',
+                  'Referer': `${PA_BASE_URL}/ng/`,
+                  'Origin': PA_BASE_URL,
+                },
+              });
+              const sessionNewCookies = extractCookies(sessionResp.headers);
+              if (sessionNewCookies) {
+                sessionCookies = mergeCookies(allCookies, sessionNewCookies);
+                console.log('[PA Auth] Session cookies updated, XSRF:', sessionCookies.includes('XSRF-TOKEN') ? 'present' : 'absent');
+              }
+              await sessionResp.text().catch(() => '');
+            } catch (e) {
+              console.warn('[PA Auth] Session probe failed:', e);
+            }
+            
             return {
               accessToken: json.access_token,
               refreshToken: json.refresh_token || '',
-              cookies: allCookies,
+              cookies: sessionCookies,
               restaurantId,
             };
           }
