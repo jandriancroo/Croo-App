@@ -945,8 +945,9 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
 
   // Fetch recent orders to get latest items and prices
   const now = new Date();
-  const startDate = `${now.getFullYear()}-${now.getMonth()}-1`;
-  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  const startDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-01`;
+  const endDate = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   
   const orderList = await fetchOrderList(session, startDate, endDate);
   
