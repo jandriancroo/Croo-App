@@ -261,10 +261,13 @@ export function useOrgLocationData(locationIds: string[]) {
           ? locLaborMtd.reduce((sum, l) => sum + (l.labor_cost || 0), 0)
           : null;
 
+        // Goal = resolved projection (override > living > initial > projected_sales)
+        const goalVal = Number(todaySales?.override_projection) || Number(todaySales?.living_projection) || Number(todaySales?.projected_sales) || null;
+
         result[locId] = {
           salesToday: todayNet,
           paceToday: pace,
-          goalToday: todaySales?.projected_sales ?? null,
+          goalToday: goalVal,
           last7Days: last7,
           salesWtd: wtdSales,
           salesPrevWeek: prevWeekTotal,
