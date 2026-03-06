@@ -824,8 +824,10 @@ async function handleItems(supabase: any, body: any): Promise<Response> {
 
   // Get items from recent orders (the Buyers Edge portal shows items via orders)
   const now = new Date();
-  const startDate = `${now.getFullYear()}-${now.getMonth()}-${now.getDate() - 30}`;
-  const endDate = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+  const startDate = `${thirtyDaysAgo.getFullYear()}-${pad(thirtyDaysAgo.getMonth() + 1)}-${pad(thirtyDaysAgo.getDate())}`;
+  const endDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   
   const orders = await fetchOrderList(session, startDate, endDate);
   
