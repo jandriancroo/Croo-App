@@ -768,14 +768,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button 
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                      className={`flex items-center gap-2 px-2 lg:px-3 py-1.5 rounded-lg transition-all ${
                         ['/my-timecard', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
                           ? 'bg-white/25 text-primary-foreground font-medium' 
                           : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                       }`}
                     >
                       <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">Time</span>
+                      <span className="text-sm hidden lg:inline">Time</span>
                       <ChevronDown className="h-3 w-3 flex-shrink-0" />
                     </button>
                   </DropdownMenuTrigger>

@@ -42,15 +42,18 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
 
 /** Compact heatmap showing only top 6 peak hours */
 function PeakHourHeatmap({ data, variant = 'light' }: { data: number[]; variant?: 'default' | 'light' }) {
-  const businessHours = data.slice(7, 23);
-  const indexed = businessHours.map((val, i) => ({ hour: i + 7, val }));
-  const top6 = [...indexed].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
+  // Get ALL business hours with their values, then pick top 6 hottest
+  const allHours = data.map((val, i) => ({ hour: i, val })).filter(h => h.val > 0);
+  const top6 = [...allHours].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
   const max = Math.max(...top6.map(h => h.val), 1);
 
   const formatHour = (hour: number) => {
+    if (hour === 0) return '12a';
     if (hour === 12) return '12p';
     return hour > 12 ? `${hour - 12}p` : `${hour}a`;
   };
+
+  if (top6.length === 0) return null;
 
   return (
     <div>
