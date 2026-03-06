@@ -6,7 +6,7 @@ import {
   Sparkline, HourlyHeatmap, LaborGauge,
 } from './shared';
 
-/** Style A: Compact Cards — Dense info with colored left accent bar */
+/** Style A: Compact Cards — Dense info with colored left accent bar, tight spacing */
 export function OrgCubeStyleA({ data, isLoading, onClick }: CubeStyleProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
@@ -19,7 +19,7 @@ export function OrgCubeStyleA({ data, isLoading, onClick }: CubeStyleProps) {
 
   return (
     <Card className="overflow-hidden cursor-pointer hover:shadow-lg hover:scale-[1.01] transition-all duration-200 flex" onClick={onClick}>
-      {/* Accent bar */}
+      {/* Thick accent bar */}
       <div className="w-1.5 shrink-0 rounded-l-lg" style={{ backgroundColor: statusColor }} />
       
       <div className="p-3 flex-1 space-y-2 min-w-0">
