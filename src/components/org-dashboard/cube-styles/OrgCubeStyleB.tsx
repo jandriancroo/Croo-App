@@ -1,11 +1,16 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
-  formatCurrency, formatCurrencyFull, pctChange,
+  CubeStyleProps, getPaceStatus, STATUS_COLORS,
+  formatCurrency, pctChange,
   HourlyHeatmap,
 } from './shared';
 
 export type OrgPeriod = 'day' | 'week' | 'month';
+
+/** Format as full integer with commas, e.g. $4,823 */
+function fmtFull(val: number): string {
+  return `$${Math.round(val).toLocaleString()}`;
+}
 
 /** Daily bar chart for week/month views */
 function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; labels?: string[]; variant?: 'default' | 'light' }) {
@@ -51,6 +56,60 @@ function DailyBarChart({ data, labels, variant = 'light' }: { data: number[]; la
   );
 }
 
+/** Compact heatmap showing only top 6 peak hours */
+function PeakHourHeatmap({ data, variant = 'light' }: { data: number[]; variant?: 'default' | 'light' }) {
+  // Find top 6 contiguous or near-contiguous peak hours from business hours (7-22)
+  const businessHours = data.slice(7, 23); // indices 0-15 = hours 7-22
+  const indexed = businessHours.map((val, i) => ({ hour: i + 7, val }));
+  // Sort by value desc, take top 6, re-sort by hour
+  const top6 = [...indexed].sort((a, b) => b.val - a.val).slice(0, 6).sort((a, b) => a.hour - b.hour);
+  const max = Math.max(...top6.map(h => h.val), 1);
+
+  const formatHour = (hour: number) => {
+    if (hour === 12) return '12p';
+    if (hour > 12) return `${hour - 12}p`;
+    return `${hour}a`;
+  };
+
+  return (
+    <div>
+      <div className="flex gap-[4px] items-end" style={{ height: 28 }}>
+        {top6.map(h => {
+          const intensity = max > 0 ? h.val / max : 0;
+          let bg: string;
+          if (variant === 'light') {
+            bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)'
+              : intensity > 0.4 ? 'rgba(255,255,255,0.5)'
+              : intensity > 0.05 ? 'rgba(255,255,255,0.2)'
+              : 'rgba(255,255,255,0.08)';
+          } else {
+            bg = intensity > 0.7 ? '#22c55e'
+              : intensity > 0.4 ? '#eab308'
+              : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)'
+              : 'hsl(var(--muted))';
+          }
+          return (
+            <div
+              key={h.hour}
+              className="flex-1 rounded-[2px] min-w-[14px]"
+              style={{ backgroundColor: bg, height: `${Math.max(15, intensity * 100)}%` }}
+            />
+          );
+        })}
+      </div>
+      <div className="flex gap-[4px]">
+        {top6.map(h => (
+          <div key={h.hour} className="flex-1 text-center min-w-[14px]">
+            <span className={`text-[9px] font-bold ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>
+              {formatHour(h.hour)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 interface OrgCubeStyleBProps extends CubeStyleProps {
@@ -60,64 +119,72 @@ interface OrgCubeStyleBProps extends CubeStyleProps {
   onToggleExpand?: () => void;
 }
 
-/** Collapsed ticker row — dense single-line with key metrics */
-function CollapsedRow({ data, period = 'day', statusColor, pace, onClick }: {
+/** Shared header row — identical in collapsed and expanded */
+function HeaderRow({ data, period, pace, paceAboveGoal }: {
   data: CubeStyleProps['data'];
   period: OrgPeriod;
-  statusColor: string;
   pace: { label: string; pct: number; status: string };
-  onClick?: () => void;
+  paceAboveGoal: boolean | null;
 }) {
   const heroSales = period === 'day' ? data.salesToday
     : period === 'week' ? data.salesWtd
     : data.salesMtd;
 
-  return (
-    <div
-      className="rounded-lg cursor-pointer hover:scale-[1.003] transition-all duration-150 relative overflow-hidden"
-      onClick={onClick}
-      style={{
-        background: `linear-gradient(145deg, ${statusColor}cc, ${statusColor}88)`,
-        color: 'white',
-      }}
-    >
-      <div className="relative z-10 px-4 py-2 flex items-center justify-between gap-3">
-        {/* Left: Name + status */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <p className="text-sm font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
-          <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full shrink-0">
-            {pace.label || '—'}
-          </span>
-        </div>
+  const goalVal = period === 'day' ? data.goalToday : null;
+  const paceVal = period === 'day' ? data.paceToday : null;
 
-        {/* Right: Pace | Goal | Total */}
-        <div className="flex items-center gap-4 shrink-0">
-          {period === 'day' && (
-            <>
-              <div className="text-center">
-                <p className="text-[8px] opacity-50 leading-none">Pace</p>
-                <p className="text-sm font-black leading-tight">{data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] opacity-50 leading-none">Goal</p>
-                <p className="text-sm font-black leading-tight">{data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</p>
-              </div>
-            </>
-          )}
-          {period !== 'day' && (
-            <div className="text-center">
-              <p className="text-[8px] opacity-50 leading-none">{period === 'week' ? 'Prev Wk' : 'Prev Mo'}</p>
-              <p className="text-sm font-black leading-tight">
-                {(period === 'week' ? data.salesPrevWeek : data.salesPrevMonth) !== null
-                  ? formatCurrency((period === 'week' ? data.salesPrevWeek : data.salesPrevMonth)!)
-                  : '—'}
-              </p>
+  return (
+    <div className="flex items-center justify-between gap-2">
+      {/* Left: Location name + store number */}
+      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <p className="text-sm font-bold truncate drop-shadow-sm">
+          {data.locationName}
+        </p>
+        {data.storeNumber && (
+          <span className="text-xs font-semibold opacity-70 shrink-0">
+            {data.storeNumber}
+          </span>
+        )}
+      </div>
+
+      {/* Right: Goal | Pace | arrow | Total */}
+      <div className="flex items-center gap-3 shrink-0">
+        {period === 'day' && (
+          <>
+            <div className="text-right">
+              <p className="text-[8px] opacity-50 leading-none">Goal</p>
+              <p className="text-xs font-black leading-tight">{goalVal !== null ? fmtFull(goalVal) : '—'}</p>
             </div>
-          )}
-          <p className="text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
-            {formatCurrencyFull(heroSales)}
-          </p>
-        </div>
+            <div className="text-right">
+              <p className="text-[8px] opacity-50 leading-none">Pace</p>
+              <p className="text-xs font-black leading-tight">{paceVal !== null ? fmtFull(paceVal) : '—'}</p>
+            </div>
+          </>
+        )}
+        {period === 'week' && (
+          <div className="text-right">
+            <p className="text-[8px] opacity-50 leading-none">Prev Wk</p>
+            <p className="text-xs font-black leading-tight">{data.salesPrevWeek !== null ? fmtFull(data.salesPrevWeek) : '—'}</p>
+          </div>
+        )}
+        {period === 'month' && (
+          <div className="text-right">
+            <p className="text-[8px] opacity-50 leading-none">Prev Mo</p>
+            <p className="text-xs font-black leading-tight">{data.salesPrevMonth !== null ? fmtFull(data.salesPrevMonth) : '—'}</p>
+          </div>
+        )}
+
+        {/* Status arrow */}
+        {paceAboveGoal !== null && (
+          <span className="text-lg font-black leading-none drop-shadow-sm">
+            {paceAboveGoal ? '▲' : '▼'}
+          </span>
+        )}
+
+        {/* Total sales — always full number */}
+        <p className="text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
+          {fmtFull(heroSales)}
+        </p>
       </div>
     </div>
   );
@@ -127,6 +194,15 @@ function CollapsedRow({ data, period = 'day', statusColor, pace, onClick }: {
 export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collapsed = false, expanded = false, onToggleExpand }: OrgCubeStyleBProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
+
+  // Determine if pace is above goal
+  const paceAboveGoal = period === 'day' && data.paceToday !== null && data.goalToday !== null && data.goalToday > 0
+    ? data.paceToday >= data.goalToday
+    : period === 'week' && data.salesPrevWeek !== null
+    ? data.salesWtd >= data.salesPrevWeek
+    : period === 'month' && data.salesPrevMonth !== null
+    ? data.salesMtd >= data.salesPrevMonth
+    : null;
 
   if (isLoading) {
     return (
@@ -139,68 +215,33 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     );
   }
 
-  // In collapsed mode: show ticker OR full card, animated swap
-  if (collapsed) {
-    return (
-      <AnimatePresence initial={false} mode="wait">
-        {expanded ? (
-          <motion.div
-            key="full"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="overflow-hidden"
-          >
-            <FullCard
-              data={data}
-              period={period}
-              statusColor={statusColor}
-              pace={pace}
-              onClick={onToggleExpand}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="collapsed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <CollapsedRow
-              data={data}
-              period={period}
-              statusColor={statusColor}
-              pace={pace}
-              onClick={onToggleExpand}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  }
-
-  return (
-    <FullCard data={data} period={period} statusColor={statusColor} pace={pace} onClick={onClick} />
-  );
-}
-
-/** Full expanded card content */
-function FullCard({ data, period, statusColor, pace, onClick }: {
-  data: CubeStyleProps['data'];
-  period: OrgPeriod;
-  statusColor: string;
-  pace: { label: string; pct: number; status: string };
-  onClick?: () => void;
-}) {
   const heroSales = period === 'day' ? data.salesToday
     : period === 'week' ? data.salesWtd
     : data.salesMtd;
 
-  const heroLabel = period === 'day' ? 'Today'
-    : period === 'week' ? 'WTD'
-    : 'MTD';
+  // Labor per period
+  const laborCostForPeriod = period === 'day' ? data.laborCost
+    : period === 'week' ? (data.laborCostWtd ?? data.laborCost)
+    : (data.laborCostMtd ?? data.laborCost);
+
+  const laborSalesForPeriod = heroSales;
+  const laborPctForPeriod = laborCostForPeriod !== null && laborSalesForPeriod > 0
+    ? (laborCostForPeriod / laborSalesForPeriod) * 100
+    : null;
+
+  const metricCubes = period === 'day' ? [
+    { label: 'WTD', val: fmtFull(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
+    { label: 'MTD', val: fmtFull(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? fmtFull(laborCostForPeriod) : '' },
+  ] : period === 'week' ? [
+    { label: 'Prev Wk', val: data.salesPrevWeek !== null ? fmtFull(data.salesPrevWeek) : '—', sub: pctChange(data.salesWtd, data.salesPrevWeek) },
+    { label: 'MTD', val: fmtFull(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? fmtFull(laborCostForPeriod) : '' },
+  ] : [
+    { label: 'Prev Mo', val: data.salesPrevMonth !== null ? fmtFull(data.salesPrevMonth) : '—', sub: pctChange(data.salesMtd, data.salesPrevMonth) },
+    { label: 'WTD', val: fmtFull(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
+    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? fmtFull(laborCostForPeriod) : '' },
+  ];
 
   const goalPct = period === 'day'
     ? (data.goalToday && data.goalToday > 0 ? Math.min((data.salesToday / data.goalToday) * 100, 120) : 0)
@@ -208,120 +249,117 @@ function FullCard({ data, period, statusColor, pace, onClick }: {
 
   const showPaceGoal = period === 'day';
   const compPrev = period === 'week' ? data.salesPrevWeek
-    : period === 'month' ? data.salesPrevMonth
-    : null;
-  const compLabel = period === 'week' ? 'Prev Wk'
-    : period === 'month' ? 'Prev Mo'
-    : '';
+    : period === 'month' ? data.salesPrevMonth : null;
+  const compLabel = period === 'week' ? 'Prev Wk' : period === 'month' ? 'Prev Mo' : '';
+  const heroLabel = period === 'day' ? 'Today' : period === 'week' ? 'WTD' : 'MTD';
 
-  const laborCostForPeriod = period === 'day' ? data.laborCost
-    : period === 'week' ? (data.laborCostWtd ?? data.laborCost)
-    : (data.laborCostMtd ?? data.laborCost);
+  // Expanded body (below header)
+  const expandedBody = (
+    <div className="space-y-1.5 pt-1.5">
+      <div className="flex items-stretch gap-3">
+        {/* Left: Pace/Goal details or comparison */}
+        <div className="shrink-0 space-y-1" style={{ minWidth: '130px' }}>
+          {showPaceGoal ? (
+            <>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <p className="text-[9px] opacity-60">Pace</p>
+                  <p className="text-lg font-black leading-tight">{data.paceToday !== null ? fmtFull(data.paceToday) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] opacity-60">Goal</p>
+                  <p className="text-lg font-black leading-tight">{data.goalToday !== null ? fmtFull(data.goalToday) : '—'}</p>
+                </div>
+              </div>
+              <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${Math.min(goalPct, 100)}%` }} />
+              </div>
+              <p className="text-[9px] opacity-50">{goalPct.toFixed(0)}% of goal</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <p className="text-[9px] opacity-60">{heroLabel}</p>
+                  <p className="text-lg font-black leading-tight">{fmtFull(heroSales)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] opacity-60">{compLabel}</p>
+                  <p className="text-lg font-black leading-tight">{compPrev !== null ? fmtFull(compPrev) : '—'}</p>
+                </div>
+              </div>
+              <div className="text-[10px] font-bold opacity-80">
+                {compPrev !== null ? pctChange(heroSales, compPrev) : '—'} vs {compLabel.toLowerCase()}
+              </div>
+            </>
+          )}
+        </div>
 
-  const laborSalesForPeriod = period === 'day' ? data.salesToday
-    : period === 'week' ? data.salesWtd
-    : data.salesMtd;
+        {/* Center: Graph */}
+        <div className="flex-1 flex flex-col justify-center opacity-90">
+          {period === 'day' ? (
+            <PeakHourHeatmap data={data.hourlyData} variant="light" />
+          ) : (
+            <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
+          )}
+        </div>
 
-  const laborPctForPeriod = laborCostForPeriod !== null && laborSalesForPeriod > 0
-    ? (laborCostForPeriod / laborSalesForPeriod) * 100
-    : null;
+        {/* Right: Metric cubes */}
+        <div className="flex gap-1.5 shrink-0 items-center">
+          {metricCubes.map(m => (
+            <div key={m.label} className="bg-white/15 rounded-lg px-3 py-1.5 text-center backdrop-blur-sm min-w-[60px]">
+              <p className="text-[8px] opacity-60">{m.label}</p>
+              <p className="text-sm font-black leading-tight">{m.val}</p>
+              {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
-  const metricCubes = period === 'day' ? [
-    { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
-    { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
-  ] : period === 'week' ? [
-    { label: 'Prev Wk', val: data.salesPrevWeek !== null ? formatCurrency(data.salesPrevWeek) : '—', sub: pctChange(data.salesWtd, data.salesPrevWeek) },
-    { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
-  ] : [
-    { label: 'Prev Mo', val: data.salesPrevMonth !== null ? formatCurrency(data.salesPrevMonth) : '—', sub: pctChange(data.salesMtd, data.salesPrevMonth) },
-    { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
-    { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
-  ];
-
-  return (
+  // Card wrapper
+  const cardContent = (isExpanded: boolean) => (
     <div
-      className="rounded-xl cursor-pointer hover:scale-[1.005] transition-all duration-200 relative overflow-hidden"
-      onClick={onClick}
+      className="rounded-xl cursor-pointer hover:scale-[1.003] transition-all duration-200 relative overflow-hidden"
+      onClick={collapsed ? onToggleExpand : onClick}
       style={{
         background: `linear-gradient(145deg, ${statusColor}dd, ${statusColor}99)`,
         color: 'white',
       }}
     >
-      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
-      <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
+      {isExpanded && (
+        <>
+          <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
+          <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
+        </>
+      )}
 
-      <div className="relative z-10 px-4 py-2.5 space-y-1.5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <p className="text-base font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
-            <span className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded-full shrink-0">
-              {pace.label || '—'}
-            </span>
-          </div>
-          <p className="text-3xl font-black tracking-tighter leading-none drop-shadow-sm shrink-0">
-            {formatCurrencyFull(heroSales)}
-          </p>
-        </div>
+      <div className="relative z-10 px-4 py-2.5">
+        <HeaderRow data={data} period={period} pace={pace} paceAboveGoal={paceAboveGoal} />
 
-        <div className="flex items-stretch gap-3">
-          <div className="shrink-0 space-y-1" style={{ minWidth: '140px' }}>
-            {showPaceGoal ? (
-              <>
-                <div className="flex items-baseline gap-3">
-                  <div>
-                    <p className="text-[9px] opacity-60">Pace</p>
-                    <p className="text-lg font-black leading-tight">{data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] opacity-60">Goal</p>
-                    <p className="text-lg font-black leading-tight">{data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</p>
-                  </div>
-                </div>
-                <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
-                  <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${Math.min(goalPct, 100)}%` }} />
-                </div>
-                <p className="text-[9px] opacity-50">{goalPct.toFixed(0)}% of goal</p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-baseline gap-3">
-                  <div>
-                    <p className="text-[9px] opacity-60">{heroLabel}</p>
-                    <p className="text-lg font-black leading-tight">{formatCurrency(heroSales)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] opacity-60">{compLabel}</p>
-                    <p className="text-lg font-black leading-tight">{compPrev !== null ? formatCurrency(compPrev) : '—'}</p>
-                  </div>
-                </div>
-                <div className="text-[10px] font-bold opacity-80">
-                  {compPrev !== null ? pctChange(heroSales, compPrev) : '—'} vs {compLabel.toLowerCase()}
-                </div>
-              </>
+        {/* Accordion body */}
+        {collapsed ? (
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div
+                key="body"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                className="overflow-hidden"
+              >
+                {expandedBody}
+              </motion.div>
             )}
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center opacity-90">
-            {period === 'day' ? (
-              <HourlyHeatmap data={data.hourlyData} height={28} variant="light" showLabels />
-            ) : (
-              <DailyBarChart data={data.last7Days} labels={DAY_LABELS_SHORT} variant="light" />
-            )}
-          </div>
-
-          <div className="flex gap-1.5 shrink-0 items-center">
-            {metricCubes.map(m => (
-              <div key={m.label} className="bg-white/15 rounded-lg px-3 py-1.5 text-center backdrop-blur-sm min-w-[60px]">
-                <p className="text-[8px] opacity-60">{m.label}</p>
-                <p className="text-sm font-black leading-tight">{m.val}</p>
-                {m.sub && <p className="text-[9px] font-semibold opacity-80">{m.sub}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
+          </AnimatePresence>
+        ) : (
+          expandedBody
+        )}
       </div>
     </div>
   );
+
+  return cardContent(collapsed ? expanded : true);
 }
