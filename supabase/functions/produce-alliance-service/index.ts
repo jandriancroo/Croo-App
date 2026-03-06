@@ -1170,8 +1170,9 @@ async function handleFetchOrder(supabase: any, body: any): Promise<Response> {
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
   const now = new Date();
-  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
-  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad3 = (n: number) => String(n).padStart(2, '0');
+  const sd = startDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-01`;
+  const ed = endDate || `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-${pad3(now.getDate())}`;
 
   const detail = await fetchOrderDetail(session, webOrderId, sd, ed);
   if (!detail) return jsonResponse({ success: false, error: 'Could not fetch order detail' });
