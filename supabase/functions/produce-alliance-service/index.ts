@@ -1003,7 +1003,7 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
   if (fetchDetails && orderList.length > 0) {
     const toFetch = orderList.slice(0, maxDetails);
     for (const order of toFetch) {
-      const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed);
+      const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed, credentials);
       if (detail) {
         orderDetails.push(detail);
         // Brief pause to avoid hammering
