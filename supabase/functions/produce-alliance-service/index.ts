@@ -293,8 +293,28 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
   const authHeaders = getAuthHeaders(session);
 
   // Try the actual Buyers Edge REST API first (discovered from DevTools)
+  // Convert dates to MM/DD/YYYY for Angular app compatibility
+  const toSlashDate = (d: string) => {
+    const [y, m, dd] = d.split('-');
+    return `${parseInt(m)}/${parseInt(dd)}/${y}`;
+  };
+  const slashStart = toSlashDate(startDate);
+  const slashEnd = toSlashDate(endDate);
+
   const restApiAttempts = [
-    // Primary: POST with filter params (Angular app uses this)
+    // Primary: POST with MM/DD/YYYY dates (Angular app format)
+    {
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
+      method: 'POST',
+      body: JSON.stringify({
+        restaurantId: parseInt(session.restaurantId) || session.restaurantId,
+        startDate: slashStart,
+        endDate: slashEnd,
+        includeOnlySubmit: false,
+      }),
+      contentType: 'application/json',
+    },
+    // Fallback: POST with ISO dates
     {
       url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params`,
       method: 'POST',
@@ -308,14 +328,14 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
     },
     // Alt: query params  
     {
-      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      url: `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
       method: 'GET',
       body: null,
       contentType: null,
     },
     // Alt: different endpoint naming
     {
-      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${startDate}&endDate=${endDate}`,
+      url: `${PA_BASE_URL}/api/orders?restaurantId=${session.restaurantId}&startDate=${slashStart}&endDate=${slashEnd}`,
       method: 'GET',
       body: null,
       contentType: null,
