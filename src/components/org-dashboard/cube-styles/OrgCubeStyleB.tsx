@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CubeStyleProps, getPaceStatus, STATUS_COLORS,
+  CubeStyleProps, getPaceStatus, deriveStatus, STATUS_COLORS,
   pctChange,
 } from './shared';
 
@@ -84,10 +84,11 @@ interface OrgCubeStyleBProps extends CubeStyleProps {
 }
 
 /** Shared header row — identical in collapsed and expanded, mobile-responsive */
-function HeaderRow({ data, period, paceAboveGoal }: {
+function HeaderRow({ data, period, paceAboveGoal, statusLabel }: {
   data: CubeStyleProps['data'];
   period: OrgPeriod;
   paceAboveGoal: boolean | null;
+  statusLabel?: string;
 }) {
   const heroSales = period === 'day' ? data.salesToday : period === 'week' ? data.salesWtd : data.salesMtd;
   const goalVal = period === 'day' ? data.goalToday : null;
@@ -95,11 +96,16 @@ function HeaderRow({ data, period, paceAboveGoal }: {
 
   return (
     <div className="flex items-center justify-between gap-2 min-w-0">
-      {/* Left: Location name + store number */}
+      {/* Left: Location name + store number + status badge */}
       <div className="flex items-center gap-1.5 min-w-0 shrink overflow-hidden">
         <p className="text-sm font-bold truncate drop-shadow-sm">{data.locationName}</p>
         {data.storeNumber && (
           <span className="text-xs font-semibold opacity-70 shrink-0">{data.storeNumber}</span>
+        )}
+        {statusLabel && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm shrink-0 hidden sm:inline-block">
+            {statusLabel}
+          </span>
         )}
       </div>
 
@@ -110,17 +116,17 @@ function HeaderRow({ data, period, paceAboveGoal }: {
             {/* Desktop: labeled columns */}
             <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Goal</p>
-              <p className="text-xs font-black leading-tight">{goalVal !== null ? fmtFull(goalVal) : '—'}</p>
+              <p className="text-xs font-black leading-tight">{goalVal !== null && goalVal > 0 ? fmtFull(goalVal) : '—'}</p>
             </div>
             <div className="text-right hidden sm:block">
               <p className="text-[8px] opacity-50 leading-none">Pace</p>
-              <p className="text-xs font-black leading-tight">{paceVal !== null ? fmtFull(paceVal) : '—'}</p>
+              <p className="text-xs font-black leading-tight">{paceVal !== null && paceVal > 0 ? fmtFull(paceVal) : '—'}</p>
             </div>
             {/* Mobile: compact */}
             <div className="flex items-center gap-1.5 sm:hidden text-[10px] font-bold opacity-80">
-              <span>{goalVal !== null ? fmtFull(goalVal) : '—'}</span>
+              <span>{goalVal !== null && goalVal > 0 ? fmtFull(goalVal) : '—'}</span>
               <span className="opacity-40">/</span>
-              <span>{paceVal !== null ? fmtFull(paceVal) : '—'}</span>
+              <span>{paceVal !== null && paceVal > 0 ? fmtFull(paceVal) : '—'}</span>
             </div>
           </>
         )}
@@ -152,15 +158,26 @@ function HeaderRow({ data, period, paceAboveGoal }: {
 /** Style B: Glass Scoreboard */
 export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collapsed = false, expanded = false, onToggleExpand }: OrgCubeStyleBProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
-  const statusColor = STATUS_COLORS[pace.status];
+  // Use deriveStatus for card colorization — falls back to YoY/WTD comparisons when no pace/goal
+  const derivedStatus = deriveStatus(data);
+  const statusColor = STATUS_COLORS[derivedStatus];
 
+  // Arrow: use pace vs goal, then fallback to YoY or WTD comparisons
   const paceAboveGoal = period === 'day' && data.paceToday !== null && data.goalToday !== null && data.goalToday > 0
     ? data.paceToday >= data.goalToday
+    : period === 'day' && data.salesToday > 100 && data.salesLastYearDay !== null && data.salesLastYearDay > 0
+    ? data.salesToday >= data.salesLastYearDay
     : period === 'week' && data.salesPrevWeek !== null
     ? data.salesWtd >= data.salesPrevWeek
     : period === 'month' && data.salesPrevMonth !== null
     ? data.salesMtd >= data.salesPrevMonth
     : null;
+
+  // Status label for badge
+  const STATUS_LABELS: Record<string, string> = {
+    fire: '🔥 On Fire', ahead: '📈 Ahead', track: '✅ On Track', behind: '⚠️ Behind',
+  };
+  const statusLabel = derivedStatus !== 'neutral' ? STATUS_LABELS[derivedStatus] : undefined;
 
   if (isLoading) {
     return (
@@ -264,7 +281,7 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
       )}
 
       <div className="relative z-10 px-3 md:px-4 py-2.5">
-        <HeaderRow data={data} period={period} paceAboveGoal={paceAboveGoal} />
+        <HeaderRow data={data} period={period} paceAboveGoal={paceAboveGoal} statusLabel={statusLabel} />
 
         {collapsed ? (
           <AnimatePresence initial={false}>
