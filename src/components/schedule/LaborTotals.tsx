@@ -83,7 +83,7 @@ export function LaborTotals({
 
   // Compute a stable key for shifts to trigger wage refetch
   const shiftsKey = useMemo(() => {
-    return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}`).join('|');
+    return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}-${s.start_time}-${s.end_time}`).join('|');
   }, [shifts]);
 
   // Use React Query for wage fetching with staleTime
