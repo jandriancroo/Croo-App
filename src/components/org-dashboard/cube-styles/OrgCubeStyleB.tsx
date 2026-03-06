@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   CubeStyleProps, getPaceStatus, STATUS_COLORS, getDisplayName,
   formatCurrency, formatCurrencyFull, pctChange,
@@ -54,19 +55,100 @@ const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 interface OrgCubeStyleBProps extends CubeStyleProps {
   period?: OrgPeriod;
+  collapsed?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
-/** Style B: Glass Scoreboard — Full-bleed status color background, white text, compact */
-export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgCubeStyleBProps) {
+/** Collapsed ticker row — dense single-line with key metrics */
+function CollapsedRow({ data, period = 'day', statusColor, pace, onClick }: {
+  data: CubeStyleProps['data'];
+  period: OrgPeriod;
+  statusColor: string;
+  pace: { label: string; pct: number; status: string };
+  onClick?: () => void;
+}) {
+  const heroSales = period === 'day' ? data.salesToday
+    : period === 'week' ? data.salesWtd
+    : data.salesMtd;
+
+  return (
+    <div
+      className="rounded-lg cursor-pointer hover:scale-[1.003] transition-all duration-150 relative overflow-hidden"
+      onClick={onClick}
+      style={{
+        background: `linear-gradient(145deg, ${statusColor}cc, ${statusColor}88)`,
+        color: 'white',
+      }}
+    >
+      <div className="relative z-10 px-4 py-2 flex items-center justify-between gap-3">
+        {/* Left: Name + status */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <p className="text-sm font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
+          <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full shrink-0">
+            {pace.label || '—'}
+          </span>
+        </div>
+
+        {/* Right: Pace | Goal | Total */}
+        <div className="flex items-center gap-4 shrink-0">
+          {period === 'day' && (
+            <>
+              <div className="text-center">
+                <p className="text-[8px] opacity-50 leading-none">Pace</p>
+                <p className="text-sm font-black leading-tight">{data.paceToday !== null ? formatCurrency(data.paceToday) : '—'}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[8px] opacity-50 leading-none">Goal</p>
+                <p className="text-sm font-black leading-tight">{data.goalToday !== null ? formatCurrency(data.goalToday) : '—'}</p>
+              </div>
+            </>
+          )}
+          {period !== 'day' && (
+            <div className="text-center">
+              <p className="text-[8px] opacity-50 leading-none">{period === 'week' ? 'Prev Wk' : 'Prev Mo'}</p>
+              <p className="text-sm font-black leading-tight">
+                {(period === 'week' ? data.salesPrevWeek : data.salesPrevMonth) !== null
+                  ? formatCurrency((period === 'week' ? data.salesPrevWeek : data.salesPrevMonth)!)
+                  : '—'}
+              </p>
+            </div>
+          )}
+          <p className="text-2xl font-black tracking-tighter leading-none drop-shadow-sm">
+            {formatCurrencyFull(heroSales)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Style B: Glass Scoreboard */
+export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collapsed = false, expanded = false, onToggleExpand }: OrgCubeStyleBProps) {
   const pace = getPaceStatus(data.paceToday, data.goalToday);
   const statusColor = STATUS_COLORS[pace.status];
 
   if (isLoading) {
     return (
-      <div className="rounded-xl p-3 space-y-2 animate-pulse bg-muted/30 h-24">
-        <div className="h-4 bg-muted rounded w-1/2" />
-        <div className="h-8 bg-muted rounded" />
+      <div className={`rounded-xl animate-pulse bg-muted/30 ${collapsed ? 'h-10' : 'h-24'}`}>
+        <div className="p-3 space-y-2">
+          <div className="h-4 bg-muted rounded w-1/2" />
+          {!collapsed && <div className="h-8 bg-muted rounded" />}
+        </div>
       </div>
+    );
+  }
+
+  // In collapsed mode, show dense ticker unless this card is expanded
+  if (collapsed && !expanded) {
+    return (
+      <CollapsedRow
+        data={data}
+        period={period}
+        statusColor={statusColor}
+        pace={pace}
+        onClick={onToggleExpand}
+      />
     );
   }
 
@@ -104,7 +186,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
     ? (laborCostForPeriod / laborSalesForPeriod) * 100
     : null;
 
-  // Metric cubes per period
   const metricCubes = period === 'day' ? [
     { label: 'WTD', val: formatCurrency(data.salesWtd), sub: pctChange(data.salesWtd, data.salesPrevWeek) },
     { label: 'MTD', val: formatCurrency(data.salesMtd), sub: pctChange(data.salesMtd, data.salesPrevMonth) },
@@ -119,10 +200,10 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
     { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
   ];
 
-  return (
+  const fullContent = (
     <div
       className="rounded-xl cursor-pointer hover:scale-[1.005] transition-all duration-200 relative overflow-hidden"
-      onClick={onClick}
+      onClick={collapsed ? onToggleExpand : onClick}
       style={{
         background: `linear-gradient(145deg, ${statusColor}dd, ${statusColor}99)`,
         color: 'white',
@@ -145,9 +226,8 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
           </p>
         </div>
 
-        {/* Row 2: Pace/Goal or Comparison + graph + metric cubes */}
+        {/* Row 2 */}
         <div className="flex items-stretch gap-3">
-          {/* Left: Pace & Goal (day) or Comparison (week/month) */}
           <div className="shrink-0 space-y-1" style={{ minWidth: '140px' }}>
             {showPaceGoal ? (
               <>
@@ -185,7 +265,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
             )}
           </div>
 
-          {/* Center: Graph — hourly (day), daily bars (week/month) */}
           <div className="flex-1 flex flex-col justify-center opacity-90">
             {period === 'day' ? (
               <HourlyHeatmap data={data.hourlyData} height={28} variant="light" showLabels />
@@ -194,7 +273,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
             )}
           </div>
 
-          {/* Right: Metric cubes */}
           <div className="flex gap-1.5 shrink-0 items-center">
             {metricCubes.map(m => (
               <div key={m.label} className="bg-white/15 rounded-lg px-3 py-1.5 text-center backdrop-blur-sm min-w-[60px]">
@@ -208,4 +286,20 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day' }: OrgC
       </div>
     </div>
   );
+
+  // If in collapsed accordion mode and this is the expanded card, animate it
+  if (collapsed && expanded) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        exit={{ opacity: 0, height: 0 }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+      >
+        {fullContent}
+      </motion.div>
+    );
+  }
+
+  return fullContent;
 }

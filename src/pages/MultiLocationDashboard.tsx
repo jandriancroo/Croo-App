@@ -6,6 +6,7 @@ import { useOrgLocations, useOrgLocationData } from '@/hooks/useOrgDashboardData
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgFavoritesBar } from '@/components/org-dashboard/OrgFavoritesBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
+import { List, LayoutList } from 'lucide-react';
 
 const FAVORITES_KEY = 'org-dash-favorites';
 
@@ -93,6 +94,8 @@ export default function MultiLocationDashboard() {
 
   const [previewMode, setPreviewMode] = useState(true);
   const [period, setPeriod] = useState<OrgPeriod>('day');
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // === Live mode state ===
   const { data: allLocations = [], isLoading: locsLoading } = useOrgLocations(organizationId ?? null);
@@ -131,6 +134,46 @@ export default function MultiLocationDashboard() {
     });
   }, [displayLocationIds, locationData, favorites, showAll]);
 
+  const handleToggleExpand = useCallback((locId: string) => {
+    setExpandedId(prev => prev === locId ? null : locId);
+  }, []);
+
+  // Toolbar: collapse toggle + period selector
+  const toolbar = (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => { setIsCollapsed(prev => !prev); setExpandedId(null); }}
+          className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+          title={isCollapsed ? 'Expand all' : 'Collapse all'}
+        >
+          {isCollapsed ? <LayoutList className="h-4 w-4 text-muted-foreground" /> : <List className="h-4 w-4 text-muted-foreground" />}
+        </button>
+        <span className="text-xs text-muted-foreground">
+          {isCollapsed ? 'Collapsed' : 'Expanded'}
+        </span>
+      </div>
+      <PeriodSelector period={period} onChange={setPeriod} />
+    </div>
+  );
+
+  // Render card list helper
+  const renderCards = (items: { id: string; data: OrgLocationData }[], loading = false) => (
+    <div className={`space-y-${isCollapsed ? '1.5' : '3'}`} style={{ gap: isCollapsed ? '6px' : undefined }}>
+      {items.map(item => (
+        <OrgCubeStyleB
+          key={item.id}
+          data={item.data}
+          period={period}
+          isLoading={loading}
+          collapsed={isCollapsed}
+          expanded={expandedId === item.id}
+          onToggleExpand={() => handleToggleExpand(item.id)}
+        />
+      ))}
+    </div>
+  );
+
   // Preview mode
   if (previewMode) {
     return (
@@ -143,15 +186,9 @@ export default function MultiLocationDashboard() {
             </p>
           </div>
 
-          <div className="flex justify-center">
-            <PeriodSelector period={period} onChange={setPeriod} />
-          </div>
+          {toolbar}
 
-          <div className="space-y-3">
-            {MOCK_DATA.map(mock => (
-              <OrgCubeStyleB key={mock.locationId} data={mock} period={period} />
-            ))}
-          </div>
+          {renderCards(MOCK_DATA.map(m => ({ id: m.locationId, data: m })))}
 
           <div className="flex justify-center">
             <button
@@ -173,7 +210,6 @@ export default function MultiLocationDashboard() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl md:text-2xl font-bold">Org Dashboard</h1>
           <div className="flex items-center gap-3">
-            <PeriodSelector period={period} onChange={setPeriod} />
             <span className="text-xs text-muted-foreground">
               {allLocations.length} store{allLocations.length !== 1 ? 's' : ''}
             </span>
@@ -186,6 +222,8 @@ export default function MultiLocationDashboard() {
           </div>
         </div>
 
+        {toolbar}
+
         {allLocations.length > 0 && (
           <OrgFavoritesBar
             allLocations={allLocations.map(l => ({ id: l.id, name: l.name, storeNumber: l.store_number }))}
@@ -197,21 +235,21 @@ export default function MultiLocationDashboard() {
         )}
 
         {locsLoading && (
-          <div className="space-y-3">
+          <div className={`space-y-${isCollapsed ? '1.5' : '3'}`}>
             {[1, 2, 3].map(i => (
-              <OrgCubeStyleB key={i} data={{} as OrgLocationData} isLoading />
+              <OrgCubeStyleB key={i} data={{} as OrgLocationData} isLoading collapsed={isCollapsed} />
             ))}
           </div>
         )}
 
-        {!locsLoading && sortedLocationIds.length > 0 && (
-          <div className="space-y-3">
-            {sortedLocationIds.map(locId => {
-              const loc = allLocations.find(l => l.id === locId);
-              if (!loc) return null;
-              const locData = locationData[locId];
-              const cubeData: OrgLocationData = {
-                locationId: locId, locationName: loc.name, storeNumber: loc.store_number,
+        {!locsLoading && sortedLocationIds.length > 0 && renderCards(
+          sortedLocationIds.map(locId => {
+            const loc = allLocations.find(l => l.id === locId);
+            const locData = locationData[locId];
+            return {
+              id: locId,
+              data: {
+                locationId: locId, locationName: loc?.name ?? '', storeNumber: loc?.store_number,
                 salesToday: locData?.salesToday ?? 0, paceToday: locData?.paceToday ?? null,
                 goalToday: locData?.goalToday ?? null, last7Days: locData?.last7Days ?? Array(7).fill(0),
                 salesWtd: locData?.salesWtd ?? 0, salesPrevWeek: locData?.salesPrevWeek ?? null,
@@ -220,10 +258,10 @@ export default function MultiLocationDashboard() {
                 laborPercent: locData?.laborPercent ?? null, laborCost: locData?.laborCost ?? null,
                 laborCostWtd: locData?.laborCostWtd ?? null, laborCostMtd: locData?.laborCostMtd ?? null,
                 hourlyData: locData?.hourlyData ?? Array(24).fill(0),
-              };
-              return <OrgCubeStyleB key={locId} data={cubeData} isLoading={dataLoading} period={period} />;
-            })}
-          </div>
+              } as OrgLocationData,
+            };
+          }).filter(item => item.data.locationName),
+          dataLoading,
         )}
 
         {!locsLoading && allLocations.length === 0 && (
