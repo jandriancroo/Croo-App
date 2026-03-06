@@ -96,7 +96,7 @@ export function useOrgLocationData(locationIds: string[]) {
       const sparklineStart = laDate(sparklineStartD);
 
       // Fetch all sales cache data in parallel
-      const [salesResult, laborResult, sparklineResult, prevWeekResult, prevMonthResult] = await Promise.all([
+      const [salesResult, laborResult, sparklineResult, prevWeekResult, prevMonthResult, laborWtdResult, laborMtdResult] = await Promise.all([
         // Today + WTD + MTD sales (all in one query since date range covers it)
         supabase
           .from('sales_cache')
@@ -136,6 +136,22 @@ export function useOrgLocationData(locationIds: string[]) {
           .in('location_id', locationIds)
           .gte('sale_date', prevMonthStart)
           .lte('sale_date', prevMonthEnd),
+
+        // WTD labor
+        supabase
+          .from('labor_cache')
+          .select('location_id, labor_cost, source')
+          .in('location_id', locationIds)
+          .gte('labor_date', weekStartStr)
+          .lte('labor_date', todayStr),
+
+        // MTD labor
+        supabase
+          .from('labor_cache')
+          .select('location_id, labor_cost, source')
+          .in('location_id', locationIds)
+          .gte('labor_date', monthStartStr)
+          .lte('labor_date', todayStr),
       ]);
 
       const result: Record<string, Omit<OrgLocationData, 'locationId' | 'locationName' | 'storeNumber'>> = {};
