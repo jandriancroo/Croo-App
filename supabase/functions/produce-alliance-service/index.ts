@@ -545,22 +545,49 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
 
   let authHeaders = getAuthHeaders(session);
 
-  // The JSP pages require a J2EE servlet session (JSESSIONID) established via form login.
-  // The OAuth Bearer token only works for /api/* endpoints. For JSP, we need to do j_security_check.
+  // The PA portal uses clearSession.jsp to establish servlet sessions for JSP pages.
+  // The Angular app navigates via clearSession.jsp?FCUID=<username>&dest=<target>
+  // This reads the tokenStore cookie and sets up a valid JSESSIONID.
   try {
-    // Step 1: Hit the JSP page to get redirected to login and obtain a fresh JSESSIONID
-    const initResp = await fetch(`${PA_BASE_URL}/viewOrder.jsp?webOrderId=${webOrderId}`, {
+    const fcuid = credentials?.username || 'Blaze-1341';
+    
+    // Step 1: Hit clearSession.jsp to establish servlet session
+    // This mirrors the browser's navigation pattern from the Angular app
+    const clearSessionUrl = `${PA_BASE_URL}/clearSession.jsp?FCUID=${encodeURIComponent(fcuid)}&dest=/ng/%23/restaurantBackOffice/viewOrders`;
+    const clearResp = await fetch(clearSessionUrl, {
       method: 'GET',
-      headers: { 'User-Agent': UA, 'Cookie': session.cookies },
+      headers: {
+        'User-Agent': UA,
+        'Cookie': session.cookies,
+        'Referer': `${PA_BASE_URL}/ng/`,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
       redirect: 'manual',
     });
-    const initCookies = extractCookies(initResp.headers);
-    let jspCookies = mergeCookies(session.cookies, initCookies);
-    await initResp.text().catch(() => '');
-    console.log('[PA Detail] Init JSP:', initResp.status, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'present' : 'absent');
+    const clearCookies = extractCookies(clearResp.headers);
+    let jspCookies = mergeCookies(session.cookies, clearCookies);
+    await clearResp.text().catch(() => '');
+    console.log('[PA Detail] clearSession.jsp:', clearResp.status, 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'present' : 'absent');
 
-    // Step 2: Do j_security_check form login to authenticate the servlet session
-    if (credentials) {
+    // Step 2: Follow redirect if 302 (clearSession.jsp usually redirects to dest)
+    if (clearResp.status === 302 || clearResp.status === 301) {
+      const location = clearResp.headers.get('location') || '';
+      if (location) {
+        const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
+        const redirResp = await fetch(redirectUrl, {
+          method: 'GET',
+          headers: { 'Cookie': jspCookies, 'User-Agent': UA, 'Referer': clearSessionUrl },
+          redirect: 'manual',
+        });
+        const redirCookies = extractCookies(redirResp.headers);
+        jspCookies = mergeCookies(jspCookies, redirCookies);
+        await redirResp.text().catch(() => '');
+        console.log('[PA Detail] clearSession redirect:', redirResp.status, 'to:', location.substring(0, 100));
+      }
+    }
+
+    // Step 3: If we still don't have JSESSIONID, try j_security_check as fallback
+    if (!jspCookies.includes('JSESSIONID') && credentials) {
       const formResp = await fetch(`${PA_BASE_URL}/j_security_check`, {
         method: 'POST',
         headers: {
@@ -574,22 +601,8 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
       });
       const formCookies = extractCookies(formResp.headers);
       jspCookies = mergeCookies(jspCookies, formCookies);
-      const location = formResp.headers.get('location') || '';
       await formResp.text().catch(() => '');
-      console.log('[PA Detail] j_security_check:', formResp.status, 'redirect:', location || 'none', 'JSESSIONID:', jspCookies.includes('JSESSIONID') ? 'updated' : 'same');
-
-      // Follow redirect if any
-      if (formResp.status === 302 || formResp.status === 301) {
-        const redirectUrl = location.startsWith('http') ? location : `${PA_BASE_URL}${location}`;
-        const redirResp = await fetch(redirectUrl, {
-          method: 'GET',
-          headers: { 'Cookie': jspCookies, 'User-Agent': UA },
-          redirect: 'manual',
-        });
-        const redirCookies = extractCookies(redirResp.headers);
-        jspCookies = mergeCookies(jspCookies, redirCookies);
-        await redirResp.text().catch(() => '');
-      }
+      console.log('[PA Detail] j_security_check fallback:', formResp.status);
     }
 
     // Update session cookies for the JSP request
