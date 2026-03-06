@@ -81,6 +81,44 @@ export function MessageBubble({
   const isDeleted = message.is_deleted_for_everyone;
   const markedRef = useRef<string | null>(null);
 
+  // Long-press for mobile message actions
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMovedRef = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isPending || isDeleted || isAnnouncement) return;
+    touchMovedRef.current = false;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    longPressTimer.current = setTimeout(() => {
+      if (!touchMovedRef.current) {
+        setShowMobileActions(true);
+      }
+    }, 500);
+  }, [isPending, isDeleted, isAnnouncement]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+    if (dx > 8 || dy > 8) {
+      touchMovedRef.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStartRef.current = null;
+  }, []);
+
   // Mark message as read for non-sender users
   useEffect(() => {
     if (!currentUserId || message.sender_id === currentUserId || isPending) return;
