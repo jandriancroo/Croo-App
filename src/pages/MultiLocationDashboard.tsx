@@ -152,7 +152,7 @@ export default function MultiLocationDashboard() {
                 </div>
                 
                 {/* Show 3 cubes per style for preview */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-3">
                   {MOCK_DATA.slice(0, 3).map(mock => (
                     <CubeComponent key={mock.locationId} data={mock} />
                   ))}
@@ -201,7 +201,7 @@ export default function MultiLocationDashboard() {
         )}
 
         {locsLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {[1, 2, 3].map(i => (
               <ActiveCube key={i} data={{} as OrgLocationData} isLoading />
             ))}
@@ -209,7 +209,7 @@ export default function MultiLocationDashboard() {
         )}
 
         {!locsLoading && sortedLocationIds.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-3">
             {sortedLocationIds.map(locId => {
               const loc = allLocations.find(l => l.id === locId);
               if (!loc) return null;
