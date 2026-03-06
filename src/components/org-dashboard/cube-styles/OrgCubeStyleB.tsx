@@ -177,7 +177,19 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     );
   }
 
-  // Derived values per period
+  return (
+    <FullCard data={data} period={period} statusColor={statusColor} pace={pace} onClick={onClick} />
+  );
+}
+
+/** Full expanded card content */
+function FullCard({ data, period, statusColor, pace, onClick }: {
+  data: CubeStyleProps['data'];
+  period: OrgPeriod;
+  statusColor: string;
+  pace: { label: string; pct: number; status: string };
+  onClick?: () => void;
+}) {
   const heroSales = period === 'day' ? data.salesToday
     : period === 'week' ? data.salesWtd
     : data.salesMtd;
@@ -198,7 +210,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     : period === 'month' ? 'Prev Mo'
     : '';
 
-  // Labor per period
   const laborCostForPeriod = period === 'day' ? data.laborCost
     : period === 'week' ? (data.laborCostWtd ?? data.laborCost)
     : (data.laborCostMtd ?? data.laborCost);
@@ -225,10 +236,10 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
     { label: 'Labor', val: laborPctForPeriod !== null ? `${laborPctForPeriod.toFixed(0)}%` : '—', sub: laborCostForPeriod !== null ? formatCurrency(laborCostForPeriod) : '' },
   ];
 
-  const fullContent = (
+  return (
     <div
       className="rounded-xl cursor-pointer hover:scale-[1.005] transition-all duration-200 relative overflow-hidden"
-      onClick={collapsed ? onToggleExpand : onClick}
+      onClick={onClick}
       style={{
         background: `linear-gradient(145deg, ${statusColor}dd, ${statusColor}99)`,
         color: 'white',
@@ -238,7 +249,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
       <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-black/10" />
 
       <div className="relative z-10 px-4 py-2.5 space-y-1.5">
-        {/* Row 1: Name + status + hero number */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <p className="text-base font-bold truncate drop-shadow-sm">{getDisplayName(data)}</p>
@@ -251,7 +261,6 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
           </p>
         </div>
 
-        {/* Row 2 */}
         <div className="flex items-stretch gap-3">
           <div className="shrink-0 space-y-1" style={{ minWidth: '140px' }}>
             {showPaceGoal ? (
@@ -311,20 +320,4 @@ export function OrgCubeStyleB({ data, isLoading, onClick, period = 'day', collap
       </div>
     </div>
   );
-
-  // If in collapsed accordion mode and this is the expanded card, animate it
-  if (collapsed && expanded) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
-        transition={{ duration: 0.25, ease: 'easeInOut' }}
-      >
-        {fullContent}
-      </motion.div>
-    );
-  }
-
-  return fullContent;
 }
