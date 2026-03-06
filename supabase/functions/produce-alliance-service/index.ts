@@ -846,10 +846,11 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
   const session = await loginToPA(credentials);
   if (!session) return jsonResponse({ success: false, error: 'PA login failed' });
 
-  // Calculate date range
+  // Calculate date range (ISO format: YYYY-MM-DD)
   const now = new Date();
-  const sd = startDate || `${now.getFullYear()}-${now.getMonth()}-1`;
-  const ed = endDate || `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const sd = startDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  const ed = endDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   const orderList = await fetchOrderList(session, sd, ed);
   console.log('[PA Orders] Got', orderList.length, 'orders in range');
