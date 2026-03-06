@@ -239,7 +239,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     if (!locationId || !paCredentials.username || !paCredentials.password) { toast.error('Please enter username and password'); return; }
     setPaIsSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('produce-alliance-service', { body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password, paLocationId: paCredentials.pa_location_id || undefined } });
+      const { data, error } = await supabase.functions.invoke('produce-alliance-service', { body: { action: 'save_credentials', locationId, username: paCredentials.username, password: paCredentials.password, restaurantId: paCredentials.restaurant_id || undefined } });
       if (error) throw error;
       if (data?.success) { toast.success('Produce Alliance credentials saved!'); queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'produce_alliance'] }); }
       else { toast.error(data?.error || 'Failed to save credentials'); }
