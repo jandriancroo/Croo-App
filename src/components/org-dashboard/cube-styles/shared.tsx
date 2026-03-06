@@ -80,35 +80,61 @@ export function Sparkline({ data, color, height = 24 }: { data: number[]; color:
   );
 }
 
-// Hourly heatmap component
-export function HourlyHeatmap({ data, height = 16, variant = 'default' }: { data: number[]; height?: number; variant?: 'default' | 'light' }) {
+// Hourly heatmap component with optional hour labels under hot bars
+export function HourlyHeatmap({ data, height = 16, variant = 'default', showLabels = false }: { data: number[]; height?: number; variant?: 'default' | 'light'; showLabels?: boolean }) {
   const max = Math.max(...data, 1);
-  const businessHours = data.slice(7, 24);
+  const businessHours = data.slice(7, 24); // index 0=7am ... 16=11pm
+
+  const formatHour = (hourIdx: number) => {
+    const hour = hourIdx + 7; // actual hour
+    if (hour === 12) return '12p';
+    if (hour > 12) return `${hour - 12}p`;
+    return `${hour}a`;
+  };
 
   return (
-    <div className="flex gap-[1px] items-end" style={{ height }}>
-      {businessHours.map((val, i) => {
-        const intensity = max > 0 ? val / max : 0;
-        let bg: string;
-        if (variant === 'light') {
-          bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)' 
-            : intensity > 0.4 ? 'rgba(255,255,255,0.5)' 
-            : intensity > 0.05 ? 'rgba(255,255,255,0.2)' 
-            : 'rgba(255,255,255,0.08)';
-        } else {
-          bg = intensity > 0.7 ? '#22c55e' 
-            : intensity > 0.4 ? '#eab308' 
-            : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)' 
-            : 'hsl(var(--muted))';
-        }
-        return (
-          <div
-            key={i}
-            className="flex-1 min-w-[3px] rounded-[1px]"
-            style={{ backgroundColor: bg, height: `${Math.max(15, intensity * 100)}%` }}
-          />
-        );
-      })}
+    <div>
+      <div className="flex gap-[1px] items-end" style={{ height }}>
+        {businessHours.map((val, i) => {
+          const intensity = max > 0 ? val / max : 0;
+          let bg: string;
+          if (variant === 'light') {
+            bg = intensity > 0.7 ? 'rgba(255,255,255,0.9)' 
+              : intensity > 0.4 ? 'rgba(255,255,255,0.5)' 
+              : intensity > 0.05 ? 'rgba(255,255,255,0.2)' 
+              : 'rgba(255,255,255,0.08)';
+          } else {
+            bg = intensity > 0.7 ? '#22c55e' 
+              : intensity > 0.4 ? '#eab308' 
+              : intensity > 0.05 ? 'hsl(var(--muted-foreground)/0.3)' 
+              : 'hsl(var(--muted))';
+          }
+          return (
+            <div
+              key={i}
+              className="flex-1 min-w-[3px] rounded-[1px]"
+              style={{ backgroundColor: bg, height: `${Math.max(15, intensity * 100)}%` }}
+            />
+          );
+        })}
+      </div>
+      {showLabels && (
+        <div className="flex gap-[1px]">
+          {businessHours.map((val, i) => {
+            const intensity = max > 0 ? val / max : 0;
+            const isHot = intensity > 0.4;
+            return (
+              <div key={i} className="flex-1 min-w-[3px] text-center">
+                {isHot ? (
+                  <span className={`text-[7px] leading-none font-medium ${variant === 'light' ? 'opacity-70' : 'text-muted-foreground'}`}>
+                    {formatHour(i)}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
