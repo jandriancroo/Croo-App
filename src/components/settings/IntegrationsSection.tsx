@@ -615,6 +615,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               </Collapsible>
             )}
+            {/* Delivery Schedule */}
+            {pfgHasToken && (
+              <DeliveryScheduleEditor
+                integrationId={pfgIntegration?.id}
+                existingCredentials={(pfgIntegration?.credentials as any) || {}}
+                schedule={pfgDeliverySchedule}
+                onScheduleChange={setPfgDeliverySchedule}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] })}
+              />
+            )}
 
             {/* Connect / Reconnect PFG */}
             <div className={pfgHasToken ? "border-t pt-3" : ""}>
