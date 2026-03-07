@@ -218,6 +218,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = paIntegration.credentials as any;
       setPaCredentials({ username: creds?.username || '', password: creds?.password || '', restaurant_id: creds?.restaurant_id || '' });
       setPaIsActive(paIntegration.is_active);
+      setPaDeliverySchedule(creds?.delivery_schedule || []);
     }
   }, [paIntegration]);
 
