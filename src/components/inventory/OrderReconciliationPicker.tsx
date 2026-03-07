@@ -225,13 +225,12 @@ export default function OrderReconciliationPicker({
     [orders, selectedIds]
   );
 
-  // Group orders by order date
+  // Group orders by delivery date
   const groupedOrders = useMemo(() => {
     if (!orders) return [];
     const groups = new Map<string, VendorOrder[]>();
     for (const o of orders) {
-      // Normalize order_date to yyyy-MM-dd key
-      const dateKey = o.orderDate ? o.orderDate.slice(0, 10) : o.deliveryDate.slice(0, 10);
+      const dateKey = o.deliveryDate ? o.deliveryDate.slice(0, 10) : o.orderDate.slice(0, 10);
       if (!groups.has(dateKey)) groups.set(dateKey, []);
       groups.get(dateKey)!.push(o);
     }
@@ -283,7 +282,7 @@ export default function OrderReconciliationPicker({
             {/* Date group header */}
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Ordered on {group.label}
+                Delivered {group.label}
               </p>
             </div>
 
@@ -342,7 +341,7 @@ export default function OrderReconciliationPicker({
                       <div className="text-left">
                         <p className="text-sm font-medium font-mono">#{order.orderId}</p>
                         <p className="text-xs text-muted-foreground">
-                          Delivered {format(new Date(order.deliveryDate + "T12:00:00"), "MMM d")}
+                          Ordered {format(new Date(order.orderDate + "T12:00:00"), "MMM d")}
                         </p>
                       </div>
                     </div>
