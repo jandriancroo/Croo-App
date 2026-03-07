@@ -92,6 +92,7 @@ const SalesPreviewVariations = lazyWithRetry(() => import("./pages/SalesPreviewV
 const TabStylePreview = lazyWithRetry(() => import("./pages/TabStylePreview"));
 const ChatListPreview = lazyWithRetry(() => import("./pages/ChatListPreview"));
 const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPreview"));
+const InventoryRedesignPreview = lazyWithRetry(() => import("./pages/InventoryRedesignPreview"));
 const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
 const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
 const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));

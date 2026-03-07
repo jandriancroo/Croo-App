@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Package, ChevronDown, ChevronRight, Play, Eye, Pencil, Trash2, 
-  DollarSign, TrendingUp, TrendingDown, Truck, BarChart3, 
-  Settings, Layers, ClipboardCheck, ArrowRight, CheckCircle2,
-  Calendar, Clock, AlertTriangle, Plus, Search, Filter
+  Package, ChevronDown, Play, Eye, Pencil, Trash2, 
+  TrendingUp, TrendingDown, Truck, BarChart3, 
+  ClipboardCheck, ArrowRight, CheckCircle2, Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
