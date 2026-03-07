@@ -225,6 +225,7 @@ const AppContent = () => {
         <Route path="/tab-style-preview" element={<ProtectedRoute><TabStylePreview /></ProtectedRoute>} />
         <Route path="/chat-list-preview" element={<ProtectedRoute><ChatListPreview /></ProtectedRoute>} />
         <Route path="/inventory-card-preview" element={<ProtectedRoute><InventoryCardPreview /></ProtectedRoute>} />
+        <Route path="/inventory-redesign-preview" element={<ProtectedRoute><InventoryRedesignPreview /></ProtectedRoute>} />
         <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
         <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
         <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
