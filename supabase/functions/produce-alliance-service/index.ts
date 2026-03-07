@@ -989,23 +989,31 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
   const orderList = await fetchOrderList(session, sd, ed);
   console.log('[PA Orders] Got', orderList.length, 'orders in range');
 
-  // Fetch details for orders
-  const orderDetails: PAOrderDetail[] = [];
+  // Fetch details for orders — carry orderDate from summary
+  const orderDetailsWithDate: Array<PAOrderDetail & { summaryOrderDate: string }> = [];
   if (fetchDetails && orderList.length > 0) {
     const toFetch = orderList.slice(0, maxDetails);
     for (const order of toFetch) {
       const detail = await fetchOrderDetail(session, order.webOrderId, sd, ed, credentials);
       if (detail) {
-        orderDetails.push(detail);
+        orderDetailsWithDate.push({ ...detail, summaryOrderDate: order.orderDate });
         // Brief pause to avoid hammering
         await new Promise(r => setTimeout(r, 300));
       }
     }
   }
 
+  // Helper: derive delivery_date as order_date + 1 day (all Blaze locations are next-day delivery)
+  const nextDay = (dateStr: string): string => {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+
   // Persist to pa_orders
   let persisted = 0;
-  for (const detail of orderDetails) {
+  const orderDetails = orderDetailsWithDate; // keep variable name for response
+  for (const detail of orderDetailsWithDate) {
     const items = detail.lineItems.map(li => ({
       name: li.description,
       item_code: li.item_code,
@@ -1016,14 +1024,19 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
       total: li.cost,
     }));
 
+    // Use the order summary's orderDate as the true order_date
+    // Derive delivery_date as next day (all Blaze locations are next-day delivery)
+    const orderDate = detail.summaryOrderDate || new Date().toISOString().split('T')[0];
+    const deliveryDate = nextDay(orderDate);
+
     const { error } = await supabase
       .from('pa_orders')
       .upsert({
         location_id: locationId,
         pa_order_id: detail.webOrderId,
         order_number: detail.webOrderId,
-        order_date: detail.deliveryDate || new Date().toISOString().split('T')[0],
-        delivery_date: detail.deliveryDate,
+        order_date: orderDate,
+        delivery_date: deliveryDate,
         status: 'delivered',
         total_amount: detail.totalAmount,
         items,
@@ -1655,7 +1668,7 @@ async function handleListPendingScrapes(supabase: any, _body: any): Promise<Resp
 }
 
 async function handleSaveScrapedOrder(supabase: any, body: any): Promise<Response> {
-  const { locationId, webOrderId, lineItems, deliveryDate, totalCases, totalAmount } = body;
+  const { locationId, webOrderId, lineItems, deliveryDate, totalCases, totalAmount, orderDate: bodyOrderDate } = body;
 
   if (!locationId || !webOrderId) {
     return jsonResponse({ success: false, error: 'Missing locationId or webOrderId' }, 400);
@@ -1676,18 +1689,28 @@ async function handleSaveScrapedOrder(supabase: any, body: any): Promise<Respons
     total: li.cost,
   }));
 
+  // Use provided orderDate, or fall back to today
+  const orderDateFinal = bodyOrderDate || new Date().toISOString().split('T')[0];
+  // Derive delivery_date as next day (all Blaze locations are next-day delivery)
+  const nextDay = (dateStr: string): string => {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+  const deliveryDateFinal = nextDay(orderDateFinal);
+
   const { error } = await supabase
     .from('pa_orders')
     .upsert({
       location_id: locationId,
       pa_order_id: webOrderId,
       order_number: webOrderId,
-      order_date: deliveryDate || new Date().toISOString().split('T')[0],
-      delivery_date: deliveryDate,
+      order_date: orderDateFinal,
+      delivery_date: deliveryDateFinal,
       status: 'delivered',
       total_amount: totalAmount,
       items,
-      raw_data: { lineItems, deliveryDate, totalCases, totalAmount, source: 'headless_scraper' },
+      raw_data: { lineItems, deliveryDate, totalCases, totalAmount, orderDate: bodyOrderDate, source: 'headless_scraper' },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'location_id,pa_order_id' });
 
