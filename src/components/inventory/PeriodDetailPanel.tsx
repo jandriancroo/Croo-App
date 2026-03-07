@@ -110,20 +110,20 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
       const [pfgBound, paBound, pfgDateRange, paDateRange] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .eq("bound_to_count_id", count.id)
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .eq("bound_to_count_id", count.id)
           .order("delivery_date", { ascending: true }),
         // Fallback: date-range query for unbound orders in period
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
@@ -131,7 +131,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
