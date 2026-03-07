@@ -1,15 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
-import DailySpotCount from "@/components/inventory/DailySpotCount";
-import { format, addDays } from "date-fns";
+import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket } from "lucide-react";
+import InventoryCountTab from "@/components/inventory/InventoryCountTab";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -304,166 +304,7 @@ const Inventory = () => {
     }
   };
 
-  // Group recent counts into Month → Week → Quick hierarchy
-  const groupedCounts = useMemo(() => {
-    if (!recentCounts || recentCounts.length === 0) return [];
 
-    const weeklyCounts = recentCounts.filter(c => c.period_type === 'weekly');
-    const quickCounts = recentCounts.filter(c => !c.period_type);
-    const monthlyCounts = recentCounts.filter(c => c.period_type === 'monthly');
-    const yearlyCounts = recentCounts.filter(c => c.period_type === 'yearly');
-
-    // Collect unique months
-    const monthSet = new Map<string, Date>();
-    for (const c of recentCounts) {
-      const d = new Date((c.period_end_date || c.count_date) + 'T12:00:00');
-      const key = format(d, "yyyy-MM");
-      if (!monthSet.has(key)) monthSet.set(key, new Date(d.getFullYear(), d.getMonth(), 1));
-    }
-    const months = [...monthSet.entries()].sort((a, b) => b[1].getTime() - a[1].getTime());
-
-    type CountEntry = 
-      | { type: 'month-header'; label: string }
-      | { type: 'monthly-count'; count: any }
-      | { type: 'yearly-count'; count: any }
-      | { type: 'week-header'; label: string; startingInventory?: number; tag?: string }
-      | { type: 'weekly-count'; count: any }
-      | { type: 'quick-count'; count: any };
-
-    // Calculate current and last week Mondays for tagging
-    const now = new Date();
-    const jsDay = now.getDay();
-    const currentMondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
-    const currentWeekMonday = new Date(now);
-    currentWeekMonday.setHours(12, 0, 0, 0);
-    currentWeekMonday.setDate(now.getDate() + currentMondayOffset);
-    const currentWeekKey = format(currentWeekMonday, "yyyy-MM-dd");
-    const lastWeekKey = format(addDays(currentWeekMonday, -7), "yyyy-MM-dd");
-
-    const getWeekTag = (mondayKey: string): string | undefined => {
-      if (mondayKey === currentWeekKey) return 'Current Week';
-      if (mondayKey === lastWeekKey) return 'Last Week';
-      return undefined;
-    };
-
-    const result: CountEntry[] = [];
-
-    for (const [monthKey, monthStart] of months) {
-      result.push({ type: 'month-header', label: format(monthStart, "MMMM yyyy") });
-
-      // Monthly counts in this month
-      for (const mc of monthlyCounts.filter(c => format(new Date((c.period_end_date || c.count_date) + 'T12:00:00'), "yyyy-MM") === monthKey)) {
-        result.push({ type: 'monthly-count', count: mc });
-      }
-      for (const yc of yearlyCounts.filter(c => format(new Date((c.period_end_date || c.count_date) + 'T12:00:00'), "yyyy-MM") === monthKey)) {
-        result.push({ type: 'yearly-count', count: yc });
-      }
-
-      // Build all week containers: from weekly counts + orphan quick counts
-      type WeekContainer = {
-        mondayKey: string;
-        weekStartDate: Date;
-        weekEndDate: Date;
-        weeklyCount?: any;
-        startingInventory?: number;
-        quickCounts: any[];
-      };
-
-      const weekMap = new Map<string, WeekContainer>();
-
-      // Add weeks from weekly counts
-      const weeksInMonth = weeklyCounts
-        .filter(c => format(new Date((c.period_end_date || c.count_date) + 'T12:00:00'), "yyyy-MM") === monthKey)
-        .sort((a, b) => new Date(b.period_end_date).getTime() - new Date(a.period_end_date).getTime());
-
-      for (let wi = 0; wi < weeksInMonth.length; wi++) {
-        const weekCount = weeksInMonth[wi];
-        const countDate = new Date(weekCount.period_end_date + 'T12:00:00');
-        const wEnd = countDate;                // period_end_date is already the week end (Sunday)
-        const wStart = addDays(countDate, -6); // Monday
-        const mKey = format(wStart, "yyyy-MM-dd");
-
-        // Starting inventory from prior week's ending cost
-        let startingInventory: number | undefined;
-        const priorWeek = weeksInMonth[wi + 1];
-        if (priorWeek?.status === 'completed' && priorWeek._stats?.totalCost > 0) {
-          startingInventory = priorWeek._stats.totalCost;
-        } else if (!priorWeek) {
-          const prior = weeklyCounts
-            .filter(c => new Date(c.period_end_date) < wStart && c.status === 'completed')
-            .sort((a, b) => new Date(b.period_end_date).getTime() - new Date(a.period_end_date).getTime())[0];
-          if (prior?._stats?.totalCost > 0) startingInventory = prior._stats.totalCost;
-        }
-
-        const container: WeekContainer = {
-          mondayKey: mKey,
-          weekStartDate: wStart,
-          weekEndDate: wEnd,
-          weeklyCount: weekCount,
-          startingInventory,
-          quickCounts: [],
-        };
-
-        // Attach quick counts within this Mon-Sun range
-        quickCounts
-          .filter(c => {
-            const d = new Date(c.count_date + 'T12:00:00');
-            return d >= wStart && d <= wEnd;
-          })
-          .sort((a, b) => new Date(b.count_date).getTime() - new Date(a.count_date).getTime())
-          .forEach(qc => container.quickCounts.push(qc));
-
-        weekMap.set(mKey, container);
-      }
-
-      // Find orphan quick counts and create implied week containers
-      const existingRanges = [...weekMap.values()];
-      const orphanQuicks = quickCounts.filter(c => {
-        const d = new Date(c.count_date + 'T12:00:00');
-        if (format(d, "yyyy-MM") !== monthKey) return false;
-        return !existingRanges.some(r => d >= r.weekStartDate && d <= r.weekEndDate);
-      });
-
-      for (const qc of orphanQuicks) {
-        const d = new Date(qc.count_date + 'T12:00:00');
-        const day = d.getDay();
-        const monOff = day === 0 ? -6 : 1 - day;
-        const mon = addDays(d, monOff);
-        const mKey = format(mon, "yyyy-MM-dd");
-        if (!weekMap.has(mKey)) {
-          weekMap.set(mKey, {
-            mondayKey: mKey,
-            weekStartDate: mon,
-            weekEndDate: addDays(mon, 6),
-            quickCounts: [],
-          });
-        }
-        weekMap.get(mKey)!.quickCounts.push(qc);
-      }
-
-      // Sort all weeks descending (most recent first)
-      const allWeeks = [...weekMap.values()].sort((a, b) =>
-        b.weekStartDate.getTime() - a.weekStartDate.getTime()
-      );
-
-      for (const week of allWeeks) {
-        result.push({
-          type: 'week-header',
-          label: `${format(week.weekStartDate, "MMM d")} – ${format(week.weekEndDate, "MMM d, yyyy")}`,
-          startingInventory: week.startingInventory,
-          tag: getWeekTag(week.mondayKey),
-        });
-        if (week.weeklyCount) {
-          result.push({ type: 'weekly-count', count: week.weeklyCount });
-        }
-        for (const qc of week.quickCounts) {
-          result.push({ type: 'quick-count', count: qc });
-        }
-      }
-    }
-
-    return result;
-  }, [recentCounts]);
 
   if (!canAccessInventory) {
     navigate('/dashboard', { replace: true });
@@ -525,157 +366,14 @@ const Inventory = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="count" className="mt-4 space-y-4">
-            <Card>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Package className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">Start Inventory Count</h3>
-                    <p className="text-muted-foreground text-xs">Select a period and begin counting</p>
-                  </div>
-                </div>
-                <Button size="sm" onClick={handleStartCount}>
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Start Count
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Daily Spot Check */}
-            <DailySpotCount locationId={locationId!} />
-
-            {groupedCounts.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Counts</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div>
-                    {groupedCounts.map((entry, idx) => {
-                      if (entry.type === 'month-header') {
-                        return (
-                          <div key={`mh-${idx}`} className="px-4 pt-5 pb-2 first:pt-3">
-                            <p className="text-base font-bold text-foreground">{entry.label}</p>
-                          </div>
-                        );
-                      }
-
-                      if (entry.type === 'week-header') {
-                        return (
-                          <div key={`wh-${idx}`} className="pl-7 pr-4 pt-3 pb-1.5">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-foreground">{entry.label}</p>
-                              {entry.tag && (
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                                  {entry.tag}
-                                </span>
-                              )}
-                            </div>
-                            {entry.startingInventory != null && entry.startingInventory > 0 && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Starting Inventory: ${entry.startingInventory.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      // Determine indent: monthly/yearly = pl-4, weekly = pl-10, quick = pl-14
-                      const count = entry.count;
-                      const indent = entry.type === 'quick-count' ? 'pl-14' : entry.type === 'weekly-count' ? 'pl-10' : 'pl-4';
-
-                      return (
-                        <div 
-                          key={count.id} 
-                          className={`${indent} pr-4 py-3 flex items-center justify-between hover:bg-muted/50 border-t border-border/40`}
-                        >
-                          <div 
-                            className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
-                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className={`${entry.type === 'monthly-count' || entry.type === 'yearly-count' ? 'font-semibold' : 'font-medium'} text-sm`}>
-                                {formatPeriodLabel(count)}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <Badge variant="outline" className="text-xs capitalize">
-                                  {count.period_type || "Quick"}
-                                </Badge>
-                                <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                                  {count.status === "completed" ? "Complete" : "In Progress"}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {count.counted_by_profile?.full_name || "Unknown"}
-                              </p>
-                              {count._stats && count._stats.totalItems > 0 && (
-                                <div className="flex items-center gap-3 mt-1">
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Package className="h-3 w-3" />
-                                    <span>{count._stats.countedItems}/{count._stats.totalItems}</span>
-                                    <span className="text-muted-foreground/60">
-                                      ({Math.round((count._stats.countedItems / count._stats.totalItems) * 100)}%)
-                                    </span>
-                                  </div>
-                                  {count._stats.totalCost > 0 && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                      <DollarSign className="h-3 w-3" />
-                                      <span>${count._stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {count.status === "completed" && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/inventory/${locationId}/count/${count.id}`);
-                                  }}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/inventory/${locationId}/count/${count.id}?edit=true`);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(count);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          <TabsContent value="count" className="mt-4">
+            <InventoryCountTab
+              locationId={locationId!}
+              inProgressCount={inProgressCount}
+              recentCounts={recentCounts}
+              onStartCount={handleStartCount}
+              onDeleteCount={handleDeleteClick}
+            />
           </TabsContent>
 
           <TabsContent value="cogs-variance" className="mt-4 space-y-6">
