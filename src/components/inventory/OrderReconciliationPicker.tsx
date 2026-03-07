@@ -190,26 +190,26 @@ export default function OrderReconciliationPicker({
         }
       }
 
-      const promises: Promise<any>[] = [];
+      const promises: any[] = [];
 
       if (pfgBind.length > 0) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: countId } as any).in("id", pfgBind).then()
+          supabase.from("pfg_orders").update({ bound_to_count_id: countId } as any).in("id", pfgBind).select()
         );
       }
       if (pfgUnbind.length > 0) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: null } as any).in("id", pfgUnbind).then()
+          supabase.from("pfg_orders").update({ bound_to_count_id: null } as any).in("id", pfgUnbind).select()
         );
       }
       if (paBind.length > 0) {
         promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: countId } as any).in("id", paBind).then()
+          supabase.from("pa_orders").update({ bound_to_count_id: countId } as any).in("id", paBind).select()
         );
       }
       if (paUnbind.length > 0) {
         promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).then()
+          supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).select()
         );
       }
 
