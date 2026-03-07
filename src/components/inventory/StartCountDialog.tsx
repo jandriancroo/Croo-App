@@ -25,10 +25,12 @@ import {
   Package,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Truck
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import OrderReconciliationPicker from "./OrderReconciliationPicker";
 
 interface StartCountDialogProps {
   open: boolean;
@@ -44,6 +46,7 @@ interface PeriodOption {
   label: string;
   description: string;
   periodEndDate: string | null;
+  periodStartDate?: string | null;
   icon: React.ReactNode;
   isConfigured: boolean;
 }
@@ -64,7 +67,7 @@ const StartCountDialog = ({
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [step, setStep] = useState<"period" | "sync">("period");
+  const [step, setStep] = useState<"period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingPA, setIsSyncingPA] = useState(false);
@@ -72,6 +75,9 @@ const StartCountDialog = ({
   const [syncComplete, setSyncComplete] = useState(false);
   const [paSyncComplete, setPaSyncComplete] = useState(false);
   const [lastSyncErrors, setLastSyncErrors] = useState<string[]>([]);
+  const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
+  // Temp count ID for order binding (created before counting starts)
+  const [tempCountId, setTempCountId] = useState<string | null>(null);
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -82,6 +88,8 @@ const StartCountDialog = ({
       setPaSyncComplete(false);
       setSyncProgress(null);
       setLastSyncErrors([]);
+      setAutoSyncTriggered(false);
+      setTempCountId(null);
     }
   }, [open]);
 
@@ -181,7 +189,7 @@ const StartCountDialog = ({
         itemsWithPrices: itemsWithPrices || 0,
       };
     },
-    enabled: open && step === "sync",
+    enabled: open && (step === "sync" || step === "orders"),
   });
 
   // Fetch last PA sync log
@@ -214,16 +222,10 @@ const StartCountDialog = ({
       );
     };
 
-    // Weekly periods - week ends on the configured day
+    // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      // day_of_week is the day the week ENDS on (0 = Sunday, 1 = Monday, etc.)
       const weekEndDay = weeklySetting.day_of_week ?? 0;
-      
-      // Calculate the week start day (the day after the week end day)
-      const weekStartDay = ((weekEndDay + 1) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
-      
-      // Find the current/upcoming week end date
       const todayDay = today.getDay();
       let daysUntilEnd = weekEndDay - todayDay;
       if (daysUntilEnd < 0) daysUntilEnd += 7;
@@ -231,8 +233,6 @@ const StartCountDialog = ({
       const weekEnd = new Date(today);
       weekEnd.setDate(today.getDate() + daysUntilEnd);
       const weekEndStr = format(weekEnd, "yyyy-MM-dd");
-      
-      // Week start is 6 days before week end
       const weekStart = subDays(weekEnd, 6);
       
       if (!isPeriodCounted("weekly", weekEndStr)) {
@@ -242,12 +242,12 @@ const StartCountDialog = ({
           label: `Week Ending ${format(weekEnd, "MMM d")}`,
           description: `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`,
           periodEndDate: weekEndStr,
+          periodStartDate: format(weekStart, "yyyy-MM-dd"),
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
         });
       }
 
-      // Previous week
       const prevWeekEnd = subDays(weekEnd, 7);
       const prevWeekStart = subDays(prevWeekEnd, 6);
       const prevWeekEndStr = format(prevWeekEnd, "yyyy-MM-dd");
@@ -259,6 +259,7 @@ const StartCountDialog = ({
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
           description: `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
+          periodStartDate: format(prevWeekStart, "yyyy-MM-dd"),
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
         });
@@ -270,14 +271,16 @@ const StartCountDialog = ({
     if (monthlySetting) {
       const monthEnd = endOfMonth(today);
       const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+      const monthStart = startOfMonth(today);
       
       if (!isPeriodCounted("monthly", monthEndStr)) {
         options.push({
           id: `monthly-current`,
           type: "monthly",
           label: `${format(today, "MMMM")} Month End`,
-          description: `${format(startOfMonth(today), "MMM d")} - ${format(monthEnd, "MMM d, yyyy")}`,
+          description: `${format(monthStart, "MMM d")} - ${format(monthEnd, "MMM d, yyyy")}`,
           periodEndDate: monthEndStr,
+          periodStartDate: format(monthStart, "yyyy-MM-dd"),
           icon: <Calendar className="h-5 w-5" />,
           isConfigured: true,
         });
@@ -286,21 +289,21 @@ const StartCountDialog = ({
       const prevMonth = subDays(startOfMonth(today), 1);
       const prevMonthEnd = endOfMonth(prevMonth);
       const prevMonthEndStr = format(prevMonthEnd, "yyyy-MM-dd");
+      const prevMonthStart = startOfMonth(prevMonth);
       
       if (!isPeriodCounted("monthly", prevMonthEndStr)) {
         options.push({
           id: `monthly-prev`,
           type: "monthly",
           label: `${format(prevMonth, "MMMM")} Month End`,
-          description: `${format(startOfMonth(prevMonth), "MMM d")} - ${format(prevMonthEnd, "MMM d, yyyy")}`,
+          description: `${format(prevMonthStart, "MMM d")} - ${format(prevMonthEnd, "MMM d, yyyy")}`,
           periodEndDate: prevMonthEndStr,
+          periodStartDate: format(prevMonthStart, "yyyy-MM-dd"),
           icon: <Calendar className="h-5 w-5" />,
           isConfigured: true,
         });
       }
     }
-
-    // Yearly periods removed - redundant when monthly is enabled
 
     // Always show ad-hoc option
     options.push({
@@ -309,12 +312,34 @@ const StartCountDialog = ({
       label: "Quick Count",
       description: "Count without a specific period",
       periodEndDate: null,
+      periodStartDate: null,
       icon: <Check className="h-5 w-5" />,
       isConfigured: false,
     });
 
     return options;
   }, [scheduleSettings, existingCounts]);
+
+  // Auto-sync when entering sync step
+  useEffect(() => {
+    if (step === "sync" && !autoSyncTriggered) {
+      setAutoSyncTriggered(true);
+      // Auto-trigger syncs
+      if (pfgIntegration) {
+        syncFromPFG();
+      }
+      if (paIntegration && !pfgIntegration) {
+        syncFromPA();
+      }
+    }
+  }, [step, autoSyncTriggered, pfgIntegration, paIntegration]);
+
+  // Auto-trigger PA after PFG completes
+  useEffect(() => {
+    if (syncComplete && paIntegration && !paSyncComplete && !isSyncingPA) {
+      syncFromPA();
+    }
+  }, [syncComplete, paIntegration, paSyncComplete, isSyncingPA]);
 
   // Sync from PFG
   const syncFromPFG = async () => {
@@ -359,9 +384,7 @@ const StartCountDialog = ({
 
       setSyncProgress({ phase: "Mapping storage locations...", current: 25, total: 100 });
 
-      // Map PFG categories to existing storage locations (don't auto-create)
       const locationMap = new Map<string, string>();
-      
       const { data: existingLocations } = await supabase
         .from("inventory_locations")
         .select("id, name")
@@ -373,7 +396,6 @@ const StartCountDialog = ({
 
       setSyncProgress({ phase: "Updating items & prices...", current: 35, total: 100, detail: `0 / ${totalProducts}` });
 
-      // Upsert items
       let processedItems = 0;
       
       for (const cat of categories) {
@@ -403,7 +425,6 @@ const StartCountDialog = ({
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
           let imageUrl = existing?.image_url || product.imageUrl || null;
           
-          // Check cross-location for existing AI-generated image
           if (!imageUrl && product.itemNumber) {
             const { data: crossLocationItem } = await supabase
               .from("inventory_items")
@@ -457,7 +478,6 @@ const StartCountDialog = ({
       setSyncProgress({ phase: "Sync complete!", current: 100, total: 100 });
       setSyncComplete(true);
       
-      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       refetchSyncInfo();
@@ -465,12 +485,13 @@ const StartCountDialog = ({
     } catch (err) {
       console.error("PFG sync error:", err);
       setSyncProgress({ phase: "Sync failed", current: 0, total: 100 });
+      setSyncComplete(true); // Allow progression even on failure
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Sync from Produce Alliance (Vision-based)
+  // Sync from Produce Alliance
   const syncFromPA = async () => {
     if (!paIntegration) return;
     
@@ -506,6 +527,7 @@ const StartCountDialog = ({
     } catch (err) {
       console.error("PA sync error:", err);
       setSyncProgress({ phase: "PA sync failed", current: 0, total: 100 });
+      setPaSyncComplete(true); // Allow progression
     } finally {
       setIsSyncingPA(false);
     }
@@ -515,10 +537,66 @@ const StartCountDialog = ({
     setStep("sync");
   };
 
+  const handleContinueToOrders = async () => {
+    const selected = periodOptions.find((p) => p.id === selectedPeriod);
+    if (!selected || selected.type === "adhoc") {
+      // Skip order picker for ad-hoc counts
+      handleStart();
+      return;
+    }
+
+    // Create or resume the count to get a count ID for binding orders
+    try {
+      let query = supabase
+        .from("inventory_counts")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("status", "in_progress");
+
+      if (selected.periodEndDate) {
+        query = query
+          .eq("period_type", selected.type)
+          .eq("period_end_date", selected.periodEndDate);
+      }
+
+      const { data: existing } = await query.order("started_at", { ascending: false }).limit(1).maybeSingle();
+
+      if (existing) {
+        setTempCountId(existing.id);
+      } else {
+        const { data: newCount, error } = await supabase
+          .from("inventory_counts")
+          .insert({
+            location_id: locationId,
+            counted_by: user?.id,
+            count_date: new Date().toISOString().split("T")[0],
+            period_type: selected.type,
+            period_end_date: selected.periodEndDate,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        setTempCountId(newCount.id);
+      }
+
+      setStep("orders");
+    } catch (err) {
+      console.error("Failed to create count for order binding:", err);
+      toast.error("Failed to prepare count");
+    }
+  };
+
   const handleBack = () => {
-    setStep("period");
-    setSyncComplete(false);
-    setSyncProgress(null);
+    if (step === "orders") {
+      setStep("sync");
+    } else {
+      setStep("period");
+      setSyncComplete(false);
+      setPaSyncComplete(false);
+      setSyncProgress(null);
+      setAutoSyncTriggered(false);
+    }
   };
 
   const handleStart = () => {
@@ -531,19 +609,29 @@ const StartCountDialog = ({
     }
   };
 
+  const handleOrdersSaved = () => {
+    // Orders are saved, now start counting
+    handleStart();
+  };
+
   const selectedPeriodData = periodOptions.find((p) => p.id === selectedPeriod);
+  const hasVendorIntegration = !!pfgIntegration || !!paIntegration;
+  const allSyncsDone = (!pfgIntegration || syncComplete) && (!paIntegration || paSyncComplete);
+  const noSyncsNeeded = !pfgIntegration && !paIntegration;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === "period" ? "Select Count Period" : "Sync Items & Prices"}
+            {step === "period" ? "Select Count Period" : step === "sync" ? "Syncing Items & Prices" : "Apply Vendor Orders"}
           </DialogTitle>
           <DialogDescription>
             {step === "period" 
               ? "Choose the period you're counting for"
-              : "Update your inventory data before counting"
+              : step === "sync"
+              ? "Updating your inventory data automatically"
+              : "Select which deliveries to include in this period"
             }
           </DialogDescription>
         </DialogHeader>
@@ -692,44 +780,38 @@ const StartCountDialog = ({
                   </div>
                 )}
 
-                {/* Sync Button */}
-                {pfgIntegration && !syncComplete && (
-                  <Button 
-                    variant="outline"
-                    className="w-full" 
-                    onClick={syncFromPFG}
-                    disabled={isSyncing}
-                  >
-                    {isSyncing ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                {/* Manual re-sync buttons (only if auto-sync already ran) */}
+                {autoSyncTriggered && !isSyncing && !isSyncingPA && (
+                  <div className="flex gap-2">
+                    {pfgIntegration && (
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={syncFromPFG}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Re-sync PFG
+                      </Button>
                     )}
-                    Sync Items & Prices from PFG
-                  </Button>
+                    {paIntegration && (
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        onClick={syncFromPA}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Re-sync PA
+                      </Button>
+                    )}
+                  </div>
                 )}
 
-                {/* PA Sync Button */}
-                {paIntegration && !paSyncComplete && (
-                  <Button 
-                    variant="outline"
-                    className="w-full" 
-                    onClick={syncFromPA}
-                    disabled={isSyncingPA || isSyncing}
-                  >
-                    {isSyncingPA ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Sync Items from Produce Alliance
-                  </Button>
-                )}
-
-                {(syncComplete || paSyncComplete) && (
+                {(allSyncsDone || noSyncsNeeded) && (
                   <div className="flex items-center justify-center gap-2 text-green-600 py-2">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">Sync complete</span>
+                    <span className="font-medium">{noSyncsNeeded ? "No vendor sync needed" : "Sync complete"}</span>
                   </div>
                 )}
 
@@ -782,12 +864,58 @@ const StartCountDialog = ({
                 className="flex-1"
                 size="lg"
                 disabled={isSyncing || isSyncingPA || isPending}
-                onClick={handleStart}
+                onClick={handleContinueToOrders}
               >
-                {isPending ? (
+                {(isSyncing || isSyncingPA) ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
-                Start Counting
+                {selectedPeriodData?.type === "adhoc" ? "Start Counting" : "Select Orders"}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "orders" && tempCountId && selectedPeriodData && (
+          <div className="space-y-4">
+            {/* Selected Period Summary */}
+            <Card className="bg-muted/50">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Truck className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">{selectedPeriodData.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Select which vendor orders to include in COGS for this period
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <OrderReconciliationPicker
+              locationId={locationId}
+              countId={tempCountId}
+              periodStartDate={selectedPeriodData.periodStartDate || undefined}
+              periodEndDate={selectedPeriodData.periodEndDate || undefined}
+              editable
+              compact
+              onSaved={handleOrdersSaved}
+            />
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleBack} disabled={isPending}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={handleStart}
+                disabled={isPending}
+              >
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Skip & Start Counting
               </Button>
             </div>
           </div>

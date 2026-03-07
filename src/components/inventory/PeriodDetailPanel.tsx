@@ -1,17 +1,28 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
+  Settings2,
 } from "lucide-react";
-import { format, subDays, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { format, subDays, addDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
+import { useUserRole } from "@/hooks/useUserRole";
+import OrderReconciliationPicker from "./OrderReconciliationPicker";
 
 interface PeriodDetailPanelProps {
   count: any;
@@ -20,14 +31,16 @@ interface PeriodDetailPanelProps {
 
 export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
+  const { isManager, isAdmin } = useUserRole();
+  const canManageOrders = isManager || isAdmin;
+  const [showOrderDialog, setShowOrderDialog] = useState(false);
 
   // Determine period date range for this count
   const periodRange = useMemo(() => {
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
-    // Weekly: period is Mon-Sun ending on period_end_date
-    // We approximate start as 6 days before end
     if (count.period_type === "weekly") {
       const end = new Date(endDate + "T12:00:00");
       const start = subDays(end, 6);
@@ -36,7 +49,6 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         endStr: endDate,
       };
     }
-    // Monthly: first of month to end date
     if (count.period_type === "monthly") {
       const end = new Date(endDate + "T12:00:00");
       const start = new Date(end.getFullYear(), end.getMonth(), 1);
@@ -48,13 +60,13 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
     return null;
   }, [count.period_end_date, count.period_type]);
 
-  // Fetch COGS data for this period
+  // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
     queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr],
     queryFn: async () => {
       if (!periodRange) return null;
 
-      // Beginning: most recent completed count with period_end_date before this period's start
+      // Beginning: most recent completed count before this period
       const { data: beginCounts } = await supabase
         .from("inventory_counts")
         .select("id, period_end_date, count_date")
@@ -64,10 +76,8 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         .order("period_end_date", { ascending: false })
         .limit(1);
 
-      // Ending is this count itself
       const beginCount = beginCounts?.[0] || null;
 
-      // Fetch count items for beginning and ending
       const [beginItems, endItems] = await Promise.all([
         beginCount
           ? supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", beginCount.id)
@@ -75,7 +85,6 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         supabase.from("inventory_count_items").select("item_id, quantity").eq("count_id", count.id),
       ]);
 
-      // Fetch inventory items for cost lookup
       const { data: items } = await supabase
         .from("inventory_items")
         .select("id, cost_per_unit, pack_quantity, pack_quantity_override, is_recipe")
@@ -98,29 +107,46 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         endValue += Number(ci.quantity) * (costMap.get(ci.item_id) || 0);
       }
 
-      // Fetch purchases in this period
-      const [pfgResult, paResult] = await Promise.all([
+      // Fetch purchases: PREFER bound orders, fallback to date-range
+      const [pfgBound, paBound, pfgDateRange, paDateRange] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount")
+          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
+          .eq("bound_to_count_id", count.id)
+          .order("delivery_date", { ascending: true }),
+        supabase
+          .from("pa_orders")
+          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .eq("location_id", locationId)
+          .eq("bound_to_count_id", count.id)
+          .order("delivery_date", { ascending: true }),
+        // Fallback: date-range query for unbound orders in period
+        supabase
+          .from("pfg_orders")
+          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .eq("location_id", locationId)
+          .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
           .lte("delivery_date", periodRange.endStr)
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount")
+          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
+          .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
           .lte("delivery_date", periodRange.endStr)
           .order("delivery_date", { ascending: true }),
       ]);
 
-      const pfg = pfgResult.data || [];
-      const pa = paResult.data || [];
+      // Use bound orders if any exist, otherwise fallback to date-range unbound
+      const hasBoundOrders = (pfgBound.data?.length || 0) + (paBound.data?.length || 0) > 0;
+      const pfg = hasBoundOrders ? (pfgBound.data || []) : (pfgDateRange.data || []);
+      const pa = hasBoundOrders ? (paBound.data || []) : (paDateRange.data || []);
+      
       const purchasesTotal = [...pfg, ...pa].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
 
-      // Fetch net sales
       const { data: salesRows } = await supabase
         .from("sales_cache")
         .select("net_sales")
@@ -140,6 +166,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         netSales,
         cogsPct,
         hasBeginning: !!beginCount,
+        hasBoundOrders,
         purchases: [
           ...pfg.map((o: any) => ({ vendor: "PFG", id: `#${o.pfg_order_id || o.id.slice(0, 8)}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d") })),
           ...pa.map((o: any) => ({ vendor: "PA", id: `#${o.pa_order_id || o.id.slice(0, 8)}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d") })),
@@ -150,13 +177,12 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch variance data for this period (simplified: compare count items to previous count)
+  // Fetch variance data
   const { data: varianceData } = useQuery({
     queryKey: ["period-variance", locationId, count.id, periodRange?.startStr],
     queryFn: async () => {
       if (!periodRange) return [];
 
-      // Get previous count
       const { data: prevCounts } = await supabase
         .from("inventory_counts")
         .select("id")
@@ -201,15 +227,14 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         });
       }
 
-      // Sort by absolute cost impact
       variances.sort((a, b) => Math.abs(b.cost) - Math.abs(a.cost));
-      return variances.slice(0, 20); // Top 20
+      return variances.slice(0, 20);
     },
     enabled: !!periodRange && count.status === "completed",
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch spot checks for this period
+  // Fetch spot checks
   const { data: spotChecks } = useQuery({
     queryKey: ["period-spot-checks", locationId, periodRange?.startStr, periodRange?.endStr],
     queryFn: async () => {
@@ -248,7 +273,6 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
       ) : cogsData ? (
         <Card>
           <CardContent className="p-5">
-            {/* Header with COGS % */}
             <div className="flex items-center justify-between mb-4">
               <div>
                 <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
@@ -266,14 +290,12 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
               </div>
             </div>
 
-            {/* Beginning / Purchases / Ending boxes */}
             <div className="grid grid-cols-3 gap-3">
               <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
               <SummaryMetric label="PURCHASES" value={`$${Math.round(cogsData.purchasesTotal).toLocaleString()}`} />
               <SummaryMetric label="ENDING" value={`$${Math.round(cogsData.endValue).toLocaleString()}`} />
             </div>
 
-            {/* COGS breakdown */}
             <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
               <FormulaRow label="Beginning Inventory" value={cogsData.beginValue} />
               <FormulaRow label="+ Purchases" value={cogsData.purchasesTotal} />
@@ -286,10 +308,17 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                 <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
               </div>
             </div>
+
+            {/* Order binding indicator */}
+            {!cogsData.hasBoundOrders && cogsData.purchases.length > 0 && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-amber-600">
+                <Settings2 className="h-3.5 w-3.5" />
+                <span>Using date-range purchases — bind orders for accuracy</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
-        // Fallback: simple count info (no COGS data available, e.g. no period)
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
@@ -339,6 +368,21 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         <TabsContent value="purchases" className="mt-3">
           <Card>
             <CardContent className="p-4 space-y-0 divide-y divide-border/40">
+              {/* Manage Orders button for manager+ */}
+              {canManageOrders && periodRange && (
+                <div className="pb-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setShowOrderDialog(true)}
+                  >
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Manage Orders for Period
+                  </Button>
+                </div>
+              )}
+
               {cogsData?.purchases && cogsData.purchases.length > 0 ? (
                 <>
                   {cogsData.purchases.map((po: any, i: number) => (
@@ -452,6 +496,29 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Manage Orders Dialog */}
+      <Dialog open={showOrderDialog} onOpenChange={setShowOrderDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Orders for Period</DialogTitle>
+            <DialogDescription>
+              Select which vendor orders to include in this period's COGS calculation.
+            </DialogDescription>
+          </DialogHeader>
+          <OrderReconciliationPicker
+            locationId={locationId}
+            countId={count.id}
+            periodStartDate={periodRange?.startStr}
+            periodEndDate={periodRange?.endStr}
+            editable
+            onSaved={() => {
+              setShowOrderDialog(false);
+              queryClient.invalidateQueries({ queryKey: ["period-cogs", locationId, count.id] });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
