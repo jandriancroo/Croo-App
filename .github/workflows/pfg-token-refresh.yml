@@ -1,15 +1,25 @@
-name: PFG Token Refresh
+name: PFG Token Refresh + PA Scraper
 
 on:
   schedule:
     # Run every 20 hours (cycles through different times)
     - cron: '0 */20 * * *'
   workflow_dispatch: # Allow manual trigger for testing
+    inputs:
+      skip_pfg:
+        description: 'Skip PFG token refresh'
+        required: false
+        default: 'false'
+      skip_pa:
+        description: 'Skip PA order scraping'
+        required: false
+        default: 'false'
 
 jobs:
   refresh-pfg-token:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    if: ${{ github.event.inputs.skip_pfg != 'true' }}
     
     steps:
       - uses: actions/checkout@v4
@@ -29,3 +39,27 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: node .github/scripts/pfg-headless-login.mjs
+
+  scrape-pa-orders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event.inputs.skip_pa != 'true' }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install chromium
+      
+      - name: Run PA Headless Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node .github/scripts/pa-headless-scraper.mjs
