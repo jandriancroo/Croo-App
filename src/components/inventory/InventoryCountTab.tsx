@@ -3,12 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Play, Eye, Pencil, Trash2, Package,
-  Calendar, ChevronDown, ArrowRight, Crosshair, DollarSign,
+  Plus, Play, Package,
+  Calendar, ChevronDown, ArrowRight,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
