@@ -378,15 +378,10 @@ function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
               <p className="text-xs text-muted-foreground">COGS</p>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
             <SummaryMetric label="Purchases" value={`$${selected.cogs.purchases.toLocaleString()}`} />
             <SummaryMetric label="Ending" value={`$${selected.cogs.ending.toLocaleString()}`} />
-            <SummaryMetric 
-              label="COGS %" 
-              value={`${selected.cogs.cogsPct}%`} 
-              highlight={selected.cogs.cogsPct > 22}
-            />
           </div>
           <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
             <FormulaRow label="Beginning Inventory" value={selected.cogs.beginning} />
