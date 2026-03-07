@@ -169,7 +169,12 @@ export default function InventoryRedesignPreview() {
                     : 'bg-card border-2 border-transparent hover:bg-muted/60'
                 }`}
               >
-                <p className="text-sm font-bold">{count.shortLabel}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold">{count.shortLabel}</p>
+                  {count.type === 'monthly' && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase tracking-wider">Monthly</Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{count.label}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-sm font-semibold">${count.totalCost.toLocaleString()}</span>
