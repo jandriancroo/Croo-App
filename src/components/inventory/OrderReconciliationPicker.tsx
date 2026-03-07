@@ -55,14 +55,14 @@ export default function OrderReconciliationPicker({
       const [pfgResult, paResult] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
           .order("order_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
@@ -99,7 +99,7 @@ export default function OrderReconciliationPicker({
         ...(pfgResult.data || []).map((o: any) => ({
           id: `pfg_${o.id}`,
           vendor: "PFG" as const,
-          orderId: o.pfg_order_id || o.id.slice(0, 8),
+          orderId: o.order_number || (o.pfg_order_id?.includes('_') ? o.pfg_order_id.split('_').pop() : o.pfg_order_id) || o.id.slice(0, 8),
           orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
@@ -111,7 +111,7 @@ export default function OrderReconciliationPicker({
         ...(paResult.data || []).map((o: any) => ({
           id: `pa_${o.id}`,
           vendor: "PA" as const,
-          orderId: o.pa_order_id || o.id.slice(0, 8),
+          orderId: o.order_number || o.pa_order_id || o.id.slice(0, 8),
           orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
