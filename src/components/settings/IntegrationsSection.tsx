@@ -734,6 +734,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
             </div>
+            {/* Delivery Schedule */}
+            {paConnected && (
+              <DeliveryScheduleEditor
+                integrationId={paIntegration?.id}
+                existingCredentials={(paIntegration?.credentials as any) || {}}
+                schedule={paDeliverySchedule}
+                onScheduleChange={setPaDeliverySchedule}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pa'] })}
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>
