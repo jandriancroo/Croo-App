@@ -1627,6 +1627,9 @@ serve(async (req) => {
       case 'fetch_order': return await handleFetchOrder(supabase, body);
       case 'discover_restaurant_id': return await handleDiscoverRestaurantId(supabase, body);
       case 'debug': return await handleDebug(supabase, body);
+      case 'list_pending_scrapes': return await handleListPendingScrapes(supabase, body);
+      case 'save_scraped_order': return await handleSaveScrapedOrder(supabase, body);
+      case 'headless_login_failed': return await handleHeadlessLoginFailed(supabase, body);
       default: return jsonResponse({ success: false, error: `Unknown action: ${action}` }, 400);
     }
   } catch (error) {
