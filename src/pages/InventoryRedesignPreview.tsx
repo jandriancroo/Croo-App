@@ -12,11 +12,14 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-type SpotCount = {
+type SpotCheckItem = { name: string; quantity: number; lastCountQty: number; note?: string };
+
+type SpotCheck = {
   date: string;
+  time: string;
   countedBy: string;
-  itemsChecked: number;
-  flags: { name: string; expected: number; actual: number; diff: number }[];
+  items: SpotCheckItem[];
+  note?: string;
 };
 
 const mockCounts = [
@@ -32,11 +35,16 @@ const mockCounts = [
     cogs: null,
     purchases: [],
     variance: [],
-    spotCounts: [
-      { date: "Mar 4", countedBy: "Sarah M.", itemsChecked: 6, flags: [
-        { name: "Mozzarella Cheese", expected: 22, actual: 18, diff: -4 },
-      ]},
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Mar 4", time: "2:15 PM", countedBy: "Sarah M.", items: [
+        { name: "Mozzarella Cheese", quantity: 18, lastCountQty: 24 },
+        { name: "Pepperoni", quantity: 13, lastCountQty: 15 },
+        { name: "Chicken Wings", quantity: 28, lastCountQty: 30 },
+        { name: "Ranch Cups", quantity: 48, lastCountQty: 50 },
+        { name: "Flour", quantity: 8, lastCountQty: 8 },
+        { name: "Dough Balls", quantity: 42, lastCountQty: 45 },
+      ], note: "Checked high-usage items before midweek delivery" },
+    ] as SpotCheck[],
   },
   {
     id: "w12",
@@ -59,12 +67,22 @@ const mockCounts = [
       { name: "Pepperoni", expected: 15, actual: 13, diff: -2, cost: -8.20 },
       { name: "Ranch Cups", expected: 50, actual: 55, diff: 5, cost: 3.75 },
     ],
-    spotCounts: [
-      { date: "Feb 27", countedBy: "Mike R.", itemsChecked: 4, flags: [] },
-      { date: "Mar 1", countedBy: "Sarah M.", itemsChecked: 6, flags: [
-        { name: "Pepperoni", expected: 14, actual: 11, diff: -3 },
-      ]},
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Feb 27", time: "3:00 PM", countedBy: "Mike R.", items: [
+        { name: "Mozzarella Cheese", quantity: 22, lastCountQty: 24 },
+        { name: "Pepperoni", quantity: 14, lastCountQty: 15 },
+        { name: "Chicken Wings", quantity: 27, lastCountQty: 30 },
+        { name: "Ranch Cups", quantity: 52, lastCountQty: 50 },
+      ] },
+      { date: "Mar 1", time: "1:30 PM", countedBy: "Sarah M.", items: [
+        { name: "Pepperoni", quantity: 11, lastCountQty: 15 },
+        { name: "Mozzarella Cheese", quantity: 19, lastCountQty: 24 },
+        { name: "Chicken Wings", quantity: 24, lastCountQty: 30 },
+        { name: "Flour", quantity: 7, lastCountQty: 8 },
+        { name: "Ranch Cups", quantity: 54, lastCountQty: 50 },
+        { name: "Dough Balls", quantity: 38, lastCountQty: 45 },
+      ], note: "Pepperoni looking low before weekend" },
+    ] as SpotCheck[],
   },
   {
     id: "w11",
@@ -84,11 +102,15 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 30, actual: 26, diff: -4, cost: -22.00 },
     ],
-    spotCounts: [
-      { date: "Feb 20", countedBy: "Sarah M.", itemsChecked: 5, flags: [
-        { name: "Chicken Wings", expected: 28, actual: 24, diff: -4 },
-      ]},
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Feb 20", time: "4:00 PM", countedBy: "Sarah M.", items: [
+        { name: "Chicken Wings", quantity: 24, lastCountQty: 30 },
+        { name: "Mozzarella Cheese", quantity: 20, lastCountQty: 22 },
+        { name: "Pepperoni", quantity: 13, lastCountQty: 14 },
+        { name: "Flour", quantity: 7, lastCountQty: 8 },
+        { name: "Ranch Cups", quantity: 48, lastCountQty: 50 },
+      ], note: "Wings seem to be going fast" },
+    ] as SpotCheck[],
   },
   {
     id: "w10",
@@ -108,7 +130,7 @@ const mockCounts = [
       { name: "Flour", expected: 8, actual: 7, diff: -1, cost: -4.20 },
       { name: "Ranch Cups", expected: 48, actual: 52, diff: 4, cost: 3.00 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "w9",
@@ -129,9 +151,13 @@ const mockCounts = [
       { name: "Pepperoni", expected: 16, actual: 14, diff: -2, cost: -8.20 },
       { name: "Mozzarella Cheese", expected: 22, actual: 19, diff: -3, cost: -13.80 },
     ],
-    spotCounts: [
-      { date: "Feb 6", countedBy: "Sarah M.", itemsChecked: 3, flags: [] },
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Feb 6", time: "2:45 PM", countedBy: "Sarah M.", items: [
+        { name: "Mozzarella Cheese", quantity: 20, lastCountQty: 22 },
+        { name: "Pepperoni", quantity: 15, lastCountQty: 16 },
+        { name: "Chicken Wings", quantity: 28, lastCountQty: 30 },
+      ] },
+    ] as SpotCheck[],
   },
   {
     id: "w8",
@@ -150,7 +176,7 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 28, actual: 25, diff: -3, cost: -16.50 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "m2",
@@ -178,7 +204,7 @@ const mockCounts = [
       { name: "Chicken Wings", expected: 120, actual: 112, diff: -8, cost: -44.00 },
       { name: "Ranch Cups", expected: 200, actual: 210, diff: 10, cost: 7.50 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "w7",
@@ -197,11 +223,15 @@ const mockCounts = [
     variance: [
       { name: "Flour", expected: 8, actual: 7, diff: -1, cost: -4.20 },
     ],
-    spotCounts: [
-      { date: "Jan 23", countedBy: "Mike R.", itemsChecked: 5, flags: [
-        { name: "Flour", expected: 7, actual: 5, diff: -2 },
-      ]},
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Jan 23", time: "3:30 PM", countedBy: "Mike R.", items: [
+        { name: "Flour", quantity: 5, lastCountQty: 8 },
+        { name: "Mozzarella Cheese", quantity: 19, lastCountQty: 22 },
+        { name: "Pepperoni", quantity: 12, lastCountQty: 14 },
+        { name: "Ranch Cups", quantity: 44, lastCountQty: 48 },
+        { name: "Chicken Wings", quantity: 25, lastCountQty: 28 },
+      ], note: "Flour dropping faster than expected" },
+    ] as SpotCheck[],
   },
   {
     id: "w6",
@@ -222,7 +252,7 @@ const mockCounts = [
       { name: "Mozzarella Cheese", expected: 23, actual: 20, diff: -3, cost: -13.80 },
       { name: "Pepperoni", expected: 14, actual: 12, diff: -2, cost: -8.20 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "w5",
@@ -242,12 +272,14 @@ const mockCounts = [
       { name: "Chicken Wings", expected: 32, actual: 27, diff: -5, cost: -27.50 },
       { name: "Ranch Cups", expected: 45, actual: 49, diff: 4, cost: 3.00 },
     ],
-    spotCounts: [
-      { date: "Jan 9", countedBy: "Sarah M.", itemsChecked: 4, flags: [
-        { name: "Chicken Wings", expected: 30, actual: 25, diff: -5 },
-      ]},
-      { date: "Jan 11", countedBy: "Mike R.", itemsChecked: 3, flags: [] },
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Jan 9", time: "2:00 PM", countedBy: "Sarah M.", items: [
+        { name: "Chicken Wings", quantity: 25, lastCountQty: 32 },
+        { name: "Mozzarella Cheese", quantity: 20, lastCountQty: 23 },
+        { name: "Ranch Cups", quantity: 47, lastCountQty: 45 },
+        { name: "Pepperoni", quantity: 13, lastCountQty: 14 },
+      ] },
+    ] as SpotCheck[],
   },
   {
     id: "w4",
@@ -266,7 +298,7 @@ const mockCounts = [
     variance: [
       { name: "Flour", expected: 7, actual: 6, diff: -1, cost: -4.20 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "m1",
@@ -295,7 +327,7 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 180, actual: 192, diff: 12, cost: 9.00 },
       { name: "Flour", expected: 30, actual: 28, diff: -2, cost: -8.40 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "w3",
@@ -315,7 +347,7 @@ const mockCounts = [
       { name: "Mozzarella Cheese", expected: 28, actual: 24, diff: -4, cost: -18.40 },
       { name: "Pepperoni", expected: 18, actual: 16, diff: -2, cost: -8.20 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "w2",
@@ -334,11 +366,15 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 35, actual: 30, diff: -5, cost: -27.50 },
     ],
-    spotCounts: [
-      { date: "Dec 19", countedBy: "Sarah M.", itemsChecked: 5, flags: [
-        { name: "Chicken Wings", expected: 32, actual: 27, diff: -5 },
-      ]},
-    ] as SpotCount[],
+    spotChecks: [
+      { date: "Dec 19", time: "4:15 PM", countedBy: "Sarah M.", items: [
+        { name: "Chicken Wings", quantity: 27, lastCountQty: 35 },
+        { name: "Mozzarella Cheese", quantity: 22, lastCountQty: 24 },
+        { name: "Pepperoni", quantity: 16, lastCountQty: 18 },
+        { name: "Ranch Cups", quantity: 40, lastCountQty: 42 },
+        { name: "Flour", quantity: 6, lastCountQty: 7 },
+      ], note: "Wings going fast — holiday rush" },
+    ] as SpotCheck[],
   },
   {
     id: "w1",
@@ -358,7 +394,7 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 42, actual: 46, diff: 4, cost: 3.00 },
       { name: "Flour", expected: 7, actual: 6, diff: -1, cost: -4.20 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
   {
     id: "m0",
@@ -387,118 +423,48 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 170, actual: 182, diff: 12, cost: 9.00 },
       { name: "Flour", expected: 28, actual: 26, diff: -2, cost: -8.40 },
     ],
-    spotCounts: [] as SpotCount[],
+    spotChecks: [] as SpotCheck[],
   },
 ];
 
 // ——————————————————————————————
-// Spot Count display components for the 3 sub-options
+// Daily Spot Check list (v1 — simple snapshot)
 // ——————————————————————————————
-function SpotCountList({ spots }: { spots: SpotCount[] }) {
-  if (!spots.length) return (
-    <p className="text-sm text-muted-foreground py-4 text-center">No spot checks this period.</p>
-  );
-  return (
-    <div className="space-y-0 divide-y divide-border/40">
-      {spots.map((sc, i) => (
-        <div key={i} className="py-3 first:pt-0 last:pb-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Crosshair className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{sc.date}</p>
-                <p className="text-xs text-muted-foreground">{sc.countedBy} • {sc.itemsChecked} items</p>
-              </div>
-            </div>
-            {sc.flags.length > 0 ? (
-              <Badge variant="destructive" className="text-xs">{sc.flags.length} flag{sc.flags.length > 1 ? 's' : ''}</Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs">✓ Clear</Badge>
-            )}
-          </div>
-          {sc.flags.length > 0 && (
-            <div className="ml-12 mt-2 space-y-1">
-              {sc.flags.map((f, j) => (
-                <div key={j} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{f.name}: expected {f.expected}</span>
-                  <span className="text-destructive font-medium">actual {f.actual} ({f.diff > 0 ? '+' : ''}{f.diff})</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+function DailySpotCheckList({ checks }: { checks: SpotCheck[] }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(checks.length === 1 ? 0 : null);
+
+  if (!checks.length) return (
+    <div className="py-8 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto mb-3">
+        <Crosshair className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <p className="text-sm text-muted-foreground">No daily spot checks this period.</p>
+      <p className="text-xs text-muted-foreground mt-1">Spot checks are quick snapshots of key items mid-week.</p>
     </div>
   );
-}
 
-// ——————————————————————————————
-// OPTION 1: Spot counts as a 4th tab
-// ——————————————————————————————
-function DetailPanelWithSpotTab({ selected }: { selected: typeof mockCounts[0] }) {
-  if (!selected.cogs) return null;
-  const spotCount = selected.spotCounts.length;
   return (
-    <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
-      <SummaryCard selected={selected} />
-      <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-11">
-          <TabsTrigger value="purchases" className="text-sm gap-1"><Truck className="h-3.5 w-3.5" /> Purchases</TabsTrigger>
-          <TabsTrigger value="variance" className="text-sm gap-1"><BarChart3 className="h-3.5 w-3.5" /> Variance</TabsTrigger>
-          <TabsTrigger value="count" className="text-sm gap-1"><ClipboardCheck className="h-3.5 w-3.5" /> Count</TabsTrigger>
-          <TabsTrigger value="spots" className="text-sm gap-1 relative">
-            <Crosshair className="h-3.5 w-3.5" /> Spots
-            {spotCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{spotCount}</span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-        <PurchasesTab selected={selected} />
-        <VarianceTab selected={selected} />
-        <CountTab selected={selected} />
-        <TabsContent value="spots" className="mt-3">
-          <Card><CardContent className="p-4"><SpotCountList spots={selected.spotCounts} /></CardContent></Card>
-        </TabsContent>
-      </Tabs>
-    </motion.div>
-  );
-}
-
-// ——————————————————————————————
-// OPTION 2: Spot counts as collapsible section below
-// ——————————————————————————————
-function DetailPanelWithSpotSection({ selected }: { selected: typeof mockCounts[0] }) {
-  const [spotsOpen, setSpotsOpen] = useState(false);
-  if (!selected.cogs) return null;
-  const spotCount = selected.spotCounts.length;
-  return (
-    <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
-      <SummaryCard selected={selected} />
-
-      {/* Collapsible spot counts section */}
-      {spotCount > 0 && (
-        <Card className="border-primary/20">
+    <div className="space-y-0 divide-y divide-border/40">
+      {checks.map((sc, i) => (
+        <div key={i} className="py-3 first:pt-0 last:pb-0">
           <button
-            onClick={() => setSpotsOpen(!spotsOpen)}
-            className="w-full p-4 flex items-center justify-between"
+            onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+            className="w-full flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Crosshair className="h-4 w-4 text-primary" />
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold">{spotCount} Spot Check{spotCount > 1 ? 's' : ''} This Period</p>
-                <p className="text-xs text-muted-foreground">
-                  {selected.spotCounts.reduce((s, sc) => s + sc.flags.length, 0)} flags found
-                </p>
+                <p className="text-sm font-medium">{sc.date} · {sc.time}</p>
+                <p className="text-xs text-muted-foreground">{sc.countedBy} · {sc.items.length} items checked</p>
               </div>
             </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${spotsOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedIdx === i ? 'rotate-180' : ''}`} />
           </button>
+
           <AnimatePresence>
-            {spotsOpen && (
+            {expandedIdx === i && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -506,52 +472,172 @@ function DetailPanelWithSpotSection({ selected }: { selected: typeof mockCounts[
                 transition={{ duration: 0.15 }}
                 className="overflow-hidden"
               >
-                <div className="px-4 pb-4 border-t border-border/40 pt-3">
-                  <SpotCountList spots={selected.spotCounts} />
+                <div className="ml-12 mt-3 space-y-0 divide-y divide-border/30">
+                  {/* Header row */}
+                  <div className="flex items-center justify-between pb-2">
+                    <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Item</span>
+                    <div className="flex items-center gap-6">
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wide w-16 text-right">Last Count</span>
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wide w-16 text-right">Now</span>
+                    </div>
+                  </div>
+                  {sc.items.map((item, j) => {
+                    const delta = item.quantity - item.lastCountQty;
+                    return (
+                      <div key={j} className="flex items-center justify-between py-2">
+                        <span className="text-sm">{item.name}</span>
+                        <div className="flex items-center gap-6">
+                          <span className="text-sm text-muted-foreground w-16 text-right">{item.lastCountQty}</span>
+                          <span className={`text-sm font-medium w-16 text-right ${
+                            delta < -3 ? 'text-destructive' : ''
+                          }`}>
+                            {item.quantity}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+                {sc.note && (
+                  <div className="ml-12 mt-2 px-3 py-2 rounded-lg bg-muted/40">
+                    <p className="text-xs text-muted-foreground italic">📝 {sc.note}</p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
-        </Card>
-      )}
-
-      <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11">
-          <TabsTrigger value="purchases" className="text-sm gap-1.5"><Truck className="h-4 w-4" /> Purchases</TabsTrigger>
-          <TabsTrigger value="variance" className="text-sm gap-1.5"><BarChart3 className="h-4 w-4" /> Variance</TabsTrigger>
-          <TabsTrigger value="count" className="text-sm gap-1.5"><ClipboardCheck className="h-4 w-4" /> Count</TabsTrigger>
-        </TabsList>
-        <PurchasesTab selected={selected} />
-        <VarianceTab selected={selected} />
-        <CountTab selected={selected} />
-      </Tabs>
-    </motion.div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 // ——————————————————————————————
-// OPTION 3: Badge indicator + spots inside Count tab
+// Detail panel with 4 tabs (Purchases, Variance, Count, Daily Spot Check)
 // ——————————————————————————————
-function DetailPanelWithSpotBadge({ selected }: { selected: typeof mockCounts[0] }) {
+function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
   if (!selected.cogs) return null;
-  const spotCount = selected.spotCounts.length;
+  const spotCount = selected.spotChecks.length;
   return (
     <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
-      <SummaryCard selected={selected} />
+      {/* Summary Card */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-lg font-bold">{selected.label}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {selected.countedBy} • {selected.completedAt}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`text-2xl font-bold ${selected.cogs.cogsPct > 22 ? 'text-destructive' : ''}`}>{selected.cogs.cogsPct}%</p>
+              <p className="text-xs text-muted-foreground">COGS</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
+            <SummaryMetric label="Purchases" value={`$${selected.cogs.purchases.toLocaleString()}`} />
+            <SummaryMetric label="Ending" value={`$${selected.cogs.ending.toLocaleString()}`} />
+          </div>
+          <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
+            <FormulaRow label="Beginning Inventory" value={selected.cogs.beginning} />
+            <FormulaRow label="+ Purchases" value={selected.cogs.purchases} />
+            <FormulaRow label="− Ending Inventory" value={selected.cogs.ending} />
+            <div className="border-t border-border/60 pt-1.5 mt-1.5">
+              <FormulaRow label="= Cost of Goods Sold" value={selected.cogs.cogsTotal} bold />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-muted-foreground">Net Sales</span>
+              <span className="text-sm font-medium">${selected.cogs.salesTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4-tab layout */}
       <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11">
-          <TabsTrigger value="purchases" className="text-sm gap-1.5"><Truck className="h-4 w-4" /> Purchases</TabsTrigger>
-          <TabsTrigger value="variance" className="text-sm gap-1.5"><BarChart3 className="h-4 w-4" /> Variance</TabsTrigger>
-          <TabsTrigger value="count" className="text-sm gap-1.5 relative">
-            <ClipboardCheck className="h-4 w-4" /> Count
+        <TabsList className="grid w-full grid-cols-4 h-11">
+          <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
+            <Truck className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Purchases</span><span className="sm:hidden">Orders</span>
+          </TabsTrigger>
+          <TabsTrigger value="variance" className="text-xs sm:text-sm gap-1">
+            <BarChart3 className="h-3.5 w-3.5" /> Variance
+          </TabsTrigger>
+          <TabsTrigger value="count" className="text-xs sm:text-sm gap-1">
+            <ClipboardCheck className="h-3.5 w-3.5" /> Count
+          </TabsTrigger>
+          <TabsTrigger value="spotcheck" className="text-xs sm:text-sm gap-1 relative">
+            <Crosshair className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Daily Spot</span><span className="sm:hidden">Spot</span>
             {spotCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{spotCount}</span>
             )}
           </TabsTrigger>
         </TabsList>
-        <PurchasesTab selected={selected} />
-        <VarianceTab selected={selected} />
-        <TabsContent value="count" className="mt-3 space-y-3">
+
+        {/* Purchases */}
+        <TabsContent value="purchases" className="mt-3">
+          <Card>
+            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
+              {selected.purchases.map((po, i) => (
+                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
+                      po.vendor === 'PFG' ? 'bg-primary/10 text-primary' : 'bg-accent/60 text-accent-foreground'
+                    }`}>{po.vendor}</div>
+                    <div>
+                      <p className="text-sm font-medium font-mono">{po.id}</p>
+                      <p className="text-xs text-muted-foreground">{po.date}</p>
+                    </div>
+                  </div>
+                  <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-sm font-medium text-muted-foreground">Total Purchases</span>
+                <span className="text-base font-bold">${selected.purchases.reduce((s, p) => s + p.amount, 0).toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Variance */}
+        <TabsContent value="variance" className="mt-3">
+          <Card>
+            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
+              {selected.variance.filter(v => v.diff !== 0).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No variance items for this period.</p>
+              ) : (
+                selected.variance.filter(v => v.diff !== 0).map((v, i) => (
+                  <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        v.diff < 0 ? 'bg-destructive/10' : 'bg-accent/60'
+                      }`}>
+                        {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{v.name}</p>
+                        <p className="text-xs text-muted-foreground">Expected {v.expected} → Actual {v.actual}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-semibold ${v.diff < 0 ? 'text-destructive' : 'text-primary'}`}>
+                        {v.diff > 0 ? '+' : ''}{v.diff} units
+                      </p>
+                      <p className={`text-xs ${v.cost < 0 ? 'text-destructive' : 'text-primary'}`}>
+                        {v.cost < 0 ? '−' : '+'}${Math.abs(v.cost).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Count */}
+        <TabsContent value="count" className="mt-3">
           <Card>
             <CardContent className="p-6 text-center space-y-4">
               <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
@@ -569,154 +655,18 @@ function DetailPanelWithSpotBadge({ selected }: { selected: typeof mockCounts[0]
               </div>
             </CardContent>
           </Card>
-          {/* Spot counts nested under count tab */}
-          {spotCount > 0 && (
-            <Card className="border-primary/20">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Crosshair className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-semibold">{spotCount} Spot Check{spotCount > 1 ? 's' : ''}</p>
-                </div>
-                <SpotCountList spots={selected.spotCounts} />
-              </CardContent>
-            </Card>
-          )}
+        </TabsContent>
+
+        {/* Daily Spot Check */}
+        <TabsContent value="spotcheck" className="mt-3">
+          <Card>
+            <CardContent className="p-4">
+              <DailySpotCheckList checks={selected.spotChecks} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </motion.div>
-  );
-}
-
-// ——————————————————————————————
-// Shared tab content & summary card
-// ——————————————————————————————
-function SummaryCard({ selected }: { selected: typeof mockCounts[0] }) {
-  if (!selected.cogs) return null;
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-lg font-bold">{selected.label}</p>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {selected.countedBy} • {selected.completedAt}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className={`text-2xl font-bold ${selected.cogs.cogsPct > 22 ? 'text-destructive' : ''}`}>{selected.cogs.cogsPct}%</p>
-            <p className="text-xs text-muted-foreground">COGS</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
-          <SummaryMetric label="Purchases" value={`$${selected.cogs.purchases.toLocaleString()}`} />
-          <SummaryMetric label="Ending" value={`$${selected.cogs.ending.toLocaleString()}`} />
-        </div>
-        <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
-          <FormulaRow label="Beginning Inventory" value={selected.cogs.beginning} />
-          <FormulaRow label="+ Purchases" value={selected.cogs.purchases} />
-          <FormulaRow label="− Ending Inventory" value={selected.cogs.ending} />
-          <div className="border-t border-border/60 pt-1.5 mt-1.5">
-            <FormulaRow label="= Cost of Goods Sold" value={selected.cogs.cogsTotal} bold />
-          </div>
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">Net Sales</span>
-            <span className="text-sm font-medium">${selected.cogs.salesTotal.toLocaleString()}</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PurchasesTab({ selected }: { selected: typeof mockCounts[0] }) {
-  return (
-    <TabsContent value="purchases" className="mt-3">
-      <Card>
-        <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-          {selected.purchases.map((po, i) => (
-            <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
-                  po.vendor === 'PFG' ? 'bg-primary/10 text-primary' : 'bg-accent/60 text-accent-foreground'
-                }`}>{po.vendor}</div>
-                <div>
-                  <p className="text-sm font-medium font-mono">{po.id}</p>
-                  <p className="text-xs text-muted-foreground">{po.date}</p>
-                </div>
-              </div>
-              <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
-            </div>
-          ))}
-          <div className="flex items-center justify-between pt-3">
-            <span className="text-sm font-medium text-muted-foreground">Total Purchases</span>
-            <span className="text-base font-bold">${selected.purchases.reduce((s, p) => s + p.amount, 0).toLocaleString()}</span>
-          </div>
-        </CardContent>
-      </Card>
-    </TabsContent>
-  );
-}
-
-function VarianceTab({ selected }: { selected: typeof mockCounts[0] }) {
-  return (
-    <TabsContent value="variance" className="mt-3">
-      <Card>
-        <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-          {selected.variance.filter(v => v.diff !== 0).length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No variance items for this period.</p>
-          ) : (
-            selected.variance.filter(v => v.diff !== 0).map((v, i) => (
-              <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                    v.diff < 0 ? 'bg-destructive/10' : 'bg-accent/60'
-                  }`}>
-                    {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{v.name}</p>
-                    <p className="text-xs text-muted-foreground">Expected {v.expected} → Actual {v.actual}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`text-sm font-semibold ${v.diff < 0 ? 'text-destructive' : 'text-primary'}`}>
-                    {v.diff > 0 ? '+' : ''}{v.diff} units
-                  </p>
-                  <p className={`text-xs ${v.cost < 0 ? 'text-destructive' : 'text-primary'}`}>
-                    {v.cost < 0 ? '−' : '+'}${Math.abs(v.cost).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </TabsContent>
-  );
-}
-
-function CountTab({ selected }: { selected: typeof mockCounts[0] }) {
-  return (
-    <TabsContent value="count" className="mt-3">
-      <Card>
-        <CardContent className="p-6 text-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
-            <Package className="h-7 w-7 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-lg font-bold">{selected.countedItems} / {selected.totalItems} items</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              On-hand value: <span className="font-semibold text-foreground">${selected.totalCost.toLocaleString()}</span>
-            </p>
-          </div>
-          <div className="flex gap-3 justify-center">
-            <Button variant="outline" size="default"><Eye className="h-4 w-4 mr-2" /> View Details</Button>
-            <Button variant="outline" size="default"><Pencil className="h-4 w-4 mr-2" /> Edit Count</Button>
-          </div>
-        </CardContent>
-      </Card>
-    </TabsContent>
   );
 }
 
@@ -754,167 +704,101 @@ function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) 
 }
 
 // ——————————————————————————————
-// Dropdown period selector (shared across all 3 spot-count options)
+// Main preview — Option C (Dropdown + Filter) with Daily Spot Check tab
 // ——————————————————————————————
-function PeriodSelector({ selectedId, setSelectedId, spotCountLabel }: { 
-  selectedId: string; 
-  setSelectedId: (id: string) => void;
-  spotCountLabel?: boolean;
-}) {
+export default function InventoryRedesignPreview() {
+  const [selectedId, setSelectedId] = useState<string>("w12");
   const [typeFilter, setTypeFilter] = useState<'all' | 'weekly' | 'monthly'>('all');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const selected = mockCounts.find(c => c.id === selectedId)!;
   const completedCounts = mockCounts.filter(c => c.status === "completed");
   const inProgress = mockCounts.find(c => c.status === "in_progress");
 
-  const filteredCounts = typeFilter === 'all' 
-    ? completedCounts 
+  const filteredCounts = typeFilter === 'all'
+    ? completedCounts
     : completedCounts.filter(c => c.type === typeFilter);
-
-  return (
-    <>
-      {inProgress && <InProgressBanner inProgress={inProgress} />}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-1.5">
-          {(['all', 'weekly', 'monthly'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
-                typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >{t}</button>
-          ))}
-        </div>
-        <div className="relative flex-1">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-card border border-border/50 hover:bg-muted/40 transition-all"
-          >
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-bold">{selected.shortLabel}</span>
-              {selected.type === 'monthly' && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Mo</Badge>
-              )}
-              {selected.cogs && (
-                <span className="text-xs text-muted-foreground">{selected.cogs.cogsPct}%</span>
-              )}
-              {spotCountLabel && selected.spotCounts.length > 0 && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">{selected.spotCounts.length} spot{selected.spotCounts.length > 1 ? 's' : ''}</Badge>
-              )}
-            </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-          </button>
-          <AnimatePresence>
-            {dropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.12 }}
-                className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden max-h-80 overflow-y-auto"
-              >
-                {filteredCounts.map(count => (
-                  <button
-                    key={count.id}
-                    onClick={() => { setSelectedId(count.id); setDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-3 flex items-center justify-between transition-all ${
-                      selectedId === count.id ? 'bg-primary/8' : 'hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{count.shortLabel}</span>
-                      {count.type === 'monthly' && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Monthly</Badge>
-                      )}
-                      {spotCountLabel && count.spotCounts.length > 0 && (
-                        <span className="text-[10px] text-primary font-medium">{count.spotCounts.length} spot{count.spotCounts.length > 1 ? 's' : ''}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {count.cogs && (
-                        <Badge variant={count.cogs.cogsPct > 22 ? "destructive" : "secondary"} className="text-xs px-2">
-                          {count.cogs.cogsPct}%
-                        </Badge>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ——————————————————————————————
-// Main preview — Option C only, with 3 spot-count sub-options
-// ——————————————————————————————
-export default function InventoryRedesignPreview() {
-  const [spotOption, setSpotOption] = useState<1 | 2 | 3>(1);
-  const [selectedId, setSelectedId] = useState<string>("w12");
-  const selected = mockCounts.find(c => c.id === selectedId)!;
 
   return (
     <Layout>
       <div className="space-y-5 max-w-2xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Inventory — Spot Count Options</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Inventory — Period View</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            3 ways to display daily/quick counts within the Dropdown + Filter layout.
+            Dropdown + Filter with Daily Spot Check tab
           </p>
         </div>
 
-        {/* Sub-option switcher */}
-        <div className="flex gap-2">
-          {([
-            { key: 1 as const, label: '4th Tab', desc: 'Separate Spots tab' },
-            { key: 2 as const, label: 'Collapsible Section', desc: 'Between summary & tabs' },
-            { key: 3 as const, label: 'Badge + Nested', desc: 'Inside Count tab' },
-          ]).map(opt => (
+        {inProgress && <InProgressBanner inProgress={inProgress} />}
+
+        {/* Type filter + dropdown */}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1.5">
+            {(['all', 'weekly', 'monthly'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
+                  typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >{t}</button>
+            ))}
+          </div>
+          <div className="relative flex-1">
             <button
-              key={opt.key}
-              onClick={() => setSpotOption(opt.key)}
-              className={`flex-1 py-3 px-3 rounded-2xl text-center transition-all ${
-                spotOption === opt.key
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'bg-card border border-border/50 hover:bg-muted/60'
-              }`}
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-card border border-border/50 hover:bg-muted/40 transition-all"
             >
-              <p className={`text-base font-bold ${spotOption === opt.key ? '' : 'text-foreground'}`}>
-                {opt.key}
-              </p>
-              <p className={`text-xs mt-0.5 ${spotOption === opt.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                {opt.label}
-              </p>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-bold">{selected.shortLabel}</span>
+                {selected.type === 'monthly' && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Mo</Badge>
+                )}
+                {selected.cogs && (
+                  <span className="text-xs text-muted-foreground">{selected.cogs.cogsPct}%</span>
+                )}
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
-          ))}
+            <AnimatePresence>
+              {dropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden max-h-80 overflow-y-auto"
+                >
+                  {filteredCounts.map(count => (
+                    <button
+                      key={count.id}
+                      onClick={() => { setSelectedId(count.id); setDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-3 flex items-center justify-between transition-all ${
+                        selectedId === count.id ? 'bg-primary/8' : 'hover:bg-muted/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{count.shortLabel}</span>
+                        {count.type === 'monthly' && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Monthly</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {count.cogs && (
+                          <Badge variant={count.cogs.cogsPct > 22 ? "destructive" : "secondary"} className="text-xs px-2">
+                            {count.cogs.cogsPct}%
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Period selector (shared) */}
-        <PeriodSelector 
-          selectedId={selectedId} 
-          setSelectedId={setSelectedId} 
-          spotCountLabel={spotOption === 3} 
-        />
-
-        {/* Render active spot-count option */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${spotOption}-${selectedId}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15 }}
-          >
-            {spotOption === 1 && <DetailPanelWithSpotTab selected={selected} />}
-            {spotOption === 2 && <DetailPanelWithSpotSection selected={selected} />}
-            {spotOption === 3 && <DetailPanelWithSpotBadge selected={selected} />}
-          </motion.div>
-        </AnimatePresence>
+        <DetailPanel selected={selected} />
       </div>
     </Layout>
   );
