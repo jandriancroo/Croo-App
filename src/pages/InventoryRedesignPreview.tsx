@@ -695,7 +695,7 @@ function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) 
             </div>
           </div>
         </div>
-        <Button size="sm" className="flex-shrink-0">
+        <Button size="sm" className="absolute bottom-3 right-3 flex-shrink-0">
           Resume <ArrowRight className="h-4 w-4 ml-1" />
         </Button>
       </CardContent>
