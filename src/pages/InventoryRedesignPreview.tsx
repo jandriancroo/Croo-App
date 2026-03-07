@@ -7,13 +7,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, Play, Eye, Pencil,
   TrendingUp, TrendingDown, Truck, BarChart3, 
-  ClipboardCheck, ArrowRight, ChevronLeft, ChevronRight,
-  Calendar, ChevronDown
+  ClipboardCheck, ArrowRight,
+  Calendar, ChevronDown, Crosshair
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+type SpotCount = {
+  date: string;
+  countedBy: string;
+  itemsChecked: number;
+  flags: { name: string; expected: number; actual: number; diff: number }[];
+};
+
 const mockCounts = [
-  // Current week — in progress
   {
     id: "ip1",
     label: "Week Ending Mar 9, 2026",
@@ -22,14 +28,16 @@ const mockCounts = [
     status: "in_progress",
     countedBy: "You",
     completedAt: null,
-    totalItems: 87,
-    countedItems: 42,
-    totalCost: 0,
+    totalItems: 87, countedItems: 42, totalCost: 0,
     cogs: null,
     purchases: [],
     variance: [],
+    spotCounts: [
+      { date: "Mar 4", countedBy: "Sarah M.", itemsChecked: 6, flags: [
+        { name: "Mozzarella Cheese", expected: 22, actual: 18, diff: -4 },
+      ]},
+    ] as SpotCount[],
   },
-  // ——— MARCH 2026 ———
   {
     id: "w12",
     label: "Week Ending Mar 2, 2026",
@@ -51,8 +59,13 @@ const mockCounts = [
       { name: "Pepperoni", expected: 15, actual: 13, diff: -2, cost: -8.20 },
       { name: "Ranch Cups", expected: 50, actual: 55, diff: 5, cost: 3.75 },
     ],
+    spotCounts: [
+      { date: "Feb 27", countedBy: "Mike R.", itemsChecked: 4, flags: [] },
+      { date: "Mar 1", countedBy: "Sarah M.", itemsChecked: 6, flags: [
+        { name: "Pepperoni", expected: 14, actual: 11, diff: -3 },
+      ]},
+    ] as SpotCount[],
   },
-  // ——— FEBRUARY 2026 ———
   {
     id: "w11",
     label: "Week Ending Feb 23, 2026",
@@ -71,6 +84,11 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 30, actual: 26, diff: -4, cost: -22.00 },
     ],
+    spotCounts: [
+      { date: "Feb 20", countedBy: "Sarah M.", itemsChecked: 5, flags: [
+        { name: "Chicken Wings", expected: 28, actual: 24, diff: -4 },
+      ]},
+    ] as SpotCount[],
   },
   {
     id: "w10",
@@ -90,6 +108,7 @@ const mockCounts = [
       { name: "Flour", expected: 8, actual: 7, diff: -1, cost: -4.20 },
       { name: "Ranch Cups", expected: 48, actual: 52, diff: 4, cost: 3.00 },
     ],
+    spotCounts: [] as SpotCount[],
   },
   {
     id: "w9",
@@ -110,6 +129,9 @@ const mockCounts = [
       { name: "Pepperoni", expected: 16, actual: 14, diff: -2, cost: -8.20 },
       { name: "Mozzarella Cheese", expected: 22, actual: 19, diff: -3, cost: -13.80 },
     ],
+    spotCounts: [
+      { date: "Feb 6", countedBy: "Sarah M.", itemsChecked: 3, flags: [] },
+    ] as SpotCount[],
   },
   {
     id: "w8",
@@ -128,8 +150,8 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 28, actual: 25, diff: -3, cost: -16.50 },
     ],
+    spotCounts: [] as SpotCount[],
   },
-  // Monthly — February
   {
     id: "m2",
     label: "Month Ending February 2026",
@@ -156,8 +178,8 @@ const mockCounts = [
       { name: "Chicken Wings", expected: 120, actual: 112, diff: -8, cost: -44.00 },
       { name: "Ranch Cups", expected: 200, actual: 210, diff: 10, cost: 7.50 },
     ],
+    spotCounts: [] as SpotCount[],
   },
-  // ——— JANUARY 2026 ———
   {
     id: "w7",
     label: "Week Ending Jan 26, 2026",
@@ -175,6 +197,11 @@ const mockCounts = [
     variance: [
       { name: "Flour", expected: 8, actual: 7, diff: -1, cost: -4.20 },
     ],
+    spotCounts: [
+      { date: "Jan 23", countedBy: "Mike R.", itemsChecked: 5, flags: [
+        { name: "Flour", expected: 7, actual: 5, diff: -2 },
+      ]},
+    ] as SpotCount[],
   },
   {
     id: "w6",
@@ -195,6 +222,7 @@ const mockCounts = [
       { name: "Mozzarella Cheese", expected: 23, actual: 20, diff: -3, cost: -13.80 },
       { name: "Pepperoni", expected: 14, actual: 12, diff: -2, cost: -8.20 },
     ],
+    spotCounts: [] as SpotCount[],
   },
   {
     id: "w5",
@@ -214,6 +242,12 @@ const mockCounts = [
       { name: "Chicken Wings", expected: 32, actual: 27, diff: -5, cost: -27.50 },
       { name: "Ranch Cups", expected: 45, actual: 49, diff: 4, cost: 3.00 },
     ],
+    spotCounts: [
+      { date: "Jan 9", countedBy: "Sarah M.", itemsChecked: 4, flags: [
+        { name: "Chicken Wings", expected: 30, actual: 25, diff: -5 },
+      ]},
+      { date: "Jan 11", countedBy: "Mike R.", itemsChecked: 3, flags: [] },
+    ] as SpotCount[],
   },
   {
     id: "w4",
@@ -232,8 +266,8 @@ const mockCounts = [
     variance: [
       { name: "Flour", expected: 7, actual: 6, diff: -1, cost: -4.20 },
     ],
+    spotCounts: [] as SpotCount[],
   },
-  // Monthly — January
   {
     id: "m1",
     label: "Month Ending January 2026",
@@ -261,8 +295,8 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 180, actual: 192, diff: 12, cost: 9.00 },
       { name: "Flour", expected: 30, actual: 28, diff: -2, cost: -8.40 },
     ],
+    spotCounts: [] as SpotCount[],
   },
-  // ——— DECEMBER 2025 ———
   {
     id: "w3",
     label: "Week Ending Dec 29, 2025",
@@ -281,6 +315,7 @@ const mockCounts = [
       { name: "Mozzarella Cheese", expected: 28, actual: 24, diff: -4, cost: -18.40 },
       { name: "Pepperoni", expected: 18, actual: 16, diff: -2, cost: -8.20 },
     ],
+    spotCounts: [] as SpotCount[],
   },
   {
     id: "w2",
@@ -299,6 +334,11 @@ const mockCounts = [
     variance: [
       { name: "Chicken Wings", expected: 35, actual: 30, diff: -5, cost: -27.50 },
     ],
+    spotCounts: [
+      { date: "Dec 19", countedBy: "Sarah M.", itemsChecked: 5, flags: [
+        { name: "Chicken Wings", expected: 32, actual: 27, diff: -5 },
+      ]},
+    ] as SpotCount[],
   },
   {
     id: "w1",
@@ -318,8 +358,8 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 42, actual: 46, diff: 4, cost: 3.00 },
       { name: "Flour", expected: 7, actual: 6, diff: -1, cost: -4.20 },
     ],
+    spotCounts: [] as SpotCount[],
   },
-  // Monthly — December
   {
     id: "m0",
     label: "Month Ending December 2025",
@@ -347,142 +387,171 @@ const mockCounts = [
       { name: "Ranch Cups", expected: 170, actual: 182, diff: 12, cost: 9.00 },
       { name: "Flour", expected: 28, actual: 26, diff: -2, cost: -8.40 },
     ],
+    spotCounts: [] as SpotCount[],
   },
 ];
 
 // ——————————————————————————————
-// Shared detail panel used by all options
+// Spot Count display components for the 3 sub-options
 // ——————————————————————————————
-function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
-  if (!selected.cogs) return null;
+function SpotCountList({ spots }: { spots: SpotCount[] }) {
+  if (!spots.length) return (
+    <p className="text-sm text-muted-foreground py-4 text-center">No spot checks this period.</p>
+  );
   return (
-    <motion.div
-      key={selected.id}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15 }}
-      className="space-y-4"
-    >
-      {/* Summary header */}
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-lg font-bold">{selected.label}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {selected.countedBy} • {selected.completedAt}
-              </p>
+    <div className="space-y-0 divide-y divide-border/40">
+      {spots.map((sc, i) => (
+        <div key={i} className="py-3 first:pt-0 last:pb-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Crosshair className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">{sc.date}</p>
+                <p className="text-xs text-muted-foreground">{sc.countedBy} • {sc.itemsChecked} items</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className={`text-2xl font-bold ${selected.cogs.cogsPct > 22 ? 'text-destructive' : ''}`}>{selected.cogs.cogsPct}%</p>
-              <p className="text-xs text-muted-foreground">COGS</p>
-            </div>
+            {sc.flags.length > 0 ? (
+              <Badge variant="destructive" className="text-xs">{sc.flags.length} flag{sc.flags.length > 1 ? 's' : ''}</Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">✓ Clear</Badge>
+            )}
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
-            <SummaryMetric label="Purchases" value={`$${selected.cogs.purchases.toLocaleString()}`} />
-            <SummaryMetric label="Ending" value={`$${selected.cogs.ending.toLocaleString()}`} />
-          </div>
-          <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
-            <FormulaRow label="Beginning Inventory" value={selected.cogs.beginning} />
-            <FormulaRow label="+ Purchases" value={selected.cogs.purchases} />
-            <FormulaRow label="− Ending Inventory" value={selected.cogs.ending} />
-            <div className="border-t border-border/60 pt-1.5 mt-1.5">
-              <FormulaRow label="= Cost of Goods Sold" value={selected.cogs.cogsTotal} bold />
-            </div>
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs text-muted-foreground">Net Sales</span>
-              <span className="text-sm font-medium">${selected.cogs.salesTotal.toLocaleString()}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs */}
-      <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11">
-          <TabsTrigger value="purchases" className="text-sm gap-1.5">
-            <Truck className="h-4 w-4" /> Purchases
-          </TabsTrigger>
-          <TabsTrigger value="variance" className="text-sm gap-1.5">
-            <BarChart3 className="h-4 w-4" /> Variance
-          </TabsTrigger>
-          <TabsTrigger value="count" className="text-sm gap-1.5">
-            <ClipboardCheck className="h-4 w-4" /> Count
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="purchases" className="mt-3">
-          <Card>
-            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-              {selected.purchases.map((po, i) => (
-                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
-                      po.vendor === 'PFG' 
-                        ? 'bg-primary/10 text-primary' 
-                        : 'bg-accent/60 text-accent-foreground'
-                    }`}>
-                      {po.vendor}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium font-mono">{po.id}</p>
-                      <p className="text-xs text-muted-foreground">{po.date}</p>
-                    </div>
-                  </div>
-                  <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
+          {sc.flags.length > 0 && (
+            <div className="ml-12 mt-2 space-y-1">
+              {sc.flags.map((f, j) => (
+                <div key={j} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{f.name}: expected {f.expected}</span>
+                  <span className="text-destructive font-medium">actual {f.actual} ({f.diff > 0 ? '+' : ''}{f.diff})</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between pt-3">
-                <span className="text-sm font-medium text-muted-foreground">Total Purchases</span>
-                <span className="text-base font-bold">
-                  ${selected.purchases.reduce((s, p) => s + p.amount, 0).toLocaleString()}
-                </span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ——————————————————————————————
+// OPTION 1: Spot counts as a 4th tab
+// ——————————————————————————————
+function DetailPanelWithSpotTab({ selected }: { selected: typeof mockCounts[0] }) {
+  if (!selected.cogs) return null;
+  const spotCount = selected.spotCounts.length;
+  return (
+    <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
+      <SummaryCard selected={selected} />
+      <Tabs defaultValue="purchases" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 h-11">
+          <TabsTrigger value="purchases" className="text-sm gap-1"><Truck className="h-3.5 w-3.5" /> Purchases</TabsTrigger>
+          <TabsTrigger value="variance" className="text-sm gap-1"><BarChart3 className="h-3.5 w-3.5" /> Variance</TabsTrigger>
+          <TabsTrigger value="count" className="text-sm gap-1"><ClipboardCheck className="h-3.5 w-3.5" /> Count</TabsTrigger>
+          <TabsTrigger value="spots" className="text-sm gap-1 relative">
+            <Crosshair className="h-3.5 w-3.5" /> Spots
+            {spotCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{spotCount}</span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+        <PurchasesTab selected={selected} />
+        <VarianceTab selected={selected} />
+        <CountTab selected={selected} />
+        <TabsContent value="spots" className="mt-3">
+          <Card><CardContent className="p-4"><SpotCountList spots={selected.spotCounts} /></CardContent></Card>
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  );
+}
+
+// ——————————————————————————————
+// OPTION 2: Spot counts as collapsible section below
+// ——————————————————————————————
+function DetailPanelWithSpotSection({ selected }: { selected: typeof mockCounts[0] }) {
+  const [spotsOpen, setSpotsOpen] = useState(false);
+  if (!selected.cogs) return null;
+  const spotCount = selected.spotCounts.length;
+  return (
+    <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
+      <SummaryCard selected={selected} />
+
+      {/* Collapsible spot counts section */}
+      {spotCount > 0 && (
+        <Card className="border-primary/20">
+          <button
+            onClick={() => setSpotsOpen(!spotsOpen)}
+            className="w-full p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Crosshair className="h-4 w-4 text-primary" />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <div className="text-left">
+                <p className="text-sm font-semibold">{spotCount} Spot Check{spotCount > 1 ? 's' : ''} This Period</p>
+                <p className="text-xs text-muted-foreground">
+                  {selected.spotCounts.reduce((s, sc) => s + sc.flags.length, 0)} flags found
+                </p>
+              </div>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${spotsOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence>
+            {spotsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 pb-4 border-t border-border/40 pt-3">
+                  <SpotCountList spots={selected.spotCounts} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+      )}
 
-        <TabsContent value="variance" className="mt-3">
-          <Card>
-            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-              {selected.variance.filter(v => v.diff !== 0).length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No variance items for this period.</p>
-              ) : (
-                selected.variance.filter(v => v.diff !== 0).map((v, i) => (
-                  <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                        v.diff < 0 ? 'bg-destructive/10' : 'bg-accent/60'
-                      }`}>
-                        {v.diff < 0 
-                          ? <TrendingDown className="h-4 w-4 text-destructive" />
-                          : <TrendingUp className="h-4 w-4 text-primary" />
-                        }
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{v.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Expected {v.expected} → Actual {v.actual}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-semibold ${v.diff < 0 ? 'text-destructive' : 'text-primary'}`}>
-                        {v.diff > 0 ? '+' : ''}{v.diff} units
-                      </p>
-                      <p className={`text-xs ${v.cost < 0 ? 'text-destructive' : 'text-primary'}`}>
-                        {v.cost < 0 ? '−' : '+'}${Math.abs(v.cost).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+      <Tabs defaultValue="purchases" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 h-11">
+          <TabsTrigger value="purchases" className="text-sm gap-1.5"><Truck className="h-4 w-4" /> Purchases</TabsTrigger>
+          <TabsTrigger value="variance" className="text-sm gap-1.5"><BarChart3 className="h-4 w-4" /> Variance</TabsTrigger>
+          <TabsTrigger value="count" className="text-sm gap-1.5"><ClipboardCheck className="h-4 w-4" /> Count</TabsTrigger>
+        </TabsList>
+        <PurchasesTab selected={selected} />
+        <VarianceTab selected={selected} />
+        <CountTab selected={selected} />
+      </Tabs>
+    </motion.div>
+  );
+}
 
-        <TabsContent value="count" className="mt-3">
+// ——————————————————————————————
+// OPTION 3: Badge indicator + spots inside Count tab
+// ——————————————————————————————
+function DetailPanelWithSpotBadge({ selected }: { selected: typeof mockCounts[0] }) {
+  if (!selected.cogs) return null;
+  const spotCount = selected.spotCounts.length;
+  return (
+    <motion.div key={selected.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} className="space-y-4">
+      <SummaryCard selected={selected} />
+      <Tabs defaultValue="purchases" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 h-11">
+          <TabsTrigger value="purchases" className="text-sm gap-1.5"><Truck className="h-4 w-4" /> Purchases</TabsTrigger>
+          <TabsTrigger value="variance" className="text-sm gap-1.5"><BarChart3 className="h-4 w-4" /> Variance</TabsTrigger>
+          <TabsTrigger value="count" className="text-sm gap-1.5 relative">
+            <ClipboardCheck className="h-4 w-4" /> Count
+            {spotCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{spotCount}</span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+        <PurchasesTab selected={selected} />
+        <VarianceTab selected={selected} />
+        <TabsContent value="count" className="mt-3 space-y-3">
           <Card>
             <CardContent className="p-6 text-center space-y-4">
               <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
@@ -495,15 +564,23 @@ function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
                 </p>
               </div>
               <div className="flex gap-3 justify-center">
-                <Button variant="outline" size="default">
-                  <Eye className="h-4 w-4 mr-2" /> View Details
-                </Button>
-                <Button variant="outline" size="default">
-                  <Pencil className="h-4 w-4 mr-2" /> Edit Count
-                </Button>
+                <Button variant="outline" size="default"><Eye className="h-4 w-4 mr-2" /> View Details</Button>
+                <Button variant="outline" size="default"><Pencil className="h-4 w-4 mr-2" /> Edit Count</Button>
               </div>
             </CardContent>
           </Card>
+          {/* Spot counts nested under count tab */}
+          {spotCount > 0 && (
+            <Card className="border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Crosshair className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">{spotCount} Spot Check{spotCount > 1 ? 's' : ''}</p>
+                </div>
+                <SpotCountList spots={selected.spotCounts} />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </motion.div>
@@ -511,7 +588,140 @@ function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
 }
 
 // ——————————————————————————————
-// In-progress banner (shared)
+// Shared tab content & summary card
+// ——————————————————————————————
+function SummaryCard({ selected }: { selected: typeof mockCounts[0] }) {
+  if (!selected.cogs) return null;
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-lg font-bold">{selected.label}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {selected.countedBy} • {selected.completedAt}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className={`text-2xl font-bold ${selected.cogs.cogsPct > 22 ? 'text-destructive' : ''}`}>{selected.cogs.cogsPct}%</p>
+            <p className="text-xs text-muted-foreground">COGS</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
+          <SummaryMetric label="Purchases" value={`$${selected.cogs.purchases.toLocaleString()}`} />
+          <SummaryMetric label="Ending" value={`$${selected.cogs.ending.toLocaleString()}`} />
+        </div>
+        <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
+          <FormulaRow label="Beginning Inventory" value={selected.cogs.beginning} />
+          <FormulaRow label="+ Purchases" value={selected.cogs.purchases} />
+          <FormulaRow label="− Ending Inventory" value={selected.cogs.ending} />
+          <div className="border-t border-border/60 pt-1.5 mt-1.5">
+            <FormulaRow label="= Cost of Goods Sold" value={selected.cogs.cogsTotal} bold />
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-muted-foreground">Net Sales</span>
+            <span className="text-sm font-medium">${selected.cogs.salesTotal.toLocaleString()}</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PurchasesTab({ selected }: { selected: typeof mockCounts[0] }) {
+  return (
+    <TabsContent value="purchases" className="mt-3">
+      <Card>
+        <CardContent className="p-4 space-y-0 divide-y divide-border/40">
+          {selected.purchases.map((po, i) => (
+            <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
+                  po.vendor === 'PFG' ? 'bg-primary/10 text-primary' : 'bg-accent/60 text-accent-foreground'
+                }`}>{po.vendor}</div>
+                <div>
+                  <p className="text-sm font-medium font-mono">{po.id}</p>
+                  <p className="text-xs text-muted-foreground">{po.date}</p>
+                </div>
+              </div>
+              <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-3">
+            <span className="text-sm font-medium text-muted-foreground">Total Purchases</span>
+            <span className="text-base font-bold">${selected.purchases.reduce((s, p) => s + p.amount, 0).toLocaleString()}</span>
+          </div>
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
+
+function VarianceTab({ selected }: { selected: typeof mockCounts[0] }) {
+  return (
+    <TabsContent value="variance" className="mt-3">
+      <Card>
+        <CardContent className="p-4 space-y-0 divide-y divide-border/40">
+          {selected.variance.filter(v => v.diff !== 0).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No variance items for this period.</p>
+          ) : (
+            selected.variance.filter(v => v.diff !== 0).map((v, i) => (
+              <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                    v.diff < 0 ? 'bg-destructive/10' : 'bg-accent/60'
+                  }`}>
+                    {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{v.name}</p>
+                    <p className="text-xs text-muted-foreground">Expected {v.expected} → Actual {v.actual}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-sm font-semibold ${v.diff < 0 ? 'text-destructive' : 'text-primary'}`}>
+                    {v.diff > 0 ? '+' : ''}{v.diff} units
+                  </p>
+                  <p className={`text-xs ${v.cost < 0 ? 'text-destructive' : 'text-primary'}`}>
+                    {v.cost < 0 ? '−' : '+'}${Math.abs(v.cost).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
+
+function CountTab({ selected }: { selected: typeof mockCounts[0] }) {
+  return (
+    <TabsContent value="count" className="mt-3">
+      <Card>
+        <CardContent className="p-6 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
+            <Package className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-lg font-bold">{selected.countedItems} / {selected.totalItems} items</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              On-hand value: <span className="font-semibold text-foreground">${selected.totalCost.toLocaleString()}</span>
+            </p>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" size="default"><Eye className="h-4 w-4 mr-2" /> View Details</Button>
+            <Button variant="outline" size="default"><Pencil className="h-4 w-4 mr-2" /> Edit Count</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
+
+// ——————————————————————————————
+// In-progress banner
 // ——————————————————————————————
 function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) {
   return (
@@ -544,135 +754,13 @@ function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) 
 }
 
 // ——————————————————————————————
-// OPTION A: Scrollable pill chips across top
+// Dropdown period selector (shared across all 3 spot-count options)
 // ——————————————————————————————
-function OptionAChips() {
-  const [selectedId, setSelectedId] = useState<string>("w12");
-  const selected = mockCounts.find(c => c.id === selectedId)!;
-  const completedCounts = mockCounts.filter(c => c.status === "completed");
-  const inProgress = mockCounts.find(c => c.status === "in_progress");
-
-  return (
-    <div className="space-y-4">
-      {inProgress && <InProgressBanner inProgress={inProgress} />}
-      
-      {/* Scrollable chip row */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {completedCounts.map(count => (
-          <button
-            key={count.id}
-            onClick={() => setSelectedId(count.id)}
-            className={`flex-shrink-0 px-4 py-2.5 rounded-2xl transition-all text-left ${
-              selectedId === count.id
-                ? 'bg-primary text-primary-foreground shadow-md'
-                : 'bg-card border border-border/50 hover:bg-muted/60'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold">{count.shortLabel}</span>
-              {count.type === 'monthly' && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold uppercase ${
-                  selectedId === count.id ? 'bg-primary-foreground/20' : 'bg-muted'
-                }`}>Mo</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className={`text-xs ${selectedId === count.id ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                {count.cogs ? `${count.cogs.cogsPct}% COGS` : ''}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      <DetailPanel selected={selected} />
-    </div>
-  );
-}
-
-// ——————————————————————————————
-// OPTION B: Carousel stepper with arrows
-// ——————————————————————————————
-function OptionBCarousel() {
-  const completedCounts = mockCounts.filter(c => c.status === "completed");
-  const [idx, setIdx] = useState(0);
-  const selected = completedCounts[idx];
-  const inProgress = mockCounts.find(c => c.status === "in_progress");
-
-  const prev = () => setIdx(i => Math.max(0, i - 1));
-  const next = () => setIdx(i => Math.min(completedCounts.length - 1, i + 1));
-
-  return (
-    <div className="space-y-4">
-      {inProgress && <InProgressBanner inProgress={inProgress} />}
-
-      {/* Carousel header */}
-      <Card>
-        <CardContent className="p-3 flex items-center justify-between">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={prev} 
-            disabled={idx === 0}
-            className="h-9 w-9 rounded-xl"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="text-center flex-1 min-w-0">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={selected.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.15 }}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <p className="text-base font-bold">{selected.shortLabel}</p>
-                  {selected.type === 'monthly' && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Monthly</Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selected.countedBy} • {selected.cogs ? `${selected.cogs.cogsPct}% COGS` : ''}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-            {/* Dot indicators */}
-            <div className="flex items-center justify-center gap-1.5 mt-2">
-              {completedCounts.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setIdx(i)}
-                  className={`rounded-full transition-all ${
-                    i === idx ? 'w-6 h-2 bg-primary' : 'w-2 h-2 bg-muted-foreground/30'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={next} 
-            disabled={idx === completedCounts.length - 1}
-            className="h-9 w-9 rounded-xl"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </CardContent>
-      </Card>
-
-      <DetailPanel selected={selected} />
-    </div>
-  );
-}
-
-// ——————————————————————————————
-// OPTION C: Grouped dropdown with type filter
-// ——————————————————————————————
-function OptionCDropdown() {
-  const [selectedId, setSelectedId] = useState<string>("w12");
+function PeriodSelector({ selectedId, setSelectedId, spotCountLabel }: { 
+  selectedId: string; 
+  setSelectedId: (id: string) => void;
+  spotCountLabel?: boolean;
+}) {
   const [typeFilter, setTypeFilter] = useState<'all' | 'weekly' | 'monthly'>('all');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const selected = mockCounts.find(c => c.id === selectedId)!;
@@ -684,29 +772,20 @@ function OptionCDropdown() {
     : completedCounts.filter(c => c.type === typeFilter);
 
   return (
-    <div className="space-y-4">
+    <>
       {inProgress && <InProgressBanner inProgress={inProgress} />}
-
-      {/* Type filter + dropdown selector */}
       <div className="flex items-center gap-3">
-        {/* Type filter pills */}
         <div className="flex gap-1.5">
           {(['all', 'weekly', 'monthly'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${
-                typeFilter === t
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
-            >
-              {t}
-            </button>
+            >{t}</button>
           ))}
         </div>
-
-        {/* Period dropdown */}
         <div className="relative flex-1">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -721,11 +800,12 @@ function OptionCDropdown() {
               {selected.cogs && (
                 <span className="text-xs text-muted-foreground">{selected.cogs.cogsPct}%</span>
               )}
+              {spotCountLabel && selected.spotCounts.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">{selected.spotCounts.length} spot{selected.spotCounts.length > 1 ? 's' : ''}</Badge>
+              )}
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
           </button>
-
-          {/* Dropdown list */}
           <AnimatePresence>
             {dropdownOpen && (
               <motion.div
@@ -733,7 +813,7 @@ function OptionCDropdown() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden"
+                className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden max-h-80 overflow-y-auto"
               >
                 {filteredCounts.map(count => (
                   <button
@@ -748,6 +828,9 @@ function OptionCDropdown() {
                       {count.type === 'monthly' && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Monthly</Badge>
                       )}
+                      {spotCountLabel && count.spotCounts.length > 0 && (
+                        <span className="text-[10px] text-primary font-medium">{count.spotCounts.length} spot{count.spotCounts.length > 1 ? 's' : ''}</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {count.cogs && (
@@ -755,7 +838,6 @@ function OptionCDropdown() {
                           {count.cogs.cogsPct}%
                         </Badge>
                       )}
-                      <span className="text-xs text-muted-foreground">${count.totalCost.toLocaleString()}</span>
                     </div>
                   </button>
                 ))}
@@ -764,67 +846,73 @@ function OptionCDropdown() {
           </AnimatePresence>
         </div>
       </div>
-
-      <DetailPanel selected={selected} />
-    </div>
+    </>
   );
 }
 
 // ——————————————————————————————
-// Main preview page with option switcher
+// Main preview — Option C only, with 3 spot-count sub-options
 // ——————————————————————————————
 export default function InventoryRedesignPreview() {
-  const [activeOption, setActiveOption] = useState<'A' | 'B' | 'C'>('A');
+  const [spotOption, setSpotOption] = useState<1 | 2 | 3>(1);
+  const [selectedId, setSelectedId] = useState<string>("w12");
+  const selected = mockCounts.find(c => c.id === selectedId)!;
 
   return (
     <Layout>
       <div className="space-y-5 max-w-2xl mx-auto">
-        {/* Page Header */}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Inventory — Period Selector Options</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Inventory — Spot Count Options</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            3 approaches for top-mounted period switching. Tap to compare.
+            3 ways to display daily/quick counts within the Dropdown + Filter layout.
           </p>
         </div>
 
-        {/* Option switcher */}
+        {/* Sub-option switcher */}
         <div className="flex gap-2">
           {([
-            { key: 'A' as const, label: 'Scrollable Chips' },
-            { key: 'B' as const, label: 'Carousel Stepper' },
-            { key: 'C' as const, label: 'Dropdown + Filter' },
+            { key: 1 as const, label: '4th Tab', desc: 'Separate Spots tab' },
+            { key: 2 as const, label: 'Collapsible Section', desc: 'Between summary & tabs' },
+            { key: 3 as const, label: 'Badge + Nested', desc: 'Inside Count tab' },
           ]).map(opt => (
             <button
               key={opt.key}
-              onClick={() => setActiveOption(opt.key)}
+              onClick={() => setSpotOption(opt.key)}
               className={`flex-1 py-3 px-3 rounded-2xl text-center transition-all ${
-                activeOption === opt.key
+                spotOption === opt.key
                   ? 'bg-primary text-primary-foreground shadow-md'
                   : 'bg-card border border-border/50 hover:bg-muted/60'
               }`}
             >
-              <p className={`text-lg font-bold ${activeOption === opt.key ? '' : 'text-foreground'}`}>
+              <p className={`text-base font-bold ${spotOption === opt.key ? '' : 'text-foreground'}`}>
                 {opt.key}
               </p>
-              <p className={`text-xs mt-0.5 ${activeOption === opt.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+              <p className={`text-xs mt-0.5 ${spotOption === opt.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                 {opt.label}
               </p>
             </button>
           ))}
         </div>
 
-        {/* Render active option */}
+        {/* Period selector (shared) */}
+        <PeriodSelector 
+          selectedId={selectedId} 
+          setSelectedId={setSelectedId} 
+          spotCountLabel={spotOption === 3} 
+        />
+
+        {/* Render active spot-count option */}
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeOption}
+            key={`${spotOption}-${selectedId}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
           >
-            {activeOption === 'A' && <OptionAChips />}
-            {activeOption === 'B' && <OptionBCarousel />}
-            {activeOption === 'C' && <OptionCDropdown />}
+            {spotOption === 1 && <DetailPanelWithSpotTab selected={selected} />}
+            {spotOption === 2 && <DetailPanelWithSpotSection selected={selected} />}
+            {spotOption === 3 && <DetailPanelWithSpotBadge selected={selected} />}
           </motion.div>
         </AnimatePresence>
       </div>
