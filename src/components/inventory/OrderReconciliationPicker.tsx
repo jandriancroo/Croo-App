@@ -111,7 +111,7 @@ export default function OrderReconciliationPicker({
         ...(paResult.data || []).map((o: any) => ({
           id: `pa_${o.id}`,
           vendor: "PA" as const,
-          orderId: o.pa_order_id || o.id.slice(0, 8),
+          orderId: o.order_number || o.pa_order_id || o.id.slice(0, 8),
           orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
