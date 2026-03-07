@@ -26,7 +26,7 @@ const mockCounts = [
   {
     id: "ip1",
     label: "Week Ending Mar 9, 2026",
-    shortLabel: "WE Mar 9",
+    shortLabel: "Week Ending Mar 9",
     type: "weekly",
     status: "in_progress",
     countedBy: "You",
@@ -49,7 +49,7 @@ const mockCounts = [
   {
     id: "w12",
     label: "Week Ending Mar 2, 2026",
-    shortLabel: "WE Mar 2",
+    shortLabel: "Week Ending Mar 2",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -87,7 +87,7 @@ const mockCounts = [
   {
     id: "w11",
     label: "Week Ending Feb 23, 2026",
-    shortLabel: "WE Feb 23",
+    shortLabel: "Week Ending Feb 23",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
@@ -115,7 +115,7 @@ const mockCounts = [
   {
     id: "w10",
     label: "Week Ending Feb 16, 2026",
-    shortLabel: "WE Feb 16",
+    shortLabel: "Week Ending Feb 16",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -135,7 +135,7 @@ const mockCounts = [
   {
     id: "w9",
     label: "Week Ending Feb 9, 2026",
-    shortLabel: "WE Feb 9",
+    shortLabel: "Week Ending Feb 9",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
@@ -162,7 +162,7 @@ const mockCounts = [
   {
     id: "w8",
     label: "Week Ending Feb 2, 2026",
-    shortLabel: "WE Feb 2",
+    shortLabel: "Week Ending Feb 2",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -209,7 +209,7 @@ const mockCounts = [
   {
     id: "w7",
     label: "Week Ending Jan 26, 2026",
-    shortLabel: "WE Jan 26",
+    shortLabel: "Week Ending Jan 26",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
@@ -236,7 +236,7 @@ const mockCounts = [
   {
     id: "w6",
     label: "Week Ending Jan 19, 2026",
-    shortLabel: "WE Jan 19",
+    shortLabel: "Week Ending Jan 19",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -257,7 +257,7 @@ const mockCounts = [
   {
     id: "w5",
     label: "Week Ending Jan 12, 2026",
-    shortLabel: "WE Jan 12",
+    shortLabel: "Week Ending Jan 12",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
@@ -284,7 +284,7 @@ const mockCounts = [
   {
     id: "w4",
     label: "Week Ending Jan 5, 2026",
-    shortLabel: "WE Jan 5",
+    shortLabel: "Week Ending Jan 5",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -332,7 +332,7 @@ const mockCounts = [
   {
     id: "w3",
     label: "Week Ending Dec 29, 2025",
-    shortLabel: "WE Dec 29",
+    shortLabel: "Week Ending Dec 29",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
@@ -352,7 +352,7 @@ const mockCounts = [
   {
     id: "w2",
     label: "Week Ending Dec 22, 2025",
-    shortLabel: "WE Dec 22",
+    shortLabel: "Week Ending Dec 22",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
@@ -379,7 +379,7 @@ const mockCounts = [
   {
     id: "w1",
     label: "Week Ending Dec 15, 2025",
-    shortLabel: "WE Dec 15",
+    shortLabel: "Week Ending Dec 15",
     type: "weekly",
     status: "completed",
     countedBy: "Sarah M.",
