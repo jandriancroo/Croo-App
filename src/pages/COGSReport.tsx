@@ -108,6 +108,8 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
 
       const pfg = pfgResult.data || [];
       const pa = paResult.data || [];
+      console.log("[COGS] PA orders fetched:", pa.length, pa.map((o: any) => ({ id: o.pa_order_id, delivery: o.delivery_date, amount: o.total_amount })));
+      console.log("[COGS] PFG orders fetched:", pfg.length);
       const totalCost = [...pfg, ...pa].reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
       return { pfg, pa, totalCost };
