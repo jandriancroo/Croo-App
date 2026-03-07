@@ -1598,6 +1598,121 @@ async function handleDebug(supabase: any, body: any): Promise<Response> {
 }
 
 // ============================================================================
+// HEADLESS SCRAPER SUPPORT — Actions called by GitHub Actions Playwright script
+// ============================================================================
+
+async function handleListPendingScrapes(supabase: any, _body: any): Promise<Response> {
+  // Find all active PA integrations
+  const { data: integrations, error: intError } = await supabase
+    .from('location_integrations')
+    .select('location_id, credentials')
+    .eq('integration_type', 'produce_alliance')
+    .eq('is_active', true);
+
+  if (intError || !integrations?.length) {
+    return jsonResponse({ success: true, locations: [] });
+  }
+
+  const locations: any[] = [];
+
+  for (const integration of integrations) {
+    const creds = integration.credentials as unknown as PACredentials;
+    if (!creds?.username || !creds?.password) continue;
+
+    const restaurantId = creds.restaurant_id || creds.pa_location_id || '';
+
+    // Find pa_orders with no items (null or empty array)
+    const { data: orders } = await supabase
+      .from('pa_orders')
+      .select('id, pa_order_id, order_date, delivery_date')
+      .eq('location_id', integration.location_id)
+      .or('items.is.null,items.eq.[]')
+      .order('order_date', { ascending: false })
+      .limit(20);
+
+    if (!orders?.length) continue;
+
+    locations.push({
+      locationId: integration.location_id,
+      username: creds.username,
+      password: creds.password,
+      restaurantId,
+      pendingOrders: orders,
+    });
+  }
+
+  console.log('[PA Scraper] Found', locations.length, 'location(s) with pending orders');
+  return jsonResponse({ success: true, locations });
+}
+
+async function handleSaveScrapedOrder(supabase: any, body: any): Promise<Response> {
+  const { locationId, webOrderId, lineItems, deliveryDate, totalCases, totalAmount } = body;
+
+  if (!locationId || !webOrderId) {
+    return jsonResponse({ success: false, error: 'Missing locationId or webOrderId' }, 400);
+  }
+
+  if (!lineItems || lineItems.length === 0) {
+    return jsonResponse({ success: false, error: 'No line items to save' });
+  }
+
+  // Map line items to the pa_orders items format
+  const items = lineItems.map((li: PALineItem) => ({
+    name: li.description,
+    item_code: li.item_code,
+    pa_product_id: li.pa_product_id,
+    quantity: li.quantity,
+    unit: 'case',
+    price: li.unit_price,
+    total: li.cost,
+  }));
+
+  const { error } = await supabase
+    .from('pa_orders')
+    .upsert({
+      location_id: locationId,
+      pa_order_id: webOrderId,
+      order_number: webOrderId,
+      order_date: deliveryDate || new Date().toISOString().split('T')[0],
+      delivery_date: deliveryDate,
+      status: 'delivered',
+      total_amount: totalAmount,
+      total_cases: totalCases,
+      items,
+      raw_data: { lineItems, deliveryDate, totalCases, totalAmount, source: 'headless_scraper' },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'location_id,pa_order_id' });
+
+  if (error) {
+    console.error('[PA Scraper] Save error:', error);
+    return jsonResponse({ success: false, error: error.message });
+  }
+
+  console.log('[PA Scraper] ✅ Saved order', webOrderId, 'with', items.length, 'line items');
+  return jsonResponse({ success: true, saved: items.length });
+}
+
+async function handleHeadlessLoginFailed(supabase: any, body: any): Promise<Response> {
+  const { locationId, error: errorMsg } = body;
+  console.error('[PA Scraper] ❌ Headless login failed for location', locationId, ':', errorMsg);
+
+  // Create a support ticket for the failure
+  try {
+    await supabase.from('support_tickets').insert({
+      title: 'Produce Alliance headless login failed',
+      description: `Automated PA login failed for location ${locationId}: ${errorMsg}`,
+      status: 'open',
+      priority: 'high',
+      category: 'integration',
+    });
+  } catch (e) {
+    console.warn('[PA Scraper] Could not create support ticket:', e);
+  }
+
+  return jsonResponse({ success: true, message: 'Failure logged' });
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
