@@ -87,7 +87,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
 
   // Fetch purchases (PFG + PA orders) within the week
   const { data: purchases, isLoading: purchasesLoading } = useQuery({
-    queryKey: ["cogs-purchases", locationId, weekStartStr, weekEndStr],
+    queryKey: ["cogs-purchases", locationId, weekStartStr, weekEndStr, "v2"],
     queryFn: async () => {
       if (!locationId) return { pfg: [], pa: [], totalCost: 0 };
       
