@@ -733,14 +733,14 @@ export default function InventoryRedesignPreview() {
         {/* Type filter + dropdown */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1 flex-shrink-0">
-            {([['all', 'All'], ['weekly', 'Wk'], ['monthly', 'Mo']] as const).map(([value, label]) => (
+            {([['all', 'All', 'All'], ['weekly', 'Wk', 'Weekly'], ['monthly', 'Mo', 'Monthly']] as const).map(([value, mobileLabel, desktopLabel]) => (
               <button
                 key={value}
                 onClick={() => setTypeFilter(value as any)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                   typeFilter === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
-              >{label}</button>
+              ><span className="md:hidden">{mobileLabel}</span><span className="hidden md:inline">{desktopLabel}</span></button>
             ))}
           </div>
           <div className="relative flex-1">
