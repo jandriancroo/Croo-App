@@ -442,7 +442,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <ScrollArea className="max-h-60">
+                      <ScrollArea className="max-h-96">
                         <div className="space-y-2">
                           {purchases?.pfg?.map((o: any) => (
                             <div key={o.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
