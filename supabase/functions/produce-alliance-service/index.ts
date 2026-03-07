@@ -1686,7 +1686,6 @@ async function handleSaveScrapedOrder(supabase: any, body: any): Promise<Respons
       delivery_date: deliveryDate,
       status: 'delivered',
       total_amount: totalAmount,
-      total_cases: totalCases,
       items,
       raw_data: { lineItems, deliveryDate, totalCases, totalAmount, source: 'headless_scraper' },
       updated_at: new Date().toISOString(),
