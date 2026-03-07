@@ -73,6 +73,36 @@ const mockCounts = [
     purchases: [],
     variance: [],
   },
+  {
+    id: "4",
+    label: "Month Ending February 2026",
+    shortLabel: "ME Feb 2026",
+    type: "monthly",
+    status: "completed",
+    countedBy: "Sarah M.",
+    completedAt: "Feb 28 at 5:10 PM",
+    totalItems: 87,
+    countedItems: 87,
+    totalCost: 48200,
+    cogs: { beginning: 11200, ending: 12100, purchases: 15800, cogsTotal: 14900, salesTotal: 72500, cogsPct: 20.6 },
+    purchases: [
+      { vendor: "PFG", id: "#4510234", amount: 2600, date: "Feb 5" },
+      { vendor: "PFG", id: "#4515678", amount: 2850, date: "Feb 12" },
+      { vendor: "PFG", id: "#4521890", amount: 2800, date: "Feb 19" },
+      { vendor: "PFG", id: "#4528901", amount: 2700, date: "Feb 26" },
+      { vendor: "PA", id: "#5950120", amount: 1450, date: "Feb 6" },
+      { vendor: "PA", id: "#5960340", amount: 1200, date: "Feb 13" },
+      { vendor: "PA", id: "#5968350", amount: 1100, date: "Feb 20" },
+      { vendor: "PA", id: "#5983263", amount: 1100, date: "Feb 27" },
+    ],
+    variance: [
+      { name: "Mozzarella Cheese", expected: 96, actual: 88, diff: -8, cost: -36.80 },
+      { name: "Pepperoni", expected: 60, actual: 55, diff: -5, cost: -20.50 },
+      { name: "Chicken Wings", expected: 120, actual: 112, diff: -8, cost: -44.00 },
+      { name: "Ranch Cups", expected: 200, actual: 210, diff: 10, cost: 7.50 },
+      { name: "Flour", expected: 32, actual: 31, diff: -1, cost: -4.20 },
+    ],
+  },
 ];
 
 export default function InventoryRedesignPreview() {
@@ -139,7 +169,12 @@ export default function InventoryRedesignPreview() {
                     : 'bg-card border-2 border-transparent hover:bg-muted/60'
                 }`}
               >
-                <p className="text-sm font-bold">{count.shortLabel}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold">{count.shortLabel}</p>
+                  {count.type === 'monthly' && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase tracking-wider">Monthly</Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">{count.label}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-sm font-semibold">${count.totalCost.toLocaleString()}</span>
