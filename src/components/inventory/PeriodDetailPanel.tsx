@@ -287,7 +287,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                 <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
-                    {format(new Date(periodRange.startStr + "T12:00:00"), "MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "MMM d, yyyy")}
+                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground mt-0.5">
