@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import pfgLogo from "@/assets/pfg-logo.png";
 import paLogo from "@/assets/pa-logo.png";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DeliveryScheduleEditor, DeliverySlot } from "./DeliveryScheduleEditor";
 
 interface QuBeyondCredentials {
   username: string;
@@ -138,6 +139,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [pfgIsSavingCreds, setPfgIsSavingCreds] = useState(false);
   const [pfgIsTestingRopc, setPfgIsTestingRopc] = useState(false);
   const [pfgRopcResult, setPfgRopcResult] = useState<'success' | 'error' | null>(null);
+  const [pfgDeliverySchedule, setPfgDeliverySchedule] = useState<DeliverySlot[]>([]);
+  const [paDeliverySchedule, setPaDeliverySchedule] = useState<DeliverySlot[]>([]);
 
   // Fresh KDS state
   const [kdsLocationId, setKdsLocationId] = useState('');
@@ -206,6 +209,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgCustomerId(creds?.customer_id || '');
       setPfgLoginUsername(creds?.pfg_username || '');
       setPfgLoginPassword(creds?.pfg_password || '');
+      setPfgDeliverySchedule(creds?.delivery_schedule || []);
     }
   }, [pfgIntegration]);
 
@@ -214,6 +218,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = paIntegration.credentials as any;
       setPaCredentials({ username: creds?.username || '', password: creds?.password || '', restaurant_id: creds?.restaurant_id || '' });
       setPaIsActive(paIntegration.is_active);
+      setPaDeliverySchedule(creds?.delivery_schedule || []);
     }
   }, [paIntegration]);
 
@@ -610,6 +615,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               </Collapsible>
             )}
+            {/* Delivery Schedule */}
+            {pfgHasToken && (
+              <DeliveryScheduleEditor
+                integrationId={pfgIntegration?.id}
+                existingCredentials={(pfgIntegration?.credentials as any) || {}}
+                schedule={pfgDeliverySchedule}
+                onScheduleChange={setPfgDeliverySchedule}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pfg'] })}
+              />
+            )}
 
             {/* Connect / Reconnect PFG */}
             <div className={pfgHasToken ? "border-t pt-3" : ""}>
@@ -719,6 +734,16 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 Save
               </Button>
             </div>
+            {/* Delivery Schedule */}
+            {paConnected && (
+              <DeliveryScheduleEditor
+                integrationId={paIntegration?.id}
+                existingCredentials={(paIntegration?.credentials as any) || {}}
+                schedule={paDeliverySchedule}
+                onScheduleChange={setPaDeliverySchedule}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ['location-integration', locationId, 'pa'] })}
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>
