@@ -4459,6 +4459,7 @@ export type Database = {
       }
       pa_orders: {
         Row: {
+          bound_to_count_id: string | null
           created_at: string
           delivery_date: string | null
           id: string
@@ -4473,6 +4474,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
           id?: string
@@ -4487,6 +4489,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
           id?: string
@@ -4501,6 +4504,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pa_orders_bound_to_count_id_fkey"
+            columns: ["bound_to_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pa_orders_location_id_fkey"
             columns: ["location_id"]
@@ -4732,6 +4742,7 @@ export type Database = {
       }
       pfg_orders: {
         Row: {
+          bound_to_count_id: string | null
           created_at: string
           delivery_date: string | null
           id: string
@@ -4746,6 +4757,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
           id?: string
@@ -4760,6 +4772,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bound_to_count_id?: string | null
           created_at?: string
           delivery_date?: string | null
           id?: string
@@ -4774,6 +4787,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pfg_orders_bound_to_count_id_fkey"
+            columns: ["bound_to_count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pfg_orders_location_id_fkey"
             columns: ["location_id"]
