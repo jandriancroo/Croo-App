@@ -209,6 +209,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setPfgCustomerId(creds?.customer_id || '');
       setPfgLoginUsername(creds?.pfg_username || '');
       setPfgLoginPassword(creds?.pfg_password || '');
+      setPfgDeliverySchedule(creds?.delivery_schedule || []);
     }
   }, [pfgIntegration]);
 
