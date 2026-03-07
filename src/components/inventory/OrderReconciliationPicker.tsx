@@ -225,13 +225,12 @@ export default function OrderReconciliationPicker({
     [orders, selectedIds]
   );
 
-  // Group orders by order date
+  // Group orders by delivery date
   const groupedOrders = useMemo(() => {
     if (!orders) return [];
     const groups = new Map<string, VendorOrder[]>();
     for (const o of orders) {
-      // Normalize order_date to yyyy-MM-dd key
-      const dateKey = o.orderDate ? o.orderDate.slice(0, 10) : o.deliveryDate.slice(0, 10);
+      const dateKey = o.deliveryDate ? o.deliveryDate.slice(0, 10) : o.orderDate.slice(0, 10);
       if (!groups.has(dateKey)) groups.set(dateKey, []);
       groups.get(dateKey)!.push(o);
     }
