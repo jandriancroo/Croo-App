@@ -548,7 +548,7 @@ function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) 
 // OPTION A: Scrollable pill chips across top
 // ——————————————————————————————
 function OptionAChips() {
-  const [selectedId, setSelectedId] = useState<string>("1");
+  const [selectedId, setSelectedId] = useState<string>("w12");
   const selected = mockCounts.find(c => c.id === selectedId)!;
   const completedCounts = mockCounts.filter(c => c.status === "completed");
   const inProgress = mockCounts.find(c => c.status === "in_progress");
