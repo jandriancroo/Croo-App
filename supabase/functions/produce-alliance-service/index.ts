@@ -1621,14 +1621,23 @@ async function handleListPendingScrapes(supabase: any, _body: any): Promise<Resp
 
     const restaurantId = creds.restaurant_id || creds.pa_location_id || '';
 
-    // Find pa_orders with no items (null or empty array)
+    // Current week start (Monday) in PST
+    const now = new Date();
+    const pst = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const dayOfWeek = pst.getDay();
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const weekStart = new Date(pst);
+    weekStart.setDate(pst.getDate() - mondayOffset);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    // Find pa_orders with no items: current week + up to 4 most recent backfill
     const { data: orders } = await supabase
       .from('pa_orders')
       .select('id, pa_order_id, order_date, delivery_date')
       .eq('location_id', integration.location_id)
       .or('items.is.null,items.eq.[]')
       .order('order_date', { ascending: false })
-      .limit(20);
+      .limit(4);
 
     if (!orders?.length) continue;
 
