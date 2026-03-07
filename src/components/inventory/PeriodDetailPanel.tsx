@@ -110,20 +110,20 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
       const [pfgBound, paBound, pfgDateRange, paDateRange] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .eq("bound_to_count_id", count.id)
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .eq("bound_to_count_id", count.id)
           .order("delivery_date", { ascending: true }),
         // Fallback: date-range query for unbound orders in period
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
@@ -131,7 +131,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
           .order("delivery_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .is("bound_to_count_id", null)
           .gte("delivery_date", periodRange.startStr)
@@ -167,8 +167,18 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         hasBeginning: !!beginCount,
         hasBoundOrders,
         purchases: [
-          ...pfg.map((o: any) => ({ vendor: "PFG", id: `#${o.pfg_order_id || o.id.slice(0, 8)}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d") })),
-          ...pa.map((o: any) => ({ vendor: "PA", id: `#${o.pa_order_id || o.id.slice(0, 8)}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d") })),
+          ...pfg.map((o: any) => {
+            // Extract clean invoice number: "428_56356274_2026-02-24_4461199" → "4461199", or use order_number/pfg_order_id
+            const rawId = o.pfg_order_id || '';
+            const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
+            const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+          }),
+          ...pa.map((o: any) => {
+            const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
+            const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+          }),
         ],
       };
     },
@@ -394,7 +404,9 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                         </div>
                         <div>
                           <p className="text-sm font-medium font-mono">{po.id}</p>
-                          <p className="text-xs text-muted-foreground">{po.date}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {po.orderDate ? `Ordered ${po.orderDate}` : po.date}
+                          </p>
                         </div>
                       </div>
                       <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
