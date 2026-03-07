@@ -230,15 +230,18 @@ export default function OrderReconciliationPicker({
     if (!orders) return [];
     const groups = new Map<string, VendorOrder[]>();
     for (const o of orders) {
-      const key = o.orderDate;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(o);
+      // Normalize order_date to yyyy-MM-dd key
+      const dateKey = o.orderDate ? o.orderDate.slice(0, 10) : o.deliveryDate.slice(0, 10);
+      if (!groups.has(dateKey)) groups.set(dateKey, []);
+      groups.get(dateKey)!.push(o);
     }
-    return [...groups.entries()].map(([dateStr, items]) => ({
-      dateStr,
-      label: format(new Date(dateStr + "T12:00:00"), "EEEE, MMM d"),
-      items,
-    }));
+    return [...groups.entries()].map(([dateStr, items]) => {
+      let label = dateStr;
+      try {
+        label = format(new Date(dateStr + "T12:00:00"), "EEEE, MMM d");
+      } catch { /* fallback to raw string */ }
+      return { dateStr, label, items };
+    });
   }, [orders]);
 
   if (isLoading) {
