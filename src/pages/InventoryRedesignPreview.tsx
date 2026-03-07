@@ -87,7 +87,7 @@ const mockCounts = [
   {
     id: "w11",
     label: "Week Ending Feb 23, 2026",
-    shortLabel: "WE Feb 23",
+    shortLabel: "Week Ending Feb 23",
     type: "weekly",
     status: "completed",
     countedBy: "Mike R.",
