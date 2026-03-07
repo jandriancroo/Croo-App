@@ -676,7 +676,7 @@ function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
 function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) {
   return (
     <Card className="border-primary/30 bg-primary/5 overflow-hidden">
-      <CardContent className="p-4 flex items-center justify-between gap-4">
+      <CardContent className="p-4 pb-12 relative">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center relative flex-shrink-0">
             <Play className="h-5 w-5 text-primary" />
@@ -695,7 +695,7 @@ function InProgressBanner({ inProgress }: { inProgress: typeof mockCounts[0] }) 
             </div>
           </div>
         </div>
-        <Button size="sm" className="flex-shrink-0">
+        <Button size="sm" className="absolute bottom-3 right-3 flex-shrink-0">
           Resume <ArrowRight className="h-4 w-4 ml-1" />
         </Button>
       </CardContent>
