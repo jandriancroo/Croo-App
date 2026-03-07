@@ -11,6 +11,7 @@ import {
 import { format, addDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
+import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 
 interface InventoryCountTabProps {
   locationId: string;
