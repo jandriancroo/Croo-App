@@ -343,12 +343,13 @@ async function fetchOrderList(session: PASession, startDate: string, endDate: st
   const qStart = toNonPadded(startDate);
   const qEnd = toNonPadded(endDate);
 
-  const orderUrl = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?startDate=${qStart}&endDate=${qEnd}&includeOnlySubmit=false`;
+  const orderUrl = `${PA_BASE_URL}/api/restaurant-dashboard/fetch-orders-for-restaurant-by-params?startDate=${qStart}&endDate=${qEnd}&restaurantId=${session.restaurantId}&includeOnlySubmit=false`;
   
   const postBody = JSON.stringify({
     limit: 100,
     offset: 0,
     filters: {},
+    restaurantId: parseInt(session.restaurantId) || session.restaurantId,
     orderByFields: { DISTRIBUTOR_NAME: "ASC", RESTAURANT_ID: "DESC" },
   });
 
