@@ -62,7 +62,7 @@ export default function OrderReconciliationPicker({
           .order("order_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
