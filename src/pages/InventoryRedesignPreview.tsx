@@ -748,17 +748,17 @@ export default function InventoryRedesignPreview() {
               onClick={() => setDropdownOpen(!dropdownOpen)}
               className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-card border border-border/50 hover:bg-muted/40 transition-all"
             >
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-bold">{selected.shortLabel}</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm font-bold truncate">{selected.shortLabel}</span>
                 {selected.type === 'monthly' && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase">Mo</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase flex-shrink-0">Mo</Badge>
                 )}
                 {selected.cogs && (
-                  <span className="text-xs text-muted-foreground">{selected.cogs.cogsPct}%</span>
+                  <span className="text-xs text-muted-foreground flex-shrink-0">{selected.cogs.cogsPct}%</span>
                 )}
               </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ml-1 ${dropdownOpen ? 'rotate-180' : ''}`} />
             </button>
             <AnimatePresence>
               {dropdownOpen && (
