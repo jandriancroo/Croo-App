@@ -652,11 +652,15 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
     }
 
     const html = await resp.text();
-    console.log('[PA Detail] Got HTML for order', webOrderId, 'len:', html.length);
+    console.log('[PA Detail] Got HTML for order', webOrderId, 'len:', html.length, 'preview:', html.substring(0, 500));
 
     if (html.includes('Sign in') || html.includes('j_security_check')) {
       console.warn('[PA Detail] Session expired — got login page');
       return null;
+    }
+    
+    if (html.length < 1000) {
+      console.warn('[PA Detail] HTML too short, likely not the order page. Full content:', html);
     }
 
     return parseOrderDetailJsp(html, webOrderId);
