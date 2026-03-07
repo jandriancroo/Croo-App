@@ -195,22 +195,22 @@ export default function OrderReconciliationPicker({
 
       if (pfgBind.length > 0) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: countId }).in("id", pfgBind)
+          supabase.from("pfg_orders").update({ bound_to_count_id: countId } as any).in("id", pfgBind).then()
         );
       }
       if (pfgUnbind.length > 0) {
         promises.push(
-          supabase.from("pfg_orders").update({ bound_to_count_id: null }).in("id", pfgUnbind)
+          supabase.from("pfg_orders").update({ bound_to_count_id: null } as any).in("id", pfgUnbind).then()
         );
       }
       if (paBind.length > 0) {
         promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: countId }).in("id", paBind)
+          supabase.from("pa_orders").update({ bound_to_count_id: countId } as any).in("id", paBind).then()
         );
       }
       if (paUnbind.length > 0) {
         promises.push(
-          supabase.from("pa_orders").update({ bound_to_count_id: null }).in("id", paUnbind)
+          supabase.from("pa_orders").update({ bound_to_count_id: null } as any).in("id", paUnbind).then()
         );
       }
 

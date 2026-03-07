@@ -193,7 +193,7 @@ const StartCountDialog = ({
   });
 
   // Fetch last PA sync log
-  const { data: lastPaSyncLog, refetch: refetchSyncLog } = useQuery({
+  const { data: lastPaSyncLog } = useQuery({
     queryKey: ["inventory-last-pa-sync", locationId],
     queryFn: async () => {
       const { data, error } = await supabase

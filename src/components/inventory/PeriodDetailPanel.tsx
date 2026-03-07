@@ -18,9 +18,8 @@ import {
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
   Settings2,
 } from "lucide-react";
-import { format, subDays, addDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import { useUserRole } from "@/hooks/useUserRole";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 
