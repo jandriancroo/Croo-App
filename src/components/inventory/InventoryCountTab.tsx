@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
-  Plus, Play, Eye, Pencil, Trash2, Package,
-  Calendar, ChevronDown, ArrowRight, Crosshair, DollarSign,
+  Plus, Play, Package,
+  Calendar, ChevronDown, ArrowRight,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
+import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 
 interface InventoryCountTabProps {
   locationId: string;
@@ -74,98 +74,7 @@ function InProgressBanner({
   );
 }
 
-// ——— Period detail panel (Count + Daily Spot Check only — no COGS/Variance duplication) ———
-function PeriodDetailPanel({
-  count,
-  locationId,
-}: {
-  count: any;
-  locationId: string;
-}) {
-  const navigate = useNavigate();
-  const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
-
-  return (
-    <motion.div
-      key={count.id}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.15 }}
-    >
-      <Card>
-        <CardContent className="p-5 space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {count.counted_by_profile?.full_name || "Unknown"}
-                {count.completed_at &&
-                  ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
-              </p>
-            </div>
-            <Badge
-              variant={count.status === "completed" ? "default" : "secondary"}
-            >
-              {count.status === "completed" ? "Complete" : "In Progress"}
-            </Badge>
-          </div>
-
-          {/* Stats */}
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">
-                {stats.countedItems} / {stats.totalItems} items
-              </span>
-              {stats.totalItems > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  ({Math.round((stats.countedItems / stats.totalItems) * 100)}%)
-                </span>
-              )}
-            </div>
-            {stats.totalCost > 0 && (
-              <div className="flex items-center gap-1.5">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">
-                  ${stats.totalCost.toLocaleString(undefined, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  })}
-                </span>
-                <span className="text-xs text-muted-foreground">on-hand</span>
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                navigate(`/inventory/${locationId}/count/${count.id}`)
-              }
-            >
-              <Eye className="h-4 w-4 mr-2" /> View Details
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                navigate(
-                  `/inventory/${locationId}/count/${count.id}?edit=true`
-                )
-              }
-            >
-              <Pencil className="h-4 w-4 mr-2" /> Edit Count
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
+// PeriodDetailPanel is now imported from ./PeriodDetailPanel
 
 // ——— Main component ———
 export default function InventoryCountTab({
