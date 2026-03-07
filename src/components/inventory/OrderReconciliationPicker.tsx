@@ -13,11 +13,8 @@ interface OrderReconciliationPickerProps {
   countId: string;
   periodStartDate?: string;
   periodEndDate?: string;
-  /** If true, user can toggle selections. If false, read-only display of bound orders. */
   editable?: boolean;
-  /** Callback after save */
   onSaved?: () => void;
-  /** Compact mode for embedding in dialogs */
   compact?: boolean;
 }
 
@@ -25,6 +22,7 @@ interface VendorOrder {
   id: string;
   vendor: "PFG" | "PA";
   orderId: string;
+  orderDate: string;
   deliveryDate: string;
   totalAmount: number;
   boundToCountId: string | null;
@@ -44,7 +42,6 @@ export default function OrderReconciliationPicker({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
 
-  // Fetch all orders in a generous window around the period (±14 days) plus any unbound
   const { data: orders, isLoading } = useQuery({
     queryKey: ["order-reconciliation-v1", locationId, countId, periodStartDate, periodEndDate],
     queryFn: async () => {
@@ -58,21 +55,20 @@ export default function OrderReconciliationPicker({
       const [pfgResult, paResult] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
-          .order("delivery_date", { ascending: true }),
+          .order("order_date", { ascending: true }),
         supabase
           .from("pa_orders")
-          .select("id, pa_order_id, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pa_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
-          .order("delivery_date", { ascending: true }),
+          .order("order_date", { ascending: true }),
       ]);
 
-      // Fetch period labels for orders bound to other counts
       const otherCountIds = new Set<string>();
       for (const o of [...(pfgResult.data || []), ...(paResult.data || [])]) {
         if ((o as any).bound_to_count_id && (o as any).bound_to_count_id !== countId) {
@@ -104,6 +100,7 @@ export default function OrderReconciliationPicker({
           id: `pfg_${o.id}`,
           vendor: "PFG" as const,
           orderId: o.pfg_order_id || o.id.slice(0, 8),
+          orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
           boundToCountId: o.bound_to_count_id,
@@ -115,6 +112,7 @@ export default function OrderReconciliationPicker({
           id: `pa_${o.id}`,
           vendor: "PA" as const,
           orderId: o.pa_order_id || o.id.slice(0, 8),
+          orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
           boundToCountId: o.bound_to_count_id,
@@ -124,8 +122,8 @@ export default function OrderReconciliationPicker({
         })),
       ];
 
-      // Sort by delivery date
-      all.sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate));
+      // Sort by order date, then delivery date
+      all.sort((a, b) => a.orderDate.localeCompare(b.orderDate) || a.deliveryDate.localeCompare(b.deliveryDate));
       return all;
     },
     enabled: !!locationId && !!countId,
@@ -136,7 +134,6 @@ export default function OrderReconciliationPicker({
     const bound = new Set(
       orders.filter((o) => o.boundToCountId === countId).map((o) => o.id)
     );
-    // Also auto-select unbound orders within the period range
     if (bound.size === 0 && periodStartDate && periodEndDate) {
       for (const o of orders) {
         if (!o.boundToCountId && o.deliveryDate >= periodStartDate && o.deliveryDate <= periodEndDate) {
@@ -151,7 +148,6 @@ export default function OrderReconciliationPicker({
   const toggle = (id: string) => {
     if (!editable) return;
     const order = orders?.find((o) => o.id === id);
-    // Can't toggle orders bound to other counts
     if (order?.boundToCountId && order.boundToCountId !== countId) return;
 
     setSelectedIds((prev) => {
@@ -162,19 +158,16 @@ export default function OrderReconciliationPicker({
     });
   };
 
-  // Save bindings
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!orders) return;
 
-      // Separate PFG and PA updates
       const pfgBind: string[] = [];
       const pfgUnbind: string[] = [];
       const paBind: string[] = [];
       const paUnbind: string[] = [];
 
       for (const o of orders) {
-        // Skip orders bound to other counts
         if (o.boundToCountId && o.boundToCountId !== countId) continue;
 
         const realId = o.id.replace(/^(pfg_|pa_)/, "");
@@ -232,6 +225,22 @@ export default function OrderReconciliationPicker({
     [orders, selectedIds]
   );
 
+  // Group orders by order date
+  const groupedOrders = useMemo(() => {
+    if (!orders) return [];
+    const groups = new Map<string, VendorOrder[]>();
+    for (const o of orders) {
+      const key = o.orderDate;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(o);
+    }
+    return [...groups.entries()].map(([dateStr, items]) => ({
+      dateStr,
+      label: format(new Date(dateStr + "T12:00:00"), "EEEE, MMM d"),
+      items,
+    }));
+  }, [orders]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -260,81 +269,92 @@ export default function OrderReconciliationPicker({
         </p>
       </div>
 
-      <div className={cn("space-y-0 divide-y divide-border/40", compact ? "max-h-60 overflow-y-auto" : "max-h-96 overflow-y-auto")}>
-        {orders.map((order) => {
-          const isBoundElsewhere = !!order.boundPeriodLabel;
-          const isSelected = selectedIds.has(order.id);
-          const inPeriod = periodStartDate && periodEndDate
-            ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
-            : true;
+      <div className={cn("space-y-0", compact ? "max-h-60 overflow-y-auto" : "max-h-96 overflow-y-auto")}>
+        {groupedOrders.map((group) => (
+          <div key={group.dateStr}>
+            {/* Date group header */}
+            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Ordered on {group.label}
+              </p>
+            </div>
 
-          return (
-            <button
-              key={order.id}
-              onClick={() => toggle(order.id)}
-              disabled={isBoundElsewhere || !editable}
-              className={cn(
-                "w-full flex items-center justify-between py-3 px-2 rounded-lg transition-all first:pt-1 last:pb-1",
-                isBoundElsewhere
-                  ? "opacity-40 cursor-not-allowed"
-                  : isSelected
-                  ? "bg-primary/5"
-                  : "hover:bg-muted/40",
-                !inPeriod && !isSelected && !isBoundElsewhere && "opacity-60"
-              )}
-            >
-              <div className="flex items-center gap-3">
-                {/* Checkbox */}
-                <div
-                  className={cn(
-                    "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                    isBoundElsewhere
-                      ? "border-muted-foreground/30 bg-muted/40"
-                      : isSelected
-                      ? "border-primary bg-primary"
-                      : "border-border"
-                  )}
-                >
-                  {isBoundElsewhere ? (
-                    <Lock className="h-3 w-3 text-muted-foreground" />
-                  ) : isSelected ? (
-                    <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                  ) : null}
-                </div>
+            <div className="divide-y divide-border/40">
+              {group.items.map((order) => {
+                const isBoundElsewhere = !!order.boundPeriodLabel;
+                const isSelected = selectedIds.has(order.id);
+                const inPeriod = periodStartDate && periodEndDate
+                  ? order.deliveryDate >= periodStartDate && order.deliveryDate <= periodEndDate
+                  : true;
 
-                {/* Vendor badge */}
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0",
-                    order.vendor === "PFG"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-accent/60 text-accent-foreground"
-                  )}
-                >
-                  {order.vendor}
-                </div>
+                return (
+                  <button
+                    key={order.id}
+                    onClick={() => toggle(order.id)}
+                    disabled={isBoundElsewhere || !editable}
+                    className={cn(
+                      "w-full flex items-center justify-between py-3 px-2 rounded-lg transition-all",
+                      isBoundElsewhere
+                        ? "opacity-40 cursor-not-allowed"
+                        : isSelected
+                        ? "bg-primary/5"
+                        : "hover:bg-muted/40",
+                      !inPeriod && !isSelected && !isBoundElsewhere && "opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all",
+                          isBoundElsewhere
+                            ? "border-muted-foreground/30 bg-muted/40"
+                            : isSelected
+                            ? "border-primary bg-primary"
+                            : "border-border"
+                        )}
+                      >
+                        {isBoundElsewhere ? (
+                          <Lock className="h-3 w-3 text-muted-foreground" />
+                        ) : isSelected ? (
+                          <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                        ) : null}
+                      </div>
 
-                <div className="text-left">
-                  <p className="text-sm font-medium font-mono">#{order.orderId}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(order.deliveryDate + "T12:00:00"), "MMM d, yyyy")}
-                  </p>
-                </div>
-              </div>
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          order.vendor === "PFG"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-accent/60 text-accent-foreground"
+                        )}
+                      >
+                        {order.vendor}
+                      </div>
 
-              <div className="text-right flex items-center gap-2">
-                {isBoundElsewhere && (
-                  <Badge variant="outline" className="text-[10px] px-1.5">
-                    {order.boundPeriodLabel}
-                  </Badge>
-                )}
-                <p className="text-sm font-semibold">
-                  ${order.totalAmount.toLocaleString()}
-                </p>
-              </div>
-            </button>
-          );
-        })}
+                      <div className="text-left">
+                        <p className="text-sm font-medium font-mono">#{order.orderId}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Delivered {format(new Date(order.deliveryDate + "T12:00:00"), "MMM d")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-2">
+                      {isBoundElsewhere && (
+                        <Badge variant="outline" className="text-[10px] px-1.5">
+                          {order.boundPeriodLabel}
+                        </Badge>
+                      )}
+                      <p className="text-sm font-semibold">
+                        ${order.totalAmount.toLocaleString()}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {editable && (
