@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, Package, MapPin, Pencil, Eye, Trash2, DollarSign, Upload, Rocket } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
