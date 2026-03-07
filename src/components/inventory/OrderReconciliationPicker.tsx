@@ -55,7 +55,7 @@ export default function OrderReconciliationPicker({
       const [pfgResult, paResult] = await Promise.all([
         supabase
           .from("pfg_orders")
-          .select("id, pfg_order_id, order_date, delivery_date, total_amount, bound_to_count_id")
+          .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
           .eq("location_id", locationId)
           .gte("delivery_date", windowStart)
           .lte("delivery_date", windowEnd)
