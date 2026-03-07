@@ -373,6 +373,10 @@ function DetailPanel({ selected }: { selected: typeof mockCounts[0] }) {
                 {selected.countedBy} • {selected.completedAt}
               </p>
             </div>
+            <div className="text-right">
+              <p className={`text-2xl font-bold ${selected.cogs.cogsPct > 22 ? 'text-destructive' : ''}`}>{selected.cogs.cogsPct}%</p>
+              <p className="text-xs text-muted-foreground">COGS</p>
+            </div>
           </div>
           <div className="grid grid-cols-4 gap-3">
             <SummaryMetric label="Beginning" value={`$${selected.cogs.beginning.toLocaleString()}`} />
