@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
