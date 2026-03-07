@@ -263,6 +263,11 @@ export default function OrderReconciliationPicker({
 
   return (
     <div className="space-y-3">
+      {periodStartDate && periodEndDate && (
+        <p className="text-xs font-medium text-primary/80">
+          Period: {format(new Date(periodStartDate + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodEndDate + "T12:00:00"), "EEE, MMM d, yyyy")}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">
           {selectedIds.size} of {orders.filter((o) => !o.boundPeriodLabel).length} orders selected
