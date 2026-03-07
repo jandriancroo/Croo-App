@@ -282,7 +282,7 @@ export default function OrderReconciliationPicker({
             {/* Date group header */}
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 px-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Ordered on {group.label}
+                Delivered {group.label}
               </p>
             </div>
 
