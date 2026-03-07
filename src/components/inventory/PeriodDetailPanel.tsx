@@ -404,7 +404,9 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                         </div>
                         <div>
                           <p className="text-sm font-medium font-mono">{po.id}</p>
-                          <p className="text-xs text-muted-foreground">{po.date}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {po.orderDate ? `Ordered ${po.orderDate}` : po.date}
+                          </p>
                         </div>
                       </div>
                       <p className="text-base font-semibold">${po.amount.toLocaleString()}</p>
