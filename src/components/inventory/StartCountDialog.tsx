@@ -615,7 +615,7 @@ const StartCountDialog = ({
   };
 
   const selectedPeriodData = periodOptions.find((p) => p.id === selectedPeriod);
-  const hasVendorIntegration = !!pfgIntegration || !!paIntegration;
+  const _hasVendorIntegration = !!pfgIntegration || !!paIntegration;
   const allSyncsDone = (!pfgIntegration || syncComplete) && (!paIntegration || paSyncComplete);
   const noSyncsNeeded = !pfgIntegration && !paIntegration;
 
