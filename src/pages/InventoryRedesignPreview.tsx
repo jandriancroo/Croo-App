@@ -673,7 +673,7 @@ function OptionBCarousel() {
 // OPTION C: Grouped dropdown with type filter
 // ——————————————————————————————
 function OptionCDropdown() {
-  const [selectedId, setSelectedId] = useState<string>("1");
+  const [selectedId, setSelectedId] = useState<string>("w12");
   const [typeFilter, setTypeFilter] = useState<'all' | 'weekly' | 'monthly'>('all');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const selected = mockCounts.find(c => c.id === selectedId)!;
