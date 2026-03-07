@@ -99,7 +99,7 @@ export default function OrderReconciliationPicker({
         ...(pfgResult.data || []).map((o: any) => ({
           id: `pfg_${o.id}`,
           vendor: "PFG" as const,
-          orderId: o.pfg_order_id || o.id.slice(0, 8),
+          orderId: o.order_number || (o.pfg_order_id?.includes('_') ? o.pfg_order_id.split('_').pop() : o.pfg_order_id) || o.id.slice(0, 8),
           orderDate: o.order_date,
           deliveryDate: o.delivery_date,
           totalAmount: Number(o.total_amount) || 0,
