@@ -697,7 +697,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
 
           {/* Cost Summary */}
           {ingredients.length > 0 && (
-            <div className="border rounded-md p-3 bg-muted/30 space-y-1">
+            <div className="border rounded-md p-3 bg-muted/30 space-y-2">
               <p className="text-xs font-medium">Recipe Cost</p>
                {recipeCost !== null ? (
                 <>
@@ -713,6 +713,39 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                       = ${costPerYieldUnit.toFixed(4)}/{yieldUnit}
                     </p>
                   )}
+
+                  {/* Food Cost % Calculator */}
+                  <div className="border-t border-border/40 pt-2 mt-2">
+                    <Label className="text-xs text-muted-foreground">Menu Price</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="relative w-28">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={suggestedPrice}
+                          onChange={(e) => setSuggestedPrice(e.target.value)}
+                          className="h-8 pl-6 text-xs font-mono"
+                        />
+                      </div>
+                      {suggestedPrice && parseFloat(suggestedPrice) > 0 && recipeCost > 0 && (
+                        <Badge
+                          variant="outline"
+                          className={`font-mono text-xs ${
+                            (recipeCost / parseFloat(suggestedPrice)) * 100 <= 30
+                              ? "border-green-500/50 text-green-600 dark:text-green-400"
+                              : (recipeCost / parseFloat(suggestedPrice)) * 100 <= 35
+                              ? "border-yellow-500/50 text-yellow-600 dark:text-yellow-400"
+                              : "border-red-500/50 text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          {((recipeCost / parseFloat(suggestedPrice)) * 100).toFixed(1)}% food cost
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
