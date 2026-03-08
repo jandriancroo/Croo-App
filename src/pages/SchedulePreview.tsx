@@ -747,9 +747,6 @@ function Option6() {
           ))}
         </div>
       </div>
-          ))}
-        </div>
-      </div>
 
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
