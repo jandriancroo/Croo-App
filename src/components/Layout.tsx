@@ -880,7 +880,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       </DropdownMenuItem>
                       )}
                       {isManager && (
-                      <DropdownMenuItem onClick={() => navigate('/inventory')} className="gap-2 cursor-pointer">
+                      <DropdownMenuItem onClick={() => navigate(currentLocation?.id ? `/inventory/${currentLocation.id}` : '/')} className="gap-2 cursor-pointer">
                         <Package className="h-4 w-4" />
                         Inventory
                       </DropdownMenuItem>
