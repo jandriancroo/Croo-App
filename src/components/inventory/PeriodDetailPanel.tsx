@@ -502,9 +502,46 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => setShowOrderDialog(true)}
+                    disabled={creatingCount}
+                    onClick={async () => {
+                      if (isUpcoming && !realCountId) {
+                        // Auto-create the count record so we have a real ID for binding
+                        setCreatingCount(true);
+                        try {
+                          const { data, error } = await supabase
+                            .from("inventory_counts")
+                            .insert({
+                              location_id: locationId,
+                              counted_by: user?.id,
+                              count_date: new Date().toISOString().split("T")[0],
+                              period_type: count.period_type,
+                              period_end_date: count.period_end_date,
+                              status: "in_progress",
+                            })
+                            .select()
+                            .single();
+                          if (error) throw error;
+                          setRealCountId(data.id);
+                          queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+                          queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+                          toast.success("Period created — you can now bind orders");
+                          setShowOrderDialog(true);
+                        } catch (err) {
+                          console.error("Failed to create count:", err);
+                          toast.error("Failed to create period");
+                        } finally {
+                          setCreatingCount(false);
+                        }
+                      } else {
+                        setShowOrderDialog(true);
+                      }
+                    }}
                   >
-                    <Settings2 className="h-4 w-4 mr-2" />
+                    {creatingCount ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Settings2 className="h-4 w-4 mr-2" />
+                    )}
                     Manage Orders for Period
                   </Button>
                 </div>
