@@ -711,6 +711,9 @@ function Option6() {
                 <span className="text-sm font-medium">{e.name}</span>
                 <span className="text-xs text-muted-foreground">{e.time}</span>
               </div>
+              <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50">
+                <CalendarPlus className="h-3 w-3" />
+              </div>
             </div>
           ))}
           <div className="mx-6 border-t border-border/30" />
