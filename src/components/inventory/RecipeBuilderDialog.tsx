@@ -48,7 +48,7 @@ const parseCansPerCase = (packSize: string | null): number | null => {
   return null;
 };
 
-/** Parse pack_size like "1/5 GA", "6/#10 CN", "10/33 OZ" */
+/** Parse pack_size like "1/5 GA", "6/#10 CN", "10/33 OZ", "25#", "6/5#" */
 const parsePackSize = (packSize: string | null): { count: number; unit: string } | null => {
   if (!packSize) return null;
   // Handle #N can notation: "6/#10 CN" → 6 cans
@@ -59,10 +59,18 @@ const parsePackSize = (packSize: string | null): { count: number; unit: string }
     const rawUnit = canMatch[3].toUpperCase();
     const unit = PACK_UNIT_MAP[rawUnit];
     if (!unit) return null;
-    // For CN (cans), total count = number of cans; if we know oz per can, use oz instead
     const ozPerCan = CAN_SIZES[canSize];
     if (ozPerCan) return { count: packs * ozPerCan, unit: "oz" };
     return { count: packs, unit: unit };
+  }
+  // Handle # (pound) notation: "6/5#" → 6 * 5 lb, "25#" → 25 lb
+  const poundSlash = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*#$/);
+  if (poundSlash) {
+    return { count: parseInt(poundSlash[1]) * parseFloat(poundSlash[2]), unit: "lb" };
+  }
+  const poundStandalone = packSize.match(/^(\d+\.?\d*)\s*#$/);
+  if (poundStandalone) {
+    return { count: parseFloat(poundStandalone[1]), unit: "lb" };
   }
   // Standard notation: "1/5 GA", "10/33 OZ"
   const match = packSize.match(/^(\d+)\s*\/\s*(\d+\.?\d*)\s*([A-Za-z]+)$/);
