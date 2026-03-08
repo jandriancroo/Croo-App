@@ -703,6 +703,7 @@ function Option6() {
       {/* Events & Tasks — 2-column grid */}
       <div className="space-y-1">
         <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Events & Tasks</h4>
+        {/* Events — 2-col grid */}
         <div className="grid grid-cols-2 gap-1">
           {MOCK_EVENTS.map(e => (
             <div key={e.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${e.color}10` }}>
@@ -719,6 +720,10 @@ function Option6() {
               </div>
             </div>
           ))}
+        </div>
+        <div className="mx-6 border-t border-border/30" />
+        {/* Tasks — 2-col grid */}
+        <div className="grid grid-cols-2 gap-1">
           {MOCK_TASKS.map((t, i) => (
             <div key={`t-${i}`} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${t.color}10` }}>
               <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
