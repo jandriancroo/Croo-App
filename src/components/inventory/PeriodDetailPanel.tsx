@@ -34,6 +34,7 @@ import OrderReconciliationPicker from "./OrderReconciliationPicker";
 interface PeriodDetailPanelProps {
   count: any;
   locationId: string;
+  onDeleteCount?: (count: any) => void;
 }
 
 export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPanelProps) {
