@@ -634,7 +634,10 @@ function Option6() {
   const [dayIdx, setDayIdx] = useState(6); // 6 = Sunday = "today"
   const [toolsExpanded, setToolsExpanded] = useState(true);
   const isToday = dayIdx === 6;
+  const isPast = dayIdx < 6;
+  const isFuture = dayIdx > 6;
   const activeShifts = isToday ? MOCK_SHIFTS.filter(s => s.isActive) : [];
+  // Past: all shifts are "completed"; Future: all are "scheduled"; Today: non-active are upcoming
   const upcomingShifts = isToday ? MOCK_SHIFTS.filter(s => !s.isActive) : MOCK_SHIFTS;
 
   const MOCK_TASKS = [
@@ -738,7 +741,7 @@ function Option6() {
       {/* Option 2: Upcoming section */}
       <div className="space-y-1.5">
         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-          Later
+          {isPast ? 'Completed' : isToday ? 'Later' : 'Scheduled'}
           <div className="flex items-center gap-1 ml-auto">
             <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarPlus className="h-3.5 w-3.5" /></Button>
             <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
