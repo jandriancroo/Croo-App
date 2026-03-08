@@ -484,9 +484,29 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
                 </p>
               </div>
-              <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                {count.status === "completed" ? "Complete" : "In Progress"}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={count.status === "completed" ? "default" : "secondary"}>
+                  {count.status === "completed" ? "Complete" : "In Progress"}
+                </Badge>
+                {canManageOrders && onDeleteCount && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDeleteCount(count)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Period
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
