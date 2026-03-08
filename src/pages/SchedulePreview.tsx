@@ -755,7 +755,7 @@ function Option6() {
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="text-[10px] font-medium uppercase tracking-wide flex items-center gap-1.5">
+          <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
             <Circle className="h-2 w-2 fill-green-500 text-green-500" />
             <span className="text-green-600">Now</span>
             <span className="text-muted-foreground mx-0.5">·</span>
@@ -764,9 +764,8 @@ function Option6() {
             <span className="text-amber-600">{MOCK_TOOLS.onBreak} Break</span>
             <span className="text-muted-foreground mx-0.5">·</span>
             <span className="text-muted-foreground">{MOCK_TOOLS.scheduled} Total</span>
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="ml-auto">
               <Button size="icon" variant="ghost" className="h-6 w-6"><UserPlus className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarPlus className="h-3.5 w-3.5" /></Button>
             </div>
           </h4>
           {activeShifts.map(s => (
@@ -777,7 +776,21 @@ function Option6() {
 
       {/* Option 2: Upcoming section */}
       <div className="space-y-1.5">
-        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Later</h4>
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+          Later
+          <div className="flex items-center gap-1 ml-auto">
+            <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarPlus className="h-3.5 w-3.5" /></Button>
+            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+              <span className="relative flex items-end gap-[1px] h-3">
+                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }} />
+                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }} />
+                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }} />
+                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }} />
+              </span>
+              <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+            </div>
+          </div>
+        </h4>
         {upcomingShifts.map(s => (
           <ShiftCard key={s.id} shift={s} compact />
         ))}
