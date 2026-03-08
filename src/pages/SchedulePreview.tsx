@@ -626,6 +626,125 @@ function Option5() {
   );
 }
 
+// ─── Option 6: "Frankenstein" ─────────────────────────────────
+// Combines: Option 2's grouped sections (Currently Working / Upcoming),
+// Option 5's green status bar + collapsible Day Insights card,
+// pill-sized quick tasks, compact shift cards with punch info
+function Option6() {
+  const [dayIdx, setDayIdx] = useState(6);
+  const [toolsExpanded, setToolsExpanded] = useState(true);
+  const activeShifts = MOCK_SHIFTS.filter(s => s.isActive);
+  const upcomingShifts = MOCK_SHIFTS.filter(s => !s.isActive);
+
+  const MOCK_TASKS = [
+    { title: 'Prep line check', color: '#8b5cf6' },
+    { title: 'Restock napkins', color: '#ef4444' },
+    { title: 'Temp log cooler #2', color: '#f59e0b' },
+  ];
+
+  return (
+    <div className="space-y-3 p-3">
+      {/* Date header + nav */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronLeft className="h-4 w-4" /></Button>
+          <div className="text-center">
+            <h2 className="text-base font-bold">Sunday, March 8</h2>
+            <span className="text-[10px] text-muted-foreground">Week of Mar 2 - Mar 8, 2026</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
+
+      <DatePillSelector selectedIdx={dayIdx} onSelect={setDayIdx} />
+
+      {/* Option 5: Green live status bar */}
+      <LivePulseRow />
+
+      {/* Option 5: Collapsible Day Insights */}
+      <Card className="overflow-hidden p-0">
+        <button
+          onClick={() => setToolsExpanded(!toolsExpanded)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
+        >
+          <span className="flex items-center gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Day Insights</span>
+          <span className="text-muted-foreground">{toolsExpanded ? '▲' : '▼'}</span>
+        </button>
+        {toolsExpanded && (
+          <div className="px-3 py-2.5 border-t border-border/30">
+            <div className="flex items-center justify-between text-center">
+              <div>
+                <span className="text-base font-bold">{MOCK_TOOLS.scheduledHours}h</span>
+                <p className="text-[10px] text-muted-foreground">Hours</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className="text-base font-bold">${MOCK_TOOLS.laborCost}</span>
+                <p className="text-[10px] text-muted-foreground">Labor</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className={cn("text-base font-bold", MOCK_TOOLS.laborPercent <= 25 ? "text-green-600" : "text-yellow-600")}>{MOCK_TOOLS.laborPercent}%</span>
+                <p className="text-[10px] text-muted-foreground">Labor %</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className="text-base font-bold">${MOCK_TOOLS.salesPerLH}</span>
+                <p className="text-[10px] text-muted-foreground">$/LH</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <ManagerActionRow />
+
+      {/* Pill-sized quick tasks — compact like current TemporaryTaskCard */}
+      <div className="space-y-1">
+        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
+        <div className="space-y-1">
+          {MOCK_TASKS.map((t, i) => (
+            <div key={i} className="flex items-center gap-2 bg-card border border-border/30 rounded-lg px-2.5 py-1.5 shadow-neumorphic">
+              <div className="w-0.5 h-4 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+              <span className="text-xs font-medium flex-1 truncate">{t.title}</span>
+              <button
+                className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Events */}
+      <EventPills />
+
+      {/* Option 2: Grouped sections — Currently Working */}
+      {activeShifts.length > 0 && (
+        <div className="space-y-1.5">
+          <h4 className="text-xs font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
+            <Circle className="h-2 w-2 fill-green-500 text-green-500" /> Currently Working
+          </h4>
+          {activeShifts.map(s => (
+            <ShiftCard key={s.id} shift={s} showPunchInfo compact />
+          ))}
+        </div>
+      )}
+
+      {/* Option 2: Upcoming section */}
+      <div className="space-y-1.5">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming</h4>
+        {upcomingShifts.map(s => (
+          <ShiftCard key={s.id} shift={s} compact />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Preview Page ────────────────────────────────────────────
 const OPTIONS = [
   { 
@@ -681,6 +800,19 @@ const OPTIONS = [
       'Connecteam: Agenda-style events as highlighted colored rows',
       'Clean list layout with inline status badges per shift',
       'Horizontal metrics row (hours | labor | % | sales) for fast scanning',
+    ]
+  },
+  { 
+    id: 6, 
+    title: '★ Frankenstein', 
+    Component: Option6,
+    inspiration: [
+      'Option 2: "Currently Working" / "Upcoming" grouped shift sections',
+      'Option 5: Green live-status bar (Active • Break • Total)',
+      'Option 5: Collapsible "Day Insights" with horizontal metrics',
+      'Pill-sized quick tasks matching current TemporaryTaskCard compactness',
+      'Compact shift cards with punch info + position badges',
+      'Schedule tools visible on every view via Day Insights card',
     ]
   },
 ];
