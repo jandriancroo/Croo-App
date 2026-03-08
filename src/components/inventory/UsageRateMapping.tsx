@@ -43,9 +43,16 @@ const TO_OZ_MAP: Record<string, number> = {
   oz: 1, qt: 32, lb: 16, gal: 128, ml: 0.033814, cups: 8, ea: 1, tbsp: 0.5, tsp: 0.1667,
 };
 
-/** Parse PFG pack_size like "2/5 LB" → { count: 2, size: 5, unit: "LB" } */
+/** Parse pack_size like "2/5 LB", "6/5#", "25#" → { count, size, unit } */
 const parsePackSize = (packSize: string | null): { count: number; size: number; unit: string } | null => {
   if (!packSize) return null;
+  // Handle # as LB: "6/5#" → count=6, size=5, unit=LB
+  const poundSlash = packSize.match(/^(\d+)\/([\d.]+)\s*#$/);
+  if (poundSlash) return { count: parseInt(poundSlash[1]), size: parseFloat(poundSlash[2]), unit: "LB" };
+  // Standalone pound: "25#" → count=1, size=25, unit=LB
+  const poundStandalone = packSize.match(/^([\d.]+)\s*#$/);
+  if (poundStandalone) return { count: 1, size: parseFloat(poundStandalone[1]), unit: "LB" };
+  // Standard: "2/5 LB", "1/5 GA"
   const match = packSize.match(/^(\d+)\/([\d.]+)\s*(.+)$/i);
   if (!match) return null;
   return { count: parseInt(match[1]), size: parseFloat(match[2]), unit: match[3].trim().toUpperCase() };
