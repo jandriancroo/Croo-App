@@ -631,10 +631,11 @@ function Option5() {
 // Option 5's green status bar + collapsible Day Insights card,
 // pill-sized quick tasks, compact shift cards with punch info
 function Option6() {
-  const [dayIdx, setDayIdx] = useState(6);
+  const [dayIdx, setDayIdx] = useState(6); // 6 = Sunday = "today"
   const [toolsExpanded, setToolsExpanded] = useState(true);
-  const activeShifts = MOCK_SHIFTS.filter(s => s.isActive);
-  const upcomingShifts = MOCK_SHIFTS.filter(s => !s.isActive);
+  const isToday = dayIdx === 6;
+  const activeShifts = isToday ? MOCK_SHIFTS.filter(s => s.isActive) : [];
+  const upcomingShifts = isToday ? MOCK_SHIFTS.filter(s => !s.isActive) : MOCK_SHIFTS;
 
   const MOCK_TASKS = [
     { title: 'Prep line check', color: '#8b5cf6' },
