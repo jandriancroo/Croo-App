@@ -659,8 +659,7 @@ function Option6() {
 
       <DatePillSelector selectedIdx={dayIdx} onSelect={setDayIdx} />
 
-      {/* Option 5: Green live status bar */}
-      <LivePulseRow />
+      {/* Stats moved inline with NOW header */}
 
       {/* Option 5: Collapsible Day Insights */}
       <Card className="overflow-hidden p-0">
