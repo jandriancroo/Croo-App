@@ -403,7 +403,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
@@ -416,11 +416,31 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
                 </p>
               </div>
-              <div className="text-right">
-                <p className={`text-2xl font-bold ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
-                  {cogsData.cogsPct.toFixed(1)}%
-                </p>
-                <p className="text-xs text-muted-foreground">COGS</p>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className={`text-2xl font-bold ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+                    {cogsData.cogsPct.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">COGS</p>
+                </div>
+                {canManageOrders && onDeleteCount && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDeleteCount(count)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Period
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
 
