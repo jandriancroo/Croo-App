@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Loader2 } from "lucide-react";
+import { Calendar, Loader2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { useInventoryPeriodSettings } from "@/hooks/useInventoryPeriodSettings";
 
 interface InventoryScheduleSettingsProps {
   locationId: string;
