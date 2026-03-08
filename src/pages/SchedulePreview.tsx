@@ -142,29 +142,28 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
             )}
           </div>
           <div className="flex-1 min-w-0">
-            {/* Row 1: Name + scheduled time + hours */}
+            {/* Row 1: Name + hours */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="font-semibold text-sm truncate">{shift.name}</span>
-                <span className="text-xs text-muted-foreground shrink-0">{shift.start} - {shift.end}</span>
-              </div>
+              <span className="font-semibold text-sm truncate">{shift.name}</span>
               {isPunched && (
-                <span className={cn("font-bold text-xs shrink-0 ml-1", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+                <span className={cn("font-bold text-xs shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
                   {shift.hours.toFixed(1)}h
                 </span>
               )}
             </div>
-            {/* Row 2: Punch data */}
+            {/* Row 2: Scheduled time */}
+            <div className="text-xs text-muted-foreground whitespace-nowrap">{shift.start} - {shift.end}</div>
+            {/* Row 3: Punch in */}
             {isPunched && (
-              <div className="text-xs text-green-600">In: {shift.clockIn}</div>
+              <div className="text-xs text-green-600 whitespace-nowrap">In: {shift.clockIn}</div>
             )}
-            {/* Row 3: Break data */}
+            {/* Row 4: Break */}
             {shift.isOnBreak && (
-              <div className="text-xs text-amber-600 font-medium">Break: {shift.breakStart}</div>
+              <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
             )}
             {/* Position badge — bottom right */}
             <div className="flex justify-end mt-0.5">
-              <Badge variant="secondary" className="text-[10px] shrink-0" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+              <Badge variant="secondary" className="text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
                 {shift.position}
               </Badge>
             </div>
