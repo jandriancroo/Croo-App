@@ -41,6 +41,8 @@ const DEFAULT_SETTINGS: Record<FrequencyType, ScheduleSetting> = {
 const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProps) => {
   const queryClient = useQueryClient();
   const [savingFrequency, setSavingFrequency] = useState<FrequencyType | null>(null);
+  const [savingPeriod, setSavingPeriod] = useState(false);
+  const { config: periodConfig } = useInventoryPeriodSettings(locationId);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["inventory-schedule-settings", locationId],
