@@ -41,7 +41,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
   const isUpcoming = !!count._isUpcoming;
-  const effectiveCountId = realCountId || (isUpcoming ? null : count.id);
+  
 
   // Determine period date range for this count
   const periodRange = useMemo(() => {
