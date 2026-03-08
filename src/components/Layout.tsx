@@ -710,7 +710,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
-    }] : []), 
+    }] : []),
+    ...(isManager ? [{
+      path: '/inventory',
+      label: 'Inventory',
+      icon: Package
+    }] : []),
     {
       path: '/settings',
       label: 'Settings',
