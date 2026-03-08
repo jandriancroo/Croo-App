@@ -104,13 +104,44 @@ export default function InventoryCountTab({
     [recentCounts]
   );
 
-  const filteredCounts = useMemo(
-    () =>
-      typeFilter === "all"
-        ? completedCounts
-        : completedCounts.filter((c) => c.period_type === typeFilter),
-    [completedCounts, typeFilter]
-  );
+  // Compute current weekly period end date (upcoming Sunday or today if Sunday)
+  const { getTodayInTimezone } = useLocationTimezone();
+  const currentPeriodEntry = useMemo(() => {
+    const todayStr = getTodayInTimezone();
+    const today = new Date(todayStr + "T12:00:00");
+    const weekEnd = isSunday(today) ? today : nextSunday(today);
+    const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+
+    // Check if any count (completed or in-progress) already covers this period
+    const allCounts = recentCounts || [];
+    const exists = allCounts.some(
+      (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
+    );
+    if (exists) return null;
+
+    // Return a virtual entry
+    return {
+      id: `_upcoming_weekly_${weekEndStr}`,
+      status: "upcoming",
+      period_type: "weekly",
+      period_end_date: weekEndStr,
+      count_date: todayStr,
+      _isUpcoming: true,
+      _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
+    };
+  }, [recentCounts, getTodayInTimezone]);
+
+  const filteredCounts = useMemo(() => {
+    const base = typeFilter === "all"
+      ? completedCounts
+      : completedCounts.filter((c) => c.period_type === typeFilter);
+
+    // Prepend current period if it matches the filter and exists
+    if (currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")) {
+      return [currentPeriodEntry, ...base];
+    }
+    return base;
+  }, [completedCounts, typeFilter, currentPeriodEntry]);
 
   // Auto-select first completed count if none selected
   const effectiveSelectedId = selectedId && filteredCounts.some((c) => c.id === selectedId)
