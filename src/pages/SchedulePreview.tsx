@@ -764,6 +764,10 @@ function Option6() {
             <span className="text-amber-600">{MOCK_TOOLS.onBreak} Break</span>
             <span className="text-muted-foreground mx-0.5">·</span>
             <span className="text-muted-foreground">{MOCK_TOOLS.scheduled} Total</span>
+            <div className="flex items-center gap-1 ml-auto">
+              <Button size="icon" variant="ghost" className="h-6 w-6"><UserPlus className="h-3.5 w-3.5" /></Button>
+              <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarPlus className="h-3.5 w-3.5" /></Button>
+            </div>
           </h4>
           {activeShifts.map(s => (
             <ShiftCard key={s.id} shift={s} showPunchInfo compact />
