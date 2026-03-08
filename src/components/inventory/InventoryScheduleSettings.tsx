@@ -77,6 +77,22 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
     },
   });
 
+  const updatePeriodSetting = useMutation({
+    mutationFn: async (updates: { inventory_period_end_day?: number; inventory_period_cutoff?: string }) => {
+      const { error } = await supabase
+        .from("location_settings")
+        .update(updates)
+        .eq("location_id", locationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-period-settings", locationId] });
+      toast.success("Period setting saved");
+    },
+    onError: () => toast.error("Failed to save period setting"),
+    onSettled: () => setSavingPeriod(false),
+  });
+
   const getSetting = (frequency: FrequencyType): ScheduleSetting => {
     const found = settings?.find((s) => s.frequency === frequency);
     if (found) {
