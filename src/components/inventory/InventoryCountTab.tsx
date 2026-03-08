@@ -185,7 +185,7 @@ export default function InventoryCountTab({
       <DailySpotCount locationId={locationId} />
 
       {/* Period selector: filter chips + dropdown */}
-      {completedCounts.length > 0 && (
+      {(completedCounts.length > 0 || currentPeriodEntry) && (
         <>
           <div className="flex items-center gap-2">
             {/* Filter chips */}
