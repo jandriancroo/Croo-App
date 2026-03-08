@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Loader2 } from "lucide-react";
+import { Calendar, Loader2, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import { useInventoryPeriodSettings } from "@/hooks/useInventoryPeriodSettings";
 
 interface InventoryScheduleSettingsProps {
   locationId: string;
@@ -40,6 +41,8 @@ const DEFAULT_SETTINGS: Record<FrequencyType, ScheduleSetting> = {
 const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProps) => {
   const queryClient = useQueryClient();
   const [savingFrequency, setSavingFrequency] = useState<FrequencyType | null>(null);
+  const [savingPeriod, setSavingPeriod] = useState(false);
+  const { config: periodConfig } = useInventoryPeriodSettings(locationId);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["inventory-schedule-settings", locationId],
@@ -72,6 +75,22 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
     onSettled: () => {
       setSavingFrequency(null);
     },
+  });
+
+  const updatePeriodSetting = useMutation({
+    mutationFn: async (updates: { inventory_period_end_day?: number; inventory_period_cutoff?: string }) => {
+      const { error } = await supabase
+        .from("location_settings")
+        .update(updates)
+        .eq("location_id", locationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-period-settings", locationId] });
+      toast.success("Period setting saved");
+    },
+    onError: () => toast.error("Failed to save period setting"),
+    onSettled: () => setSavingPeriod(false),
   });
 
   const getSetting = (frequency: FrequencyType): ScheduleSetting => {
@@ -174,6 +193,68 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
             {savingFrequency === "monthly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
         </div>
+
+        {/* Divider */}
+        <div className="border-t border-border/50" />
+
+        {/* Period End Settings */}
+        <div className="flex items-center gap-2 font-semibold text-sm">
+          <Settings2 className="h-4 w-4" />
+          Period Closing
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Week ends on</span>
+          <div className="flex items-center gap-2">
+            {savingPeriod && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            <Select
+              value={periodConfig.periodEndDay.toString()}
+              onValueChange={(v) => {
+                setSavingPeriod(true);
+                updatePeriodSetting.mutate({ inventory_period_end_day: parseInt(v) });
+              }}
+            >
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS_OF_WEEK.map((day) => (
+                  <SelectItem key={day.value} value={day.value.toString()}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Period closes</span>
+          <div className="flex items-center gap-2">
+            {savingPeriod && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            <Select
+              value={periodConfig.periodCutoff}
+              onValueChange={(v) => {
+                setSavingPeriod(true);
+                updatePeriodSetting.mutate({ inventory_period_cutoff: v });
+              }}
+            >
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="after_close">After Close</SelectItem>
+                <SelectItem value="before_open">Before Open</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground leading-tight">
+          {periodConfig.periodCutoff === "after_close"
+            ? `${DAYS_OF_WEEK.find(d => d.value === periodConfig.periodEndDay)?.label}'s sales are included in the ending period.`
+            : `${DAYS_OF_WEEK.find(d => d.value === periodConfig.periodEndDay)?.label}'s sales start the next period.`}
+        </p>
       </CardContent>
     </Card>
   );
