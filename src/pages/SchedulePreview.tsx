@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Users, Clock, DollarSign, TrendingUp, ChevronLeft, ChevronRight, 
-  UserPlus, CalendarPlus, Circle, Coffee, BarChart3, Zap,
+  UserPlus, CalendarPlus, Circle, Coffee, BarChart3, Zap, CalendarDays,
   ArrowUp, ArrowDown, MoreHorizontal, Plus, Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
