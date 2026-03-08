@@ -2,7 +2,7 @@ import { ReactNode, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, Wallet, MapPin, Briefcase, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette } from 'lucide-react';
+import { CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, Wallet, MapPin, Briefcase, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette, Package } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -255,6 +255,7 @@ export const Layout = ({
   const [searchParams] = useSearchParams();
   const {
     isAdmin,
+    isManager,
     isOrgAdmin,
     isShiftManager,
     canViewSalesAndLabor,
@@ -710,7 +711,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
-    }] : []), 
+    }] : []),
+    ...(isManager ? [{
+      path: '/inventory',
+      label: 'Inventory',
+      icon: Package
+    }] : []),
     {
       path: '/settings',
       label: 'Settings',
@@ -871,6 +877,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       <DropdownMenuItem onClick={() => navigate('/hiring')} className="gap-2 cursor-pointer">
                         <Briefcase className="h-4 w-4" />
                         Hiring
+                      </DropdownMenuItem>
+                      )}
+                      {isManager && (
+                      <DropdownMenuItem onClick={() => navigate('/inventory')} className="gap-2 cursor-pointer">
+                        <Package className="h-4 w-4" />
+                        Inventory
                       </DropdownMenuItem>
                       )}
                     </>
