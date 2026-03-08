@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 
 // ─── Mock Data ───────────────────────────────────────────────
-const MOCK_DATE = new Date(2026, 2, 8); // March 8, 2026
+// ─── Mock Data ───────────────────────────────────────────────
 const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEK_DATES = [2, 3, 4, 5, 6, 7, 8];
 
