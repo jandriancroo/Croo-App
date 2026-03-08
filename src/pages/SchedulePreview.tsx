@@ -659,8 +659,7 @@ function Option6() {
 
       <DatePillSelector selectedIdx={dayIdx} onSelect={setDayIdx} />
 
-      {/* Option 5: Green live status bar */}
-      <LivePulseRow />
+      {/* Stats moved inline with NOW header */}
 
       {/* Option 5: Collapsible Day Insights */}
       <Card className="overflow-hidden p-0">
@@ -756,8 +755,15 @@ function Option6() {
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="text-[10px] font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
-            <Circle className="h-2 w-2 fill-green-500 text-green-500" /> Now
+          <h4 className="text-[10px] font-medium uppercase tracking-wide flex items-center gap-1.5">
+            <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+            <span className="text-green-600">Now</span>
+            <span className="text-muted-foreground mx-0.5">·</span>
+            <span className="text-green-600">{MOCK_TOOLS.activeNow} Active</span>
+            <span className="text-muted-foreground mx-0.5">·</span>
+            <span className="text-amber-600">{MOCK_TOOLS.onBreak} Break</span>
+            <span className="text-muted-foreground mx-0.5">·</span>
+            <span className="text-muted-foreground">{MOCK_TOOLS.scheduled} Total</span>
           </h4>
           {activeShifts.map(s => (
             <ShiftCard key={s.id} shift={s} showPunchInfo compact />
