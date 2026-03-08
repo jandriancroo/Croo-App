@@ -97,10 +97,10 @@ export default function InventoryCountTab({
     return match || { ...inProgressCount, _stats: { totalItems: 0, countedItems: 0, totalCost: 0 } };
   }, [inProgressCount, recentCounts]);
 
-  // Completed counts only, for the dropdown
+  // Completed + in-progress counts for the dropdown
   const completedCounts = useMemo(
     () =>
-      (recentCounts || []).filter((c) => c.status === "completed"),
+      (recentCounts || []).filter((c) => c.status === "completed" || c.status === "in_progress"),
     [recentCounts]
   );
 
