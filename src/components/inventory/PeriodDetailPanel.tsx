@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import {
 import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2, Clock,
+  Settings2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,7 +38,10 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [realCountId, setRealCountId] = useState<string | null>(null);
+  const [creatingCount, setCreatingCount] = useState(false);
   const isUpcoming = !!count._isUpcoming;
+  const effectiveCountId = realCountId || (isUpcoming ? null : count.id);
 
   // Determine period date range for this count
   const periodRange = useMemo(() => {
