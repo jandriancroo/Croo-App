@@ -886,30 +886,40 @@ function parsePackFromName(name: string): { packSize: string | null; packQuantit
   if (!name) return { packSize: null, packQuantity: null };
   const trimmed = name.trim();
 
+  // "6/5#" → "6/5 LB" (count/weight# → standard LB format)
   const countSlashWeight = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*#(?!\d)/);
   if (countSlashWeight) {
     const qty = parseInt(countSlashWeight[1]);
-    return { packSize: `${qty}/${countSlashWeight[2]}#`, packQuantity: qty };
+    return { packSize: `${qty}/${countSlashWeight[2]} LB`, packQuantity: qty };
   }
+  // "6/#10 CN" → can notation (keep as-is, client handles it)
   const countCan = trimmed.match(/(\d+)\/#(\d+)/);
   if (countCan) {
     const qty = parseInt(countCan[1]);
-    return { packSize: `${qty}/#${countCan[2]}`, packQuantity: qty };
+    return { packSize: `${qty}/#${countCan[2]} CN`, packQuantity: qty };
   }
+  // "6/5 LB" → already standard
   const countSlashLb = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(?:LB|lb)/);
   if (countSlashLb) {
     const qty = parseInt(countSlashLb[1]);
     return { packSize: `${qty}/${countSlashLb[2]} LB`, packQuantity: qty };
+  }
+  // "2/5 GA" or "1/128 OZ" → standard notation
+  const countSlashUnit = trimmed.match(/(\d+)\/(\d+(?:\.\d+)?)\s*(GA|OZ|ML|KG|G)\b/i);
+  if (countSlashUnit) {
+    const qty = parseInt(countSlashUnit[1]);
+    return { packSize: `${qty}/${countSlashUnit[2]} ${countSlashUnit[3].toUpperCase()}`, packQuantity: qty };
   }
   const nCt = trimmed.match(/(\d+)\s*CT\b/i);
   if (nCt) {
     const qty = parseInt(nCt[1]);
     return { packSize: `${qty} CT`, packQuantity: qty };
   }
+  // "25#" → "1/25 LB" (standalone weight → proper format for recipe costing)
   const standalone = trimmed.match(/\b(\d+(?:\.\d+)?)\s*#(?!\d)/);
-  if (standalone) return { packSize: `${standalone[1]}#`, packQuantity: 1 };
+  if (standalone) return { packSize: `1/${standalone[1]} LB`, packQuantity: 1 };
   const nLb = trimmed.match(/(\d+(?:\.\d+)?)\s*(?:lb|LB)\b/);
-  if (nLb) return { packSize: `${nLb[1]} LB`, packQuantity: 1 };
+  if (nLb) return { packSize: `1/${nLb[1]} LB`, packQuantity: 1 };
 
   return { packSize: null, packQuantity: null };
 }
