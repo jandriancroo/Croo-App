@@ -270,7 +270,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
         ],
       };
     },
-    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
+    enabled: !!periodRange && (count.status === "completed" || count.status === "in_progress" || isUpcoming),
     staleTime: 5 * 60 * 1000,
   });
 
