@@ -360,6 +360,38 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </CardContent>
         </Card>
+      ) : isUpcoming ? (
+        /* Upcoming period: simplified header with purchases only */
+        <Card className="border-primary/20">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
+                    Current
+                  </Badge>
+                </div>
+                {periodRange && (
+                  <p className="text-xs font-medium text-primary/80 mt-0.5">
+                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  Count not started yet — manage orders below
+                </p>
+              </div>
+            </div>
+            {cogsData && cogsData.purchases.length > 0 && (
+              <div className="p-3 rounded-xl bg-muted/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Purchases this period</span>
+                  <span className="text-lg font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       ) : cogsData ? (
         <Card>
           <CardContent className="p-5">
