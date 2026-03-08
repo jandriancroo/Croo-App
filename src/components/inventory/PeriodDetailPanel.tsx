@@ -674,7 +674,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
           </DialogHeader>
           <OrderReconciliationPicker
             locationId={locationId}
-            countId={count.id}
+            countId={realCountId || count.id}
             periodStartDate={periodRange?.startStr}
             periodEndDate={periodRange?.endStr}
             editable
