@@ -7,7 +7,7 @@ import {
   Plus, Play, Package,
   Calendar, ChevronDown, ArrowRight,
 } from "lucide-react";
-import { format, nextSunday, isSunday, endOfMonth, isAfter, startOfDay } from "date-fns";
+import { format, nextSunday, isSunday } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
