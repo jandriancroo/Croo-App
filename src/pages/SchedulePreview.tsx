@@ -726,8 +726,20 @@ function Option6() {
         </div>
       </div>
 
-      {/* Events */}
-      <EventPills />
+      {/* Events — Option 5 style highlighted agenda rows */}
+      {MOCK_EVENTS.length > 0 && (
+        <div className="space-y-1">
+          {MOCK_EVENTS.map(e => (
+            <div key={e.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
+              <div className="w-1 h-8 rounded-full" style={{ backgroundColor: e.color }} />
+              <div className="flex-1">
+                <span className="text-sm font-medium">{e.name}</span>
+                <span className="text-xs text-muted-foreground ml-2">{e.time}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
