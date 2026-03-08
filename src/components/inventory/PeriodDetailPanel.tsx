@@ -339,7 +339,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
       if (error) return [];
       return data || [];
     },
-    enabled: !!periodRange && count.status === "completed",
+    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
     staleTime: 5 * 60 * 1000,
   });
 
