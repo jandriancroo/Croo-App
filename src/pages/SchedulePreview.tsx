@@ -697,7 +697,7 @@ function Option6() {
         )}
       </Card>
 
-      <ManagerActionRow />
+      {/* ManagerActionRow removed — icons moved to NOW line */}
 
       {/* Events & Tasks — 2-column grid */}
       <div className="space-y-1">
