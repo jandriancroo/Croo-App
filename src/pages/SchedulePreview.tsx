@@ -634,7 +634,10 @@ function Option6() {
   const [dayIdx, setDayIdx] = useState(6); // 6 = Sunday = "today"
   const [toolsExpanded, setToolsExpanded] = useState(true);
   const isToday = dayIdx === 6;
+  const isPast = dayIdx < 6;
+  const isFuture = dayIdx > 6;
   const activeShifts = isToday ? MOCK_SHIFTS.filter(s => s.isActive) : [];
+  // Past: all shifts are "completed"; Future: all are "scheduled"; Today: non-active are upcoming
   const upcomingShifts = isToday ? MOCK_SHIFTS.filter(s => !s.isActive) : MOCK_SHIFTS;
 
   const MOCK_TASKS = [
