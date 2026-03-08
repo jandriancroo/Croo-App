@@ -755,6 +755,42 @@ function Option6() {
           <ShiftCard key={s.id} shift={s} compact />
         ))}
       </div>
+
+      {/* Day Insights — bottom of page */}
+      <Card className="overflow-hidden p-0">
+        <button
+          onClick={() => setToolsExpanded(!toolsExpanded)}
+          className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
+        >
+          <span className="flex items-center gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Day Insights</span>
+          <span className="text-muted-foreground">{toolsExpanded ? '▲' : '▼'}</span>
+        </button>
+        {toolsExpanded && (
+          <div className="px-3 py-2.5 border-t border-border/30">
+            <div className="flex items-center justify-between text-center">
+              <div>
+                <span className="text-base font-bold">{MOCK_TOOLS.scheduledHours}h</span>
+                <p className="text-[10px] text-muted-foreground">Hours</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className="text-base font-bold">${MOCK_TOOLS.laborCost}</span>
+                <p className="text-[10px] text-muted-foreground">Labor</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className={cn("text-base font-bold", MOCK_TOOLS.laborPercent <= 25 ? "text-green-600" : "text-yellow-600")}>{MOCK_TOOLS.laborPercent}%</span>
+                <p className="text-[10px] text-muted-foreground">Labor %</p>
+              </div>
+              <div className="w-px h-7 bg-border" />
+              <div>
+                <span className="text-base font-bold">${MOCK_TOOLS.salesPerLH}</span>
+                <p className="text-[10px] text-muted-foreground">$/LH</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
