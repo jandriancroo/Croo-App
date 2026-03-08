@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +16,13 @@ import {
 import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2,
+  Settings2, Clock,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 
 interface PeriodDetailPanelProps {
@@ -31,10 +33,12 @@ interface PeriodDetailPanelProps {
 export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const isUpcoming = !!count._isUpcoming;
 
   // Determine period date range for this count
   const periodRange = useMemo(() => {
