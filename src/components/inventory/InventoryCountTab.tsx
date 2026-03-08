@@ -105,13 +105,12 @@ export default function InventoryCountTab({
     [recentCounts]
   );
 
-  // Compute current weekly period end date (upcoming Sunday or today if Sunday)
+  // Compute current weekly period end date using configured end day
   const { getTodayInTimezone } = useLocationTimezone();
+  const { config: periodConfig } = useInventoryPeriodSettings(locationId);
   const currentPeriodEntry = useMemo(() => {
     const todayStr = getTodayInTimezone();
-    const today = new Date(todayStr + "T12:00:00");
-    const weekEnd = isSunday(today) ? today : nextSunday(today);
-    const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+    const weekEndStr = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
 
     // Check if any count (completed or in-progress) already covers this period
     const allCounts = recentCounts || [];
@@ -130,7 +129,7 @@ export default function InventoryCountTab({
       _isUpcoming: true,
       _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
     };
-  }, [recentCounts, getTodayInTimezone]);
+  }, [recentCounts, getTodayInTimezone, periodConfig.periodEndDay]);
 
   const filteredCounts = useMemo(() => {
     const base = typeFilter === "all"
