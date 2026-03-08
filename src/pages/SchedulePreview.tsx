@@ -699,22 +699,29 @@ function Option6() {
 
       <ManagerActionRow />
 
-      {/* Pill-sized quick tasks — compact like current TemporaryTaskCard */}
+      {/* Quick tasks — matching current TemporaryTaskCard styling */}
       <div className="space-y-1">
         <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
         <div className="space-y-1">
           {MOCK_TASKS.map((t, i) => (
-            <div key={i} className="flex items-center gap-2 bg-card border border-border/30 rounded-lg px-2.5 py-1.5 shadow-neumorphic">
-              <div className="w-0.5 h-4 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-              <span className="text-xs font-medium flex-1 truncate">{t.title}</span>
-              <button
-                className="h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"
-              >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
+            <Card key={i} className="overflow-hidden border-0 relative">
+              <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ backgroundColor: t.color }} />
+              <div className="py-2 px-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="p-1.5 rounded-md shrink-0" style={{ backgroundColor: `${t.color}20` }}>
+                    <Zap className="h-4 w-4" style={{ color: t.color }} />
+                  </div>
+                  <p className="font-medium text-sm leading-tight">{t.title}</p>
+                </div>
+                <button
+                  className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </Card>
           ))}
         </div>
       </div>
