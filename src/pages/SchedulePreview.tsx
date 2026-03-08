@@ -148,18 +148,22 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
               <span>{shift.start} - {shift.end}</span>
-              {showPunchInfo && shift.isActive && (
-                <span className="text-green-600">In: {shift.clockIn}</span>
-              )}
-              {shift.isOnBreak && (
-                <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
-              )}
             </div>
-            <Badge variant="secondary" className="mt-1 text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
-              {shift.position}
-            </Badge>
+            {showPunchInfo && shift.isActive && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-green-600">In: {shift.clockIn}</span>
+                {shift.isOnBreak && (
+                  <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
+                )}
+              </div>
+            )}
+            <div className="flex justify-end mt-1">
+              <Badge variant="secondary" className="text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+                {shift.position}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
