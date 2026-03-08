@@ -325,6 +325,7 @@ export default function InventoryCountTab({
             <PeriodDetailPanel
               count={selectedCount}
               locationId={locationId}
+              onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
             />
           )}
         </>
