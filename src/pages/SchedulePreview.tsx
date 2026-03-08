@@ -767,7 +767,7 @@ function Option6() {
 
       {/* Option 2: Upcoming section */}
       <div className="space-y-1.5">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Upcoming</h4>
+        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Later</h4>
         {upcomingShifts.map(s => (
           <ShiftCard key={s.id} shift={s} compact />
         ))}
