@@ -14,9 +14,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2,
+  Settings2, MoreVertical, Trash2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
