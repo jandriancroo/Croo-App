@@ -21,6 +21,8 @@ import {
 import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import OrderReconciliationPicker from "./OrderReconciliationPicker";
 
 interface PeriodDetailPanelProps {
@@ -31,10 +33,15 @@ interface PeriodDetailPanelProps {
 export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [realCountId, setRealCountId] = useState<string | null>(null);
+  const [creatingCount, setCreatingCount] = useState(false);
+  const isUpcoming = !!count._isUpcoming;
+  
 
   // Determine period date range for this count
   const periodRange = useMemo(() => {
@@ -64,6 +71,80 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
     queryKey: ["period-cogs", locationId, count.id, periodRange?.startStr, periodRange?.endStr],
     queryFn: async () => {
       if (!periodRange) return null;
+
+      // For upcoming periods, only fetch purchases (no count items exist yet)
+      if (isUpcoming) {
+        const [pfgDateRange, paDateRange] = await Promise.all([
+          supabase
+            .from("pfg_orders")
+            .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+            .eq("location_id", locationId)
+            .is("bound_to_count_id", null)
+            .gte("delivery_date", periodRange.startStr)
+            .lte("delivery_date", periodRange.endStr)
+            .order("delivery_date", { ascending: true }),
+          supabase
+            .from("pa_orders")
+            .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+            .eq("location_id", locationId)
+            .is("bound_to_count_id", null)
+            .gte("delivery_date", periodRange.startStr)
+            .lte("delivery_date", periodRange.endStr)
+            .order("delivery_date", { ascending: true }),
+        ]);
+
+        // Also check for orders bound to a real count_id (if one was created via Manage Orders)
+        let pfgBound: any[] = [];
+        let paBound: any[] = [];
+        if (realCountId) {
+          const [pfgB, paB] = await Promise.all([
+            supabase
+              .from("pfg_orders")
+              .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+              .eq("location_id", locationId)
+              .eq("bound_to_count_id", realCountId)
+              .order("delivery_date", { ascending: true }),
+            supabase
+              .from("pa_orders")
+              .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+              .eq("location_id", locationId)
+              .eq("bound_to_count_id", realCountId)
+              .order("delivery_date", { ascending: true }),
+          ]);
+          pfgBound = pfgB.data || [];
+          paBound = paB.data || [];
+        }
+
+        const hasBoundOrders = pfgBound.length + paBound.length > 0;
+        const pfg = hasBoundOrders ? pfgBound : (pfgDateRange.data || []);
+        const pa = hasBoundOrders ? paBound : (paDateRange.data || []);
+        const purchasesTotal = [...pfg, ...pa].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+
+        return {
+          beginValue: 0,
+          endValue: 0,
+          purchasesTotal,
+          cogsTotal: 0,
+          netSales: 0,
+          cogsPct: 0,
+          hasBeginning: false,
+          hasBoundOrders,
+          isUpcoming: true,
+          purchases: [
+            ...pfg.map((o: any) => {
+              const rawId = o.pfg_order_id || '';
+              const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
+              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            }),
+            ...pa.map((o: any) => {
+              const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
+              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            }),
+          ],
+        };
+      }
 
       // Beginning: most recent completed count before this period
       const { data: beginCounts } = await supabase
@@ -182,7 +263,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         ],
       };
     },
-    enabled: !!periodRange && count.status === "completed",
+    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -258,7 +339,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
       if (error) return [];
       return data || [];
     },
-    enabled: !!periodRange && count.status === "completed",
+    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -277,6 +358,38 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         <Card>
           <CardContent className="p-8 flex justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      ) : isUpcoming ? (
+        /* Upcoming period: simplified header with purchases only */
+        <Card className="border-primary/20">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
+                    Current
+                  </Badge>
+                </div>
+                {periodRange && (
+                  <p className="text-xs font-medium text-primary/80 mt-0.5">
+                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                  </p>
+                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  Count not started yet — manage orders below
+                </p>
+              </div>
+            </div>
+            {cogsData && cogsData.purchases.length > 0 && (
+              <div className="p-3 rounded-xl bg-muted/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Purchases this period</span>
+                  <span className="text-lg font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : cogsData ? (
@@ -389,9 +502,46 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => setShowOrderDialog(true)}
+                    disabled={creatingCount}
+                    onClick={async () => {
+                      if (isUpcoming && !realCountId) {
+                        // Auto-create the count record so we have a real ID for binding
+                        setCreatingCount(true);
+                        try {
+                          const { data, error } = await supabase
+                            .from("inventory_counts")
+                            .insert({
+                              location_id: locationId,
+                              counted_by: user?.id,
+                              count_date: new Date().toISOString().split("T")[0],
+                              period_type: count.period_type,
+                              period_end_date: count.period_end_date,
+                              status: "in_progress",
+                            })
+                            .select()
+                            .single();
+                          if (error) throw error;
+                          setRealCountId(data.id);
+                          queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+                          queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+                          toast.success("Period created — you can now bind orders");
+                          setShowOrderDialog(true);
+                        } catch (err) {
+                          console.error("Failed to create count:", err);
+                          toast.error("Failed to create period");
+                        } finally {
+                          setCreatingCount(false);
+                        }
+                      } else {
+                        setShowOrderDialog(true);
+                      }
+                    }}
                   >
-                    <Settings2 className="h-4 w-4 mr-2" />
+                    {creatingCount ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Settings2 className="h-4 w-4 mr-2" />
+                    )}
                     Manage Orders for Period
                   </Button>
                 </div>
@@ -475,30 +625,41 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
               <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
                 <Package className="h-7 w-7 text-muted-foreground" />
               </div>
-              <div>
-                <p className="text-lg font-bold">{stats.countedItems} / {stats.totalItems} items</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  On-hand value: <span className="font-semibold text-foreground">
-                    ${stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                </p>
-              </div>
-              <div className="flex gap-3 justify-center">
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                >
-                  <Eye className="h-4 w-4 mr-2" /> View Details
-                </Button>
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                >
-                  <Pencil className="h-4 w-4 mr-2" /> Edit Count
-                </Button>
-              </div>
+              {isUpcoming ? (
+                <div>
+                  <p className="text-lg font-bold">Not Started</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    This period's count hasn't been started yet. Use "Start Count" above when ready.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-lg font-bold">{stats.countedItems} / {stats.totalItems} items</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      On-hand value: <span className="font-semibold text-foreground">
+                        ${stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      variant="outline"
+                      size="default"
+                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" /> View Details
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="default"
+                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" /> Edit Count
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -524,7 +685,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
           </DialogHeader>
           <OrderReconciliationPicker
             locationId={locationId}
-            countId={count.id}
+            countId={realCountId || count.id}
             periodStartDate={periodRange?.startStr}
             periodEndDate={periodRange?.endStr}
             editable

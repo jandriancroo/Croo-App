@@ -7,11 +7,11 @@ import {
   Plus, Play, Package,
   Calendar, ChevronDown, ArrowRight,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, nextSunday, isSunday } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
-
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 interface InventoryCountTabProps {
   locationId: string;
   inProgressCount: any | null;
@@ -104,13 +104,44 @@ export default function InventoryCountTab({
     [recentCounts]
   );
 
-  const filteredCounts = useMemo(
-    () =>
-      typeFilter === "all"
-        ? completedCounts
-        : completedCounts.filter((c) => c.period_type === typeFilter),
-    [completedCounts, typeFilter]
-  );
+  // Compute current weekly period end date (upcoming Sunday or today if Sunday)
+  const { getTodayInTimezone } = useLocationTimezone();
+  const currentPeriodEntry = useMemo(() => {
+    const todayStr = getTodayInTimezone();
+    const today = new Date(todayStr + "T12:00:00");
+    const weekEnd = isSunday(today) ? today : nextSunday(today);
+    const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+
+    // Check if any count (completed or in-progress) already covers this period
+    const allCounts = recentCounts || [];
+    const exists = allCounts.some(
+      (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
+    );
+    if (exists) return null;
+
+    // Return a virtual entry
+    return {
+      id: `_upcoming_weekly_${weekEndStr}`,
+      status: "upcoming",
+      period_type: "weekly",
+      period_end_date: weekEndStr,
+      count_date: todayStr,
+      _isUpcoming: true,
+      _stats: { totalItems: 0, countedItems: 0, totalCost: 0 },
+    };
+  }, [recentCounts, getTodayInTimezone]);
+
+  const filteredCounts = useMemo(() => {
+    const base = typeFilter === "all"
+      ? completedCounts
+      : completedCounts.filter((c) => c.period_type === typeFilter);
+
+    // Prepend current period if it matches the filter and exists
+    if (currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")) {
+      return [currentPeriodEntry, ...base];
+    }
+    return base;
+  }, [completedCounts, typeFilter, currentPeriodEntry]);
 
   // Auto-select first completed count if none selected
   const effectiveSelectedId = selectedId && filteredCounts.some((c) => c.id === selectedId)
@@ -154,7 +185,7 @@ export default function InventoryCountTab({
       <DailySpotCount locationId={locationId} />
 
       {/* Period selector: filter chips + dropdown */}
-      {completedCounts.length > 0 && (
+      {(completedCounts.length > 0 || currentPeriodEntry) && (
         <>
           <div className="flex items-center gap-2">
             {/* Filter chips */}
@@ -194,6 +225,14 @@ export default function InventoryCountTab({
                       ? formatPeriodShort(selectedCount)
                       : "Select period"}
                   </span>
+                  {selectedCount?._isUpcoming && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-4 uppercase flex-shrink-0 border-primary/40 text-primary"
+                    >
+                      Current
+                    </Badge>
+                  )}
                   {selectedCount?.period_type === "monthly" && (
                     <Badge
                       variant="outline"
@@ -235,6 +274,14 @@ export default function InventoryCountTab({
                           <span className="text-sm font-semibold">
                             {formatPeriodShort(count)}
                           </span>
+                          {count._isUpcoming && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary"
+                            >
+                              Current
+                            </Badge>
+                          )}
                           {count.period_type === "monthly" && (
                             <Badge
                               variant="outline"
