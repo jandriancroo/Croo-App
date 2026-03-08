@@ -103,6 +103,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
   const [ingredientUnit, setIngredientUnit] = useState("oz");
   const [countable, setCountable] = useState(true);
   const [panSizesConfig, setPanSizesConfig] = useState<PanSizesConfig | null>(null);
+  const [suggestedPrice, setSuggestedPrice] = useState("");
 
   // Fetch available inventory items (raw items + other recipes)
   const { data: availableItems } = useQuery({
