@@ -712,7 +712,10 @@ function Option6() {
                 <span className="text-xs text-muted-foreground">{e.time}</span>
               </div>
               <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50">
-                <CalendarPlus className="h-3 w-3" />
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="M16 2v4M8 2v4M3 10h18" />
+                </svg>
               </div>
             </div>
           ))}
