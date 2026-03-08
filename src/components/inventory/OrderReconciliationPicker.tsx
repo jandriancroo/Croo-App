@@ -122,8 +122,8 @@ export default function OrderReconciliationPicker({
         })),
       ];
 
-      // Sort by order date, then delivery date
-      all.sort((a, b) => a.orderDate.localeCompare(b.orderDate) || a.deliveryDate.localeCompare(b.deliveryDate));
+      // Sort by most recent first (delivery date desc, then order date desc)
+      all.sort((a, b) => b.deliveryDate.localeCompare(a.deliveryDate) || b.orderDate.localeCompare(a.orderDate));
       return all;
     },
     enabled: !!locationId && !!countId,
