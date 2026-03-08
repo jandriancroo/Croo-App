@@ -126,49 +126,41 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
       !shift.isActive && !shift.isOnBreak && "opacity-70"
     )}>
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
-      <div className={cn("flex-1 px-3", compact ? "py-2" : "py-2.5")}>
-        <div className="flex items-center gap-3">
+      <div className="flex-1 px-2.5 py-1.5">
+        <div className="flex items-center gap-2.5">
           <div className="relative shrink-0">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="text-sm">{shift.name.charAt(0)}</AvatarFallback>
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">{shift.name.charAt(0)}</AvatarFallback>
             </Avatar>
             {shift.isActive && !shift.isOnBreak && (
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 border-2 border-background animate-pulse" />
             )}
             {shift.isOnBreak && (
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-background" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-500 border-2 border-background" />
             )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-sm truncate">{shift.name}</span>
               {showPunchInfo && shift.isActive && (
-                <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+                <span className={cn("font-bold text-xs shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
                   {shift.hours.toFixed(1)}h
                 </span>
               )}
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{shift.start} - {shift.end}</span>
-            </div>
-            {showPunchInfo && shift.isActive && (
-              <>
-                <div className="text-sm">
-                  <span className="text-green-600">In: {shift.clockIn}</span>
-                </div>
-                {shift.isOnBreak && (
-                  <div className="text-sm">
-                    <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
-                  </div>
-                )}
-              </>
-            )}
-            <div className="flex justify-end mt-1">
-              <Badge variant="secondary" className="text-xs" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
-                {shift.position}
-              </Badge>
+              {showPunchInfo && shift.isActive && (
+                <span className="text-green-600">In: {shift.clockIn}</span>
+              )}
+              {shift.isOnBreak && (
+                <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
+              )}
             </div>
           </div>
+          <Badge variant="secondary" className="text-[10px] shrink-0 self-end" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+            {shift.position}
+          </Badge>
         </div>
       </div>
     </div>
