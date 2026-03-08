@@ -713,6 +713,7 @@ function Option6() {
               </div>
             </div>
           ))}
+          <div className="mx-6 border-t border-border/30" />
           {MOCK_TASKS.map((t, i) => (
             <div key={`t-${i}`} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${t.color}10` }}>
               <div className="w-1 h-6 rounded-full" style={{ backgroundColor: t.color }} />
