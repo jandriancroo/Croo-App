@@ -225,6 +225,14 @@ export default function InventoryCountTab({
                       ? formatPeriodShort(selectedCount)
                       : "Select period"}
                   </span>
+                  {selectedCount?._isUpcoming && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 h-4 uppercase flex-shrink-0 border-primary/40 text-primary"
+                    >
+                      Current
+                    </Badge>
+                  )}
                   {selectedCount?.period_type === "monthly" && (
                     <Badge
                       variant="outline"
