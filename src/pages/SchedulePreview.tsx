@@ -700,23 +700,10 @@ function Option6() {
 
       <ManagerActionRow />
 
-      {/* Quick Tasks + Events — unified compact rows */}
+      {/* Events & Tasks — unified compact rows */}
       <div className="space-y-1">
-        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Tasks & Events</h4>
+        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Events & Tasks</h4>
         <div className="space-y-1">
-          {MOCK_TASKS.map((t, i) => (
-            <div key={`t-${i}`} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${t.color}10` }}>
-              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: t.color }} />
-              <div className="flex-1 flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium truncate">{t.title}</span>
-              </div>
-              <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50">
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-          ))}
           {MOCK_EVENTS.map(e => (
             <div key={e.id} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
               <div className="w-1 h-6 rounded-full" style={{ backgroundColor: e.color }} />
@@ -724,6 +711,30 @@ function Option6() {
                 <span className="text-sm font-medium">{e.name}</span>
                 <span className="text-xs text-muted-foreground">{e.time}</span>
               </div>
+            </div>
+          ))}
+          {MOCK_TASKS.map((t, i) => (
+            <div key={`t-${i}`} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${t.color}10` }}>
+              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: t.color }} />
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <span className="text-sm font-medium truncate">{t.title}</span>
+                {t.subtasksTotal && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                    style={{
+                      backgroundColor: t.subtasksCompleted === t.subtasksTotal ? '#22c55e20' : `${t.color}20`,
+                      color: t.subtasksCompleted === t.subtasksTotal ? '#22c55e' : t.color,
+                    }}
+                  >
+                    {t.subtasksCompleted}/{t.subtasksTotal}
+                  </span>
+                )}
+              </div>
+              <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
             </div>
           ))}
         </div>
