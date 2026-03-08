@@ -118,17 +118,19 @@ function ScheduleToolsBar({ variant = 'full' }: { variant?: 'full' | 'compact' |
   );
 }
 
-function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: typeof MOCK_SHIFTS[0]; showPunchInfo?: boolean; compact?: boolean }) {
+function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS[0]; showPunchInfo?: boolean; compact?: boolean }) {
   const statusColor = shift.isOnBreak ? '#f59e0b' : shift.isActive ? '#22c55e' : shift.color;
+  const isPunched = showPunchInfo && shift.isActive;
+
   return (
     <div className={cn(
       "flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden",
       !shift.isActive && !shift.isOnBreak && "opacity-70"
     )}>
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
-      <div className="flex-1 px-2.5 py-1.5">
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
+      <div className="flex-1 px-2.5 py-2">
+        <div className="flex items-start gap-2.5">
+          <div className="relative shrink-0 mt-0.5">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="text-xs">{shift.name.charAt(0)}</AvatarFallback>
             </Avatar>
@@ -140,27 +142,37 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
             )}
           </div>
           <div className="flex-1 min-w-0">
+            {/* Row 1: Name + hours/badge */}
             <div className="flex items-center justify-between">
               <span className="font-semibold text-sm truncate">{shift.name}</span>
-              {showPunchInfo && shift.isActive && (
+              {isPunched ? (
                 <span className={cn("font-bold text-xs shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
                   {shift.hours.toFixed(1)}h
                 </span>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] shrink-0" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+                  {shift.position}
+                </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {/* Row 2: Scheduled time */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{shift.start} - {shift.end}</span>
-              {showPunchInfo && shift.isActive && (
-                <span className="text-green-600">In: {shift.clockIn}</span>
-              )}
-              {shift.isOnBreak && (
-                <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
+              {isPunched && (
+                <Badge variant="secondary" className="text-[10px] shrink-0" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+                  {shift.position}
+                </Badge>
               )}
             </div>
+            {/* Row 3: Punch data */}
+            {isPunched && (
+              <div className="text-xs text-green-600">In: {shift.clockIn}</div>
+            )}
+            {/* Row 4: Break data */}
+            {shift.isOnBreak && (
+              <div className="text-xs text-amber-600 font-medium">Break: {shift.breakStart}</div>
+            )}
           </div>
-          <Badge variant="secondary" className="text-[10px] shrink-0 self-end" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
-            {shift.position}
-          </Badge>
         </div>
       </div>
     </div>
