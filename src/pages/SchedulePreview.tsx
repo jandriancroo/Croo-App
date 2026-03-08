@@ -818,7 +818,7 @@ const OPTIONS = [
 ];
 
 export default function SchedulePreview() {
-  const [activeOption, setActiveOption] = useState(0);
+  const [activeOption, setActiveOption] = useState(5); // Default to Option 6
   const current = OPTIONS[activeOption];
   
   return (
@@ -826,7 +826,7 @@ export default function SchedulePreview() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-primary text-primary-foreground px-4 py-3 shadow-lg">
         <h1 className="text-lg font-bold">Mobile Schedule — Design Preview</h1>
-        <p className="text-xs text-primary-foreground/70">5 combined Today+Schedule options</p>
+        <p className="text-xs text-primary-foreground/70">6 combined Today+Schedule options</p>
       </div>
       
       {/* Option selector */}
