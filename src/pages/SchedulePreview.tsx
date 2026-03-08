@@ -129,8 +129,8 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
       <div className={cn("flex-1 px-3", compact ? "py-2" : "py-2.5")}>
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
-            <Avatar className={cn(compact ? "h-8 w-8" : "h-9 w-9")}>
-              <AvatarFallback>{shift.name.charAt(0)}</AvatarFallback>
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="text-sm">{shift.name.charAt(0)}</AvatarFallback>
             </Avatar>
             {shift.isActive && !shift.isOnBreak && (
               <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
@@ -141,30 +141,30 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <span className={cn("font-semibold truncate", compact ? "text-xs" : "text-sm")}>{shift.name}</span>
+              <span className="font-semibold text-sm truncate">{shift.name}</span>
               {showPunchInfo && shift.isActive && (
-                <span className={cn("font-bold shrink-0", compact ? "text-xs" : "text-sm", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+                <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
                   {shift.hours.toFixed(1)}h
                 </span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               <span>{shift.start} - {shift.end}</span>
             </div>
             {showPunchInfo && shift.isActive && (
               <>
-                <div className="text-xs">
+                <div className="text-sm">
                   <span className="text-green-600">In: {shift.clockIn}</span>
                 </div>
                 {shift.isOnBreak && (
-                  <div className="text-xs">
+                  <div className="text-sm">
                     <span className="text-amber-600 font-medium">Break: {shift.breakStart}</span>
                   </div>
                 )}
               </>
             )}
             <div className="flex justify-end mt-1">
-              <Badge variant="secondary" className="text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+              <Badge variant="secondary" className="text-xs" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
                 {shift.position}
               </Badge>
             </div>
