@@ -713,7 +713,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       icon: Briefcase
     }] : []),
     ...(isManager ? [{
-      path: '/inventory',
+      path: currentLocation?.id ? `/inventory/${currentLocation.id}` : '/inventory',
       label: 'Inventory',
       icon: Package
     }] : []),
