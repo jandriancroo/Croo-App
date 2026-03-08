@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Users, Clock, DollarSign, TrendingUp, ChevronLeft, ChevronRight, 
-  UserPlus, CalendarPlus, Circle, Coffee, BarChart3, Zap, CalendarDays,
+  UserPlus, CalendarPlus, Circle, Coffee, BarChart3, Zap,
   ArrowUp, ArrowDown, MoreHorizontal, Plus, Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -728,20 +728,15 @@ function Option6() {
 
       {/* Events — Option 5 style highlighted agenda rows */}
       {MOCK_EVENTS.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {MOCK_EVENTS.map(e => (
-            <Card key={e.id} className="overflow-hidden border-0 relative">
-              <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ backgroundColor: e.color }} />
-              <div className="py-2 px-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="p-1.5 rounded-md shrink-0" style={{ backgroundColor: `${e.color}20` }}>
-                    <CalendarDays className="h-4 w-4" style={{ color: e.color }} />
-                  </div>
-                  <p className="font-medium text-sm leading-tight">{e.name}</p>
-                  <span className="text-xs text-muted-foreground shrink-0">{e.time}</span>
-                </div>
+            <div key={e.id} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
+              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: e.color }} />
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-sm font-medium">{e.name}</span>
+                <span className="text-xs text-muted-foreground">{e.time}</span>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
