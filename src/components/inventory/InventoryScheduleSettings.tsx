@@ -193,6 +193,68 @@ const InventoryScheduleSettings = ({ locationId }: InventoryScheduleSettingsProp
             {savingFrequency === "monthly" && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
         </div>
+
+        {/* Divider */}
+        <div className="border-t border-border/50" />
+
+        {/* Period End Settings */}
+        <div className="flex items-center gap-2 font-semibold text-sm">
+          <Settings2 className="h-4 w-4" />
+          Period Closing
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Week ends on</span>
+          <div className="flex items-center gap-2">
+            {savingPeriod && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            <Select
+              value={periodConfig.periodEndDay.toString()}
+              onValueChange={(v) => {
+                setSavingPeriod(true);
+                updatePeriodSetting.mutate({ inventory_period_end_day: parseInt(v) });
+              }}
+            >
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAYS_OF_WEEK.map((day) => (
+                  <SelectItem key={day.value} value={day.value.toString()}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Period closes</span>
+          <div className="flex items-center gap-2">
+            {savingPeriod && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            <Select
+              value={periodConfig.periodCutoff}
+              onValueChange={(v) => {
+                setSavingPeriod(true);
+                updatePeriodSetting.mutate({ inventory_period_cutoff: v });
+              }}
+            >
+              <SelectTrigger className="w-36 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="after_close">After Close</SelectItem>
+                <SelectItem value="before_open">Before Open</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground leading-tight">
+          {periodConfig.periodCutoff === "after_close"
+            ? `${DAYS_OF_WEEK.find(d => d.value === periodConfig.periodEndDay)?.label}'s sales are included in the ending period.`
+            : `${DAYS_OF_WEEK.find(d => d.value === periodConfig.periodEndDay)?.label}'s sales start the next period.`}
+        </p>
       </CardContent>
     </Card>
   );
