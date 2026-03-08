@@ -734,9 +734,9 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
                         <Badge
                           variant="outline"
                           className={`font-mono text-xs ${
-                            (recipeCost / parseFloat(suggestedPrice)) * 100 <= 30
+                            (recipeCost / parseFloat(suggestedPrice)) * 100 <= 20
                               ? "border-green-500/50 text-green-600 dark:text-green-400"
-                              : (recipeCost / parseFloat(suggestedPrice)) * 100 <= 35
+                              : (recipeCost / parseFloat(suggestedPrice)) * 100 <= 25
                               ? "border-yellow-500/50 text-yellow-600 dark:text-yellow-400"
                               : "border-red-500/50 text-red-600 dark:text-red-400"
                           }`}
