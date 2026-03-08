@@ -255,6 +255,7 @@ export const Layout = ({
   const [searchParams] = useSearchParams();
   const {
     isAdmin,
+    isManager,
     isOrgAdmin,
     isShiftManager,
     canViewSalesAndLabor,
