@@ -72,6 +72,80 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
     queryFn: async () => {
       if (!periodRange) return null;
 
+      // For upcoming periods, only fetch purchases (no count items exist yet)
+      if (isUpcoming) {
+        const [pfgDateRange, paDateRange] = await Promise.all([
+          supabase
+            .from("pfg_orders")
+            .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+            .eq("location_id", locationId)
+            .is("bound_to_count_id", null)
+            .gte("delivery_date", periodRange.startStr)
+            .lte("delivery_date", periodRange.endStr)
+            .order("delivery_date", { ascending: true }),
+          supabase
+            .from("pa_orders")
+            .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+            .eq("location_id", locationId)
+            .is("bound_to_count_id", null)
+            .gte("delivery_date", periodRange.startStr)
+            .lte("delivery_date", periodRange.endStr)
+            .order("delivery_date", { ascending: true }),
+        ]);
+
+        // Also check for orders bound to a real count_id (if one was created via Manage Orders)
+        let pfgBound: any[] = [];
+        let paBound: any[] = [];
+        if (realCountId) {
+          const [pfgB, paB] = await Promise.all([
+            supabase
+              .from("pfg_orders")
+              .select("id, pfg_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+              .eq("location_id", locationId)
+              .eq("bound_to_count_id", realCountId)
+              .order("delivery_date", { ascending: true }),
+            supabase
+              .from("pa_orders")
+              .select("id, pa_order_id, order_number, order_date, delivery_date, total_amount, bound_to_count_id")
+              .eq("location_id", locationId)
+              .eq("bound_to_count_id", realCountId)
+              .order("delivery_date", { ascending: true }),
+          ]);
+          pfgBound = pfgB.data || [];
+          paBound = paB.data || [];
+        }
+
+        const hasBoundOrders = pfgBound.length + paBound.length > 0;
+        const pfg = hasBoundOrders ? pfgBound : (pfgDateRange.data || []);
+        const pa = hasBoundOrders ? paBound : (paDateRange.data || []);
+        const purchasesTotal = [...pfg, ...pa].reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+
+        return {
+          beginValue: 0,
+          endValue: 0,
+          purchasesTotal,
+          cogsTotal: 0,
+          netSales: 0,
+          cogsPct: 0,
+          hasBeginning: false,
+          hasBoundOrders,
+          isUpcoming: true,
+          purchases: [
+            ...pfg.map((o: any) => {
+              const rawId = o.pfg_order_id || '';
+              const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
+              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            }),
+            ...pa.map((o: any) => {
+              const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
+              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            }),
+          ],
+        };
+      }
+
       // Beginning: most recent completed count before this period
       const { data: beginCounts } = await supabase
         .from("inventory_counts")
@@ -189,7 +263,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         ],
       };
     },
-    enabled: !!periodRange && count.status === "completed",
+    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
     staleTime: 5 * 60 * 1000,
   });
 
