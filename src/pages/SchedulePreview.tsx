@@ -163,7 +163,6 @@ function ShiftCard({ shift, showPunchInfo = false, compact = false }: { shift: t
                 )}
               </>
             )}
-            )}
             <div className="flex justify-end mt-1">
               <Badge variant="secondary" className="text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
                 {shift.position}
