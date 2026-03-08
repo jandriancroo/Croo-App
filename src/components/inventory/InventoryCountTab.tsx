@@ -7,11 +7,12 @@ import {
   Plus, Play, Package,
   Calendar, ChevronDown, ArrowRight,
 } from "lucide-react";
-import { format, nextSunday, isSunday } from "date-fns";
+import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import DailySpotCount from "@/components/inventory/DailySpotCount";
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { useInventoryPeriodSettings, computePeriodEndDate } from "@/hooks/useInventoryPeriodSettings";
 interface InventoryCountTabProps {
   locationId: string;
   inProgressCount: any | null;
