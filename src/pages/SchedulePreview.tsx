@@ -699,36 +699,23 @@ function Option6() {
 
       <ManagerActionRow />
 
-      {/* Quick tasks — matching current TemporaryTaskCard styling */}
+      {/* Quick Tasks + Events — unified compact rows */}
       <div className="space-y-1">
-        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
+        <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Tasks & Events</h4>
         <div className="space-y-1">
           {MOCK_TASKS.map((t, i) => (
-            <Card key={i} className="overflow-hidden border-0 relative">
-              <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" style={{ backgroundColor: t.color }} />
-              <div className="py-2 px-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="p-1.5 rounded-md shrink-0" style={{ backgroundColor: `${t.color}20` }}>
-                    <Zap className="h-4 w-4" style={{ color: t.color }} />
-                  </div>
-                  <p className="font-medium text-sm leading-tight">{t.title}</p>
-                </div>
-                <button
-                  className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </button>
+            <div key={`t-${i}`} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${t.color}10` }}>
+              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: t.color }} />
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <span className="text-sm font-medium truncate">{t.title}</span>
               </div>
-            </Card>
+              <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
           ))}
-        </div>
-      </div>
-
-      {/* Events — Option 5 style highlighted agenda rows */}
-      {MOCK_EVENTS.length > 0 && (
-        <div className="space-y-1">
           {MOCK_EVENTS.map(e => (
             <div key={e.id} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
               <div className="w-1 h-6 rounded-full" style={{ backgroundColor: e.color }} />
@@ -739,7 +726,7 @@ function Option6() {
             </div>
           ))}
         </div>
-      )}
+      </div>
 
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
