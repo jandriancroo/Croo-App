@@ -639,6 +639,7 @@ function Option6() {
   const MOCK_TASKS = [
     { title: 'Prep line check', color: '#8b5cf6' },
     { title: 'Restock napkins', color: '#ef4444' },
+    { title: 'Opening checklist', color: '#3b82f6', subtasksCompleted: 3, subtasksTotal: 5 },
     { title: 'Temp log cooler #2', color: '#f59e0b' },
   ];
 
