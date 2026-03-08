@@ -700,16 +700,16 @@ function Option6() {
 
       <ManagerActionRow />
 
-      {/* Events & Tasks — unified compact rows */}
+      {/* Events & Tasks — 2-column grid */}
       <div className="space-y-1">
         <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Events & Tasks</h4>
-        <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-1">
           {MOCK_EVENTS.map(e => (
-            <div key={e.id} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
-              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: e.color }} />
-              <div className="flex-1 flex items-center gap-2">
-                <span className="text-sm font-medium">{e.name}</span>
-                <span className="text-xs text-muted-foreground">{e.time}</span>
+            <div key={e.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${e.color}10` }}>
+              <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-medium truncate block">{e.name}</span>
+                <span className="text-[10px] text-muted-foreground">{e.time}</span>
               </div>
               <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50">
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -719,23 +719,24 @@ function Option6() {
               </div>
             </div>
           ))}
-          <div className="mx-6 border-t border-border/30" />
           {MOCK_TASKS.map((t, i) => (
-            <div key={`t-${i}`} className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${t.color}10` }}>
-              <div className="w-1 h-6 rounded-full" style={{ backgroundColor: t.color }} />
-              <div className="flex-1 flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium truncate">{t.title}</span>
-                {t.subtasksTotal && (
-                  <span
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
-                    style={{
-                      backgroundColor: t.subtasksCompleted === t.subtasksTotal ? '#22c55e20' : `${t.color}20`,
-                      color: t.subtasksCompleted === t.subtasksTotal ? '#22c55e' : t.color,
-                    }}
-                  >
-                    {t.subtasksCompleted}/{t.subtasksTotal}
-                  </span>
-                )}
+            <div key={`t-${i}`} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${t.color}10` }}>
+              <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium truncate">{t.title}</span>
+                  {t.subtasksTotal && (
+                    <span
+                      className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                      style={{
+                        backgroundColor: t.subtasksCompleted === t.subtasksTotal ? '#22c55e20' : `${t.color}20`,
+                        color: t.subtasksCompleted === t.subtasksTotal ? '#22c55e' : t.color,
+                      }}
+                    >
+                      {t.subtasksCompleted}/{t.subtasksTotal}
+                    </span>
+                  )}
+                </div>
               </div>
               <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50">
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -743,6 +744,9 @@ function Option6() {
                 </svg>
               </button>
             </div>
+          ))}
+        </div>
+      </div>
           ))}
         </div>
       </div>
