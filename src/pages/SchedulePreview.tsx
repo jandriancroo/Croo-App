@@ -703,16 +703,14 @@ function Option6() {
       {/* Events & Tasks — 2-column grid */}
       <div className="space-y-1">
         <h4 className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Events & Tasks</h4>
-        {/* Events — 2-col grid */}
-        <div className="grid grid-cols-2 gap-1">
+        {/* Events — flex-wrap, single-line height */}
+        <div className="flex flex-wrap gap-1">
           {MOCK_EVENTS.map(e => (
-            <div key={e.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${e.color}10` }}>
-              <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium truncate block">{e.name}</span>
-                <span className="text-[10px] text-muted-foreground">{e.time}</span>
-              </div>
-              <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50">
+            <div key={e.id} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow" style={{ backgroundColor: `${e.color}10` }}>
+              <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+              <span className="text-xs font-medium truncate">{e.name}</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">{e.time}</span>
+              <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50 ml-auto">
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <rect x="3" y="4" width="18" height="18" rx="2" />
                   <path d="M16 2v4M8 2v4M3 10h18" />
@@ -722,34 +720,36 @@ function Option6() {
           ))}
         </div>
         <div className="mx-6 border-t border-border/30" />
-        {/* Tasks — 2-col grid */}
-        <div className="grid grid-cols-2 gap-1">
-          {MOCK_TASKS.map((t, i) => (
-            <div key={`t-${i}`} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0" style={{ backgroundColor: `${t.color}10` }}>
-              <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium truncate">{t.title}</span>
-                  {t.subtasksTotal && (
-                    <span
-                      className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
-                      style={{
-                        backgroundColor: t.subtasksCompleted === t.subtasksTotal ? '#22c55e20' : `${t.color}20`,
-                        color: t.subtasksCompleted === t.subtasksTotal ? '#22c55e' : t.color,
-                      }}
-                    >
-                      {t.subtasksCompleted}/{t.subtasksTotal}
-                    </span>
-                  )}
-                </div>
+        {/* Tasks — flex-wrap, short ones pair up, long ones get full row */}
+        <div className="flex flex-wrap gap-1">
+          {MOCK_TASKS.map((t, i) => {
+            const isLong = t.title.length > 14 || !!t.subtasksTotal;
+            return (
+              <div key={`t-${i}`} className={cn(
+                "flex items-center gap-1.5 px-2 py-1.5 rounded-lg",
+                isLong ? "w-full" : "min-w-[calc(50%-2px)] max-w-full flex-grow"
+              )} style={{ backgroundColor: `${t.color}10` }}>
+                <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                <span className="text-xs font-medium truncate">{t.title}</span>
+                {t.subtasksTotal && (
+                  <span
+                    className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                    style={{
+                      backgroundColor: t.subtasksCompleted === t.subtasksTotal ? '#22c55e20' : `${t.color}20`,
+                      color: t.subtasksCompleted === t.subtasksTotal ? '#22c55e' : t.color,
+                    }}
+                  >
+                    {t.subtasksCompleted}/{t.subtasksTotal}
+                  </span>
+                )}
+                <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50 ml-auto">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
               </div>
-              <button className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 hover:border-primary hover:text-primary transition-colors text-muted-foreground/50">
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
