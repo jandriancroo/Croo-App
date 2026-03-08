@@ -756,8 +756,8 @@ function Option6() {
       {/* Option 2: Grouped sections — Currently Working */}
       {activeShifts.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="text-xs font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
-            <Circle className="h-2 w-2 fill-green-500 text-green-500" /> Currently Working
+          <h4 className="text-[10px] font-medium text-green-600 uppercase tracking-wide flex items-center gap-1">
+            <Circle className="h-2 w-2 fill-green-500 text-green-500" /> Now
           </h4>
           {activeShifts.map(s => (
             <ShiftCard key={s.id} shift={s} showPunchInfo compact />
