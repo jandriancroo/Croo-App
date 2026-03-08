@@ -3655,6 +3655,8 @@ export type Database = {
           hours_close: string | null
           hours_open: string | null
           id: string
+          inventory_period_cutoff: string
+          inventory_period_end_day: number
           labor_percentage_target: number | null
           location_id: string
           pizza_sales_percentage: number | null
@@ -3680,6 +3682,8 @@ export type Database = {
           hours_close?: string | null
           hours_open?: string | null
           id?: string
+          inventory_period_cutoff?: string
+          inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id: string
           pizza_sales_percentage?: number | null
@@ -3705,6 +3709,8 @@ export type Database = {
           hours_close?: string | null
           hours_open?: string | null
           id?: string
+          inventory_period_cutoff?: string
+          inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id?: string
           pizza_sales_percentage?: number | null
