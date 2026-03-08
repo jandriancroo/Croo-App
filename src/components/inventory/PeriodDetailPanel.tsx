@@ -14,9 +14,15 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2,
+  Settings2, MoreVertical, Trash2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,9 +34,10 @@ import OrderReconciliationPicker from "./OrderReconciliationPicker";
 interface PeriodDetailPanelProps {
   count: any;
   locationId: string;
+  onDeleteCount?: (count: any) => void;
 }
 
-export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPanelProps) {
+export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -396,7 +403,7 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
@@ -409,11 +416,31 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                     ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
                 </p>
               </div>
-              <div className="text-right">
-                <p className={`text-2xl font-bold ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
-                  {cogsData.cogsPct.toFixed(1)}%
-                </p>
-                <p className="text-xs text-muted-foreground">COGS</p>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className={`text-2xl font-bold ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+                    {cogsData.cogsPct.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">COGS</p>
+                </div>
+                {canManageOrders && onDeleteCount && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDeleteCount(count)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Period
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
 
@@ -457,9 +484,29 @@ export default function PeriodDetailPanel({ count, locationId }: PeriodDetailPan
                     ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
                 </p>
               </div>
-              <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                {count.status === "completed" ? "Complete" : "In Progress"}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={count.status === "completed" ? "default" : "secondary"}>
+                  {count.status === "completed" ? "Complete" : "In Progress"}
+                </Badge>
+                {canManageOrders && onDeleteCount && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => onDeleteCount(count)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Period
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
