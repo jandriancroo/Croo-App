@@ -127,6 +127,21 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
       "flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden relative",
       !shift.isActive && !shift.isOnBreak && "opacity-70"
     )}>
+      {/* Diagonal hours badge - top right corner */}
+      {isPunched && (
+        <div 
+          className="absolute top-0 right-0 w-16 h-16 overflow-hidden pointer-events-none"
+        >
+          <div 
+            className={cn(
+              "absolute top-[6px] -right-[14px] w-[80px] text-center text-[11px] font-bold text-white py-0.5 rotate-45 shadow-sm",
+              shift.isOnBreak ? "bg-amber-500" : "bg-green-500"
+            )}
+          >
+            {shift.hours.toFixed(1)}h
+          </div>
+        </div>
+      )}
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
       <div className="flex-1 flex items-center gap-2.5 px-2.5 py-2.5">
         <div className="relative shrink-0">
@@ -141,13 +156,8 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <span className="font-semibold text-sm truncate">{shift.name}</span>
-            {isPunched && (
-              <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
-                {shift.hours.toFixed(1)}h
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
             <span>{shift.start} - {shift.end}</span>
