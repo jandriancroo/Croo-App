@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CircleCheck, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
+import { CircleCircleCheck, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 
 export interface TemporaryTaskCardProps {
@@ -93,7 +93,7 @@ export function TemporaryTaskCard({
               {badge.label}
             </span>
           )}
-          <Check className="h-4.5 w-4.5 text-muted-foreground/50 shrink-0" />
+      ircleCheck className="h-5 w-5 text-muted-foreground/4ound/50 shrink-0" />
           {showShare && (
             <Button
               size="icon"
