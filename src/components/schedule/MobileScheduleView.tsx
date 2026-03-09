@@ -15,7 +15,7 @@ import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
 // Option6TodayContent kept as standalone component for potential reuse
-import { useScheduleLayoutFlag } from '@/hooks/useScheduleLayoutFlag';
+
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
