@@ -30,7 +30,6 @@ export function useOrgLocations(organizationId: string | null) {
     queryFn: async () => {
       if (!organizationId || !user?.id) return [];
       
-      // Get all locations in this org that the user has access to
       const { data: userLocs } = await supabase
         .from('user_locations')
         .select('location_id')
@@ -47,7 +46,6 @@ export function useOrgLocations(organizationId: string | null) {
         .in('id', userLocIds)
         .order('name');
 
-      // Fetch org name + brand name
       const { data: orgData } = await supabase
         .from('organizations')
         .select('name, brand_name')
@@ -76,7 +74,6 @@ export function useBrandLocations(brandId: string | null) {
     queryFn: async () => {
       if (!brandId || !user?.id) return [];
       
-      // Get user's accessible locations
       const { data: userLocs } = await supabase
         .from('user_locations')
         .select('location_id')
@@ -85,7 +82,6 @@ export function useBrandLocations(brandId: string | null) {
       const userLocIds = userLocs?.map(ul => ul.location_id) || [];
       if (userLocIds.length === 0) return [];
 
-      // Get all orgs in this brand
       const { data: orgs } = await supabase
         .from('organizations')
         .select('id, name, brand_name')
@@ -95,7 +91,6 @@ export function useBrandLocations(brandId: string | null) {
       const orgIds = (orgs || []).map(o => o.id);
       if (orgIds.length === 0) return [];
 
-      // Get all locations in those orgs that user has access to
       const { data: locations } = await supabase
         .from('locations')
         .select('id, name, store_number, organization_id')
@@ -104,10 +99,8 @@ export function useBrandLocations(brandId: string | null) {
         .in('id', userLocIds)
         .order('name');
 
-      // Map org names
       const orgMap = new Map((orgs || []).map(o => [o.id, o]));
       
-      // Get brand name
       const { data: brand } = await supabase
         .from('brands')
         .select('name')
@@ -129,60 +122,65 @@ export function useBrandLocations(brandId: string | null) {
 }
 
 /**
- * Fetches sales/labor data for multiple locations directly from
- * sales_cache + labor_cache tables. No edge function calls.
- * These caches are populated by the same sync pipeline that
- * SalesSummary uses, so the numbers are identical.
+ * Fetches sales/labor data for multiple locations from sales_cache + labor_cache.
+ * Accepts an optional targetDate string (yyyy-MM-dd in LA timezone).
+ * When targetDate is provided, "today" is replaced with that date for all calculations.
  */
-export function useOrgLocationData(locationIds: string[]) {
+export function useOrgLocationData(locationIds: string[], targetDate?: string) {
+  const nowReal = new Date();
+  const todayReal = laDate(nowReal);
+  const isHistorical = !!targetDate && targetDate !== todayReal;
+  const effectiveToday = targetDate || todayReal;
+
   return useQuery({
-    queryKey: ['org-location-data', locationIds.sort().join(',')],
+    queryKey: ['org-location-data', locationIds.sort().join(','), effectiveToday],
     queryFn: async () => {
       if (locationIds.length === 0) return {};
 
-      const now = new Date();
-      const todayStr = laDate(now);
+      // Build a Date object from the effective today string (in LA timezone context)
+      const [y, m, d] = effectiveToday.split('-').map(Number);
+      const refDate = new Date(y, m - 1, d, 12); // noon to avoid DST issues
 
       // Determine WTD start (Monday)
-      const dayOfWeek = now.getDay(); // 0=Sun
+      const dayOfWeek = refDate.getDay(); // 0=Sun
       const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const monday = new Date(now);
+      const monday = new Date(refDate);
       monday.setDate(monday.getDate() - mondayOffset);
-      const wtdStart = laDate(monday);
+      const wtdStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 
       // MTD start
-      const mtdStart = todayStr.slice(0, 8) + '01';
+      const mtdStart = effectiveToday.slice(0, 8) + '01';
 
-      // Previous week range (Mon-Sun before current week)
+      // Previous week range
       const prevSunday = new Date(monday);
       prevSunday.setDate(prevSunday.getDate() - 1);
       const prevMonday = new Date(prevSunday);
       prevMonday.setDate(prevMonday.getDate() - 6);
-      const prevWeekStart = laDate(prevMonday);
-      const prevWeekEnd = laDate(prevSunday);
+      const prevWeekStart = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, '0')}-${String(prevMonday.getDate()).padStart(2, '0')}`;
+      const prevWeekEnd = `${prevSunday.getFullYear()}-${String(prevSunday.getMonth() + 1).padStart(2, '0')}-${String(prevSunday.getDate()).padStart(2, '0')}`;
 
       // Previous month range
-      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstOfMonth = new Date(y, m - 1, 1);
       const prevMonthEnd = new Date(firstOfMonth);
       prevMonthEnd.setDate(prevMonthEnd.getDate() - 1);
       const prevMonthStart = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
-      const prevMonthEndStr = laDate(prevMonthEnd);
+      const prevMonthEndStr = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(prevMonthEnd.getDate()).padStart(2, '0')}`;
 
-      // Fetch all sales_cache rows for these locations (today + WTD + MTD + prev periods)
+      // Fetch sales_cache
       const { data: salesRows } = await supabase
         .from('sales_cache')
         .select('location_id, sale_date, net_sales, living_projection, override_projection, initial_projection, projected_sales, hourly_data, yoy_net_sales')
         .in('location_id', locationIds)
         .gte('sale_date', prevMonthStart)
-        .lte('sale_date', todayStr);
+        .lte('sale_date', effectiveToday);
 
-      // Fetch labor for today (prefer punch_clock)
+      // Fetch labor
       const { data: laborRows } = await supabase
         .from('labor_cache')
         .select('location_id, labor_date, labor_cost, source')
         .in('location_id', locationIds)
         .gte('labor_date', mtdStart)
-        .lte('labor_date', todayStr);
+        .lte('labor_date', effectiveToday);
 
       const result: Record<string, Omit<OrgLocationData, 'locationId' | 'locationName' | 'storeNumber'>> = {};
 
@@ -191,14 +189,13 @@ export function useOrgLocationData(locationIds: string[]) {
         const locLabor = (laborRows || []).filter(r => r.location_id === locId);
 
         // Today's row
-        const todayRow = locSales.find(r => r.sale_date === todayStr);
+        const todayRow = locSales.find(r => r.sale_date === effectiveToday);
         const salesToday = Number(todayRow?.net_sales) || 0;
 
-        // Pace: calculated from hourly_data (actuals for past hours + projections for future)
-        // living_projection is actually the GOAL, not pace. Pace is never stored — must be derived.
+        // Pace: only for real today, not historical
         let paceToday: number | null = null;
-        if (todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
-          const nowLA = new Date(now.toLocaleString('en-US', { timeZone: LA_TZ }));
+        if (!isHistorical && todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
+          const nowLA = new Date(nowReal.toLocaleString('en-US', { timeZone: LA_TZ }));
           const currentHour = nowLA.getHours();
           const currentMinutes = nowLA.getMinutes();
           let paceSum = 0;
@@ -209,10 +206,8 @@ export function useOrgLocationData(locationIds: string[]) {
             const actual = Number(entry.sales) || 0;
             const projected = Number(entry.projected) || 0;
             if (h < currentHour) {
-              // Completed hour: use actual (it already happened)
               paceSum += actual;
             } else if (h === currentHour) {
-              // Current hour: if <30 min in, use full projection; else use actual + remaining fraction
               if (currentMinutes < 30) {
                 paceSum += projected;
               } else {
@@ -220,7 +215,6 @@ export function useOrgLocationData(locationIds: string[]) {
                 paceSum += actual + (projected * remainFrac);
               }
             } else {
-              // Future hour: use projection
               paceSum += projected;
             }
           }
@@ -234,7 +228,7 @@ export function useOrgLocationData(locationIds: string[]) {
         const salesLastYearDay = todayRow?.yoy_net_sales != null ? Number(todayRow.yoy_net_sales) : null;
 
         // WTD
-        const wtdRows = locSales.filter(r => r.sale_date >= wtdStart && r.sale_date <= todayStr);
+        const wtdRows = locSales.filter(r => r.sale_date >= wtdStart && r.sale_date <= effectiveToday);
         const salesWtd = wtdRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0);
 
         // Previous week
@@ -242,14 +236,14 @@ export function useOrgLocationData(locationIds: string[]) {
         const salesPrevWeek = prevWeekRows.length > 0 ? prevWeekRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0) : null;
 
         // MTD
-        const mtdRows = locSales.filter(r => r.sale_date >= mtdStart && r.sale_date <= todayStr);
+        const mtdRows = locSales.filter(r => r.sale_date >= mtdStart && r.sale_date <= effectiveToday);
         const salesMtd = mtdRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0);
 
         // Previous month
         const prevMonthRows = locSales.filter(r => r.sale_date >= prevMonthStart && r.sale_date <= prevMonthEndStr);
         const salesPrevMonth = prevMonthRows.length > 0 ? prevMonthRows.reduce((sum, r) => sum + (Number(r.net_sales) || 0), 0) : null;
 
-        // Hourly data from today's hourly_data JSONB
+        // Hourly data
         const hourly = Array(24).fill(0);
         if (todayRow?.hourly_data && Array.isArray(todayRow.hourly_data)) {
           for (const entry of todayRow.hourly_data as any[]) {
@@ -264,23 +258,22 @@ export function useOrgLocationData(locationIds: string[]) {
         // Last 7 days sparkline
         const last7 = Array(7).fill(0);
         for (let i = 0; i < 7; i++) {
-          const d = new Date(now);
-          d.setDate(d.getDate() - (6 - i));
-          const dStr = laDate(d);
+          const dd = new Date(refDate);
+          dd.setDate(dd.getDate() - (6 - i));
+          const dStr = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}-${String(dd.getDate()).padStart(2, '0')}`;
           const row = locSales.find(r => r.sale_date === dStr);
           last7[i] = Number(row?.net_sales) || 0;
         }
 
-        // Labor today — prefer punch_clock source
+        // Labor — prefer punch_clock source
         const todayLabor = locLabor
-          .filter(r => r.labor_date === todayStr)
+          .filter(r => r.labor_date === effectiveToday)
           .sort((a, b) => (a.source === 'punch_clock' ? -1 : 1));
         const laborCost = todayLabor.length > 0 ? Number(todayLabor[0].labor_cost) || null : null;
         const laborPercent = laborCost != null && salesToday > 0 ? (laborCost / salesToday) * 100 : null;
 
         // Labor WTD
-        const wtdLabor = locLabor.filter(r => r.labor_date >= wtdStart && r.labor_date <= todayStr);
-        // Deduplicate by date, preferring punch_clock
+        const wtdLabor = locLabor.filter(r => r.labor_date >= wtdStart && r.labor_date <= effectiveToday);
         const wtdLaborByDate = new Map<string, number>();
         for (const r of wtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
           if (!wtdLaborByDate.has(r.labor_date)) {
@@ -290,7 +283,7 @@ export function useOrgLocationData(locationIds: string[]) {
         const laborCostWtd = wtdLaborByDate.size > 0 ? Array.from(wtdLaborByDate.values()).reduce((s, v) => s + v, 0) : null;
 
         // Labor MTD
-        const mtdLabor = locLabor.filter(r => r.labor_date >= mtdStart && r.labor_date <= todayStr);
+        const mtdLabor = locLabor.filter(r => r.labor_date >= mtdStart && r.labor_date <= effectiveToday);
         const mtdLaborByDate = new Map<string, number>();
         for (const r of mtdLabor.sort((a, b) => (a.source === 'punch_clock' ? -1 : 1))) {
           if (!mtdLaborByDate.has(r.labor_date)) {
@@ -314,7 +307,7 @@ export function useOrgLocationData(locationIds: string[]) {
       return result;
     },
     enabled: locationIds.length > 0,
-    staleTime: 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,
+    staleTime: isHistorical ? 10 * 60 * 1000 : 60 * 1000,
+    refetchInterval: isHistorical ? false : 2 * 60 * 1000,
   });
 }
