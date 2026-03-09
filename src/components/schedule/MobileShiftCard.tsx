@@ -1,9 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { CalendarIcon, Pencil } from 'lucide-react';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { formatTime12Hour } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface MobileShiftCardProps {
   // Common props
@@ -83,23 +83,34 @@ export function MobileShiftCard({
   const leftColor = getLeftEdgeColor();
   const hasBreak = showBreakIndicator && shiftHasBreak(startTime, endTime);
 
-  // Status indicator styles
-  const getStatusTextColor = () => {
-    if (statusIndicator === 'break') return 'text-amber-600';
-    if (statusIndicator === 'active') return 'text-green-600';
-    return 'text-foreground';
+  // Hours badge color
+  const getHoursBadgeColor = () => {
+    if (statusIndicator === 'break') return 'bg-amber-500';
+    if (statusIndicator === 'active') return 'bg-green-500';
+    return 'bg-muted-foreground';
   };
 
   return (
     <div
-      className={`flex rounded-lg bg-card shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden ${
+      className={cn(
+        "flex rounded-lg bg-card shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden relative",
         isPublished 
           ? 'border border-border/30' 
           : 'opacity-70 border-[3px] border-dashed border-border/70 grayscale-[30%]'
-      }`}
+      )}
       onClick={onClick}
     >
-      {/* Left color edge - rendered outside overflow context */}
+      {/* Corner hours badge */}
+      {hoursWorked !== undefined && hoursWorked > 0 && (
+        <div className={cn(
+          "absolute top-0 right-0 px-2 py-1 text-[11px] font-bold text-white rounded-bl-lg z-10",
+          getHoursBadgeColor()
+        )}>
+          {hoursWorked.toFixed(1)}h
+        </div>
+      )}
+
+      {/* Left color edge */}
       {leftColor && (
         <div 
           className="w-1 shrink-0" 
@@ -108,7 +119,7 @@ export function MobileShiftCard({
       )}
       
       <div className="flex-1 px-3 py-2.5 flex items-center">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full">
           {/* Avatar with status dot */}
           <div className="relative shrink-0">
             <Avatar className="h-9 w-9">
@@ -124,34 +135,29 @@ export function MobileShiftCard({
           </div>
           
           <div className="flex-1 min-w-0">
-            {/* Name row with position badge */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm font-semibold truncate">{name}</span>
-              </div>
-              {positionLabel && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs shrink-0"
-                  style={{ 
-                    backgroundColor: positionColor ? `${positionColor}20` : undefined,
-                    borderColor: positionColor || undefined,
-                    color: positionColor || undefined
-                  }}
-                >
-                  {positionLabel}
-                </Badge>
-              )}
+            {/* Name row */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm font-semibold truncate">{name}</span>
             </div>
             
-            {/* Scheduled time row (for Today view) */}
+            {/* Scheduled time with inline position (for Today view) */}
             {clockInTime && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                 {scheduledStart && scheduledEnd ? (
-                  <span>{formatTime12Hour(scheduledStart)} - {formatTime12Hour(scheduledEnd)}</span>
+                  <span>
+                    {formatTime12Hour(scheduledStart)} - {formatTime12Hour(scheduledEnd)}
+                    {positionLabel && (
+                      <span style={{ color: positionColor || undefined }}> · {positionLabel}</span>
+                    )}
+                  </span>
                 ) : (
-                  <span>Not Scheduled</span>
+                  <span>
+                    Not Scheduled
+                    {positionLabel && (
+                      <span style={{ color: positionColor || undefined }}> · {positionLabel}</span>
+                    )}
+                  </span>
                 )}
               </div>
             )}
@@ -178,10 +184,13 @@ export function MobileShiftCard({
                 )}
               </>
             ) : (
-              /* Schedule view - just show shift times */
+              /* Schedule view - just show shift times with inline position */
               !scheduledStart && (
-                <div className="text-xs text-muted-foreground">
-                  {formatTime12Hour(startTime)} - {formatTime12Hour(endTime)}
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>{formatTime12Hour(startTime)} - {formatTime12Hour(endTime)}</span>
+                  {positionLabel && (
+                    <span style={{ color: positionColor || undefined }}>· {positionLabel}</span>
+                  )}
                 </div>
               )
             )}
@@ -195,13 +204,8 @@ export function MobileShiftCard({
             )}
           </div>
           
-          {/* Right side: hours + action button */}
+          {/* Right side: action button or break indicator (hours moved to corner badge) */}
           <div className="flex flex-col items-end justify-center gap-1 shrink-0">
-            {hoursWorked !== undefined && (
-              <span className={`text-sm font-bold ${getStatusTextColor()}`}>
-                {hoursWorked.toFixed(1)}h
-              </span>
-            )}
             {actionButton}
             {!actionButton && hasBreak && (
               <BreakIndicator hasBreak={true} size="sm" />
