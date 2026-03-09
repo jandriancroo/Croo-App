@@ -438,11 +438,11 @@ export function AssignedTemporaryTasks({
         style={{ backgroundColor: `${item.color}10` }}
       >
         <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+        {item.isEvent ? <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} /> : <CircleCheck className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />}
         <span className="text-xs font-medium truncate flex-1">{item.label}</span>
         {item.progress && (
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
         )}
-        {item.isEvent ? <CalendarDays className="h-4 w-4 text-muted-foreground/40 shrink-0" /> : <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
       </div>
     );
 
