@@ -421,7 +421,7 @@ export function AssignedTemporaryTasks({
         {item.progress && (
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
         )}
-        <Check className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
       </div>
     );
 
