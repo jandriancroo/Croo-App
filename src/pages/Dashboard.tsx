@@ -265,7 +265,24 @@ export default function Dashboard() {
     }
   };
 
-  // Check for welcome animation from login
+  const handleReorderCubes = async (orderedIds: string[]) => {
+    try {
+      // Update display_order for each cube
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          supabase
+            .from('user_dashboard_cubes')
+            .update({ display_order: index })
+            .eq('id', id)
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+    } catch (error) {
+      console.error('Error reordering cubes:', error);
+      toast.error('Failed to save order');
+    }
+  };
+
   useEffect(() => {
     if (location.state?.showWelcomeAnimation) {
       setShowWelcomeAnimation(true);
@@ -1010,24 +1027,11 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <h1 className="text-3xl font-bold">Dash</h1>
               <div className="flex gap-2 items-center">
-                {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
+                {/* Hide edit button for role-based cube users (cubes locked by Org Admin) */}
                 {!shouldUseRoleCubes && (
-                  <>
-                    {hasQuBeyondIntegration && canSeeSales && (
-                      <Button 
-                        onClick={toggleEditMode} 
-                        variant={isEditMode ? "default" : "ghost"}
-                        size="icon" 
-                        className="h-10 w-10" 
-                        title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
-                  </>
+                  <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
             </div>
@@ -1042,6 +1046,7 @@ export default function Dashboard() {
             onUpdateCube={handleUpdateCube}
             onDeleteCube={handleDeleteCube}
             onAddCube={() => setShowAddCubeDialog(true)}
+            onReorderCubes={handleReorderCubes}
           />
 
           {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">

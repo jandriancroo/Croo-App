@@ -6,7 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box, GripVertical } from "lucide-react";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { 
   MetricType, 
   METRIC_CONFIGS, 
@@ -24,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { THEME_COLORS, ThemeColorKey, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
+import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
 
 export interface CubeConfig {
   id: string;
@@ -46,6 +50,89 @@ interface EditDashboardDialogProps {
   onUpdateCube: (id: string, updates: Partial<CubeConfig>) => Promise<void>;
   onDeleteCube: (id: string) => Promise<void>;
   onAddCube: () => void;
+  onReorderCubes?: (orderedIds: string[]) => Promise<void>;
+}
+
+// Sortable cube row component
+function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit: (cube: CubeConfig) => void; onDelete: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const accentBg = isThemeColorKey(cube.accentColor)
+    ? undefined
+    : cube.accentColor;
+  const accentClass = isThemeColorKey(cube.accentColor)
+    ? getThemeColorClass(cube.accentColor)
+    : '';
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+      onClick={() => onEdit(cube)}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+      </div>
+
+      {/* Color indicator */}
+      <div 
+        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${accentClass}`}
+        style={accentBg ? { backgroundColor: accentBg } : undefined}
+      >
+        {cube.cubeType === 'sales-chart' ? (
+          <LineChart className="h-5 w-5 text-white" />
+        ) : cube.cubeType === 'data-3d' ? (
+          <Box className="h-5 w-5 text-white" />
+        ) : (
+          <LayoutGrid className="h-5 w-5 text-white" />
+        )}
+      </div>
+      
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">
+          {cube.title || (cube.cubeType === 'sales-chart'
+            ? 'Sales Overview'
+            : cube.cubeType === 'data-3d'
+              ? '3D Data Cube'
+              : 'Data Cube')}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {cube.cubeType === 'sales-chart' 
+            ? 'Full sales chart' 
+            : cube.cubeType === 'data-3d'
+              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+              : `${cube.size} · ${cube.metrics.length} metrics`}
+        </p>
+      </div>
+      
+      {/* Delete button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(cube.id);
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 }
 
 type View = 'list' | 'edit';
@@ -57,6 +144,7 @@ export function EditDashboardDialog({
   onUpdateCube,
   onDeleteCube,
   onAddCube,
+  onReorderCubes,
 }: EditDashboardDialogProps) {
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
@@ -69,6 +157,19 @@ export function EditDashboardDialog({
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
+
+  // Drag-and-drop reorder handler for list view
+  const handleListDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = cubes.findIndex(c => c.id === active.id);
+    const newIndex = cubes.findIndex(c => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const reordered = arrayMove(cubes, oldIndex, newIndex);
+    onReorderCubes?.(reordered.map(c => c.id));
+  };
 
   // Reset when dialog closes
   useEffect(() => {
@@ -241,58 +342,21 @@ export function EditDashboardDialog({
                       No widgets yet. Add one to get started!
                     </p>
                   ) : (
-                    cubes.map(cube => (
-                      <div
-                        key={cube.id}
-                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
-                        onClick={() => handleEditCube(cube)}
-                      >
-                        {/* Color indicator */}
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: cube.accentColor }}
-                        >
-                          {cube.cubeType === 'sales-chart' ? (
-                            <LineChart className="h-5 w-5 text-white" />
-                          ) : cube.cubeType === 'data-3d' ? (
-                            <Box className="h-5 w-5 text-white" />
-                          ) : (
-                            <LayoutGrid className="h-5 w-5 text-white" />
-                          )}
-                        </div>
-                        
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {cube.title || (cube.cubeType === 'sales-chart'
-                              ? 'Sales Overview'
-                              : cube.cubeType === 'data-3d'
-                                ? '3D Data Cube'
-                                : 'Data Cube')}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {cube.cubeType === 'sales-chart' 
-                              ? 'Full sales chart' 
-                              : cube.cubeType === 'data-3d'
-                                ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-                                : `${cube.size} · ${cube.metrics.length} metrics`}
-                          </p>
-                        </div>
-                        
-                        {/* Delete button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(cube.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
+                    <DndContext
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleListDragEnd}
+                    >
+                      <SortableContext items={cubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                        {cubes.map(cube => (
+                          <SortableCubeRow
+                            key={cube.id}
+                            cube={cube}
+                            onEdit={handleEditCube}
+                            onDelete={(id) => setDeleteId(id)}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
                   )}
                 </div>
               </ScrollArea>
