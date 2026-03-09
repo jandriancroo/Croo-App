@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid, BarChart3 } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -146,6 +146,7 @@ export function MobileScheduleView({
   const [previewEvent, setPreviewEvent] = useState<Event | null>(null);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
+  const [insightsExpanded, setInsightsExpanded] = useState(false);
   const { isV2, toggleLayout } = useScheduleLayoutFlag();
   const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
@@ -1119,6 +1120,43 @@ export function MobileScheduleView({
                         </>
                       )}
                     </div>
+                    {/* Day Insights — bottom of page */}
+                    <Card className="overflow-hidden p-0 mt-3">
+                      <button
+                        onClick={() => setInsightsExpanded(!insightsExpanded)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-muted/30 text-xs font-medium"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <BarChart3 className="h-3.5 w-3.5" /> Day Insights
+                        </span>
+                        <span className="text-muted-foreground">{insightsExpanded ? '▲' : '▼'}</span>
+                      </button>
+                      {insightsExpanded && (
+                        <div className="px-3 py-2.5 border-t border-border/30">
+                          <div className="flex items-center justify-between text-center">
+                            <div>
+                              <span className="text-base font-bold">{dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0).toFixed(1)}h</span>
+                              <p className="text-[10px] text-muted-foreground">Hours</p>
+                            </div>
+                            <div className="w-px h-7 bg-border" />
+                            <div>
+                              <span className="text-base font-bold">{dayPunches.length}</span>
+                              <p className="text-[10px] text-muted-foreground">Punched</p>
+                            </div>
+                            <div className="w-px h-7 bg-border" />
+                            <div>
+                              <span className="text-base font-bold text-green-600">{dayPunches.filter(p => p.isActive && !p.isOnBreak).length}</span>
+                              <p className="text-[10px] text-muted-foreground">Active</p>
+                            </div>
+                            <div className="w-px h-7 bg-border" />
+                            <div>
+                              <span className="text-base font-bold text-amber-600">{dayPunches.filter(p => p.isOnBreak).length}</span>
+                              <p className="text-[10px] text-muted-foreground">On Break</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
                   </>
                 );
               })())}
