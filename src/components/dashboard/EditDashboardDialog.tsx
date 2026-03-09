@@ -113,6 +113,7 @@ export function EditDashboardDialog({
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
       setEditForm({
+        title: cube.title,
         accentColor: themeColor,
       });
     } else {
@@ -263,11 +264,11 @@ export function EditDashboardDialog({
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">
-                            {cube.cubeType === 'sales-chart'
+                            {cube.title || (cube.cubeType === 'sales-chart'
                               ? 'Sales Overview'
                               : cube.cubeType === 'data-3d'
                                 ? '3D Data Cube'
-                                : (cube.title || 'Data Cube')}
+                                : 'Data Cube')}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {cube.cubeType === 'sales-chart' 
@@ -310,18 +311,29 @@ export function EditDashboardDialog({
           {/* Edit View */}
           {view === 'edit' && editingCube && (
             <div className="space-y-4">
-              {/* Title - only for flat data cubes (3D cubes use per-face titles) */}
-              {editingCube.cubeType === 'data' && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-title">Title</Label>
-                  <Input
-                    id="edit-title"
-                    placeholder="e.g., Today's Sales"
-                    value={editForm.title || ''}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                  />
-                </div>
-              )}
+              {/* Widget Label - for all cube types */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">
+                  {editingCube.cubeType === 'data' ? 'Title' : 'Label'}
+                </Label>
+                <Input
+                  id="edit-title"
+                  placeholder={
+                    editingCube.cubeType === 'sales-chart' 
+                      ? 'e.g., Sales Overview' 
+                      : editingCube.cubeType === 'data-3d'
+                        ? 'e.g., Main Cube, Labor Cube'
+                        : 'e.g., Today\'s Sales'
+                  }
+                  value={editForm.title || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                />
+                {editingCube.cubeType !== 'data' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    A name to identify this widget in the edit list
+                  </p>
+                )}
+              </div>
 
               {/* Metrics Selection - only for flat data cubes */}
               {editingCube.cubeType === 'data' && (
