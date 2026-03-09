@@ -395,6 +395,29 @@ export function MobileScheduleView({
     refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
   });
 
+  // Fetch sales + labor for Day Insights (V2)
+  const { data: dayInsightsData } = useQuery({
+    queryKey: ['day-insights', currentLocation?.id, todayStr],
+    queryFn: async () => {
+      if (!currentLocation?.id || !todayStr) return null;
+      const [salesRes, laborRes] = await Promise.all([
+        supabase.from('sales_cache').select('net_sales').eq('location_id', currentLocation.id).eq('sale_date', todayStr).maybeSingle(),
+        supabase.from('labor_cache').select('labor_cost, labor_hours, source').eq('location_id', currentLocation.id).eq('labor_date', todayStr),
+      ]);
+      const sales = salesRes.data?.net_sales || 0;
+      // Prefer punch_clock source over qubeyond
+      const laborRows = laborRes.data || [];
+      const punchClockRow = laborRows.find(r => r.source === 'punch_clock');
+      const best = punchClockRow || laborRows[0];
+      const laborCost = best?.labor_cost || 0;
+      const laborHours = best?.labor_hours || 0;
+      return { sales, laborCost, laborHours };
+    },
+    enabled: isV2 && !!currentLocation?.id && !!todayStr,
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
+  });
+
   // Get week label relative to current week (using timezone-aware calculation)
   const getWeekLabel = useCallback(() => {
     // Use timezone-aware "today" to determine "this week"
