@@ -1013,6 +1013,7 @@ export default function Dashboard() {
       }}
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
+      sectionOrder={dashboardSectionOrder}
     />
   ) : (
     // If section not visible, just render the checklists grid directly
