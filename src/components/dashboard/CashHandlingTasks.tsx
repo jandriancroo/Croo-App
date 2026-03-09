@@ -173,6 +173,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
           style={{ backgroundColor: `${TEAL_COLOR}10` }}
         >
           <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: TEAL_COLOR }} />
+          {(() => { const Icon = task.icon; return <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: TEAL_COLOR }} />; })()}
           <span className="text-xs font-medium truncate flex-1">{task.title}</span>
           <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </div>
