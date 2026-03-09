@@ -699,9 +699,11 @@ export function MobileScheduleView({
                 <div
                   key={event.id}
                   onClick={() => setPreviewEvent(event)}
-                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 min-w-0 cursor-pointer active:bg-muted transition-colors"
-                  style={{ borderLeftColor: color, borderLeftWidth: 3 }}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0 cursor-pointer active:opacity-80 transition-opacity"
+                  style={{ backgroundColor: `${color}10` }}
                 >
+                  <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color }} />
                   <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
                 </div>
