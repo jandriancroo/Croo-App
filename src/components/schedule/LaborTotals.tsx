@@ -633,7 +633,7 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px]">
-      {/* Schedule Tools tab - rendered inline, pulled up over the border with negative margin */}
+      {/* Week Insights tab - rendered inline, pulled up over the border with negative margin */}
       <div className="-mt-[1.85rem] mb-0 relative z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
@@ -647,7 +647,7 @@ export function LaborTotals({
           `}
         >
           <BarChart3 className="h-3.5 w-3.5" />
-          <span>Schedule Tools</span>
+          <span>Week Insights</span>
           {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>
