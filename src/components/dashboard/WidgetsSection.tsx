@@ -365,49 +365,27 @@ export const WidgetsSection = memo(function WidgetsSection({
   
   // Debug logging removed for performance - was causing excess re-render tracking
 
-  // Build combined sortable items list (cubes + checklists block) - memoized
-  const sortableItems = useMemo((): SortableItem[] => {
-    const items: SortableItem[] = [...localCubes];
-    
-    if (checklistsContent) {
-      const checklistsBlock: SortableItem = { id: CHECKLISTS_BLOCK_ID, cubeType: 'checklists' };
-      // Insert at saved position, or at end if position is invalid
-      const insertAt = checklistsPosition >= 0 && checklistsPosition <= items.length 
-        ? checklistsPosition 
-        : items.length;
-      items.splice(insertAt, 0, checklistsBlock);
-    }
-    
-    return items;
-  }, [localCubes, checklistsContent, checklistsPosition]);
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (!over || active.id === over.id) return;
 
-    const oldIndex = sortableItems.findIndex(item => item.id === active.id);
-    const newIndex = sortableItems.findIndex(item => item.id === over.id);
+    // Only reorder data cubes (not sales chart)
+    const cubesOnly = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+    const oldIndex = cubesOnly.findIndex(item => item.id === active.id);
+    const newIndex = cubesOnly.findIndex(item => item.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
 
-    const newOrder = arrayMove(sortableItems, oldIndex, newIndex);
-    
-    // Find new position of checklists block
-    const newChecklistsIndex = newOrder.findIndex(item => item.id === CHECKLISTS_BLOCK_ID);
-    if (newChecklistsIndex !== -1) {
-      setChecklistsPosition(newChecklistsIndex);
-      localStorage.setItem(checklistsPositionKey, String(newChecklistsIndex));
-    }
-    
-    // Extract just the cubes (not checklists block) and update their order
-    const cubesOnly = newOrder.filter((item): item is DataCubeConfig => item.id !== CHECKLISTS_BLOCK_ID);
-    setLocalCubes(cubesOnly);
+    const reorderedCubes = arrayMove(cubesOnly, oldIndex, newIndex);
+    // Rebuild localCubes preserving non-data-cube items in their positions
+    const nonDataCubes = localCubes.filter(c => c.cubeType !== 'data' && c.cubeType !== 'data-3d');
+    setLocalCubes([...reorderedCubes, ...nonDataCubes]);
 
-    // Skip persisting for role-based cubes (those are locked by Org Admin)
     if (useRoleCubes) return;
     
-    // Persist the new cube order to database (2-phase to avoid unique constraint collisions)
     try {
-      const updates = cubesOnly.map((cube, index) => ({ id: cube.id, display_order: index }));
+      // Persist all cube orders
+      const allCubes = [...reorderedCubes, ...nonDataCubes];
+      const updates = allCubes.map((cube, index) => ({ id: cube.id, display_order: index }));
 
       const updateWithRetry = async (id: string, display_order: number) => {
         let lastError: any = null;
@@ -416,11 +394,8 @@ export const WidgetsSection = memo(function WidgetsSection({
             .from('user_dashboard_cubes')
             .update({ display_order })
             .eq('id', id);
-
           if (!error) return;
-
           lastError = error;
-          // deadlock or unique constraint violation - retry
           if (error.code === '40P01' || error.code === '23505') {
             await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
             continue;
@@ -430,13 +405,9 @@ export const WidgetsSection = memo(function WidgetsSection({
         throw lastError;
       };
 
-      // Phase 1: assign temporary unique negative orders (use small negatives within integer range)
-      // Use -(1000000 + index) to avoid conflicts with any existing display_order values
       for (let i = 0; i < updates.length; i++) {
         await updateWithRetry(updates[i].id, -(1000000 + i));
       }
-
-      // Phase 2: assign final orders (0, 1, 2, ...)
       for (const u of updates) {
         await updateWithRetry(u.id, u.display_order);
       }
@@ -447,7 +418,7 @@ export const WidgetsSection = memo(function WidgetsSection({
     } catch (error: any) {
       console.error('Error saving cube order:', error);
       toast.error(error?.message ? `Failed to save cube order: ${error.message}` : 'Failed to save cube order');
-      setLocalCubes(cubes); // Revert on error
+      setLocalCubes(cubes);
     }
   };
 
