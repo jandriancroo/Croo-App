@@ -844,6 +844,9 @@ export default function Dashboard() {
     </Card>
   );
 
+  // Catering dialogs rendered separately in the main return below
+  const cateringDialogs = (
+    <>
       {/* Catering Order Details Dialog */}
       <Dialog open={!!selectedCateringOrder} onOpenChange={() => setSelectedCateringOrder(null)}>
         <DialogContent className="max-w-md">
@@ -965,7 +968,7 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 
   // Render WidgetsSection if:
