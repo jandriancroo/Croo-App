@@ -395,6 +395,29 @@ export function MobileScheduleView({
     refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
   });
 
+  // Fetch sales + labor for Day Insights (V2)
+  const { data: dayInsightsData } = useQuery({
+    queryKey: ['day-insights', currentLocation?.id, todayStr],
+    queryFn: async () => {
+      if (!currentLocation?.id || !todayStr) return null;
+      const [salesRes, laborRes] = await Promise.all([
+        supabase.from('sales_cache').select('net_sales').eq('location_id', currentLocation.id).eq('sale_date', todayStr).maybeSingle(),
+        supabase.from('labor_cache').select('labor_cost, labor_hours, source').eq('location_id', currentLocation.id).eq('labor_date', todayStr),
+      ]);
+      const sales = salesRes.data?.net_sales || 0;
+      // Prefer punch_clock source over qubeyond
+      const laborRows = laborRes.data || [];
+      const punchClockRow = laborRows.find(r => r.source === 'punch_clock');
+      const best = punchClockRow || laborRows[0];
+      const laborCost = best?.labor_cost || 0;
+      const laborHours = best?.labor_hours || 0;
+      return { sales, laborCost, laborHours };
+    },
+    enabled: isV2 && !!currentLocation?.id && !!todayStr,
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
+  });
+
   // Get week label relative to current week (using timezone-aware calculation)
   const getWeekLabel = useCallback(() => {
     // Use timezone-aware "today" to determine "this week"
@@ -1133,27 +1156,36 @@ export function MobileScheduleView({
                       </button>
                       {insightsExpanded && (
                         <div className="px-3 py-2.5 border-t border-border/30">
-                          <div className="flex items-center justify-between text-center">
-                            <div>
-                              <span className="text-base font-bold">{dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0).toFixed(1)}h</span>
-                              <p className="text-[10px] text-muted-foreground">Hours</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold">{dayPunches.length}</span>
-                              <p className="text-[10px] text-muted-foreground">Punched</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold text-green-600">{dayPunches.filter(p => p.isActive && !p.isOnBreak).length}</span>
-                              <p className="text-[10px] text-muted-foreground">Active</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold text-amber-600">{dayPunches.filter(p => p.isOnBreak).length}</span>
-                              <p className="text-[10px] text-muted-foreground">On Break</p>
-                            </div>
-                          </div>
+                          {(() => {
+                            const totalHours = dayInsightsData?.laborHours || dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0);
+                            const laborCost = dayInsightsData?.laborCost || 0;
+                            const sales = dayInsightsData?.sales || 0;
+                            const laborPct = sales > 0 ? (laborCost / sales) * 100 : 0;
+                            const salesPerLH = totalHours > 0 ? sales / totalHours : 0;
+                            return (
+                              <div className="flex items-center justify-between text-center">
+                                <div>
+                                  <span className="text-base font-bold">{totalHours.toFixed(1)}h</span>
+                                  <p className="text-[10px] text-muted-foreground">Hours</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className="text-base font-bold">${laborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                  <p className="text-[10px] text-muted-foreground">Labor</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className={`text-base font-bold ${laborPct > 30 ? 'text-destructive' : 'text-green-600'}`}>{laborPct.toFixed(1)}%</span>
+                                  <p className="text-[10px] text-muted-foreground">Labor %</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className="text-base font-bold">${salesPerLH.toFixed(2)}</span>
+                                  <p className="text-[10px] text-muted-foreground">$/LH</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </Card>
