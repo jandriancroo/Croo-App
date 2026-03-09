@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShieldCheck, DollarSign, LucideIcon } from "lucide-react";
+import { ShieldCheck, DollarSign, CircleCheck, LucideIcon } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatInTimeZone } from "date-fns-tz";
-import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface CashHandlingTasksProps {
   locationHours: { hours_open: string | null; hours_close: string | null } | null;
