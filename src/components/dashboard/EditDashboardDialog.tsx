@@ -6,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, DragEndEvent, useSensor, useSensors, PointerSensor, KeyboardSensor } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { 
   MetricType, 
   METRIC_CONFIGS, 
