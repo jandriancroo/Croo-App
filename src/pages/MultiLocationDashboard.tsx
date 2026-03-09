@@ -220,7 +220,7 @@ export default function MultiLocationDashboard() {
     return Array.from(locIds);
   }, [searchTags, allLocations]);
 
-  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(filteredLocationIds, targetDate);
+  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(filteredLocationIds, targetDate, period);
 
   const sortedLocationIds = useMemo(() => {
     return [...filteredLocationIds].sort((a, b) => {
