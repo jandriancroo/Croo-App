@@ -107,7 +107,7 @@ export function MobileShiftCard({
         />
       )}
       
-      <div className="flex-1 px-3 py-3 flex items-center">
+      <div className="flex-1 px-3 pt-2.5 pb-2 flex items-center">
         <div className="flex items-center gap-3">
           {/* Avatar with status dot */}
           <div className="relative shrink-0">
