@@ -62,7 +62,7 @@ export const ChecklistCard = memo(function ChecklistCard({
         />
       )}
 
-      <div className="flex items-center gap-3 pl-5 pr-4 py-3.5">
+      <div className={cn("flex items-center gap-3 pl-5 pr-4", variant === 'row' ? 'py-2.5' : 'py-3.5')}>
         {/* Drag handle */}
         {dragHandleProps && (
           <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing shrink-0 -ml-1" onClick={e => e.stopPropagation()}>
