@@ -33,7 +33,7 @@ import { useIsOledTheme } from '@/hooks/useIsOledTheme';
 // Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
 const SALES_CHART_COLOR_OLED = 'hsl(215, 30%, 18%)';
-const CHECKLISTS_BLOCK_ID = 'checklists-block';
+
 
 interface DataCubeConfig {
   id: string;
