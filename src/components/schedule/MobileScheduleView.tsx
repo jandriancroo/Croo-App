@@ -208,8 +208,8 @@ export function MobileScheduleView({
         supabase
           .from('scheduled_shifts')
           .select('id, user_id, start_time, end_time, day_of_week, shift_date')
-          .eq('location_id', currentLocation.id)
-          .eq('shift_date', todayStr),
+          .eq('shift_date', todayStr)
+          .eq('location_id', currentLocation.id) as Promise<{ data: { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[] | null; error: unknown }>,
         supabase
           .from('schedule_events')
           .select('*, event_categories(name, color)')
