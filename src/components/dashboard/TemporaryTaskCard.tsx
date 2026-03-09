@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
@@ -65,65 +64,51 @@ export function TemporaryTaskCard({
 
   return (
     <>
-      <Card
-        className="overflow-hidden border-0 relative rounded-xl"
+      <div
+        className="flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
         style={{ backgroundColor: `${accentColor}10` }}
       >
-        <CardContent className="py-1.5 px-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {/* Inset rounded accent stripe */}
-            <div 
-              className="w-1 self-stretch rounded-full shrink-0 my-0.5"
-              style={{ backgroundColor: accentColor }}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm leading-tight">{title}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {taskStyle === "alarm" && (
-                <span 
-                  className="px-1 py-0.5 rounded text-[9px] font-medium"
-                  style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                >
-                  RECURRING
-                </span>
-              )}
-              {hasSubtasks && (
-                <span className="text-xs text-muted-foreground font-medium">
-                  {subtasksCompleted}/{subtasksTotal}
-                </span>
-              )}
-              {badge && !hasSubtasks && (
-                <span className="text-xs text-muted-foreground">
-                  {badge.label}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
-              onClick={onAction}
-              disabled={isLoading}
+        {/* Inset rounded accent stripe */}
+        <div 
+          className="w-1 self-stretch rounded-full shrink-0 my-1 ml-2"
+          style={{ backgroundColor: accentColor }}
+        />
+        <div className="flex-1 flex items-center gap-2 py-2 pr-2.5 min-w-0">
+          <span className="font-medium text-sm truncate flex-1">{title}</span>
+          {taskStyle === "alarm" && (
+            <span 
+              className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+              style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
             >
-              <Check className="h-4.5 w-4.5 text-muted-foreground/50" />
-            </button>
-            {showShare && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 text-muted-foreground hover:text-primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShareOpen(true);
-                }}
-              >
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              RECURRING
+            </span>
+          )}
+          {hasSubtasks && (
+            <span className="text-xs text-muted-foreground font-medium shrink-0">
+              {subtasksCompleted}/{subtasksTotal}
+            </span>
+          )}
+          {badge && !hasSubtasks && (
+            <span className="text-xs text-muted-foreground shrink-0">
+              {badge.label}
+            </span>
+          )}
+          <Check className="h-4.5 w-4.5 text-muted-foreground/50 shrink-0" />
+          {showShare && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-muted-foreground hover:text-primary shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShareOpen(true);
+              }}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
 
       <ShareTaskDialog
         open={shareOpen}
