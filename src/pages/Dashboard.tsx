@@ -102,6 +102,9 @@ export default function Dashboard() {
   const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
+  const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
+    currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
+  );
   const queryClient = useQueryClient();
   const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
   
