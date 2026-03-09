@@ -160,6 +160,7 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
             <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
           )}
         </div>
+      </div>
     </div>
   );
 }
