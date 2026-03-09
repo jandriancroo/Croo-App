@@ -874,14 +874,13 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-2 py-3 space-y-3">
               {/* Date header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 w-full">
-                  <DateNavigator
-                    onPrev={handlePreviousWeek}
-                    onNext={handleNextWeek}
-                    label={`${format(selectedDate, 'EEEE, MMMM d')}`}
-                  />
-                </div>
+              <div className="flex items-center justify-center">
+                <DateNavigator
+                  onPrev={handlePreviousWeek}
+                  onNext={handleNextWeek}
+                  label={`${format(selectedDate, 'EEEE, MMMM d')}`}
+                />
+              </div>
               </div>
 
               {/* Week Calendar Strip */}
