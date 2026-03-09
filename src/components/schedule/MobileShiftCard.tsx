@@ -218,8 +218,6 @@ export function MobileShiftCard({
           <Coffee className="h-3.5 w-3.5 text-white" />
         </div>
       )}
-        </div>
-      </div>
     </div>
   );
 }
