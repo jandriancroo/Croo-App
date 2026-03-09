@@ -29,7 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
-import { useAppLocation } from "@/hooks/useLocation";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
 
