@@ -369,10 +369,13 @@ export function MobileScheduleView({
         }
       });
       
-      // Filter to only include punches where clock-in occurred on today's business date
+      // Filter punches: always show ACTIVE punches (even if clocked in yesterday),
+      // but only show COMPLETED punches if clock-in was today
       const todayOnlyPunches = punchSummaries.filter(punch => {
+        // Active/on-break punches always show (matches manager dashboard behavior)
+        if (punch.isActive || punch.isOnBreak) return true;
+        // Completed punches: only show if clock-in was today
         const clockInDate = new Date(punch.clockInTime);
-        // Convert to location timezone and extract date
         const clockInLocalDate = clockInDate.toLocaleDateString('en-CA', { timeZone: timezone });
         return clockInLocalDate === todayStr;
       });
