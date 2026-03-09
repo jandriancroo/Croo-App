@@ -158,6 +158,19 @@ export function EditDashboardDialog({
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
 
+  // Drag-and-drop reorder handler for list view
+  const handleListDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = cubes.findIndex(c => c.id === active.id);
+    const newIndex = cubes.findIndex(c => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const reordered = arrayMove(cubes, oldIndex, newIndex);
+    onReorderCubes?.(reordered.map(c => c.id));
+  };
+
   // Reset when dialog closes
   useEffect(() => {
     if (!open) {
