@@ -6,7 +6,7 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { TemporaryTaskDetailsDialog } from "@/components/tasks/TemporaryTaskDetailsDialog";
-import { ClipboardList, Check, ChefHat, CalendarCheck } from "lucide-react";
+import { ClipboardList, Check, CircleCheck, ChefHat, CalendarCheck, CalendarDays } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -421,7 +421,7 @@ export function AssignedTemporaryTasks({
         {item.progress && (
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
         )}
-        <Check className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+        <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
       </div>
     );
 
@@ -442,7 +442,7 @@ export function AssignedTemporaryTasks({
         {item.progress && (
           <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
         )}
-        {!item.isEvent && <Check className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+        {item.isEvent ? <CalendarDays className="h-4 w-4 text-muted-foreground/40 shrink-0" /> : <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
       </div>
     );
 
