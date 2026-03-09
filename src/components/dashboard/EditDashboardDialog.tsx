@@ -165,12 +165,24 @@ export function EditDashboardDialog({
   onDeleteCube,
   onAddCube,
   onReorderCubes,
+  onSectionOrderChange,
 }: EditDashboardDialogProps) {
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { currentLocation } = useAppLocation();
+  
+  // Section order state
+  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(DEFAULT_SECTION_ORDER);
+  
+  // Load section order when dialog opens
+  useEffect(() => {
+    if (open && currentLocation?.id) {
+      setSectionOrder(getSectionOrder(currentLocation.id));
+    }
+  }, [open, currentLocation?.id]);
   
   // 3D cube specific state
   const [activeFace, setActiveFace] = useState(0);
@@ -178,17 +190,50 @@ export function EditDashboardDialog({
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
 
-  // Drag-and-drop reorder handler for list view
-  const handleListDragEnd = async (event: DragEndEvent) => {
+  // Drag-and-drop reorder for data cubes within data-cubes section
+  const dataCubes = cubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const salesChart = cubes.find(c => c.cubeType === 'sales-chart');
+  
+  const handleCubeDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     
-    const oldIndex = cubes.findIndex(c => c.id === active.id);
-    const newIndex = cubes.findIndex(c => c.id === over.id);
+    const oldIndex = dataCubes.findIndex(c => c.id === active.id);
+    const newIndex = dataCubes.findIndex(c => c.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     
-    const reordered = arrayMove(cubes, oldIndex, newIndex);
-    onReorderCubes?.(reordered.map(c => c.id));
+    const reorderedDataCubes = arrayMove(dataCubes, oldIndex, newIndex);
+    // Reconstruct full order: data cubes in new order + sales chart at its original position
+    const allIds = cubes.map(c => c.id);
+    const dataCubeIds = new Set(dataCubes.map(c => c.id));
+    const newOrder: string[] = [];
+    let dataIdx = 0;
+    for (const id of allIds) {
+      if (dataCubeIds.has(id)) {
+        newOrder.push(reorderedDataCubes[dataIdx].id);
+        dataIdx++;
+      } else {
+        newOrder.push(id);
+      }
+    }
+    onReorderCubes?.(newOrder);
+  };
+  
+  // Section reorder handler
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = sectionOrder.indexOf(active.id as SectionKey);
+    const newIndex = sectionOrder.indexOf(over.id as SectionKey);
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const newOrder = arrayMove(sectionOrder, oldIndex, newIndex);
+    setSectionOrder(newOrder);
+    if (currentLocation?.id) {
+      saveSectionOrder(currentLocation.id, newOrder);
+    }
+    onSectionOrderChange?.(newOrder);
   };
 
   // Reset when dialog closes
@@ -216,35 +261,16 @@ export function EditDashboardDialog({
       : migrateAccentColor(cube.accentColor);
     
     if (cube.cubeType === 'data-3d') {
-      // Initialize 3D cube editing state
       const faces = cube.faceMetrics || [[], [], [], []];
       const titles = cube.faceTitles || ['', '', '', ''];
-      setFaceMetrics([
-        faces[0] || [],
-        faces[1] || [],
-        faces[2] || [],
-        faces[3] || [],
-      ]);
-      setFaceTitles([
-        titles[0] || '',
-        titles[1] || '',
-        titles[2] || '',
-        titles[3] || '',
-      ]);
+      setFaceMetrics([faces[0] || [], faces[1] || [], faces[2] || [], faces[3] || []]);
+      setFaceTitles([titles[0] || '', titles[1] || '', titles[2] || '', titles[3] || '']);
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
-      setEditForm({
-        title: cube.title,
-        accentColor: themeColor,
-      });
+      setEditForm({ title: cube.title, accentColor: themeColor });
     } else {
-      // Filter out any legacy metrics that aren't in METRIC_GROUPS
       const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
-      setEditForm({
-        title: cube.title,
-        metrics: filteredMetrics,
-        accentColor: themeColor,
-      });
+      setEditForm({ title: cube.title, metrics: filteredMetrics, accentColor: themeColor });
     }
     setView('edit');
   };
@@ -263,10 +289,8 @@ export function EditDashboardDialog({
     if (!editingCube) return;
     
     if (editingCube.cubeType === 'data-3d') {
-      // 3D cube: toggle metric on current face
       const currentFaceMetrics = faceMetrics[activeFace];
-      const maxMetrics = 5; // 4 corners + 1 center
-      
+      const maxMetrics = 5;
       if (currentFaceMetrics.includes(metric)) {
         const updated = [...faceMetrics];
         updated[activeFace] = currentFaceMetrics.filter(m => m !== metric);
@@ -277,10 +301,8 @@ export function EditDashboardDialog({
         setFaceMetrics(updated);
       }
     } else {
-      // Regular data cube
       const maxMetrics = editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6;
       const currentMetrics = editForm.metrics || [];
-      
       if (currentMetrics.includes(metric)) {
         setEditForm(prev => ({ ...prev, metrics: currentMetrics.filter(m => m !== metric) }));
       } else if (currentMetrics.length < maxMetrics) {
@@ -289,18 +311,15 @@ export function EditDashboardDialog({
     }
   };
   
-  // Check if a metric is used on another face (for 3D cubes)
   const isMetricUsedElsewhere = (metric: MetricType) => {
     return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
 
   const handleSave = async () => {
     if (!editingCube) return;
-    
     setIsSaving(true);
     try {
       if (editingCube.cubeType === 'data-3d') {
-        // Save 3D cube with face metrics and titles
         await onUpdateCube(editingCube.id, {
           ...editForm,
           faceMetrics: faceMetrics.slice(0, numFaces),
@@ -324,13 +343,94 @@ export function EditDashboardDialog({
 
   const handleAddClick = () => {
     onOpenChange(false);
-    // Small delay to let dialog close
     setTimeout(() => onAddCube(), 100);
   };
 
   const maxMetrics = editingCube 
     ? (editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6)
     : 3;
+
+  // Build section items for the section-level DnD
+  const sectionItems = sectionOrder.filter(s => {
+    if (s === 'data-cubes') return dataCubes.length > 0;
+    if (s === 'sales-chart') return !!salesChart;
+    if (s === 'checklists') return true; // always show
+    return false;
+  });
+
+  const renderSectionContent = (section: SectionKey) => {
+    switch (section) {
+      case 'data-cubes':
+        return (
+          <div className="space-y-1">
+            <div className="p-3 rounded-lg border bg-accent/30">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                  <Box className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Data Cubes</p>
+                  <p className="text-[11px] text-muted-foreground">{dataCubes.length} cube{dataCubes.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </div>
+            {/* Individual cubes within - their own DnD context */}
+            <DndContext collisionDetection={closestCenter} onDragEnd={handleCubeDragEnd}>
+              <SortableContext items={dataCubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                {dataCubes.map(cube => (
+                  <SortableCubeRow
+                    key={cube.id}
+                    cube={cube}
+                    onEdit={handleEditCube}
+                    onDelete={(id) => setDeleteId(id)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+        );
+      case 'sales-chart':
+        if (!salesChart) return null;
+        return (
+          <div
+            className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+            onClick={() => handleEditCube(salesChart)}
+          >
+            <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ backgroundColor: '#0D9488' }}>
+              <LineChart className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm">{salesChart.title || 'Sales Overview'}</p>
+              <p className="text-[11px] text-muted-foreground">Full sales chart</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); setDeleteId(salesChart.id); }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        );
+      case 'checklists':
+        return (
+          <div className="p-3 rounded-lg border bg-accent/30">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                <ClipboardCheck className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm">Checklists</p>
+                <p className="text-[11px] text-muted-foreground">All assigned checklists</p>
+              </div>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
@@ -352,36 +452,31 @@ export function EditDashboardDialog({
             </DialogTitle>
           </DialogHeader>
 
-          {/* List View */}
+          {/* List View - Section-based */}
           {view === 'list' && (
             <div className="flex-1 flex flex-col min-h-0">
               <ScrollArea className="flex-1 -mx-6 px-6">
                 <div className="space-y-2 pb-4">
-                  {cubes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                  {cubes.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
                       No widgets yet. Add one to get started!
                     </p>
-                  ) : (
-                    <DndContext
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleListDragEnd}
-                    >
-                      <SortableContext items={cubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                        {cubes.map(cube => (
-                          <SortableCubeRow
-                            key={cube.id}
-                            cube={cube}
-                            onEdit={handleEditCube}
-                            onDelete={(id) => setDeleteId(id)}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
                   )}
+                  <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleSectionDragEnd}
+                  >
+                    <SortableContext items={sectionItems} strategy={verticalListSortingStrategy}>
+                      {sectionItems.map(section => (
+                        <SortableSectionRow key={section} sectionKey={section}>
+                          {renderSectionContent(section)}
+                        </SortableSectionRow>
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
               </ScrollArea>
               
-              {/* Add button */}
               <Button 
                 onClick={handleAddClick}
                 className="w-full mt-4"
