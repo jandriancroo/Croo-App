@@ -66,33 +66,16 @@ export function TemporaryTaskCard({
   return (
     <>
       <Card
-        className="overflow-hidden border-0 relative"
+        className="overflow-hidden border-0 relative rounded-xl"
+        style={{ backgroundColor: `${accentColor}10` }}
       >
-        {/* Accent left border */}
-        <div 
-          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-          style={{ backgroundColor: accentColor }}
-        />
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {iconStyle === "minimal" ? (
-              <Icon className="h-5 w-5 shrink-0" style={{ color: accentColor }} />
-            ) : (
-              <div
-                className="p-1.5 rounded-md shrink-0 relative"
-                style={{ backgroundColor: `${accentColor}20` }}
-              >
-                <Icon className="h-4 w-4" style={{ color: accentColor }} />
-                {taskStyle === "alarm" && (
-                  <div 
-                    className="absolute -top-1 -right-1 p-0.5 rounded-full"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    <AlarmClock className="h-2 w-2 text-white" />
-                  </div>
-                )}
-              </div>
-            )}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {/* Inset rounded accent stripe */}
+            <div 
+              className="w-1 self-stretch rounded-full shrink-0 my-0.5"
+              style={{ backgroundColor: accentColor }}
+            />
             <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
               <p className="font-medium text-sm leading-tight">{title}</p>
               {taskStyle === "alarm" && (
