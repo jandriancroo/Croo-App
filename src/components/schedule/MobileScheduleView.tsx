@@ -860,7 +860,18 @@ export function MobileScheduleView({
               </Button>
             </div>
             <div className="flex-1 overflow-auto px-2 py-3 space-y-3">
-              {/* 1. Week Calendar Strip */}
+              {/* Date header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 w-full">
+                  <DateNavigator
+                    onPrev={handlePreviousWeek}
+                    onNext={handleNextWeek}
+                    label={`${format(selectedDate, 'EEEE, MMMM d')}`}
+                  />
+                </div>
+              </div>
+
+              {/* Week Calendar Strip */}
               <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
                 {weekDays.map((day, index) => {
                   const isSelected = isSameDay(day, selectedDate);
@@ -888,35 +899,40 @@ export function MobileScheduleView({
                 })}
               </div>
 
-              {/* 2. Events for selected day */}
-              {dayEvents.length > 0 && (
-                <div className="space-y-1.5">
-                  {dayEvents.map(event => {
-                    const color = event.category?.color || '#8B5CF6';
-                    return (
-                      <div
-                        key={event.id}
-                        onClick={() => setPreviewEvent(event)}
-                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:bg-muted transition-colors"
-                        style={{ backgroundColor: `${color}10` }}
-                      >
-                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
-                        <CalendarCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* 3. Separator between events and tasks */}
-              {dayEvents.length > 0 && (
-                <div className="border-t border-border/30" />
-              )}
-
-              {/* 4. Quick Tasks */}
-              <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} compact={true} />
+              {/* Events & Tasks — matching Option 6 layout */}
+              <div className="space-y-1">
+                {/* Events — flex-wrap pill style */}
+                {dayEvents.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {dayEvents.map(event => {
+                      const color = event.category?.color || '#8B5CF6';
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() => setPreviewEvent(event)}
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow cursor-pointer active:bg-muted transition-colors"
+                          style={{ backgroundColor: `${color}10` }}
+                        >
+                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-xs font-medium truncate">{event.event_name}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{formatTime12Hour(event.event_time)}</span>
+                          <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50 ml-auto">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <rect x="3" y="4" width="18" height="18" rx="2" />
+                              <path d="M16 2v4M8 2v4M3 10h18" />
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {dayEvents.length > 0 && (
+                  <div className="mx-6 border-t border-border/30" />
+                )}
+                {/* Tasks — from AssignedTemporaryTasks (excludes event tasks to avoid duplication) */}
+                <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={false} compact={true} />
+              </div>
 
               {/* 5. NOW section — active punches */}
               {((() => {
