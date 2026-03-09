@@ -1,0 +1,1 @@
+DELETE FROM event_task_completions WHERE id = '95277e25-cbe0-473f-bc2e-61d2c3599053'
