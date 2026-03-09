@@ -389,9 +389,9 @@ export function MobileScheduleView({
       
       return todayOnlyPunches;
     },
-    enabled: activeTab === 'today' && !!currentLocation?.id && !!timezone,
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: activeTab === 'today' ? 60 * 1000 : false, // Refresh every minute when on today tab
+    enabled: (activeTab === 'today' || isV2) && !!currentLocation?.id && !!timezone,
+    staleTime: 30 * 1000,
+    refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
   });
 
   // Get week label relative to current week (using timezone-aware calculation)
