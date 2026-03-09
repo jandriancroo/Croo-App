@@ -62,7 +62,7 @@ export const ChecklistCard = memo(function ChecklistCard({
         />
       )}
 
-      <div className="flex items-center gap-3 pl-5 pr-4 py-3.5">
+      <div className={cn("flex items-center gap-3 pl-5 pr-4", variant === 'row' ? 'py-2.5' : 'py-3.5')}>
         {/* Drag handle */}
         {dragHandleProps && (
           <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing shrink-0 -ml-1" onClick={e => e.stopPropagation()}>
@@ -71,7 +71,7 @@ export const ChecklistCard = memo(function ChecklistCard({
         )}
 
         {/* Dynamic ring icon */}
-        <div className="relative w-12 h-12 shrink-0">
+        <div className={cn("relative shrink-0", variant === 'row' ? 'w-10 h-10' : 'w-12 h-12')}>
           <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
             <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
             {!isLocked && (
@@ -108,7 +108,7 @@ export const ChecklistCard = memo(function ChecklistCard({
           ) : isComplete ? (
             <span className="text-xs text-primary font-medium">All tasks complete ✓</span>
           ) : (
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className={cn("flex items-center gap-2", variant === 'row' ? 'mt-1' : 'mt-1.5')}>
               <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-primary transition-all duration-500" 
