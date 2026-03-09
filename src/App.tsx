@@ -98,6 +98,7 @@ const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStyle
 const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
 const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
 const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
+const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
 
 const queryClient = new QueryClient();
 
@@ -232,6 +233,7 @@ const AppContent = () => {
         <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
         <Route path="/timeline-style-preview" element={<ProtectedRoute><TimelineStylePreview /></ProtectedRoute>} />
         <Route path="/schedule-preview" element={<ProtectedRoute><SchedulePreview /></ProtectedRoute>} />
+        <Route path="/dashboard-style-preview" element={<ProtectedRoute><DashboardStylePreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
