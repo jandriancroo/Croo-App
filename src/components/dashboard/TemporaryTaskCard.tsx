@@ -93,7 +93,7 @@ export function TemporaryTaskCard({
               {badge.label}
             </span>
           )}
-      ircleCheck className="h-5 w-5 text-muted-foreground/4ound/50 shrink-0" />
+      <CircleCheck className="h-5 w-5 text-muted-foreground/40 shrink-0" />
           {showShare && (
             <Button
               size="icon"
