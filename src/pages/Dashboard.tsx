@@ -1063,6 +1063,7 @@ export default function Dashboard() {
         {showWelcomeAnimation && (
           <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
         )}
+        {cateringDialogs}
       </PullToRefresh>
     </Layout>;
 }
