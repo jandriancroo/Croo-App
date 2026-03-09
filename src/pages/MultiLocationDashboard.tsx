@@ -7,7 +7,59 @@ import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgSearchBar, SearchTag } from '@/components/org-dashboard/OrgSearchBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
 import { OrgTotalsBar } from '@/components/org-dashboard/OrgTotalsBar';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatInTimeZone } from 'date-fns-tz';
+
+const LA_TZ = 'America/Los_Angeles';
+
+function getLAToday(): string {
+  return formatInTimeZone(new Date(), LA_TZ, 'yyyy-MM-dd');
+}
+
+/** Returns a date string offset by `days` from `dateStr` (yyyy-MM-dd) */
+function offsetDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + days, 12);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function getMonday(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d, 12);
+  const dow = dt.getDay();
+  const off = dow === 0 ? 6 : dow - 1;
+  dt.setDate(dt.getDate() - off);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function getSunday(mondayStr: string): string {
+  return offsetDate(mondayStr, 6);
+}
+
+function getMonthLabel(dateStr: string): string {
+  const [y, m] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, 1);
+  return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
+
+function getWeekLabel(dateStr: string): string {
+  const mon = getMonday(dateStr);
+  const sun = getSunday(mon);
+  const [, mm, md] = mon.split('-').map(Number);
+  const [, sm, sd] = sun.split('-').map(Number);
+  const mDate = new Date(2026, mm - 1, md);
+  const sDate = new Date(2026, sm - 1, sd);
+  return `${mDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${sDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+function getDayLabel(dateStr: string, todayStr: string): string {
+  if (dateStr === todayStr) return 'Today';
+  const yesterday = offsetDate(todayStr, -1);
+  if (dateStr === yesterday) return 'Yesterday';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 /** Compact D/W/M period selector */
 function PeriodSelector({ period, onChange }: { period: OrgPeriod; onChange: (p: OrgPeriod) => void }) {
@@ -30,6 +82,82 @@ function PeriodSelector({ period, onChange }: { period: OrgPeriod; onChange: (p:
   );
 }
 
+/** Date navigation arrows + label */
+function DateNavigator({ targetDate, period, onDateChange }: {
+  targetDate: string;
+  period: OrgPeriod;
+  onDateChange: (d: string) => void;
+}) {
+  const todayStr = getLAToday();
+  const isToday = targetDate === todayStr;
+  const isFuture = targetDate > todayStr;
+
+  const label = period === 'day'
+    ? getDayLabel(targetDate, todayStr)
+    : period === 'week'
+      ? getWeekLabel(targetDate)
+      : getMonthLabel(targetDate);
+
+  const handlePrev = () => {
+    if (period === 'day') {
+      onDateChange(offsetDate(targetDate, -1));
+    } else if (period === 'week') {
+      onDateChange(offsetDate(targetDate, -7));
+    } else {
+      const [y, m] = targetDate.split('-').map(Number);
+      const prev = new Date(y, m - 2, 1);
+      onDateChange(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-01`);
+    }
+  };
+
+  const handleNext = () => {
+    if (period === 'day') {
+      const next = offsetDate(targetDate, 1);
+      if (next <= todayStr) onDateChange(next);
+    } else if (period === 'week') {
+      const next = offsetDate(targetDate, 7);
+      if (next <= todayStr) onDateChange(next);
+    } else {
+      const [y, m] = targetDate.split('-').map(Number);
+      const next = new Date(y, m, 1);
+      const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`;
+      if (nextStr.slice(0, 7) <= todayStr.slice(0, 7)) onDateChange(nextStr);
+    }
+  };
+
+  const canGoForward = (() => {
+    if (period === 'day') return offsetDate(targetDate, 1) <= todayStr;
+    if (period === 'week') return offsetDate(targetDate, 7) <= todayStr;
+    return targetDate.slice(0, 7) < todayStr.slice(0, 7);
+  })();
+
+  return (
+    <div className="flex items-center justify-center gap-1">
+      <button
+        onClick={handlePrev}
+        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+      </button>
+      <button
+        onClick={() => onDateChange(todayStr)}
+        className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors min-w-[100px] text-center ${
+          isToday ? 'text-primary' : 'text-foreground hover:text-primary'
+        }`}
+      >
+        {label}
+      </button>
+      <button
+        onClick={handleNext}
+        disabled={!canGoForward}
+        className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
+      >
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      </button>
+    </div>
+  );
+}
+
 export default function MultiLocationDashboard() {
   const { organizationId: contextOrgId } = useAppLocation();
   const [searchParams] = useSearchParams();
@@ -42,6 +170,16 @@ export default function MultiLocationDashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTags, setSearchTags] = useState<SearchTag[]>([]);
+  const [targetDate, setTargetDate] = useState<string>(getLAToday());
+
+  // When period changes, snap targetDate appropriately
+  const handlePeriodChange = useCallback((p: OrgPeriod) => {
+    setPeriod(p);
+    // When switching to month, snap to 1st of month
+    if (p === 'month') {
+      setTargetDate(prev => prev.slice(0, 8) + '01');
+    }
+  }, []);
 
   // Use brand hook when brand param present, otherwise org hook
   const { data: orgLocations = [], isLoading: orgLocsLoading } = useOrgLocations(isBrandMode ? null : (organizationId ?? null));
@@ -82,7 +220,7 @@ export default function MultiLocationDashboard() {
     return Array.from(locIds);
   }, [searchTags, allLocations]);
 
-  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(filteredLocationIds);
+  const { data: locationData = {}, isLoading: dataLoading } = useOrgLocationData(filteredLocationIds, targetDate);
 
   const sortedLocationIds = useMemo(() => {
     return [...filteredLocationIds].sort((a, b) => {
@@ -115,7 +253,7 @@ export default function MultiLocationDashboard() {
             tags={searchTags}
             onTagsChange={setSearchTags}
           />
-          <PeriodSelector period={period} onChange={setPeriod} />
+          <PeriodSelector period={period} onChange={handlePeriodChange} />
           <button
             onClick={() => { setIsCollapsed(prev => !prev); setExpandedId(null); }}
             className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors"
@@ -127,6 +265,9 @@ export default function MultiLocationDashboard() {
             }
           </button>
         </div>
+
+        {/* Date navigation */}
+        <DateNavigator targetDate={targetDate} period={period} onDateChange={setTargetDate} />
 
         {locsLoading && (
           <div className={`space-y-${isCollapsed ? '1.5' : '3'}`}>
