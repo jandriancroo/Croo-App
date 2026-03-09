@@ -407,34 +407,38 @@ export function AssignedTemporaryTasks({
     const eventItems = badgeItems.filter(i => i.isEvent);
     const otherItems = badgeItems.filter(i => !i.isEvent);
 
-    const renderBadge = (item: typeof badgeItems[0]) => (
+    const renderRow = (item: typeof badgeItems[0]) => (
       <div
         key={item.id}
         onClick={item.onClick}
-        className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 pl-3 pr-1.5 py-1 cursor-pointer active:bg-muted transition-colors"
-        style={{ borderLeftColor: item.color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
+        className="flex items-center gap-2 rounded-lg bg-card shadow-sm border border-border/30 overflow-hidden cursor-pointer active:bg-muted/50 transition-colors"
       >
-        {item.isEvent && (
-          <CalendarCheck className="h-3.5 w-3.5 shrink-0" style={{ color: item.color }} />
-        )}
-        <span className="text-xs font-medium truncate flex-1">{item.label}</span>
-        {item.progress && (
-          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
-        )}
-        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-          <Check className="h-3 w-3 text-primary-foreground" />
+        {/* Left accent stripe */}
+        <div className="w-1 self-stretch shrink-0" style={{ backgroundColor: item.color }} />
+        
+        <div className="flex-1 flex items-center gap-2 py-2.5 pr-2">
+          {item.isEvent && (
+            <CalendarCheck className="h-4 w-4 shrink-0" style={{ color: item.color }} />
+          )}
+          <span className="text-sm font-medium truncate flex-1">{item.label}</span>
+          {item.progress && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{item.progress}</span>
+          )}
+          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <Check className="h-3.5 w-3.5 text-primary-foreground" />
+          </div>
         </div>
       </div>
     );
 
     return (
       <>
-        <div className="flex flex-wrap gap-1.5">
-          {eventItems.map(renderBadge)}
+        <div className="space-y-1.5">
+          {eventItems.map(renderRow)}
         </div>
         {afterEventsContent}
-        <div className="flex flex-wrap gap-1.5">
-          {otherItems.map(renderBadge)}
+        <div className="space-y-1.5">
+          {otherItems.map(renderRow)}
         </div>
 
         {selectedTask && (
