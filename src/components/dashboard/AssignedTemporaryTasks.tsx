@@ -425,30 +425,40 @@ export function AssignedTemporaryTasks({
       </div>
     );
 
+    const allItems = [...eventItems, ...otherItems];
+    // Split: items before afterEventsContent (events) and after (tasks)
+    const beforeContent = eventItems;
+    const afterContent = otherItems;
+
+    const renderPill = (item: typeof badgeItems[0]) => (
+      <div
+        key={item.id}
+        onClick={item.onClick}
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
+        style={{ backgroundColor: `${item.color}10` }}
+      >
+        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+        <span className="text-xs font-medium truncate flex-1">{item.label}</span>
+        {item.progress && (
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
+        )}
+        {!item.isEvent && <Check className="h-4 w-4 text-muted-foreground/40 shrink-0" />}
+      </div>
+    );
+
     return (
       <>
-        {eventItems.length > 0 && (
+        {beforeContent.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {eventItems.map(item => (
-              <div
-                key={item.id}
-                onClick={item.onClick}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
-                style={{ backgroundColor: `${item.color}10` }}
-              >
-                <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-xs font-medium truncate flex-1">{item.label}</span>
-                {item.progress && (
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
-                )}
-              </div>
-            ))}
+            {beforeContent.map(renderPill)}
           </div>
         )}
         {afterEventsContent}
-        <div className="space-y-1.5">
-          {otherItems.map(renderRow)}
-        </div>
+        {afterContent.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {afterContent.map(renderPill)}
+          </div>
+        )}
 
         {selectedTask && (
           <TemporaryTaskDetailsDialog
