@@ -208,8 +208,7 @@ export function MobileScheduleView({
       const scheduledQuery = supabase
         .from('scheduled_shifts')
         .select('id, user_id, start_time, end_time, day_of_week, shift_date')
-        .eq('shift_date', todayStr)
-        .eq('location_id', currentLocation.id);
+        .eq('shift_date', todayStr);
       
       const eventsQuery = supabase
         .from('schedule_events')
