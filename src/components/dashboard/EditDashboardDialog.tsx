@@ -381,19 +381,17 @@ export function EditDashboardDialog({
                 </div>
               </div>
             </div>
-            {/* Individual cubes within - their own DnD context */}
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleCubeDragEnd}>
-              <SortableContext items={dataCubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                {dataCubes.map(cube => (
-                  <SortableCubeRow
-                    key={cube.id}
-                    cube={cube}
-                    onEdit={handleEditCube}
-                    onDelete={(id) => setDeleteId(id)}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
+            {/* Individual cubes within - separate from section DnD (rendered outside section context) */}
+            <div className="ml-6 space-y-1">
+              {dataCubes.map(cube => (
+                <SortableCubeRow
+                  key={cube.id}
+                  cube={cube}
+                  onEdit={handleEditCube}
+                  onDelete={(id) => setDeleteId(id)}
+                />
+              ))}
+            </div>
           </div>
         );
       case 'sales-chart':
