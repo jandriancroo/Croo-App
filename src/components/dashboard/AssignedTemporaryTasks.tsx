@@ -411,19 +411,17 @@ export function AssignedTemporaryTasks({
       <div
         key={item.id}
         onClick={item.onClick}
-        className="flex items-center gap-2.5 rounded-xl shadow-sm overflow-hidden cursor-pointer active:bg-muted/50 transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
         style={{ backgroundColor: `${item.color}10` }}
       >
         {/* Inset rounded accent stripe */}
-        <div className="w-1 self-stretch rounded-full shrink-0 my-1 ml-2" style={{ backgroundColor: item.color }} />
+        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
         
-        <div className="flex-1 flex items-center gap-2 py-2 pr-2.5 min-w-0">
-          <span className="text-sm font-medium truncate flex-1">{item.label}</span>
-          {item.progress && (
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{item.progress}</span>
-          )}
-          <Check className="h-4.5 w-4.5 text-muted-foreground/50 shrink-0" />
-        </div>
+        <span className="text-xs font-medium truncate flex-1">{item.label}</span>
+        {item.progress && (
+          <span className="text-[10px] text-muted-foreground whitespace-nowrap">{item.progress}</span>
+        )}
+        <Check className="h-4 w-4 text-muted-foreground/40 shrink-0" />
       </div>
     );
 
