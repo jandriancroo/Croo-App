@@ -14,7 +14,7 @@ import { MobileShiftCard } from './MobileShiftCard';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
-import { Option6TodayContent } from './Option6TodayContent';
+// Option6TodayContent kept as standalone component for potential reuse
 import { useScheduleLayoutFlag } from '@/hooks/useScheduleLayoutFlag';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
@@ -859,33 +859,253 @@ export function MobileScheduleView({
                 <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-auto px-2 py-3 space-y-6">
-              {/* Today section — punches, tasks, events */}
-              <Option6TodayContent
-                dayPunches={dayPunches}
-                loadingActive={loadingActive}
-                timezone={timezone}
-                todayEvents={_todayEvents}
-                formatTimeDisplay={formatTimeDisplay}
-                onQuickPunchOpen={() => setQuickPunchOpen(true)}
-                onPunchClick={(punch) => {
-                  const today = getTodayInTimezone(timezone);
-                  setSelectedPunch({
-                    userId: punch.user_id,
-                    userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                    userPhoto: punch.profile.profile_photo_url,
-                    punchDate: today
-                  });
-                  setEditPunchOpen(true);
-                }}
-                onEventClick={(event) => setPreviewEvent(event as any)}
-              />
+            <div className="flex-1 overflow-auto px-2 py-3 space-y-3">
+              {/* 1. Week Calendar Strip */}
+              <div className="bg-muted rounded-xl p-1.5 flex items-center justify-around border border-border/40 overflow-hidden">
+                {weekDays.map((day, index) => {
+                  const isSelected = isSameDay(day, selectedDate);
+                  const isDayToday = isSameDay(day, new Date());
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedDate(day)}
+                      className={`flex flex-col items-center flex-1 py-1.5 rounded-lg transition-all ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : isDayToday
+                            ? 'bg-primary/20 text-primary font-medium'
+                            : 'text-muted-foreground hover:bg-background/80 hover:text-foreground'
+                      }`}
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-wide">
+                        {format(day, 'EEE').slice(0, 3)}
+                      </span>
+                      <span className="text-sm font-bold leading-tight">
+                        {format(day, 'd')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-              {/* Divider */}
-              <div className="border-t border-border/50" />
+              {/* 2. Events for selected day */}
+              {dayEvents.length > 0 && (
+                <div className="space-y-1.5">
+                  {dayEvents.map(event => {
+                    const color = event.category?.color || '#8B5CF6';
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={() => setPreviewEvent(event)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:bg-muted transition-colors"
+                        style={{ backgroundColor: `${color}10` }}
+                      >
+                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
+                        <CalendarCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-              {/* Schedule section — week nav, day selector, shifts */}
-              {renderScheduleContent()}
+              {/* 3. Separator between events and tasks */}
+              {dayEvents.length > 0 && (
+                <div className="border-t border-border/30" />
+              )}
+
+              {/* 4. Quick Tasks */}
+              <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} compact={true} />
+
+              {/* 5. NOW section — active punches */}
+              {((() => {
+                const activePunches = dayPunches.filter(p => p.isActive && !p.isOnBreak);
+                const onBreakPunches = dayPunches.filter(p => p.isOnBreak);
+                const completedPunches = dayPunches.filter(p => !p.isActive);
+                const totalScheduled = dayPunches.length;
+
+                return (
+                  <>
+                    {(activePunches.length > 0 || onBreakPunches.length > 0) && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
+                          <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                          <span className="text-green-600">Now</span>
+                          <span className="text-muted-foreground mx-0.5">·</span>
+                          <span className="text-green-600">{activePunches.length} Active</span>
+                          {onBreakPunches.length > 0 && (
+                            <>
+                              <span className="text-muted-foreground mx-0.5">·</span>
+                              <span className="text-amber-600">{onBreakPunches.length} Break</span>
+                            </>
+                          )}
+                          <span className="text-muted-foreground mx-0.5">·</span>
+                          <span className="text-muted-foreground">{totalScheduled} Total</span>
+                          <div className="ml-auto">
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
+                              <UserPlus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </h4>
+                        {[...activePunches, ...onBreakPunches].map(punch => (
+                          <MobileShiftCard
+                            key={punch.id}
+                            name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                            avatarUrl={punch.profile.profile_photo_url}
+                            startTime={punch.scheduledShift?.start_time || '00:00'}
+                            endTime={punch.scheduledShift?.end_time || '00:00'}
+                            statusIndicator={punch.isOnBreak ? 'break' : 'active'}
+                            scheduledStart={punch.scheduledShift?.start_time}
+                            scheduledEnd={punch.scheduledShift?.end_time}
+                            clockInTime={punch.clockInTime}
+                            clockOutTime={punch.clockOutTime}
+                            breakStartTime={punch.breakStartTime}
+                            breakEndTime={punch.breakEndTime}
+                            hoursWorked={punch.hoursWorked}
+                            createdByName={punch.createdByName}
+                            timezone={timezone}
+                            formatTimeDisplay={formatTimeDisplay}
+                            showBreakIndicator={false}
+                            onClick={() => {
+                              const today = getTodayInTimezone(timezone);
+                              setSelectedPunch({
+                                userId: punch.user_id,
+                                userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                                userPhoto: punch.profile.profile_photo_url,
+                                punchDate: today
+                              });
+                              setEditPunchOpen(true);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 6. LATER section — scheduled shifts + actions */}
+                    <div className="space-y-1.5">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        {completedPunches.length > 0 ? `Completed (${completedPunches.length})` : 'Later'}
+                        <div className="flex items-center gap-1 ml-auto">
+                          {(activePunches.length === 0 && onBreakPunches.length === 0) && (
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
+                              <UserPlus className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {(isAdmin || isManager) && scheduleId && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                                <CalendarPlus className="h-4 w-4" />
+                              </Button>
+                              {!isPublished ? (
+                                <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
+                                  {isPublishing ? 'Publishing...' : 'Go Live'}
+                                </Button>
+                              ) : hasPendingChanges ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                                  onClick={onSendUpdate}
+                                  disabled={isPublishing}
+                                >
+                                  {isPublishing ? (
+                                    <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
+                                  ) : (
+                                    <><RefreshCw className="h-3 w-3 mr-1" />Update</>
+                                  )}
+                                </Button>
+                              ) : (
+                                <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+                                  <span className="relative flex items-end gap-[1px] h-3">
+                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                                  </span>
+                                  <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </h4>
+
+                      {loadingActive ? (
+                        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                      ) : (
+                        <>
+                          {completedPunches.map(punch => (
+                            <MobileShiftCard
+                              key={punch.id}
+                              name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                              avatarUrl={punch.profile.profile_photo_url}
+                              startTime={punch.scheduledShift?.start_time || '00:00'}
+                              endTime={punch.scheduledShift?.end_time || '00:00'}
+                              statusIndicator="none"
+                              scheduledStart={punch.scheduledShift?.start_time}
+                              scheduledEnd={punch.scheduledShift?.end_time}
+                              clockInTime={punch.clockInTime}
+                              clockOutTime={punch.clockOutTime}
+                              breakStartTime={punch.breakStartTime}
+                              breakEndTime={punch.breakEndTime}
+                              hoursWorked={punch.hoursWorked}
+                              createdByName={punch.createdByName}
+                              timezone={timezone}
+                              formatTimeDisplay={formatTimeDisplay}
+                              showBreakIndicator={false}
+                              onClick={() => {
+                                const today = getTodayInTimezone(timezone);
+                                setSelectedPunch({
+                                  userId: punch.user_id,
+                                  userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                                  userPhoto: punch.profile.profile_photo_url,
+                                  punchDate: today
+                                });
+                                setEditPunchOpen(true);
+                              }}
+                            />
+                          ))}
+
+                          {/* Scheduled shifts not yet punched in */}
+                          {dayShifts
+                            .filter(shift => {
+                              const profile = getProfileForShift(shift);
+                              if (!profile) return false;
+                              // Don't show shifts for people who already have punches
+                              return !dayPunches.some(p => p.user_id === shift.user_id);
+                            })
+                            .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                            .map(shift => {
+                              const profile = getProfileForShift(shift);
+                              if (!profile) return null;
+                              const shiftLabel = getShiftLabel(shift);
+                              return (
+                                <MobileShiftCard
+                                  key={shift.id}
+                                  name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                                  avatarUrl={profile.profile_photo_url}
+                                  startTime={shift.start_time}
+                                  endTime={shift.end_time}
+                                  accentColor={shift.template?.color}
+                                  isPublished={isShiftPublished(shift)}
+                                  positionLabel={shiftLabel}
+                                  positionColor={shift.template?.color}
+                                  onClick={() => {
+                                    if (isAdmin || isManager) {
+                                      setSelectedShift(shift);
+                                      setShiftDialogOpen(true);
+                                    }
+                                  }}
+                                />
+                              );
+                            })}
+                        </>
+                      )}
+                    </div>
+                  </>
+                );
+              })())}
             </div>
           </div>
         ) : (
