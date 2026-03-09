@@ -225,19 +225,6 @@ export const WidgetsSection = memo(function WidgetsSection({
   const [show3DCubeDialog, setShow3DCubeDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
   
-  // Create location-specific storage key for checklists position
-  const checklistsPositionKey = `dashboard-checklists-position-${currentLocation?.id || 'default'}`;
-  
-  // Track checklists block position (stored as index in the order)
-  const [checklistsPosition, setChecklistsPosition] = useState<number>(-1); // -1 means at the end
-  
-  // Load checklists position from localStorage when location changes
-  useEffect(() => {
-    if (currentLocation?.id) {
-      const saved = localStorage.getItem(checklistsPositionKey);
-      setChecklistsPosition(saved !== null ? parseInt(saved, 10) : -1);
-    }
-  }, [currentLocation?.id, checklistsPositionKey]);
 
   // Use external control if provided, otherwise use internal state
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
