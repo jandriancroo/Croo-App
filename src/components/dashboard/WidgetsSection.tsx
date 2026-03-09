@@ -49,7 +49,7 @@ interface DataCubeConfig {
   numFaces?: number;
 }
 
-type SortableItem = DataCubeConfig | { id: typeof CHECKLISTS_BLOCK_ID; cubeType: 'checklists' };
+
 
 interface SortableDataCubeProps {
   cube: DataCubeConfig;
