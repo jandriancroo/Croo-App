@@ -143,11 +143,16 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-sm truncate">{shift.name}</span>
-            <Badge variant="secondary" className="text-[10px] shrink-0" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
-              {shift.position}
-            </Badge>
+            {isPunched && (
+              <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+                {shift.hours.toFixed(1)}h
+              </span>
+            )}
           </div>
-          <div className="text-xs text-muted-foreground whitespace-nowrap">{shift.start} - {shift.end}</div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+            <span>{shift.start} - {shift.end}</span>
+            <span style={{ color: shift.color }}>· {shift.position}</span>
+          </div>
           {isPunched && (
             <div className="text-xs text-green-600 whitespace-nowrap">In: {shift.clockIn}</div>
           )}
@@ -155,12 +160,6 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
             <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
           )}
         </div>
-      </div>
-      {isPunched && (
-        <span className={cn("absolute bottom-2 right-2.5 font-bold text-sm", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
-          {shift.hours.toFixed(1)}h
-        </span>
-      )}
     </div>
   );
 }
