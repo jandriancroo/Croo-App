@@ -124,15 +124,23 @@ export function MobileShiftCard({
           </div>
           
           <div className="flex-1 min-w-0">
-            {/* Name row with hours */}
+            {/* Name row with position badge */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-sm font-semibold truncate">{name}</span>
               </div>
-              {hoursWorked !== undefined && (
-                <span className={`text-sm font-bold shrink-0 ${getStatusTextColor()}`}>
-                  {hoursWorked.toFixed(1)}h
-                </span>
+              {positionLabel && (
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs shrink-0"
+                  style={{ 
+                    backgroundColor: positionColor ? `${positionColor}20` : undefined,
+                    borderColor: positionColor || undefined,
+                    color: positionColor || undefined
+                  }}
+                >
+                  {positionLabel}
+                </Badge>
               )}
             </div>
             
@@ -178,21 +186,6 @@ export function MobileShiftCard({
               )
             )}
             
-            {/* Position badge */}
-            {positionLabel && (
-              <Badge 
-                variant="secondary" 
-                className="mt-1 text-xs"
-                style={{ 
-                  backgroundColor: positionColor ? `${positionColor}20` : undefined,
-                  borderColor: positionColor || undefined,
-                  color: positionColor || undefined
-                }}
-              >
-                {positionLabel}
-              </Badge>
-            )}
-            
             {/* Created by note */}
             {createdByName && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
@@ -202,11 +195,18 @@ export function MobileShiftCard({
             )}
           </div>
           
-          {/* Action button or break indicator */}
-          {actionButton}
-          {!actionButton && hasBreak && (
-            <BreakIndicator hasBreak={true} size="sm" />
-          )}
+          {/* Right side: hours + action button */}
+          <div className="flex flex-col items-end justify-center gap-1 shrink-0">
+            {hoursWorked !== undefined && (
+              <span className={`text-sm font-bold ${getStatusTextColor()}`}>
+                {hoursWorked.toFixed(1)}h
+              </span>
+            )}
+            {actionButton}
+            {!actionButton && hasBreak && (
+              <BreakIndicator hasBreak={true} size="sm" />
+            )}
+          </div>
         </div>
       </div>
     </div>
