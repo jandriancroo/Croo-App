@@ -174,7 +174,16 @@ export default function MultiLocationDashboard() {
             </p>
           </div>
         )}
+
+        {/* Spacer for floating bar */}
+        {sortedLocationIds.length >= 2 && <div className="h-20" />}
       </div>
+
+      <OrgTotalsBar
+        locationData={locationData}
+        locationIds={sortedLocationIds}
+        period={period}
+      />
     </Layout>
   );
 }
