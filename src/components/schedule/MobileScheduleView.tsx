@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid, BarChart3, CalendarDays } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, BarChart3, CalendarDays } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -15,7 +15,7 @@ import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { MobileEventDialog } from './MobileEventDialog';
 // Option6TodayContent kept as standalone component for potential reuse
-import { useScheduleLayoutFlag } from '@/hooks/useScheduleLayoutFlag';
+
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
@@ -24,7 +24,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone, parseDateStringInTimezone, getEndOfDateStringInTimezone } from '@/utils/timezoneUtils';
 import { filterEventsByRole } from '@/utils/eventRoleFilter';
 
@@ -147,7 +147,7 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
-  const { isV2, toggleLayout } = useScheduleLayoutFlag();
+  
   const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
@@ -390,9 +390,9 @@ export function MobileScheduleView({
       
       return todayOnlyPunches;
     },
-    enabled: (activeTab === 'today' || isV2) && !!currentLocation?.id && !!timezone,
+    enabled: !!currentLocation?.id && !!timezone,
     staleTime: 30 * 1000,
-    refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
+    refetchInterval: 60 * 1000,
   });
 
   // Fetch sales + labor for Day Insights (V2)
@@ -413,7 +413,7 @@ export function MobileScheduleView({
       const laborHours = best?.labor_hours || 0;
       return { sales, laborCost, laborHours };
     },
-    enabled: isV2 && !!currentLocation?.id && !!todayStr,
+    enabled: !!currentLocation?.id && !!todayStr,
     staleTime: 60 * 1000,
     refetchInterval: 120 * 1000,
   });
@@ -565,84 +565,6 @@ export function MobileScheduleView({
   // Count unique employees scheduled (only those with valid profiles)
   const shiftsWithProfiles = dayShifts.filter(s => profiles.some(p => p.id === s.user_id));
   const uniqueEmployeesScheduled = new Set(shiftsWithProfiles.map(s => s.user_id)).size;
-
-  const activePunchCount = dayPunches.filter(p => p.isActive).length;
-  const todayTabLabel = activePunchCount > 0 ? `Today (${activePunchCount})` : 'Today';
-
-  // Content for Today tab
-  const renderTodayContent = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
-        </h3>
-        <Button 
-          size="sm" 
-          variant="outline"
-          onClick={() => setQuickPunchOpen(true)}
-          className="gap-1"
-        >
-          <UserPlus className="h-4 w-4" />
-          Quick Punch
-        </Button>
-      </div>
-      
-      {/* Assigned Tasks */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
-        <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} compact={true} />
-      </div>
-      
-      <div>
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-          Today's Punches ({dayPunches.length})
-        </h4>
-        
-        {loadingActive ? (
-          <div className="text-center py-8 text-muted-foreground">Loading...</div>
-        ) : dayPunches.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No punches recorded today</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {dayPunches.map((punch) => (
-              <MobileShiftCard
-                key={punch.id}
-                name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                avatarUrl={punch.profile.profile_photo_url}
-                startTime={punch.scheduledShift?.start_time || '00:00'}
-                endTime={punch.scheduledShift?.end_time || '00:00'}
-                statusIndicator={punch.isOnBreak ? 'break' : punch.isActive ? 'active' : 'none'}
-                scheduledStart={punch.scheduledShift?.start_time}
-                scheduledEnd={punch.scheduledShift?.end_time}
-                clockInTime={punch.clockInTime}
-                clockOutTime={punch.clockOutTime}
-                breakStartTime={punch.breakStartTime}
-                breakEndTime={punch.breakEndTime}
-                hoursWorked={punch.hoursWorked}
-                createdByName={punch.createdByName}
-                timezone={timezone}
-                formatTimeDisplay={formatTimeDisplay}
-                showBreakIndicator={false}
-                onClick={() => {
-                  const today = getTodayInTimezone(timezone);
-                  setSelectedPunch({
-                    userId: punch.user_id,
-                    userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                    userPhoto: punch.profile.profile_photo_url,
-                    punchDate: today
-                  });
-                  setEditPunchOpen(true);
-                }}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   // Content for Schedule tab
   const renderScheduleContent = () => (
@@ -872,7 +794,7 @@ export function MobileScheduleView({
     <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))] -mt-3">
       {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
-        isV2 ? (
+        (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] py-3 space-y-3">
@@ -1319,38 +1241,6 @@ export function MobileScheduleView({
               )}
             </div>
           </div>
-        ) : (
-          /* Classic: Tabbed Today / Schedule */
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')} className="flex flex-col h-full">
-            <div className="px-4 pt-3 pb-2 border-b border-border flex items-center gap-2">
-              <TabsList className="w-full grid grid-cols-2 flex-1">
-                <TabsTrigger value="today" className="gap-1.5">
-                  {activePunchCount > 0 && (
-                    <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                  )}
-                  {todayTabLabel}
-                </TabsTrigger>
-                <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              </TabsList>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                onClick={toggleLayout}
-                title="Switch to new layout"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-auto px-2 py-3">
-              <TabsContent value="today" className="mt-0 h-full">
-                {renderTodayContent()}
-              </TabsContent>
-              <TabsContent value="schedule" className="mt-0 h-full">
-                {renderScheduleContent()}
-              </TabsContent>
-            </div>
-          </Tabs>
         )
       ) : (
         /* Non-admin view - schedule only */
