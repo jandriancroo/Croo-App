@@ -190,9 +190,13 @@ export function EditDashboardDialog({
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
 
+  // Local cube order state for optimistic updates
+  const [localCubes, setLocalCubes] = useState<CubeConfig[]>(cubes);
+  useEffect(() => { setLocalCubes(cubes); }, [cubes]);
+
   // Drag-and-drop reorder for data cubes within data-cubes section
-  const dataCubes = cubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
-  const salesChart = cubes.find(c => c.cubeType === 'sales-chart');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
   
   const handleCubeDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -203,20 +207,23 @@ export function EditDashboardDialog({
     if (oldIndex === -1 || newIndex === -1) return;
     
     const reorderedDataCubes = arrayMove(dataCubes, oldIndex, newIndex);
-    // Reconstruct full order: data cubes in new order + sales chart at its original position
-    const allIds = cubes.map(c => c.id);
+    
+    // Optimistically update local state
     const dataCubeIds = new Set(dataCubes.map(c => c.id));
-    const newOrder: string[] = [];
+    const newLocalCubes: CubeConfig[] = [];
     let dataIdx = 0;
-    for (const id of allIds) {
-      if (dataCubeIds.has(id)) {
-        newOrder.push(reorderedDataCubes[dataIdx].id);
+    for (const cube of localCubes) {
+      if (dataCubeIds.has(cube.id)) {
+        newLocalCubes.push(reorderedDataCubes[dataIdx]);
         dataIdx++;
       } else {
-        newOrder.push(id);
+        newLocalCubes.push(cube);
       }
     }
-    onReorderCubes?.(newOrder);
+    setLocalCubes(newLocalCubes);
+    
+    // Persist to DB
+    onReorderCubes?.(newLocalCubes.map(c => c.id));
   };
   
   // Section reorder handler
