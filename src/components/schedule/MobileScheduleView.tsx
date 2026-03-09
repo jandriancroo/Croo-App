@@ -1156,27 +1156,36 @@ export function MobileScheduleView({
                       </button>
                       {insightsExpanded && (
                         <div className="px-3 py-2.5 border-t border-border/30">
-                          <div className="flex items-center justify-between text-center">
-                            <div>
-                              <span className="text-base font-bold">{dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0).toFixed(1)}h</span>
-                              <p className="text-[10px] text-muted-foreground">Hours</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold">{dayPunches.length}</span>
-                              <p className="text-[10px] text-muted-foreground">Punched</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold text-green-600">{dayPunches.filter(p => p.isActive && !p.isOnBreak).length}</span>
-                              <p className="text-[10px] text-muted-foreground">Active</p>
-                            </div>
-                            <div className="w-px h-7 bg-border" />
-                            <div>
-                              <span className="text-base font-bold text-amber-600">{dayPunches.filter(p => p.isOnBreak).length}</span>
-                              <p className="text-[10px] text-muted-foreground">On Break</p>
-                            </div>
-                          </div>
+                          {(() => {
+                            const totalHours = dayInsightsData?.laborHours || dayPunches.reduce((sum, p) => sum + p.hoursWorked, 0);
+                            const laborCost = dayInsightsData?.laborCost || 0;
+                            const sales = dayInsightsData?.sales || 0;
+                            const laborPct = sales > 0 ? (laborCost / sales) * 100 : 0;
+                            const salesPerLH = totalHours > 0 ? sales / totalHours : 0;
+                            return (
+                              <div className="flex items-center justify-between text-center">
+                                <div>
+                                  <span className="text-base font-bold">{totalHours.toFixed(1)}h</span>
+                                  <p className="text-[10px] text-muted-foreground">Hours</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className="text-base font-bold">${laborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                  <p className="text-[10px] text-muted-foreground">Labor</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className={`text-base font-bold ${laborPct > 30 ? 'text-destructive' : 'text-green-600'}`}>{laborPct.toFixed(1)}%</span>
+                                  <p className="text-[10px] text-muted-foreground">Labor %</p>
+                                </div>
+                                <div className="w-px h-7 bg-border" />
+                                <div>
+                                  <span className="text-base font-bold">${salesPerLH.toFixed(2)}</span>
+                                  <p className="text-[10px] text-muted-foreground">$/LH</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </Card>
