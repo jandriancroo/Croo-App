@@ -166,23 +166,16 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   
   return (
     <>
-      {tasks.map(task => {
-        const Icon = task.icon;
-        return (
-          <div
-            key={task.id}
-            onClick={task.onClick}
-            className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 pl-3 pr-1.5 py-1 cursor-pointer active:bg-muted transition-colors"
-            style={{ borderLeftColor: TEAL_COLOR, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: TEAL_COLOR }} />
-            <span className="text-xs font-medium truncate flex-1">{task.title}</span>
-            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-              <Check className="h-3 w-3 text-primary-foreground" />
-            </div>
-          </div>
-        );
-      })}
+      {tasks.map(task => (
+        <TemporaryTaskCard
+          key={task.id}
+          id={task.id}
+          title={task.title}
+          icon={task.icon}
+          accentColor={TEAL_COLOR}
+          onAction={task.onClick}
+        />
+      ))}
     </>
   );
 }
