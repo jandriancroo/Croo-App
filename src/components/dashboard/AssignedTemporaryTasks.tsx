@@ -416,17 +416,12 @@ export function AssignedTemporaryTasks({
         {/* Left accent stripe */}
         <div className="w-1 self-stretch shrink-0" style={{ backgroundColor: item.color }} />
         
-        <div className="flex-1 flex items-center gap-2 py-2.5 pr-2">
-          {item.isEvent && (
-            <CalendarCheck className="h-4 w-4 shrink-0" style={{ color: item.color }} />
-          )}
+        <div className="flex-1 flex items-center gap-2 py-2.5 pr-2 min-w-0">
           <span className="text-sm font-medium truncate flex-1">{item.label}</span>
           {item.progress && (
             <span className="text-xs text-muted-foreground whitespace-nowrap">{item.progress}</span>
           )}
-          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center shrink-0">
-            <Check className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
+          <Check className="h-4 w-4 text-muted-foreground/60 shrink-0" />
         </div>
       </div>
     );
