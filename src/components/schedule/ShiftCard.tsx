@@ -85,12 +85,21 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   return (
     <Card
       ref={setNodeRef}
-      style={{ ...style, backgroundColor: bgColor, borderColor: `color-mix(in srgb, ${bgColor} 75%, gray)` }}
+      style={{ 
+        ...style, 
+        backgroundColor: `${bgColor}20`,
+        borderColor: `${bgColor}40`,
+      }}
       className={`${isCompactMode ? 'p-0 min-h-[36px] rounded-none border-2 border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-lg border-2'} ${shift.isTemplate ? (isCompactMode ? 'flex-1 min-w-0' : 'min-w-[110px] max-w-[140px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
+      {/* Inset accent stripe */}
+      <div 
+        className="absolute left-1 top-1 bottom-1 w-[3px] rounded-full"
+        style={{ backgroundColor: bgColor }}
+      />
       {/* Time-off conflict stripe overlay */}
       {hasTimeOffConflict && (
         <div 
@@ -98,8 +107,11 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           style={stripeOverlayStyle}
         />
       )}
-      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left pl-1'}`}>
-        <div className={`text-white font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}>
+      <div className={`relative z-10 ${isCompactMode ? 'text-center' : 'text-left pl-2.5'}`}>
+        <div 
+          className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
+          style={{ color: bgColor }}
+        >
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
@@ -117,12 +129,12 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           )}
         </div>
         {!isCompactMode && shift.isTemplate && templatePosition && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-left">{formatPosition(templatePosition)}</div>
+          <div className="text-muted-foreground text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left">{formatPosition(templatePosition)}</div>
         )}
         {!isCompactMode && !shift.isTemplate && position && (
-          <div className="text-white text-[9px] lg:text-[10px] opacity-90 mt-0.5 leading-tight text-left">{formatPosition(position)}</div>
+          <div className="text-muted-foreground text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left">{formatPosition(position)}</div>
         )}
-        {!isCompactMode && shift.is_time_off && <div className="text-white text-xs lg:text-sm font-medium text-left">TIME OFF</div>}
+        {!isCompactMode && shift.is_time_off && <div className="text-foreground text-xs lg:text-sm font-medium text-left">TIME OFF</div>}
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="absolute bottom-1 right-1 block md:hidden xl:block">
