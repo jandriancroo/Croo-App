@@ -545,9 +545,24 @@ export const WidgetsSection = memo(function WidgetsSection({
     }
   };
 
+  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
+  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+
+  // Section order from localStorage - must be before early returns (hooks rule)
+  const sectionOrder = useMemo(() => {
+    if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
+    const key = `dashboard-section-order-${currentLocation.id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
+    }
+    return ['data-cubes', 'checklists', 'sales-chart'];
+  }, [currentLocation?.id, localCubes]);
+
   // If using role cubes and no cubes configured, show empty state (no add dialogs)
   if (useRoleCubes && localCubes.length === 0 && !checklistsContent) {
-    return null; // Empty - Org Admin hasn't configured cubes for this role yet
+    return null;
   }
 
   // If no cubes and no checklists content, just show the dialog (only for personal cubes)
@@ -574,21 +589,6 @@ export const WidgetsSection = memo(function WidgetsSection({
       </>
     );
   }
-
-  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
-  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
-
-  // Section order from localStorage
-  const sectionOrder = useMemo(() => {
-    if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
-    const key = `dashboard-section-order-${currentLocation.id}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
-    }
-    return ['data-cubes', 'checklists', 'sales-chart'];
-  }, [currentLocation?.id, localCubes]); // re-read when cubes change (dialog may have updated)
 
   const renderSection = (section: string) => {
     switch (section) {
