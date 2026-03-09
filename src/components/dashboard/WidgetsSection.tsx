@@ -26,16 +26,14 @@ import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
 import { DataCube3D } from './DataCube3D';
 import { SalesSummary } from './SalesSummary';
 import { toast } from 'sonner';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import { useIsOledTheme } from '@/hooks/useIsOledTheme';
 
 // Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
 const SALES_CHART_COLOR_OLED = 'hsl(215, 30%, 18%)';
-const CHECKLISTS_BLOCK_ID = 'checklists-block';
+
 
 interface DataCubeConfig {
   id: string;
@@ -51,7 +49,7 @@ interface DataCubeConfig {
   numFaces?: number;
 }
 
-type SortableItem = DataCubeConfig | { id: typeof CHECKLISTS_BLOCK_ID; cubeType: 'checklists' };
+
 
 interface SortableDataCubeProps {
   cube: DataCubeConfig;
@@ -62,10 +60,6 @@ interface SortableDataCubeProps {
   onSalesDataChange?: (data: SalesDataForWidgets | null) => void;
 }
 
-interface SortableChecklistsBlockProps {
-  children: ReactNode;
-  isReorderMode: boolean;
-}
 
 function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode, onSalesDataChange }: SortableDataCubeProps) {
   const isOled = useIsOledTheme();
@@ -183,43 +177,6 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
   );
 }
 
-function SortableChecklistsBlock({ children, isReorderMode }: SortableChecklistsBlockProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: CHECKLISTS_BLOCK_ID, disabled: !isReorderMode });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
-  return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`}
-      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
-    >
-      {/* Reorder overlay */}
-      {isReorderMode && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg pointer-events-none">
-          <div className="p-3 rounded-full bg-primary/20">
-            <GripVertical className="h-6 w-6 text-primary" />
-          </div>
-        </div>
-      )}
-      <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 interface RoleCubeConfig {
   id: string;
   title: string;
@@ -268,19 +225,6 @@ export const WidgetsSection = memo(function WidgetsSection({
   const [show3DCubeDialog, setShow3DCubeDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
   
-  // Create location-specific storage key for checklists position
-  const checklistsPositionKey = `dashboard-checklists-position-${currentLocation?.id || 'default'}`;
-  
-  // Track checklists block position (stored as index in the order)
-  const [checklistsPosition, setChecklistsPosition] = useState<number>(-1); // -1 means at the end
-  
-  // Load checklists position from localStorage when location changes
-  useEffect(() => {
-    if (currentLocation?.id) {
-      const saved = localStorage.getItem(checklistsPositionKey);
-      setChecklistsPosition(saved !== null ? parseInt(saved, 10) : -1);
-    }
-  }, [currentLocation?.id, checklistsPositionKey]);
 
   // Use external control if provided, otherwise use internal state
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
@@ -421,49 +365,27 @@ export const WidgetsSection = memo(function WidgetsSection({
   
   // Debug logging removed for performance - was causing excess re-render tracking
 
-  // Build combined sortable items list (cubes + checklists block) - memoized
-  const sortableItems = useMemo((): SortableItem[] => {
-    const items: SortableItem[] = [...localCubes];
-    
-    if (checklistsContent) {
-      const checklistsBlock: SortableItem = { id: CHECKLISTS_BLOCK_ID, cubeType: 'checklists' };
-      // Insert at saved position, or at end if position is invalid
-      const insertAt = checklistsPosition >= 0 && checklistsPosition <= items.length 
-        ? checklistsPosition 
-        : items.length;
-      items.splice(insertAt, 0, checklistsBlock);
-    }
-    
-    return items;
-  }, [localCubes, checklistsContent, checklistsPosition]);
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (!over || active.id === over.id) return;
 
-    const oldIndex = sortableItems.findIndex(item => item.id === active.id);
-    const newIndex = sortableItems.findIndex(item => item.id === over.id);
+    // Only reorder data cubes (not sales chart)
+    const cubesOnly = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+    const oldIndex = cubesOnly.findIndex(item => item.id === active.id);
+    const newIndex = cubesOnly.findIndex(item => item.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
 
-    const newOrder = arrayMove(sortableItems, oldIndex, newIndex);
-    
-    // Find new position of checklists block
-    const newChecklistsIndex = newOrder.findIndex(item => item.id === CHECKLISTS_BLOCK_ID);
-    if (newChecklistsIndex !== -1) {
-      setChecklistsPosition(newChecklistsIndex);
-      localStorage.setItem(checklistsPositionKey, String(newChecklistsIndex));
-    }
-    
-    // Extract just the cubes (not checklists block) and update their order
-    const cubesOnly = newOrder.filter((item): item is DataCubeConfig => item.id !== CHECKLISTS_BLOCK_ID);
-    setLocalCubes(cubesOnly);
+    const reorderedCubes = arrayMove(cubesOnly, oldIndex, newIndex);
+    // Rebuild localCubes preserving non-data-cube items in their positions
+    const nonDataCubes = localCubes.filter(c => c.cubeType !== 'data' && c.cubeType !== 'data-3d');
+    setLocalCubes([...reorderedCubes, ...nonDataCubes]);
 
-    // Skip persisting for role-based cubes (those are locked by Org Admin)
     if (useRoleCubes) return;
     
-    // Persist the new cube order to database (2-phase to avoid unique constraint collisions)
     try {
-      const updates = cubesOnly.map((cube, index) => ({ id: cube.id, display_order: index }));
+      // Persist all cube orders
+      const allCubes = [...reorderedCubes, ...nonDataCubes];
+      const updates = allCubes.map((cube, index) => ({ id: cube.id, display_order: index }));
 
       const updateWithRetry = async (id: string, display_order: number) => {
         let lastError: any = null;
@@ -472,11 +394,8 @@ export const WidgetsSection = memo(function WidgetsSection({
             .from('user_dashboard_cubes')
             .update({ display_order })
             .eq('id', id);
-
           if (!error) return;
-
           lastError = error;
-          // deadlock or unique constraint violation - retry
           if (error.code === '40P01' || error.code === '23505') {
             await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
             continue;
@@ -486,13 +405,9 @@ export const WidgetsSection = memo(function WidgetsSection({
         throw lastError;
       };
 
-      // Phase 1: assign temporary unique negative orders (use small negatives within integer range)
-      // Use -(1000000 + index) to avoid conflicts with any existing display_order values
       for (let i = 0; i < updates.length; i++) {
         await updateWithRetry(updates[i].id, -(1000000 + i));
       }
-
-      // Phase 2: assign final orders (0, 1, 2, ...)
       for (const u of updates) {
         await updateWithRetry(u.id, u.display_order);
       }
@@ -503,7 +418,7 @@ export const WidgetsSection = memo(function WidgetsSection({
     } catch (error: any) {
       console.error('Error saving cube order:', error);
       toast.error(error?.message ? `Failed to save cube order: ${error.message}` : 'Failed to save cube order');
-      setLocalCubes(cubes); // Revert on error
+      setLocalCubes(cubes);
     }
   };
 
@@ -588,9 +503,24 @@ export const WidgetsSection = memo(function WidgetsSection({
     }
   };
 
+  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
+  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+
+  // Section order from localStorage - must be before early returns (hooks rule)
+  const sectionOrder = useMemo(() => {
+    if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
+    const key = `dashboard-section-order-${currentLocation.id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
+    }
+    return ['data-cubes', 'checklists', 'sales-chart'];
+  }, [currentLocation?.id, localCubes]);
+
   // If using role cubes and no cubes configured, show empty state (no add dialogs)
   if (useRoleCubes && localCubes.length === 0 && !checklistsContent) {
-    return null; // Empty - Org Admin hasn't configured cubes for this role yet
+    return null;
   }
 
   // If no cubes and no checklists content, just show the dialog (only for personal cubes)
@@ -618,59 +548,61 @@ export const WidgetsSection = memo(function WidgetsSection({
     );
   }
 
-  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
-  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+  const renderSection = (section: string) => {
+    switch (section) {
+      case 'data-cubes':
+        if (dataCubes.length === 0) return null;
+        return (
+          <DndContext
+            key="data-cubes"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={dataCubes.map(cube => cube.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                {dataCubes.map(cube => (
+                  <SortableDataCube
+                    key={cube.id}
+                    cube={cube}
+                    salesData={salesData}
+                    isLoading={isLoadingSales}
+                    locationSettings={locationSettings}
+                    isReorderMode={isReorderMode}
+                    onSalesDataChange={onSalesDataChange}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        );
+      case 'checklists':
+        if (!checklistsContent) return null;
+        return <div key="checklists" className="w-full">{checklistsContent}</div>;
+      case 'sales-chart':
+        if (!salesChart) return null;
+        return (
+          <SortableDataCube
+            key={salesChart.id}
+            cube={salesChart}
+            salesData={salesData}
+            isLoading={isLoadingSales}
+            locationSettings={locationSettings}
+            isReorderMode={isReorderMode}
+            onSalesDataChange={onSalesDataChange}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="space-y-4 w-full">
-      {/* Data Cubes Row */}
-      {dataCubes.length > 0 && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={dataCubes.map(cube => cube.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="grid grid-cols-2 gap-3">
-              {dataCubes.map(cube => (
-                <SortableDataCube
-                  key={cube.id}
-                  cube={cube}
-                  salesData={salesData}
-                  isLoading={isLoadingSales}
-                  locationSettings={locationSettings}
-                  isReorderMode={isReorderMode}
-                  onSalesDataChange={onSalesDataChange}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
-      
-      {/* Checklists Section - Full Width */}
-      {checklistsContent && (
-        <div className="w-full">
-          {checklistsContent}
-        </div>
-      )}
-      
-      {/* Sales Summary - Full Width */}
-      {salesChart && (
-        <SortableDataCube
-          key={salesChart.id}
-          cube={salesChart}
-          salesData={salesData}
-          isLoading={isLoadingSales}
-          locationSettings={locationSettings}
-          isReorderMode={isReorderMode}
-          onSalesDataChange={onSalesDataChange}
-        />
-      )}
+      {sectionOrder.map(section => renderSection(section))}
 
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (

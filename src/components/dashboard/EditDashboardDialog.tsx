@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box, GripVertical } from "lucide-react";
+import { Plus, Trash2, Check, ArrowLeft, Minus, Box, GripVertical, LineChart, ClipboardCheck } from "lucide-react";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -29,6 +29,31 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
+
+export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
+
+export const DEFAULT_SECTION_ORDER: SectionKey[] = ['data-cubes', 'checklists', 'sales-chart'];
+
+export function getSectionOrder(locationId: string): SectionKey[] {
+  const key = `dashboard-section-order-${locationId}`;
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved) as SectionKey[];
+      // Ensure all sections are present
+      const allSections: SectionKey[] = ['data-cubes', 'sales-chart', 'checklists'];
+      const valid = parsed.filter(s => allSections.includes(s));
+      allSections.forEach(s => { if (!valid.includes(s)) valid.push(s); });
+      return valid;
+    } catch { return DEFAULT_SECTION_ORDER; }
+  }
+  return DEFAULT_SECTION_ORDER;
+}
+
+export function saveSectionOrder(locationId: string, order: SectionKey[]) {
+  localStorage.setItem(`dashboard-section-order-${locationId}`, JSON.stringify(order));
+}
 
 export interface CubeConfig {
   id: string;
@@ -51,9 +76,30 @@ interface EditDashboardDialogProps {
   onDeleteCube: (id: string) => Promise<void>;
   onAddCube: () => void;
   onReorderCubes?: (orderedIds: string[]) => Promise<void>;
+  onSectionOrderChange?: (order: SectionKey[]) => void;
 }
 
-// Sortable cube row component
+// Sortable section row (top-level sections: data-cubes, sales-chart, checklists)
+function SortableSectionRow({ sectionKey, children }: { sectionKey: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sectionKey });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="space-y-1">
+      <div className="flex items-center gap-2">
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0 touch-none p-1">
+          <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+        </div>
+        <div className="flex-1 min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Sortable cube row within data cubes section
 function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit: (cube: CubeConfig) => void; onDelete: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
   
@@ -63,73 +109,47 @@ function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit:
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const accentBg = isThemeColorKey(cube.accentColor)
-    ? undefined
-    : cube.accentColor;
-  const accentClass = isThemeColorKey(cube.accentColor)
-    ? getThemeColorClass(cube.accentColor)
-    : '';
+  const accentBg = isThemeColorKey(cube.accentColor) ? undefined : cube.accentColor;
+  const accentClass = isThemeColorKey(cube.accentColor) ? getThemeColorClass(cube.accentColor) : '';
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+      className="flex items-center gap-2 p-2 pl-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors ml-6"
       onClick={() => onEdit(cube)}
     >
-      {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
       </div>
-
-      {/* Color indicator */}
       <div 
-        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${accentClass}`}
+        className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 ${accentClass}`}
         style={accentBg ? { backgroundColor: accentBg } : undefined}
       >
-        {cube.cubeType === 'sales-chart' ? (
-          <LineChart className="h-5 w-5 text-white" />
-        ) : cube.cubeType === 'data-3d' ? (
-          <Box className="h-5 w-5 text-white" />
-        ) : (
-          <LayoutGrid className="h-5 w-5 text-white" />
-        )}
+        <Box className="h-4 w-4 text-white" />
       </div>
-      
-      {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">
-          {cube.title || (cube.cubeType === 'sales-chart'
-            ? 'Sales Overview'
-            : cube.cubeType === 'data-3d'
-              ? '3D Data Cube'
-              : 'Data Cube')}
+        <p className="font-medium text-sm truncate">
+          {cube.title || '3D Data Cube'}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {cube.cubeType === 'sales-chart' 
-            ? 'Full sales chart' 
-            : cube.cubeType === 'data-3d'
-              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-              : `${cube.size} · ${cube.metrics.length} metrics`}
+        <p className="text-[11px] text-muted-foreground">
+          {cube.cubeType === 'data-3d'
+            ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+            : `${cube.size} · ${cube.metrics.length} metrics`}
         </p>
       </div>
-      
-      {/* Delete button */}
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(cube.id);
-        }}
+        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+        onClick={(e) => { e.stopPropagation(); onDelete(cube.id); }}
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
@@ -145,12 +165,24 @@ export function EditDashboardDialog({
   onDeleteCube,
   onAddCube,
   onReorderCubes,
+  onSectionOrderChange,
 }: EditDashboardDialogProps) {
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { currentLocation } = useAppLocation();
+  
+  // Section order state
+  const [sectionOrder, setSectionOrder] = useState<SectionKey[]>(DEFAULT_SECTION_ORDER);
+  
+  // Load section order when dialog opens
+  useEffect(() => {
+    if (open && currentLocation?.id) {
+      setSectionOrder(getSectionOrder(currentLocation.id));
+    }
+  }, [open, currentLocation?.id]);
   
   // 3D cube specific state
   const [activeFace, setActiveFace] = useState(0);
@@ -158,17 +190,50 @@ export function EditDashboardDialog({
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
 
-  // Drag-and-drop reorder handler for list view
-  const handleListDragEnd = async (event: DragEndEvent) => {
+  // Drag-and-drop reorder for data cubes within data-cubes section
+  const dataCubes = cubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
+  const salesChart = cubes.find(c => c.cubeType === 'sales-chart');
+  
+  const handleCubeDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     
-    const oldIndex = cubes.findIndex(c => c.id === active.id);
-    const newIndex = cubes.findIndex(c => c.id === over.id);
+    const oldIndex = dataCubes.findIndex(c => c.id === active.id);
+    const newIndex = dataCubes.findIndex(c => c.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     
-    const reordered = arrayMove(cubes, oldIndex, newIndex);
-    onReorderCubes?.(reordered.map(c => c.id));
+    const reorderedDataCubes = arrayMove(dataCubes, oldIndex, newIndex);
+    // Reconstruct full order: data cubes in new order + sales chart at its original position
+    const allIds = cubes.map(c => c.id);
+    const dataCubeIds = new Set(dataCubes.map(c => c.id));
+    const newOrder: string[] = [];
+    let dataIdx = 0;
+    for (const id of allIds) {
+      if (dataCubeIds.has(id)) {
+        newOrder.push(reorderedDataCubes[dataIdx].id);
+        dataIdx++;
+      } else {
+        newOrder.push(id);
+      }
+    }
+    onReorderCubes?.(newOrder);
+  };
+  
+  // Section reorder handler
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = sectionOrder.indexOf(active.id as SectionKey);
+    const newIndex = sectionOrder.indexOf(over.id as SectionKey);
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    const newOrder = arrayMove(sectionOrder, oldIndex, newIndex);
+    setSectionOrder(newOrder);
+    if (currentLocation?.id) {
+      saveSectionOrder(currentLocation.id, newOrder);
+    }
+    onSectionOrderChange?.(newOrder);
   };
 
   // Reset when dialog closes
@@ -196,35 +261,16 @@ export function EditDashboardDialog({
       : migrateAccentColor(cube.accentColor);
     
     if (cube.cubeType === 'data-3d') {
-      // Initialize 3D cube editing state
       const faces = cube.faceMetrics || [[], [], [], []];
       const titles = cube.faceTitles || ['', '', '', ''];
-      setFaceMetrics([
-        faces[0] || [],
-        faces[1] || [],
-        faces[2] || [],
-        faces[3] || [],
-      ]);
-      setFaceTitles([
-        titles[0] || '',
-        titles[1] || '',
-        titles[2] || '',
-        titles[3] || '',
-      ]);
+      setFaceMetrics([faces[0] || [], faces[1] || [], faces[2] || [], faces[3] || []]);
+      setFaceTitles([titles[0] || '', titles[1] || '', titles[2] || '', titles[3] || '']);
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
-      setEditForm({
-        title: cube.title,
-        accentColor: themeColor,
-      });
+      setEditForm({ title: cube.title, accentColor: themeColor });
     } else {
-      // Filter out any legacy metrics that aren't in METRIC_GROUPS
       const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
-      setEditForm({
-        title: cube.title,
-        metrics: filteredMetrics,
-        accentColor: themeColor,
-      });
+      setEditForm({ title: cube.title, metrics: filteredMetrics, accentColor: themeColor });
     }
     setView('edit');
   };
@@ -243,10 +289,8 @@ export function EditDashboardDialog({
     if (!editingCube) return;
     
     if (editingCube.cubeType === 'data-3d') {
-      // 3D cube: toggle metric on current face
       const currentFaceMetrics = faceMetrics[activeFace];
-      const maxMetrics = 5; // 4 corners + 1 center
-      
+      const maxMetrics = 5;
       if (currentFaceMetrics.includes(metric)) {
         const updated = [...faceMetrics];
         updated[activeFace] = currentFaceMetrics.filter(m => m !== metric);
@@ -257,10 +301,8 @@ export function EditDashboardDialog({
         setFaceMetrics(updated);
       }
     } else {
-      // Regular data cube
       const maxMetrics = editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6;
       const currentMetrics = editForm.metrics || [];
-      
       if (currentMetrics.includes(metric)) {
         setEditForm(prev => ({ ...prev, metrics: currentMetrics.filter(m => m !== metric) }));
       } else if (currentMetrics.length < maxMetrics) {
@@ -269,18 +311,15 @@ export function EditDashboardDialog({
     }
   };
   
-  // Check if a metric is used on another face (for 3D cubes)
   const isMetricUsedElsewhere = (metric: MetricType) => {
     return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
 
   const handleSave = async () => {
     if (!editingCube) return;
-    
     setIsSaving(true);
     try {
       if (editingCube.cubeType === 'data-3d') {
-        // Save 3D cube with face metrics and titles
         await onUpdateCube(editingCube.id, {
           ...editForm,
           faceMetrics: faceMetrics.slice(0, numFaces),
@@ -304,13 +343,94 @@ export function EditDashboardDialog({
 
   const handleAddClick = () => {
     onOpenChange(false);
-    // Small delay to let dialog close
     setTimeout(() => onAddCube(), 100);
   };
 
   const maxMetrics = editingCube 
     ? (editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6)
     : 3;
+
+  // Build section items for the section-level DnD
+  const sectionItems = sectionOrder.filter(s => {
+    if (s === 'data-cubes') return dataCubes.length > 0;
+    if (s === 'sales-chart') return !!salesChart;
+    if (s === 'checklists') return true; // always show
+    return false;
+  });
+
+  const renderSectionContent = (section: SectionKey) => {
+    switch (section) {
+      case 'data-cubes':
+        return (
+          <div className="space-y-1">
+            <div className="p-3 rounded-lg border bg-accent/30">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                  <Box className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">Data Cubes</p>
+                  <p className="text-[11px] text-muted-foreground">{dataCubes.length} cube{dataCubes.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </div>
+            {/* Individual cubes within - their own DnD context */}
+            <DndContext collisionDetection={closestCenter} onDragEnd={handleCubeDragEnd}>
+              <SortableContext items={dataCubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                {dataCubes.map(cube => (
+                  <SortableCubeRow
+                    key={cube.id}
+                    cube={cube}
+                    onEdit={handleEditCube}
+                    onDelete={(id) => setDeleteId(id)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          </div>
+        );
+      case 'sales-chart':
+        if (!salesChart) return null;
+        return (
+          <div
+            className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+            onClick={() => handleEditCube(salesChart)}
+          >
+            <div className="w-8 h-8 rounded-md flex items-center justify-center" style={{ backgroundColor: '#0D9488' }}>
+              <LineChart className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm">{salesChart.title || 'Sales Overview'}</p>
+              <p className="text-[11px] text-muted-foreground">Full sales chart</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); setDeleteId(salesChart.id); }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        );
+      case 'checklists':
+        return (
+          <div className="p-3 rounded-lg border bg-accent/30">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
+                <ClipboardCheck className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm">Checklists</p>
+                <p className="text-[11px] text-muted-foreground">All assigned checklists</p>
+              </div>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <>
@@ -332,36 +452,31 @@ export function EditDashboardDialog({
             </DialogTitle>
           </DialogHeader>
 
-          {/* List View */}
+          {/* List View - Section-based */}
           {view === 'list' && (
             <div className="flex-1 flex flex-col min-h-0">
               <ScrollArea className="flex-1 -mx-6 px-6">
                 <div className="space-y-2 pb-4">
-                  {cubes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                  {cubes.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
                       No widgets yet. Add one to get started!
                     </p>
-                  ) : (
-                    <DndContext
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleListDragEnd}
-                    >
-                      <SortableContext items={cubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                        {cubes.map(cube => (
-                          <SortableCubeRow
-                            key={cube.id}
-                            cube={cube}
-                            onEdit={handleEditCube}
-                            onDelete={(id) => setDeleteId(id)}
-                          />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
                   )}
+                  <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleSectionDragEnd}
+                  >
+                    <SortableContext items={sectionItems} strategy={verticalListSortingStrategy}>
+                      {sectionItems.map(section => (
+                        <SortableSectionRow key={section} sectionKey={section}>
+                          {renderSectionContent(section)}
+                        </SortableSectionRow>
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
               </ScrollArea>
               
-              {/* Add button */}
               <Button 
                 onClick={handleAddClick}
                 className="w-full mt-4"
