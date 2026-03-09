@@ -48,20 +48,19 @@ export const ChecklistCard = memo(function ChecklistCard({
 
   const innerContent = (
     <>
-      {/* Left accent border */}
-      <div 
-        className={cn(
-          "absolute left-0 top-0 bottom-0 w-1",
-          variant === 'card' && "rounded-l-lg"
-        )}
-        style={{ 
-          background: isComplete 
-            ? 'hsl(var(--primary))' 
-            : isLocked 
-              ? 'hsl(var(--muted))' 
-              : 'hsl(var(--primary) / 0.5)' 
-        }} 
-      />
+      {/* Left accent border - only for standalone card variant */}
+      {variant === 'card' && (
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+          style={{ 
+            background: isComplete 
+              ? 'hsl(var(--primary))' 
+              : isLocked 
+                ? 'hsl(var(--muted))' 
+                : 'hsl(var(--primary) / 0.5)' 
+          }} 
+        />
+      )}
 
       <div className="flex items-center gap-3 pl-5 pr-4 py-3.5">
         {/* Drag handle */}
