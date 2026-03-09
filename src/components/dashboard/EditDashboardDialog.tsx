@@ -469,9 +469,19 @@ export function EditDashboardDialog({
                   )}
                   <DndContext
                     collisionDetection={closestCenter}
-                    onDragEnd={handleSectionDragEnd}
+                    onDragEnd={(event) => {
+                      const { active, over } = event;
+                      if (!over || active.id === over.id) return;
+                      // Determine if this is a section drag or cube drag
+                      const isSectionDrag = sectionItems.includes(active.id as SectionKey);
+                      if (isSectionDrag) {
+                        handleSectionDragEnd(event);
+                      } else {
+                        handleCubeDragEnd(event);
+                      }
+                    }}
                   >
-                    <SortableContext items={sectionItems} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={[...sectionItems, ...dataCubes.map(c => c.id)]} strategy={verticalListSortingStrategy}>
                       {sectionItems.map(section => (
                         <SortableSectionRow key={section} sectionKey={section}>
                           {renderSectionContent(section)}
