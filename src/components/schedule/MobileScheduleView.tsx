@@ -866,13 +866,13 @@ export function MobileScheduleView({
   );
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background -mx-[env(safe-area-inset-left,0px)] -mt-3">
       {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
         isV2 ? (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto px-2 py-3 space-y-3">
+            <div className="flex-1 overflow-auto px-3 py-3 space-y-3">
               {/* Date header */}
               <div className="flex items-center justify-center">
                 <DateNavigator
