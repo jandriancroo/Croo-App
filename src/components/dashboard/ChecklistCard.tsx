@@ -108,7 +108,7 @@ export const ChecklistCard = memo(function ChecklistCard({
           ) : isComplete ? (
             <span className="text-xs text-primary font-medium">All tasks complete ✓</span>
           ) : (
-            <div className="flex items-center gap-2 mt-1.5">
+            <div className={cn("flex items-center gap-2", variant === 'row' ? 'mt-1' : 'mt-1.5')}>
               <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-primary transition-all duration-500" 
