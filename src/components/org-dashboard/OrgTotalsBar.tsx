@@ -54,8 +54,8 @@ export function OrgTotalsBar({ locationData, locationIds, period }: OrgTotalsBar
   if (locationIds.length < 2) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom)]">
-      <div className="pointer-events-auto mx-4 mb-4 w-full max-w-3xl rounded-2xl bg-card/95 backdrop-blur-md border border-border shadow-lg px-4 py-3 flex items-center justify-between gap-3">
+    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none flex justify-center pb-[env(safe-area-inset-bottom)] mb-20 md:mb-0">
+      <div className="pointer-events-auto mx-4 mb-4 w-full max-w-3xl rounded-2xl bg-card/95 backdrop-blur-md border border-border shadow-lg px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between gap-2 md:gap-3">
         {/* Goal */}
         <div className="flex flex-col items-center min-w-0">
           <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Goal</span>
