@@ -477,6 +477,7 @@ export function MobileScheduleView({
   // Get shifts and events for selected day
   // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const isSelectedDateToday = selectedDateStr === todayStr;
 
   if (import.meta.env.DEV) {
     console.info('[MobileScheduleView]', {
@@ -945,8 +946,8 @@ export function MobileScheduleView({
                 <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={false} compact={true} />
               </div>
 
-              {/* 5. NOW section — active punches */}
-              {((() => {
+              {/* 5. TODAY: NOW + LATER sections with punch tracking */}
+              {isSelectedDateToday ? ((() => {
                 const activePunches = dayPunches.filter(p => p.isActive && !p.isOnBreak);
                 const onBreakPunches = dayPunches.filter(p => p.isOnBreak);
                 const completedPunches = dayPunches.filter(p => !p.isActive);
@@ -1009,7 +1010,7 @@ export function MobileScheduleView({
                       </div>
                     )}
 
-                    {/* 6. LATER section — scheduled shifts + actions */}
+                    {/* LATER section — completed punches + upcoming scheduled shifts */}
                     <div className="space-y-1.5">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                         {completedPunches.length > 0 ? `Completed (${completedPunches.length})` : 'Later'}
@@ -1099,7 +1100,6 @@ export function MobileScheduleView({
                             .filter(shift => {
                               const profile = getProfileForShift(shift);
                               if (!profile) return false;
-                              // Don't show shifts for people who already have punches
                               return !dayPunches.some(p => p.user_id === shift.user_id);
                             })
                             .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -1130,6 +1130,7 @@ export function MobileScheduleView({
                         </>
                       )}
                     </div>
+
                     {/* Day Insights — bottom of page */}
                     <Card className="overflow-hidden p-0 mt-3">
                       <button
@@ -1178,7 +1179,87 @@ export function MobileScheduleView({
                     </Card>
                   </>
                 );
-              })())}
+              })()) : (
+                /* Past/Future days — show all scheduled shifts, no punch tracking */
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    Scheduled
+                    <span className="text-muted-foreground">({dayShifts.filter(s => getProfileForShift(s)).length})</span>
+                    <div className="flex items-center gap-1 ml-auto">
+                      {(isAdmin || isManager) && scheduleId && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                            <CalendarPlus className="h-4 w-4" />
+                          </Button>
+                          {!isPublished ? (
+                            <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
+                              {isPublishing ? 'Publishing...' : 'Go Live'}
+                            </Button>
+                          ) : hasPendingChanges ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                              onClick={onSendUpdate}
+                              disabled={isPublishing}
+                            >
+                              {isPublishing ? (
+                                <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
+                              ) : (
+                                <><RefreshCw className="h-3 w-3 mr-1" />Update</>
+                              )}
+                            </Button>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+                              <span className="relative flex items-end gap-[1px] h-3">
+                                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                                <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                              </span>
+                              <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </h4>
+
+                  {dayShifts.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No shifts scheduled</p>
+                    </div>
+                  ) : (
+                    dayShifts
+                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                      .map(shift => {
+                        const profile = getProfileForShift(shift);
+                        if (!profile) return null;
+                        const shiftLabel = getShiftLabel(shift);
+                        return (
+                          <MobileShiftCard
+                            key={shift.id}
+                            name={getDisplayName(profile.full_name, (profile as any).nickname)}
+                            avatarUrl={profile.profile_photo_url}
+                            startTime={shift.start_time}
+                            endTime={shift.end_time}
+                            accentColor={shift.template?.color}
+                            isPublished={isShiftPublished(shift)}
+                            positionLabel={shiftLabel}
+                            positionColor={shift.template?.color}
+                            onClick={() => {
+                              if (isAdmin || isManager) {
+                                setSelectedShift(shift);
+                                setShiftDialogOpen(true);
+                              }
+                            }}
+                          />
+                        );
+                      })
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ) : (
