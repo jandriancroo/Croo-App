@@ -1319,38 +1319,6 @@ export function MobileScheduleView({
               )}
             </div>
           </div>
-        ) : (
-          /* Classic: Tabbed Today / Schedule */
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')} className="flex flex-col h-full">
-            <div className="px-4 pt-3 pb-2 border-b border-border flex items-center gap-2">
-              <TabsList className="w-full grid grid-cols-2 flex-1">
-                <TabsTrigger value="today" className="gap-1.5">
-                  {activePunchCount > 0 && (
-                    <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                  )}
-                  {todayTabLabel}
-                </TabsTrigger>
-                <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              </TabsList>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 shrink-0"
-                onClick={toggleLayout}
-                title="Switch to new layout"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-auto px-2 py-3">
-              <TabsContent value="today" className="mt-0 h-full">
-                {renderTodayContent()}
-              </TabsContent>
-              <TabsContent value="schedule" className="mt-0 h-full">
-                {renderScheduleContent()}
-              </TabsContent>
-            </div>
-          </Tabs>
         )
       ) : (
         /* Non-admin view - schedule only */
