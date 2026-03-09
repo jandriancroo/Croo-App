@@ -162,6 +162,14 @@ export function usePayrollData() {
     const baseStartDateStr = laborRules?.pay_period_start_date || '2025-11-03';
     const baseStart = parseDateStringInTimezone(baseStartDateStr, timezone);
 
+    // DST-safe: add days using pure calendar arithmetic on date strings
+    // This avoids addDays/addWeeks which use 24h ms increments and break on DST boundaries
+    const addCalendarDays = (dateStr: string, days: number): string => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const result = new Date(Date.UTC(y, m - 1, d + days));
+      return `${result.getUTCFullYear()}-${String(result.getUTCMonth() + 1).padStart(2, '0')}-${String(result.getUTCDate()).padStart(2, '0')}`;
+    };
+
     const makeLabel = (startDateStr: string, endDateStr: string) => {
       const startLabel = formatDateTimeInTimezone(
         parseDateStringInTimezone(startDateStr, timezone),
@@ -178,9 +186,9 @@ export function usePayrollData() {
 
     if (payPeriodType === 'weekly') {
       for (let i = 0; i <= 12; i++) {
-        const start = addWeeks(baseStart, i);
-        const endDateStr = getDateInTimezone(addDays(start, 6), timezone);
-        const startDateStr = getDateInTimezone(start, timezone);
+        const startDateStr = addCalendarDays(baseStartDateStr, i * 7);
+        const endDateStr = addCalendarDays(startDateStr, 6);
+        const start = parseDateStringInTimezone(startDateStr, timezone);
         const end = getEndOfDateStringInTimezone(endDateStr, timezone);
 
         if (start <= today) {
@@ -192,9 +200,9 @@ export function usePayrollData() {
       }
     } else if (payPeriodType === 'biweekly') {
       for (let i = 0; i <= 9; i++) {
-        const start = addWeeks(baseStart, i * 2);
-        const endDateStr = getDateInTimezone(addDays(start, 13), timezone);
-        const startDateStr = getDateInTimezone(start, timezone);
+        const startDateStr = addCalendarDays(baseStartDateStr, i * 14);
+        const endDateStr = addCalendarDays(startDateStr, 13);
+        const start = parseDateStringInTimezone(startDateStr, timezone);
         const end = getEndOfDateStringInTimezone(endDateStr, timezone);
 
         if (start <= today) {
