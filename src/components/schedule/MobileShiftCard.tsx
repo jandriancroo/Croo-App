@@ -1,6 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Pencil } from 'lucide-react';
-import { BreakIndicator } from './BreakIndicator';
+import { CalendarIcon, Pencil, Coffee } from 'lucide-react';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { formatTime12Hour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -204,15 +203,21 @@ export function MobileShiftCard({
             )}
           </div>
           
-          {/* Right side: action button or break indicator (hours moved to corner badge) */}
           <div className="flex flex-col items-end justify-center gap-1 shrink-0">
             {actionButton}
-            {!actionButton && hasBreak && (
-              <BreakIndicator hasBreak={true} size="sm" />
-            )}
           </div>
         </div>
       </div>
+      {/* Break corner flag badge */}
+      {!actionButton && hasBreak && (
+        <div 
+          className="absolute bottom-0 right-0 rounded-tl-lg px-1.5 py-1 flex items-center justify-center"
+          style={{ backgroundColor: leftColor || 'hsl(var(--muted-foreground))' }}
+          title="30-minute unpaid break"
+        >
+          <Coffee className="h-3.5 w-3.5 text-white" />
+        </div>
+      )}
     </div>
   );
 }
