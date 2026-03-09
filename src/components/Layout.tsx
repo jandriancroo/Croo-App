@@ -212,6 +212,8 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                       onOpenLocationPicker(isDashItem ? '/dashboard' : item.path);
                       return;
                     }
+                    // Skip navigation if already on this route
+                    if (location.pathname === itemPath) return;
                     // Trigger bounce animation
                     setBouncingItem(item.path);
                     setTimeout(() => setBouncingItem(null), 300);
