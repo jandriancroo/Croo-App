@@ -82,11 +82,13 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       {...listeners}
       {...attributes}
     >
-      {/* Inset accent stripe */}
-      <div 
-        className="absolute left-1 top-1 bottom-1 w-[3px] rounded-full"
-        style={{ backgroundColor: bgColor }}
-      />
+      {/* Inset accent stripe - non-compact only */}
+      {!isCompactMode && (
+        <div 
+          className="absolute left-1 top-1 bottom-1 w-[3px] rounded-full"
+          style={{ backgroundColor: bgColor }}
+        />
+      )}
       {/* Time-off conflict stripe overlay */}
       {hasTimeOffConflict && (
         <div 
