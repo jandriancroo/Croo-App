@@ -124,7 +124,7 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
 
   return (
     <div className={cn(
-      "flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden",
+      "flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden relative",
       !shift.isActive && !shift.isOnBreak && "opacity-70"
     )}>
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
@@ -154,15 +154,13 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
           {shift.isOnBreak && (
             <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
           )}
-          {isPunched && (
-            <div className="flex justify-end">
-              <span className={cn("font-bold text-sm", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
-                {shift.hours.toFixed(1)}h
-              </span>
-            </div>
-          )}
         </div>
       </div>
+      {isPunched && (
+        <span className={cn("absolute bottom-2 right-2.5 font-bold text-sm", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+          {shift.hours.toFixed(1)}h
+        </span>
+      )}
     </div>
   );
 }
