@@ -165,17 +165,18 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   if (tasks.length === 0) return null;
   
   return (
-    <>
+    <div className="flex flex-wrap gap-1.5">
       {tasks.map(task => (
-        <TemporaryTaskCard
-          key={task.id}
-          id={task.id}
-          title={task.title}
-          icon={task.icon}
-          accentColor={TEAL_COLOR}
-          onAction={task.onClick}
-        />
+        <div key={task.id} style={{ minWidth: 'calc(50% - 4px)' }} className="flex-1">
+          <TemporaryTaskCard
+            id={task.id}
+            title={task.title}
+            icon={task.icon}
+            accentColor={TEAL_COLOR}
+            onAction={task.onClick}
+          />
+        </div>
       ))}
-    </>
+    </div>
   );
 }
