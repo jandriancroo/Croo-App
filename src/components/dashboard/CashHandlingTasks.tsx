@@ -166,14 +166,15 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   return (
     <div className="flex flex-wrap gap-1.5">
       {tasks.map(task => (
-        <div key={task.id} style={{ minWidth: 'calc(50% - 4px)' }} className="flex-1">
-          <TemporaryTaskCard
-            id={task.id}
-            title={task.title}
-            icon={task.icon}
-            accentColor={TEAL_COLOR}
-            onAction={task.onClick}
-          />
+        <div
+          key={task.id}
+          onClick={task.onClick}
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
+          style={{ backgroundColor: `${TEAL_COLOR}10` }}
+        >
+          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: TEAL_COLOR }} />
+          <span className="text-xs font-medium truncate flex-1">{task.title}</span>
+          <CircleCheck className="h-4 w-4 text-muted-foreground/40 shrink-0" />
         </div>
       ))}
     </div>
