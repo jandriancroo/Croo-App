@@ -265,7 +265,24 @@ export default function Dashboard() {
     }
   };
 
-  // Check for welcome animation from login
+  const handleReorderCubes = async (orderedIds: string[]) => {
+    try {
+      // Update display_order for each cube
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          supabase
+            .from('user_dashboard_cubes')
+            .update({ display_order: index })
+            .eq('id', id)
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+    } catch (error) {
+      console.error('Error reordering cubes:', error);
+      toast.error('Failed to save order');
+    }
+  };
+
   useEffect(() => {
     if (location.state?.showWelcomeAnimation) {
       setShowWelcomeAnimation(true);
