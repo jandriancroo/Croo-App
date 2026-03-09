@@ -52,19 +52,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
   const wasTrimmed = shift.was_trimmed && shift.original_end_time;
 
   // Split position into two lines at the midpoint for multi-word names
-  const formatPosition = (pos: string) => {
-    const words = pos.split(' ');
-    if (words.length >= 2) {
-      const mid = Math.ceil(words.length / 2);
-      return (
-        <>
-          <div>{words.slice(0, mid).join(' ')}</div>
-          <div>{words.slice(mid).join(' ')}</div>
-        </>
-      );
-    }
-    return pos;
-  };
+  const formatPosition = (pos: string) => pos;
 
   // For templates, use the position/role field, not the full template_name
   const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
