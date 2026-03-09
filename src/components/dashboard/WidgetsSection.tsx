@@ -60,10 +60,6 @@ interface SortableDataCubeProps {
   onSalesDataChange?: (data: SalesDataForWidgets | null) => void;
 }
 
-interface SortableChecklistsBlockProps {
-  children: ReactNode;
-  isReorderMode: boolean;
-}
 
 function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode, onSalesDataChange }: SortableDataCubeProps) {
   const isOled = useIsOledTheme();
