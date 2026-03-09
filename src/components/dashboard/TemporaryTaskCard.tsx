@@ -66,87 +66,59 @@ export function TemporaryTaskCard({
   return (
     <>
       <Card
-        className="overflow-hidden border-0 relative"
+        className="overflow-hidden border-0 relative rounded-xl"
+        style={{ backgroundColor: `${accentColor}10` }}
       >
-        {/* Accent left border */}
-        <div 
-          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-          style={{ backgroundColor: accentColor }}
-        />
         <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            {iconStyle === "minimal" ? (
-              <Icon className="h-5 w-5 shrink-0" style={{ color: accentColor }} />
-            ) : (
-              <div
-                className="p-1.5 rounded-md shrink-0 relative"
-                style={{ backgroundColor: `${accentColor}20` }}
-              >
-                <Icon className="h-4 w-4" style={{ color: accentColor }} />
-                {taskStyle === "alarm" && (
-                  <div 
-                    className="absolute -top-1 -right-1 p-0.5 rounded-full"
-                    style={{ backgroundColor: accentColor }}
-                  >
-                    <AlarmClock className="h-2 w-2 text-white" />
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {/* Inset rounded accent stripe */}
+            <div 
+              className="w-1 self-stretch rounded-full shrink-0 my-0.5"
+              style={{ backgroundColor: accentColor }}
+            />
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-sm leading-tight">{title}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               {taskStyle === "alarm" && (
                 <span 
-                  className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                  className="px-1 py-0.5 rounded text-[9px] font-medium"
                   style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
                 >
                   RECURRING
                 </span>
               )}
               {hasSubtasks && (
-                <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
-                  style={{
-                    backgroundColor: subtaskProgress === 1 ? '#22c55e20' : `${accentColor}20`,
-                    color: subtaskProgress === 1 ? '#22c55e' : accentColor,
-                  }}
-                >
-                  <ListChecks className="h-3 w-3" />
+                <span className="text-xs text-muted-foreground font-medium">
                   {subtasksCompleted}/{subtasksTotal}
                 </span>
               )}
-              {badge && (
-                <span
-                  className="px-1.5 py-0.5 rounded text-[10px] shrink-0"
-                  style={{
-                    backgroundColor: badge.color ? `${badge.color}20` : `${accentColor}20`,
-                    color: badge.color || accentColor,
-                  }}
-                >
+              {badge && !hasSubtasks && (
+                <span className="text-xs text-muted-foreground">
                   {badge.label}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
-              className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-50"
+              className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
               onClick={onAction}
               disabled={isLoading}
             >
-              <Check className="h-3.5 w-3.5" />
+              <Check className="h-4.5 w-4.5 text-muted-foreground/50" />
             </button>
             {showShare && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                className="h-7 w-7 text-muted-foreground hover:text-primary"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShareOpen(true);
                 }}
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
