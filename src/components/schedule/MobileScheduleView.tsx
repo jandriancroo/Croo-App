@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid, BarChart3 } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
