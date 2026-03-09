@@ -147,7 +147,7 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
-  const { isV2, toggleLayout } = useScheduleLayoutFlag();
+  
   const { isAdmin, isManager, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
