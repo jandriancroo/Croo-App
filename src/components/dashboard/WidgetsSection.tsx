@@ -622,55 +622,72 @@ export const WidgetsSection = memo(function WidgetsSection({
   const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
+  // Section order from localStorage
+  const sectionOrder = useMemo(() => {
+    if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
+    const key = `dashboard-section-order-${currentLocation.id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
+    }
+    return ['data-cubes', 'checklists', 'sales-chart'];
+  }, [currentLocation?.id, localCubes]); // re-read when cubes change (dialog may have updated)
+
+  const renderSection = (section: string) => {
+    switch (section) {
+      case 'data-cubes':
+        if (dataCubes.length === 0) return null;
+        return (
+          <DndContext
+            key="data-cubes"
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={dataCubes.map(cube => cube.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-2 gap-3">
+                {dataCubes.map(cube => (
+                  <SortableDataCube
+                    key={cube.id}
+                    cube={cube}
+                    salesData={salesData}
+                    isLoading={isLoadingSales}
+                    locationSettings={locationSettings}
+                    isReorderMode={isReorderMode}
+                    onSalesDataChange={onSalesDataChange}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        );
+      case 'checklists':
+        if (!checklistsContent) return null;
+        return <div key="checklists" className="w-full">{checklistsContent}</div>;
+      case 'sales-chart':
+        if (!salesChart) return null;
+        return (
+          <SortableDataCube
+            key={salesChart.id}
+            cube={salesChart}
+            salesData={salesData}
+            isLoading={isLoadingSales}
+            locationSettings={locationSettings}
+            isReorderMode={isReorderMode}
+            onSalesDataChange={onSalesDataChange}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-4 w-full">
-      {/* Data Cubes Row */}
-      {dataCubes.length > 0 && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={dataCubes.map(cube => cube.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="grid grid-cols-2 gap-3">
-              {dataCubes.map(cube => (
-                <SortableDataCube
-                  key={cube.id}
-                  cube={cube}
-                  salesData={salesData}
-                  isLoading={isLoadingSales}
-                  locationSettings={locationSettings}
-                  isReorderMode={isReorderMode}
-                  onSalesDataChange={onSalesDataChange}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
-      
-      {/* Checklists Section - Full Width */}
-      {checklistsContent && (
-        <div className="w-full">
-          {checklistsContent}
-        </div>
-      )}
-      
-      {/* Sales Summary - Full Width */}
-      {salesChart && (
-        <SortableDataCube
-          key={salesChart.id}
-          cube={salesChart}
-          salesData={salesData}
-          isLoading={isLoadingSales}
-          locationSettings={locationSettings}
-          isReorderMode={isReorderMode}
-          onSalesDataChange={onSalesDataChange}
-        />
-      )}
+      {sectionOrder.map(section => renderSection(section))}
 
       {/* Add Data Cube Dialog - only for personal cubes */}
       {!useRoleCubes && (
