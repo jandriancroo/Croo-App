@@ -219,6 +219,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   onSalesDataChange,
   roleCubes,
   useRoleCubes = false,
+  sectionOrder: sectionOrderProp,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
