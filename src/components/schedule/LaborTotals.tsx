@@ -647,7 +647,7 @@ export function LaborTotals({
           `}
         >
           <BarChart3 className="h-3.5 w-3.5" />
-          <span>Schedule Tools</span>
+          <span>Week Insights</span>
           {isToolsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>
