@@ -69,7 +69,7 @@ export function TemporaryTaskCard({
         className="overflow-hidden border-0 relative rounded-xl"
         style={{ backgroundColor: `${accentColor}10` }}
       >
-        <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
+        <CardContent className="py-1.5 px-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {/* Inset rounded accent stripe */}
             <div 
