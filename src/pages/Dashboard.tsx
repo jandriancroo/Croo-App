@@ -270,15 +270,21 @@ export default function Dashboard() {
 
   const handleReorderCubes = async (orderedIds: string[]) => {
     try {
-      // Update display_order for each cube
-      await Promise.all(
-        orderedIds.map((id, index) =>
-          supabase
-            .from('user_dashboard_cubes')
-            .update({ display_order: index })
-            .eq('id', id)
-        )
-      );
+      // Two-phase update to avoid unique constraint conflicts on display_order
+      // Phase 1: Set all to temporary negative values
+      for (let i = 0; i < orderedIds.length; i++) {
+        await supabase
+          .from('user_dashboard_cubes')
+          .update({ display_order: -(1000000 + i) })
+          .eq('id', orderedIds[i]);
+      }
+      // Phase 2: Set final values
+      for (let i = 0; i < orderedIds.length; i++) {
+        await supabase
+          .from('user_dashboard_cubes')
+          .update({ display_order: i })
+          .eq('id', orderedIds[i]);
+      }
       queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
     } catch (error) {
       console.error('Error reordering cubes:', error);
