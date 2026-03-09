@@ -315,9 +315,10 @@ export function ManagerDashboardOverlay({
   const { data: activeShifts = [] } = useQuery({
     queryKey: ['manager-dash-shifts', locationId, todayStr],
     queryFn: async () => {
-      const offset = getTimezoneOffset(timezone);
-      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`).toISOString();
-      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
+      // DST-safe day boundaries
+      const startOfDay = parseDateStringInTimezone(todayStr, timezone).toISOString();
+      const endOfDayDate = getEndOfDateStringInTimezone(todayStr, timezone);
+      const endOfDayPlus = new Date(endOfDayDate);
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
       const endOfDay = endOfDayPlus.toISOString();
 
