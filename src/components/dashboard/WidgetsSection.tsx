@@ -203,6 +203,8 @@ interface WidgetsSectionProps {
   // Role-based cubes (locked by Org Admin for TM/SM/Manager)
   roleCubes?: RoleCubeConfig[];
   useRoleCubes?: boolean;
+  // Section order from parent (reactive)
+  sectionOrder?: string[];
 }
 
 export const WidgetsSection = memo(function WidgetsSection({
