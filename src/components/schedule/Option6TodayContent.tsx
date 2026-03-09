@@ -1,12 +1,11 @@
-import { Circle, UserPlus, CalendarPlus, BarChart3 } from 'lucide-react';
+import { Circle, UserPlus, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { MobileShiftCard } from './MobileShiftCard';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
-import { cn } from '@/lib/utils';
 import { getDisplayName } from '@/utils/displayName';
 import { formatTime12Hour } from '@/lib/utils';
-import { getTodayInTimezone } from '@/utils/timezoneUtils';
+import { useState } from 'react';
 import { useState } from 'react';
 
 interface Profile {
