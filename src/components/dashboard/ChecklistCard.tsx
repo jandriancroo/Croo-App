@@ -71,7 +71,7 @@ export const ChecklistCard = memo(function ChecklistCard({
         )}
 
         {/* Dynamic ring icon */}
-        <div className="relative w-12 h-12 shrink-0">
+        <div className={cn("relative shrink-0", variant === 'row' ? 'w-10 h-10' : 'w-12 h-12')}>
           <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
             <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
             {!isLocked && (
