@@ -1130,22 +1130,23 @@ export function MobileScheduleView({
                             const laborPct = sales > 0 ? (laborCost / sales) * 100 : 0;
                             const salesPerLH = totalHours > 0 ? sales / totalHours : 0;
                             return (
-                              <div className="flex items-center justify-between text-center">
+                              <div className="grid grid-cols-5 gap-1 text-center">
+                                <div>
+                                  <span className="text-base font-bold">${sales.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                  <p className="text-[10px] text-muted-foreground">Sales</p>
+                                </div>
                                 <div>
                                   <span className="text-base font-bold">{totalHours.toFixed(1)}h</span>
                                   <p className="text-[10px] text-muted-foreground">Hours</p>
                                 </div>
-                                <div className="w-px h-7 bg-border" />
                                 <div>
                                   <span className="text-base font-bold">${laborCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                                   <p className="text-[10px] text-muted-foreground">Labor</p>
                                 </div>
-                                <div className="w-px h-7 bg-border" />
                                 <div>
                                   <span className={`text-base font-bold ${laborPct > 30 ? 'text-destructive' : 'text-green-600'}`}>{laborPct.toFixed(1)}%</span>
                                   <p className="text-[10px] text-muted-foreground">Labor %</p>
                                 </div>
-                                <div className="w-px h-7 bg-border" />
                                 <div>
                                   <span className="text-base font-bold">${salesPerLH.toFixed(2)}</span>
                                   <p className="text-[10px] text-muted-foreground">$/LH</p>
