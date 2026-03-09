@@ -1051,6 +1051,7 @@ export default function Dashboard() {
             onDeleteCube={handleDeleteCube}
             onAddCube={() => setShowAddCubeDialog(true)}
             onReorderCubes={handleReorderCubes}
+            onSectionOrderChange={setDashboardSectionOrder}
           />
 
           {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
