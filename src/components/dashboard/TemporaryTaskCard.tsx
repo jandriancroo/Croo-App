@@ -76,36 +76,25 @@ export function TemporaryTaskCard({
               className="w-1 self-stretch rounded-full shrink-0 my-0.5"
               style={{ backgroundColor: accentColor }}
             />
-            <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-sm leading-tight">{title}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               {taskStyle === "alarm" && (
                 <span 
-                  className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                  className="px-1 py-0.5 rounded text-[9px] font-medium"
                   style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
                 >
                   RECURRING
                 </span>
               )}
               {hasSubtasks && (
-                <span
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
-                  style={{
-                    backgroundColor: subtaskProgress === 1 ? '#22c55e20' : `${accentColor}20`,
-                    color: subtaskProgress === 1 ? '#22c55e' : accentColor,
-                  }}
-                >
-                  <ListChecks className="h-3 w-3" />
+                <span className="text-xs text-muted-foreground font-medium">
                   {subtasksCompleted}/{subtasksTotal}
                 </span>
               )}
-              {badge && (
-                <span
-                  className="px-1.5 py-0.5 rounded text-[10px] shrink-0"
-                  style={{
-                    backgroundColor: badge.color ? `${badge.color}20` : `${accentColor}20`,
-                    color: badge.color || accentColor,
-                  }}
-                >
+              {badge && !hasSubtasks && (
+                <span className="text-xs text-muted-foreground">
                   {badge.label}
                 </span>
               )}
