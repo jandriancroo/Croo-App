@@ -64,17 +64,15 @@ export function TemporaryTaskCard({
 
   return (
     <>
-      <Card
-        className="overflow-hidden border-0 relative rounded-xl"
+      <div
+        className="flex items-center gap-2.5 rounded-xl overflow-hidden cursor-pointer active:opacity-80 transition-opacity"
         style={{ backgroundColor: `${accentColor}10` }}
       >
-        <CardContent className="py-1.5 px-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {/* Inset rounded accent stripe */}
-            <div 
-              className="w-1 self-stretch rounded-full shrink-0 my-0.5"
-              style={{ backgroundColor: accentColor }}
-            />
+        {/* Inset rounded accent stripe */}
+        <div 
+          className="w-1 self-stretch rounded-full shrink-0 my-1 ml-2"
+          style={{ backgroundColor: accentColor }}
+        />
             <div className="min-w-0 flex-1">
               <p className="font-medium text-sm leading-tight">{title}</p>
             </div>
