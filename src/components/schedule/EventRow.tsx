@@ -746,33 +746,40 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
                     <div
                       key={`${event.id}-${dayIndex}`}
                       onClick={() => isEditable && handleEdit(event)}
-                      className={`w-full overflow-hidden p-1 rounded-md text-[10px] md:text-[11px] transition-colors ${
+                      className={`w-full overflow-hidden rounded-lg text-[10px] md:text-[11px] transition-colors flex items-center gap-1 px-1.5 py-1 ${
                         isEditable ? 'cursor-pointer hover:brightness-110' : ''
                       }`}
                       style={{
-                        backgroundColor: `${categoryColor}30`,
-                        borderLeft: `3px solid ${categoryColor}`,
+                        backgroundColor: `${categoryColor}15`,
                       }}
                     >
-                      <div className="flex items-center gap-1 text-white font-medium">
-                        {event.is_daily_task && (
-                          <ClipboardCheck className="h-3 w-3 flex-shrink-0" />
-                        )}
-                        <span className="truncate">{event.event_name}</span>
-                        {!isExpanded && hasMultiple && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsExpanded(true);
-                            }}
-                            className="ml-auto px-1 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
-                          >
-                            +{hiddenCount}
-                          </button>
-                        )}
-                      </div>
-                      <div className="text-white/70 text-[10px]">
-                        {formatTime12Hour(event.event_time)}
+                      <div 
+                        className="w-[3px] self-stretch rounded-full shrink-0"
+                        style={{ backgroundColor: categoryColor }}
+                      />
+                      {event.is_daily_task ? (
+                        <ClipboardCheck className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
+                      ) : (
+                        <CalendarDays className="h-3 w-3 flex-shrink-0" style={{ color: categoryColor }} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-white font-medium">
+                          <span className="truncate">{event.event_name}</span>
+                          {!isExpanded && hasMultiple && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsExpanded(true);
+                              }}
+                              className="ml-auto px-1 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                            >
+                              +{hiddenCount}
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-white/70 text-[10px]">
+                          {formatTime12Hour(event.event_time)}
+                        </div>
                       </div>
                     </div>
                   );
