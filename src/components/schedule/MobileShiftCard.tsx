@@ -195,11 +195,18 @@ export function MobileShiftCard({
             )}
           </div>
           
-          {/* Action button or break indicator */}
-          {actionButton}
-          {!actionButton && hasBreak && (
-            <BreakIndicator hasBreak={true} size="sm" />
-          )}
+          {/* Right side: hours + action button */}
+          <div className="flex flex-col items-end justify-center gap-1 shrink-0">
+            {hoursWorked !== undefined && (
+              <span className={`text-sm font-bold ${getStatusTextColor()}`}>
+                {hoursWorked.toFixed(1)}h
+              </span>
+            )}
+            {actionButton}
+            {!actionButton && hasBreak && (
+              <BreakIndicator hasBreak={true} size="sm" />
+            )}
+          </div>
         </div>
       </div>
     </div>
