@@ -1007,100 +1007,71 @@ export function MobileScheduleView({
                       </div>
                     )}
 
-                    {/* LATER section — completed punches + upcoming scheduled shifts */}
-                    <div className="space-y-1.5">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        {completedPunches.length > 0 ? `Completed (${completedPunches.length})` : 'Later'}
-                        <div className="flex items-center gap-1 ml-auto">
-                          {(activePunches.length === 0 && onBreakPunches.length === 0) && (
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
-                              <UserPlus className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {(isAdmin || isManager) && scheduleId && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
-                                <CalendarPlus className="h-4 w-4" />
-                              </Button>
-                              {!isPublished ? (
-                                <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
-                                  {isPublishing ? 'Publishing...' : 'Go Live'}
+                    {/* LATER section — upcoming scheduled shifts not yet punched in */}
+                    {(() => {
+                      const laterShifts = dayShifts
+                        .filter(shift => {
+                          const profile = getProfileForShift(shift);
+                          if (!profile) return false;
+                          return !dayPunches.some(p => p.user_id === shift.user_id);
+                        })
+                        .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+                      const showLaterSection = laterShifts.length > 0 || (activePunches.length === 0 && onBreakPunches.length === 0 && completedPunches.length === 0);
+
+                      return showLaterSection ? (
+                        <div className="space-y-1.5">
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            Later
+                            <div className="flex items-center gap-1 ml-auto">
+                              {(activePunches.length === 0 && onBreakPunches.length === 0) && (
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
+                                  <UserPlus className="h-3.5 w-3.5" />
                                 </Button>
-                              ) : hasPendingChanges ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-                                  onClick={onSendUpdate}
-                                  disabled={isPublishing}
-                                >
-                                  {isPublishing ? (
-                                    <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
-                                  ) : (
-                                    <><RefreshCw className="h-3 w-3 mr-1" />Update</>
-                                  )}
-                                </Button>
-                              ) : (
-                                <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
-                                  <span className="relative flex items-end gap-[1px] h-3">
-                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-                                    <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-                                  </span>
-                                  <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
-                                </div>
                               )}
-                            </>
-                          )}
-                        </div>
-                      </h4>
+                              {(isAdmin || isManager) && scheduleId && (
+                                <>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                                    <CalendarPlus className="h-4 w-4" />
+                                  </Button>
+                                  {!isPublished ? (
+                                    <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
+                                      {isPublishing ? 'Publishing...' : 'Go Live'}
+                                    </Button>
+                                  ) : hasPendingChanges ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                                      onClick={onSendUpdate}
+                                      disabled={isPublishing}
+                                    >
+                                      {isPublishing ? (
+                                        <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
+                                      ) : (
+                                        <><RefreshCw className="h-3 w-3 mr-1" />Update</>
+                                      )}
+                                    </Button>
+                                  ) : (
+                                    <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+                                      <span className="relative flex items-end gap-[1px] h-3">
+                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                                        <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                                      </span>
+                                      <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </h4>
 
-                      {loadingActive ? (
-                        <div className="text-center py-8 text-muted-foreground">Loading...</div>
-                      ) : (
-                        <>
-                          {completedPunches.map(punch => (
-                            <MobileShiftCard
-                              key={punch.id}
-                              name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
-                              avatarUrl={punch.profile.profile_photo_url}
-                              startTime={punch.scheduledShift?.start_time || '00:00'}
-                              endTime={punch.scheduledShift?.end_time || '00:00'}
-                              statusIndicator="none"
-                              scheduledStart={punch.scheduledShift?.start_time}
-                              scheduledEnd={punch.scheduledShift?.end_time}
-                              clockInTime={punch.clockInTime}
-                              clockOutTime={punch.clockOutTime}
-                              breakStartTime={punch.breakStartTime}
-                              breakEndTime={punch.breakEndTime}
-                              hoursWorked={punch.hoursWorked}
-                              createdByName={punch.createdByName}
-                              timezone={timezone}
-                              formatTimeDisplay={formatTimeDisplay}
-                              showBreakIndicator={false}
-                              onClick={() => {
-                                const today = getTodayInTimezone(timezone);
-                                setSelectedPunch({
-                                  userId: punch.user_id,
-                                  userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                                  userPhoto: punch.profile.profile_photo_url,
-                                  punchDate: today
-                                });
-                                setEditPunchOpen(true);
-                              }}
-                            />
-                          ))}
-
-                          {/* Scheduled shifts not yet punched in */}
-                          {dayShifts
-                            .filter(shift => {
-                              const profile = getProfileForShift(shift);
-                              if (!profile) return false;
-                              return !dayPunches.some(p => p.user_id === shift.user_id);
-                            })
-                            .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                            .map(shift => {
+                          {loadingActive ? (
+                            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                          ) : (
+                            laterShifts.map(shift => {
                               const profile = getProfileForShift(shift);
                               if (!profile) return null;
                               const shiftLabel = getShiftLabel(shift);
@@ -1123,10 +1094,99 @@ export function MobileScheduleView({
                                   }}
                                 />
                               );
-                            })}
-                        </>
-                      )}
-                    </div>
+                            })
+                          )}
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {/* COMPLETED section — finished punches */}
+                    {completedPunches.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          {`Completed (${completedPunches.length})`}
+                          {(() => {
+                            const laterCount = dayShifts.filter(s => getProfileForShift(s) && !dayPunches.some(p => p.user_id === s.user_id)).length;
+                            return laterCount === 0 ? (
+                              <div className="flex items-center gap-1 ml-auto">
+                                {(activePunches.length === 0 && onBreakPunches.length === 0) && (
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setQuickPunchOpen(true)}>
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                {(isAdmin || isManager) && scheduleId && (
+                                  <>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEventDialogOpen(true)}>
+                                      <CalendarPlus className="h-4 w-4" />
+                                    </Button>
+                                    {!isPublished ? (
+                                      <Button size="sm" className="h-7 px-3 text-xs" onClick={onGoLive} disabled={isPublishing}>
+                                        {isPublishing ? 'Publishing...' : 'Go Live'}
+                                      </Button>
+                                    ) : hasPendingChanges ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                                        onClick={onSendUpdate}
+                                        disabled={isPublishing}
+                                      >
+                                        {isPublishing ? (
+                                          <><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Updating...</>
+                                        ) : (
+                                          <><RefreshCw className="h-3 w-3 mr-1" />Update</>
+                                        )}
+                                      </Button>
+                                    ) : (
+                                      <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+                                        <span className="relative flex items-end gap-[1px] h-3">
+                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                                          <span className="w-0.5 bg-destructive rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                                        </span>
+                                        <span className="text-[10px] font-semibold text-destructive uppercase tracking-wide">Live</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ) : null;
+                          })()}
+                        </h4>
+                        {completedPunches.map(punch => (
+                          <MobileShiftCard
+                            key={punch.id}
+                            name={getDisplayName(punch.profile.full_name, punch.profile.nickname)}
+                            avatarUrl={punch.profile.profile_photo_url}
+                            startTime={punch.scheduledShift?.start_time || '00:00'}
+                            endTime={punch.scheduledShift?.end_time || '00:00'}
+                            statusIndicator="none"
+                            scheduledStart={punch.scheduledShift?.start_time}
+                            scheduledEnd={punch.scheduledShift?.end_time}
+                            clockInTime={punch.clockInTime}
+                            clockOutTime={punch.clockOutTime}
+                            breakStartTime={punch.breakStartTime}
+                            breakEndTime={punch.breakEndTime}
+                            hoursWorked={punch.hoursWorked}
+                            createdByName={punch.createdByName}
+                            timezone={timezone}
+                            formatTimeDisplay={formatTimeDisplay}
+                            showBreakIndicator={false}
+                            onClick={() => {
+                              const today = getTodayInTimezone(timezone);
+                              setSelectedPunch({
+                                userId: punch.user_id,
+                                userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                                userPhoto: punch.profile.profile_photo_url,
+                                punchDate: today
+                              });
+                              setEditPunchOpen(true);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
 
                     {/* Day Insights — bottom of page */}
                     <Card className="overflow-hidden p-0 mt-3">
