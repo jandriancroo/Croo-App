@@ -843,60 +843,84 @@ export function MobileScheduleView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Standard Tabs for Admin/Manager */}
+      {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')} className="flex flex-col h-full">
-          <div className="px-4 pt-3 pb-2 border-b border-border flex items-center gap-2">
-            <TabsList className="w-full grid grid-cols-2 flex-1">
-              <TabsTrigger value="today" className="gap-1.5">
-                {activePunchCount > 0 && (
-                  <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                )}
-                {todayTabLabel}
-              </TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-            </TabsList>
-            <Button
-              size="icon"
-              variant={isV2 ? "default" : "ghost"}
-              className="h-8 w-8 shrink-0"
-              onClick={toggleLayout}
-              title={isV2 ? "Switch to classic layout" : "Switch to new layout"}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex-1 overflow-auto px-2 py-3">
-            <TabsContent value="today" className="mt-0 h-full">
-              {isV2 ? (
-                <Option6TodayContent
-                  dayPunches={dayPunches}
-                  loadingActive={loadingActive}
-                  timezone={timezone}
-                  todayEvents={_todayEvents}
-                  formatTimeDisplay={formatTimeDisplay}
-                  onQuickPunchOpen={() => setQuickPunchOpen(true)}
-                  onPunchClick={(punch) => {
-                    const today = getTodayInTimezone(timezone);
-                    setSelectedPunch({
-                      userId: punch.user_id,
-                      userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
-                      userPhoto: punch.profile.profile_photo_url,
-                      punchDate: today
-                    });
-                    setEditPunchOpen(true);
-                  }}
-                  onEventClick={(event) => setPreviewEvent(event as any)}
-                />
-              ) : (
-                renderTodayContent()
-              )}
-            </TabsContent>
-            <TabsContent value="schedule" className="mt-0 h-full">
+        isV2 ? (
+          /* V2: Combined single-scroll view — no tabs */
+          <div className="flex flex-col h-full">
+            <div className="px-4 pt-3 pb-2 border-b border-border flex items-center justify-end">
+              <Button
+                size="icon"
+                variant="default"
+                className="h-8 w-8 shrink-0"
+                onClick={toggleLayout}
+                title="Switch to classic layout"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto px-2 py-3 space-y-6">
+              {/* Today section — punches, tasks, events */}
+              <Option6TodayContent
+                dayPunches={dayPunches}
+                loadingActive={loadingActive}
+                timezone={timezone}
+                todayEvents={_todayEvents}
+                formatTimeDisplay={formatTimeDisplay}
+                onQuickPunchOpen={() => setQuickPunchOpen(true)}
+                onPunchClick={(punch) => {
+                  const today = getTodayInTimezone(timezone);
+                  setSelectedPunch({
+                    userId: punch.user_id,
+                    userName: getDisplayName(punch.profile.full_name, punch.profile.nickname),
+                    userPhoto: punch.profile.profile_photo_url,
+                    punchDate: today
+                  });
+                  setEditPunchOpen(true);
+                }}
+                onEventClick={(event) => setPreviewEvent(event as any)}
+              />
+
+              {/* Divider */}
+              <div className="border-t border-border/50" />
+
+              {/* Schedule section — week nav, day selector, shifts */}
               {renderScheduleContent()}
-            </TabsContent>
+            </div>
           </div>
-        </Tabs>
+        ) : (
+          /* Classic: Tabbed Today / Schedule */
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')} className="flex flex-col h-full">
+            <div className="px-4 pt-3 pb-2 border-b border-border flex items-center gap-2">
+              <TabsList className="w-full grid grid-cols-2 flex-1">
+                <TabsTrigger value="today" className="gap-1.5">
+                  {activePunchCount > 0 && (
+                    <Circle className="h-2 w-2 fill-green-500 text-green-500" />
+                  )}
+                  {todayTabLabel}
+                </TabsTrigger>
+                <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              </TabsList>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 shrink-0"
+                onClick={toggleLayout}
+                title="Switch to new layout"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto px-2 py-3">
+              <TabsContent value="today" className="mt-0 h-full">
+                {renderTodayContent()}
+              </TabsContent>
+              <TabsContent value="schedule" className="mt-0 h-full">
+                {renderScheduleContent()}
+              </TabsContent>
+            </div>
+          </Tabs>
+        )
       ) : (
         /* Non-admin view - schedule only */
         <div className="flex-1 overflow-auto p-2">
