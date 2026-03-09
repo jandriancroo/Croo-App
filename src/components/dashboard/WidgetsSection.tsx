@@ -510,8 +510,9 @@ export const WidgetsSection = memo(function WidgetsSection({
   const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
-  // Section order from localStorage - must be before early returns (hooks rule)
+  // Section order: use prop if provided, else read from localStorage
   const sectionOrder = useMemo(() => {
+    if (sectionOrderProp) return sectionOrderProp;
     if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
     const key = `dashboard-section-order-${currentLocation.id}`;
     const saved = localStorage.getItem(key);
@@ -519,7 +520,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
     }
     return ['data-cubes', 'checklists', 'sales-chart'];
-  }, [currentLocation?.id, localCubes]);
+  }, [currentLocation?.id, sectionOrderProp]);
 
   // If using role cubes and no cubes configured, show empty state (no add dialogs)
   if (useRoleCubes && localCubes.length === 0 && !checklistsContent) {
