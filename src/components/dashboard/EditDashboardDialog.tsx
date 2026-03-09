@@ -49,6 +49,99 @@ interface EditDashboardDialogProps {
   onUpdateCube: (id: string, updates: Partial<CubeConfig>) => Promise<void>;
   onDeleteCube: (id: string) => Promise<void>;
   onAddCube: () => void;
+  onReorderCubes?: (orderedIds: string[]) => Promise<void>;
+}
+
+// Helper to resolve accent color to a CSS color string
+function resolveAccentColor(accentColor: string): string {
+  if (accentColor.startsWith('#')) return accentColor;
+  if (isThemeColorKey(accentColor)) {
+    const tc = THEME_COLORS.find(t => t.key === accentColor);
+    if (tc) return `hsl(${tc.cssVar.replace('var(', '').replace(')', '')})`;
+  }
+  return 'hsl(var(--primary))';
+}
+
+// Sortable cube row component
+function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit: (cube: CubeConfig) => void; onDelete: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
+  
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const accentBg = isThemeColorKey(cube.accentColor)
+    ? undefined
+    : cube.accentColor;
+  const accentClass = isThemeColorKey(cube.accentColor)
+    ? getThemeColorClass(cube.accentColor)
+    : '';
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
+      onClick={() => onEdit(cube)}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+      </div>
+
+      {/* Color indicator */}
+      <div 
+        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${accentClass}`}
+        style={accentBg ? { backgroundColor: accentBg } : undefined}
+      >
+        {cube.cubeType === 'sales-chart' ? (
+          <LineChart className="h-5 w-5 text-white" />
+        ) : cube.cubeType === 'data-3d' ? (
+          <Box className="h-5 w-5 text-white" />
+        ) : (
+          <LayoutGrid className="h-5 w-5 text-white" />
+        )}
+      </div>
+      
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">
+          {cube.title || (cube.cubeType === 'sales-chart'
+            ? 'Sales Overview'
+            : cube.cubeType === 'data-3d'
+              ? '3D Data Cube'
+              : 'Data Cube')}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {cube.cubeType === 'sales-chart' 
+            ? 'Full sales chart' 
+            : cube.cubeType === 'data-3d'
+              ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+              : `${cube.size} · ${cube.metrics.length} metrics`}
+        </p>
+      </div>
+      
+      {/* Delete button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(cube.id);
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 }
 
 type View = 'list' | 'edit';
