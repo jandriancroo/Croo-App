@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { cn } from '@/lib/utils';
 import { 
-  TrendingUp, TrendingDown, ChevronRight, ChevronLeft,
-  ClipboardCheck, CircleCheck, DollarSign, Users, Clock,
-  BarChart3, ChefHat, Bell, MessageSquare, Flame,
-  ArrowUpRight, ArrowDownRight, Eye, Utensils, Star,
-  Timer, Zap, Target, Activity, CalendarDays
+  TrendingUp, ChevronRight, ClipboardCheck, CircleCheck, 
+  DollarSign, Users, BarChart3, Flame,
+  ArrowUpRight, ArrowDownRight,
+  Timer, Zap, Target, Activity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
