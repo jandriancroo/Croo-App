@@ -197,28 +197,33 @@ export function MobileScheduleView({
       const endOfDayTime = endOfDayPlus.toISOString();
       
       // Parallel queries for all data
+      const punchesQuery = supabase
+        .from('time_punches')
+        .select('id, user_id, punch_time, punch_type, notes, created_by')
+        .eq('location_id', currentLocation.id)
+        .gte('punch_time', startOfDayTime)
+        .lte('punch_time', endOfDayTime)
+        .order('punch_time', { ascending: true });
+      
+      const scheduledQuery = supabase
+        .from('scheduled_shifts')
+        .select('id, user_id, start_time, end_time, day_of_week, shift_date')
+        .eq('shift_date', todayStr);
+      
+      const eventsQuery = supabase
+        .from('schedule_events')
+        .select('*, event_categories(name, color)')
+        .eq('location_id', currentLocation.id)
+        .eq('is_recurring', true);
+      
       const [punchesRes, scheduledRes, eventsRes] = await Promise.all([
-        supabase
-          .from('time_punches')
-          .select('id, user_id, punch_time, punch_type, notes, created_by')
-          .eq('location_id', currentLocation.id)
-          .gte('punch_time', startOfDayTime)
-          .lte('punch_time', endOfDayTime)
-          .order('punch_time', { ascending: true }),
-        supabase
-          .from('scheduled_shifts')
-          .select('id, user_id, start_time, end_time, day_of_week, shift_date')
-          .eq('location_id', currentLocation.id)
-          .eq('shift_date', todayStr),
-        supabase
-          .from('schedule_events')
-          .select('*, event_categories(name, color)')
-          .eq('location_id', currentLocation.id)
-          .eq('is_recurring', true)
+        punchesQuery,
+        scheduledQuery,
+        eventsQuery
       ]);
 
       const allPunches = punchesRes.data || [];
-      const todayScheduledShifts = scheduledRes.data || [];
+      const todayScheduledShifts = (scheduledRes.data || []) as { id: string; user_id: string; start_time: string; end_time: string; day_of_week: number; shift_date: string }[];
       const eventsData = eventsRes.data || [];
       
       // Filter events for today
