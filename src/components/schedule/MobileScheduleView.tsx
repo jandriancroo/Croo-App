@@ -183,16 +183,15 @@ export function MobileScheduleView({
       const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
       const offset = getTimezoneOffset(timezone);
 
-      // IMPORTANT: Query a window that looks BACK before midnight as well as AFTER.
-      // Otherwise we can fetch a clock_out (after midnight) without its matching clock_in
-      // (before midnight), which then incorrectly pairs with a later clock_in and produces
-      // negative hours (e.g., Anthony Tolentino: 7:09 PM in paired with 1:00 AM out).
-      const startOfDay = new Date(`${todayStr}T00:00:00${offset}`);
+      // Use DST-safe parseDateStringInTimezone for day boundaries
+      // (getTimezoneOffset may return wrong offset on DST transition days)
+      const startOfDay = parseDateStringInTimezone(todayStr, timezone);
       const startMinus = new Date(startOfDay);
       startMinus.setHours(startMinus.getHours() - 12);
       const startOfDayTime = startMinus.toISOString();
 
-      const endOfDayPlus = new Date(`${todayStr}T23:59:59${offset}`);
+      const endOfDay = getEndOfDateStringInTimezone(todayStr, timezone);
+      const endOfDayPlus = new Date(endOfDay);
       endOfDayPlus.setHours(endOfDayPlus.getHours() + 12);
       const endOfDayTime = endOfDayPlus.toISOString();
       
