@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
+import { CircleCheck, LucideIcon, AlarmClock, Send, ListChecks } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 
 export interface TemporaryTaskCardProps {
