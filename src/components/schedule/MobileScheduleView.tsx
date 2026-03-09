@@ -390,7 +390,7 @@ export function MobileScheduleView({
       
       return todayOnlyPunches;
     },
-    enabled: (activeTab === 'today' || isV2) && !!currentLocation?.id && !!timezone,
+    enabled: (activeTab === 'today' || true) && !!currentLocation?.id && !!timezone,
     staleTime: 30 * 1000,
     refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
   });
