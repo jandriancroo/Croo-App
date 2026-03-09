@@ -6,6 +6,7 @@ import { useOrgLocations, useOrgLocationData, useBrandLocations } from '@/hooks/
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { OrgSearchBar, SearchTag } from '@/components/org-dashboard/OrgSearchBar';
 import { OrgCubeStyleB, OrgPeriod } from '@/components/org-dashboard/cube-styles/OrgCubeStyleB';
+import { OrgTotalsBar } from '@/components/org-dashboard/OrgTotalsBar';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 
 /** Compact D/W/M period selector */
@@ -173,7 +174,16 @@ export default function MultiLocationDashboard() {
             </p>
           </div>
         )}
+
+        {/* Spacer for floating bar */}
+        {sortedLocationIds.length >= 2 && <div className="h-20" />}
       </div>
+
+      <OrgTotalsBar
+        locationData={locationData}
+        locationIds={sortedLocationIds}
+        period={period}
+      />
     </Layout>
   );
 }
