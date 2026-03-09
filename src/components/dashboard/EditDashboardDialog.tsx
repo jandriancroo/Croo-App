@@ -343,7 +343,6 @@ export function EditDashboardDialog({
                     </p>
                   ) : (
                     <DndContext
-                      sensors={sensors}
                       collisionDetection={closestCenter}
                       onDragEnd={handleListDragEnd}
                     >
