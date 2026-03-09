@@ -138,7 +138,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="absolute bottom-1 right-1 block md:hidden xl:block">
-          <BreakIndicator hasBreak={true} size="sm" variant="dark" />
+          <span className="inline-flex items-center justify-center h-4 w-4" title="30-minute unpaid break">
+            <Coffee className="h-3 w-3" style={{ color: bgColor }} />
+          </span>
         </div>
       )}
     </Card>
