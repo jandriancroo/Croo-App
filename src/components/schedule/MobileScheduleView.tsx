@@ -872,17 +872,6 @@ export function MobileScheduleView({
         isV2 ? (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
-            <div className="px-4 pt-3 pb-2 border-b border-border flex items-center justify-end">
-              <Button
-                size="icon"
-                variant="default"
-                className="h-8 w-8 shrink-0"
-                onClick={toggleLayout}
-                title="Switch to classic layout"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
             <div className="flex-1 overflow-auto px-2 py-3 space-y-3">
               {/* Date header */}
               <div className="flex items-center justify-between">
