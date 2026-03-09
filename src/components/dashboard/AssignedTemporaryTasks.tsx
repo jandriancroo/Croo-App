@@ -6,7 +6,7 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { TemporaryTaskDetailsDialog } from "@/components/tasks/TemporaryTaskDetailsDialog";
-import { ClipboardList, Check, ChefHat, CalendarCheck } from "lucide-react";
+import { ClipboardList, CircleCheck, ChefHat, CalendarCheck, CalendarDays } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
