@@ -368,8 +368,10 @@ export function AssignedTemporaryTasks({
     // Collect all items into a unified badge list
     const badgeItems: { id: string; label: string; color: string; progress?: string; onClick: () => void; isEvent?: boolean }[] = [];
 
-    // Events first
-    incompleteEventTasks.forEach(task => {
+    // Events first, sorted by earliest time
+    [...incompleteEventTasks]
+      .sort((a, b) => a.event_time.localeCompare(b.event_time))
+      .forEach(task => {
       badgeItems.push({
         id: `event-${task.id}`,
         label: task.event_name,
