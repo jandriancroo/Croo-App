@@ -113,6 +113,7 @@ export function EditDashboardDialog({
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
       setEditForm({
+        title: cube.title,
         accentColor: themeColor,
       });
     } else {
