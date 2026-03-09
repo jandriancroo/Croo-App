@@ -130,16 +130,12 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
       {/* Diagonal hours badge - top right corner */}
       {isPunched && (
         <div 
-          className="absolute top-0 right-0 w-16 h-16 overflow-hidden pointer-events-none"
+          className={cn(
+            "absolute top-0 right-0 px-2 py-1 text-[11px] font-bold text-white rounded-bl-lg",
+            shift.isOnBreak ? "bg-amber-500" : "bg-green-500"
+          )}
         >
-          <div 
-            className={cn(
-              "absolute top-[6px] -right-[14px] w-[80px] text-center text-[11px] font-bold text-white py-0.5 rotate-45 shadow-sm",
-              shift.isOnBreak ? "bg-amber-500" : "bg-green-500"
-            )}
-          >
-            {shift.hours.toFixed(1)}h
-          </div>
+          {shift.hours.toFixed(1)}h
         </div>
       )}
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
