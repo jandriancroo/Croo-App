@@ -153,6 +153,7 @@ export function EditDashboardDialog({
   onUpdateCube,
   onDeleteCube,
   onAddCube,
+  onReorderCubes,
 }: EditDashboardDialogProps) {
   const [view, setView] = useState<View>('list');
   const [editingCube, setEditingCube] = useState<CubeConfig | null>(null);
