@@ -123,26 +123,49 @@ export function useBrandLocations(brandId: string | null) {
 
 /**
  * Fetches sales/labor data for multiple locations from sales_cache + labor_cache.
- * Accepts an optional targetDate string (yyyy-MM-dd in LA timezone).
- * When targetDate is provided, "today" is replaced with that date for all calculations.
+ * targetDate: the selected date (yyyy-MM-dd). For month view this is the 1st of the month.
+ * period: 'day' | 'week' | 'month' — determines the effective end date for range queries.
  */
-export function useOrgLocationData(locationIds: string[], targetDate?: string) {
+export function useOrgLocationData(locationIds: string[], targetDate?: string, period: 'day' | 'week' | 'month' = 'day') {
   const nowReal = new Date();
   const todayReal = laDate(nowReal);
-  const isHistorical = !!targetDate && targetDate !== todayReal;
-  const effectiveToday = targetDate || todayReal;
+
+  // Compute the effective "end of range" date based on period
+  const baseDate = targetDate || todayReal;
+  const effectiveEndDate = (() => {
+    if (period === 'day') return baseDate;
+    if (period === 'week') {
+      // targetDate is any day in the week; end = Sunday of that week, capped at today
+      const [y, m, d] = baseDate.split('-').map(Number);
+      const dt = new Date(y, m - 1, d, 12);
+      const dow = dt.getDay();
+      const mondayOff = dow === 0 ? 6 : dow - 1;
+      const sunday = new Date(dt);
+      sunday.setDate(sunday.getDate() - mondayOff + 6);
+      const sundayStr = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+      return sundayStr > todayReal ? todayReal : sundayStr;
+    }
+    // month: end = last day of month, capped at today
+    const [y, m] = baseDate.split('-').map(Number);
+    const lastDay = new Date(y, m, 0); // day 0 of next month = last day of this month
+    const lastStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
+    return lastStr > todayReal ? todayReal : lastStr;
+  })();
+
+  // The "reference day" for daily metrics (today's row, hourly data, etc.)
+  const effectiveToday = period === 'day' ? baseDate : effectiveEndDate;
+  const isHistorical = effectiveToday !== todayReal;
 
   return useQuery({
-    queryKey: ['org-location-data', locationIds.sort().join(','), effectiveToday],
+    queryKey: ['org-location-data', locationIds.sort().join(','), effectiveToday, period],
     queryFn: async () => {
       if (locationIds.length === 0) return {};
 
-      // Build a Date object from the effective today string (in LA timezone context)
       const [y, m, d] = effectiveToday.split('-').map(Number);
-      const refDate = new Date(y, m - 1, d, 12); // noon to avoid DST issues
+      const refDate = new Date(y, m - 1, d, 12);
 
-      // Determine WTD start (Monday)
-      const dayOfWeek = refDate.getDay(); // 0=Sun
+      // Determine WTD start (Monday) relative to effectiveToday
+      const dayOfWeek = refDate.getDay();
       const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const monday = new Date(refDate);
       monday.setDate(monday.getDate() - mondayOffset);
@@ -166,7 +189,7 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string) {
       const prevMonthStart = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
       const prevMonthEndStr = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(prevMonthEnd.getDate()).padStart(2, '0')}`;
 
-      // Fetch sales_cache
+      // Fetch sales_cache — use effectiveToday (end of range) as upper bound
       const { data: salesRows } = await supabase
         .from('sales_cache')
         .select('location_id, sale_date, net_sales, living_projection, override_projection, initial_projection, projected_sales, hourly_data, yoy_net_sales')
