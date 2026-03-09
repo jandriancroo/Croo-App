@@ -392,7 +392,7 @@ export function MobileScheduleView({
     },
     enabled: (activeTab === 'today' || true) && !!currentLocation?.id && !!timezone,
     staleTime: 30 * 1000,
-    refetchInterval: (activeTab === 'today' || isV2) ? 60 * 1000 : false,
+    refetchInterval: 60 * 1000,
   });
 
   // Fetch sales + labor for Day Insights (V2)
