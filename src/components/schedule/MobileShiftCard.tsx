@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarIcon, Pencil } from 'lucide-react';
-import { BreakIndicator } from './BreakIndicator';
+import { CalendarIcon, Pencil, Coffee } from 'lucide-react';
+import { shiftHasBreak } from '@/utils/shiftUtils';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { formatTime12Hour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
