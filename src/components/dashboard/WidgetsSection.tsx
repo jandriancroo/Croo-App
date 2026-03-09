@@ -203,6 +203,8 @@ interface WidgetsSectionProps {
   // Role-based cubes (locked by Org Admin for TM/SM/Manager)
   roleCubes?: RoleCubeConfig[];
   useRoleCubes?: boolean;
+  // Section order from parent (reactive)
+  sectionOrder?: string[];
 }
 
 export const WidgetsSection = memo(function WidgetsSection({
@@ -217,6 +219,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   onSalesDataChange,
   roleCubes,
   useRoleCubes = false,
+  sectionOrder: sectionOrderProp,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -507,8 +510,9 @@ export const WidgetsSection = memo(function WidgetsSection({
   const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
-  // Section order from localStorage - must be before early returns (hooks rule)
+  // Section order: use prop if provided, else read from localStorage
   const sectionOrder = useMemo(() => {
+    if (sectionOrderProp) return sectionOrderProp;
     if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
     const key = `dashboard-section-order-${currentLocation.id}`;
     const saved = localStorage.getItem(key);
@@ -516,7 +520,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
     }
     return ['data-cubes', 'checklists', 'sales-chart'];
-  }, [currentLocation?.id, localCubes]);
+  }, [currentLocation?.id, sectionOrderProp]);
 
   // If using role cubes and no cubes configured, show empty state (no add dialogs)
   if (useRoleCubes && localCubes.length === 0 && !checklistsContent) {

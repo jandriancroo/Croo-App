@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, ClipboardCheck, ArrowUpDown, Check, Settings2, AlertTriangle, Lock } from 'lucide-react';
 import { ChecklistCard } from '@/components/dashboard/ChecklistCard';
-import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
+import { EditDashboardDialog, CubeConfig, SectionKey, getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
@@ -102,6 +102,9 @@ export default function Dashboard() {
   const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
+  const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
+    currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
+  );
   const queryClient = useQueryClient();
   const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
   
@@ -1010,6 +1013,7 @@ export default function Dashboard() {
       }}
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
+      sectionOrder={dashboardSectionOrder}
     />
   ) : (
     // If section not visible, just render the checklists grid directly
@@ -1047,6 +1051,7 @@ export default function Dashboard() {
             onDeleteCube={handleDeleteCube}
             onAddCube={() => setShowAddCubeDialog(true)}
             onReorderCubes={handleReorderCubes}
+            onSectionOrderChange={setDashboardSectionOrder}
           />
 
           {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
