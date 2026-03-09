@@ -338,58 +338,22 @@ export function EditDashboardDialog({
                       No widgets yet. Add one to get started!
                     </p>
                   ) : (
-                    cubes.map(cube => (
-                      <div
-                        key={cube.id}
-                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors"
-                        onClick={() => handleEditCube(cube)}
-                      >
-                        {/* Color indicator */}
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: cube.accentColor }}
-                        >
-                          {cube.cubeType === 'sales-chart' ? (
-                            <LineChart className="h-5 w-5 text-white" />
-                          ) : cube.cubeType === 'data-3d' ? (
-                            <Box className="h-5 w-5 text-white" />
-                          ) : (
-                            <LayoutGrid className="h-5 w-5 text-white" />
-                          )}
-                        </div>
-                        
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
-                            {cube.title || (cube.cubeType === 'sales-chart'
-                              ? 'Sales Overview'
-                              : cube.cubeType === 'data-3d'
-                                ? '3D Data Cube'
-                                : 'Data Cube')}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {cube.cubeType === 'sales-chart' 
-                              ? 'Full sales chart' 
-                              : cube.cubeType === 'data-3d'
-                                ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
-                                : `${cube.size} · ${cube.metrics.length} metrics`}
-                          </p>
-                        </div>
-                        
-                        {/* Delete button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteId(cube.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleListDragEnd}
+                    >
+                      <SortableContext items={cubes.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                        {cubes.map(cube => (
+                          <SortableCubeRow
+                            key={cube.id}
+                            cube={cube}
+                            onEdit={handleEditCube}
+                            onDelete={(id) => setDeleteId(id)}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
                   )}
                 </div>
               </ScrollArea>
