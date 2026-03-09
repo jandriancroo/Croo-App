@@ -100,25 +100,25 @@ export function TemporaryTaskCard({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button
-              className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shrink-0 disabled:opacity-50"
+              className="h-7 w-7 rounded-full flex items-center justify-center shrink-0 disabled:opacity-50"
               onClick={onAction}
               disabled={isLoading}
             >
-              <Check className="h-3.5 w-3.5" />
+              <Check className="h-4.5 w-4.5 text-muted-foreground/50" />
             </button>
             {showShare && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                className="h-7 w-7 text-muted-foreground hover:text-primary"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShareOpen(true);
                 }}
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3.5 w-3.5" />
               </Button>
             )}
           </div>
