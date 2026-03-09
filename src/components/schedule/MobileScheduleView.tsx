@@ -477,6 +477,7 @@ export function MobileScheduleView({
   // Get shifts and events for selected day
   // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const isSelectedDateToday = selectedDateStr === todayStr;
 
   if (import.meta.env.DEV) {
     console.info('[MobileScheduleView]', {
