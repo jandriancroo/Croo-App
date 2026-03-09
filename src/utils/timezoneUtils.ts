@@ -217,26 +217,50 @@ export const getStartOfDateInTimezone = (date: Date, timezone: string = DEFAULT_
 /**
  * Parse a date-only string (YYYY-MM-DD) as midnight in the specified timezone.
  * This avoids the JS Date("YYYY-MM-DD") UTC parsing that can shift the calendar day.
+ *
+ * DST-safe: verifies the result maps back to the correct calendar date and
+ * retries with the corrected offset if DST boundaries cause a mismatch
+ * (e.g., spring-forward day where midnight's offset differs from noon's).
  */
 export const parseDateStringInTimezone = (
   dateStr: string,
   timezone: string = DEFAULT_TIMEZONE
 ): Date => {
+  // First attempt: use offset from noon UTC (works for ~99% of days)
   const referenceDate = new Date(`${dateStr}T12:00:00Z`);
   const offset = getTimezoneOffset(timezone, referenceDate);
-  return new Date(`${dateStr}T00:00:00${offset}`);
+  const result = new Date(`${dateStr}T00:00:00${offset}`);
+
+  // Verify the result actually represents the correct calendar date in-timezone
+  const actualDate = getDateInTimezone(result, timezone);
+  if (actualDate === dateStr) return result;
+
+  // DST mismatch detected (e.g., spring-forward day) — recalculate
+  // Use the result itself as reference to get the correct offset for midnight
+  const correctedOffset = getTimezoneOffset(timezone, result);
+  return new Date(`${dateStr}T00:00:00${correctedOffset}`);
 };
 
 /**
  * Get the end-of-day Date for a date-only string (YYYY-MM-DD) in the specified timezone.
+ * DST-safe: uses the same self-correcting approach as parseDateStringInTimezone.
  */
 export const getEndOfDateStringInTimezone = (
   dateStr: string,
   timezone: string = DEFAULT_TIMEZONE
 ): Date => {
+  // First attempt
   const referenceDate = new Date(`${dateStr}T12:00:00Z`);
   const offset = getTimezoneOffset(timezone, referenceDate);
-  return new Date(`${dateStr}T23:59:59.999${offset}`);
+  const result = new Date(`${dateStr}T23:59:59.999${offset}`);
+
+  // Verify
+  const actualDate = getDateInTimezone(result, timezone);
+  if (actualDate === dateStr) return result;
+
+  // Correct for DST mismatch
+  const correctedOffset = getTimezoneOffset(timezone, result);
+  return new Date(`${dateStr}T23:59:59.999${correctedOffset}`);
 };
 
 /**
