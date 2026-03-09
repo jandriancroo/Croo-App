@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight,
   Timer, Zap, Target, Activity
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 
 // ─── Mock Data ───────────────────────────────────────────────────
 const METRICS = [
@@ -63,100 +63,121 @@ const TrendArrow = ({ trend }: { trend: 'up' | 'down' }) => (
 );
 
 // ════════════════════════════════════════════════════════════════
-// OPTION 1: BENTO GRID — Apple-inspired asymmetric cards
+// OPTION 1: CURRENT DESIGN — Neumorphic cards, 3D cubes, accent stripes
 // ════════════════════════════════════════════════════════════════
-const Option1Bento = () => {
-  const [metricPage, setMetricPage] = useState(0);
-  const pageMetrics = METRICS.slice(metricPage * 2, metricPage * 2 + 2);
-  
+const Option1Current = () => {
+  const MOCK_CUBES = [
+    { title: 'Daily Sales', metrics: ['$4,823', '$6,210', '18.2%'], labels: ['Sales', 'Pace', 'Labor'], color: 'hsl(270 60% 55%)' },
+    { title: 'Weekly Sales', metrics: ['$28,450', '$32,100', '$35,000'], labels: ['WTD', 'Pace', 'Goal'], color: 'hsl(var(--primary))' },
+  ];
+
   return (
     <div className="space-y-3">
-      {/* Swipeable Metric Cards */}
-      <div className="relative">
-        <div className="flex gap-2.5 overflow-hidden">
-          <AnimatePresence mode="popLayout">
-            {pageMetrics.map((m) => (
-              <motion.div
-                key={m.label}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -40 }}
-                className="flex-1 min-w-0 rounded-2xl bg-card p-4 border border-border/50"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10">
-                    <m.icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-xs text-muted-foreground font-medium">{m.label}</span>
-                </div>
-                <p className="text-2xl font-black tracking-tight">{m.value}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <TrendArrow trend={m.trend} />
-                  <span className="text-xs text-muted-foreground">{m.sub}</span>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+      {/* Header matching current */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Dash</h1>
+        <div className="flex gap-2">
+          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
-        {/* Pagination dots */}
-        <div className="flex items-center justify-center gap-1.5 mt-2">
-          {[0, 1, 2].map(i => (
-            <button key={i} onClick={() => setMetricPage(i)}
-              className={cn("h-1.5 rounded-full transition-all", i === metricPage ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30")} />
+      </div>
+      <div className="h-px bg-border" />
+
+      {/* Task pills — color-washed 2-col */}
+      <div className="flex flex-wrap gap-1.5">
+        {TASKS.map(t => (
+          <div key={t.text} className="min-w-[calc(50%-4px)] flex items-center gap-2 px-2.5 py-2 rounded-full"
+            style={{ background: `color-mix(in srgb, ${t.color} 10%, transparent)` }}>
+            <div className="w-1.5 h-4 rounded-full" style={{ background: t.color }} />
+            <span className="text-[11px] font-medium truncate">{t.text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 3D Data Cubes mockup */}
+      <div className="flex gap-2.5">
+        {MOCK_CUBES.map(cube => (
+          <div key={cube.title} className="flex-1 rounded-xl overflow-hidden border-0" 
+            style={{ background: cube.color, perspective: '600px' }}>
+            <div className="p-3 text-white">
+              <p className="text-[10px] font-bold uppercase tracking-wider opacity-70">{cube.title}</p>
+              <div className="mt-2 space-y-1.5">
+                {cube.metrics.map((val, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-[10px] opacity-60">{cube.labels[i]}</span>
+                    <span className="text-sm font-black">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sales Chart — neumorphic card */}
+      <div className="rounded-xl bg-card border-0 p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Sales Overview</h3>
+          </div>
+          <span className="text-xs text-muted-foreground">Today</span>
+        </div>
+        <div className="flex items-end gap-1.5 h-20">
+          {HOURS.map(h => (
+            <div key={h.hour} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full rounded-t-md bg-primary/80" style={{ height: `${h.pct}%` }} />
+              <span className="text-[10px] text-muted-foreground">{h.hour}</span>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Bento Grid */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {/* Sales Chart - Large */}
-        <div className="col-span-2 rounded-2xl bg-card border border-border/50 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">Peak Hours</h3>
-            <span className="text-xs text-muted-foreground">Today</span>
-          </div>
-          <div className="flex items-end gap-1.5 h-20">
-            {HOURS.map(h => (
-              <div key={h.hour} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full rounded-t-md bg-primary/80" style={{ height: `${h.pct}%` }} />
-                <span className="text-[10px] text-muted-foreground">{h.hour}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Checklists */}
+      {/* Checklist Cards — matching current neumorphic style with left accent + ring */}
+      <div className="space-y-2.5">
         {CHECKLISTS.map(cl => (
-          <div key={cl.name} className="rounded-2xl bg-card border border-border/50 p-3 flex flex-col justify-between min-h-[100px]">
-            <div className="flex items-start justify-between">
-              <span className="text-xs font-semibold leading-tight">{cl.name}</span>
-              <ProgressRing pct={cl.progress} size={32} stroke={3} />
-            </div>
-            <div className="mt-auto">
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${cl.progress}%` }} />
+          <div key={cl.name} className="rounded-xl bg-card border-0 overflow-hidden relative p-0 shadow-sm">
+            {/* Left accent stripe */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" 
+              style={{ background: cl.progress === 100 ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.5)' }} />
+            <div className="flex items-center gap-3 pl-5 pr-4 py-3.5">
+              {/* Progress ring */}
+              <div className="relative w-12 h-12 shrink-0">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--primary))" strokeWidth="3" strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 20}
+                    strokeDashoffset={(2 * Math.PI * 20) - (cl.progress / 100) * (2 * Math.PI * 20)} />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {cl.progress === 100 
+                    ? <CircleCheck className="h-5 w-5 text-primary" />
+                    : <span className="text-[11px] font-black text-primary">{cl.progress}%</span>
+                  }
+                </div>
               </div>
-              <span className="text-[10px] text-muted-foreground mt-1">{cl.done}/{cl.items} items</span>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold text-sm">{cl.name}</span>
+                {cl.progress === 100 ? (
+                  <p className="text-xs text-primary font-medium">All tasks complete ✓</p>
+                ) : (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${cl.progress}%` }} />
+                    </div>
+                    <span className="text-[11px] font-medium text-muted-foreground">{cl.done}/{cl.items}</span>
+                  </div>
+                )}
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
             </div>
           </div>
         ))}
-
-        {/* Tasks */}
-        <div className="col-span-2 rounded-2xl bg-card border border-border/50 p-4">
-          <h3 className="text-sm font-semibold mb-2.5">Active Tasks</h3>
-          <div className="space-y-2">
-            {TASKS.map(t => (
-              <div key={t.text} className="flex items-center gap-3 p-2 rounded-xl bg-muted/50">
-                <div className="w-1 h-8 rounded-full" style={{ background: t.color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{t.text}</p>
-                  <p className="text-[10px] text-muted-foreground">{t.assignee}</p>
-                </div>
-                <CircleCheck className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -525,7 +546,7 @@ const Option5Command = () => (
 
 // ─── Preview Page ────────────────────────────────────────────────
 const OPTIONS = [
-  { id: 1, name: 'Bento Grid', desc: 'Apple-inspired asymmetric cards with swipeable metrics', component: Option1Bento },
+  { id: 1, name: 'Current Design', desc: 'Your existing dashboard — neumorphic cards, 3D data cubes, accent-stripe checklists, color-washed task pills', component: Option1Current },
   { id: 2, name: 'Scroll Cards', desc: 'Linear single-column with hero metric + pill tasks', component: Option2ScrollCards },
   { id: 3, name: 'Editorial', desc: 'Magazine-style hero with dark contrast + clean lists', component: Option3Editorial },
   { id: 4, name: 'Glassmorphic', desc: 'Floating depth panels with ambient color blobs', component: Option4Glass },
