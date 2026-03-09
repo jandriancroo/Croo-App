@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { THEME_COLORS, ThemeColorKey, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
+import { THEME_COLORS, migrateAccentColor, getThemeColorClass, isThemeColorKey } from "@/utils/themeColors";
 
 export interface CubeConfig {
   id: string;
