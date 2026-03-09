@@ -1,8 +1,7 @@
 import { memo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
-import { Scissors } from "lucide-react";
-import { BreakIndicator } from "./BreakIndicator";
+import { Scissors, Coffee } from "lucide-react";
 import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -138,7 +137,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="absolute bottom-1 right-1 block md:hidden xl:block">
-          <BreakIndicator hasBreak={true} size="sm" variant="dark" />
+          <span className="inline-flex items-center justify-center h-4 w-4" title="30-minute unpaid break">
+            <Coffee className="h-3 w-3" style={{ color: bgColor }} />
+          </span>
         </div>
       )}
     </Card>
