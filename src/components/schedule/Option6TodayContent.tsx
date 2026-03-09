@@ -5,7 +5,6 @@ import { MobileShiftCard } from './MobileShiftCard';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { getDisplayName } from '@/utils/displayName';
 import { useState } from 'react';
-import { useState } from 'react';
 
 interface Profile {
   id: string;
