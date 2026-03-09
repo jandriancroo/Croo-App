@@ -633,7 +633,7 @@ export function LaborTotals({
   }
 
   return <div className="text-xs min-w-[700px]">
-      {/* Schedule Tools tab - rendered inline, pulled up over the border with negative margin */}
+      {/* Week Insights tab - rendered inline, pulled up over the border with negative margin */}
       <div className="-mt-[1.85rem] mb-0 relative z-10">
         <button 
           onClick={() => setIsToolsOpen(!isToolsOpen)}
