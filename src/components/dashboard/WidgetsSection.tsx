@@ -177,43 +177,6 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
   );
 }
 
-function SortableChecklistsBlock({ children, isReorderMode }: SortableChecklistsBlockProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: CHECKLISTS_BLOCK_ID, disabled: !isReorderMode });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
-  return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`}
-      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
-    >
-      {/* Reorder overlay */}
-      {isReorderMode && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg pointer-events-none">
-          <div className="p-3 rounded-full bg-primary/20">
-            <GripVertical className="h-6 w-6 text-primary" />
-          </div>
-        </div>
-      )}
-      <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 interface RoleCubeConfig {
   id: string;
   title: string;
