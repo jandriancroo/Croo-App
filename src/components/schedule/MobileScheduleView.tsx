@@ -5,7 +5,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid, BarChart3 } from 'lucide-react';
+import { Users, CalendarPlus, RefreshCw, Circle, UserPlus, CalendarCheck, Clock, LayoutGrid, BarChart3, CalendarDays } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { Button } from '@/components/ui/button';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
@@ -699,9 +699,11 @@ export function MobileScheduleView({
                 <div
                   key={event.id}
                   onClick={() => setPreviewEvent(event)}
-                  className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 min-w-0 cursor-pointer active:bg-muted transition-colors"
-                  style={{ borderLeftColor: color, borderLeftWidth: 3 }}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-0 cursor-pointer active:opacity-80 transition-opacity"
+                  style={{ backgroundColor: `${color}10` }}
                 >
+                  <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color }} />
                   <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime12Hour(event.event_time)}</span>
                 </div>
@@ -922,18 +924,13 @@ export function MobileScheduleView({
                         <div
                           key={event.id}
                           onClick={() => setPreviewEvent(event)}
-                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow cursor-pointer active:bg-muted transition-colors"
+                          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow cursor-pointer active:opacity-80 transition-opacity"
                           style={{ backgroundColor: `${color}10` }}
                         >
                           <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                          <span className="text-xs font-medium truncate">{event.event_name}</span>
+                          <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color }} />
+                          <span className="text-xs font-medium truncate flex-1">{event.event_name}</span>
                           <span className="text-[10px] text-muted-foreground shrink-0">{formatTime12Hour(event.event_time)}</span>
-                          <div className="h-5 w-5 rounded-full border border-border/60 flex items-center justify-center shrink-0 text-muted-foreground/50 ml-auto">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <rect x="3" y="4" width="18" height="18" rx="2" />
-                              <path d="M16 2v4M8 2v4M3 10h18" />
-                            </svg>
-                          </div>
                         </div>
                       );
                     })}
