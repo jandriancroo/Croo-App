@@ -128,7 +128,7 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
       !shift.isActive && !shift.isOnBreak && "opacity-70"
     )}>
       <div className="w-1 shrink-0" style={{ backgroundColor: statusColor }} />
-      <div className="flex-1 flex items-center gap-2.5 px-2.5 py-1.5">
+      <div className="flex-1 flex items-center gap-2.5 px-2.5 py-2.5">
         <div className="relative shrink-0">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-xs">{shift.name.charAt(0)}</AvatarFallback>
@@ -143,11 +143,9 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-sm truncate">{shift.name}</span>
-            {isPunched && (
-              <span className={cn("font-bold text-xs shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
-                {shift.hours.toFixed(1)}h
-              </span>
-            )}
+            <Badge variant="secondary" className="text-[10px] shrink-0" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
+              {shift.position}
+            </Badge>
           </div>
           <div className="text-xs text-muted-foreground whitespace-nowrap">{shift.start} - {shift.end}</div>
           {isPunched && (
@@ -156,12 +154,12 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
           {shift.isOnBreak && (
             <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
           )}
-          <div className="flex justify-end">
-            <Badge variant="secondary" className="text-[10px]" style={{ backgroundColor: `${shift.color}20`, color: shift.color }}>
-              {shift.position}
-            </Badge>
-          </div>
         </div>
+        {isPunched && (
+          <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+            {shift.hours.toFixed(1)}h
+          </span>
+        )}
       </div>
     </div>
   );
