@@ -53,16 +53,6 @@ interface EditDashboardDialogProps {
   onReorderCubes?: (orderedIds: string[]) => Promise<void>;
 }
 
-// Helper to resolve accent color to a CSS color string
-function resolveAccentColor(accentColor: string): string {
-  if (accentColor.startsWith('#')) return accentColor;
-  if (isThemeColorKey(accentColor)) {
-    const tc = THEME_COLORS.find(t => t.key === accentColor);
-    if (tc) return `hsl(${tc.cssVar.replace('var(', '').replace(')', '')})`;
-  }
-  return 'hsl(var(--primary))';
-}
-
 // Sortable cube row component
 function SortableCubeRow({ cube, onEdit, onDelete }: { cube: CubeConfig; onEdit: (cube: CubeConfig) => void; onDelete: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cube.id });
