@@ -263,11 +263,11 @@ export function EditDashboardDialog({
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">
-                            {cube.cubeType === 'sales-chart'
+                            {cube.title || (cube.cubeType === 'sales-chart'
                               ? 'Sales Overview'
                               : cube.cubeType === 'data-3d'
                                 ? '3D Data Cube'
-                                : (cube.title || 'Data Cube')}
+                                : 'Data Cube')}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {cube.cubeType === 'sales-chart' 
