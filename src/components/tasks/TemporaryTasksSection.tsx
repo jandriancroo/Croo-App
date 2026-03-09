@@ -253,10 +253,11 @@ export function TemporaryTasksSection() {
                 return (
                   <div
                     key={task.id}
-                    className="flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-3 py-1.5 cursor-pointer active:bg-muted transition-colors group"
-                    style={{ borderLeftColor: task.accent_color, borderLeftWidth: 3, minWidth: 'calc(50% - 3px)', flexGrow: 1 }}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity min-w-[calc(50%-4px)] max-w-full flex-grow"
+                    style={{ backgroundColor: `${task.accent_color || '#8B5CF6'}10` }}
                     onClick={() => setSelectedTask(task)}
                   >
+                    <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: task.accent_color || '#8B5CF6' }} />
                     <span className="text-xs font-medium truncate flex-1">{task.title}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       {task.task_style === 'alarm' && (
