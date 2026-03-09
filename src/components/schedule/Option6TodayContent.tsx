@@ -88,31 +88,7 @@ export function Option6TodayContent({
 
       {/* Events & Tasks section */}
       <div className="space-y-1">
-        {/* Events — compact pills */}
-        {todayEvents.length > 0 && (
-          <>
-            <div className="flex flex-wrap gap-1">
-              {todayEvents.map(e => {
-                const color = e.category?.color || '#8b5cf6';
-                return (
-                  <div 
-                    key={e.id} 
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg min-w-[calc(50%-2px)] max-w-full flex-grow cursor-pointer hover:opacity-80 transition-opacity" 
-                    style={{ backgroundColor: `${color}10` }}
-                    onClick={() => onEventClick?.(e)}
-                  >
-                    <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className="text-xs font-medium truncate">{e.event_name}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{formatTime12Hour(e.event_time)}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mx-6 border-t border-border/30" />
-          </>
-        )}
-
-        {/* Quick Tasks */}
+        {/* Quick Tasks (includes events, catering, user tasks — unified row style) */}
         <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} compact={true} />
       </div>
 
