@@ -7,7 +7,7 @@ import {
   ArrowUpRight, ArrowDownRight,
   Timer, Zap, Target, Activity
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+
 
 // ─── Mock Data ───────────────────────────────────────────────────
 const METRICS = [
