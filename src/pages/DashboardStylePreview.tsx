@@ -546,7 +546,7 @@ const Option5Command = () => (
 
 // ─── Preview Page ────────────────────────────────────────────────
 const OPTIONS = [
-  { id: 1, name: 'Bento Grid', desc: 'Apple-inspired asymmetric cards with swipeable metrics', component: Option1Bento },
+  { id: 1, name: 'Current Design', desc: 'Your existing dashboard — neumorphic cards, 3D data cubes, accent-stripe checklists, color-washed task pills', component: Option1Current },
   { id: 2, name: 'Scroll Cards', desc: 'Linear single-column with hero metric + pill tasks', component: Option2ScrollCards },
   { id: 3, name: 'Editorial', desc: 'Magazine-style hero with dark contrast + clean lists', component: Option3Editorial },
   { id: 4, name: 'Glassmorphic', desc: 'Floating depth panels with ambient color blobs', component: Option4Glass },
