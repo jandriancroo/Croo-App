@@ -872,7 +872,7 @@ export function MobileScheduleView({
     <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))] -mt-3">
       {/* Admin/Manager view */}
       {(isAdmin || isManager) ? (
-        isV2 ? (
+        (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] py-3 space-y-3">
