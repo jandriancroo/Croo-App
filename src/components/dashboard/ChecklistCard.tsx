@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Check, CheckCircle2, Lock, ChevronRight, GripVertical } from "lucide-react";
+import { Check, Lock, ChevronRight, GripVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
@@ -17,6 +16,8 @@ export interface ChecklistCardProps {
   isOverdue?: boolean;
   isLocked?: boolean;
   lockUntilTime?: string;
+  /** 'card' = standalone card (default), 'row' = flat row for use inside a container */
+  variant?: 'card' | 'row';
 }
 
 export const ChecklistCard = memo(function ChecklistCard({ 
@@ -31,6 +32,7 @@ export const ChecklistCard = memo(function ChecklistCard({
   isOverdue = false,
   isLocked = false,
   lockUntilTime,
+  variant = 'card',
 }: ChecklistCardProps) {
   const navigate = useNavigate();
   const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;
@@ -44,17 +46,14 @@ export const ChecklistCard = memo(function ChecklistCard({
     }
   };
 
-  return (
-    <Card 
-      className={cn(
-        "border-0 overflow-hidden relative p-0 cursor-pointer hover:scale-[1.01] transition-all duration-200",
-        isDragging ? 'opacity-50 scale-105' : ''
-      )}
-      onClick={handleClick}
-    >
+  const innerContent = (
+    <>
       {/* Left accent border */}
       <div 
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg" 
+        className={cn(
+          "absolute left-0 top-0 bottom-0 w-1",
+          variant === 'card' && "rounded-l-lg"
+        )}
         style={{ 
           background: isComplete 
             ? 'hsl(var(--primary))' 
@@ -124,6 +123,32 @@ export const ChecklistCard = memo(function ChecklistCard({
 
         <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
       </div>
+    </>
+  );
+
+  if (variant === 'row') {
+    return (
+      <div
+        className={cn(
+          "overflow-hidden relative cursor-pointer hover:bg-muted/30 transition-colors duration-150",
+          isDragging ? 'opacity-50' : ''
+        )}
+        onClick={handleClick}
+      >
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <Card 
+      className={cn(
+        "border-0 overflow-hidden relative p-0 cursor-pointer hover:scale-[1.01] transition-all duration-200",
+        isDragging ? 'opacity-50 scale-105' : ''
+      )}
+      onClick={handleClick}
+    >
+      {innerContent}
     </Card>
   );
 });
