@@ -413,7 +413,7 @@ export function MobileScheduleView({
       const laborHours = best?.labor_hours || 0;
       return { sales, laborCost, laborHours };
     },
-    enabled: isV2 && !!currentLocation?.id && !!todayStr,
+    enabled: !!currentLocation?.id && !!todayStr,
     staleTime: 60 * 1000,
     refetchInterval: 120 * 1000,
   });
