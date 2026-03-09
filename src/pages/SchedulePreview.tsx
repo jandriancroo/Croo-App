@@ -154,12 +154,14 @@ function ShiftCard({ shift, showPunchInfo = false }: { shift: typeof MOCK_SHIFTS
           {shift.isOnBreak && (
             <div className="text-xs text-amber-600 font-medium whitespace-nowrap">Break: {shift.breakStart}</div>
           )}
+          {isPunched && (
+            <div className="flex justify-end">
+              <span className={cn("font-bold text-sm", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
+                {shift.hours.toFixed(1)}h
+              </span>
+            </div>
+          )}
         </div>
-        {isPunched && (
-          <span className={cn("font-bold text-sm shrink-0", shift.isOnBreak ? "text-amber-600" : "text-green-600")}>
-            {shift.hours.toFixed(1)}h
-          </span>
-        )}
       </div>
     </div>
   );
