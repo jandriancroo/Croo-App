@@ -647,6 +647,17 @@ const StartCountDialog = ({
       const { data: existing } = await query.order("started_at", { ascending: false }).limit(1).maybeSingle();
 
       if (existing) {
+        // If user selected flex but existing count isn't marked as flex, update it
+        const isFlexCount = !!flexSelectedPeriod;
+        if (isFlexCount && !existing.is_late_close) {
+          await supabase
+            .from("inventory_counts")
+            .update({
+              is_late_close: true,
+              late_close_notes: lateCloseNotes || 'Flex count',
+            })
+            .eq("id", existing.id);
+        }
         setTempCountId(existing.id);
       } else {
         const isFlexCount = !!flexSelectedPeriod;
