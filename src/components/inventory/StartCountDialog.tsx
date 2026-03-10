@@ -581,7 +581,7 @@ const StartCountDialog = ({
           .insert({
             location_id: locationId,
             counted_by: user?.id,
-            count_date: new Date().toISOString().split("T")[0],
+            count_date: getTodayInTimezone(timezone),
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
             is_late_close: selected.isLateClose || false,
