@@ -164,8 +164,14 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
 
   // Group items by storage location, maintaining display_order
   const itemsByLocation = countItems?.reduce((acc, item) => {
-    const locationName = item.item?.storage_location?.name || "Uncategorized";
-    const locationOrder = (item.item as any)?.storage_location?.display_order ?? 999;
+    // Prefer the count item's own storage location (for multi-location items)
+    // Fall back to the item's primary storage location
+    const locationName = (item as any).count_storage_location?.name 
+      || item.item?.storage_location?.name 
+      || "Uncategorized";
+    const locationOrder = (item as any).count_storage_location?.display_order 
+      ?? (item.item as any)?.storage_location?.display_order 
+      ?? 999;
     if (!acc[locationName]) {
       acc[locationName] = { items: [], order: locationOrder };
     }
