@@ -689,7 +689,7 @@ const StartCountDialog = ({
                           )}
                           {option.isLateClose && (
                             <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
-                              Late Close
+                              Flex Period
                             </Badge>
                           )}
                         </div>
