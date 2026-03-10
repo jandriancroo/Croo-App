@@ -74,8 +74,9 @@ const StartCountDialog = ({
   const { user } = useAuth();
   const { timezone } = useLocationTimezone();
   const { config: periodConfig } = useInventoryPeriodSettings(locationId);
-  const [step, setStep] = useState<"period" | "sync" | "orders">("period");
+  const [step, setStep] = useState<"period" | "flex-period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [flexSelectedPeriod, setFlexSelectedPeriod] = useState<PeriodOption | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingPA, setIsSyncingPA] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -92,6 +93,7 @@ const StartCountDialog = ({
     if (!open) {
       setStep("period");
       setSelectedPeriod(null);
+      setFlexSelectedPeriod(null);
       setSyncComplete(false);
       setPaSyncComplete(false);
       setSyncProgress(null);
@@ -589,13 +591,22 @@ const StartCountDialog = ({
   };
 
   const handleContinueToSync = () => {
+    if (selectedPeriod === "flex") {
+      setStep("flex-period");
+      return;
+    }
+    setStep("sync");
+  };
+
+  const handleFlexContinueToSync = () => {
+    if (!flexSelectedPeriod) return;
     setStep("sync");
   };
 
   const handleContinueToOrders = async () => {
-    const selected = periodOptions.find((p) => p.id === selectedPeriod);
-    if (!selected || selected.type === "adhoc") {
-      // Skip order picker for ad-hoc counts
+    const selected = effectivePeriod;
+    if (!selected || (selected.type === "adhoc" && !flexSelectedPeriod)) {
+      // Skip order picker for ad-hoc counts (but not flex counts)
       handleStart();
       return;
     }
@@ -619,6 +630,7 @@ const StartCountDialog = ({
       if (existing) {
         setTempCountId(existing.id);
       } else {
+        const isFlexCount = !!flexSelectedPeriod;
         const { data: newCount, error } = await supabase
           .from("inventory_counts")
           .insert({
@@ -627,8 +639,10 @@ const StartCountDialog = ({
             count_date: getTodayInTimezone(timezone),
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
-            is_late_close: selected.isLateClose || false,
-            late_close_notes: selected.isLateClose ? lateCloseNotes || null : null,
+            is_late_close: isFlexCount || selected.isLateClose || false,
+            late_close_notes: isFlexCount 
+              ? lateCloseNotes || `Flex count` 
+              : selected.isLateClose ? lateCloseNotes || null : null,
           } as any)
           .select()
           .single();
@@ -647,6 +661,21 @@ const StartCountDialog = ({
   const handleBack = () => {
     if (step === "orders") {
       setStep("sync");
+    } else if (step === "sync") {
+      // If we came from flex-period, go back there
+      if (flexSelectedPeriod) {
+        setStep("flex-period");
+      } else {
+        setStep("period");
+      }
+      setSyncComplete(false);
+      setPaSyncComplete(false);
+      setSyncProgress(null);
+      setAutoSyncTriggered(false);
+    } else if (step === "flex-period") {
+      setFlexSelectedPeriod(null);
+      setLateCloseNotes("");
+      setStep("period");
     } else {
       setStep("period");
       setSyncComplete(false);
@@ -657,6 +686,19 @@ const StartCountDialog = ({
   };
 
   const handleStart = () => {
+    // For flex counts, use the flex-selected period
+    if (flexSelectedPeriod) {
+      const todayStr = getTodayInTimezone(timezone);
+      const isLate = flexSelectedPeriod.periodEndDate ? todayStr > flexSelectedPeriod.periodEndDate : false;
+      onStartCount(
+        flexSelectedPeriod.type === "adhoc" ? null : flexSelectedPeriod.type,
+        flexSelectedPeriod.periodEndDate,
+        true, // flex counts are always "late close" / flex
+        lateCloseNotes || (isLate ? "Flex count (late)" : "Flex count (early)")
+      );
+      return;
+    }
+    
     const selected = periodOptions.find((p) => p.id === selectedPeriod);
     if (selected) {
       onStartCount(
@@ -673,21 +715,181 @@ const StartCountDialog = ({
     handleStart();
   };
 
-  const selectedPeriodData = periodOptions.find((p) => p.id === selectedPeriod);
+  // The "effective" selected period — either the normal selection or the flex-selected period
+  const effectivePeriod = flexSelectedPeriod || periodOptions.find((p) => p.id === selectedPeriod);
+  const selectedPeriodData = effectivePeriod;
   const _hasVendorIntegration = !!pfgIntegration || !!paIntegration;
   const allSyncsDone = (!pfgIntegration || syncComplete) && (!paIntegration || paSyncComplete);
   const noSyncsNeeded = !pfgIntegration && !paIntegration;
+
+  // Generate flex period options — all past/current periods including already-counted ones
+  const flexPeriodOptions = useMemo(() => {
+    const options: PeriodOption[] = [];
+    const todayStr = getTodayInTimezone(timezone);
+    const today = new Date(todayStr + "T12:00:00");
+
+    const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
+    const monthlySetting = scheduleSettings?.find((s) => s.frequency === "monthly");
+
+    // Generate past 4 weekly periods + current
+    if (weeklySetting) {
+      const weekEndDay = periodConfig.periodEndDay;
+      const todayDay = today.getDay();
+      let daysUntilEnd = weekEndDay - todayDay;
+      if (daysUntilEnd < 0) daysUntilEnd += 7;
+      
+      const currentWeekEnd = new Date(today);
+      currentWeekEnd.setDate(today.getDate() + daysUntilEnd);
+
+      for (let i = 0; i < 4; i++) {
+        const weekEnd = subDays(currentWeekEnd, i * 7);
+        const weekStart = subDays(weekEnd, 6);
+        const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+        const _isEarly = todayStr < weekEndStr;
+        const isLate = todayStr > weekEndStr;
+        const isSameDay = todayStr === weekEndStr;
+        
+        // Check if already counted
+        const existingCount = existingCounts?.find(
+          (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
+        );
+
+        options.push({
+          id: `flex-weekly-${i}`,
+          type: "weekly",
+          label: `Week Ending ${format(weekEnd, "MMM d")}`,
+          description: existingCount?.status === "completed" 
+            ? `Already counted — re-count as flex`
+            : isSameDay 
+            ? `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`
+            : isLate 
+            ? `Late — period ended ${format(weekEnd, "MMM d")}`
+            : `Early — period ends ${format(weekEnd, "MMM d")}`,
+          periodEndDate: weekEndStr,
+          periodStartDate: format(weekStart, "yyyy-MM-dd"),
+          icon: <CalendarDays className="h-5 w-5" />,
+          isConfigured: true,
+          isLateClose: isLate,
+        });
+      }
+    }
+
+    // Generate current + previous month
+    if (monthlySetting) {
+      const monthEnd = endOfMonth(today);
+      const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+      const monthStart = startOfMonth(today);
+      const isEarlyMonth = todayStr < monthEndStr;
+
+      const existingMonthCount = existingCounts?.find(
+        (c) => c.period_type === "monthly" && c.period_end_date === monthEndStr
+      );
+
+      options.push({
+        id: `flex-monthly-current`,
+        type: "monthly",
+        label: `${format(today, "MMMM")} Month End`,
+        description: existingMonthCount?.status === "completed"
+          ? `Already counted — re-count as flex`
+          : isEarlyMonth 
+          ? `Early — period ends ${format(monthEnd, "MMM d")}`
+          : `${format(monthStart, "MMM d")} - ${format(monthEnd, "MMM d, yyyy")}`,
+        periodEndDate: monthEndStr,
+        periodStartDate: format(monthStart, "yyyy-MM-dd"),
+        icon: <Calendar className="h-5 w-5" />,
+        isConfigured: true,
+        isLateClose: false,
+      });
+
+      const prevMonth = subDays(monthStart, 1);
+      const prevMonthEnd = endOfMonth(prevMonth);
+      const prevMonthEndStr = format(prevMonthEnd, "yyyy-MM-dd");
+      const prevMonthStart = startOfMonth(prevMonth);
+
+      const existingPrevMonthCount = existingCounts?.find(
+        (c) => c.period_type === "monthly" && c.period_end_date === prevMonthEndStr
+      );
+
+      options.push({
+        id: `flex-monthly-prev`,
+        type: "monthly",
+        label: `${format(prevMonth, "MMMM")} Month End`,
+        description: existingPrevMonthCount?.status === "completed"
+          ? `Already counted — re-count as flex`
+          : `Late — period ended ${format(prevMonthEnd, "MMM d")}`,
+        periodEndDate: prevMonthEndStr,
+        periodStartDate: format(prevMonthStart, "yyyy-MM-dd"),
+        icon: <Calendar className="h-5 w-5" />,
+        isConfigured: true,
+        isLateClose: true,
+      });
+    }
+
+    // Sort: monthly above weekly within same month, descending by date
+    options.sort((a, b) => {
+      if (!a.periodEndDate || !b.periodEndDate) return 0;
+      const aEnd = new Date(a.periodEndDate + "T12:00:00");
+      const bEnd = new Date(b.periodEndDate + "T12:00:00");
+      const aMonth = aEnd.getMonth() + aEnd.getFullYear() * 12;
+      const bMonth = bEnd.getMonth() + bEnd.getFullYear() * 12;
+      if (aMonth !== bMonth) return bMonth - aMonth;
+      if (a.type === "monthly" && b.type !== "monthly") return -1;
+      if (b.type === "monthly" && a.type !== "monthly") return 1;
+      return bEnd.getTime() - aEnd.getTime();
+    });
+
+    return options;
+  }, [scheduleSettings, existingCounts, periodConfig, timezone]);
+
+  // Compute flex reconciliation info
+  const flexReconciliationInfo = useMemo(() => {
+    if (!flexSelectedPeriod?.periodEndDate) return null;
+    const todayStr = getTodayInTimezone(timezone);
+    const periodEnd = flexSelectedPeriod.periodEndDate;
+    const isLate = todayStr > periodEnd;
+    const isEarly = todayStr < periodEnd;
+    
+    if (isLate) {
+      // Count extra days between period end and today
+      const endDate = new Date(periodEnd + "T12:00:00");
+      const todayDate = new Date(todayStr + "T12:00:00");
+      const extraDays = Math.round((todayDate.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        type: "late" as const,
+        extraDays,
+        message: `${extraDays} extra sales day${extraDays !== 1 ? 's' : ''} will be included (${format(endDate, "MMM d")} → ${format(todayDate, "MMM d")})`,
+      };
+    } else if (isEarly) {
+      const endDate = new Date(periodEnd + "T12:00:00");
+      const todayDate = new Date(todayStr + "T12:00:00");
+      const missingDays = Math.round((endDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        type: "early" as const,
+        extraDays: 0,
+        message: `Counting ${missingDays} day${missingDays !== 1 ? 's' : ''} early — remaining sales won't be captured until period ends`,
+      };
+    }
+    return null;
+  }, [flexSelectedPeriod, timezone]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === "period" ? "Select Count Period" : step === "sync" ? "Syncing Items & Prices" : "Apply Vendor Orders"}
+            {step === "period" 
+              ? "Select Count Period" 
+              : step === "flex-period" 
+              ? "Flex Count" 
+              : step === "sync" 
+              ? "Syncing Items & Prices" 
+              : "Apply Vendor Orders"}
           </DialogTitle>
           <DialogDescription>
             {step === "period" 
               ? "Choose the period you're counting for"
+              : step === "flex-period"
+              ? "Select the period to flex into"
               : step === "sync"
               ? "Updating your inventory data automatically"
               : "Select which deliveries to include in this period"
@@ -795,6 +997,118 @@ const StartCountDialog = ({
               </div>
             )}
           </>
+        )}
+
+        {step === "flex-period" && (
+          <div className="space-y-3">
+            {/* Flex period list */}
+            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+              {flexPeriodOptions.map((option) => (
+                <Card
+                  key={option.id}
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    flexSelectedPeriod?.id === option.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "hover:border-primary/50"
+                  )}
+                  onClick={() => setFlexSelectedPeriod(option)}
+                >
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div
+                      className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center",
+                        flexSelectedPeriod?.id === option.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {option.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{option.label}</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </div>
+                    {flexSelectedPeriod?.id === option.id && (
+                      <Check className="h-5 w-5 text-primary" />
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Flex reconciliation info */}
+            {flexSelectedPeriod && flexReconciliationInfo && (
+              <Card className={cn(
+                "border",
+                flexReconciliationInfo.type === "late" 
+                  ? "border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20" 
+                  : "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20"
+              )}>
+                <CardContent className="p-3 flex items-start gap-3">
+                  <div className={cn(
+                    "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                    flexReconciliationInfo.type === "late" 
+                      ? "bg-amber-100 text-amber-600 dark:bg-amber-900/50" 
+                      : "bg-blue-100 text-blue-600 dark:bg-blue-900/50"
+                  )}>
+                    {flexReconciliationInfo.type === "late" ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {flexReconciliationInfo.type === "late" ? "Late Flex" : "Early Flex"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {flexReconciliationInfo.message}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Flex reason */}
+            {flexSelectedPeriod && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Reason for flex count (optional)
+                </label>
+                <Textarea
+                  value={lateCloseNotes}
+                  onChange={(e) => setLateCloseNotes(e.target.value)}
+                  placeholder="e.g., Counted Monday after close, late PFG delivery..."
+                  className="text-sm min-h-[60px]"
+                />
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                className="flex-1"
+                size="lg"
+                disabled={!flexSelectedPeriod}
+                onClick={handleFlexContinueToSync}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {step === "sync" && (
