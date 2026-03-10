@@ -29,12 +29,15 @@ export default function Billing() {
     trialEnd, checkSubscription,
     locationSubscriptions, isLocationSubscribed, getLocationTier,
   } = useSubscription();
-  const { locations } = useAppLocation();
+  const { locations, organizationId: currentOrgId } = useAppLocation();
   const [searchParams] = useSearchParams();
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
-  // Filter out sandbox locations
-  const billableLocations = locations.filter(l => l.store_number !== '7777');
+  // Filter to current org's locations, exclude sandbox
+  const billableLocations = locations.filter(l => 
+    l.store_number !== '7777' && 
+    (!currentOrgId || l.organization_id === currentOrgId)
+  );
 
   useEffect(() => {
     const checkout = searchParams.get('checkout');
