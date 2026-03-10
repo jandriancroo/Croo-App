@@ -80,6 +80,7 @@ const StartCountDialog = ({
   const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
   // Temp count ID for order binding (created before counting starts)
   const [tempCountId, setTempCountId] = useState<string | null>(null);
+  const [lateCloseNotes, setLateCloseNotes] = useState("");
 
   // Reset state when dialog opens/closes
   useEffect(() => {
