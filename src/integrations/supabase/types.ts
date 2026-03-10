@@ -2527,6 +2527,8 @@ export type Database = {
           created_at: string
           duration_seconds: number | null
           id: string
+          is_late_close: boolean
+          late_close_notes: string | null
           location_id: string | null
           notes: string | null
           period_end_date: string | null
@@ -2542,6 +2544,8 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           id?: string
+          is_late_close?: boolean
+          late_close_notes?: string | null
           location_id?: string | null
           notes?: string | null
           period_end_date?: string | null
@@ -2557,6 +2561,8 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           id?: string
+          is_late_close?: boolean
+          late_close_notes?: string | null
           location_id?: string | null
           notes?: string | null
           period_end_date?: string | null
