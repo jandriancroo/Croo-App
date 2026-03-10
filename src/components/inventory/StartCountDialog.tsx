@@ -1114,6 +1114,7 @@ const StartCountDialog = ({
           </div>
         )}
 
+        {step === "sync" && (
           <div className="space-y-4">
             {/* Selected Period Summary */}
             {selectedPeriodData && (
