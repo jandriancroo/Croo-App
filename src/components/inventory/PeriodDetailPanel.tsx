@@ -51,15 +51,23 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   
 
   // Determine period date range for this count
+  // For flex/late counts, extend sales end date to counted_at date
   const periodRange = useMemo(() => {
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
+    
+    // For flex counts (is_late_close), sales window extends to counted_at date
+    const salesEndDate = count.is_late_close && count.counted_at
+      ? count.counted_at.split('T')[0]
+      : endDate;
+    
     if (count.period_type === "weekly") {
       const end = new Date(endDate + "T12:00:00");
       const start = subDays(end, 6);
       return {
         startStr: format(start, "yyyy-MM-dd"),
         endStr: endDate,
+        salesEndStr: salesEndDate,
       };
     }
     if (count.period_type === "monthly") {
@@ -68,10 +76,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       return {
         startStr: format(start, "yyyy-MM-dd"),
         endStr: endDate,
+        salesEndStr: salesEndDate,
       };
     }
     return null;
-  }, [count.period_end_date, count.period_type]);
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at]);
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
