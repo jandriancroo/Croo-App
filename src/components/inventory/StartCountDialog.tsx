@@ -613,6 +613,7 @@ const StartCountDialog = ({
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-last-pa-sync", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["last-pa-sync", locationId] });
       refetchSyncInfo();
       
     } catch (err) {
