@@ -538,7 +538,7 @@ export default function Schedule() {
                     {!hideTemplatesBar && (
                       <>
                         {templates.length > 0 ? (
-                          <div className={`flex ${isCompactMode ? 'gap-1 flex-wrap' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
+                          <div className={`flex ${isCompactMode ? 'gap-1 flex-nowrap overflow-x-auto pb-1' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
                             {templates.map((template) => (
                               <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
                             ))}
