@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
