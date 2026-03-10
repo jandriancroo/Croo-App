@@ -228,6 +228,7 @@ const StartCountDialog = ({
 
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
+    const todayStr = format(today, "yyyy-MM-dd");
     if (weeklySetting) {
       const weekEndDay = weeklySetting.day_of_week ?? 0;
       const todayDay = today.getDay();
