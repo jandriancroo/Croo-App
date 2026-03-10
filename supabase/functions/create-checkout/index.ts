@@ -38,10 +38,10 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId, skipTrial, organizationId, locationId } = await req.json();
+    const { priceId, organizationId, locationId } = await req.json();
     if (!priceId) throw new Error("priceId is required");
     if (!locationId) throw new Error("locationId is required");
-    logStep("Request params", { priceId, skipTrial, organizationId, locationId });
+    logStep("Request params", { priceId, organizationId, locationId });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
@@ -95,10 +95,6 @@ serve(async (req) => {
         created_by_user_id: user.id,
       },
     };
-
-    if (!skipTrial) {
-      subscriptionData.trial_period_days = 14;
-    }
 
     // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({

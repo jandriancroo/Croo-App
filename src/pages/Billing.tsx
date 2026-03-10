@@ -3,16 +3,16 @@ import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+
 import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useUserRole } from '@/hooks/useUserRole';
+
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { PRODUCT_TO_TIER } from '@/config/subscriptionTiers';
+
 
 const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   core: <Zap className="h-5 w-5" />,
@@ -25,14 +25,12 @@ const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous', 'founder'];
 
 export default function Billing() {
   const {
-    subscribed, tierKey, loading, startCheckout, openPortal,
-    subscriptionEnd, trialEnd, checkSubscription,
+    subscribed, loading, startCheckout, openPortal,
+    trialEnd, checkSubscription,
     locationSubscriptions, isLocationSubscribed, getLocationTier,
   } = useSubscription();
-  const { isSuperAdmin } = useUserRole();
   const { locations } = useAppLocation();
   const [searchParams] = useSearchParams();
-  const [skipTrial, setSkipTrial] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   // Filter out sandbox locations
@@ -51,7 +49,7 @@ export default function Billing() {
   const handleCheckout = async (priceId: string, locationId: string) => {
     try {
       toast.info('Opening checkout…');
-      await startCheckout(priceId, skipTrial, locationId);
+      await startCheckout(priceId, false, locationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start checkout');
     }
@@ -77,16 +75,6 @@ export default function Billing() {
           <PageHeaderDivider />
         </div>
 
-        {/* Super admin skip trial toggle */}
-        {isSuperAdmin && (
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-destructive/30 bg-destructive/5">
-            <Switch checked={skipTrial} onCheckedChange={setSkipTrial} id="skip-trial" />
-            <label htmlFor="skip-trial" className="text-sm font-medium cursor-pointer">
-              Skip 14-day trial (charge immediately)
-            </label>
-            {skipTrial && <Badge variant="destructive" className="text-xs">No Trial</Badge>}
-          </div>
-        )}
 
         {/* Manage billing if subscribed */}
         {subscribed && (
