@@ -57,9 +57,21 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
     const endDate = count.period_end_date;
     
     // For flex counts (is_late_close), sales window extends to counted_at date
-    const salesEndDate = count.is_late_close && count.counted_at
-      ? count.counted_at.split('T')[0]
-      : endDate;
+    // If still in progress (no counted_at), use yesterday as the sales cutoff
+    let salesEndDate = endDate;
+    if (count.is_late_close) {
+      if (count.counted_at) {
+        salesEndDate = count.counted_at.split('T')[0];
+      } else {
+        // In-progress flex: use yesterday (last completed business day)
+        const yesterday = subDays(new Date(), 1);
+        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+        // Only extend if yesterday is after the period end date
+        if (yesterdayStr > endDate) {
+          salesEndDate = yesterdayStr;
+        }
+      }
+    }
     
     if (count.period_type === "weekly") {
       const end = new Date(endDate + "T12:00:00");
