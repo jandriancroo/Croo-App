@@ -71,7 +71,12 @@ export default function Schedule() {
   const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: string; userName: string; newRole: string } | null>(null);
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
   const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
-  const [isCompactMode, setIsCompactMode] = useState(false);
+  const [isCompactModeManual, setIsCompactModeManual] = useState<boolean | null>(null);
+  
+  // Auto-compact on tablet (< 1024px), but allow manual override
+  const isTablet = typeof window !== 'undefined' && window.innerWidth < 1024;
+  const isCompactMode = isCompactModeManual !== null ? isCompactModeManual : isTablet;
+  const setIsCompactMode = (val: boolean) => setIsCompactModeManual(val);
   const [hideTemplatesBar, setHideTemplatesBar] = useState(() => localStorage.getItem('schedule-hide-templates') === 'true');
 
   // Measure actual navbar height for sticky offset
