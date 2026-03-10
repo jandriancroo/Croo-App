@@ -270,8 +270,8 @@ const Inventory = () => {
     setShowStartDialog(true);
   };
 
-  const handleConfirmStart = (periodType: string | null, periodEndDate: string | null) => {
-    startCountMutation.mutate({ periodType, periodEndDate });
+  const handleConfirmStart = (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => {
+    startCountMutation.mutate({ periodType, periodEndDate, isLateClose, lateCloseNotes });
   };
 
   const handleDeleteClick = (count: any) => {
