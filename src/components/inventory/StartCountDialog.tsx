@@ -581,7 +581,9 @@ const StartCountDialog = ({
             count_date: new Date().toISOString().split("T")[0],
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
-          })
+            is_late_close: selected.isLateClose || false,
+            late_close_notes: selected.isLateClose ? lateCloseNotes || null : null,
+          } as any)
           .select()
           .single();
 
