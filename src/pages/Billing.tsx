@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { SUBSCRIPTION_TIERS, ADDONS, type TierKey } from '@/config/subscriptionTiers';
+import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -240,35 +240,6 @@ export default function Billing() {
               </div>
             )}
 
-            {/* Hiring Add-on — included in Ludicrous & Founder, purchasable for Core/Pro */}
-            {selectedLocationId && (() => {
-              const locTier = getLocationTier(selectedLocationId);
-              const hiringIncluded = locTier === 'ludicrous' || locTier === 'founder';
-
-              return (
-                <Card className={hiringIncluded ? 'opacity-60' : ''}>
-                  <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm">{ADDONS.hiring.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        +${ADDONS.hiring.price}/mo · {ADDONS.hiring.description}
-                      </p>
-                      {hiringIncluded && (
-                        <p className="text-xs text-primary mt-1">✓ Included in your {locTier === 'founder' ? 'Founder' : 'Ludicrous'} plan</p>
-                      )}
-                    </div>
-                    {hiringIncluded ? (
-                      <Badge variant="secondary" className="text-xs">Included</Badge>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleCheckout(ADDONS.hiring.price_id, selectedLocationId)}>
-                        Add Hiring · ${ADDONS.hiring.price}/mo
-                        <ExternalLink className="h-3.5 w-3.5 ml-1.5" />
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
 
             {/* Prompt to select location if none selected */}
             {!selectedLocationId && !subscribed && billableLocations.length > 0 && (
