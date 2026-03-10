@@ -373,7 +373,7 @@ function DayCell({
       >
         {/* Birthday Indicator */}
         {hasBirthday && (
-          <div className={`${isCompactMode ? 'flex-1 min-h-[36px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
+          <div className={`${isCompactMode ? 'flex-1 min-h-[30px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
             <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
               <CakeSlice className="h-3 w-3" />
               <span>{profileName.split(' ')[0]}'s B-Day</span>
