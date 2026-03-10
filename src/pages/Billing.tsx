@@ -49,7 +49,7 @@ export default function Billing() {
   const handleCheckout = async (priceId: string, locationId: string) => {
     try {
       toast.info('Opening checkout…');
-      await startCheckout(priceId, skipTrial, locationId);
+      await startCheckout(priceId, false, locationId);
     } catch (err: any) {
       toast.error(err.message || 'Failed to start checkout');
     }
