@@ -12,7 +12,7 @@ import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { PRODUCT_TO_TIER } from '@/config/subscriptionTiers';
+
 
 const TIER_ICONS: Record<TierKey, React.ReactNode> = {
   core: <Zap className="h-5 w-5" />,
