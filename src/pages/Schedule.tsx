@@ -526,7 +526,7 @@ export default function Schedule() {
                 <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={isAdmin || isManager} />
               </div>
               <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
-                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-hidden" style={{ touchAction: 'none' }}>
+                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-auto" style={{ touchAction: 'none' }}>
                   <div className="flex items-start gap-3">
                     <button
                       className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground hover:text-foreground transition-colors"
@@ -538,7 +538,7 @@ export default function Schedule() {
                     {!hideTemplatesBar && (
                       <>
                         {templates.length > 0 ? (
-                          <div className={`flex flex-wrap ${isCompactMode ? 'gap-1' : 'gap-2'} flex-1`}>
+                          <div className={`flex ${isCompactMode ? 'gap-1 flex-wrap' : 'gap-2 flex-wrap'} flex-1 min-w-0`}>
                             {templates.map((template) => (
                               <ShiftCard key={template.id} shift={{ template, isTemplate: true }} isCompactMode={isCompactMode} />
                             ))}
