@@ -742,7 +742,7 @@ const StartCountDialog = ({
         const weekEnd = subDays(currentWeekEnd, i * 7);
         const weekStart = subDays(weekEnd, 6);
         const weekEndStr = format(weekEnd, "yyyy-MM-dd");
-        const isEarly = todayStr < weekEndStr;
+        const _isEarly = todayStr < weekEndStr;
         const isLate = todayStr > weekEndStr;
         const isSameDay = todayStr === weekEndStr;
         
