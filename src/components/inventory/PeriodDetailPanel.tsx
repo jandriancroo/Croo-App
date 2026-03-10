@@ -248,7 +248,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
         .select("net_sales")
         .eq("location_id", locationId)
         .gte("sale_date", periodRange.startStr)
-        .lte("sale_date", periodRange.endStr);
+        .lte("sale_date", periodRange.salesEndStr);
 
       const netSales = (salesRows || []).reduce((s, d) => s + (Number(d.net_sales) || 0), 0);
       const cogsTotal = beginValue + purchasesTotal - endValue;
