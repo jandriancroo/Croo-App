@@ -704,11 +704,11 @@ const StartCountDialog = ({
                   </Card>
                 ))}
 
-                {/* Late close notes field */}
+                {/* Flex period notes field */}
                 {selectedPeriodData?.isLateClose && (
                   <div className="space-y-2 pt-1">
                     <label className="text-sm font-medium text-muted-foreground">
-                      Late close reason (optional)
+                      Flex period reason (optional)
                     </label>
                     <Textarea
                       value={lateCloseNotes}

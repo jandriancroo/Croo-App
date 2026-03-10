@@ -408,7 +408,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                   {count.is_late_close && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      Late Close
+                      Flex Period
                     </Badge>
                   )}
                 </div>
