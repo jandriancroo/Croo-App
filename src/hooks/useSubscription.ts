@@ -114,10 +114,10 @@ export function useSubscription() {
     }
   }, [isStandalone]);
 
-  const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean, locationId?: string) => {
+  const startCheckout = useCallback(async (priceId: string, _skipTrial?: boolean, locationId?: string) => {
     if (!locationId) throw new Error('Please select a location to subscribe');
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { priceId, skipTrial, organizationId, locationId },
+      body: { priceId, organizationId, locationId },
     });
     if (error) throw error;
     if (data?.url) {
