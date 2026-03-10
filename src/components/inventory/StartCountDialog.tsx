@@ -1280,50 +1280,78 @@ const StartCountDialog = ({
           </div>
         )}
 
-        {step === "orders" && tempCountId && selectedPeriodData && (
-          <div className="space-y-4">
-            {/* Selected Period Summary */}
-            <Card className="bg-muted/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Truck className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">{selectedPeriodData.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Select which vendor orders to include in COGS for this period
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+        {step === "orders" && tempCountId && selectedPeriodData && (() => {
+          // For late flex counts, extend the order date range to today
+          const isFlexLate = !!flexSelectedPeriod && flexReconciliationInfo?.type === "late";
+          const effectiveOrderEndDate = isFlexLate 
+            ? getTodayInTimezone(timezone) 
+            : (selectedPeriodData.periodEndDate || undefined);
+          
+          return (
+            <div className="space-y-4">
+              {/* Selected Period Summary */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Truck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedPeriodData.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isFlexLate
+                        ? `Includes orders through today (${flexReconciliationInfo.extraDays} extra day${flexReconciliationInfo.extraDays !== 1 ? 's' : ''})`
+                        : "Select which vendor orders to include in COGS for this period"
+                      }
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <OrderReconciliationPicker
-              locationId={locationId}
-              countId={tempCountId}
-              periodStartDate={selectedPeriodData.periodStartDate || undefined}
-              periodEndDate={selectedPeriodData.periodEndDate || undefined}
-              editable
-              compact
-              onSaved={handleOrdersSaved}
-            />
+              {/* Flex reconciliation context */}
+              {isFlexLate && flexReconciliationInfo && (
+                <Card className="border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardContent className="p-3 flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-amber-100 text-amber-600 dark:bg-amber-900/50">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Reconcile Extra Days</p>
+                      <p className="text-xs text-muted-foreground">
+                        {flexReconciliationInfo.message}. Review orders below to confirm which deliveries belong in this period.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleBack} disabled={isPending}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                variant="ghost"
-                className="flex-1"
-                onClick={handleStart}
-                disabled={isPending}
-              >
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Skip & Start Counting
-              </Button>
+              <OrderReconciliationPicker
+                locationId={locationId}
+                countId={tempCountId}
+                periodStartDate={selectedPeriodData.periodStartDate || undefined}
+                periodEndDate={effectiveOrderEndDate}
+                editable
+                compact
+                onSaved={handleOrdersSaved}
+              />
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleBack} disabled={isPending}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={handleStart}
+                  disabled={isPending}
+                >
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Skip & Start Counting
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </DialogContent>
     </Dialog>
   );
