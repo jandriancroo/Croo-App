@@ -678,9 +678,14 @@ const StartCountDialog = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{option.label}</p>
-                          {option.isConfigured && (
+                          {option.isConfigured && !option.isLateClose && (
                             <Badge variant="secondary" className="text-xs">
                               Scheduled
+                            </Badge>
+                          )}
+                          {option.isLateClose && (
+                            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
+                              Late Close
                             </Badge>
                           )}
                         </div>
@@ -694,6 +699,21 @@ const StartCountDialog = ({
                     </CardContent>
                   </Card>
                 ))}
+
+                {/* Late close notes field */}
+                {selectedPeriodData?.isLateClose && (
+                  <div className="space-y-2 pt-1">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Late close reason (optional)
+                    </label>
+                    <Textarea
+                      value={lateCloseNotes}
+                      onChange={(e) => setLateCloseNotes(e.target.value)}
+                      placeholder="e.g., Received PFG order today, reconciling into last period..."
+                      className="text-sm min-h-[60px]"
+                    />
+                  </div>
+                )}
 
                 {periodOptions.length === 1 && (
                   <p className="text-sm text-muted-foreground text-center py-2">
