@@ -50,6 +50,7 @@ interface PeriodOption {
   periodStartDate?: string | null;
   icon: React.ReactNode;
   isConfigured: boolean;
+  isLateClose?: boolean;
 }
 
 interface SyncProgress {
