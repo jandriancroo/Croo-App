@@ -2368,6 +2368,39 @@ export type Database = {
           },
         ]
       }
+      inventory_count_audit_log: {
+        Row: {
+          count_id: string | null
+          details: Json | null
+          id: string
+          logged_at: string
+          operation: string
+          record_id: string | null
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          count_id?: string | null
+          details?: Json | null
+          id?: string
+          logged_at?: string
+          operation: string
+          record_id?: string | null
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          count_id?: string | null
+          details?: Json | null
+          id?: string
+          logged_at?: string
+          operation?: string
+          record_id?: string | null
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       inventory_count_deliveries: {
         Row: {
           count_id: string
