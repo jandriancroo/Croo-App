@@ -68,6 +68,8 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           quantity,
           entered_cases,
           entered_units,
+          storage_location_id,
+          count_storage_location:inventory_locations(name, display_order),
           item:inventory_items(
             name,
             common_name,
@@ -86,7 +88,11 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
         .eq("count_id", countId);
       
       if (error) throw error;
-      return data as unknown as (CountItem & { item: CountItem['item'] & { display_order: number; storage_location_id: string; storage_location: { name: string; display_order: number } | null } })[];
+      return data as unknown as (CountItem & { 
+        storage_location_id: string | null;
+        count_storage_location: { name: string; display_order: number } | null;
+        item: CountItem['item'] & { display_order: number; storage_location_id: string; storage_location: { name: string; display_order: number } | null } 
+      })[];
     }
   });
 
@@ -158,8 +164,14 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
 
   // Group items by storage location, maintaining display_order
   const itemsByLocation = countItems?.reduce((acc, item) => {
-    const locationName = item.item?.storage_location?.name || "Uncategorized";
-    const locationOrder = (item.item as any)?.storage_location?.display_order ?? 999;
+    // Prefer the count item's own storage location (for multi-location items)
+    // Fall back to the item's primary storage location
+    const locationName = (item as any).count_storage_location?.name 
+      || item.item?.storage_location?.name 
+      || "Uncategorized";
+    const locationOrder = (item as any).count_storage_location?.display_order 
+      ?? (item.item as any)?.storage_location?.display_order 
+      ?? 999;
     if (!acc[locationName]) {
       acc[locationName] = { items: [], order: locationOrder };
     }
