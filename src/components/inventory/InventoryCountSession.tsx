@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, ArrowLeft, Save, Mic, MicOff, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -1255,20 +1255,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={onClose}>
-                <X className="h-4 w-4 mr-2" />
-                {isEditing ? "Cancel" : "Back"}
-              </Button>
               <Button 
-                onClick={isEditing ? handleSaveEdits : handleSave} 
+                onClick={isEditing ? handleSaveEdits : () => onClose()} 
                 disabled={isEditing ? saveEditMutation.isPending : isSaving}
+                variant={isEditing ? "default" : "outline"}
                 className={isEditing ? "bg-amber-600 hover:bg-amber-700" : ""}
               >
-                <Save className="h-4 w-4 mr-2" />
-                {isEditing 
-                  ? (saveEditMutation.isPending ? "Saving..." : "Save Changes")
-                  : (isSaving ? "Saving..." : "Save")
-                }
+                {isEditing ? (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    {saveEditMutation.isPending ? "Saving..." : "Save Changes"}
+                  </>
+                ) : (
+                  <>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Save & Exit
+                  </>
+                )}
               </Button>
             </div>
           </div>
