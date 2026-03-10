@@ -901,6 +901,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      // Invalidate the items-for-count cache so re-entry loads fresh DB values
+      queryClient.invalidateQueries({ queryKey: ["inventory-items-for-count", locationId, countId] });
     } catch (error) {
       console.error("Save failed:", error);
       toast.error("Failed to save");
