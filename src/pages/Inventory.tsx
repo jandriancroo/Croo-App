@@ -33,6 +33,7 @@ const Inventory = () => {
   const { isAdmin, role } = useUserRole();
   const { hasPermission } = useRolePermissions();
   const { canDeploy, isBrandLevel } = useInventoryPermissions();
+  const { timezone } = useLocationTimezone();
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
