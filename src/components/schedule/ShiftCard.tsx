@@ -101,7 +101,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
           className={`font-semibold leading-tight flex items-center gap-0.5 whitespace-nowrap ${isCompactMode ? 'text-[8px] md:text-xs justify-center' : 'text-[10px] lg:text-xs'}`}
           style={{ color: bgColor }}
         >
-          {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
+          {`${formatTime12Hour(shiftData.start_time, true)} - ${formatTime12Hour(shiftData.end_time, true)}`}
           {!isCompactMode && wasTrimmed && (
             <TooltipProvider>
               <Tooltip>
@@ -111,7 +111,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <p>CrooAI trimmed: was {formatTime12Hour(shift.original_end_time)}</p>
+                  <p>CrooAI trimmed: was {formatTime12Hour(shift.original_end_time, true)}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
