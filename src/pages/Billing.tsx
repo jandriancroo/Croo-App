@@ -77,16 +77,6 @@ export default function Billing() {
           <PageHeaderDivider />
         </div>
 
-        {/* Super admin skip trial toggle */}
-        {isSuperAdmin && (
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-destructive/30 bg-destructive/5">
-            <Switch checked={skipTrial} onCheckedChange={setSkipTrial} id="skip-trial" />
-            <label htmlFor="skip-trial" className="text-sm font-medium cursor-pointer">
-              Skip 14-day trial (charge immediately)
-            </label>
-            {skipTrial && <Badge variant="destructive" className="text-xs">No Trial</Badge>}
-          </div>
-        )}
 
         {/* Manage billing if subscribed */}
         {subscribed && (
