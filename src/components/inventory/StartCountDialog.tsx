@@ -221,8 +221,9 @@ const StartCountDialog = ({
   });
 
   // Generate period options based on schedule settings
+  // Sorted chronologically descending, monthly periods above their child weeks
   const periodOptions = useMemo(() => {
-    const options: PeriodOption[] = [];
+    const scheduledOptions: PeriodOption[] = [];
     const todayStr = getTodayInTimezone(timezone);
     const today = new Date(todayStr + "T12:00:00");
 
@@ -235,7 +236,6 @@ const StartCountDialog = ({
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      // Use the period end day from location_settings (not the count schedule day)
       const weekEndDay = periodConfig.periodEndDay;
       const todayDay = today.getDay();
       let daysUntilEnd = weekEndDay - todayDay;
@@ -247,7 +247,7 @@ const StartCountDialog = ({
       const weekStart = subDays(weekEnd, 6);
       
       if (!isPeriodCounted("weekly", weekEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `weekly-current`,
           type: "weekly",
           label: `Week Ending ${format(weekEnd, "MMM d")}`,
@@ -265,7 +265,7 @@ const StartCountDialog = ({
       const isLateClose = todayStr > prevWeekEndStr;
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `weekly-prev`,
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
@@ -289,7 +289,7 @@ const StartCountDialog = ({
       const monthStart = startOfMonth(today);
       
       if (!isPeriodCounted("monthly", monthEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `monthly-current`,
           type: "monthly",
           label: `${format(today, "MMMM")} Month End`,
@@ -307,7 +307,7 @@ const StartCountDialog = ({
       const prevMonthStart = startOfMonth(prevMonth);
       
       if (!isPeriodCounted("monthly", prevMonthEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `monthly-prev`,
           type: "monthly",
           label: `${format(prevMonth, "MMMM")} Month End`,
@@ -320,20 +320,60 @@ const StartCountDialog = ({
       }
     }
 
-    // Always show ad-hoc option
-    options.push({
-      id: "adhoc",
-      type: "adhoc",
-      label: "Quick Count",
-      description: "Count without a specific period",
-      periodEndDate: null,
-      periodStartDate: null,
-      icon: <Check className="h-5 w-5" />,
-      isConfigured: false,
+    // Sort: chronologically descending by periodEndDate, with monthly periods
+    // appearing above any weekly periods that fall within that month
+    scheduledOptions.sort((a, b) => {
+      if (!a.periodEndDate || !b.periodEndDate) return 0;
+      
+      const aEnd = new Date(a.periodEndDate + "T12:00:00");
+      const bEnd = new Date(b.periodEndDate + "T12:00:00");
+      
+      // Check if they're in the same month
+      const aMonth = aEnd.getMonth();
+      const aYear = aEnd.getFullYear();
+      const bMonth = bEnd.getMonth();
+      const bYear = bEnd.getFullYear();
+      
+      // Different month/year — sort by end date descending
+      if (aYear !== bYear || aMonth !== bMonth) {
+        return bEnd.getTime() - aEnd.getTime();
+      }
+      
+      // Same month — monthly always comes first (above weekly)
+      if (a.type === "monthly" && b.type !== "monthly") return -1;
+      if (b.type === "monthly" && a.type !== "monthly") return 1;
+      
+      // Same type, same month — sort by end date descending
+      return bEnd.getTime() - aEnd.getTime();
     });
 
-    return options;
-  }, [scheduleSettings, existingCounts]);
+    // Append Flex Count and Quick Count at the bottom
+    const finalOptions: PeriodOption[] = [
+      ...scheduledOptions,
+      {
+        id: "flex",
+        type: "adhoc",
+        label: "Flex Count",
+        description: "Count for a period on a different day",
+        periodEndDate: null,
+        periodStartDate: null,
+        icon: <RefreshCw className="h-5 w-5" />,
+        isConfigured: false,
+      },
+      {
+        id: "adhoc",
+        type: "adhoc",
+        label: "Quick Count",
+        description: "Count without a specific period",
+        periodEndDate: null,
+        periodStartDate: null,
+        icon: <Check className="h-5 w-5" />,
+        isConfigured: false,
+      },
+    ];
+
+    return finalOptions;
+  }, [scheduleSettings, existingCounts, periodConfig, timezone]);
 
   // Auto-sync when entering sync step
   useEffect(() => {
