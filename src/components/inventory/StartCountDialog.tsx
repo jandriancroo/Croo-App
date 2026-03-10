@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
+import { getTodayInTimezone } from "@/utils/timezoneUtils";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -69,6 +71,7 @@ const StartCountDialog = ({
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { timezone } = useLocationTimezone();
   const [step, setStep] = useState<"period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -218,7 +221,8 @@ const StartCountDialog = ({
   // Generate period options based on schedule settings
   const periodOptions = useMemo(() => {
     const options: PeriodOption[] = [];
-    const today = new Date();
+    const todayStr = getTodayInTimezone(timezone);
+    const today = new Date(todayStr + "T12:00:00");
 
     const isPeriodCounted = (type: string, endDate: string) => {
       return existingCounts?.some(
@@ -228,7 +232,6 @@ const StartCountDialog = ({
 
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
-    const todayStr = format(today, "yyyy-MM-dd");
     if (weeklySetting) {
       const weekEndDay = weeklySetting.day_of_week ?? 0;
       const todayDay = today.getDay();
@@ -578,7 +581,7 @@ const StartCountDialog = ({
           .insert({
             location_id: locationId,
             counted_by: user?.id,
-            count_date: new Date().toISOString().split("T")[0],
+            count_date: getTodayInTimezone(timezone),
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
             is_late_close: selected.isLateClose || false,

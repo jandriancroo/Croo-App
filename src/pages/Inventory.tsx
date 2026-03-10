@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +33,7 @@ const Inventory = () => {
   const { isAdmin, role } = useUserRole();
   const { hasPermission } = useRolePermissions();
   const { canDeploy, isBrandLevel } = useInventoryPermissions();
+  const { timezone } = useLocationTimezone();
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
@@ -174,8 +177,8 @@ const Inventory = () => {
       if (periodType && periodEndDate) {
         query = query.eq("period_type", periodType).eq("period_end_date", periodEndDate);
       } else {
-        // Ad-hoc: match by today's date with no period
-        query = query.is("period_type", null).eq("count_date", new Date().toISOString().split("T")[0]);
+        const todayDate = getTodayInTimezone(timezone);
+        query = query.is("period_type", null).eq("count_date", todayDate);
       }
 
       const { data: existing } = await query.order("started_at", { ascending: false }).limit(1).maybeSingle();
@@ -190,7 +193,7 @@ const Inventory = () => {
         .insert({
           location_id: locationId,
           counted_by: user?.id,
-          count_date: new Date().toISOString().split("T")[0],
+          count_date: getTodayInTimezone(timezone),
           period_type: periodType,
           period_end_date: periodEndDate,
           is_late_close: isLateClose || false,
