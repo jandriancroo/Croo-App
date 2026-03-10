@@ -256,17 +256,21 @@ const StartCountDialog = ({
       const prevWeekEnd = subDays(weekEnd, 7);
       const prevWeekStart = subDays(prevWeekEnd, 6);
       const prevWeekEndStr = format(prevWeekEnd, "yyyy-MM-dd");
+      const isLateClose = todayStr > prevWeekEndStr;
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
         options.push({
           id: `weekly-prev`,
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
-          description: `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
+          description: isLateClose 
+            ? `Late close — period ended ${format(prevWeekEnd, "MMM d")}` 
+            : `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
           periodStartDate: format(prevWeekStart, "yyyy-MM-dd"),
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
+          isLateClose,
         });
       }
     }
