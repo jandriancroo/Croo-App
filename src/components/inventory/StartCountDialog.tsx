@@ -615,7 +615,9 @@ const StartCountDialog = ({
     if (selected) {
       onStartCount(
         selected.type === "adhoc" ? null : selected.type,
-        selected.periodEndDate
+        selected.periodEndDate,
+        selected.isLateClose || false,
+        selected.isLateClose ? lateCloseNotes || undefined : undefined
       );
     }
   };
