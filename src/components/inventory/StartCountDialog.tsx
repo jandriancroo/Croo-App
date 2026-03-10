@@ -235,7 +235,8 @@ const StartCountDialog = ({
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      const weekEndDay = weeklySetting.day_of_week ?? 0;
+      // Use the period end day from location_settings (not the count schedule day)
+      const weekEndDay = periodConfig.periodEndDay;
       const todayDay = today.getDay();
       let daysUntilEnd = weekEndDay - todayDay;
       if (daysUntilEnd < 0) daysUntilEnd += 7;
