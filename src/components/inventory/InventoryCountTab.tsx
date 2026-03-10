@@ -181,7 +181,7 @@ export default function InventoryCountTab({
       </Card>
 
       {/* In-progress banner */}
-      {inProgressWithStats && (
+      {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && (
         <InProgressBanner
           count={inProgressWithStats}
           locationId={locationId}
