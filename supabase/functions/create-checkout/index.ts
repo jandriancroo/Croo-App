@@ -38,7 +38,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId, skipTrial, organizationId, locationId } = await req.json();
+    const { priceId, organizationId, locationId } = await req.json();
     if (!priceId) throw new Error("priceId is required");
     if (!locationId) throw new Error("locationId is required");
     logStep("Request params", { priceId, skipTrial, organizationId, locationId });
