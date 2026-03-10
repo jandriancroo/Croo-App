@@ -96,10 +96,6 @@ serve(async (req) => {
       },
     };
 
-    if (!skipTrial) {
-      subscriptionData.trial_period_days = 14;
-    }
-
     // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
