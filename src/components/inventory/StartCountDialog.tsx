@@ -264,7 +264,7 @@ const StartCountDialog = ({
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
           description: isLateClose 
-            ? `Late close — period ended ${format(prevWeekEnd, "MMM d")}` 
+            ? `Flex period — period ended ${format(prevWeekEnd, "MMM d")}` 
             : `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
           periodStartDate: format(prevWeekStart, "yyyy-MM-dd"),
