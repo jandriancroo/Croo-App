@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { PRODUCT_TO_TIER, SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 
+export interface LocationSubscription {
+  subscribed: boolean;
+  product_id: string;
+  subscription_end: string | null;
+  trial_end: string | null;
+  status: string;
+}
+
 interface SubscriptionState {
   loading: boolean;
   subscribed: boolean;
@@ -12,6 +20,7 @@ interface SubscriptionState {
   trialEnd: string | null;
   locationCount: number;
   organizationId: string | null;
+  locationSubscriptions: Record<string, LocationSubscription>;
 }
 
 export function useSubscription() {
@@ -26,6 +35,7 @@ export function useSubscription() {
     trialEnd: null,
     locationCount: 0,
     organizationId: null,
+    locationSubscriptions: {},
   });
 
   const checkSubscription = useCallback(async () => {
@@ -45,6 +55,7 @@ export function useSubscription() {
         setState({
           loading: false, subscribed: false, tierKey: null, productIds: [],
           subscriptionEnd: null, trialEnd: null, locationCount: 0, organizationId: null,
+          locationSubscriptions: data?.location_subscriptions || {},
         });
         return;
       }
@@ -68,6 +79,7 @@ export function useSubscription() {
         trialEnd: data.trial_end,
         locationCount: data.location_count || 0,
         organizationId: data.organization_id || null,
+        locationSubscriptions: data.location_subscriptions || {},
       });
     } catch (err) {
       console.error('Subscription check failed:', err);
@@ -81,7 +93,6 @@ export function useSubscription() {
     return () => clearInterval(interval);
   }, [checkSubscription]);
 
-  // Listen for auth changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       checkSubscription();
@@ -97,16 +108,16 @@ export function useSubscription() {
 
   const openUrl = useCallback((url: string) => {
     if (isStandalone) {
-      // In PWA mode, navigate in same tab to avoid blocked popups
       window.location.href = url;
     } else {
       window.open(url, '_blank');
     }
   }, [isStandalone]);
 
-  const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean) => {
+  const startCheckout = useCallback(async (priceId: string, skipTrial?: boolean, locationId?: string) => {
+    if (!locationId) throw new Error('Please select a location to subscribe');
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: { priceId, skipTrial, organizationId },
+      body: { priceId, skipTrial, organizationId, locationId },
     });
     if (error) throw error;
     if (data?.url) {
@@ -130,11 +141,23 @@ export function useSubscription() {
     return userLevel >= requiredLevel;
   }, [state.subscribed, state.tierKey]);
 
+  const isLocationSubscribed = useCallback((locationId: string): boolean => {
+    return !!state.locationSubscriptions[locationId]?.subscribed;
+  }, [state.locationSubscriptions]);
+
+  const getLocationTier = useCallback((locationId: string): TierKey | null => {
+    const locSub = state.locationSubscriptions[locationId];
+    if (!locSub?.subscribed) return null;
+    return PRODUCT_TO_TIER[locSub.product_id] || null;
+  }, [state.locationSubscriptions]);
+
   return {
     ...state,
     checkSubscription,
     startCheckout,
     openPortal,
     hasFeature,
+    isLocationSubscribed,
+    getLocationTier,
   };
 }
