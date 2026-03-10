@@ -845,8 +845,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Save current progress (manual save — used by Save & Exit)
   // Uses resilient saveItemsBatch with up to 2 retries for failed items
+  // Waits for any in-progress autosave to finish first
   const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
+    
+    // Wait for any in-progress save to complete before manual save
+    let waitAttempts = 0;
+    while (saveInProgressRef.current && waitAttempts < 20) {
+      await new Promise(r => setTimeout(r, 250));
+      waitAttempts++;
+    }
     
     setIsSaving(true);
     const itemCounts = items.map(item => {
@@ -862,6 +870,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         entered_units: unitsVal,
       };
     });
+    
+    console.log(`[Inventory] Manual save: ${itemCounts.length} items, ${itemCounts.filter(ic => ic.quantity > 0).length} non-zero`);
     
     try {
       let result = await saveItemsBatch(itemCounts);
