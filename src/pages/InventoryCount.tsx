@@ -345,7 +345,7 @@ const InventoryCount = () => {
             locationId={locationId!}
             isEditing={isEditing}
             isViewOnly={false}
-            onClose={handleClose}
+            onClose={() => setShowSaveExitDialog(true)}
             saveRef={saveRef}
           />
         ) : null}
