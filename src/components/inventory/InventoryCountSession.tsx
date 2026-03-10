@@ -115,8 +115,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   // Fetch items with existing counts — supports split-count for multi-location items
   const { data: items } = useQuery({
     queryKey: ["inventory-items-for-count", locationId, countId],
-    staleTime: Infinity, // CRITICAL: Never auto-refetch during counting — prevents state wipe
+    staleTime: 0, // Always refetch on mount to get fresh DB values (prevents stale cache on re-entry)
+    gcTime: 0, // Don't cache this query — each session must load fresh from DB
     refetchOnWindowFocus: false, // Prevent app-switch from triggering refetch
+    refetchOnMount: 'always', // Force refetch even if data exists in cache
     queryFn: async () => {
       const itemColumns = `
           id,
