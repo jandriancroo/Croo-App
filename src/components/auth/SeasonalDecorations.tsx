@@ -227,7 +227,7 @@ export const SeasonalCardDecor = () => {
       )}
       {season === 'spring' && (
         <>
-          <SpringPalmTrees />
+          <SpringSun />
         </>
       )}
       {season === 'summer' && (
