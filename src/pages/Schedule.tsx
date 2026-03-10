@@ -526,7 +526,7 @@ export default function Schedule() {
                 <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={isAdmin || isManager} />
               </div>
               <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
-                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-hidden" style={{ touchAction: 'none' }}>
+                <div className="container max-w-7xl mx-auto px-4 py-2 max-h-[35vh] overflow-y-auto overflow-x-auto" style={{ touchAction: 'none' }}>
                   <div className="flex items-start gap-3">
                     <button
                       className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap pt-1 text-muted-foreground hover:text-foreground transition-colors"
