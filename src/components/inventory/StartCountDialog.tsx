@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { useInventoryPeriodSettings } from "@/hooks/useInventoryPeriodSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -72,6 +73,7 @@ const StartCountDialog = ({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { timezone } = useLocationTimezone();
+  const { config: periodConfig } = useInventoryPeriodSettings(locationId);
   const [step, setStep] = useState<"period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -233,7 +235,8 @@ const StartCountDialog = ({
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      const weekEndDay = weeklySetting.day_of_week ?? 0;
+      // Use the period end day from location_settings (not the count schedule day)
+      const weekEndDay = periodConfig.periodEndDay;
       const todayDay = today.getDay();
       let daysUntilEnd = weekEndDay - todayDay;
       if (daysUntilEnd < 0) daysUntilEnd += 7;
