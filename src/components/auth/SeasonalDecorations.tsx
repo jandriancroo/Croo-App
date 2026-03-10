@@ -48,73 +48,70 @@ export const WinterSnowfall = () => (
   </div>
 );
 
-// Sunflowers for spring
-const SpringSunflowers = () => (
+// Palm trees for spring
+const SpringPalmTrees = () => (
   <>
-    <div className="absolute -bottom-4 -left-8 pointer-events-none">
-      <svg width="80" height="100" viewBox="0 0 80 100">
-        {/* Stem */}
-        <path d="M40 100 Q35 70 40 50" stroke="#22c55e" strokeWidth="4" fill="none" />
-        {/* Leaves */}
-        <ellipse cx="30" cy="75" rx="12" ry="6" fill="#22c55e" transform="rotate(-30 30 75)" />
-        <ellipse cx="50" cy="65" rx="10" ry="5" fill="#22c55e" transform="rotate(25 50 65)" />
-        {/* Petals */}
-        {[...Array(12)].map((_, i) => (
-          <ellipse
-            key={i}
-            cx="40"
-            cy="30"
-            rx="6"
-            ry="15"
-            fill="#fbbf24"
-            transform={`rotate(${i * 30} 40 40) translate(0 -15)`}
-          />
-        ))}
-        {/* Center */}
-        <circle cx="40" cy="40" r="12" fill="#92400e" />
+    {/* Left palm tree */}
+    <div className="absolute -bottom-4 -left-6 pointer-events-none">
+      <svg width="90" height="120" viewBox="0 0 90 120">
+        {/* Trunk */}
+        <path d="M45 120 Q42 95 44 70 Q46 50 45 35" stroke="#8B6914" strokeWidth="6" fill="none" strokeLinecap="round" />
+        <path d="M45 120 Q42 95 44 70 Q46 50 45 35" stroke="#A0782C" strokeWidth="4" fill="none" strokeLinecap="round" />
+        {/* Trunk texture lines */}
+        <path d="M41 110 Q45 108 49 110" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        <path d="M41 100 Q45 98 49 100" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        <path d="M42 90 Q45 88 48 90" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        <path d="M42 80 Q45 78 48 80" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        {/* Fronds - animated swaying */}
+        <g style={{ transformOrigin: '45px 35px' }} className="animate-palm-sway">
+          <path d="M45 35 Q25 20 5 25 Q20 15 45 30" fill="#228B22" />
+          <path d="M45 35 Q30 10 15 5 Q30 8 45 28" fill="#2E8B2E" />
+          <path d="M45 35 Q55 8 75 3 Q60 10 45 28" fill="#228B22" />
+          <path d="M45 35 Q65 18 85 22 Q68 15 45 30" fill="#2E8B2E" />
+          <path d="M45 35 Q45 5 50 -5 Q48 10 45 28" fill="#1E7B1E" />
+        </g>
+        {/* Coconuts */}
+        <circle cx="42" cy="38" r="4" fill="#8B4513" />
+        <circle cx="48" cy="40" r="3.5" fill="#7B3F13" />
       </svg>
     </div>
-    <div className="absolute -bottom-4 -right-6 pointer-events-none">
-      <svg width="60" height="80" viewBox="0 0 60 80">
-        <path d="M30 80 Q28 55 30 40" stroke="#22c55e" strokeWidth="3" fill="none" />
-        <ellipse cx="22" cy="60" rx="8" ry="4" fill="#22c55e" transform="rotate(-25 22 60)" />
-        {[...Array(10)].map((_, i) => (
-          <ellipse
-            key={i}
-            cx="30"
-            cy="25"
-            rx="5"
-            ry="12"
-            fill="#fcd34d"
-            transform={`rotate(${i * 36} 30 32) translate(0 -12)`}
-          />
-        ))}
-        <circle cx="30" cy="32" r="10" fill="#a16207" />
+    {/* Right palm tree (smaller) */}
+    <div className="absolute -bottom-3 -right-5 pointer-events-none">
+      <svg width="70" height="100" viewBox="0 0 70 100">
+        {/* Trunk */}
+        <path d="M35 100 Q38 80 36 58 Q34 42 35 30" stroke="#8B6914" strokeWidth="5" fill="none" strokeLinecap="round" />
+        <path d="M35 100 Q38 80 36 58 Q34 42 35 30" stroke="#A0782C" strokeWidth="3" fill="none" strokeLinecap="round" />
+        {/* Trunk texture */}
+        <path d="M32 90 Q35 88 38 90" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        <path d="M32 80 Q35 78 38 80" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        <path d="M33 70 Q35 68 37 70" stroke="#6B4F0A" strokeWidth="1" fill="none" />
+        {/* Fronds - slightly different sway timing */}
+        <g style={{ transformOrigin: '35px 30px' }} className="animate-palm-sway-delayed">
+          <path d="M35 30 Q18 18 2 22 Q16 12 35 26" fill="#228B22" />
+          <path d="M35 30 Q25 8 12 2 Q24 6 35 24" fill="#2E8B2E" />
+          <path d="M35 30 Q45 8 60 4 Q48 10 35 24" fill="#228B22" />
+          <path d="M35 30 Q52 16 66 20 Q52 12 35 26" fill="#2E8B2E" />
+          <path d="M35 30 Q36 5 38 -2 Q37 8 35 24" fill="#1E7B1E" />
+        </g>
+        {/* Coconuts */}
+        <circle cx="33" cy="33" r="3.5" fill="#8B4513" />
+        <circle cx="38" cy="34" r="3" fill="#7B3F13" />
       </svg>
     </div>
+    <style>{`
+      @keyframes palmSway {
+        0%, 100% { transform: rotate(-3deg); }
+        50% { transform: rotate(3deg); }
+      }
+      .animate-palm-sway {
+        animation: palmSway 3s ease-in-out infinite;
+      }
+      .animate-palm-sway-delayed {
+        animation: palmSway 3.5s ease-in-out infinite;
+        animation-delay: 0.5s;
+      }
+    `}</style>
   </>
-);
-
-// Butterflies for spring
-const SpringButterflies = () => (
-  <div className="absolute inset-0 pointer-events-none overflow-hidden">
-    {[...Array(4)].map((_, i) => (
-      <div
-        key={i}
-        className="absolute animate-float"
-        style={{
-          left: `${10 + i * 25}%`,
-          top: `${15 + (i % 2) * 30}%`,
-          animationDelay: `${i * 0.5}s`,
-          animationDuration: `${4 + i}s`,
-        }}
-      >
-        <span className="text-2xl" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.1))' }}>
-          {i % 2 === 0 ? '🦋' : '🌸'}
-        </span>
-      </div>
-    ))}
-  </div>
 );
 
 // Sun for summer
