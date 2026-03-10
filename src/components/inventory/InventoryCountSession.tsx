@@ -13,7 +13,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, ArrowLeft, Save, Mic, MicOff, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
