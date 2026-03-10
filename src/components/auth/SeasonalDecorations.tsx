@@ -48,70 +48,50 @@ export const WinterSnowfall = () => (
   </div>
 );
 
-// Palm trees for spring
-const SpringPalmTrees = () => (
-  <>
-    {/* Left palm tree */}
-    <div className="absolute -bottom-4 -left-6 pointer-events-none">
-      <svg width="90" height="120" viewBox="0 0 90 120">
-        {/* Trunk */}
-        <path d="M45 120 Q42 95 44 70 Q46 50 45 35" stroke="#8B6914" strokeWidth="6" fill="none" strokeLinecap="round" />
-        <path d="M45 120 Q42 95 44 70 Q46 50 45 35" stroke="#A0782C" strokeWidth="4" fill="none" strokeLinecap="round" />
-        {/* Trunk texture lines */}
-        <path d="M41 110 Q45 108 49 110" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        <path d="M41 100 Q45 98 49 100" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        <path d="M42 90 Q45 88 48 90" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        <path d="M42 80 Q45 78 48 80" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        {/* Fronds - animated swaying */}
-        <g style={{ transformOrigin: '45px 35px' }} className="animate-palm-sway">
-          <path d="M45 35 Q25 20 5 25 Q20 15 45 30" fill="#228B22" />
-          <path d="M45 35 Q30 10 15 5 Q30 8 45 28" fill="#2E8B2E" />
-          <path d="M45 35 Q55 8 75 3 Q60 10 45 28" fill="#228B22" />
-          <path d="M45 35 Q65 18 85 22 Q68 15 45 30" fill="#2E8B2E" />
-          <path d="M45 35 Q45 5 50 -5 Q48 10 45 28" fill="#1E7B1E" />
-        </g>
-        {/* Coconuts */}
-        <circle cx="42" cy="38" r="4" fill="#8B4513" />
-        <circle cx="48" cy="40" r="3.5" fill="#7B3F13" />
-      </svg>
-    </div>
-    {/* Right palm tree (smaller) */}
-    <div className="absolute -bottom-3 -right-5 pointer-events-none">
-      <svg width="70" height="100" viewBox="0 0 70 100">
-        {/* Trunk */}
-        <path d="M35 100 Q38 80 36 58 Q34 42 35 30" stroke="#8B6914" strokeWidth="5" fill="none" strokeLinecap="round" />
-        <path d="M35 100 Q38 80 36 58 Q34 42 35 30" stroke="#A0782C" strokeWidth="3" fill="none" strokeLinecap="round" />
-        {/* Trunk texture */}
-        <path d="M32 90 Q35 88 38 90" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        <path d="M32 80 Q35 78 38 80" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        <path d="M33 70 Q35 68 37 70" stroke="#6B4F0A" strokeWidth="1" fill="none" />
-        {/* Fronds - slightly different sway timing */}
-        <g style={{ transformOrigin: '35px 30px' }} className="animate-palm-sway-delayed">
-          <path d="M35 30 Q18 18 2 22 Q16 12 35 26" fill="#228B22" />
-          <path d="M35 30 Q25 8 12 2 Q24 6 35 24" fill="#2E8B2E" />
-          <path d="M35 30 Q45 8 60 4 Q48 10 35 24" fill="#228B22" />
-          <path d="M35 30 Q52 16 66 20 Q52 12 35 26" fill="#2E8B2E" />
-          <path d="M35 30 Q36 5 38 -2 Q37 8 35 24" fill="#1E7B1E" />
-        </g>
-        {/* Coconuts */}
-        <circle cx="33" cy="33" r="3.5" fill="#8B4513" />
-        <circle cx="38" cy="34" r="3" fill="#7B3F13" />
-      </svg>
-    </div>
+// Warm sun for spring - top left corner
+const SpringSun = () => (
+  <div className="absolute -top-12 -left-12 pointer-events-none">
+    <svg width="110" height="110" viewBox="0 0 110 110">
+      {/* Animated rays */}
+      <g style={{ transformOrigin: '55px 55px', animation: 'spinSlow 20s linear infinite' }}>
+        {[...Array(16)].map((_, i) => (
+          <line
+            key={i}
+            x1="55"
+            y1="55"
+            x2="55"
+            y2={i % 2 === 0 ? 5 : 15}
+            stroke="#fbbf24"
+            strokeWidth={i % 2 === 0 ? 3 : 2}
+            strokeLinecap="round"
+            opacity={i % 2 === 0 ? 0.9 : 0.5}
+            transform={`rotate(${i * 22.5} 55 55)`}
+          />
+        ))}
+      </g>
+      {/* Sun body */}
+      <circle cx="55" cy="55" r="22" fill="url(#spring-sun-grad)" />
+      {/* Inner glow */}
+      <circle cx="55" cy="55" r="18" fill="url(#spring-sun-inner)" opacity="0.6" />
+      <defs>
+        <radialGradient id="spring-sun-grad">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="70%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#f59e0b" />
+        </radialGradient>
+        <radialGradient id="spring-sun-inner">
+          <stop offset="0%" stopColor="#fef3c7" />
+          <stop offset="100%" stopColor="#fde68a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+    </svg>
     <style>{`
-      @keyframes palmSway {
-        0%, 100% { transform: rotate(-3deg); }
-        50% { transform: rotate(3deg); }
-      }
-      .animate-palm-sway {
-        animation: palmSway 3s ease-in-out infinite;
-      }
-      .animate-palm-sway-delayed {
-        animation: palmSway 3.5s ease-in-out infinite;
-        animation-delay: 0.5s;
+      @keyframes spinSlow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
       }
     `}</style>
-  </>
+  </div>
 );
 
 // Sun for summer
