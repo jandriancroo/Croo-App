@@ -527,6 +527,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const failedItemsRef = useRef<Map<string, any>>(new Map()); // key -> item payload for retry
   // Track last-saved quantities per item to avoid re-saving unchanged items
   const lastSavedQuantitiesRef = useRef<Map<string, string>>(new Map());
+  // Mutex: prevent concurrent save operations (race condition guard)
+  const saveInProgressRef = useRef(false);
+  const saveQueueRef = useRef(false); // flag: another save was requested while one is running
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
@@ -551,10 +554,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   }, [items, counts, panCounts, getTotalQuantity]);
 
   // Resilient batch save: ONE bulk SELECT, then only UPDATE/INSERT changed items
+  // Protected by mutex to prevent concurrent save operations (race condition)
   const saveItemsBatch = useCallback(async (itemCounts: any[]): Promise<{ saved: number; failed: number }> => {
+    // Mutex: if another save is in progress, skip this cycle
+    if (saveInProgressRef.current) {
+      console.log("[Inventory] Save skipped — another save is in progress");
+      saveQueueRef.current = true; // Mark that we wanted to save
+      return { saved: 0, failed: 0 };
+    }
+    
+    saveInProgressRef.current = true;
     let saved = 0;
     let failed = 0;
-    if (itemCounts.length === 0) return { saved, failed };
+    if (itemCounts.length === 0) {
+      saveInProgressRef.current = false;
+      return { saved, failed };
+    }
 
     try {
       // ONE query to fetch all existing count items for this count
@@ -585,6 +600,13 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         const lastSaved = lastSavedQuantitiesRef.current.get(key);
         
         if (existing) {
+          // CRITICAL GUARD: Never overwrite a non-zero DB value with zero
+          // This prevents race conditions from blanking counted data
+          if (ic.quantity === 0 && existing.quantity > 0) {
+            console.warn(`[Inventory] BLOCKED zero-overwrite for item ${ic.item_id} (DB has ${existing.quantity})`);
+            continue;
+          }
+          
           // Skip if quantity hasn't changed from DB AND from last save
           const dbFingerprint = `${existing.quantity}|${existing.entered_cases ?? 0}|${existing.entered_units ?? 0}`;
           if (fingerprint === dbFingerprint && fingerprint === lastSaved) continue;
@@ -607,6 +629,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           });
         }
       }
+
+      console.log(`[Inventory] Save batch: ${toUpdate.length} updates, ${toInsert.length} inserts (${itemCounts.length} total items, ${existingMap.size} existing)`);
 
       // Batch updates (individual PATCHes but NO extra SELECT per item)
       for (const upd of toUpdate) {
@@ -683,6 +707,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       console.warn("[Inventory] Failed to save duration:", e);
     }
     
+    saveInProgressRef.current = false;
     return { saved, failed };
   }, [countId]);
 
@@ -820,8 +845,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   // Save current progress (manual save — used by Save & Exit)
   // Uses resilient saveItemsBatch with up to 2 retries for failed items
+  // Waits for any in-progress autosave to finish first
   const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
+    
+    // Wait for any in-progress save to complete before manual save
+    let waitAttempts = 0;
+    while (saveInProgressRef.current && waitAttempts < 20) {
+      await new Promise(r => setTimeout(r, 250));
+      waitAttempts++;
+    }
     
     setIsSaving(true);
     const itemCounts = items.map(item => {
@@ -837,6 +870,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         entered_units: unitsVal,
       };
     });
+    
+    console.log(`[Inventory] Manual save: ${itemCounts.length} items, ${itemCounts.filter(ic => ic.quantity > 0).length} non-zero`);
     
     try {
       let result = await saveItemsBatch(itemCounts);
