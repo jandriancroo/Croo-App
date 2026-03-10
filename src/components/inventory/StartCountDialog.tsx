@@ -558,7 +558,7 @@ const StartCountDialog = ({
       setSyncProgress({ phase: "Fetching orders & extracting items via AI...", current: 20, total: 100 });
       
       const { data, error } = await supabase.functions.invoke("produce-alliance-service", {
-        body: { locationId, action: "sync_inventory", maxOrders: 3, triggeredBy: user?.id }
+        body: { locationId, action: "sync_items", maxOrders: 3, triggeredBy: user?.id }
       });
 
       if (error) throw error;
