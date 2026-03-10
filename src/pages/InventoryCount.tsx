@@ -182,8 +182,9 @@ const InventoryCount = () => {
     }
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
     queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
-    navigate(redirectTo || `/inventory/${locationId}`);
-  }, [queryClient, locationId, navigate]);
+    // Navigate to the review screen (count page without ?continue) so user can Submit
+    navigate(redirectTo || `/inventory/${locationId}/count/${countId}`);
+  }, [queryClient, locationId, countId, navigate]);
 
   const handleSaveExitCancel = useCallback(() => {
     setShowSaveExitDialog(false);
