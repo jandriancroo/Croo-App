@@ -93,6 +93,7 @@ const StartCountDialog = ({
       setLastSyncErrors([]);
       setAutoSyncTriggered(false);
       setTempCountId(null);
+      setLateCloseNotes("");
     }
   }, [open]);
 
