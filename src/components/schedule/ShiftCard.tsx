@@ -111,7 +111,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
-                  <p>CrooAI trimmed: was {formatTime12Hour(shift.original_end_time)}</p>
+                  <p>CrooAI trimmed: was {formatTime12Hour(shift.original_end_time, true)}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
