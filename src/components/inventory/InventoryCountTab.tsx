@@ -282,6 +282,14 @@ export default function InventoryCountTab({
                               Current
                             </Badge>
                           )}
+                          {count.is_late_close && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600"
+                            >
+                              Late
+                            </Badge>
+                          )}
                           {count.period_type === "monthly" && (
                             <Badge
                               variant="outline"
