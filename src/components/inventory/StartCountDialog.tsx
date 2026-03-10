@@ -471,12 +471,31 @@ const StartCountDialog = ({
             });
           }
           
-          const { data: existing } = await supabase
-            .from("inventory_items")
-            .select("id, image_url, storage_location_id")
-            .eq("location_id", locationId)
-            .eq("qubeyond_item_id", product.id)
-            .maybeSingle();
+          // Primary match: qubeyond_item_id
+          let existing: { id: string; image_url: string | null; storage_location_id: string | null } | null = null;
+          
+          if (product.id) {
+            const { data } = await supabase
+              .from("inventory_items")
+              .select("id, image_url, storage_location_id")
+              .eq("location_id", locationId)
+              .eq("qubeyond_item_id", product.id)
+              .limit(1)
+              .maybeSingle();
+            existing = data;
+          }
+          
+          // Fallback match: item_number (prevents duplicates when qubeyond_item_id doesn't match)
+          if (!existing && product.itemNumber) {
+            const { data } = await supabase
+              .from("inventory_items")
+              .select("id, image_url, storage_location_id")
+              .eq("location_id", locationId)
+              .eq("item_number", product.itemNumber)
+              .limit(1)
+              .maybeSingle();
+            existing = data;
+          }
           
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
