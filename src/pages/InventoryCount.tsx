@@ -259,45 +259,34 @@ const InventoryCount = () => {
     <Layout>
       <div className="space-y-4 md:max-w-4xl md:mx-auto md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <Button variant="ghost" size="sm" onClick={() => {
-              if (isCounting || isEditing) {
-                setShowSaveExitDialog(true);
-              } else {
-                handleClose();
-              }
-            }}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            {countData.period_type && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                {getPeriodIcon(countData.period_type)}
-                <span className="capitalize">{countData.period_type}</span>
+        {/* Header - hidden during active counting/editing since session has its own controls */}
+        {!(isCounting || isEditing) && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <Button variant="ghost" size="sm" onClick={handleClose}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                {countData.period_type && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    {getPeriodIcon(countData.period_type)}
+                    <span className="capitalize">{countData.period_type}</span>
+                  </div>
+                )}
+                <Badge variant={isViewOnly ? "default" : "secondary"}>
+                  {isViewOnly ? "Completed" : "Review"}
+                </Badge>
               </div>
-            )}
-            <Badge variant={isEditing ? "outline" : isViewOnly ? "default" : isReviewMode ? "secondary" : "secondary"}>
-              {isEditing ? "Editing" : isViewOnly ? "Completed" : isReviewMode ? "Review" : "Counting"}
-            </Badge>
-          </div>
-        </div>
+            </div>
 
-        {/* Period Info */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
-          {(isCounting || isEditing) && (
-            <Button
-              size="icon"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground h-10 w-10 rounded-xl flex-shrink-0"
-              onClick={handleSaveClick}
-              disabled={saveRef.current?.isSaving}
-            >
-              <Save className="h-5 w-5" />
-            </Button>
-          )}
-        </div>
+            {/* Period Info */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
+            </div>
+          </>
+        )}
 
         {/* Count Session, View, or Review */}
         {isViewOnly ? (
@@ -356,7 +345,7 @@ const InventoryCount = () => {
             locationId={locationId!}
             isEditing={isEditing}
             isViewOnly={false}
-            onClose={handleClose}
+            onClose={() => setShowSaveExitDialog(true)}
             saveRef={saveRef}
           />
         ) : null}
