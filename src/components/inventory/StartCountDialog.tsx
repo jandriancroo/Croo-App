@@ -598,14 +598,8 @@ const StartCountDialog = ({
     setStep("sync");
   };
 
-  const handleFlexPeriodSelected = (period: PeriodOption) => {
-    setFlexSelectedPeriod(period);
-  };
-
   const handleFlexContinueToSync = () => {
     if (!flexSelectedPeriod) return;
-    // Override selectedPeriod with the flex-chosen period data
-    // The flex period is always a late/early close
     setStep("sync");
   };
 
