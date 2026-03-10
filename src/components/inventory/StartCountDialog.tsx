@@ -74,8 +74,9 @@ const StartCountDialog = ({
   const { user } = useAuth();
   const { timezone } = useLocationTimezone();
   const { config: periodConfig } = useInventoryPeriodSettings(locationId);
-  const [step, setStep] = useState<"period" | "sync" | "orders">("period");
+  const [step, setStep] = useState<"period" | "flex-period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [flexSelectedPeriod, setFlexSelectedPeriod] = useState<PeriodOption | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingPA, setIsSyncingPA] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -92,6 +93,7 @@ const StartCountDialog = ({
     if (!open) {
       setStep("period");
       setSelectedPeriod(null);
+      setFlexSelectedPeriod(null);
       setSyncComplete(false);
       setPaSyncComplete(false);
       setSyncProgress(null);
