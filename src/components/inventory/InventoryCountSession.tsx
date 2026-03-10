@@ -527,6 +527,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
   const failedItemsRef = useRef<Map<string, any>>(new Map()); // key -> item payload for retry
   // Track last-saved quantities per item to avoid re-saving unchanged items
   const lastSavedQuantitiesRef = useRef<Map<string, string>>(new Map());
+  // Mutex: prevent concurrent save operations (race condition guard)
+  const saveInProgressRef = useRef(false);
+  const saveQueueRef = useRef(false); // flag: another save was requested while one is running
 
   // Ref-based snapshot builder so unmount/beforeunload can flush without stale closures
   const buildSnapshotRef = useRef<(() => { itemCounts: any[]; snapshot: string }) | null>(null);
