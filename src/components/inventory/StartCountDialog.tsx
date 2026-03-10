@@ -703,52 +703,63 @@ const StartCountDialog = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {periodOptions.map((option) => (
-                  <Card
-                    key={option.id}
-                    className={cn(
-                      "cursor-pointer transition-all",
-                      selectedPeriod === option.id
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "hover:border-primary/50"
-                    )}
-                    onClick={() => setSelectedPeriod(option.id)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div
-                        className={cn(
-                          "h-10 w-10 rounded-full flex items-center justify-center",
-                          selectedPeriod === option.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {option.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{option.label}</p>
-                          {option.isConfigured && !option.isLateClose && (
-                            <Badge variant="secondary" className="text-xs">
-                              Scheduled
-                            </Badge>
-                          )}
-                          {option.isLateClose && (
-                            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
-                              Flex Period
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {option.description}
-                        </p>
-                      </div>
-                      {selectedPeriod === option.id && (
-                        <Check className="h-5 w-5 text-primary" />
+                {periodOptions.map((option, index) => {
+                  // Add a subtle separator before Flex Count / Quick Count
+                  const isBottomOption = option.id === "flex" || option.id === "adhoc";
+                  const prevOption = index > 0 ? periodOptions[index - 1] : null;
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  
+                  return (
+                    <div key={option.id}>
+                      {showSeparator && (
+                        <div className="border-t border-border/50 my-1" />
                       )}
-                    </CardContent>
-                  </Card>
-                ))}
+                      <Card
+                        className={cn(
+                          "cursor-pointer transition-all",
+                          selectedPeriod === option.id
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "hover:border-primary/50"
+                        )}
+                        onClick={() => setSelectedPeriod(option.id)}
+                      >
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <div
+                            className={cn(
+                              "h-10 w-10 rounded-full flex items-center justify-center",
+                              selectedPeriod === option.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {option.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{option.label}</p>
+                              {option.isConfigured && !option.isLateClose && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Scheduled
+                                </Badge>
+                              )}
+                              {option.isLateClose && (
+                                <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
+                                  Flex Period
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {option.description}
+                            </p>
+                          </div>
+                          {selectedPeriod === option.id && (
+                            <Check className="h-5 w-5 text-primary" />
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                })}
 
                 {/* Flex period notes field */}
                 {selectedPeriodData?.isLateClose && (
