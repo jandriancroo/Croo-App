@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DollarSign, Package, History, User, Clock, FileText, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
-import { fetchRecipeCosts } from "@/utils/recipeCostCalculation";
+
 
 interface InventoryCountViewProps {
   countId: string;
