@@ -604,9 +604,9 @@ const StartCountDialog = ({
   };
 
   const handleContinueToOrders = async () => {
-    const selected = periodOptions.find((p) => p.id === selectedPeriod);
-    if (!selected || selected.type === "adhoc") {
-      // Skip order picker for ad-hoc counts
+    const selected = effectivePeriod;
+    if (!selected || (selected.type === "adhoc" && !flexSelectedPeriod)) {
+      // Skip order picker for ad-hoc counts (but not flex counts)
       handleStart();
       return;
     }
@@ -630,6 +630,7 @@ const StartCountDialog = ({
       if (existing) {
         setTempCountId(existing.id);
       } else {
+        const isFlexCount = !!flexSelectedPeriod;
         const { data: newCount, error } = await supabase
           .from("inventory_counts")
           .insert({
@@ -638,8 +639,10 @@ const StartCountDialog = ({
             count_date: getTodayInTimezone(timezone),
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
-            is_late_close: selected.isLateClose || false,
-            late_close_notes: selected.isLateClose ? lateCloseNotes || null : null,
+            is_late_close: isFlexCount || selected.isLateClose || false,
+            late_close_notes: isFlexCount 
+              ? lateCloseNotes || `Flex count` 
+              : selected.isLateClose ? lateCloseNotes || null : null,
           } as any)
           .select()
           .single();
