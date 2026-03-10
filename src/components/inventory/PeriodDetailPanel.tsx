@@ -424,6 +424,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
                     {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                    {count.is_late_close && periodRange.salesEndStr !== periodRange.endStr && (
+                      <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                    )}
                   </p>
                 )}
                 <p className="text-sm text-muted-foreground mt-0.5">
