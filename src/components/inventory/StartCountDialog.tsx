@@ -71,6 +71,7 @@ const StartCountDialog = ({
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { timezone } = useLocationTimezone();
   const [step, setStep] = useState<"period" | "sync" | "orders">("period");
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
