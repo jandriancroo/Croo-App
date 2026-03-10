@@ -221,8 +221,9 @@ const StartCountDialog = ({
   });
 
   // Generate period options based on schedule settings
+  // Sorted chronologically descending, monthly periods above their child weeks
   const periodOptions = useMemo(() => {
-    const options: PeriodOption[] = [];
+    const scheduledOptions: PeriodOption[] = [];
     const todayStr = getTodayInTimezone(timezone);
     const today = new Date(todayStr + "T12:00:00");
 
@@ -235,7 +236,6 @@ const StartCountDialog = ({
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      // Use the period end day from location_settings (not the count schedule day)
       const weekEndDay = periodConfig.periodEndDay;
       const todayDay = today.getDay();
       let daysUntilEnd = weekEndDay - todayDay;
@@ -247,7 +247,7 @@ const StartCountDialog = ({
       const weekStart = subDays(weekEnd, 6);
       
       if (!isPeriodCounted("weekly", weekEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `weekly-current`,
           type: "weekly",
           label: `Week Ending ${format(weekEnd, "MMM d")}`,
@@ -265,7 +265,7 @@ const StartCountDialog = ({
       const isLateClose = todayStr > prevWeekEndStr;
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `weekly-prev`,
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
@@ -289,7 +289,7 @@ const StartCountDialog = ({
       const monthStart = startOfMonth(today);
       
       if (!isPeriodCounted("monthly", monthEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `monthly-current`,
           type: "monthly",
           label: `${format(today, "MMMM")} Month End`,
@@ -307,7 +307,7 @@ const StartCountDialog = ({
       const prevMonthStart = startOfMonth(prevMonth);
       
       if (!isPeriodCounted("monthly", prevMonthEndStr)) {
-        options.push({
+        scheduledOptions.push({
           id: `monthly-prev`,
           type: "monthly",
           label: `${format(prevMonth, "MMMM")} Month End`,
@@ -320,20 +320,60 @@ const StartCountDialog = ({
       }
     }
 
-    // Always show ad-hoc option
-    options.push({
-      id: "adhoc",
-      type: "adhoc",
-      label: "Quick Count",
-      description: "Count without a specific period",
-      periodEndDate: null,
-      periodStartDate: null,
-      icon: <Check className="h-5 w-5" />,
-      isConfigured: false,
+    // Sort: chronologically descending by periodEndDate, with monthly periods
+    // appearing above any weekly periods that fall within that month
+    scheduledOptions.sort((a, b) => {
+      if (!a.periodEndDate || !b.periodEndDate) return 0;
+      
+      const aEnd = new Date(a.periodEndDate + "T12:00:00");
+      const bEnd = new Date(b.periodEndDate + "T12:00:00");
+      
+      // Check if they're in the same month
+      const aMonth = aEnd.getMonth();
+      const aYear = aEnd.getFullYear();
+      const bMonth = bEnd.getMonth();
+      const bYear = bEnd.getFullYear();
+      
+      // Different month/year — sort by end date descending
+      if (aYear !== bYear || aMonth !== bMonth) {
+        return bEnd.getTime() - aEnd.getTime();
+      }
+      
+      // Same month — monthly always comes first (above weekly)
+      if (a.type === "monthly" && b.type !== "monthly") return -1;
+      if (b.type === "monthly" && a.type !== "monthly") return 1;
+      
+      // Same type, same month — sort by end date descending
+      return bEnd.getTime() - aEnd.getTime();
     });
 
-    return options;
-  }, [scheduleSettings, existingCounts]);
+    // Append Flex Count and Quick Count at the bottom
+    const finalOptions: PeriodOption[] = [
+      ...scheduledOptions,
+      {
+        id: "flex",
+        type: "adhoc",
+        label: "Flex Count",
+        description: "Count for a period on a different day",
+        periodEndDate: null,
+        periodStartDate: null,
+        icon: <RefreshCw className="h-5 w-5" />,
+        isConfigured: false,
+      },
+      {
+        id: "adhoc",
+        type: "adhoc",
+        label: "Quick Count",
+        description: "Count without a specific period",
+        periodEndDate: null,
+        periodStartDate: null,
+        icon: <Check className="h-5 w-5" />,
+        isConfigured: false,
+      },
+    ];
+
+    return finalOptions;
+  }, [scheduleSettings, existingCounts, periodConfig, timezone]);
 
   // Auto-sync when entering sync step
   useEffect(() => {
@@ -663,52 +703,63 @@ const StartCountDialog = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {periodOptions.map((option) => (
-                  <Card
-                    key={option.id}
-                    className={cn(
-                      "cursor-pointer transition-all",
-                      selectedPeriod === option.id
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "hover:border-primary/50"
-                    )}
-                    onClick={() => setSelectedPeriod(option.id)}
-                  >
-                    <CardContent className="p-4 flex items-center gap-4">
-                      <div
-                        className={cn(
-                          "h-10 w-10 rounded-full flex items-center justify-center",
-                          selectedPeriod === option.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {option.icon}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{option.label}</p>
-                          {option.isConfigured && !option.isLateClose && (
-                            <Badge variant="secondary" className="text-xs">
-                              Scheduled
-                            </Badge>
-                          )}
-                          {option.isLateClose && (
-                            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
-                              Flex Period
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {option.description}
-                        </p>
-                      </div>
-                      {selectedPeriod === option.id && (
-                        <Check className="h-5 w-5 text-primary" />
+                {periodOptions.map((option, index) => {
+                  // Add a subtle separator before Flex Count / Quick Count
+                  const isBottomOption = option.id === "flex" || option.id === "adhoc";
+                  const prevOption = index > 0 ? periodOptions[index - 1] : null;
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  
+                  return (
+                    <div key={option.id}>
+                      {showSeparator && (
+                        <div className="border-t border-border/50 my-1" />
                       )}
-                    </CardContent>
-                  </Card>
-                ))}
+                      <Card
+                        className={cn(
+                          "cursor-pointer transition-all",
+                          selectedPeriod === option.id
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "hover:border-primary/50"
+                        )}
+                        onClick={() => setSelectedPeriod(option.id)}
+                      >
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <div
+                            className={cn(
+                              "h-10 w-10 rounded-full flex items-center justify-center",
+                              selectedPeriod === option.id
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {option.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{option.label}</p>
+                              {option.isConfigured && !option.isLateClose && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Scheduled
+                                </Badge>
+                              )}
+                              {option.isLateClose && (
+                                <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
+                                  Flex Period
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {option.description}
+                            </p>
+                          </div>
+                          {selectedPeriod === option.id && (
+                            <Check className="h-5 w-5 text-primary" />
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                })}
 
                 {/* Flex period notes field */}
                 {selectedPeriodData?.isLateClose && (
