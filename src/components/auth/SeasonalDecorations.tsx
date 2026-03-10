@@ -3,24 +3,8 @@ import React from 'react';
 type Season = 'winter' | 'spring' | 'summer' | 'fall';
 
 function getSeason(): Season {
-  const now = new Date();
-  const month = now.getMonth() + 1; // 1-12
-  const day = now.getDate();
-  
-  // Winter: Dec 21 - Mar 20
-  if ((month === 12 && day >= 21) || month <= 2 || (month === 3 && day <= 20)) {
-    return 'winter';
-  }
-  // Spring: Mar 21 - Jun 20
-  if ((month === 3 && day >= 21) || month === 4 || month === 5 || (month === 6 && day <= 20)) {
-    return 'spring';
-  }
-  // Summer: Jun 21 - Sep 22
-  if ((month === 6 && day >= 21) || month === 7 || month === 8 || (month === 9 && day <= 22)) {
-    return 'summer';
-  }
-  // Fall: Sep 23 - Dec 20
-  return 'fall';
+  // TEMP: Force spring for preview
+  return 'spring';
 }
 
 // Thick snow cap for the top edge - no icicles, with stronger drop shadow
