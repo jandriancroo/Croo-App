@@ -25,14 +25,12 @@ const TIER_ORDER: TierKey[] = ['core', 'pro', 'ludicrous', 'founder'];
 
 export default function Billing() {
   const {
-    subscribed, tierKey, loading, startCheckout, openPortal,
-    subscriptionEnd, trialEnd, checkSubscription,
+    subscribed, loading, startCheckout, openPortal,
+    trialEnd, checkSubscription,
     locationSubscriptions, isLocationSubscribed, getLocationTier,
   } = useSubscription();
-  const { isSuperAdmin } = useUserRole();
   const { locations } = useAppLocation();
   const [searchParams] = useSearchParams();
-  const [skipTrial, setSkipTrial] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   // Filter out sandbox locations
