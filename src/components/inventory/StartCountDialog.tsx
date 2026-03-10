@@ -554,6 +554,21 @@ const StartCountDialog = ({
       setSyncProgress({ phase: "Sync complete!", current: 100, total: 100 });
       setSyncComplete(true);
       
+      // Write sync log so Setup page shows this sync
+      await supabase.from("inventory_sync_logs").insert({
+        location_id: locationId,
+        sync_source: "pfg",
+        sync_type: "count_start",
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        status: "completed",
+        items_synced: processedItems,
+        orders_processed: 0,
+        triggered_by: user?.id || null,
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["last-pfg-sync", locationId] });
+      });
+
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       refetchSyncInfo();
