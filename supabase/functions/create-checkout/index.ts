@@ -41,7 +41,7 @@ serve(async (req) => {
     const { priceId, organizationId, locationId } = await req.json();
     if (!priceId) throw new Error("priceId is required");
     if (!locationId) throw new Error("locationId is required");
-    logStep("Request params", { priceId, skipTrial, organizationId, locationId });
+    logStep("Request params", { priceId, organizationId, locationId });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
