@@ -163,7 +163,7 @@ const Inventory = () => {
 
   // Start new count mutation — resumes existing in-progress count for the same period if one exists
   const startCountMutation = useMutation({
-    mutationFn: async ({ periodType, periodEndDate }: { periodType: string | null; periodEndDate: string | null }) => {
+    mutationFn: async ({ periodType, periodEndDate, isLateClose, lateCloseNotes }: { periodType: string | null; periodEndDate: string | null; isLateClose?: boolean; lateCloseNotes?: string }) => {
       // Check for existing in-progress count with the same period
       let query = supabase
         .from("inventory_counts")
@@ -193,7 +193,9 @@ const Inventory = () => {
           count_date: new Date().toISOString().split("T")[0],
           period_type: periodType,
           period_end_date: periodEndDate,
-        })
+          is_late_close: isLateClose || false,
+          late_close_notes: lateCloseNotes || null,
+        } as any)
         .select()
         .single();
       
