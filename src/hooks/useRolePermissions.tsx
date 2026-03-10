@@ -46,7 +46,7 @@ export const useRolePermissions = () => {
   return {
     loading,
     canViewSickTime,
-    // Generic permission checker
-    hasPermission: (key: string) => isShiftManager || (permissions?.[key] ?? false),
+    // Generic permission checker — uses the DB toggle value for the user's role
+    hasPermission: (key: string) => permissions?.[key] ?? false,
   };
 };

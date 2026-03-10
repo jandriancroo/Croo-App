@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,7 @@ interface StartCountDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId: string;
-  onStartCount: (periodType: string | null, periodEndDate: string | null) => void;
+  onStartCount: (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => void;
   isPending: boolean;
 }
 
@@ -49,6 +50,7 @@ interface PeriodOption {
   periodStartDate?: string | null;
   icon: React.ReactNode;
   isConfigured: boolean;
+  isLateClose?: boolean;
 }
 
 interface SyncProgress {
@@ -78,6 +80,7 @@ const StartCountDialog = ({
   const [autoSyncTriggered, setAutoSyncTriggered] = useState(false);
   // Temp count ID for order binding (created before counting starts)
   const [tempCountId, setTempCountId] = useState<string | null>(null);
+  const [lateCloseNotes, setLateCloseNotes] = useState("");
 
   // Reset state when dialog opens/closes
   useEffect(() => {
@@ -90,6 +93,7 @@ const StartCountDialog = ({
       setLastSyncErrors([]);
       setAutoSyncTriggered(false);
       setTempCountId(null);
+      setLateCloseNotes("");
     }
   }, [open]);
 
@@ -224,6 +228,7 @@ const StartCountDialog = ({
 
     // Weekly periods
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
+    const todayStr = format(today, "yyyy-MM-dd");
     if (weeklySetting) {
       const weekEndDay = weeklySetting.day_of_week ?? 0;
       const todayDay = today.getDay();
@@ -251,17 +256,21 @@ const StartCountDialog = ({
       const prevWeekEnd = subDays(weekEnd, 7);
       const prevWeekStart = subDays(prevWeekEnd, 6);
       const prevWeekEndStr = format(prevWeekEnd, "yyyy-MM-dd");
+      const isLateClose = todayStr > prevWeekEndStr;
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
         options.push({
           id: `weekly-prev`,
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
-          description: `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
+          description: isLateClose 
+            ? `Late close — period ended ${format(prevWeekEnd, "MMM d")}` 
+            : `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
           periodStartDate: format(prevWeekStart, "yyyy-MM-dd"),
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
+          isLateClose,
         });
       }
     }
@@ -572,7 +581,9 @@ const StartCountDialog = ({
             count_date: new Date().toISOString().split("T")[0],
             period_type: selected.type,
             period_end_date: selected.periodEndDate,
-          })
+            is_late_close: selected.isLateClose || false,
+            late_close_notes: selected.isLateClose ? lateCloseNotes || null : null,
+          } as any)
           .select()
           .single();
 
@@ -604,7 +615,9 @@ const StartCountDialog = ({
     if (selected) {
       onStartCount(
         selected.type === "adhoc" ? null : selected.type,
-        selected.periodEndDate
+        selected.periodEndDate,
+        selected.isLateClose || false,
+        selected.isLateClose ? lateCloseNotes || undefined : undefined
       );
     }
   };
@@ -669,9 +682,14 @@ const StartCountDialog = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{option.label}</p>
-                          {option.isConfigured && (
+                          {option.isConfigured && !option.isLateClose && (
                             <Badge variant="secondary" className="text-xs">
                               Scheduled
+                            </Badge>
+                          )}
+                          {option.isLateClose && (
+                            <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
+                              Late Close
                             </Badge>
                           )}
                         </div>
@@ -685,6 +703,21 @@ const StartCountDialog = ({
                     </CardContent>
                   </Card>
                 ))}
+
+                {/* Late close notes field */}
+                {selectedPeriodData?.isLateClose && (
+                  <div className="space-y-2 pt-1">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Late close reason (optional)
+                    </label>
+                    <Textarea
+                      value={lateCloseNotes}
+                      onChange={(e) => setLateCloseNotes(e.target.value)}
+                      placeholder="e.g., Received PFG order today, reconciling into last period..."
+                      className="text-sm min-h-[60px]"
+                    />
+                  </div>
+                )}
 
                 {periodOptions.length === 1 && (
                   <p className="text-sm text-muted-foreground text-center py-2">
