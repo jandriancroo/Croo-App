@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/sonner';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { SUBSCRIPTION_TIERS, ADDONS, type TierKey } from '@/config/subscriptionTiers';
+import { SUBSCRIPTION_TIERS, type TierKey } from '@/config/subscriptionTiers';
 import { Check, Crown, Rocket, Zap, Star, Loader2, ExternalLink, CreditCard, MapPin } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
