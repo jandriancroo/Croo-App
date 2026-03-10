@@ -264,7 +264,7 @@ const StartCountDialog = ({
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
           description: isLateClose 
-            ? `Late close — period ended ${format(prevWeekEnd, "MMM d")}` 
+            ? `Flex period — period ended ${format(prevWeekEnd, "MMM d")}` 
             : `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
           periodStartDate: format(prevWeekStart, "yyyy-MM-dd"),
@@ -689,7 +689,7 @@ const StartCountDialog = ({
                           )}
                           {option.isLateClose && (
                             <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-600">
-                              Late Close
+                              Flex Period
                             </Badge>
                           )}
                         </div>
@@ -704,11 +704,11 @@ const StartCountDialog = ({
                   </Card>
                 ))}
 
-                {/* Late close notes field */}
+                {/* Flex period notes field */}
                 {selectedPeriodData?.isLateClose && (
                   <div className="space-y-2 pt-1">
                     <label className="text-sm font-medium text-muted-foreground">
-                      Late close reason (optional)
+                      Flex period reason (optional)
                     </label>
                     <Textarea
                       value={lateCloseNotes}
