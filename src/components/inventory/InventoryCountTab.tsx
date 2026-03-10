@@ -34,6 +34,7 @@ function InProgressBanner({
   const pct = stats.totalItems > 0 ? Math.round((stats.countedItems / stats.totalItems) * 100) : 0;
 
   const shortLabel = formatPeriodShort(count);
+  const hasStarted = stats.countedItems > 0;
 
   return (
     <Card className="border-primary/30 bg-primary/5 overflow-hidden">
@@ -41,24 +42,30 @@ function InProgressBanner({
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center relative flex-shrink-0">
             <Play className="h-5 w-5 text-primary" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-            </span>
+            {hasStarted && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
+              </span>
+            )}
           </div>
           <div>
-            <p className="text-base font-bold">{shortLabel} — In Progress</p>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-sm text-muted-foreground">
-                {stats.countedItems} of {stats.totalItems} items
-              </span>
-              <div className="w-24 bg-muted rounded-full h-2">
-                <div
-                  className="bg-primary rounded-full h-2 transition-all"
-                  style={{ width: `${pct}%` }}
-                />
+            <p className="text-base font-bold">
+              {shortLabel} — {hasStarted ? "In Progress" : "Ready to Count"}
+            </p>
+            {hasStarted && (
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-sm text-muted-foreground">
+                  {stats.countedItems} of {stats.totalItems} items
+                </span>
+                <div className="w-24 bg-muted rounded-full h-2">
+                  <div
+                    className="bg-primary rounded-full h-2 transition-all"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
         <Button
@@ -68,7 +75,7 @@ function InProgressBanner({
             navigate(`/inventory/${locationId}/count/${count.id}?continue=true`)
           }
         >
-          Resume <ArrowRight className="h-4 w-4 ml-1" />
+          {hasStarted ? "Resume" : "Start"} <ArrowRight className="h-4 w-4 ml-1" />
         </Button>
       </CardContent>
     </Card>
