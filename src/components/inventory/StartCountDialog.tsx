@@ -1002,7 +1002,118 @@ const StartCountDialog = ({
           </>
         )}
 
-        {step === "sync" && (
+        {step === "flex-period" && (
+          <div className="space-y-3">
+            {/* Flex period list */}
+            <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+              {flexPeriodOptions.map((option) => (
+                <Card
+                  key={option.id}
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    flexSelectedPeriod?.id === option.id
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "hover:border-primary/50"
+                  )}
+                  onClick={() => setFlexSelectedPeriod(option)}
+                >
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div
+                      className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center",
+                        flexSelectedPeriod?.id === option.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {option.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{option.label}</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </div>
+                    {flexSelectedPeriod?.id === option.id && (
+                      <Check className="h-5 w-5 text-primary" />
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Flex reconciliation info */}
+            {flexSelectedPeriod && flexReconciliationInfo && (
+              <Card className={cn(
+                "border",
+                flexReconciliationInfo.type === "late" 
+                  ? "border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20" 
+                  : "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20"
+              )}>
+                <CardContent className="p-3 flex items-start gap-3">
+                  <div className={cn(
+                    "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5",
+                    flexReconciliationInfo.type === "late" 
+                      ? "bg-amber-100 text-amber-600 dark:bg-amber-900/50" 
+                      : "bg-blue-100 text-blue-600 dark:bg-blue-900/50"
+                  )}>
+                    {flexReconciliationInfo.type === "late" ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {flexReconciliationInfo.type === "late" ? "Late Flex" : "Early Flex"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {flexReconciliationInfo.message}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Flex reason */}
+            {flexSelectedPeriod && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Reason for flex count (optional)
+                </label>
+                <Textarea
+                  value={lateCloseNotes}
+                  onChange={(e) => setLateCloseNotes(e.target.value)}
+                  placeholder="e.g., Counted Monday after close, late PFG delivery..."
+                  className="text-sm min-h-[60px]"
+                />
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                className="flex-1"
+                size="lg"
+                disabled={!flexSelectedPeriod}
+                onClick={handleFlexContinueToSync}
+              >
+                Continue
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        )}
+
           <div className="space-y-4">
             {/* Selected Period Summary */}
             {selectedPeriodData && (
