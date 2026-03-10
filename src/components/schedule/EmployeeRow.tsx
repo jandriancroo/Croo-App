@@ -156,7 +156,7 @@ function EmployeeRowComponent({
     return result;
   }, [allShifts, profile.id]);
     return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]`}>
-      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px]'}`}>
+      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[30px]' : 'min-h-[60px]'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
@@ -358,7 +358,7 @@ function DayCell({
 
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[36px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
+  }} className={`${isCompactMode ? 'min-h-[30px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
     <SmartTapPopover
       open={smartTapOpen}
       onOpenChange={setSmartTapOpen}
@@ -373,7 +373,7 @@ function DayCell({
       >
         {/* Birthday Indicator */}
         {hasBirthday && (
-          <div className={`${isCompactMode ? 'flex-1 min-h-[36px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
+          <div className={`${isCompactMode ? 'flex-1 min-h-[30px] flex items-center justify-center border-0 rounded-none' : 'p-1 border border-dashed border-amber-400/50 rounded flex-1 min-h-[46px] flex items-center justify-center'} bg-amber-50 dark:bg-amber-950/30 text-[10px]`}>
             <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400 font-medium">
               <CakeSlice className="h-3 w-3" />
               <span>{profileName.split(' ')[0]}'s B-Day</span>
@@ -385,7 +385,7 @@ function DayCell({
           <Popover>
             <PopoverTrigger asChild>
               <div 
-                className={`${isCompactMode ? 'flex-1 min-h-[36px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
+                className={`${isCompactMode ? 'flex-1 min-h-[30px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border border-dashed border-muted-foreground/30 rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
                     ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
