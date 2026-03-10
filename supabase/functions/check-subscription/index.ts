@@ -40,38 +40,34 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Parse optional organization_id from request body
     let organizationId: string | null = null;
     try {
       const body = await req.json();
       organizationId = body?.organization_id ?? null;
     } catch {
-      // No body or invalid JSON — that's fine, fall back to user-level
+      // No body or invalid JSON
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    // If org-scoped, find all admin+ users in the org and check their Stripe customers
+    // Collect all subscriptions from org admin emails
     let allSubs: any[] = [];
     let customerId: string | null = null;
 
     if (organizationId) {
       logStep("Org-scoped check", { organizationId });
 
-      // Get all admin+ users in this organization
       const { data: orgAdmins } = await supabase
         .from("organization_members")
         .select("user_id")
         .eq("organization_id", organizationId);
 
-      // Collect unique user IDs (org members + requesting user)
       const adminUserIds = new Set<string>();
       if (orgAdmins) {
         for (const m of orgAdmins) adminUserIds.add(m.user_id);
       }
       adminUserIds.add(user.id);
 
-      // Get emails for all admin users
       const { data: adminProfiles } = await supabase
         .from("profiles")
         .select("id, email")
@@ -80,19 +76,15 @@ serve(async (req) => {
       const emails = (adminProfiles || []).map((p: any) => p.email).filter(Boolean);
       logStep("Checking org admin emails", { emails: emails.length });
 
-      // Search Stripe for customers matching any org admin email
       for (const email of emails) {
         const customers = await stripe.customers.list({ email, limit: 1 });
         if (customers.data.length === 0) continue;
 
         const cid = customers.data[0].id;
-
-        // Check for active or trialing subscriptions with org metadata match
-        const activeSubs = await stripe.subscriptions.list({ customer: cid, status: "active", limit: 10 });
-        const trialingSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 10 });
+        const activeSubs = await stripe.subscriptions.list({ customer: cid, status: "active", limit: 50 });
+        const trialingSubs = await stripe.subscriptions.list({ customer: cid, status: "trialing", limit: 50 });
 
         const matchingSubs = [...activeSubs.data, ...trialingSubs.data].filter((sub) => {
-          // Org-scoped: only match subscriptions explicitly tagged with this org
           const subOrgId = sub.metadata?.organization_id;
           return subOrgId === organizationId;
         });
@@ -100,31 +92,38 @@ serve(async (req) => {
         if (matchingSubs.length > 0) {
           allSubs.push(...matchingSubs);
           customerId = cid;
-          logStep("Found org subscription", { customerId: cid, email, subCount: matchingSubs.length });
+          logStep("Found org subscriptions", { customerId: cid, email, subCount: matchingSubs.length });
         }
       }
     } else {
-      // Fallback: user-level check (legacy behavior)
       logStep("User-level check (no org_id provided)");
       const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
-        const activeSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 10 });
-        const trialingSubs = await stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 10 });
+        const activeSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 50 });
+        const trialingSubs = await stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 50 });
         allSubs = [...activeSubs.data, ...trialingSubs.data];
       }
     }
 
     if (allSubs.length === 0) {
       logStep("No active or trialing subscriptions");
-      return new Response(JSON.stringify({ subscribed: false }), {
+      return new Response(JSON.stringify({ subscribed: false, location_subscriptions: {} }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    // Gather all product IDs from active subscriptions
+    // Build per-location subscription map
+    const locationSubscriptions: Record<string, {
+      subscribed: boolean;
+      product_id: string;
+      subscription_end: string | null;
+      trial_end: string | null;
+      status: string;
+    }> = {};
+
     const productIds: string[] = [];
     let latestEnd = 0;
     let latestTrialEnd = 0;
@@ -142,12 +141,29 @@ serve(async (req) => {
         const pid = typeof item.price.product === "string" ? item.price.product : (item.price.product as any).id;
         if (!productIds.includes(pid)) productIds.push(pid);
       }
+
+      // Map location_id from metadata
+      const locId = sub.metadata?.location_id;
+      if (locId) {
+        const subEnd = periodEnd > 0 ? new Date(periodEnd).toISOString() : null;
+        const subTrialEnd = sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
+        const pid = sub.items.data[0]?.price?.product;
+        const productId = typeof pid === "string" ? pid : pid?.id || "";
+
+        locationSubscriptions[locId] = {
+          subscribed: true,
+          product_id: productId,
+          subscription_end: subEnd,
+          trial_end: subTrialEnd,
+          status: sub.status,
+        };
+      }
     }
 
     const subscriptionEnd = latestEnd > 0 ? new Date(latestEnd).toISOString() : null;
     const trialEnd = latestTrialEnd > 0 ? new Date(latestTrialEnd).toISOString() : null;
 
-    // Get billable location count for the org (exclude Sandbox locations)
+    // Get billable location count
     let locationCount = 0;
     if (organizationId) {
       const { count } = await supabase
@@ -155,13 +171,12 @@ serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .eq("organization_id", organizationId)
         .eq("is_active", true)
-        .neq("store_number", "7777"); // Exclude Sandbox
+        .neq("store_number", "7777");
 
       locationCount = count ?? 0;
-      logStep("Billable locations", { organizationId, locationCount });
     }
 
-    logStep("Subscription data", { productIds, subscriptionEnd, trialEnd, locationCount });
+    logStep("Subscription data", { productIds, subscriptionEnd, trialEnd, locationCount, locationSubscriptions });
 
     return new Response(
       JSON.stringify({
@@ -171,6 +186,7 @@ serve(async (req) => {
         trial_end: trialEnd,
         location_count: locationCount,
         organization_id: organizationId,
+        location_subscriptions: locationSubscriptions,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

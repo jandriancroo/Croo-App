@@ -38,56 +38,60 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    const { priceId, skipTrial, organizationId } = await req.json();
+    const { priceId, skipTrial, organizationId, locationId } = await req.json();
     if (!priceId) throw new Error("priceId is required");
-    logStep("Request params", { priceId, skipTrial, organizationId });
+    if (!locationId) throw new Error("locationId is required");
+    logStep("Request params", { priceId, skipTrial, organizationId, locationId });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    // Find or create Stripe customer — will update with org info after we fetch it
+    // Find or create Stripe customer
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId: string | undefined;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
     }
 
-    // Calculate billable location count (exclude Sandbox store_number 7777)
-    let quantity = 1;
+    // Fetch location and org info
+    const { data: locationData } = await supabase
+      .from("locations")
+      .select("name, store_number, organization_id")
+      .eq("id", locationId)
+      .single();
+
+    const locationName = locationData?.name || "";
+    const storeNumber = locationData?.store_number || "";
+    const effectiveOrgId = organizationId || locationData?.organization_id || "";
+
     let orgName = "";
-    if (organizationId) {
-      const { count } = await supabase
-        .from("locations")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", organizationId)
-        .eq("is_active", true)
-        .neq("store_number", "7777"); // Exclude Sandbox
-
-      quantity = Math.max(count ?? 1, 1);
-
-      // Fetch org name for Stripe metadata
+    if (effectiveOrgId) {
       const { data: orgData } = await supabase
         .from("organizations")
         .select("name")
-        .eq("id", organizationId)
+        .eq("id", effectiveOrgId)
         .single();
       orgName = orgData?.name || "";
+    }
 
-      logStep("Billable location count", { organizationId, orgName, quantity });
-      // Update Stripe customer with org info so it's visible across Stripe
-      if (customerId && orgName) {
-        await stripe.customers.update(customerId, {
-          description: orgName,
-          metadata: { organization_id: organizationId, organization_name: orgName },
-        });
-      }
+    logStep("Location info", { locationName, storeNumber, orgName });
+
+    // Update Stripe customer with org info
+    if (customerId && orgName) {
+      await stripe.customers.update(customerId, {
+        description: orgName,
+        metadata: { organization_id: effectiveOrgId, organization_name: orgName },
+      });
     }
 
     const origin = req.headers.get("origin") || "https://croohq.lovable.app";
 
     const subscriptionData: any = {
       metadata: {
-        organization_id: organizationId || "",
+        organization_id: effectiveOrgId,
         organization_name: orgName,
+        location_id: locationId,
+        location_name: locationName,
+        store_number: storeNumber,
         created_by_user_id: user.id,
       },
     };
@@ -96,10 +100,11 @@ serve(async (req) => {
       subscriptionData.trial_period_days = 14;
     }
 
+    // Per-location billing: quantity is always 1
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
-      line_items: [{ price: priceId, quantity }],
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       allow_promotion_codes: true,
       consent_collection: {
@@ -110,7 +115,7 @@ serve(async (req) => {
       cancel_url: `${origin}/settings?checkout=canceled`,
     });
 
-    logStep("Checkout session created", { sessionId: session.id, quantity });
+    logStep("Checkout session created", { sessionId: session.id, locationId, locationName });
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
