@@ -145,19 +145,10 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
     }
   });
 
-  // Fetch recipe costs for on-the-fly calculation
-  const { data: recipeCosts } = useQuery({
-    queryKey: ["recipe-costs", locationId],
-    queryFn: () => fetchRecipeCosts(locationId),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Helper to get item value considering recipe costs
+  // Helper to get item value using stored cost_per_unit
+  // For consistency with the counting session, we use cost_per_unit / packQty for all items
+  // (including recipes, where cost_per_unit already represents the per-unit cost and packQty is typically 1/null)
   const getItemValue = (item: CountItem) => {
-    const batchCost = recipeCosts?.get(item.item_id);
-    if ((item.item as any)?.is_recipe && batchCost && batchCost > 0) {
-      return item.quantity * batchCost;
-    }
     const packQty = (item.item as any)?.pack_quantity_override ?? (item.item?.pack_quantity || 1);
     return item.quantity * ((item.item?.cost_per_unit || 0) / Math.max(packQty, 1));
   };
