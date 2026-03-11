@@ -99,12 +99,6 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
     setUploading(true);
     try {
       const text = await file.text();
-      const { data, error } = await supabase.functions.invoke("data-sync-service", {
-        body: { csvContent: text, locationId, sourceSystem: "r365", fileName: file.name },
-        headers: { "x-action": "diff-bom" },
-      });
-
-      // The function uses query params, so we need to invoke differently
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-sync-service?action=diff-bom`,
