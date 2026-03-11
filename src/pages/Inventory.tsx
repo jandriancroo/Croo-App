@@ -24,6 +24,7 @@ import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
+import BOMImportSheet from "@/components/inventory/BOMImportSheet";
 
 const Inventory = () => {
   const { locationId } = useParams();
