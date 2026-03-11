@@ -77,7 +77,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         backgroundColor: `${bgColor}20`,
         borderColor: `${bgColor}40`,
       }}
-      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-md border-2'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[22px] rounded-none border border-solid shadow-none' : 'p-1.5 min-h-[46px] rounded-md border-2'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0 w-[100px]' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -124,7 +124,9 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         {!isCompactMode && !shift.isTemplate && position && (
           <div className="text-muted-foreground text-[9px] lg:text-[10px] mt-0.5 leading-tight text-left truncate">{formatPosition(position)}</div>
         )}
-        {!isCompactMode && shift.is_time_off && <div className="text-foreground text-xs lg:text-sm font-medium text-left">TIME OFF</div>}
+       {shift.is_time_off && (
+          <div className={`text-foreground font-medium text-left ${isCompactMode ? 'text-[8px] leading-none' : 'text-xs lg:text-sm'}`}>TIME OFF</div>
+        )}
       </div>
       {!isCompactMode && !shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div 
