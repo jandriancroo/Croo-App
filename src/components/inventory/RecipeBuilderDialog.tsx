@@ -135,7 +135,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       if (!editRecipeId) return null;
       const { data: item } = await supabase
         .from("inventory_items")
-        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable, pan_sizes")
+        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable, pan_sizes, source")
         .eq("id", editRecipeId)
         .single();
 
