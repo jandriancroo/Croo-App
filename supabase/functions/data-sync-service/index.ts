@@ -679,5 +679,474 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
       JSON.stringify({ error: errorMessage, scores: [] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
+}
+
+// ==================== DIFF BOM (Universal Import Pipeline) ====================
+
+async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
+  try {
+    const { csvContent, locationId, sourceSystem = 'r365', fileName } = await req.json()
+
+    if (!csvContent || !locationId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing csvContent or locationId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get the uploading user from the auth header
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '')
+    const { data: { user } } = await supabase.auth.getUser(authHeader)
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[diff-bom] Starting diff for location: ${locationId}, source: ${sourceSystem}`)
+
+    // Parse the CSV using existing parser
+    const rows = parseCSV(csvContent)
+    if (rows.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No valid rows found in CSV' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`[diff-bom] Parsed ${rows.length} rows`)
+
+    // Build sets from CSV
+    const csvIngredients = new Map<string, ParsedIngredient>()
+    const csvMenuItems = new Map<string, ParsedMenuItem>()
+    const csvRecipes = new Map<string, { qty: number; uofm: string; yieldPercent: number; recipe: string; item: string }>()
+
+    for (const row of rows) {
+      if (!csvIngredients.has(row.item)) {
+        const category = extractIngredientCategory(row.item)
+        csvIngredients.set(row.item, {
+          r365_name: row.item,
+          category,
+          clean_name: cleanIngredientName(row.item),
+          unit_standard: normalizeUnit(row.uofm),
+          is_prep_item: category === 'PREP',
+        })
+      }
+      if (!csvMenuItems.has(row.recipe)) {
+        const category = extractMenuCategory(row.recipe)
+        csvMenuItems.set(row.recipe, {
+          r365_name: row.recipe,
+          category,
+          clean_name: cleanMenuName(row.recipe),
+          is_sellable: category === 'MI',
+        })
+      }
+
+      const recipeKey = `${row.recipe}::${row.item}`
+      if (csvRecipes.has(recipeKey)) {
+        csvRecipes.get(recipeKey)!.qty += row.qty
+      } else {
+        csvRecipes.set(recipeKey, {
+          qty: row.qty,
+          uofm: row.uofm,
+          yieldPercent: row.yieldPercent,
+          recipe: row.recipe,
+          item: row.item,
+        })
+      }
+    }
+
+    // Fetch existing data from BOM tables
+    const [existingIngredientsRes, existingMenuItemsRes, existingRecipesRes] = await Promise.all([
+      supabase.from('bom_ingredients').select('id, r365_name, category, clean_name, unit_standard, is_prep_item').eq('location_id', locationId),
+      supabase.from('bom_menu_items').select('id, r365_name, category, clean_name, is_sellable').eq('location_id', locationId),
+      supabase.from('bom_recipe_ingredients').select('id, menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent').eq('location_id', locationId),
+    ])
+
+    const existingIngredients = new Map<string, any>()
+    for (const ing of existingIngredientsRes.data || []) {
+      existingIngredients.set(ing.r365_name, ing)
+    }
+
+    const existingMenuItems = new Map<string, any>()
+    for (const mi of existingMenuItemsRes.data || []) {
+      existingMenuItems.set(mi.r365_name, mi)
+    }
+
+    // Build recipe lookup by r365_names
+    const existingIngById = new Map<string, string>()
+    for (const ing of existingIngredientsRes.data || []) {
+      existingIngById.set(ing.id, ing.r365_name)
+    }
+    const existingMiById = new Map<string, string>()
+    for (const mi of existingMenuItemsRes.data || []) {
+      existingMiById.set(mi.id, mi.r365_name)
+    }
+    const existingRecipes = new Map<string, any>()
+    for (const ri of existingRecipesRes.data || []) {
+      const miName = existingMiById.get(ri.menu_item_id)
+      const ingName = existingIngById.get(ri.ingredient_id)
+      if (miName && ingName) {
+        existingRecipes.set(`${miName}::${ingName}`, ri)
+      }
+    }
+
+    // Create batch
+    const { data: batch, error: batchError } = await supabase
+      .from('bom_import_batches')
+      .insert({
+        location_id: locationId,
+        source_system: sourceSystem,
+        status: 'reviewing',
+        uploaded_by: user.id,
+        file_name: fileName || 'bom_export.csv',
+      })
+      .select('id')
+      .single()
+
+    if (batchError) throw batchError
+
+    const batchId = batch.id
+    const diffItems: any[] = []
+    let newCount = 0, updatedCount = 0, removedCount = 0, unchangedCount = 0
+
+    // Diff ingredients
+    for (const [name, csvIng] of csvIngredients) {
+      const existing = existingIngredients.get(name)
+      if (!existing) {
+        diffItems.push({
+          batch_id: batchId, entity_type: 'ingredient', change_type: 'new',
+          r365_name: name, category: csvIng.category, clean_name: csvIng.clean_name,
+          unit_standard: csvIng.unit_standard, is_prep_item: csvIng.is_prep_item,
+          new_values: csvIng,
+        })
+        newCount++
+      } else {
+        const changed = existing.unit_standard !== csvIng.unit_standard || existing.category !== csvIng.category
+        diffItems.push({
+          batch_id: batchId, entity_type: 'ingredient',
+          change_type: changed ? 'updated' : 'unchanged',
+          r365_name: name, category: csvIng.category, clean_name: csvIng.clean_name,
+          unit_standard: csvIng.unit_standard, is_prep_item: csvIng.is_prep_item,
+          previous_values: changed ? { unit_standard: existing.unit_standard, category: existing.category } : null,
+          new_values: changed ? csvIng : null,
+          resolution: changed ? 'pending' : 'skipped',
+        })
+        if (changed) updatedCount++
+        else unchangedCount++
+      }
+    }
+
+    // Removed ingredients (in DB but not in CSV)
+    for (const [name, existing] of existingIngredients) {
+      if (!csvIngredients.has(name)) {
+        diffItems.push({
+          batch_id: batchId, entity_type: 'ingredient', change_type: 'removed',
+          r365_name: name, category: existing.category, clean_name: existing.clean_name,
+          previous_values: existing,
+        })
+        removedCount++
+      }
+    }
+
+    // Diff menu items
+    for (const [name, csvMi] of csvMenuItems) {
+      const existing = existingMenuItems.get(name)
+      if (!existing) {
+        diffItems.push({
+          batch_id: batchId, entity_type: 'menu_item', change_type: 'new',
+          r365_name: name, category: csvMi.category, clean_name: csvMi.clean_name,
+          is_sellable: csvMi.is_sellable,
+          new_values: csvMi,
+        })
+        newCount++
+      } else {
+        const changed = existing.category !== csvMi.category
+        diffItems.push({
+          batch_id: batchId, entity_type: 'menu_item',
+          change_type: changed ? 'updated' : 'unchanged',
+          r365_name: name, category: csvMi.category, clean_name: csvMi.clean_name,
+          is_sellable: csvMi.is_sellable,
+          previous_values: changed ? { category: existing.category } : null,
+          new_values: changed ? csvMi : null,
+          resolution: changed ? 'pending' : 'skipped',
+        })
+        if (changed) updatedCount++
+        else unchangedCount++
+      }
+    }
+
+    // Removed menu items
+    for (const [name, existing] of existingMenuItems) {
+      if (!csvMenuItems.has(name)) {
+        diffItems.push({
+          batch_id: batchId, entity_type: 'menu_item', change_type: 'removed',
+          r365_name: name, category: existing.category, clean_name: existing.clean_name,
+          previous_values: existing,
+        })
+        removedCount++
+      }
+    }
+
+    // Diff recipe links
+    for (const [key, csvRecipe] of csvRecipes) {
+      const existing = existingRecipes.get(key)
+      if (!existing) {
+        diffItems.push({
+          batch_id: batchId, entity_type: 'recipe_link', change_type: 'new',
+          r365_name: key, parent_r365_name: csvRecipe.recipe,
+          quantity: csvRecipe.qty, unit_of_measure: csvRecipe.uofm,
+          yield_percent: csvRecipe.yieldPercent,
+          new_values: csvRecipe,
+        })
+        newCount++
+      } else {
+        const qtyChanged = Math.abs(existing.quantity - csvRecipe.qty) > 0.001
+        const yieldChanged = Math.abs((existing.yield_percent || 100) - csvRecipe.yieldPercent) > 0.001
+        const changed = qtyChanged || yieldChanged
+        diffItems.push({
+          batch_id: batchId, entity_type: 'recipe_link',
+          change_type: changed ? 'updated' : 'unchanged',
+          r365_name: key, parent_r365_name: csvRecipe.recipe,
+          quantity: csvRecipe.qty, unit_of_measure: csvRecipe.uofm,
+          yield_percent: csvRecipe.yieldPercent,
+          previous_values: changed ? { quantity: existing.quantity, yield_percent: existing.yield_percent } : null,
+          new_values: changed ? csvRecipe : null,
+          resolution: changed ? 'pending' : 'skipped',
+        })
+        if (changed) updatedCount++
+        else unchangedCount++
+      }
+    }
+
+    // Removed recipe links
+    for (const [key, existing] of existingRecipes) {
+      if (!csvRecipes.has(key)) {
+        const [recipeName, itemName] = key.split('::')
+        diffItems.push({
+          batch_id: batchId, entity_type: 'recipe_link', change_type: 'removed',
+          r365_name: key, parent_r365_name: recipeName,
+          previous_values: { quantity: existing.quantity, yield_percent: existing.yield_percent },
+        })
+        removedCount++
+      }
+    }
+
+    // Batch insert diff items
+    const batchSize = 500
+    for (let i = 0; i < diffItems.length; i += batchSize) {
+      const batch_slice = diffItems.slice(i, i + batchSize)
+      const { error: itemError } = await supabase.from('bom_import_items').insert(batch_slice)
+      if (itemError) {
+        console.error(`[diff-bom] Error inserting diff items batch:`, itemError)
+        throw itemError
+      }
+    }
+
+    // Update batch summary
+    const summary = { new: newCount, updated: updatedCount, removed: removedCount, unchanged: unchangedCount, total: diffItems.length }
+    await supabase.from('bom_import_batches').update({ summary }).eq('id', batchId)
+
+    console.log(`[diff-bom] Diff complete: ${JSON.stringify(summary)}`)
+
+    return new Response(
+      JSON.stringify({ success: true, batchId, summary }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error: unknown) {
+    console.error('[diff-bom] Error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
+}
+
+// ==================== APPLY BOM DIFF ====================
+
+async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response> {
+  try {
+    const { batchId, locationId } = await req.json()
+
+    if (!batchId || !locationId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing batchId or locationId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '')
+    const { data: { user } } = await supabase.auth.getUser(authHeader)
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Fetch approved items (or all non-rejected for bulk approve)
+    const { data: items, error: itemsError } = await supabase
+      .from('bom_import_items')
+      .select('*')
+      .eq('batch_id', batchId)
+      .in('resolution', ['pending', 'approved'])
+      .neq('change_type', 'unchanged')
+
+    if (itemsError) throw itemsError
+
+    console.log(`[apply-bom-diff] Applying ${items?.length || 0} changes for batch ${batchId}`)
+
+    let applied = 0
+
+    // Process ingredients
+    const newIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'new')
+    const updatedIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'updated')
+    const removedIngredients = items.filter((i: any) => i.entity_type === 'ingredient' && i.change_type === 'removed' && i.resolution === 'approved')
+
+    if (newIngredients.length > 0) {
+      const ingData = newIngredients.map((i: any) => ({
+        location_id: locationId,
+        r365_name: i.r365_name,
+        category: i.category,
+        clean_name: i.clean_name,
+        unit_standard: i.unit_standard,
+        is_prep_item: i.is_prep_item,
+      }))
+      const { error } = await supabase.from('bom_ingredients').upsert(ingData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
+      if (error) throw error
+      applied += newIngredients.length
+    }
+
+    if (updatedIngredients.length > 0) {
+      for (const ing of updatedIngredients) {
+        const { error } = await supabase.from('bom_ingredients')
+          .update({ category: ing.category, unit_standard: ing.unit_standard })
+          .eq('location_id', locationId).eq('r365_name', ing.r365_name)
+        if (error) console.error(`[apply-bom-diff] Error updating ingredient ${ing.r365_name}:`, error)
+        else applied++
+      }
+    }
+
+    // Process menu items
+    const newMenuItems = items.filter((i: any) => i.entity_type === 'menu_item' && i.change_type === 'new')
+    const updatedMenuItems = items.filter((i: any) => i.entity_type === 'menu_item' && i.change_type === 'updated')
+
+    if (newMenuItems.length > 0) {
+      const miData = newMenuItems.map((i: any) => ({
+        location_id: locationId,
+        r365_name: i.r365_name,
+        category: i.category,
+        clean_name: i.clean_name,
+        is_sellable: i.is_sellable,
+      }))
+      const { error } = await supabase.from('bom_menu_items').upsert(miData, { onConflict: 'location_id,r365_name', ignoreDuplicates: false })
+      if (error) throw error
+      applied += newMenuItems.length
+    }
+
+    if (updatedMenuItems.length > 0) {
+      for (const mi of updatedMenuItems) {
+        const { error } = await supabase.from('bom_menu_items')
+          .update({ category: mi.category })
+          .eq('location_id', locationId).eq('r365_name', mi.r365_name)
+        if (error) console.error(`[apply-bom-diff] Error updating menu item ${mi.r365_name}:`, error)
+        else applied++
+      }
+    }
+
+    // Process recipe links
+    const newRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'new')
+    const updatedRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'updated')
+    const removedRecipes = items.filter((i: any) => i.entity_type === 'recipe_link' && i.change_type === 'removed' && i.resolution === 'approved')
+
+    // For recipe links, we need to resolve r365_names to IDs
+    const { data: allIngredients } = await supabase.from('bom_ingredients').select('id, r365_name').eq('location_id', locationId)
+    const { data: allMenuItems } = await supabase.from('bom_menu_items').select('id, r365_name').eq('location_id', locationId)
+
+    const ingIdMap = new Map<string, string>()
+    for (const ing of allIngredients || []) ingIdMap.set(ing.r365_name, ing.id)
+    const miIdMap = new Map<string, string>()
+    for (const mi of allMenuItems || []) miIdMap.set(mi.r365_name, mi.id)
+
+    if (newRecipes.length > 0) {
+      const riData = newRecipes.map((i: any) => {
+        const [recipeName, itemName] = i.r365_name.split('::')
+        return {
+          location_id: locationId,
+          menu_item_id: miIdMap.get(recipeName),
+          ingredient_id: ingIdMap.get(itemName),
+          quantity: i.quantity,
+          quantity_normalized: i.quantity,
+          unit_of_measure: i.unit_of_measure,
+          yield_percent: i.yield_percent,
+        }
+      }).filter((r: any) => r.menu_item_id && r.ingredient_id)
+
+      if (riData.length > 0) {
+        const { error } = await supabase.from('bom_recipe_ingredients').insert(riData)
+        if (error) console.error('[apply-bom-diff] Error inserting recipes:', error)
+        else applied += riData.length
+      }
+    }
+
+    if (updatedRecipes.length > 0) {
+      for (const ri of updatedRecipes) {
+        const [recipeName, itemName] = ri.r365_name.split('::')
+        const menuItemId = miIdMap.get(recipeName)
+        const ingredientId = ingIdMap.get(itemName)
+        if (!menuItemId || !ingredientId) continue
+
+        const { error } = await supabase.from('bom_recipe_ingredients')
+          .update({ quantity: ri.quantity, quantity_normalized: ri.quantity, yield_percent: ri.yield_percent })
+          .eq('location_id', locationId).eq('menu_item_id', menuItemId).eq('ingredient_id', ingredientId)
+        if (error) console.error(`[apply-bom-diff] Error updating recipe ${ri.r365_name}:`, error)
+        else applied++
+      }
+    }
+
+    if (removedRecipes.length > 0) {
+      for (const ri of removedRecipes) {
+        const [recipeName, itemName] = ri.r365_name.split('::')
+        const menuItemId = miIdMap.get(recipeName)
+        const ingredientId = ingIdMap.get(itemName)
+        if (!menuItemId || !ingredientId) continue
+
+        await supabase.from('bom_recipe_ingredients')
+          .delete()
+          .eq('location_id', locationId).eq('menu_item_id', menuItemId).eq('ingredient_id', ingredientId)
+        applied++
+      }
+    }
+
+    // Mark batch as approved
+    await supabase.from('bom_import_batches').update({
+      status: 'approved',
+      approved_by: user.id,
+      approved_at: new Date().toISOString(),
+    }).eq('id', batchId)
+
+    // Mark all pending items as approved
+    await supabase.from('bom_import_items')
+      .update({ resolution: 'approved', resolved_by: user.id, resolved_at: new Date().toISOString() })
+      .eq('batch_id', batchId).eq('resolution', 'pending')
+
+    console.log(`[apply-bom-diff] Applied ${applied} changes`)
+
+    return new Response(
+      JSON.stringify({ success: true, applied }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error: unknown) {
+    console.error('[apply-bom-diff] Error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+}
 }
