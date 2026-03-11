@@ -156,7 +156,7 @@ function EmployeeRowComponent({
     return result;
   }, [allShifts, profile.id]);
     return <div ref={setNodeRef} style={style} className={`grid gap-0 border-b border-dotted border-border/50 relative auto-rows-fr min-w-[700px] grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)]`}>
-      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[30px]' : 'min-h-[46px]'}`}>
+      <div className={`flex items-center gap-1 p-2 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[30px]' : 'min-h-[30px]'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
           <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
