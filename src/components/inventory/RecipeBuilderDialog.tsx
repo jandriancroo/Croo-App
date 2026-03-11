@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, Loader2, Search, FlaskConical, Eye, EyeOff } from "lucide-react";
+import { Plus, X, Loader2, Search, FlaskConical, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import PanSizesSection from "./PanSizesSection";
@@ -135,7 +135,7 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
       if (!editRecipeId) return null;
       const { data: item } = await supabase
         .from("inventory_items")
-        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable, pan_sizes")
+        .select("id, name, recipe_yield_qty, recipe_yield_unit, countable, pan_sizes, source")
         .eq("id", editRecipeId)
         .single();
 
@@ -423,7 +423,18 @@ const RecipeBuilderDialog = ({ open, onOpenChange, locationId, editRecipeId }: R
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5" />
             {editRecipeId ? "Edit Recipe" : "Create Prep Recipe"}
+            {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 text-[10px] ml-auto">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                R365 Synced
+              </Badge>
+            )}
           </DialogTitle>
+          {existingRecipe?.item && (existingRecipe.item as any).source === 'r365_import' && (
+            <p className="text-xs text-muted-foreground">
+              This recipe was imported from R365. Manual edits may be flagged on the next import.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">
