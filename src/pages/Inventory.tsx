@@ -436,6 +436,12 @@ const Inventory = () => {
           />
         </>
       )}
+
+      <BOMImportSheet
+        open={showBOMImport}
+        onOpenChange={setShowBOMImport}
+        locationId={locationId!}
+      />
     </Layout>
   );
 };
