@@ -77,7 +77,7 @@ function ShiftCardComponent({ shift, isDragging, onEdit, isPublished = true, isC
         backgroundColor: `${bgColor}20`,
         borderColor: `${bgColor}40`,
       }}
-      className={`${isCompactMode ? 'p-0 min-h-[30px] rounded-none border-2 border-solid shadow-none' : 'py-0.5 px-1.5 min-h-[38px] rounded-md border-2'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
+      className={`${isCompactMode ? 'p-0 min-h-[30px] rounded-none border-2 border-solid shadow-none' : 'py-0.5 px-1.5 min-h-[30px] rounded-md border-2'} ${shift.isTemplate ? (isCompactMode ? 'shrink-0' : 'min-w-[110px]') : 'flex-1 min-w-0'} flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles} ${isCompactMode ? '' : conflictBorderClass} overflow-hidden`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
