@@ -148,9 +148,11 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
       return result;
     },
     onSuccess: (data) => {
-      toast.success(`Applied ${data.applied} changes to BOM`);
+      const bridgedMsg = data.bridged ? ` · ${data.bridged} recipes synced to builder` : '';
+      toast.success(`Applied ${data.applied} changes to BOM${bridgedMsg}`);
       queryClient.invalidateQueries({ queryKey: ["bom-import-batches", locationId] });
       queryClient.invalidateQueries({ queryKey: ["bom-import-items", selectedBatchId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to apply changes");
