@@ -70,7 +70,7 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;
-      return (data || []) as ImportBatch[];
+      return (data || []) as unknown as ImportBatch[];
     },
     enabled: open,
   });
