@@ -358,7 +358,7 @@ function DayCell({
 
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`${isCompactMode ? 'min-h-[30px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
+  }} className={`${isCompactMode ? 'min-h-[26px]' : 'min-h-[60px] p-1.5'} border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"} flex items-stretch overflow-hidden ${canSmartTap ? 'cursor-pointer' : ''}`}>
     <SmartTapPopover
       open={smartTapOpen}
       onOpenChange={setSmartTapOpen}
