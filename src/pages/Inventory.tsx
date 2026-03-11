@@ -42,6 +42,7 @@ const Inventory = () => {
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
+  const [showBOMImport, setShowBOMImport] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
