@@ -392,7 +392,13 @@ const Inventory = () => {
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
 
-          <TabsContent value="setup" className="mt-4">
+          <TabsContent value="setup" className="mt-4 space-y-4">
+            {isBrandLevel && (
+              <Button variant="outline" size="sm" onClick={() => setShowBOMImport(true)} className="w-full">
+                <FileText className="h-4 w-4 mr-2" />
+                Recipe Import Pipeline
+              </Button>
+            )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </TabsContent>
         </Tabs>
