@@ -24,6 +24,10 @@ serve(async (req) => {
         return await handleBirthdaySync(supabase)
       case 'import-bom':
         return await handleImportBOM(req, supabase)
+      case 'diff-bom':
+        return await handleDiffBOM(req, supabase)
+      case 'apply-bom-diff':
+        return await handleApplyBOMDiff(req, supabase)
       case 'fetch-ovation-scores':
         return await handleFetchOvationScores(req, supabase)
       default:
