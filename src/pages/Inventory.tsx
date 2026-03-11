@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket, FileText } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
+import BOMImportSheet from "@/components/inventory/BOMImportSheet";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -41,6 +42,7 @@ const Inventory = () => {
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
+  const [showBOMImport, setShowBOMImport] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -390,7 +392,13 @@ const Inventory = () => {
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
 
-          <TabsContent value="setup" className="mt-4">
+          <TabsContent value="setup" className="mt-4 space-y-4">
+            {isBrandLevel && (
+              <Button variant="outline" size="sm" onClick={() => setShowBOMImport(true)} className="w-full">
+                <FileText className="h-4 w-4 mr-2" />
+                Recipe Import Pipeline
+              </Button>
+            )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
           </TabsContent>
         </Tabs>
@@ -428,6 +436,12 @@ const Inventory = () => {
           />
         </>
       )}
+
+      <BOMImportSheet
+        open={showBOMImport}
+        onOpenChange={setShowBOMImport}
+        locationId={locationId!}
+      />
     </Layout>
   );
 };

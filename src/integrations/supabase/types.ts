@@ -336,6 +336,157 @@ export type Database = {
           },
         ]
       }
+      bom_import_batches: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          file_name: string | null
+          id: string
+          location_id: string
+          raw_csv_url: string | null
+          source_system: string
+          status: string
+          summary: Json | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          location_id: string
+          raw_csv_url?: string | null
+          source_system?: string
+          status?: string
+          summary?: Json | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          location_id?: string
+          raw_csv_url?: string | null
+          source_system?: string
+          status?: string
+          summary?: Json | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_import_batches_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_import_batches_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_import_batches_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bom_import_items: {
+        Row: {
+          batch_id: string
+          category: string | null
+          change_type: string
+          clean_name: string | null
+          created_at: string
+          entity_type: string
+          id: string
+          is_prep_item: boolean | null
+          is_sellable: boolean | null
+          new_values: Json | null
+          parent_r365_name: string | null
+          previous_values: Json | null
+          quantity: number | null
+          r365_name: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          unit_of_measure: string | null
+          unit_standard: string | null
+          yield_percent: number | null
+        }
+        Insert: {
+          batch_id: string
+          category?: string | null
+          change_type: string
+          clean_name?: string | null
+          created_at?: string
+          entity_type: string
+          id?: string
+          is_prep_item?: boolean | null
+          is_sellable?: boolean | null
+          new_values?: Json | null
+          parent_r365_name?: string | null
+          previous_values?: Json | null
+          quantity?: number | null
+          r365_name: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          unit_of_measure?: string | null
+          unit_standard?: string | null
+          yield_percent?: number | null
+        }
+        Update: {
+          batch_id?: string
+          category?: string | null
+          change_type?: string
+          clean_name?: string | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          is_prep_item?: boolean | null
+          is_sellable?: boolean | null
+          new_values?: Json | null
+          parent_r365_name?: string | null
+          previous_values?: Json | null
+          quantity?: number | null
+          r365_name?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          unit_of_measure?: string | null
+          unit_standard?: string | null
+          yield_percent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bom_import_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "bom_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_import_items_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bom_ingredients: {
         Row: {
           category: string | null
