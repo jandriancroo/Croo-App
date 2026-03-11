@@ -489,7 +489,7 @@ function DayCell({
           <Popover key={request.id}>
             <PopoverTrigger asChild>
               <div 
-                className={`${isCompactMode ? 'flex-1 min-h-[44px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`} 
+                className={`${isCompactMode ? 'flex-1 min-h-[22px] flex flex-col justify-center items-center border-0 rounded-none' : 'p-1 border-dashed border rounded flex-1 min-h-[55px] flex flex-col justify-center items-center'} bg-muted/50 relative text-[10px] cursor-pointer hover:bg-muted/70 transition-colors`}
                 style={{
                   background: isCompactMode 
                     ? "repeating-linear-gradient(45deg, rgba(150,150,150,0.15), rgba(150,150,150,0.15) 10px, rgba(150,150,150,0.05) 10px, rgba(150,150,150,0.05) 20px)"
