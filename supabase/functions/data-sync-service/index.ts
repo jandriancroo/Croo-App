@@ -1133,10 +1133,156 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       .update({ resolution: 'approved', resolved_by: user.id, resolved_at: new Date().toISOString() })
       .eq('batch_id', batchId).eq('resolution', 'pending')
 
+    // ==================== BRIDGE BOM → INVENTORY_ITEMS ====================
+    // Create/update editable inventory_items for each menu item (recipe) in BOM
+    console.log(`[apply-bom-diff] Bridging BOM recipes to inventory_items...`)
+
+    let bridged = 0
+
+    // Fetch all BOM menu items for this location (these become recipes)
+    const { data: bomMenuItems } = await supabase
+      .from('bom_menu_items')
+      .select('id, r365_name, clean_name, category')
+      .eq('location_id', locationId)
+
+    // Fetch all BOM recipe ingredients for this location
+    const { data: bomRecipeIngs } = await supabase
+      .from('bom_recipe_ingredients')
+      .select('menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent')
+      .eq('location_id', locationId)
+
+    // Fetch all BOM ingredients for name lookups
+    const { data: bomIngredients } = await supabase
+      .from('bom_ingredients')
+      .select('id, r365_name, clean_name, category, unit_standard')
+      .eq('location_id', locationId)
+
+    const bomIngMap = new Map<string, any>()
+    for (const bi of bomIngredients || []) bomIngMap.set(bi.id, bi)
+
+    // Fetch existing inventory_items to find or create
+    const { data: existingItems } = await supabase
+      .from('inventory_items')
+      .select('id, name, source')
+      .eq('location_id', locationId)
+
+    const existingNameMap = new Map<string, any>()
+    for (const ei of existingItems || []) existingNameMap.set(ei.name.toLowerCase(), ei)
+
+    // Group BOM recipe ingredients by menu_item_id
+    const recipeIngsByMenu = new Map<string, any[]>()
+    for (const ri of bomRecipeIngs || []) {
+      if (!recipeIngsByMenu.has(ri.menu_item_id)) recipeIngsByMenu.set(ri.menu_item_id, [])
+      recipeIngsByMenu.get(ri.menu_item_id)!.push(ri)
+    }
+
+    for (const mi of bomMenuItems || []) {
+      const displayName = mi.clean_name || mi.r365_name
+      const existingItem = existingNameMap.get(displayName.toLowerCase())
+      const recipeIngs = recipeIngsByMenu.get(mi.id) || []
+
+      let recipeItemId: string
+
+      if (existingItem) {
+        // Update existing item to mark as r365_import source
+        await supabase.from('inventory_items')
+          .update({ is_recipe: true, source: 'r365_import', category: mi.category })
+          .eq('id', existingItem.id)
+        recipeItemId = existingItem.id
+      } else {
+        // Create new inventory_item as recipe
+        const { data: newItem, error: createError } = await supabase
+          .from('inventory_items')
+          .insert({
+            location_id: locationId,
+            name: displayName,
+            unit: 'ea',
+            is_recipe: true,
+            is_active: true,
+            countable: true,
+            source: 'r365_import',
+            category: mi.category,
+          })
+          .select('id')
+          .single()
+
+        if (createError) {
+          console.error(`[apply-bom-diff] Error creating recipe item for ${displayName}:`, createError)
+          continue
+        }
+        recipeItemId = newItem.id
+        existingNameMap.set(displayName.toLowerCase(), { id: recipeItemId, name: displayName })
+      }
+
+      // Now bridge ingredient links → inventory_recipe_ingredients
+      // First, clear existing recipe ingredients for this item (full replace from BOM)
+      await supabase.from('inventory_recipe_ingredients').delete().eq('recipe_item_id', recipeItemId)
+
+      if (recipeIngs.length > 0) {
+        const ingredientLinks: any[] = []
+
+        for (const ri of recipeIngs) {
+          const bomIng = bomIngMap.get(ri.ingredient_id)
+          if (!bomIng) continue
+
+          const ingDisplayName = bomIng.clean_name || bomIng.r365_name
+          let ingredientItemId: string
+
+          // Find or create the ingredient as an inventory_item
+          const existingIng = existingNameMap.get(ingDisplayName.toLowerCase())
+          if (existingIng) {
+            ingredientItemId = existingIng.id
+            // Tag source if not already
+            if (existingIng.source !== 'r365_import' && existingIng.source !== 'manual') {
+              await supabase.from('inventory_items')
+                .update({ source: 'r365_import' })
+                .eq('id', existingIng.id)
+            }
+          } else {
+            const { data: newIng, error: ingError } = await supabase
+              .from('inventory_items')
+              .insert({
+                location_id: locationId,
+                name: ingDisplayName,
+                unit: bomIng.unit_standard || 'oz',
+                is_recipe: false,
+                is_active: true,
+                countable: true,
+                source: 'r365_import',
+                category: bomIng.category,
+              })
+              .select('id')
+              .single()
+
+            if (ingError) {
+              console.error(`[apply-bom-diff] Error creating ingredient item for ${ingDisplayName}:`, ingError)
+              continue
+            }
+            ingredientItemId = newIng.id
+            existingNameMap.set(ingDisplayName.toLowerCase(), { id: ingredientItemId, name: ingDisplayName })
+          }
+
+          ingredientLinks.push({
+            recipe_item_id: recipeItemId,
+            ingredient_item_id: ingredientItemId,
+            quantity: ri.quantity,
+            unit: ri.unit_of_measure || 'oz',
+          })
+        }
+
+        if (ingredientLinks.length > 0) {
+          const { error: linkError } = await supabase.from('inventory_recipe_ingredients').insert(ingredientLinks)
+          if (linkError) console.error(`[apply-bom-diff] Error linking recipe ingredients for ${displayName}:`, linkError)
+          else bridged += ingredientLinks.length
+        }
+      }
+    }
+
+    console.log(`[apply-bom-diff] Bridged ${bridged} recipe ingredient links to inventory_items`)
     console.log(`[apply-bom-diff] Applied ${applied} changes`)
 
     return new Response(
-      JSON.stringify({ success: true, applied }),
+      JSON.stringify({ success: true, applied, bridged }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
