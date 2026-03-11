@@ -2848,6 +2848,7 @@ export type Database = {
           recipe_yield_qty: number | null
           recipe_yield_unit: string | null
           remap_status: string | null
+          source: string | null
           storage_location_id: string | null
           unit: string
           updated_at: string
@@ -2885,6 +2886,7 @@ export type Database = {
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
           remap_status?: string | null
+          source?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
@@ -2922,6 +2924,7 @@ export type Database = {
           recipe_yield_qty?: number | null
           recipe_yield_unit?: string | null
           remap_status?: string | null
+          source?: string | null
           storage_location_id?: string | null
           unit?: string
           updated_at?: string
