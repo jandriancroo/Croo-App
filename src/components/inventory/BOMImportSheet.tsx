@@ -93,13 +93,23 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
   });
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
     try {
-      const text = await file.text();
+      // Read all selected CSV files
+      const fileContents: { name: string; content: string }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const text = await file.text();
+        fileContents.push({ name: file.name, content: text });
+      }
+
       const { data: session } = await supabase.auth.getSession();
+      const fileNames = fileContents.map(f => f.name).join(", ");
+
+      // Send all CSV contents together — the edge function will merge them
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/data-sync-service?action=diff-bom`,
         {
@@ -109,7 +119,14 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
             Authorization: `Bearer ${session?.session?.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ csvContent: text, locationId, sourceSystem: "r365", fileName: file.name }),
+          body: JSON.stringify({
+            csvFiles: fileContents.map(f => ({ fileName: f.name, csvContent: f.content })),
+            // Backwards compat: also send single file format if only one
+            csvContent: fileContents.length === 1 ? fileContents[0].content : undefined,
+            locationId,
+            sourceSystem: "r365",
+            fileName: fileNames,
+          }),
         }
       );
 
@@ -213,14 +230,15 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
                 <Upload className="h-8 w-8 text-muted-foreground" />
               )}
               <span className="mt-2 text-sm text-muted-foreground">
-                {uploading ? "Processing diff..." : "Drop R365 BOM export CSV"}
+                {uploading ? "Processing diff..." : "Drop R365 BOM export CSVs"}
               </span>
               <span className="text-xs text-muted-foreground/70 mt-1">
-                Columns: Item, Recipe, Qty, UofM, Yield%
+                Upload both Recipes + Ingredients files together
               </span>
               <input
                 type="file"
                 accept=".csv"
+                multiple
                 className="hidden"
                 onChange={handleFileUpload}
                 disabled={uploading}
