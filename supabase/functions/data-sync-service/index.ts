@@ -725,6 +725,7 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
       JSON.stringify({ error: errorMessage, scores: [] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
+  }
 }
 
 // ==================== DIFF BOM (Universal Import Pipeline) ====================
