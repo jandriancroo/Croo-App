@@ -286,8 +286,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           }),
           ...pa.map((o: any) => {
             const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
-            const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
           }),
         ],
       };
