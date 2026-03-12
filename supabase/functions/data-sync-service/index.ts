@@ -1295,4 +1295,3 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
     )
   }
 }
-}
