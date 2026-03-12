@@ -418,18 +418,33 @@ function DiffSection({
     red: "border-red-500/20 bg-red-500/5",
   };
 
-  const entityGroups = items.reduce((acc, item) => {
+  // Separate recipe_links from standalone items
+  const recipeLinks = items.filter(i => i.entity_type === "recipe_link");
+  const standaloneItems = items.filter(i => i.entity_type !== "recipe_link");
+
+  // Group recipe links by parent menu item
+  const menuItemGroups = recipeLinks.reduce((acc, item) => {
+    const parent = item.parent_r365_name || "Unknown";
+    if (!acc[parent]) acc[parent] = [];
+    acc[parent].push(item);
+    return acc;
+  }, {} as Record<string, ImportItem[]>);
+
+  // Sort parent names alphabetically
+  const sortedParents = Object.keys(menuItemGroups).sort();
+
+  const entityLabels: Record<string, string> = {
+    ingredient: "Ingredients",
+    menu_item: "Menu Items",
+  };
+
+  // Group standalone items by entity type
+  const standaloneGroups = standaloneItems.reduce((acc, item) => {
     const key = item.entity_type;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
   }, {} as Record<string, ImportItem[]>);
-
-  const entityLabels: Record<string, string> = {
-    ingredient: "Ingredients",
-    menu_item: "Menu Items",
-    recipe_link: "Recipe Links",
-  };
 
   return (
     <Collapsible open={expanded} onOpenChange={onToggle}>
@@ -441,59 +456,89 @@ function DiffSection({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="space-y-2 ml-6">
-          {Object.entries(entityGroups).map(([entityType, entityItems]) => (
+          {/* Standalone items (ingredients, menu_items) */}
+          {Object.entries(standaloneGroups).map(([entityType, entityItems]) => (
             <div key={entityType}>
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 {entityLabels[entityType] || entityType} ({entityItems.length})
               </p>
               <div className={`rounded-lg border ${colorMap[color]} divide-y divide-border/50`}>
-                {entityItems.slice(0, 50).map(item => (
-                  <DiffItemRow key={item.id} item={item} />
-                ))}
-                {entityItems.length > 50 && (
-                  <div className="p-2 text-xs text-muted-foreground text-center">
-                    +{entityItems.length - 50} more
+                {entityItems.map(item => (
+                  <div key={item.id} className="px-3 py-2 text-sm">
+                    <div className="font-medium truncate">{item.clean_name || item.r365_name}</div>
+                    {item.change_type === "updated" && item.previous_values && (
+                      <div className="text-xs text-muted-foreground">
+                        {Object.entries(item.previous_values).map(([key, val]) => (
+                          <span key={key} className="mr-2">
+                            {key}: <span className="line-through opacity-50">{String(val)}</span> → {String((item.new_values as any)?.[key])}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {item.category && (
+                      <Badge variant="outline" className="text-[10px] mt-1">{item.category}</Badge>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           ))}
+
+          {/* Recipe links grouped by parent menu item */}
+          {sortedParents.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                Recipes ({sortedParents.length} items, {recipeLinks.length} links)
+              </p>
+              <div className={`rounded-lg border ${colorMap[color]} divide-y divide-border/50`}>
+                {sortedParents.map(parent => (
+                  <MenuItemGroup
+                    key={parent}
+                    parentName={parent}
+                    ingredients={menuItemGroups[parent]}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-function DiffItemRow({ item }: { item: ImportItem }) {
-  const displayName = item.entity_type === "recipe_link"
-    ? `${item.parent_r365_name} → ${item.r365_name.split("::")[1] || item.r365_name}`
-    : item.clean_name || item.r365_name;
+function MenuItemGroup({ parentName, ingredients }: { parentName: string; ingredients: ImportItem[] }) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="px-3 py-2 text-sm">
-      <div className="font-medium truncate">{displayName}</div>
-      {item.entity_type === "recipe_link" && item.quantity && (
-        <div className="text-xs text-muted-foreground">
-          {item.quantity} {item.unit_of_measure}
-          {item.previous_values?.quantity && (
-            <span className="ml-1 line-through opacity-50">
-              (was {item.previous_values.quantity})
-            </span>
-          )}
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-accent/30 transition-colors">
+        {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+        <span className="font-medium text-sm truncate">{parentName}</span>
+        <Badge variant="secondary" className="text-[10px] ml-auto shrink-0">{ingredients.length}</Badge>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-6 border-l border-border/50">
+          {ingredients.map(item => {
+            const ingredientName = item.r365_name.split("::")[1] || item.r365_name;
+            return (
+              <div key={item.id} className="px-3 py-1.5 text-sm">
+                <div className="text-muted-foreground truncate">{ingredientName}</div>
+                {item.quantity != null && (
+                  <div className="text-xs text-muted-foreground/70">
+                    {item.quantity} {item.unit_of_measure}
+                    {item.previous_values?.quantity && (
+                      <span className="ml-1 line-through opacity-50">
+                        (was {item.previous_values.quantity})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
-      {item.change_type === "updated" && item.previous_values && item.entity_type !== "recipe_link" && (
-        <div className="text-xs text-muted-foreground">
-          {Object.entries(item.previous_values).map(([key, val]) => (
-            <span key={key} className="mr-2">
-              {key}: <span className="line-through opacity-50">{String(val)}</span> → {String((item.new_values as any)?.[key])}
-            </span>
-          ))}
-        </div>
-      )}
-      {item.category && (
-        <Badge variant="outline" className="text-[10px] mt-1">{item.category}</Badge>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
