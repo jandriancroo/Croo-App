@@ -685,11 +685,36 @@ async function handleFetchOvationScores(req: Request, supabase: any): Promise<Re
 
 async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
   try {
-    const { csvContent, locationId, sourceSystem = 'r365', fileName } = await req.json()
+    const body = await req.json()
+    const { locationId, sourceSystem = 'r365', fileName } = body
+    
+    // Support multi-file upload: csvFiles[] array or single csvContent
+    let ingredientCsv = ''
+    let recipeCsv = ''
+    
+    if (body.csvFiles && Array.isArray(body.csvFiles)) {
+      // Multi-file: auto-detect which is ingredients vs recipes by header row
+      for (const f of body.csvFiles) {
+        const firstLine = f.csvContent.split('\n')[0] || ''
+        if (firstLine.includes('RecipeName') || firstLine.includes('YieldUofM')) {
+          recipeCsv = f.csvContent
+          console.log(`[diff-bom] Detected recipes file: ${f.fileName}`)
+        } else if (firstLine.includes('Item') && firstLine.includes('Recipe')) {
+          ingredientCsv = f.csvContent
+          console.log(`[diff-bom] Detected ingredients file: ${f.fileName}`)
+        } else {
+          // Default to ingredient format
+          ingredientCsv = f.csvContent
+          console.log(`[diff-bom] Unknown format, treating as ingredients: ${f.fileName}`)
+        }
+      }
+    } else {
+      ingredientCsv = body.csvContent || ''
+    }
 
-    if (!csvContent || !locationId) {
+    if (!ingredientCsv || !locationId) {
       return new Response(
-        JSON.stringify({ error: 'Missing csvContent or locationId' }),
+        JSON.stringify({ error: 'Missing ingredient CSV or locationId. Upload the R365 Ingredient export CSV.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -706,16 +731,22 @@ async function handleDiffBOM(req: Request, supabase: any): Promise<Response> {
 
     console.log(`[diff-bom] Starting diff for location: ${locationId}, source: ${sourceSystem}`)
 
-    // Parse the CSV using existing parser
-    const rows = parseCSV(csvContent)
+    // Parse the ingredient CSV
+    const rows = parseCSV(ingredientCsv)
     if (rows.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No valid rows found in CSV' }),
+        JSON.stringify({ error: 'No valid rows found in ingredient CSV' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`[diff-bom] Parsed ${rows.length} rows`)
+    // Parse recipe metadata if available (cost, yield info)
+    const recipeMetadata = recipeCsv ? parseRecipeCSV(recipeCsv) : new Map()
+    if (recipeMetadata.size > 0) {
+      console.log(`[diff-bom] Parsed ${recipeMetadata.size} recipe metadata entries`)
+    }
+
+    console.log(`[diff-bom] Parsed ${rows.length} ingredient rows`)
 
     // Build sets from CSV
     const csvIngredients = new Map<string, ParsedIngredient>()
