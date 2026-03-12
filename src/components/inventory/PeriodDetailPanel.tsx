@@ -639,7 +639,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                         <div>
                           <p className="text-sm font-medium font-mono">{po.id}</p>
                           <p className="text-xs text-muted-foreground">
-                            {po.deliveryDate ? `Delivered ${po.deliveryDate}` : po.date}
+                            Delivered {po.deliveryDate || po.date}
                           </p>
                         </div>
                       </div>
