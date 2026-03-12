@@ -298,8 +298,54 @@ function parseCSV(content: string): BOMRow[] {
   
   return rows
 }
+interface RecipeMetadata {
+  recipeName: string
+  yieldQty: number
+  yieldUofM: string
+  avgCost: number
+  active: boolean
+}
 
-async function handleImportBOM(req: Request, supabase: any): Promise<Response> {
+function parseRecipeCSV(content: string): Map<string, RecipeMetadata> {
+  const lines = content.split('\n').filter(line => line.trim())
+  if (lines.length < 2) return new Map()
+  
+  const metadata = new Map<string, RecipeMetadata>()
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+  
+  const nameIdx = headers.indexOf('RecipeName')
+  const yieldQtyIdx = headers.indexOf('YieldQty')
+  const yieldUofMIdx = headers.indexOf('YieldUofM')
+  const avgCostIdx = headers.indexOf('AvgCost')
+  const activeIdx = headers.indexOf('Active')
+  
+  for (let i = 1; i < lines.length; i++) {
+    const parts: string[] = []
+    let current = ''
+    let inQuotes = false
+    for (const char of lines[i]) {
+      if (char === '"') { inQuotes = !inQuotes }
+      else if (char === ',' && !inQuotes) { parts.push(current.trim()); current = '' }
+      else { current += char }
+    }
+    parts.push(current.trim())
+    
+    const name = nameIdx >= 0 ? parts[nameIdx] : ''
+    if (!name) continue
+    
+    metadata.set(name, {
+      recipeName: name,
+      yieldQty: yieldQtyIdx >= 0 ? (parseFloat(parts[yieldQtyIdx]) || 1) : 1,
+      yieldUofM: yieldUofMIdx >= 0 ? (parts[yieldUofMIdx] || 'Each') : 'Each',
+      avgCost: avgCostIdx >= 0 ? (parseFloat(parts[avgCostIdx]) || 0) : 0,
+      active: activeIdx >= 0 ? parts[activeIdx] === 'Yes' : true,
+    })
+  }
+  
+  return metadata
+}
+
+
   try {
     const { csvContent, locationId } = await req.json()
 
