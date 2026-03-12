@@ -62,7 +62,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
     let salesEndDate = endDate;
     if (count.is_late_close) {
       if (count.counted_at) {
-        salesEndDate = count.counted_at.split('T')[0];
+        salesEndDate = formatInTimeZone(new Date(count.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
       } else {
         // In-progress flex: use yesterday (last completed business day)
         const yesterday = subDays(new Date(), 1);
