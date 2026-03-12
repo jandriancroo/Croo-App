@@ -230,14 +230,15 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
                 <Upload className="h-8 w-8 text-muted-foreground" />
               )}
               <span className="mt-2 text-sm text-muted-foreground">
-                {uploading ? "Processing diff..." : "Drop R365 BOM export CSV"}
+                {uploading ? "Processing diff..." : "Drop R365 BOM export CSVs"}
               </span>
               <span className="text-xs text-muted-foreground/70 mt-1">
-                Columns: Item, Recipe, Qty, UofM, Yield%
+                Upload both Recipes + Ingredients files together
               </span>
               <input
                 type="file"
                 accept=".csv"
+                multiple
                 className="hidden"
                 onChange={handleFileUpload}
                 disabled={uploading}
