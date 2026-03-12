@@ -345,7 +345,7 @@ function parseRecipeCSV(content: string): Map<string, RecipeMetadata> {
   return metadata
 }
 
-
+async function handleImportBOM(req: Request, supabase: any): Promise<Response> {
   try {
     const { csvContent, locationId } = await req.json()
 
