@@ -25,6 +25,7 @@ import {
   Settings2, MoreVertical, Trash2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/lib/auth";
