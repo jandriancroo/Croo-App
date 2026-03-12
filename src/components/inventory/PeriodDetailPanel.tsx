@@ -163,13 +163,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
             ...pfg.map((o: any) => {
               const rawId = o.pfg_order_id || '';
               const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
-              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+              const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
             }),
             ...pa.map((o: any) => {
               const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
-              const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
-              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+              const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
+              return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
             }),
           ],
         };
@@ -281,13 +281,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
             // Extract clean invoice number: "428_56356274_2026-02-24_4461199" → "4461199", or use order_number/pfg_order_id
             const rawId = o.pfg_order_id || '';
             const cleanId = o.order_number || (rawId.includes('_') ? rawId.split('_').pop() : rawId) || o.id.slice(0, 8);
-            const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: "PFG", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
           }),
           ...pa.map((o: any) => {
             const cleanId = o.order_number || o.pa_order_id || o.id.slice(0, 8);
-            const orderDateLabel = o.order_date ? format(new Date(o.order_date.slice(0, 10) + "T12:00:00"), "EEEE, MMM d") : null;
-            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), orderDate: orderDateLabel };
+            const deliveryDateLabel = o.delivery_date ? format(new Date(o.delivery_date + "T12:00:00"), "EEEE, MMM d") : null;
+            return { vendor: "PA", id: `#${cleanId}`, amount: Number(o.total_amount) || 0, date: format(new Date(o.delivery_date + "T12:00:00"), "MMM d"), deliveryDate: deliveryDateLabel };
           }),
         ],
       };
@@ -639,7 +639,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                         <div>
                           <p className="text-sm font-medium font-mono">{po.id}</p>
                           <p className="text-xs text-muted-foreground">
-                            {po.orderDate ? `Ordered ${po.orderDate}` : po.date}
+                            {po.deliveryDate ? `Delivered ${po.deliveryDate}` : po.date}
                           </p>
                         </div>
                       </div>
