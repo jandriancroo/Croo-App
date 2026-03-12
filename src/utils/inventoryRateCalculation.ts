@@ -44,11 +44,16 @@ export async function calculateUsageRates(
     }
 
     // Use counted_at for precise sales cutoff, fallback to count_date
+    // Convert UTC timestamps to PST dates to avoid off-by-one errors
+    const toLocalDate = (utcStr: string) => {
+      const d = new Date(utcStr);
+      return d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+    };
     const periodStart = previousCount.counted_at 
-      ? previousCount.counted_at.split('T')[0] 
+      ? toLocalDate(previousCount.counted_at)
       : previousCount.count_date;
     const periodEnd = currentCount.counted_at 
-      ? currentCount.counted_at.split('T')[0] 
+      ? toLocalDate(currentCount.counted_at)
       : currentCount.count_date;
 
     // 3. Get closing count items (current count)
