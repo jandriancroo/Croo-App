@@ -1065,14 +1065,33 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       )
     }
 
-    // Fetch approved items (or all non-rejected for bulk approve)
-    const { data: items, error: itemsError } = await supabase
-      .from('bom_import_items')
-      .select('*')
-      .eq('batch_id', batchId)
-      .in('resolution', ['pending', 'approved'])
-      .neq('change_type', 'unchanged')
+    // Paginated fetch helper to bypass 1000-row limit
+    async function fetchAllRows(table: string, query: (from: number, to: number) => any): Promise<any[]> {
+      const allRows: any[] = []
+      let from = 0
+      const pageSize = 1000
+      while (true) {
+        const { data, error } = await query(from, from + pageSize - 1)
+        if (error) throw error
+        if (!data || data.length === 0) break
+        allRows.push(...data)
+        if (data.length < pageSize) break
+        from += pageSize
+      }
+      return allRows
+    }
 
+    // Fetch approved items (or all non-rejected for bulk approve) — paginated
+    const items = await fetchAllRows('bom_import_items', (from, to) =>
+      supabase
+        .from('bom_import_items')
+        .select('*')
+        .eq('batch_id', batchId)
+        .in('resolution', ['pending', 'approved'])
+        .neq('change_type', 'unchanged')
+        .range(from, to)
+    )
+    const itemsError = null
     if (itemsError) throw itemsError
 
     console.log(`[apply-bom-diff] Applying ${items?.length || 0} changes for batch ${batchId}`)
