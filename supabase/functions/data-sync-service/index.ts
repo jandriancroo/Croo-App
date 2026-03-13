@@ -1378,6 +1378,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
                 countable: true,
                 source: 'r365_import',
                 category: bomIng.category,
+                storage_location_id: unassignedStorageId,
               })
               .select('id')
               .single()
