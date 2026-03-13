@@ -1237,10 +1237,13 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
     let bridged = 0
 
     // Fetch all BOM menu items for this location (these become recipes)
-    const { data: bomMenuItems } = await supabase
-      .from('bom_menu_items')
-      .select('id, r365_name, clean_name, category')
-      .eq('location_id', locationId)
+    const bomMenuItems = await fetchAllRows('bom_menu_items', (from, to) =>
+      supabase
+        .from('bom_menu_items')
+        .select('id, r365_name, clean_name, category')
+        .eq('location_id', locationId)
+        .range(from, to)
+    )
 
     // Fetch all BOM recipe ingredients for this location — paginated (can exceed 1000)
     const bomRecipeIngs = await fetchAllRows('bom_recipe_ingredients', (from, to) =>
