@@ -1065,14 +1065,33 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
       )
     }
 
-    // Fetch approved items (or all non-rejected for bulk approve)
-    const { data: items, error: itemsError } = await supabase
-      .from('bom_import_items')
-      .select('*')
-      .eq('batch_id', batchId)
-      .in('resolution', ['pending', 'approved'])
-      .neq('change_type', 'unchanged')
+    // Paginated fetch helper to bypass 1000-row limit
+    async function fetchAllRows(table: string, query: (from: number, to: number) => any): Promise<any[]> {
+      const allRows: any[] = []
+      let from = 0
+      const pageSize = 1000
+      while (true) {
+        const { data, error } = await query(from, from + pageSize - 1)
+        if (error) throw error
+        if (!data || data.length === 0) break
+        allRows.push(...data)
+        if (data.length < pageSize) break
+        from += pageSize
+      }
+      return allRows
+    }
 
+    // Fetch approved items (or all non-rejected for bulk approve) — paginated
+    const items = await fetchAllRows('bom_import_items', (from, to) =>
+      supabase
+        .from('bom_import_items')
+        .select('*')
+        .eq('batch_id', batchId)
+        .in('resolution', ['pending', 'approved'])
+        .neq('change_type', 'unchanged')
+        .range(from, to)
+    )
+    const itemsError = null
     if (itemsError) throw itemsError
 
     console.log(`[apply-bom-diff] Applying ${items?.length || 0} changes for batch ${batchId}`)
@@ -1218,31 +1237,64 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
     let bridged = 0
 
     // Fetch all BOM menu items for this location (these become recipes)
-    const { data: bomMenuItems } = await supabase
-      .from('bom_menu_items')
-      .select('id, r365_name, clean_name, category')
-      .eq('location_id', locationId)
+    const bomMenuItems = await fetchAllRows('bom_menu_items', (from, to) =>
+      supabase
+        .from('bom_menu_items')
+        .select('id, r365_name, clean_name, category')
+        .eq('location_id', locationId)
+        .range(from, to)
+    )
 
-    // Fetch all BOM recipe ingredients for this location
-    const { data: bomRecipeIngs } = await supabase
-      .from('bom_recipe_ingredients')
-      .select('menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent')
-      .eq('location_id', locationId)
+    // Fetch all BOM recipe ingredients for this location — paginated (can exceed 1000)
+    const bomRecipeIngs = await fetchAllRows('bom_recipe_ingredients', (from, to) =>
+      supabase
+        .from('bom_recipe_ingredients')
+        .select('menu_item_id, ingredient_id, quantity, unit_of_measure, yield_percent')
+        .eq('location_id', locationId)
+        .range(from, to)
+    )
 
     // Fetch all BOM ingredients for name lookups
-    const { data: bomIngredients } = await supabase
-      .from('bom_ingredients')
-      .select('id, r365_name, clean_name, category, unit_standard')
-      .eq('location_id', locationId)
+    const bomIngredients = await fetchAllRows('bom_ingredients', (from, to) =>
+      supabase
+        .from('bom_ingredients')
+        .select('id, r365_name, clean_name, category, unit_standard')
+        .eq('location_id', locationId)
+        .range(from, to)
+    )
 
     const bomIngMap = new Map<string, any>()
     for (const bi of bomIngredients || []) bomIngMap.set(bi.id, bi)
 
     // Fetch existing inventory_items to find or create
-    const { data: existingItems } = await supabase
-      .from('inventory_items')
-      .select('id, name, source')
+    const existingItems = await fetchAllRows('inventory_items', (from, to) =>
+      supabase
+        .from('inventory_items')
+        .select('id, name, source, storage_location_id')
+        .eq('location_id', locationId)
+        .range(from, to)
+    )
+
+    // Find or create "Unassigned" storage location for new items
+    let unassignedStorageId: string | null = null
+    const { data: existingStorageLocs } = await supabase
+      .from('inventory_locations')
+      .select('id, name')
       .eq('location_id', locationId)
+      .ilike('name', 'unassigned')
+      .limit(1)
+    
+    if (existingStorageLocs && existingStorageLocs.length > 0) {
+      unassignedStorageId = existingStorageLocs[0].id
+    } else {
+      const { data: newLoc } = await supabase
+        .from('inventory_locations')
+        .insert({ location_id: locationId, name: 'Unassigned', display_order: 9999 })
+        .select('id')
+        .single()
+      if (newLoc) unassignedStorageId = newLoc.id
+    }
+    console.log(`[apply-bom-diff] Unassigned storage location: ${unassignedStorageId}`)
 
     const existingNameMap = new Map<string, any>()
     for (const ei of existingItems || []) existingNameMap.set(ei.name.toLowerCase(), ei)
@@ -1280,6 +1332,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
             countable: true,
             source: 'r365_import',
             category: mi.category,
+            storage_location_id: unassignedStorageId,
           })
           .select('id')
           .single()
@@ -1328,6 +1381,7 @@ async function handleApplyBOMDiff(req: Request, supabase: any): Promise<Response
                 countable: true,
                 source: 'r365_import',
                 category: bomIng.category,
+                storage_location_id: unassignedStorageId,
               })
               .select('id')
               .single()
