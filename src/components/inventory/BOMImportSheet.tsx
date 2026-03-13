@@ -79,15 +79,29 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
   const { data: diffItems, isLoading: loadingItems } = useQuery({
     queryKey: ["bom-import-items", selectedBatchId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bom_import_items")
-        .select("*")
-        .eq("batch_id", selectedBatchId!)
-        .neq("change_type", "unchanged")
-        .order("entity_type")
-        .order("change_type");
+      // Fetch all diff items (may exceed default 1000 row limit)
+      const allItems: ImportItem[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error: pageError } = await supabase
+          .from("bom_import_items")
+          .select("*")
+          .eq("batch_id", selectedBatchId!)
+          .neq("change_type", "unchanged")
+          .order("entity_type")
+          .order("change_type")
+          .range(from, from + pageSize - 1);
+        if (pageError) throw pageError;
+        if (!data || data.length === 0) break;
+        allItems.push(...(data as ImportItem[]));
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      const data = allItems;
+      const error = null;
       if (error) throw error;
-      return (data || []) as ImportItem[];
+      return data;
     },
     enabled: !!selectedBatchId,
   });
