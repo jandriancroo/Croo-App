@@ -101,7 +101,7 @@ export default function BOMImportSheet({ open, onOpenChange, locationId }: BOMIm
       const data = allItems;
       const error = null;
       if (error) throw error;
-      return (data || []) as ImportItem[];
+      return data;
     },
     enabled: !!selectedBatchId,
   });
