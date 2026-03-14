@@ -650,24 +650,22 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 <table style="width:100%;max-width:720px;margin:0 auto;background-color:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
 
   <!-- HEADER -->
-  <tr><td style="background-color:#0a7a8a;padding:20px 32px;">
+  <tr><td style="background-color:#0a7a8a;padding:24px 24px 20px;">
     <table style="width:100%;border-collapse:collapse;">
       <tr>
-        <td style="vertical-align:middle;text-align:left;width:180px;">
-          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:44px;width:44px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
+        <td style="vertical-align:middle;text-align:left;">
+          ${brandLogoUrl ? `<img src="${brandLogoUrl}" alt="Brand" style="height:40px;width:40px;border-radius:10px;object-fit:contain;background:#fff;" />` : ''}
         </td>
-        <td style="vertical-align:middle;text-align:center;">
-          <h1 style="color:#fff;font-size:28px;font-weight:700;margin:0;letter-spacing:0.5px;font-family:${fontStack};">Daily Pulse - ${location.name}</h1>
-        </td>
-        <td style="vertical-align:middle;text-align:right;white-space:nowrap;width:180px;">
+        <td style="vertical-align:middle;text-align:right;">
           <p style="color:#fff;font-size:13px;font-weight:600;margin:0;font-family:${fontStack};">${location.name}${location.store_number ? ` #${location.store_number}` : ''}</p>
-          <p style="color:rgba(255,255,255,0.7);font-size:12px;margin:3px 0 0;font-family:${fontStack};">${displayDate}</p>
+          <p style="color:rgba(255,255,255,0.65);font-size:12px;margin:2px 0 0;font-family:${fontStack};">${displayDate}</p>
         </td>
       </tr>
     </table>
+    <h1 style="color:#fff;font-size:22px;font-weight:700;margin:14px 0 0;letter-spacing:0.3px;font-family:${fontStack};">Daily Pulse</h1>
   </td></tr>
 
-  <tr><td style="padding:28px 32px;">
+  <tr><td style="padding:24px;">
 
     <!-- SALES + LABOR ROW -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
