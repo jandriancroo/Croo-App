@@ -3174,6 +3174,43 @@ serve(async (req) => {
       // projections will remain 0, client will use cached values
     }
     
+    // === ALWAYS SCALE HOURLY PROJECTIONS FOR OVERRIDES ===
+    // This must run even when skipProjections is true, so the chart hourly data
+    // in the response (and saved to cache) reflects the override-scaled curve.
+    if (locationId) {
+      const { data: overrideCheck } = await cacheSupabase
+        .from('sales_cache')
+        .select('override_projection, living_projection, initial_projection')
+        .eq('location_id', locationId)
+        .eq('sale_date', todayStr)
+        .maybeSingle();
+      
+      if (overrideCheck) {
+        let scaleTarget = 0;
+        if (overrideCheck.override_projection && overrideCheck.override_projection > 0) {
+          scaleTarget = overrideCheck.override_projection;
+        } else if (overrideCheck.living_projection && overrideCheck.living_projection > 0) {
+          scaleTarget = overrideCheck.living_projection;
+        } else if (overrideCheck.initial_projection && overrideCheck.initial_projection > 0) {
+          scaleTarget = overrideCheck.initial_projection;
+        }
+        
+        if (scaleTarget > 0) {
+          const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
+          const paceScaleFactor = origTotal > 0 ? scaleTarget / origTotal : 1;
+          if (Math.abs(paceScaleFactor - 1) > 0.01) {
+            for (let i = 0; i < hourlyWithProjections.length; i++) {
+              hourlyWithProjections[i] = {
+                ...hourlyWithProjections[i],
+                projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor)
+              };
+            }
+            console.log(`[PROJECTION-SCALE] Scaled hourly projections by ${paceScaleFactor.toFixed(3)}x to match override target $${scaleTarget}`);
+          }
+        }
+      }
+    }
+    
     // Generate daily projections for week (uses 4-week average + YOY blend)
     const weeklyWithProjections = generateDailyProjectionsForWeek(
       weeklyBreakdown,
