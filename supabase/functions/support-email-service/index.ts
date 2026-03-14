@@ -665,7 +665,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     <h1 style="color:#fff;font-size:22px;font-weight:700;margin:14px 0 0;letter-spacing:0.3px;font-family:${fontStack};">Daily Pulse</h1>
   </td></tr>
 
-  <tr><td style="padding:28px 32px;">
+  <tr><td style="padding:24px;">
 
     <!-- SALES + LABOR ROW -->
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
