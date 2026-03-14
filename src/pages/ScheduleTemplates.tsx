@@ -392,10 +392,10 @@ export default function ScheduleTemplates() {
                     placeholder="New position name..."
                     value={newPositionValue}
                     onChange={e => setNewPositionValue(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && newPositionValue.trim()) { setPositions(prev => [...prev, newPositionValue.trim()].sort()); setNewPositionValue(''); }}}
+                    onKeyDown={e => { if (e.key === 'Enter' && newPositionValue.trim()) handleAddPosition(); }}
                     className="flex-1 h-8 text-sm"
                   />
-                  <Button size="sm" onClick={() => { if (newPositionValue.trim()) { setPositions(prev => [...prev, newPositionValue.trim()].sort()); setNewPositionValue(''); }}} disabled={!newPositionValue.trim()}>
+                  <Button size="sm" onClick={handleAddPosition} disabled={!newPositionValue.trim()}>
                     <Check className="h-4 w-4" />
                   </Button>
                 </div>
