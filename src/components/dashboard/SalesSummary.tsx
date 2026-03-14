@@ -642,6 +642,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       salesData.projections = {
         todayProjected: cachedProjections.todayProjected || 0,
         todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
+        todaySource: cachedProjections.todaySource as any,
         weekProjected: cachedProjections.weekProjected,
         monthProjected: cachedProjections.monthProjected
       };
