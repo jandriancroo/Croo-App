@@ -273,7 +273,7 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { todayProjected?: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number }
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
