@@ -321,9 +321,23 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     }, 0);
     
     // Hourly data should already have projections from backfill (only if we have daily data)
-    const hourlyData = cached?.hourly_data 
+    const rawHourlyData = cached?.hourly_data 
       ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
       : [];
+    
+    // Scale hourly projections when there's an override so the chart matches the override goal
+    const resolvedDaily = resolveProjection(cached as any);
+    const hourlyData = (() => {
+      if (!resolvedDaily.isOverride || !resolvedDaily.value || rawHourlyData.length === 0) return rawHourlyData;
+      const rawProjectionTotal = rawHourlyData.reduce((sum, h) => sum + (h.projected || 0), 0);
+      if (rawProjectionTotal <= 0) return rawHourlyData;
+      const scaleFactor = resolvedDaily.value / rawProjectionTotal;
+      if (Math.abs(scaleFactor - 1) < 0.01) return rawHourlyData; // No meaningful difference
+      return rawHourlyData.map(h => ({
+        ...h,
+        projected: h.projected ? Math.round(h.projected * scaleFactor) : 0
+      }));
+    })();
     
     // Build daily labor from labor_cache - prioritize punch_clock over qubeyond (do NOT aggregate sources)
     const laborData = laborResult.data || [];
