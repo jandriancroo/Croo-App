@@ -287,7 +287,8 @@ export function setCachedProjections(
       data: {
         ...data,
         todayProjectedAt: data.todayProjected ? now : undefined,
-        todayPaceAdjustedAt: data.todayPaceAdjusted ? now : undefined
+        todayPaceAdjustedAt: data.todayPaceAdjusted ? now : undefined,
+        todaySource: data.todaySource
       }
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));
