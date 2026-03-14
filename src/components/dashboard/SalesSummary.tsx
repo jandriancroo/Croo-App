@@ -889,6 +889,18 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
   const salesData = useMemo(() => {
     if (!rawSalesData) return rawSalesData;
     
+    // Helper: scale hourly projections when an override exists so the chart curve matches the override goal
+    const scaleHourlyForOverride = (hourlyArr: Array<{ hour: string; sales: number; projected?: number }>) => {
+      const todayProj = rawSalesData.projections?.todayProjected;
+      const todaySource = rawSalesData.projections?.todaySource;
+      if (todaySource !== 'override' || !todayProj || todayProj <= 0 || hourlyArr.length === 0) return hourlyArr;
+      const rawTotal = hourlyArr.reduce((sum, h) => sum + (h.projected || 0), 0);
+      if (rawTotal <= 0) return hourlyArr;
+      const scaleFactor = todayProj / rawTotal;
+      if (Math.abs(scaleFactor - 1) < 0.01) return hourlyArr;
+      return hourlyArr.map(h => ({ ...h, projected: h.projected ? Math.round(h.projected * scaleFactor) : 0 }));
+    };
+    
     // Only show hourly breakdown if business hours are configured
     if (locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly) {
       const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
@@ -914,7 +926,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         });
       }
 
-      return { ...rawSalesData, hourly: completeHourly };
+      return { ...rawSalesData, hourly: scaleHourlyForOverride(completeHourly) };
     }
     
     // If locationSettings is still loading (undefined) or business hours aren't configured,
@@ -926,7 +938,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           ? h.hour
           : formatTime12Hour(h.hour),
       }));
-      return { ...rawSalesData, hourly: converted };
+      return { ...rawSalesData, hourly: scaleHourlyForOverride(converted) };
     }
     return rawSalesData;
   }, [rawSalesData, locationSettings]);
