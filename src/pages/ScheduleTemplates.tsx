@@ -374,7 +374,7 @@ export default function ScheduleTemplates() {
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
-                              onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
+                              onClick={() => handleDeletePosition(pos)}
                               className="hover:text-destructive transition-colors"
                             >
                               <X className="h-3 w-3" />
