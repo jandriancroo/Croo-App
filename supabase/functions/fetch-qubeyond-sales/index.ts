@@ -2166,12 +2166,14 @@ function calculatePaceAdjustedProjection(
     currentHourContribution = currentHourProjection;
   }
   
-  // Sum completed hours actuals (before current hour)
+  // Sum completed hours actuals AND their projections (for trend calculation)
   let completedHoursActual = 0;
+  let completedHoursProjected = 0;
   for (const entry of hourlyData) {
     const entryHour = parseInt(entry.hour.split(':')[0]);
     if (entryHour < currentHour) {
       completedHoursActual += entry.sales;
+      completedHoursProjected += entry.projected;
     }
   }
   
@@ -2185,12 +2187,33 @@ function calculatePaceAdjustedProjection(
     }
   }
   
-  const paceAdjusted = completedHoursActual + currentHourContribution + futureHoursProjected;
+  // === TREND-ADJUSTED PACING ===
+  // After 3+ completed hours AND 30%+ of daily projection reached in actuals,
+  // apply a trend factor to remaining projections (capped at ±25%)
+  const totalDailyProjection = hourlyData.reduce((sum, h) => sum + (h.projected || 0), 0);
+  const completedHourCount = hourlyData.filter(h => parseInt(h.hour.split(':')[0]) < currentHour && h.sales > 0).length;
+  const salesThresholdMet = totalDailyProjection > 0 && completedHoursActual >= totalDailyProjection * 0.30;
+  
+  let trendFactor = 1.0;
+  if (completedHourCount >= 3 && salesThresholdMet && completedHoursProjected > 0) {
+    const rawTrend = completedHoursActual / completedHoursProjected;
+    // Cap at ±25% adjustment
+    trendFactor = Math.max(0.75, Math.min(1.25, rawTrend));
+    // Blend: 50% raw projection + 50% trend-adjusted
+    trendFactor = 0.5 + 0.5 * trendFactor;
+    console.log(`[TREND-PACE] ${completedHourCount} completed hrs, actual/proj ratio: ${rawTrend.toFixed(3)}, capped trend: ${trendFactor.toFixed(3)}`);
+  }
+  
+  // Apply trend factor to current hour contribution and future projections
+  const trendedCurrentHour = currentHourContribution * trendFactor;
+  const trendedFuture = futureHoursProjected * trendFactor;
+  
+  const paceAdjusted = completedHoursActual + trendedCurrentHour + trendedFuture;
   
   // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
   const clampedPace = Math.max(paceAdjusted, actualSales);
   
-  console.log(`Pace calculation: $${completedHoursActual.toFixed(0)} completed + $${currentHourContribution.toFixed(0)} (hr ${currentHour}, ${usePartialHour ? (60 - currentMinutes) + 'min left' : 'full proj <30min'}) + $${futureHoursProjected.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
+  console.log(`Pace calculation: $${completedHoursActual.toFixed(0)} completed + $${trendedCurrentHour.toFixed(0)} (hr ${currentHour}, ${usePartialHour ? (60 - currentMinutes) + 'min left' : 'full proj <30min'}${trendFactor !== 1 ? ', trend=' + trendFactor.toFixed(3) : ''}) + $${trendedFuture.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
   
   return Math.round(clampedPace);
 }
@@ -3120,20 +3143,27 @@ serve(async (req) => {
             console.log(`[PROJECTION] Using ${projectionSource} projection: $${resolvedProjection} (was $${projections.todayProjected.toFixed(0)} calculated)`);
             projections.todayProjected = resolvedProjection;
             
-            // Recalculate pace using unified pace function with scaled hourly projections
+            // Scale hourly projections IN-PLACE so the chart shows override-scaled values
             const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
             const paceScaleFactor = origTotal > 0 ? resolvedProjection / origTotal : 1;
-            const scaledHourlyForPace = hourlyWithProjections.map(h => ({
-              ...h,
-              projected: Math.round((h.projected || 0) * paceScaleFactor)
-            }));
+            if (Math.abs(paceScaleFactor - 1) > 0.01) {
+              for (let i = 0; i < hourlyWithProjections.length; i++) {
+                hourlyWithProjections[i] = {
+                  ...hourlyWithProjections[i],
+                  projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor)
+                };
+              }
+              console.log(`[PROJECTION] Scaled hourly projections by ${paceScaleFactor.toFixed(3)}x for ${projectionSource} override`);
+            }
+            
+            // Recalculate pace using the now-scaled hourly projections
             projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
               dailySales,
               currentHour,
               currentMinutes,
               hoursOpen,
               hoursClose,
-              scaledHourlyForPace
+              hourlyWithProjections
             );
             console.log(`[PROJECTION] Recalculated pace with ${projectionSource}: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)}, scale ${paceScaleFactor.toFixed(3)})`);
           }

@@ -27,6 +27,7 @@ interface CachedProjections {
     todayProjectedAt?: string; // ISO timestamp for 30-min expiry check
     todayPaceAdjusted?: number;
     todayPaceAdjustedAt?: string; // ISO timestamp for 30-min expiry check
+    todaySource?: string; // 'override' | 'living' | 'initial' | 'calculated'
     weekProjected: number;
     monthProjected: number;
   };
@@ -272,7 +273,7 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { todayProjected?: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; todayPaceAdjusted?: number; todaySource?: string; weekProjected: number; monthProjected: number }
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
@@ -286,7 +287,8 @@ export function setCachedProjections(
       data: {
         ...data,
         todayProjectedAt: data.todayProjected ? now : undefined,
-        todayPaceAdjustedAt: data.todayPaceAdjusted ? now : undefined
+        todayPaceAdjustedAt: data.todayPaceAdjusted ? now : undefined,
+        todaySource: data.todaySource
       }
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));

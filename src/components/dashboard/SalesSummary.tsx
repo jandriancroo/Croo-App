@@ -642,6 +642,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       salesData.projections = {
         todayProjected: cachedProjections.todayProjected || 0,
         todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
+        todaySource: cachedProjections.todaySource as any,
         weekProjected: cachedProjections.weekProjected,
         monthProjected: cachedProjections.monthProjected
       };
@@ -651,6 +652,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
       const todayProjected = salesData.projections.todayProjected;
       const todayPaceAdjusted = salesData.projections.todayPaceAdjusted;
+      const todaySource = salesData.projections.todaySource;
       const weekProjected = salesData.projections.weekProjected;
       const monthProjected = salesData.projections.monthProjected;
       const weeklySales = salesData?.weekly || 0;
@@ -661,6 +663,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         setCachedProjections(currentLocation.id, { 
           todayProjected: todayProjected > 0 ? todayProjected : undefined,
           todayPaceAdjusted: todayPaceAdjusted && todayPaceAdjusted > 0 ? todayPaceAdjusted : undefined,
+          todaySource: todaySource || undefined,
           weekProjected, 
           monthProjected 
         });
