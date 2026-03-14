@@ -3120,20 +3120,27 @@ serve(async (req) => {
             console.log(`[PROJECTION] Using ${projectionSource} projection: $${resolvedProjection} (was $${projections.todayProjected.toFixed(0)} calculated)`);
             projections.todayProjected = resolvedProjection;
             
-            // Recalculate pace using unified pace function with scaled hourly projections
+            // Scale hourly projections IN-PLACE so the chart shows override-scaled values
             const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
             const paceScaleFactor = origTotal > 0 ? resolvedProjection / origTotal : 1;
-            const scaledHourlyForPace = hourlyWithProjections.map(h => ({
-              ...h,
-              projected: Math.round((h.projected || 0) * paceScaleFactor)
-            }));
+            if (Math.abs(paceScaleFactor - 1) > 0.01) {
+              for (let i = 0; i < hourlyWithProjections.length; i++) {
+                hourlyWithProjections[i] = {
+                  ...hourlyWithProjections[i],
+                  projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor)
+                };
+              }
+              console.log(`[PROJECTION] Scaled hourly projections by ${paceScaleFactor.toFixed(3)}x for ${projectionSource} override`);
+            }
+            
+            // Recalculate pace using the now-scaled hourly projections
             projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
               dailySales,
               currentHour,
               currentMinutes,
               hoursOpen,
               hoursClose,
-              scaledHourlyForPace
+              hourlyWithProjections
             );
             console.log(`[PROJECTION] Recalculated pace with ${projectionSource}: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)}, scale ${paceScaleFactor.toFixed(3)})`);
           }
