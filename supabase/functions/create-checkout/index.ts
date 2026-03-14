@@ -68,7 +68,7 @@ serve(async (req) => {
 
     logStep("Location info", { locationName, storeNumber, orgName });
 
-    // Find existing Stripe customer or create one with proper description
+    // Find existing Stripe customer or create one with org as description
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     let customerId: string;
     if (customers.data.length > 0) {
@@ -76,15 +76,15 @@ serve(async (req) => {
       // Update existing customer with org info if missing
       if (orgName && !customers.data[0].description) {
         await stripe.customers.update(customerId, {
-          description: `${orgName}${locationName ? ' - ' + locationName : ''}`,
+          description: orgName,
           metadata: { organization_id: effectiveOrgId, organization_name: orgName },
         });
       }
     } else {
-      // Create customer upfront with full description
+      // Create customer upfront with org as description
       const newCustomer = await stripe.customers.create({
         email: user.email,
-        description: `${orgName}${locationName ? ' - ' + locationName : ''}`,
+        description: orgName,
         metadata: { organization_id: effectiveOrgId, organization_name: orgName },
       });
       customerId = newCustomer.id;
@@ -93,7 +93,9 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://croohq.lovable.app";
 
+    // Subscription description = location name, metadata for linking
     const subscriptionData: any = {
+      description: locationName,
       metadata: {
         organization_id: effectiveOrgId,
         organization_name: orgName,
