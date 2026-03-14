@@ -153,13 +153,22 @@ export default function ScheduleTemplates() {
 
   const handleRenamePosition = async (oldName: string, newName: string) => {
     if (!newName.trim() || newName.trim() === oldName) { setEditingPositionName(null); return; }
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
     try {
+      // Update the organization_positions table
       const { error } = await supabase
+        .from('organization_positions')
+        .update({ name: newName.trim() })
+        .eq('organization_id', orgId)
+        .eq('name', oldName);
+      if (error) throw error;
+      // Also update shift_templates that reference the old name
+      await supabase
         .from('shift_templates')
         .update({ position: newName.trim() })
         .eq('position', oldName)
         .eq('location_id', currentLocation?.id);
-      if (error) throw error;
       toast.success(`Renamed "${oldName}" to "${newName.trim()}"`);
       setEditingPositionName(null);
       setEditPositionValue('');
