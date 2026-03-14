@@ -108,14 +108,15 @@ export default function ScheduleTemplates() {
   };
 
   const fetchPositions = async () => {
-    if (!currentLocation?.id) return;
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
     try {
       const { data, error } = await supabase
-        .from("shift_templates").select("position")
-        .eq("location_id", currentLocation.id);
+        .from("organization_positions").select("name")
+        .eq("organization_id", orgId)
+        .order("name");
       if (error) throw error;
-      const unique = Array.from(new Set((data || []).map((t: any) => t.position).filter(Boolean))).sort() as string[];
-      setPositions(unique);
+      setPositions((data || []).map((p: any) => p.name));
     } catch (error: any) {
       console.error("Error fetching positions:", error);
     }
