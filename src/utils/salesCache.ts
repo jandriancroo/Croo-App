@@ -27,6 +27,7 @@ interface CachedProjections {
     todayProjectedAt?: string; // ISO timestamp for 30-min expiry check
     todayPaceAdjusted?: number;
     todayPaceAdjustedAt?: string; // ISO timestamp for 30-min expiry check
+    todaySource?: string; // 'override' | 'living' | 'initial' | 'calculated'
     weekProjected: number;
     monthProjected: number;
   };
