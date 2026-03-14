@@ -16,10 +16,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type Position = {
-  position: string;
-  count: number;
-};
+interface Position {
+  id: string;
+  name: string;
+}
 
 interface PositionManagementInlineProps {
   organizationId?: string;
@@ -29,58 +29,25 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPosition, setNewPosition] = useState('');
-  const [editingPosition, setEditingPosition] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [deletePosition, setDeletePosition] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Position | null>(null);
   const [adding, setAdding] = useState(false);
-  const [locationIds, setLocationIds] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchPositions();
+    if (organizationId) fetchPositions();
   }, [organizationId]);
 
   const fetchPositions = async () => {
     try {
-      let locIds: string[] = [];
-      
-      if (organizationId) {
-        // Get all locations in this organization
-        const { data: orgLocations, error: orgError } = await supabase
-          .from('locations')
-          .select('id')
-          .eq('organization_id', organizationId);
-
-        if (orgError) throw orgError;
-        locIds = orgLocations?.map(l => l.id) || [];
-        setLocationIds(locIds);
-      }
-
-      // Get positions only from templates in this organization's locations
-      let query = supabase.from('shift_templates').select('position');
-      
-      if (locIds.length > 0) {
-        query = query.in('location_id', locIds);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('organization_positions')
+        .select('id, name')
+        .eq('organization_id', organizationId!)
+        .order('name');
 
       if (error) throw error;
-
-      const positionCounts = new Map<string, number>();
-      data.forEach((template: any) => {
-        if (template.position) {
-          positionCounts.set(
-            template.position,
-            (positionCounts.get(template.position) || 0) + 1
-          );
-        }
-      });
-
-      const positionsList: Position[] = Array.from(positionCounts.entries())
-        .map(([position, count]) => ({ position, count }))
-        .sort((a, b) => a.position.localeCompare(b.position));
-
-      setPositions(positionsList);
+      setPositions(data || []);
     } catch (error: any) {
       console.error('Error fetching positions:', error);
       toast.error('Failed to load positions');
@@ -90,48 +57,67 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
   };
 
   const handleAddPosition = async () => {
-    if (!newPosition.trim()) {
+    const trimmed = newPosition.trim();
+    if (!trimmed) {
       toast.error('Please enter a position name');
       return;
     }
 
-    if (positions.some(p => p.position.toLowerCase() === newPosition.trim().toLowerCase())) {
+    if (positions.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) {
       toast.error('Position already exists');
       return;
     }
 
-    setNewPosition('');
-    setAdding(false);
-    toast.success(`Position "${newPosition}" added`);
-    
-    setPositions([...positions, { position: newPosition.trim(), count: 0 }].sort((a, b) => 
-      a.position.localeCompare(b.position)
-    ));
+    try {
+      const { error } = await supabase
+        .from('organization_positions')
+        .insert({ organization_id: organizationId!, name: trimmed });
+
+      if (error) throw error;
+
+      toast.success(`Position "${trimmed}" added`);
+      setNewPosition('');
+      setAdding(false);
+      fetchPositions();
+    } catch (error: any) {
+      console.error('Error adding position:', error);
+      toast.error('Failed to add position');
+    }
   };
 
-  const handleEditPosition = async (oldPosition: string, newPositionName: string) => {
-    if (!newPositionName.trim()) {
+  const handleEditPosition = async (id: string, oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
       toast.error('Position name cannot be empty');
       return;
     }
 
     try {
-      // Only update positions within this organization's locations
-      let query = supabase
-        .from('shift_templates')
-        .update({ position: newPositionName.trim() })
-        .eq('position', oldPosition);
-      
-      if (locationIds.length > 0) {
-        query = query.in('location_id', locationIds);
-      }
-
-      const { error } = await query;
+      // Update the position name
+      const { error } = await supabase
+        .from('organization_positions')
+        .update({ name: trimmed })
+        .eq('id', id);
 
       if (error) throw error;
 
-      toast.success(`Position renamed to "${newPositionName}"`);
-      setEditingPosition(null);
+      // Also update all shift_templates that reference the old name
+      const { data: orgLocations } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', organizationId!);
+
+      const locIds = orgLocations?.map(l => l.id) || [];
+      if (locIds.length > 0) {
+        await supabase
+          .from('shift_templates')
+          .update({ position: trimmed })
+          .eq('position', oldName)
+          .in('location_id', locIds);
+      }
+
+      toast.success(`Position renamed to "${trimmed}"`);
+      setEditingId(null);
       setEditValue('');
       fetchPositions();
     } catch (error: any) {
@@ -140,24 +126,32 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
     }
   };
 
-  const handleDeletePosition = async (position: string) => {
+  const handleDeletePosition = async (position: Position) => {
     try {
-      // Only delete positions within this organization's locations
-      let query = supabase
-        .from('shift_templates')
-        .update({ position: null })
-        .eq('position', position);
-      
-      if (locationIds.length > 0) {
-        query = query.in('location_id', locationIds);
-      }
-
-      const { error } = await query;
+      const { error } = await supabase
+        .from('organization_positions')
+        .delete()
+        .eq('id', position.id);
 
       if (error) throw error;
 
-      toast.success(`Position "${position}" removed`);
-      setDeletePosition(null);
+      // Clear position from shift_templates
+      const { data: orgLocations } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', organizationId!);
+
+      const locIds = orgLocations?.map(l => l.id) || [];
+      if (locIds.length > 0) {
+        await supabase
+          .from('shift_templates')
+          .update({ position: null })
+          .eq('position', position.name)
+          .in('location_id', locIds);
+      }
+
+      toast.success(`Position "${position.name}" removed`);
+      setDeleteTarget(null);
       fetchPositions();
     } catch (error: any) {
       console.error('Error deleting position:', error);
@@ -215,39 +209,38 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
         ) : (
           <div className="flex flex-wrap gap-2">
             {positions.map((position) => (
-              <div key={position.position} className="group">
-                {editingPosition === position.position ? (
+              <div key={position.id} className="group">
+                {editingId === position.id ? (
                   <div className="flex gap-1 items-center">
                     <Input
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleEditPosition(position.position, editValue);
-                        if (e.key === 'Escape') { setEditingPosition(null); setEditValue(''); }
+                        if (e.key === 'Enter') handleEditPosition(position.id, position.name, editValue);
+                        if (e.key === 'Escape') { setEditingId(null); setEditValue(''); }
                       }}
                       autoFocus
                       className="h-7 w-28 text-xs"
                     />
-                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPosition(position.position, editValue)}>
+                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPosition(position.id, position.name, editValue)}>
                       <Check className="h-3 w-3" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingPosition(null); setEditValue(''); }}>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setEditValue(''); }}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
                 ) : (
                   <Badge variant="secondary" className="pr-1 gap-1">
-                    <span>{position.position}</span>
-                    <span className="text-muted-foreground">({position.count})</span>
+                    <span>{position.name}</span>
                     <button
                       className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:text-foreground"
-                      onClick={() => { setEditingPosition(position.position); setEditValue(position.position); }}
+                      onClick={() => { setEditingId(position.id); setEditValue(position.name); }}
                     >
                       <Pencil className="h-3 w-3" />
                     </button>
                     <button
                       className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
-                      onClick={() => setDeletePosition(position.position)}
+                      onClick={() => setDeleteTarget(position)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -259,17 +252,17 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
         )}
       </div>
 
-      <AlertDialog open={!!deletePosition} onOpenChange={() => setDeletePosition(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Position</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove "{deletePosition}" from all shift templates?
+              Remove "{deleteTarget?.name}" from all shift templates?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletePosition && handleDeletePosition(deletePosition)}>
+            <AlertDialogAction onClick={() => deleteTarget && handleDeletePosition(deleteTarget)}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
