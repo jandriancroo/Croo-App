@@ -338,10 +338,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
     // Calculate pace on-the-fly when cache is stale/missing
     const now = new Date();
-    const tzHour = new Date(now.toLocaleString('en-US', { timeZone: timezone })).getHours();
+    const tzNow = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const tzHour = tzNow.getHours();
+    const tzMinutes = tzNow.getMinutes();
     
     // Get hourly data from sales_cache
-    const hourlyArray = (salesData?.hourly_data as unknown as { hour?: string; projected?: number }[] | null) || [];
+    const hourlyArray = (salesData?.hourly_data as unknown as { hour?: string; sales?: number; projected?: number }[] | null) || [];
     
     // Find the last hour with data (indicates store close time)
     let lastDataHour = 0;
@@ -357,17 +359,53 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       return totalSales;
     }
     
-    // Calculate remaining projection from hourly data
-    let remainingProjected = 0;
+    // Calculate trend factor for consistency with main dashboard
+    let completedActual = 0;
+    let completedProjected = 0;
+    let completedCount = 0;
+    let totalDailyProj = 0;
+    
     hourlyArray.forEach(h => {
       const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      if (hourNum > tzHour && h.projected) {
-        remainingProjected += h.projected;
+      const actual = Number(h.sales) || 0;
+      const projected = Number(h.projected) || 0;
+      totalDailyProj += projected;
+      if (hourNum < tzHour) {
+        completedActual += actual;
+        completedProjected += projected;
+        if (actual > 0) completedCount++;
       }
     });
     
-    if (totalSales > 0 && remainingProjected > 0) {
-      return totalSales + remainingProjected;
+    let trendFactor = 1.0;
+    if (completedCount >= 3 && totalDailyProj > 0 && completedActual >= totalDailyProj * 0.30 && completedProjected > 0) {
+      const rawTrend = completedActual / completedProjected;
+      const cappedTrend = Math.max(0.75, Math.min(1.25, rawTrend));
+      trendFactor = 0.5 + 0.5 * cappedTrend;
+    }
+    
+    // Calculate pace with trend adjustment and 30-min grace period
+    let paceSum = 0;
+    hourlyArray.forEach(h => {
+      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
+      const actual = Number(h.sales) || 0;
+      const projected = Number(h.projected) || 0;
+      if (hourNum < tzHour) {
+        paceSum += actual;
+      } else if (hourNum === tzHour) {
+        if (tzMinutes < 30) {
+          paceSum += projected * trendFactor;
+        } else {
+          const remainFrac = (60 - tzMinutes) / 60;
+          paceSum += actual + (projected * remainFrac * trendFactor);
+        }
+      } else {
+        paceSum += projected * trendFactor;
+      }
+    });
+    
+    if (paceSum > 0) {
+      return Math.max(paceSum, totalSales);
     }
     
     // If no remaining projections but still during business hours, use actual sales
