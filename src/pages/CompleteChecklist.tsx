@@ -1460,47 +1460,6 @@ export default function CompleteChecklist() {
                           </>
                         )}
 
-                        {/* Temperature manual override (for low-memory camera failures) */}
-                        {showManualTemp && !isComplete && (
-                          <div className="rounded border border-border bg-muted/20 p-3 space-y-2">
-                            <div className="text-sm font-medium">Can't take a photo?</div>
-                            {!manualTempOpen[item.id] ? (
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
-                              >
-                                Enter temperature instead
-                              </Button>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
-                                  <Input
-                                    value={manualTempValue[item.id] || ''}
-                                    onChange={e => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                    inputMode="decimal"
-                                    type="number"
-                                    step="0.1"
-                                    placeholder="Temperature (°F)"
-                                  />
-                                  <Button
-                                    type="button"
-                                    onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] || '')}
-                                  >
-                                    Save
-                                  </Button>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
