@@ -684,7 +684,12 @@ export default function CompleteChecklist() {
   };
 
   const saveManualTemperature = async (itemId: string, tempText: string) => {
-    const tempF = Number(tempText);
+    const trimmed = tempText?.trim();
+    if (!trimmed || trimmed === '') {
+      toast.error('Please enter a temperature');
+      return;
+    }
+    const tempF = Number(trimmed);
     if (!Number.isFinite(tempF)) {
       toast.error('Enter a valid temperature');
       return;
