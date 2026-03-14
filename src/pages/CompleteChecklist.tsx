@@ -1288,7 +1288,8 @@ export default function CompleteChecklist() {
                     const showManualTemp = item.item_type === 'temperature';
                     const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && p.startsWith('http'));
                     const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
-                    const isComplete = currentPhotos.length >= minPhotos;
+                    const hasManualTemp = showManualTemp && responsesWithCompleters[item.id]?.extractedTemperature != null;
+                    const isComplete = currentPhotos.length >= minPhotos || hasManualTemp;
 
                     const hasSplitView = !!item.reference_image_url && !isMultiPhoto;
 
