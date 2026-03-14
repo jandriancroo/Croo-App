@@ -45,14 +45,7 @@ serve(async (req) => {
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
-    // Find or create Stripe customer
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId: string | undefined;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-    }
-
-    // Fetch location and org info
+    // Fetch location and org info first (needed for customer creation)
     const { data: locationData } = await supabase
       .from("locations")
       .select("name, store_number, organization_id")
@@ -75,12 +68,27 @@ serve(async (req) => {
 
     logStep("Location info", { locationName, storeNumber, orgName });
 
-    // Update Stripe customer with org info
-    if (customerId && orgName) {
-      await stripe.customers.update(customerId, {
-        description: orgName,
+    // Find existing Stripe customer or create one with proper description
+    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    let customerId: string;
+    if (customers.data.length > 0) {
+      customerId = customers.data[0].id;
+      // Update existing customer with org info if missing
+      if (orgName && !customers.data[0].description) {
+        await stripe.customers.update(customerId, {
+          description: `${orgName}${locationName ? ' - ' + locationName : ''}`,
+          metadata: { organization_id: effectiveOrgId, organization_name: orgName },
+        });
+      }
+    } else {
+      // Create customer upfront with full description
+      const newCustomer = await stripe.customers.create({
+        email: user.email,
+        description: `${orgName}${locationName ? ' - ' + locationName : ''}`,
         metadata: { organization_id: effectiveOrgId, organization_name: orgName },
       });
+      customerId = newCustomer.id;
+      logStep("Created new Stripe customer", { customerId });
     }
 
     const origin = req.headers.get("origin") || "https://croohq.lovable.app";
