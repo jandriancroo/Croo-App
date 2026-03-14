@@ -179,6 +179,50 @@ export default function ScheduleTemplates() {
     }
   };
 
+  const handleAddPosition = async () => {
+    const trimmed = newPositionValue.trim();
+    if (!trimmed) return;
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
+    if (positions.some(p => p.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('Position already exists');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('organization_positions')
+        .insert({ organization_id: orgId, name: trimmed });
+      if (error) throw error;
+      toast.success(`Position "${trimmed}" added`);
+      setNewPositionValue('');
+      fetchPositions();
+    } catch {
+      toast.error('Failed to add position');
+    }
+  };
+
+  const handleDeletePosition = async (posName: string) => {
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
+    try {
+      const { error } = await supabase
+        .from('organization_positions')
+        .delete()
+        .eq('organization_id', orgId)
+        .eq('name', posName);
+      if (error) throw error;
+      await supabase
+        .from('shift_templates')
+        .update({ position: null })
+        .eq('position', posName)
+        .eq('location_id', currentLocation?.id);
+      toast.success(`Position "${posName}" removed`);
+      fetchPositions();
+    } catch {
+      toast.error('Failed to delete position');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const positionValue = formData.position;
