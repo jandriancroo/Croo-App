@@ -108,14 +108,15 @@ export default function ScheduleTemplates() {
   };
 
   const fetchPositions = async () => {
-    if (!currentLocation?.id) return;
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
     try {
       const { data, error } = await supabase
-        .from("shift_templates").select("position")
-        .eq("location_id", currentLocation.id);
+        .from("organization_positions").select("name")
+        .eq("organization_id", orgId)
+        .order("name");
       if (error) throw error;
-      const unique = Array.from(new Set((data || []).map((t: any) => t.position).filter(Boolean))).sort() as string[];
-      setPositions(unique);
+      setPositions((data || []).map((p: any) => p.name));
     } catch (error: any) {
       console.error("Error fetching positions:", error);
     }
@@ -152,13 +153,22 @@ export default function ScheduleTemplates() {
 
   const handleRenamePosition = async (oldName: string, newName: string) => {
     if (!newName.trim() || newName.trim() === oldName) { setEditingPositionName(null); return; }
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
     try {
+      // Update the organization_positions table
       const { error } = await supabase
+        .from('organization_positions')
+        .update({ name: newName.trim() })
+        .eq('organization_id', orgId)
+        .eq('name', oldName);
+      if (error) throw error;
+      // Also update shift_templates that reference the old name
+      await supabase
         .from('shift_templates')
         .update({ position: newName.trim() })
         .eq('position', oldName)
         .eq('location_id', currentLocation?.id);
-      if (error) throw error;
       toast.success(`Renamed "${oldName}" to "${newName.trim()}"`);
       setEditingPositionName(null);
       setEditPositionValue('');
@@ -166,6 +176,50 @@ export default function ScheduleTemplates() {
       fetchPositions();
     } catch (error: any) {
       toast.error('Failed to rename position');
+    }
+  };
+
+  const handleAddPosition = async () => {
+    const trimmed = newPositionValue.trim();
+    if (!trimmed) return;
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
+    if (positions.some(p => p.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('Position already exists');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('organization_positions')
+        .insert({ organization_id: orgId, name: trimmed });
+      if (error) throw error;
+      toast.success(`Position "${trimmed}" added`);
+      setNewPositionValue('');
+      fetchPositions();
+    } catch {
+      toast.error('Failed to add position');
+    }
+  };
+
+  const handleDeletePosition = async (posName: string) => {
+    const orgId = currentLocation?.organization_id;
+    if (!orgId) return;
+    try {
+      const { error } = await supabase
+        .from('organization_positions')
+        .delete()
+        .eq('organization_id', orgId)
+        .eq('name', posName);
+      if (error) throw error;
+      await supabase
+        .from('shift_templates')
+        .update({ position: null })
+        .eq('position', posName)
+        .eq('location_id', currentLocation?.id);
+      toast.success(`Position "${posName}" removed`);
+      fetchPositions();
+    } catch {
+      toast.error('Failed to delete position');
     }
   };
 
@@ -364,7 +418,7 @@ export default function ScheduleTemplates() {
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
-                              onClick={() => setPositions(prev => prev.filter(p => p !== pos))}
+                              onClick={() => handleDeletePosition(pos)}
                               className="hover:text-destructive transition-colors"
                             >
                               <X className="h-3 w-3" />
@@ -382,10 +436,10 @@ export default function ScheduleTemplates() {
                     placeholder="New position name..."
                     value={newPositionValue}
                     onChange={e => setNewPositionValue(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && newPositionValue.trim()) { setPositions(prev => [...prev, newPositionValue.trim()].sort()); setNewPositionValue(''); }}}
+                    onKeyDown={e => { if (e.key === 'Enter' && newPositionValue.trim()) handleAddPosition(); }}
                     className="flex-1 h-8 text-sm"
                   />
-                  <Button size="sm" onClick={() => { if (newPositionValue.trim()) { setPositions(prev => [...prev, newPositionValue.trim()].sort()); setNewPositionValue(''); }}} disabled={!newPositionValue.trim()}>
+                  <Button size="sm" onClick={handleAddPosition} disabled={!newPositionValue.trim()}>
                     <Check className="h-4 w-4" />
                   </Button>
                 </div>
