@@ -359,30 +359,48 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       return totalSales;
     }
     
-    // (old first-pass variables removed - new pace logic handles this inline)
-    
-    // Calculate per-hour over/under % for avg-based pacing
-    const hourPcts: number[] = [];
+    // === SHIFT-AWARE PACE V3 ===
+    const SHIFT_BOUNDARY = 15;
+    const lunchPcts: number[] = [];
+    const dinnerPcts: number[] = [];
     hourlyArray.forEach(h => {
       const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
       const actual = Number(h.sales) || 0;
       const projected = Number(h.projected) || 0;
       if (projected > 0) {
-        if (hourNum < tzHour && actual > 0) {
-          hourPcts.push((actual - projected) / projected);
-        } else if (hourNum === tzHour && tzMinutes >= 30 && actual > 0) {
-          hourPcts.push((actual - projected) / projected);
+        const isCompleted = (hourNum < tzHour && actual > 0) || 
+                            (hourNum === tzHour && tzMinutes >= 30 && actual > 0);
+        if (isCompleted) {
+          if (hourNum < SHIFT_BOUNDARY) {
+            lunchPcts.push((actual - projected) / projected);
+          } else {
+            dinnerPcts.push((actual - projected) / projected);
+          }
         }
       }
     });
     
     let adjustmentFactor = 1.0;
-    if (hourPcts.length >= 3) {
-      const avgPct = hourPcts.reduce((a, b) => a + b, 0) / hourPcts.length;
-      const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
+    const isDinnerShift = tzHour >= SHIFT_BOUNDARY;
+    let activeAvg: number | null = null;
+    
+    if (isDinnerShift) {
+      if (dinnerPcts.length >= 3) {
+        activeAvg = dinnerPcts.reduce((a, b) => a + b, 0) / dinnerPcts.length;
+      } else if (lunchPcts.length >= 3) {
+        activeAvg = (lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length) * 0.5;
+      }
+    } else {
+      if (lunchPcts.length >= 3) {
+        activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
+      }
+    }
+    
+    if (activeAvg !== null) {
+      const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
       const rand = Math.random();
-      const variant = avgPct < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
-      adjustmentFactor = 1.0 + avgPct + variant;
+      const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+      adjustmentFactor = 1.0 + activeAvg + variant;
     }
     
     // Calculate pace with adjustment and 30-min grace period

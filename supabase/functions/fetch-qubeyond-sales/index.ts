@@ -2187,43 +2187,51 @@ function calculatePaceAdjustedProjection(
     }
   }
   
-  // === AVG OVER/UNDER PACING ===
-  // After 3+ data hours, calculate per-hour over/under %, average them,
-  // then apply that avg % + a scaled random variant to remaining projections.
+  // === SHIFT-AWARE PACE V3 ===
+  // Shift boundary at 3 PM (hour 15). Before 3 PM: lunch trend. After: dinner trend.
+  // If dinner has < 3 data points, carry lunch average at 50% weight.
+  const SHIFT_BOUNDARY = 15;
   
-  // Collect per-hour over/under percentages (include current hour if 30+ min in)
-  const hourPercentages: number[] = [];
+  const lunchPcts: number[] = [];
+  const dinnerPcts: number[] = [];
   for (const entry of hourlyData) {
     const entryHour = parseInt(entry.hour.split(':')[0]);
     if (entry.projected > 0) {
-      if (entryHour < currentHour && entry.sales > 0) {
-        hourPercentages.push((entry.sales - entry.projected) / entry.projected);
-      } else if (entryHour === currentHour && usePartialHour && entry.sales > 0) {
-        // Include current hour partial when 30+ min in
-        hourPercentages.push((entry.sales - entry.projected) / entry.projected);
+      const isCompleted = (entryHour < currentHour && entry.sales > 0) ||
+                          (entryHour === currentHour && usePartialHour && entry.sales > 0);
+      if (isCompleted) {
+        if (entryHour < SHIFT_BOUNDARY) {
+          lunchPcts.push((entry.sales - entry.projected) / entry.projected);
+        } else {
+          dinnerPcts.push((entry.sales - entry.projected) / entry.projected);
+        }
       }
     }
   }
   
   let adjustmentFactor = 1.0;
-  if (hourPercentages.length >= 3) {
-    const avgPct = hourPercentages.reduce((a, b) => a + b, 0) / hourPercentages.length;
-    
-    // Scaled variant: negative avg → random 0 to -0.02, positive → random 0 to +0.03
-    // Severity scales the variant (capped at 50% severity)
-    const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
-    const random = Math.random();
-    let variant: number;
-    if (avgPct < 0) {
-      // Negative: variant between 0 and -0.02, scaled by severity
-      variant = -(random * 0.02 * severity);
-    } else {
-      // Positive: variant between 0 and +0.03, scaled by severity
-      variant = random * 0.03 * severity;
+  const isDinnerShift = currentHour >= SHIFT_BOUNDARY;
+  let activeAvg: number | null = null;
+  
+  if (isDinnerShift) {
+    if (dinnerPcts.length >= 3) {
+      activeAvg = dinnerPcts.reduce((a, b) => a + b, 0) / dinnerPcts.length;
+    } else if (lunchPcts.length >= 3) {
+      // Carry lunch avg at 50% weight during dinner ramp-up
+      activeAvg = (lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length) * 0.5;
     }
-    
-    adjustmentFactor = 1.0 + avgPct + variant;
-    console.log(`[PACE-V2] ${hourPercentages.length} hrs, avgPct: ${(avgPct * 100).toFixed(1)}%, variant: ${(variant * 100).toFixed(2)}%, adjustment: ${(adjustmentFactor * 100).toFixed(1)}%`);
+  } else {
+    if (lunchPcts.length >= 3) {
+      activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
+    }
+  }
+  
+  if (activeAvg !== null) {
+    const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
+    const rand = Math.random();
+    const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+    adjustmentFactor = 1.0 + activeAvg + variant;
+    console.log(`[PACE-V3] shift=${isDinnerShift ? 'dinner' : 'lunch'}, lunch=${lunchPcts.length}pts, dinner=${dinnerPcts.length}pts, avgPct: ${(activeAvg * 100).toFixed(1)}%, adjustment: ${(adjustmentFactor * 100).toFixed(1)}%`);
   }
   
   // Apply adjustment to current hour contribution and future projections
