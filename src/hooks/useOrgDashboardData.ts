@@ -222,31 +222,54 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           const currentHour = nowLA.getHours();
           const currentMinutes = nowLA.getMinutes();
           
-          // (first pass variables removed - new pace logic handles this inline)
+          // === SHIFT-AWARE PACE V3 ===
+          // Shift boundary at 3 PM (hour 15). Before 3 PM: lunch trend. After: dinner trend.
+          // If dinner has < 3 data points, carry lunch average at 50% weight.
+          const SHIFT_BOUNDARY = 15;
           
-          // Calculate per-hour over/under % for avg-based pacing
-          const hourPcts: number[] = [];
+          // Collect per-hour over/under % split by shift
+          const lunchPcts: number[] = [];
+          const dinnerPcts: number[] = [];
           for (const entry of todayRow.hourly_data as any[]) {
             const h = parseInt(String(entry.hour || ''));
             if (isNaN(h)) continue;
             const actual = Number(entry.sales) || 0;
             const projected = Number(entry.projected) || 0;
             if (projected > 0) {
-              if (h < currentHour && actual > 0) {
-                hourPcts.push((actual - projected) / projected);
-              } else if (h === currentHour && currentMinutes >= 30 && actual > 0) {
-                hourPcts.push((actual - projected) / projected);
+              const isCompleted = (h < currentHour && actual > 0) || 
+                                  (h === currentHour && currentMinutes >= 30 && actual > 0);
+              if (isCompleted) {
+                if (h < SHIFT_BOUNDARY) {
+                  lunchPcts.push((actual - projected) / projected);
+                } else {
+                  dinnerPcts.push((actual - projected) / projected);
+                }
               }
             }
           }
           
           let adjustmentFactor = 1.0;
-          if (hourPcts.length >= 3) {
-            const avgPct = hourPcts.reduce((a, b) => a + b, 0) / hourPcts.length;
-            const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
+          const isDinnerShift = currentHour >= SHIFT_BOUNDARY;
+          let activeAvg: number | null = null;
+          
+          if (isDinnerShift) {
+            if (dinnerPcts.length >= 3) {
+              activeAvg = dinnerPcts.reduce((a, b) => a + b, 0) / dinnerPcts.length;
+            } else if (lunchPcts.length >= 3) {
+              // Carry lunch avg at 50% weight during dinner ramp-up
+              activeAvg = (lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length) * 0.5;
+            }
+          } else {
+            if (lunchPcts.length >= 3) {
+              activeAvg = lunchPcts.reduce((a, b) => a + b, 0) / lunchPcts.length;
+            }
+          }
+          
+          if (activeAvg !== null) {
+            const severity = Math.min(Math.abs(activeAvg) / 0.50, 1.0);
             const rand = Math.random();
-            const variant = avgPct < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
-            adjustmentFactor = 1.0 + avgPct + variant;
+            const variant = activeAvg < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+            adjustmentFactor = 1.0 + activeAvg + variant;
           }
           
           // Build pace with adjustment
