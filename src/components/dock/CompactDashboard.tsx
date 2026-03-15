@@ -359,32 +359,33 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       return totalSales;
     }
     
-    // Calculate trend factor for consistency with main dashboard
-    let completedActual = 0;
-    let completedProjected = 0;
-    let completedCount = 0;
-    let totalDailyProj = 0;
+    // (old first-pass variables removed - new pace logic handles this inline)
     
+    // Calculate per-hour over/under % for avg-based pacing
+    const hourPcts: number[] = [];
     hourlyArray.forEach(h => {
       const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
       const actual = Number(h.sales) || 0;
       const projected = Number(h.projected) || 0;
-      totalDailyProj += projected;
-      if (hourNum < tzHour) {
-        completedActual += actual;
-        completedProjected += projected;
-        if (actual > 0) completedCount++;
+      if (projected > 0) {
+        if (hourNum < tzHour && actual > 0) {
+          hourPcts.push((actual - projected) / projected);
+        } else if (hourNum === tzHour && tzMinutes >= 30 && actual > 0) {
+          hourPcts.push((actual - projected) / projected);
+        }
       }
     });
     
-    let trendFactor = 1.0;
-    if (completedCount >= 3 && totalDailyProj > 0 && completedActual >= totalDailyProj * 0.30 && completedProjected > 0) {
-      const rawTrend = completedActual / completedProjected;
-      const cappedTrend = Math.max(0.75, Math.min(1.25, rawTrend));
-      trendFactor = 0.5 + 0.5 * cappedTrend;
+    let adjustmentFactor = 1.0;
+    if (hourPcts.length >= 3) {
+      const avgPct = hourPcts.reduce((a, b) => a + b, 0) / hourPcts.length;
+      const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
+      const rand = Math.random();
+      const variant = avgPct < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+      adjustmentFactor = 1.0 + avgPct + variant;
     }
     
-    // Calculate pace with trend adjustment and 30-min grace period
+    // Calculate pace with adjustment and 30-min grace period
     let paceSum = 0;
     hourlyArray.forEach(h => {
       const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
@@ -394,13 +395,13 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
         paceSum += actual;
       } else if (hourNum === tzHour) {
         if (tzMinutes < 30) {
-          paceSum += projected * trendFactor;
+          paceSum += projected * adjustmentFactor;
         } else {
           const remainFrac = (60 - tzMinutes) / 60;
-          paceSum += actual + (projected * remainFrac * trendFactor);
+          paceSum += actual + (projected * remainFrac * adjustmentFactor);
         }
       } else {
-        paceSum += projected * trendFactor;
+        paceSum += projected * adjustmentFactor;
       }
     });
     

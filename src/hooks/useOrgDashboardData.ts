@@ -222,39 +222,37 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           const currentHour = nowLA.getHours();
           const currentMinutes = nowLA.getMinutes();
           
-          // First pass: collect completed hours data for trend calculation
-          let completedActual = 0;
-          let completedProjected = 0;
-          let completedCount = 0;
-          let totalDailyProj = 0;
+          // (first pass variables removed - new pace logic handles this inline)
           
+          // Calculate per-hour over/under % for avg-based pacing
+          const hourPcts: number[] = [];
           for (const entry of todayRow.hourly_data as any[]) {
-            const hourStr = String(entry.hour || '');
-            const h = parseInt(hourStr);
+            const h = parseInt(String(entry.hour || ''));
             if (isNaN(h)) continue;
             const actual = Number(entry.sales) || 0;
             const projected = Number(entry.projected) || 0;
-            totalDailyProj += projected;
-            if (h < currentHour) {
-              completedActual += actual;
-              completedProjected += projected;
-              if (actual > 0) completedCount++;
+            if (projected > 0) {
+              if (h < currentHour && actual > 0) {
+                hourPcts.push((actual - projected) / projected);
+              } else if (h === currentHour && currentMinutes >= 30 && actual > 0) {
+                hourPcts.push((actual - projected) / projected);
+              }
             }
           }
           
-          // Calculate trend factor (same guardrails as edge function)
-          let trendFactor = 1.0;
-          if (completedCount >= 3 && totalDailyProj > 0 && completedActual >= totalDailyProj * 0.30 && completedProjected > 0) {
-            const rawTrend = completedActual / completedProjected;
-            const cappedTrend = Math.max(0.75, Math.min(1.25, rawTrend));
-            trendFactor = 0.5 + 0.5 * cappedTrend;
+          let adjustmentFactor = 1.0;
+          if (hourPcts.length >= 3) {
+            const avgPct = hourPcts.reduce((a, b) => a + b, 0) / hourPcts.length;
+            const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
+            const rand = Math.random();
+            const variant = avgPct < 0 ? -(rand * 0.02 * severity) : rand * 0.03 * severity;
+            adjustmentFactor = 1.0 + avgPct + variant;
           }
           
-          // Second pass: build pace with trend
+          // Build pace with adjustment
           let paceSum = 0;
           for (const entry of todayRow.hourly_data as any[]) {
-            const hourStr = String(entry.hour || '');
-            const h = parseInt(hourStr);
+            const h = parseInt(String(entry.hour || ''));
             if (isNaN(h)) continue;
             const actual = Number(entry.sales) || 0;
             const projected = Number(entry.projected) || 0;
@@ -262,13 +260,13 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
               paceSum += actual;
             } else if (h === currentHour) {
               if (currentMinutes < 30) {
-                paceSum += projected * trendFactor;
+                paceSum += projected * adjustmentFactor;
               } else {
                 const remainFrac = (60 - currentMinutes) / 60;
-                paceSum += actual + (projected * remainFrac * trendFactor);
+                paceSum += actual + (projected * remainFrac * adjustmentFactor);
               }
             } else {
-              paceSum += projected * trendFactor;
+              paceSum += projected * adjustmentFactor;
             }
           }
           paceToday = paceSum > 0 ? Math.max(paceSum, salesToday) : null;
