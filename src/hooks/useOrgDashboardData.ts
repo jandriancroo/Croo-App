@@ -222,25 +222,7 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
           const currentHour = nowLA.getHours();
           const currentMinutes = nowLA.getMinutes();
           
-          // First pass: collect completed hours data for trend calculation
-          let completedActual = 0;
-          let completedProjected = 0;
-          let completedCount = 0;
-          let totalDailyProj = 0;
-          
-          for (const entry of todayRow.hourly_data as any[]) {
-            const hourStr = String(entry.hour || '');
-            const h = parseInt(hourStr);
-            if (isNaN(h)) continue;
-            const actual = Number(entry.sales) || 0;
-            const projected = Number(entry.projected) || 0;
-            totalDailyProj += projected;
-            if (h < currentHour) {
-              completedActual += actual;
-              completedProjected += projected;
-              if (actual > 0) completedCount++;
-            }
-          }
+          // (first pass variables removed - new pace logic handles this inline)
           
           // Calculate per-hour over/under % for avg-based pacing
           const hourPcts: number[] = [];

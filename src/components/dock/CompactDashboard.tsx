@@ -359,23 +359,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       return totalSales;
     }
     
-    // Calculate trend factor for consistency with main dashboard
-    let completedActual = 0;
-    let completedProjected = 0;
-    let completedCount = 0;
-    let totalDailyProj = 0;
-    
-    hourlyArray.forEach(h => {
-      const hourNum = parseInt(h.hour?.split(':')[0] || '0', 10);
-      const actual = Number(h.sales) || 0;
-      const projected = Number(h.projected) || 0;
-      totalDailyProj += projected;
-      if (hourNum < tzHour) {
-        completedActual += actual;
-        completedProjected += projected;
-        if (actual > 0) completedCount++;
-      }
-    });
+    // (old first-pass variables removed - new pace logic handles this inline)
     
     // Calculate per-hour over/under % for avg-based pacing
     const hourPcts: number[] = [];
