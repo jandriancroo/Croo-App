@@ -2187,33 +2187,55 @@ function calculatePaceAdjustedProjection(
     }
   }
   
-  // === TREND-ADJUSTED PACING ===
-  // After 3+ completed hours AND 30%+ of daily projection reached in actuals,
-  // apply a trend factor to remaining projections (capped at ±25%)
-  const totalDailyProjection = hourlyData.reduce((sum, h) => sum + (h.projected || 0), 0);
-  const completedHourCount = hourlyData.filter(h => parseInt(h.hour.split(':')[0]) < currentHour && h.sales > 0).length;
-  const salesThresholdMet = totalDailyProjection > 0 && completedHoursActual >= totalDailyProjection * 0.30;
+  // === AVG OVER/UNDER PACING ===
+  // After 3+ data hours, calculate per-hour over/under %, average them,
+  // then apply that avg % + a scaled random variant to remaining projections.
   
-  let trendFactor = 1.0;
-  if (completedHourCount >= 3 && salesThresholdMet && completedHoursProjected > 0) {
-    const rawTrend = completedHoursActual / completedHoursProjected;
-    // Cap at ±25% adjustment
-    trendFactor = Math.max(0.75, Math.min(1.25, rawTrend));
-    // Blend: 50% raw projection + 50% trend-adjusted
-    trendFactor = 0.5 + 0.5 * trendFactor;
-    console.log(`[TREND-PACE] ${completedHourCount} completed hrs, actual/proj ratio: ${rawTrend.toFixed(3)}, capped trend: ${trendFactor.toFixed(3)}`);
+  // Collect per-hour over/under percentages (include current hour if 30+ min in)
+  const hourPercentages: number[] = [];
+  for (const entry of hourlyData) {
+    const entryHour = parseInt(entry.hour.split(':')[0]);
+    if (entry.projected > 0) {
+      if (entryHour < currentHour && entry.sales > 0) {
+        hourPercentages.push((entry.sales - entry.projected) / entry.projected);
+      } else if (entryHour === currentHour && usePartialHour && entry.sales > 0) {
+        // Include current hour partial when 30+ min in
+        hourPercentages.push((entry.sales - entry.projected) / entry.projected);
+      }
+    }
   }
   
-  // Apply trend factor to current hour contribution and future projections
-  const trendedCurrentHour = currentHourContribution * trendFactor;
-  const trendedFuture = futureHoursProjected * trendFactor;
+  let adjustmentFactor = 1.0;
+  if (hourPercentages.length >= 3) {
+    const avgPct = hourPercentages.reduce((a, b) => a + b, 0) / hourPercentages.length;
+    
+    // Scaled variant: negative avg → random 0 to -0.02, positive → random 0 to +0.03
+    // Severity scales the variant (capped at 50% severity)
+    const severity = Math.min(Math.abs(avgPct) / 0.50, 1.0);
+    const random = Math.random();
+    let variant: number;
+    if (avgPct < 0) {
+      // Negative: variant between 0 and -0.02, scaled by severity
+      variant = -(random * 0.02 * severity);
+    } else {
+      // Positive: variant between 0 and +0.03, scaled by severity
+      variant = random * 0.03 * severity;
+    }
+    
+    adjustmentFactor = 1.0 + avgPct + variant;
+    console.log(`[PACE-V2] ${hourPercentages.length} hrs, avgPct: ${(avgPct * 100).toFixed(1)}%, variant: ${(variant * 100).toFixed(2)}%, adjustment: ${(adjustmentFactor * 100).toFixed(1)}%`);
+  }
   
-  const paceAdjusted = completedHoursActual + trendedCurrentHour + trendedFuture;
+  // Apply adjustment to current hour contribution and future projections
+  const adjustedCurrentHour = currentHourContribution * adjustmentFactor;
+  const adjustedFuture = futureHoursProjected * adjustmentFactor;
+  
+  const paceAdjusted = completedHoursActual + adjustedCurrentHour + adjustedFuture;
   
   // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
   const clampedPace = Math.max(paceAdjusted, actualSales);
   
-  console.log(`Pace calculation: $${completedHoursActual.toFixed(0)} completed + $${trendedCurrentHour.toFixed(0)} (hr ${currentHour}, ${usePartialHour ? (60 - currentMinutes) + 'min left' : 'full proj <30min'}${trendFactor !== 1 ? ', trend=' + trendFactor.toFixed(3) : ''}) + $${trendedFuture.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
+  console.log(`Pace calculation: $${completedHoursActual.toFixed(0)} completed + $${adjustedCurrentHour.toFixed(0)} (hr ${currentHour}, ${usePartialHour ? (60 - currentMinutes) + 'min left' : 'full proj <30min'}) + $${adjustedFuture.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
   
   return Math.round(clampedPace);
 }
