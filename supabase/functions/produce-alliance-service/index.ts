@@ -573,21 +573,24 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
   // 
   // Strategy: Hit a page with Bearer+cookies to ensure session is warm, then fetch JSP.
   try {
-    // Warm up the servlet session by hitting the Angular app's base page with full auth
-    const warmupResp = await fetch(`${PA_BASE_URL}/ng/`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(session),
-        'Accept': 'text/html,application/xhtml+xml,*/*',
-      },
-      redirect: 'manual',
-    });
-    const warmupCookies = extractCookies(warmupResp.headers);
-    if (warmupCookies) {
-      session.cookies = mergeCookies(session.cookies, warmupCookies);
+    // Warm up: hit /ProduceAlliance.jsp to establish PA designation in server session,
+    // then hit /ng/ to ensure Angular session context is active
+    for (const warmupUrl of [`${PA_BASE_URL}/ProduceAlliance.jsp`, `${PA_BASE_URL}/ng/`]) {
+      const warmupResp = await fetch(warmupUrl, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(session),
+          'Accept': 'text/html,application/xhtml+xml,*/*',
+        },
+        redirect: 'follow',
+      });
+      const warmupCookies = extractCookies(warmupResp.headers);
+      if (warmupCookies) {
+        session.cookies = mergeCookies(session.cookies, warmupCookies);
+      }
+      await warmupResp.text().catch(() => '');
     }
-    await warmupResp.text().catch(() => '');
-    console.log('[PA Detail] Session warmup:', warmupResp.status, 'JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'yes' : 'no');
+    console.log('[PA Detail] Session warmup (with PA designation): JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'yes' : 'no');
   } catch (e) {
     console.warn('[PA Detail] Session warmup failed:', e);
   }
