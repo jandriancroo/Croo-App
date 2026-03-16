@@ -327,9 +327,9 @@ const Option6Combo = () => (
                   #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
                 </p>
               </div>
-              <div className="text-right flex-shrink-0 ml-3 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg">
-                <p className="text-lg font-black font-mono tabular-nums leading-none text-primary">${item.totalCost.toFixed(2)}</p>
-                <p className="text-[9px] text-primary/60 font-mono">{item.cases * item.packQuantity + item.units} units</p>
+              <div className="text-right flex-shrink-0 ml-3 bg-primary text-primary-foreground px-2.5 py-1 rounded-full">
+                <p className="text-sm font-bold font-mono tabular-nums leading-tight">${item.totalCost.toFixed(2)}</p>
+                <p className="text-[9px] text-primary-foreground/70 font-mono text-center">{item.cases * item.packQuantity + item.units} units</p>
               </div>
             </div>
           </div>
