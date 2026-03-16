@@ -42,15 +42,15 @@ const mockItems = [
 // SHARED: Location Nav Bar
 // ─────────────────────────────────────────────
 const LocationNav = ({ className, textClass }: { className?: string; textClass?: string }) => (
-  <div className={cn("flex items-center justify-between p-2", className)}>
-    <button className={cn("h-9 w-9 flex items-center justify-center rounded-md", textClass)}>
+  <div className={cn("flex items-center justify-between px-2 py-3", className)}>
+    <button className={cn("h-10 w-10 flex items-center justify-center rounded-md active:scale-95 transition-all", textClass)}>
       <ChevronLeft className="h-5 w-5" />
     </button>
     <div className="text-center">
       <p className={cn("font-semibold text-sm", textClass)}>Walk-in Cooler</p>
       <p className={cn("text-xs opacity-60", textClass)}>1 of 3</p>
     </div>
-    <button className={cn("h-9 w-9 flex items-center justify-center rounded-md", textClass)}>
+    <button className={cn("h-10 w-10 flex items-center justify-center rounded-md active:scale-95 transition-all", textClass)}>
       <ChevronRight className="h-5 w-5" />
     </button>
   </div>
@@ -318,15 +318,15 @@ const Option6Combo = () => (
         <div className="w-1 bg-primary flex-shrink-0" />
 
         {/* Value badge — pinned to top-right corner of card */}
-        <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
           <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">${item.totalCost.toFixed(2)}</p>
-          <p className="text-[9px] text-primary-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
+          <p className="text-[9px] text-accent-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="px-3 py-2.5 border-b border-border pr-28">
+          <div className="px-3 py-3 border-b border-border pr-28">
             <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
-            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            <p className="text-[10px] text-muted-foreground font-mono mt-1">
               #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
             </p>
           </div>
