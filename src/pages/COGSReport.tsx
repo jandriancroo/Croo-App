@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,29 +22,34 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
   const weekStartStr = format(weekStart, "yyyy-MM-dd");
   const weekEndStr = format(weekEnd, "yyyy-MM-dd");
 
-  // Fetch inventory counts that bracket this week
+  // Fetch inventory counts that bracket this week (tight window only)
   const { data: counts, isLoading: countsLoading } = useQuery({
     queryKey: ["cogs-counts", locationId, weekStartStr, weekEndStr],
     queryFn: async () => {
       if (!locationId) return { beginning: null, ending: null };
       
-      // Beginning: most recent completed count with period_end_date on or before week start
+      // Beginning: completed count with period_end_date within 2 days before weekStart
+      // (e.g., for Mon Mar 9, look for counts ending Mar 7–Mar 9 = the prior Sunday/weekend)
+      const beginWindowStart = format(new Date(weekStart.getTime() - 2 * 86400000), "yyyy-MM-dd");
       const { data: beginCounts } = await supabase
         .from("inventory_counts")
         .select("id, count_date, completed_at, period_type, counted_at, period_end_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
+        .gte("period_end_date", beginWindowStart)
         .lte("period_end_date", weekStartStr)
         .order("period_end_date", { ascending: false })
         .limit(1);
       
-      // Ending: first completed count with period_end_date on or after week end
+      // Ending: completed count with period_end_date within 2 days after weekEnd
+      const endWindowEnd = format(new Date(weekEnd.getTime() + 2 * 86400000), "yyyy-MM-dd");
       const { data: endCounts } = await supabase
         .from("inventory_counts")
         .select("id, count_date, completed_at, period_type, counted_at, period_end_date")
         .eq("location_id", locationId)
         .eq("status", "completed")
         .gte("period_end_date", weekEndStr)
+        .lte("period_end_date", endWindowEnd)
         .order("period_end_date", { ascending: true })
         .limit(1);
 
