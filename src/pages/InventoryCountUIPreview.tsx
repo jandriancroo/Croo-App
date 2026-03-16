@@ -313,29 +313,25 @@ const Option6Combo = () => (
     <LocationNav className="bg-muted border border-border rounded-md" textClass="text-foreground" />
 
     {mockItems.map((item, i) => (
-      <div key={i} className="bg-card rounded-md border border-border overflow-hidden flex">
+      <div key={i} className="bg-card rounded-md border border-border overflow-hidden flex relative">
         {/* Left accent bar (Vault) */}
         <div className="w-1 bg-primary flex-shrink-0" />
 
+        {/* Value badge — pinned to top-right corner of card */}
+        <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-bl-lg">
+          <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">${item.totalCost.toFixed(2)}</p>
+          <p className="text-[9px] text-primary-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
+        </div>
+
         <div className="flex-1 min-w-0">
-          {/* Header: Vault's clean layout + Terminal's dark value badge */}
-          <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
-              <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
-              </p>
-            </div>
-          </div>
-          {/* Value badge hugging top-right corner */}
-          <div className="relative">
-            <div className="absolute -top-5 right-3 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg shadow-sm">
-              <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">${item.totalCost.toFixed(2)}</p>
-              <p className="text-[9px] text-primary-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
-            </div>
+          <div className="px-3 py-2.5 border-b border-border pr-28">
+            <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
+            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+              #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
+            </p>
           </div>
 
-          <div className="p-3 pt-5">
+          <div className="p-3">
             <div className="grid grid-cols-2 gap-2">
               <SharpCounter label="Cases" value={item.cases} height="h-11" borderClass="border-foreground/20" />
               <SharpCounter label={`Units (${item.packQuantity}/case)`} value={item.units} height="h-11" borderClass="border-foreground/20" />
