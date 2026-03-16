@@ -466,11 +466,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                   {count.is_late_close && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      Flex Period
+                      Flex
+                    </Badge>
+                  )}
+                  {periodRange?.isFlexAdjusted && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
+                      {periodRange.activeDays}d
                     </Badge>
                   )}
                 </div>
