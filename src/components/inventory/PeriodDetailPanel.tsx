@@ -121,10 +121,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       }
     }
 
-    // Calculate active days
+    // Calculate active days — use salesEndDate for flex counts (extended window)
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
-    const endMs = new Date(endDate + "T12:00:00").getTime();
+    const effectiveEnd = salesEndDate > endDate ? salesEndDate : endDate;
+    const endMs = new Date(effectiveEnd + "T12:00:00").getTime();
     const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
+    const isNonStandard = activeDays !== 7 && count.period_type === "weekly";
 
     return {
       startStr: adjustedStart,
@@ -132,6 +134,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       salesEndStr: salesEndDate,
       isFlexAdjusted,
       activeDays,
+      isNonStandard,
     };
   }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
 
