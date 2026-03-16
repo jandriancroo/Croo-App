@@ -7,6 +7,8 @@ import { Loader2, Check, Truck, Lock } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import pfgLogo from "@/assets/pfg-logo.png";
+import paLogo from "@/assets/pa-logo.png";
 
 interface OrderReconciliationPickerProps {
   locationId: string;
