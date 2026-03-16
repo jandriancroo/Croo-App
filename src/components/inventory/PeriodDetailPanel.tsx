@@ -22,7 +22,7 @@ import {
 import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2, MoreVertical, Trash2,
+  Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
