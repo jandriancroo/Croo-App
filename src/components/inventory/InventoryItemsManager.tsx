@@ -1296,9 +1296,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isReorderMode={isReorderMode}
                                   reorderState={
                                     isReorderMode
-                                      ? pickedItemId === item.id && pickedGroupKey === loc.id
+                                      ? pickedItemIds.has(item.id) && pickedGroupKey === loc.id
                                         ? "picked"
-                                        : pickedItemId && pickedGroupKey === loc.id
+                                        : pickedItemIds.size > 0 && pickedGroupKey === loc.id
                                         ? "target"
                                         : "idle"
                                       : "idle"
