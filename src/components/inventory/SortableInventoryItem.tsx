@@ -13,6 +13,7 @@ interface SortableInventoryItemProps {
   isDragDisabled: boolean;
   isReorderMode?: boolean;
   reorderState?: "idle" | "picked" | "target";
+  pickedCount?: number;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
@@ -26,6 +27,7 @@ export function SortableInventoryItem({
   isDragDisabled,
   isReorderMode = false,
   reorderState = "idle",
+  pickedCount = 0,
   onClick,
   onContextMenu,
 }: SortableInventoryItemProps) {
@@ -80,7 +82,9 @@ export function SortableInventoryItem({
           <>
             {reorderState === "picked" ? (
               <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-[10px] text-primary-foreground font-bold">✓</span>
+                <span className="text-[10px] text-primary-foreground font-bold">
+                  {pickedCount > 1 ? pickedCount : "✓"}
+                </span>
               </div>
             ) : (
               <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center">

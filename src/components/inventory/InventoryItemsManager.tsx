@@ -121,7 +121,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const [pickedItemId, setPickedItemId] = useState<string | null>(null);
+  const [pickedItemIds, setPickedItemIds] = useState<Set<string>>(new Set());
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
 
@@ -169,36 +169,47 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   }, [reorderItemsMutation]);
 
   const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
-    if (!pickedItemId) {
-      // Pick this item
-      setPickedItemId(clickedItemId);
+    if (pickedItemIds.size === 0) {
+      // First pick
+      setPickedItemIds(new Set([clickedItemId]));
       setPickedGroupKey(groupKey);
-      return;
-    }
-    if (pickedItemId === clickedItemId && pickedGroupKey === groupKey) {
-      // Unpick (cancel)
-      setPickedItemId(null);
-      setPickedGroupKey(null);
       return;
     }
     if (pickedGroupKey !== groupKey) {
-      // Different group — just re-pick
-      setPickedItemId(clickedItemId);
+      // Different group — start fresh pick
+      setPickedItemIds(new Set([clickedItemId]));
       setPickedGroupKey(groupKey);
       return;
     }
-    // Place: move picked item to before clicked item
-    const oldIndex = groupItems.findIndex(i => i.id === pickedItemId);
-    const newIndex = groupItems.findIndex(i => i.id === clickedItemId);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(groupItems, oldIndex, newIndex);
+    if (pickedItemIds.has(clickedItemId)) {
+      // Toggle off
+      const next = new Set(pickedItemIds);
+      next.delete(clickedItemId);
+      if (next.size === 0) setPickedGroupKey(null);
+      setPickedItemIds(next);
+      return;
+    }
+    // Check: is the clicked item NOT in the picked set? → Place action
+    // Move all picked items to just before the clicked target, preserving their relative order
+    const pickedIndices = [...pickedItemIds].map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
+    const targetIndex = groupItems.findIndex(i => i.id === clickedItemId);
+    if (targetIndex === -1 || pickedIndices.length === 0) {
+      // Fallback: just add to selection
+      setPickedItemIds(new Set([...pickedItemIds, clickedItemId]));
+      return;
+    }
+    // Remove picked items, then insert them at the target position
+    const pickedItems = pickedIndices.map(idx => groupItems[idx]);
+    const remaining = groupItems.filter(i => !pickedItemIds.has(i.id));
+    const insertAt = remaining.findIndex(i => i.id === clickedItemId);
+    const reordered = [...remaining.slice(0, insertAt), ...pickedItems, ...remaining.slice(insertAt)];
     const primaryOnly = reordered.filter(i => !isShortcutList?.has(i.id));
     if (primaryOnly.length > 0) {
       reorderItemsMutation.mutate(primaryOnly.map(i => i.id));
     }
-    setPickedItemId(null);
+    setPickedItemIds(new Set());
     setPickedGroupKey(null);
-  }, [pickedItemId, pickedGroupKey, reorderItemsMutation]);
+  }, [pickedItemIds, pickedGroupKey, reorderItemsMutation]);
 
 
 
@@ -1133,7 +1144,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       const next = !isReorderMode;
                       setIsReorderMode(next);
                       if (!next) {
-                        setPickedItemId(null);
+                        setPickedItemIds(new Set());
                         setPickedGroupKey(null);
                       }
                     }}
@@ -1161,9 +1172,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           {itemsSubView === "list" && <>
           {isReorderMode && (
             <p className="text-xs text-muted-foreground px-1">
-              {pickedItemId 
-                ? "Now tap where you want to place it. Tap the same item to cancel."
-                : "Tap an item to pick it up, then tap where to place it."}
+              {pickedItemIds.size > 0 
+                ? `${pickedItemIds.size} item${pickedItemIds.size > 1 ? 's' : ''} selected — tap a target to place ${pickedItemIds.size > 1 ? 'them' : 'it'} above. Tap selected to deselect.`
+                : "Tap items to select, then tap where to place them."}
             </p>
           )}
           {items && items.length > 0 ? (
@@ -1285,13 +1296,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isReorderMode={isReorderMode}
                                   reorderState={
                                     isReorderMode
-                                      ? pickedItemId === item.id && pickedGroupKey === loc.id
+                                      ? pickedItemIds.has(item.id) && pickedGroupKey === loc.id
                                         ? "picked"
-                                        : pickedItemId && pickedGroupKey === loc.id
+                                        : pickedItemIds.size > 0 && pickedGroupKey === loc.id
                                         ? "target"
                                         : "idle"
                                       : "idle"
                                   }
+                                  pickedCount={pickedItemIds.size}
                                   onClick={() => {
                                     if (isReorderMode) {
                                       handleReorderClick(item.id, loc.id, allLocItems, shortcutIdSet);
@@ -1376,13 +1388,14 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                 isReorderMode={isReorderMode}
                                 reorderState={
                                   isReorderMode
-                                    ? pickedItemId === item.id && pickedGroupKey === "__unassigned__"
+                                    ? pickedItemIds.has(item.id) && pickedGroupKey === "__unassigned__"
                                       ? "picked"
-                                      : pickedItemId && pickedGroupKey === "__unassigned__"
+                                      : pickedItemIds.size > 0 && pickedGroupKey === "__unassigned__"
                                       ? "target"
                                       : "idle"
                                     : "idle"
                                 }
+                                pickedCount={pickedItemIds.size}
                                 onClick={() => {
                                   if (isReorderMode) {
                                     handleReorderClick(item.id, "__unassigned__", unassigned);
