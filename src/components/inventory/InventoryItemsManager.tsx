@@ -123,6 +123,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemIds, setPickedItemIds] = useState<Set<string>>(new Set());
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
+  const [isPlacingMode, setIsPlacingMode] = useState(false);
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
 
   const dndSensors = useSensors(
