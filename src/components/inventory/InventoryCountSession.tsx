@@ -1197,7 +1197,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isEditing,
         elapsedSeconds,
         lastSavedAt,
-        onSave: () => {}, // Save moved to page header
+        onSave: () => onClose(), // Triggers Save & Exit dialog in parent
         onToggleVoice: () => toggleListeningRef.current(),
       });
     } else {
