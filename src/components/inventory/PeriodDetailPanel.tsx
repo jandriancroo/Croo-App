@@ -22,7 +22,7 @@ import {
 import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
-  Settings2, MoreVertical, Trash2,
+  Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -684,13 +684,13 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   {cogsData.purchases.map((po: any, i: number) => (
                     <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                           po.vendor === "PFG" ? "bg-red-500 text-red-200" : "bg-green-500 text-green-200"
                         }`}>
-                          {po.vendor}
+                          {po.vendor === "PFG" ? <UtensilsCrossed className="h-5 w-5" /> : <Carrot className="h-5 w-5" />}
                         </div>
                         <div>
-                          <p className="text-sm font-medium font-mono">{po.id}</p>
+                          <p className="text-sm font-medium font-mono">{po.vendor} {po.id}</p>
                           <p className="text-xs text-muted-foreground">
                             Delivered {po.deliveryDate || po.date}
                           </p>

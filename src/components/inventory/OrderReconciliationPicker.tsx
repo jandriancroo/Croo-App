@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Truck, Lock } from "lucide-react";
+import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -331,17 +331,17 @@ export default function OrderReconciliationPicker({
 
                       <div
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
                           order.vendor === "PFG"
                             ? "bg-red-500 text-red-200"
                             : "bg-green-500 text-green-200"
                         )}
                       >
-                        {order.vendor}
+                        {order.vendor === "PFG" ? <UtensilsCrossed className="h-5 w-5" /> : <Carrot className="h-5 w-5" />}
                       </div>
 
                       <div className="text-left">
-                        <p className="text-sm font-medium font-mono">#{order.orderId}</p>
+                        <p className="text-sm font-medium font-mono">{order.vendor} #{order.orderId}</p>
                       </div>
                     </div>
 
