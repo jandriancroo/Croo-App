@@ -170,36 +170,31 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   }, [reorderItemsMutation]);
 
   const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
-    if (pickedItemIds.size === 0) {
-      // First pick
-      setPickedItemIds(new Set([clickedItemId]));
-      setPickedGroupKey(groupKey);
-      return;
-    }
-    if (pickedGroupKey !== groupKey) {
-      // Different group — start fresh pick
-      setPickedItemIds(new Set([clickedItemId]));
-      setPickedGroupKey(groupKey);
-      return;
-    }
-    if (pickedItemIds.has(clickedItemId)) {
-      // Toggle off
+    if (!isPlacingMode) {
+      // Selection phase — toggle items on/off
+      if (pickedGroupKey && pickedGroupKey !== groupKey) {
+        // Different group — start fresh
+        setPickedItemIds(new Set([clickedItemId]));
+        setPickedGroupKey(groupKey);
+        return;
+      }
       const next = new Set(pickedItemIds);
-      next.delete(clickedItemId);
-      if (next.size === 0) setPickedGroupKey(null);
+      if (next.has(clickedItemId)) {
+        next.delete(clickedItemId);
+        if (next.size === 0) setPickedGroupKey(null);
+      } else {
+        next.add(clickedItemId);
+        if (!pickedGroupKey) setPickedGroupKey(groupKey);
+      }
       setPickedItemIds(next);
       return;
     }
-    // Check: is the clicked item NOT in the picked set? → Place action
-    // Move all picked items to just before the clicked target, preserving their relative order
+    // Placement phase — place selected items above the clicked target
+    if (pickedItemIds.has(clickedItemId)) return; // Can't place on self
+    if (pickedGroupKey !== groupKey) return; // Can't place across groups
     const pickedIndices = [...pickedItemIds].map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
     const targetIndex = groupItems.findIndex(i => i.id === clickedItemId);
-    if (targetIndex === -1 || pickedIndices.length === 0) {
-      // Fallback: just add to selection
-      setPickedItemIds(new Set([...pickedItemIds, clickedItemId]));
-      return;
-    }
-    // Remove picked items, then insert them at the target position
+    if (targetIndex === -1 || pickedIndices.length === 0) return;
     const pickedItems = pickedIndices.map(idx => groupItems[idx]);
     const remaining = groupItems.filter(i => !pickedItemIds.has(i.id));
     const insertAt = remaining.findIndex(i => i.id === clickedItemId);
@@ -210,7 +205,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
     setPickedItemIds(new Set());
     setPickedGroupKey(null);
-  }, [pickedItemIds, pickedGroupKey, reorderItemsMutation]);
+    setIsPlacingMode(false);
+  }, [pickedItemIds, pickedGroupKey, isPlacingMode, reorderItemsMutation]);
 
 
 
