@@ -1291,6 +1291,9 @@ serve(async (req) => {
       case 'backfill':
         return await handleBackfill(req, supabase);
       
+      case 'sync-dates':
+        return await handleSyncDates(req, supabase);
+
       case 'sync-tips':
         return await handleSyncTips(req, supabase);
       
