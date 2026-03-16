@@ -123,6 +123,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [isReorderMode, setIsReorderMode] = useState(false);
   const [pickedItemIds, setPickedItemIds] = useState<Set<string>>(new Set());
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
+  const [isPlacingMode, setIsPlacingMode] = useState(false);
   const [itemsSubView, setItemsSubView] = useState<"list" | "matrix">("list");
 
   const dndSensors = useSensors(
@@ -169,36 +170,31 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   }, [reorderItemsMutation]);
 
   const handleReorderClick = useCallback((clickedItemId: string, groupKey: string, groupItems: any[], isShortcutList?: Set<string>) => {
-    if (pickedItemIds.size === 0) {
-      // First pick
-      setPickedItemIds(new Set([clickedItemId]));
-      setPickedGroupKey(groupKey);
-      return;
-    }
-    if (pickedGroupKey !== groupKey) {
-      // Different group — start fresh pick
-      setPickedItemIds(new Set([clickedItemId]));
-      setPickedGroupKey(groupKey);
-      return;
-    }
-    if (pickedItemIds.has(clickedItemId)) {
-      // Toggle off
+    if (!isPlacingMode) {
+      // Selection phase — toggle items on/off
+      if (pickedGroupKey && pickedGroupKey !== groupKey) {
+        // Different group — start fresh
+        setPickedItemIds(new Set([clickedItemId]));
+        setPickedGroupKey(groupKey);
+        return;
+      }
       const next = new Set(pickedItemIds);
-      next.delete(clickedItemId);
-      if (next.size === 0) setPickedGroupKey(null);
+      if (next.has(clickedItemId)) {
+        next.delete(clickedItemId);
+        if (next.size === 0) setPickedGroupKey(null);
+      } else {
+        next.add(clickedItemId);
+        if (!pickedGroupKey) setPickedGroupKey(groupKey);
+      }
       setPickedItemIds(next);
       return;
     }
-    // Check: is the clicked item NOT in the picked set? → Place action
-    // Move all picked items to just before the clicked target, preserving their relative order
+    // Placement phase — place selected items above the clicked target
+    if (pickedItemIds.has(clickedItemId)) return; // Can't place on self
+    if (pickedGroupKey !== groupKey) return; // Can't place across groups
     const pickedIndices = [...pickedItemIds].map(id => groupItems.findIndex(i => i.id === id)).filter(i => i !== -1).sort((a, b) => a - b);
     const targetIndex = groupItems.findIndex(i => i.id === clickedItemId);
-    if (targetIndex === -1 || pickedIndices.length === 0) {
-      // Fallback: just add to selection
-      setPickedItemIds(new Set([...pickedItemIds, clickedItemId]));
-      return;
-    }
-    // Remove picked items, then insert them at the target position
+    if (targetIndex === -1 || pickedIndices.length === 0) return;
     const pickedItems = pickedIndices.map(idx => groupItems[idx]);
     const remaining = groupItems.filter(i => !pickedItemIds.has(i.id));
     const insertAt = remaining.findIndex(i => i.id === clickedItemId);
@@ -209,7 +205,8 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
     }
     setPickedItemIds(new Set());
     setPickedGroupKey(null);
-  }, [pickedItemIds, pickedGroupKey, reorderItemsMutation]);
+    setIsPlacingMode(false);
+  }, [pickedItemIds, pickedGroupKey, isPlacingMode, reorderItemsMutation]);
 
 
 
@@ -1146,6 +1143,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       if (!next) {
                         setPickedItemIds(new Set());
                         setPickedGroupKey(null);
+                        setIsPlacingMode(false);
                       }
                     }}
                   >
@@ -1171,11 +1169,49 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           {/* List sub-view */}
           {itemsSubView === "list" && <>
           {isReorderMode && (
-            <p className="text-xs text-muted-foreground px-1">
-              {pickedItemIds.size > 0 
-                ? `${pickedItemIds.size} item${pickedItemIds.size > 1 ? 's' : ''} selected — tap a target to place ${pickedItemIds.size > 1 ? 'them' : 'it'} above. Tap selected to deselect.`
-                : "Tap items to select, then tap where to place them."}
-            </p>
+            <div className="flex items-center gap-2 px-1">
+              <p className="text-xs text-muted-foreground flex-1">
+                {isPlacingMode
+                  ? `Tap where to place ${pickedItemIds.size} item${pickedItemIds.size > 1 ? 's' : ''}.`
+                  : pickedItemIds.size > 0 
+                  ? `${pickedItemIds.size} selected — tap "Move" then tap target.`
+                  : "Tap items to select, then press Move."}
+              </p>
+              {pickedItemIds.size > 0 && !isPlacingMode && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-7 text-xs px-3"
+                  onClick={() => setIsPlacingMode(true)}
+                >
+                  Move
+                </Button>
+              )}
+              {isPlacingMode && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs px-3"
+                  onClick={() => setIsPlacingMode(false)}
+                >
+                  Back
+                </Button>
+              )}
+              {pickedItemIds.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-2"
+                  onClick={() => {
+                    setPickedItemIds(new Set());
+                    setPickedGroupKey(null);
+                    setIsPlacingMode(false);
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           )}
           {items && items.length > 0 ? (
             <div className="space-y-2">
@@ -1298,7 +1334,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                     isReorderMode
                                       ? pickedItemIds.has(item.id) && pickedGroupKey === loc.id
                                         ? "picked"
-                                        : pickedItemIds.size > 0 && pickedGroupKey === loc.id
+                                         : isPlacingMode && pickedItemIds.size > 0 && pickedGroupKey === loc.id
                                         ? "target"
                                         : "idle"
                                       : "idle"
@@ -1390,7 +1426,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isReorderMode
                                     ? pickedItemIds.has(item.id) && pickedGroupKey === "__unassigned__"
                                       ? "picked"
-                                      : pickedItemIds.size > 0 && pickedGroupKey === "__unassigned__"
+                                       : isPlacingMode && pickedItemIds.size > 0 && pickedGroupKey === "__unassigned__"
                                       ? "target"
                                       : "idle"
                                     : "idle"
