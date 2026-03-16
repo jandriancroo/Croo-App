@@ -1143,6 +1143,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       if (!next) {
                         setPickedItemIds(new Set());
                         setPickedGroupKey(null);
+                        setIsPlacingMode(false);
                       }
                     }}
                   >
