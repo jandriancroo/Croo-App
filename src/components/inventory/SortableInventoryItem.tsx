@@ -13,6 +13,7 @@ interface SortableInventoryItemProps {
   isDragDisabled: boolean;
   isReorderMode?: boolean;
   reorderState?: "idle" | "picked" | "target";
+  pickedCount?: number;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
