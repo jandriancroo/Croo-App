@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Truck, Lock } from "lucide-react";
+import { Loader2, Check, Truck, Lock, UtensilsCrossed, Carrot } from "lucide-react";
 import { format, subDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
