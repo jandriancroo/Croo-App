@@ -1350,31 +1350,27 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Location navigation */}
       {locationKeys.length > 1 && (
-        <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-lg p-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:bg-primary-foreground/20"
+        <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-md px-2 py-3">
+          <button
+            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={() => setCurrentLocationIndex(Math.max(0, currentLocationIndex - 1))}
             disabled={currentLocationIndex === 0}
           >
             <ChevronLeft className="h-5 w-5" />
-          </Button>
+          </button>
           <div className="text-center">
-            <p className="font-medium text-primary-foreground">{itemsByLocation[currentLocation]?.name}</p>
-            <p className="text-xs text-primary-foreground/70">
+            <p className="font-semibold text-sm text-primary-foreground">{itemsByLocation[currentLocation]?.name}</p>
+            <p className="text-xs text-primary-foreground/60">
               {currentLocationIndex + 1} of {locationKeys.length}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:bg-primary-foreground/20"
+          <button
+            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={() => setCurrentLocationIndex(Math.min(locationKeys.length - 1, currentLocationIndex + 1))}
             disabled={currentLocationIndex === locationKeys.length - 1}
           >
             <ChevronRight className="h-5 w-5" />
-          </Button>
+          </button>
         </div>
       )}
 
