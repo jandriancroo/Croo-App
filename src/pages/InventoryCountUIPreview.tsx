@@ -50,7 +50,7 @@ const LocationNav = ({ className, textClass }: { className?: string; textClass?:
       <p className={cn("font-semibold text-sm", textClass)}>Walk-in Cooler</p>
       <p className={cn("text-xs opacity-60", textClass)}>1 of 3</p>
     </div>
-    <button className={cn("h-9 w-9 flex items-center justify-center rounded-md", textClass)}>
+    <button className={cn("h-10 w-10 flex items-center justify-center rounded-md active:scale-95 transition-all", textClass)}>
       <ChevronRight className="h-5 w-5" />
     </button>
   </div>
