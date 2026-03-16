@@ -1621,8 +1621,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   )}
                 </div>
-                </CardContent>
-            </Card>
+              </div>
+            </div>
           );
         })}
       </div>
