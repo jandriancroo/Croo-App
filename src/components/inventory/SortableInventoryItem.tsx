@@ -27,6 +27,7 @@ export function SortableInventoryItem({
   isDragDisabled,
   isReorderMode = false,
   reorderState = "idle",
+  pickedCount = 0,
   onClick,
   onContextMenu,
 }: SortableInventoryItemProps) {
