@@ -333,8 +333,8 @@ export default function OrderReconciliationPicker({
                         className={cn(
                           "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0",
                           order.vendor === "PFG"
-                            ? "bg-red-100 text-red-400"
-                            : "bg-green-100 text-green-400"
+                            ? "bg-red-500 text-red-200"
+                            : "bg-green-500 text-green-200"
                         )}
                       >
                         {order.vendor}
