@@ -43,7 +43,7 @@ const mockItems = [
 // ─────────────────────────────────────────────
 const LocationNav = ({ className, textClass }: { className?: string; textClass?: string }) => (
   <div className={cn("flex items-center justify-between px-2 py-3", className)}>
-    <button className={cn("h-9 w-9 flex items-center justify-center rounded-md", textClass)}>
+    <button className={cn("h-10 w-10 flex items-center justify-center rounded-md active:scale-95 transition-all", textClass)}>
       <ChevronLeft className="h-5 w-5" />
     </button>
     <div className="text-center">
