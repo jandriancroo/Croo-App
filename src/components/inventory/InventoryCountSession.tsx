@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { 
   Dialog, 
   DialogContent, 
@@ -20,7 +20,7 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useAudioVoiceInput } from "@/hooks/useAudioVoiceInput";
 import { useInventoryVoiceFeedback } from "@/hooks/useInventoryVoiceFeedback";
 import { useAuth } from "@/lib/auth";
-import { format } from "date-fns";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
@@ -1350,31 +1350,27 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Location navigation */}
       {locationKeys.length > 1 && (
-        <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-lg p-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:bg-primary-foreground/20"
+        <div className="flex items-center justify-between bg-primary text-primary-foreground rounded-md px-2 py-3">
+          <button
+            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={() => setCurrentLocationIndex(Math.max(0, currentLocationIndex - 1))}
             disabled={currentLocationIndex === 0}
           >
             <ChevronLeft className="h-5 w-5" />
-          </Button>
+          </button>
           <div className="text-center">
-            <p className="font-medium text-primary-foreground">{itemsByLocation[currentLocation]?.name}</p>
-            <p className="text-xs text-primary-foreground/70">
+            <p className="font-semibold text-sm text-primary-foreground">{itemsByLocation[currentLocation]?.name}</p>
+            <p className="text-xs text-primary-foreground/60">
               {currentLocationIndex + 1} of {locationKeys.length}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground hover:bg-primary-foreground/20"
+          <button
+            className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
             onClick={() => setCurrentLocationIndex(Math.min(locationKeys.length - 1, currentLocationIndex + 1))}
             disabled={currentLocationIndex === locationKeys.length - 1}
           >
             <ChevronRight className="h-5 w-5" />
-          </Button>
+          </button>
         </div>
       )}
 
@@ -1394,17 +1390,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
           
           return (
-            <Card 
+            <div 
               key={splitKey}
               className={cn(
-                "overflow-hidden transition-all duration-300",
+                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
-              <CardContent className="p-0">
-                {/* Item header with details */}
-                <div className="p-3 border-b border-border bg-primary text-primary-foreground">
+              {/* Left accent bar (Vault) */}
+              <div className="w-1 bg-primary flex-shrink-0" />
+
+              {/* Value badge — pinned to top-right corner */}
+              <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
+                <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
+                <p className="text-[9px] text-accent-foreground/70 text-center">
+                  {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
+                </p>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {/* Item header with badge chips */}
+                <div className="px-3 py-3 border-b border-border pr-28">
                   <div className="flex items-start gap-3">
                     {item.image_url && (
                       <img 
@@ -1414,43 +1421,42 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.item_name}</p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-primary-foreground/70 mt-1">
-                          {item.item_number && <span>#{item.item_number}</span>}
-                          <span>{item.pack_size || item.unit || 'ea'}</span>
-                          {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
-                            <span className="text-primary-foreground font-medium">
-                              {item.cost_per_unit 
-                                ? `${formatCurrency(item.cost_per_unit)}/case`
-                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
-                              }
-                            </span>
-                          )}
+                      <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          {item.pack_size || item.unit || 'ea'}
+                        </span>
+                        {item.item_number && (
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            #{item.item_number}
+                          </span>
+                        )}
+                        {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            {item.cost_per_unit 
+                              ? `${formatCurrency(item.cost_per_unit)}/cs`
+                              : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
+                            }
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    {/* Item value */}
-                    <div className="text-right flex-shrink-0">
-                        <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
-                        <p className="text-xs text-primary-foreground/70">
-                          {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
-                        </p>
                     </div>
                   </div>
                 </div>
                 
                 {/* Count controls */}
-                <div className="p-4">
+                <div className="p-3">
                   {item.is_recipe ? (
                     /* Single count stepper for recipe items */
                     <div className="max-w-xs mx-auto">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium text-center">
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider text-center">
                         Count ({item.unit || 'ea'})
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1463,12 +1469,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -1477,18 +1483,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   ) : (
-                  <div className="flex items-center gap-3">
-                    {/* Cases pill stepper — hidden if count_by=units_only */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
-                    <div className="flex-1">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
                         Cases
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1501,12 +1507,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -1516,20 +1522,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                     )}
 
-                    {/* Units pill stepper — hidden if count_by=cases_only */}
+                    {/* Units counter — hidden if count_by=cases_only */}
                     {showUnits && (
-                    <div className="flex-1">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
                         Units
                         {packQty > 1 && (
                           <span className="ml-1 normal-case tracking-normal">({packQty}/case)</span>
                         )}
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1542,12 +1548,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
                           onBlur={() => handleUnitsBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -1561,32 +1567,30 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
                   {/* Pan size rows */}
                   {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
-                    <div className="-mx-4 px-4 pt-3 pb-4 border-t border-border/40 space-y-2 mt-3">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
-                        Pan / Cambro Sizes
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
+                        Pan / Cambro
                       </p>
-                      <div className="grid grid-cols-2 gap-3 items-end">
+                      <div className="grid grid-cols-3 gap-1.5">
                         {item.pan_sizes.enabled_keys.map(panKey => {
                           const container = ALL_CONTAINERS.find(c => c.key === panKey);
                           if (!container) return null;
                           const unitsEach = getPanUnits(item.pan_sizes!, panKey);
                           const panQty = panCounts[splitKey]?.[panKey] || 0;
                           return (
-                            <div key={panKey} className="flex-1">
-                              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium truncate">
+                            <div key={panKey} className="text-center">
+                              <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
                                 {container.label}
-                                {unitsEach != null && (
-                                  <span className="normal-case tracking-normal ml-1">({unitsEach}/ea)</span>
-                                )}
+                                {unitsEach != null && ` (${unitsEach})`}
                               </p>
-                              <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                              <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
-                                    <Minus className="h-4 w-4" strokeWidth={2} />
+                                    <Minus className="h-3 w-3" />
                                   </button>
                                 )}
                                 <input
@@ -1596,15 +1600,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                                   onBlur={() => handlePanBlur(splitKey, panKey)}
                                   disabled={isViewOnly}
-                                  className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                                  className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
                                 />
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
-                                    <Plus className="h-4 w-4" strokeWidth={2} />
+                                    <Plus className="h-3 w-3" />
                                   </button>
                                 )}
                               </div>
@@ -1615,46 +1619,40 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                   )}
                 </div>
-                </CardContent>
-            </Card>
+              </div>
+            </div>
           );
         })}
       </div>
 
       {/* Navigation bar with back/forward and location name */}
       {locationKeys.length > 1 && (
-        <div className="border-t border-primary/30 bg-primary text-primary-foreground rounded-lg">
+        <div className="bg-primary text-primary-foreground rounded-md">
           <div className="flex items-center justify-between px-2 py-3">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(prev => Math.max(0, prev - 1))}
               disabled={currentLocationIndex === 0}
-              className="h-10 px-3 text-primary-foreground hover:bg-primary-foreground/20"
             >
-              <ChevronLeft className="h-5 w-5 mr-1" />
-              Back
-            </Button>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             
-            <div className="flex-1 text-center px-2">
+            <div className="text-center">
               <p className="font-semibold text-sm truncate text-primary-foreground">
                 {itemsByLocation[currentLocation]?.name}
               </p>
-              <p className="text-xs text-primary-foreground/70">
+              <p className="text-xs text-primary-foreground/60">
                 {currentLocationIndex + 1} of {locationKeys.length}
               </p>
             </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(prev => Math.min(locationKeys.length - 1, prev + 1))}
               disabled={currentLocationIndex === locationKeys.length - 1}
-              className="h-10 px-3 text-primary-foreground hover:bg-primary-foreground/20"
             >
-              Next
-              <ChevronRight className="h-5 w-5 ml-1" />
-            </Button>
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
           
           {/* Quick navigation dots */}
