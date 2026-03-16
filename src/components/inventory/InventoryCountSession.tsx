@@ -1483,18 +1483,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       </div>
                     </div>
                   ) : (
-                  <div className="flex items-center gap-3">
-                    {/* Cases pill stepper — hidden if count_by=units_only */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Cases counter — hidden if count_by=units_only */}
                     {showCases && (
-                    <div className="flex-1">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
                         Cases
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1507,12 +1507,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -1522,20 +1522,20 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                     </div>
                     )}
 
-                    {/* Units pill stepper — hidden if count_by=cases_only */}
+                    {/* Units counter — hidden if count_by=cases_only */}
                     {showUnits && (
-                    <div className="flex-1">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
                         Units
                         {packQty > 1 && (
                           <span className="ml-1 normal-case tracking-normal">({packQty}/case)</span>
                         )}
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1548,12 +1548,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleUnitsInput(splitKey, e.target.value)}
                           onBlur={() => handleUnitsBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateUnits(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -1567,32 +1567,30 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
                   {/* Pan size rows */}
                   {item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0 && (
-                    <div className="-mx-4 px-4 pt-3 pb-4 border-t border-border/40 space-y-2 mt-3">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
-                        Pan / Cambro Sizes
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
+                        Pan / Cambro
                       </p>
-                      <div className="grid grid-cols-2 gap-3 items-end">
+                      <div className="grid grid-cols-3 gap-1.5">
                         {item.pan_sizes.enabled_keys.map(panKey => {
                           const container = ALL_CONTAINERS.find(c => c.key === panKey);
                           if (!container) return null;
                           const unitsEach = getPanUnits(item.pan_sizes!, panKey);
                           const panQty = panCounts[splitKey]?.[panKey] || 0;
                           return (
-                            <div key={panKey} className="flex-1">
-                              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium truncate">
+                            <div key={panKey} className="text-center">
+                              <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
                                 {container.label}
-                                {unitsEach != null && (
-                                  <span className="normal-case tracking-normal ml-1">({unitsEach}/ea)</span>
-                                )}
+                                {unitsEach != null && ` (${unitsEach})`}
                               </p>
-                              <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                              <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, -0.5)}
                                   >
-                                    <Minus className="h-4 w-4" strokeWidth={2} />
+                                    <Minus className="h-3 w-3" />
                                   </button>
                                 )}
                                 <input
@@ -1602,15 +1600,15 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                                   onChange={(e) => handlePanInput(splitKey, panKey, e.target.value)}
                                   onBlur={() => handlePanBlur(splitKey, panKey)}
                                   disabled={isViewOnly}
-                                  className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                                  className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
                                 />
                                 {!isViewOnly && (
                                   <button
                                     type="button"
-                                    className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                                    className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
                                     onClick={() => updatePanCount(splitKey, panKey, 0.5)}
                                   >
-                                    <Plus className="h-4 w-4" strokeWidth={2} />
+                                    <Plus className="h-3 w-3" />
                                   </button>
                                 )}
                               </div>
