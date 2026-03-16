@@ -340,9 +340,6 @@ export default function OrderReconciliationPicker({
 
                       <div className="text-left">
                         <p className="text-sm font-medium font-mono">#{order.orderId}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Ordered {format(new Date(order.orderDate + "T12:00:00"), "MMM d")}
-                        </p>
                       </div>
                     </div>
 
