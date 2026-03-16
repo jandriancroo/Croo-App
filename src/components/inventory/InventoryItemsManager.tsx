@@ -1144,7 +1144,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                       const next = !isReorderMode;
                       setIsReorderMode(next);
                       if (!next) {
-                        setPickedItemId(null);
+                        setPickedItemIds(new Set());
                         setPickedGroupKey(null);
                       }
                     }}
