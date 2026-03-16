@@ -324,9 +324,9 @@ const Option6Combo = () => (
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="px-3 py-2.5 border-b border-border pr-28">
+          <div className="px-3 py-3 border-b border-border pr-28">
             <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
-            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            <p className="text-[10px] text-muted-foreground font-mono mt-1">
               #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
             </p>
           </div>
