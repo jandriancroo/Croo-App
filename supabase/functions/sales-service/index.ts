@@ -998,6 +998,99 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
 }
 
 // ============================================================================
+// ACTION: sync-dates — No user auth, uses service role. Backfills specific dates for one location.
+// ============================================================================
+
+async function handleSyncDates(req: Request, supabase: any): Promise<Response> {
+  const { locationId, dates } = await req.json();
+
+  if (!locationId || !dates || !Array.isArray(dates) || dates.length === 0) {
+    return new Response(JSON.stringify({ error: 'Missing locationId or dates array' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Cap at 30 days per call
+  const datesToSync = dates.slice(0, 30);
+
+  const { data: integration, error: intError } = await supabase
+    .from('location_integrations')
+    .select('id, credentials, locations!inner(id, name)')
+    .eq('location_id', locationId)
+    .eq('integration_type', 'qubeyond')
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (intError || !integration) {
+    return new Response(JSON.stringify({ error: 'Integration not configured' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const locationName = (integration.locations as any)?.name || 'Unknown';
+  const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+  const qbLocationId = credentials?.location_id || '';
+
+  if (!qbLocationId || !credentials?.username || !credentials?.password) {
+    return new Response(JSON.stringify({ error: 'Missing credentials' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const tokenGw = await getOrRefreshToken(supabase, integration.id, credentials.username, credentials.password);
+  if (!tokenGw) {
+    return new Response(JSON.stringify({ error: 'QuBeyond authentication failed' }), {
+      status: 502,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  console.log(`[sales-service] sync-dates: ${locationName} syncing ${datesToSync.length} dates`);
+
+  const results: { date: string; status: string; netSales?: number; mixItems?: number }[] = [];
+
+  for (const dateStr of datesToSync) {
+    try {
+      const salesData = await fetchAllSalesData(supabase, tokenGw, dateStr, qbLocationId, locationId);
+
+      if (salesData.netSales <= 0) {
+        results.push({ date: dateStr, status: 'no_sales' });
+        continue;
+      }
+
+      const payload = buildUpsertPayload(locationId, dateStr, salesData);
+
+      const { error: upsertError } = await supabase
+        .from('sales_cache')
+        .upsert(payload, { onConflict: 'location_id,sale_date' });
+
+      if (upsertError) {
+        console.error(`[sales-service] sync-dates ${dateStr} upsert error:`, upsertError);
+        results.push({ date: dateStr, status: 'upsert_error' });
+      } else {
+        console.log(`[sales-service] sync-dates ${locationName} ${dateStr}: $${salesData.netSales.toFixed(2)}, ${salesData.productMix.length} mix items`);
+        results.push({ date: dateStr, status: 'success', netSales: salesData.netSales, mixItems: salesData.productMix.length });
+      }
+    } catch (err) {
+      console.error(`[sales-service] sync-dates ${dateStr} error:`, err);
+      results.push({ date: dateStr, status: 'error' });
+    }
+  }
+
+  return new Response(JSON.stringify({
+    success: true,
+    location: locationName,
+    synced: results.filter(r => r.status === 'success').length,
+    total: datesToSync.length,
+    results,
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
 // TIPS SYNC — Bulk fetch tips for a date range and upsert into daily_tips
 // ============================================================================
 
