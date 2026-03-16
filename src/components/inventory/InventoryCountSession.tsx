@@ -1445,18 +1445,18 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 </div>
                 
                 {/* Count controls */}
-                <div className="p-4">
+                <div className="p-3">
                   {item.is_recipe ? (
                     /* Single count stepper for recipe items */
                     <div className="max-w-xs mx-auto">
-                      <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium text-center">
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider text-center">
                         Count ({item.unit || 'ea'})
                       </p>
-                      <div className="flex items-center bg-muted/60 rounded-full overflow-hidden border border-border/50">
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-accent text-accent-foreground hover:bg-accent/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, -1)}
                           >
                             <Minus className="h-4 w-4" strokeWidth={2} />
@@ -1469,12 +1469,12 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                           onChange={(e) => handleCasesInput(splitKey, e.target.value)}
                           onBlur={() => handleCasesBlur(splitKey)}
                           disabled={isViewOnly}
-                          className="flex-1 text-center text-xl font-bold text-foreground tabular-nums bg-transparent border-none outline-none w-0"
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
                         />
                         {!isViewOnly && (
                           <button
                             type="button"
-                            className="h-11 w-11 flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all rounded-full flex-shrink-0"
+                            className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
                             onClick={() => updateCases(splitKey, 1)}
                           >
                             <Plus className="h-4 w-4" strokeWidth={2} />
