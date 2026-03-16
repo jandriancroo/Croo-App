@@ -93,6 +93,7 @@ const TabStylePreview = lazyWithRetry(() => import("./pages/TabStylePreview"));
 const ChatListPreview = lazyWithRetry(() => import("./pages/ChatListPreview"));
 const InventoryCardPreview = lazyWithRetry(() => import("./pages/InventoryCardPreview"));
 const InventoryRedesignPreview = lazyWithRetry(() => import("./pages/InventoryRedesignPreview"));
+const InventoryCountUIPreview = lazyWithRetry(() => import("./pages/InventoryCountUIPreview"));
 const ChecklistCardPreview = lazyWithRetry(() => import("./pages/ChecklistCardPreview"));
 const ChecklistStylePreview = lazyWithRetry(() => import("./pages/ChecklistStylePreview"));
 const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitchPreview"));
@@ -228,6 +229,7 @@ const AppContent = () => {
         <Route path="/chat-list-preview" element={<ProtectedRoute><ChatListPreview /></ProtectedRoute>} />
         <Route path="/inventory-card-preview" element={<ProtectedRoute><InventoryCardPreview /></ProtectedRoute>} />
         <Route path="/inventory-redesign-preview" element={<ProtectedRoute><InventoryRedesignPreview /></ProtectedRoute>} />
+        <Route path="/inventory-count-ui-preview" element={<ProtectedRoute><InventoryCountUIPreview /></ProtectedRoute>} />
         <Route path="/checklist-card-preview" element={<ProtectedRoute><ChecklistCardPreview /></ProtectedRoute>} />
         <Route path="/checklist-style-preview" element={<ProtectedRoute><ChecklistStylePreview /></ProtectedRoute>} />
         <Route path="/location-switch-preview" element={<ProtectedRoute><LocationSwitchPreview /></ProtectedRoute>} />
