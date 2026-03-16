@@ -326,9 +326,11 @@ const Option6Combo = () => (
         <div className="flex-1 min-w-0">
           <div className="px-3 py-3 border-b border-border pr-28">
             <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
-            <p className="text-[10px] text-muted-foreground font-mono mt-1">
-              #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
-            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">{item.packSize}</span>
+              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#{item.itemNumber}</span>
+              <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">${item.costPerCase}/cs</span>
+            </div>
           </div>
 
           <div className="p-3">
