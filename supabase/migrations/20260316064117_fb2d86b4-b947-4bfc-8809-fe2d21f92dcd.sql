@@ -1,0 +1,1 @@
+DELETE FROM pa_orders WHERE pa_order_id = '6012287' AND status = 'SAVED';
