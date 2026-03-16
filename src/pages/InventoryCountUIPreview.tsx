@@ -105,7 +105,7 @@ const Option1Current = () => (
         {/* Rounded counters (Option 6 style) */}
         <div className="p-4">
           <div className="grid grid-cols-2 gap-3">
-            <RoundedCounter label="Cases" value={item.cases} primary />
+            <RoundedCounter label="Cases" value={item.cases} />
             <RoundedCounter label={`Units (${item.packQuantity}/case)`} value={item.units} />
           </div>
           {/* Pan sizes */}
