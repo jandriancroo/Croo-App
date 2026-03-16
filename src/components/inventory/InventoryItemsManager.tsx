@@ -1303,6 +1303,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                         : "idle"
                                       : "idle"
                                   }
+                                  pickedCount={pickedItemIds.size}
                                   onClick={() => {
                                     if (isReorderMode) {
                                       handleReorderClick(item.id, loc.id, allLocItems, shortcutIdSet);
