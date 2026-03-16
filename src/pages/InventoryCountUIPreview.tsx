@@ -383,6 +383,10 @@ const InventoryCountUIPreview = () => {
       <Section num={5} label="Executive" desc="Subtle primary tint, generous spacing, premium hierarchy">
         <Option5Executive />
       </Section>
+
+      <Section num={6} label="Vault × Terminal" desc="Left accent bar + dark value badge, tight mono layout">
+        <Option6Combo />
+      </Section>
     </div>
   );
 };
