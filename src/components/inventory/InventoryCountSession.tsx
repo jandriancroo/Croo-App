@@ -20,7 +20,7 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useAudioVoiceInput } from "@/hooks/useAudioVoiceInput";
 import { useInventoryVoiceFeedback } from "@/hooks/useInventoryVoiceFeedback";
 import { useAuth } from "@/lib/auth";
-import { format } from "date-fns";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDockToast } from "@/contexts/DockToastContext";
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
