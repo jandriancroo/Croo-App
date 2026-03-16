@@ -121,10 +121,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       }
     }
 
-    // Calculate active days
+    // Calculate active days — use salesEndDate for flex counts (extended window)
     const startMs = new Date(adjustedStart + "T12:00:00").getTime();
-    const endMs = new Date(endDate + "T12:00:00").getTime();
+    const effectiveEnd = salesEndDate > endDate ? salesEndDate : endDate;
+    const endMs = new Date(effectiveEnd + "T12:00:00").getTime();
     const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
+    const isNonStandard = activeDays !== 7 && count.period_type === "weekly";
 
     return {
       startStr: adjustedStart,
@@ -132,6 +134,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       salesEndStr: salesEndDate,
       isFlexAdjusted,
       activeDays,
+      isNonStandard,
     };
   }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
 
@@ -440,7 +443,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
                     Current
                   </Badge>
-                  {periodRange?.isFlexAdjusted && (
+                  {periodRange?.isNonStandard && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
                       {periodRange.activeDays}d
                     </Badge>
@@ -478,7 +481,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                       Flex
                     </Badge>
                   )}
-                  {periodRange?.isFlexAdjusted && (
+                  {periodRange?.isNonStandard && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
                       {periodRange.activeDays}d
                     </Badge>
