@@ -136,9 +136,9 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     enabled: !!locationId && !!counts,
   });
 
-  // Fetch sales for theoretical usage
+  // Fetch sales for the full count-to-count period
   const { data: salesData, isLoading: salesLoading } = useQuery({
-    queryKey: ["cogs-sales", locationId, weekStartStr, weekEndStr],
+    queryKey: ["cogs-sales", locationId, periodStartDate, periodEndDate],
     queryFn: async () => {
       if (!locationId) return { totalSales: 0, productMix: [] };
       
@@ -146,12 +146,12 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
         .from("sales_cache")
         .select("net_sales, product_mix")
         .eq("location_id", locationId)
-        .gte("sale_date", weekStartStr)
-        .lte("sale_date", weekEndStr);
+        .gte("sale_date", periodStartDate)
+        .lte("sale_date", periodEndDate);
 
       const totalSales = (data || []).reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
       
-      // Aggregate product mix across the week
+      // Aggregate product mix across the period
       const mixMap = new Map<string, { quantity: number; netSales: number }>();
       for (const day of data || []) {
         const mix = (day.product_mix as any[]) || [];
@@ -167,7 +167,7 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
 
       return { totalSales, productMix: Array.from(mixMap.entries()).map(([name, data]) => ({ name, ...data })) };
     },
-    enabled: !!locationId,
+    enabled: !!locationId && !!counts,
   });
 
   // Fetch BOM data for theoretical usage
