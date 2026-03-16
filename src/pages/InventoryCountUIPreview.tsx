@@ -304,6 +304,57 @@ const Option4Terminal = () => (
 
 
 // ─────────────────────────────────────────────
+// OPTION 6 — "Vault × Terminal" Combo
+// Left accent bar from Vault + dark value badge from Terminal
+// + tight spacing, mono numbers, squared edges
+// ─────────────────────────────────────────────
+const Option6Combo = () => (
+  <div className="space-y-2">
+    <LocationNav className="bg-muted border border-border rounded-md" textClass="text-foreground" />
+
+    {mockItems.map((item, i) => (
+      <div key={i} className="bg-card rounded-md border border-border overflow-hidden flex">
+        {/* Left accent bar (Vault) */}
+        <div className="w-1 bg-primary flex-shrink-0" />
+
+        <div className="flex-1 min-w-0">
+          {/* Header: Vault's clean layout + Terminal's dark value badge */}
+          <div className="px-3 py-2.5 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.name}</p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                  #{item.itemNumber} · {item.packSize} · ${item.costPerCase}/cs
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0 ml-3 bg-foreground text-background px-3 py-1.5 rounded-sm">
+                <p className="text-lg font-black font-mono tabular-nums leading-none">${item.totalCost.toFixed(2)}</p>
+                <p className="text-[9px] text-background/60 font-mono">{item.cases * item.packQuantity + item.units} units</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <SharpCounter label="Cases" value={item.cases} height="h-11" borderClass="border-foreground/20" />
+              <SharpCounter label={`Units (${item.packQuantity}/case)`} value={item.units} height="h-11" borderClass="border-foreground/20" />
+            </div>
+            <div className="mt-2 pt-2 border-t border-border">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">Pan / Cambro</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {item.panSizes.map((pan, pi) => (
+                  <PanCounter key={pi} label={pan.label} unitsEach={pan.unitsEach} borderClass="border-foreground/15" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+// ─────────────────────────────────────────────
 // OPTION 5 — "Executive"
 // Premium feel: subtle primary tint in header,
 // generous spacing, clean type hierarchy, soft borders
