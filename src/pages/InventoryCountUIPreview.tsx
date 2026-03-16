@@ -310,7 +310,7 @@ const Option4Terminal = () => (
 // ─────────────────────────────────────────────
 const Option6Combo = () => (
   <div className="space-y-2">
-    <LocationNav className="bg-muted border border-border rounded-md" textClass="text-foreground" />
+    <LocationNav className="bg-primary/10 border border-primary/20 rounded-md" textClass="text-primary" />
 
     {mockItems.map((item, i) => (
       <div key={i} className="bg-card rounded-md border border-border overflow-hidden flex relative">
