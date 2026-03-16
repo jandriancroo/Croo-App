@@ -318,9 +318,9 @@ const Option6Combo = () => (
         <div className="w-1 bg-primary flex-shrink-0" />
 
         {/* Value badge — pinned to top-right corner of card */}
-        <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1.5 rounded-bl-lg">
+        <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
           <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">${item.totalCost.toFixed(2)}</p>
-          <p className="text-[9px] text-primary-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
+          <p className="text-[9px] text-accent-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
         </div>
 
         <div className="flex-1 min-w-0">
