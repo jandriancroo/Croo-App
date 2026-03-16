@@ -140,6 +140,17 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 </div>
               </div>
 
+              {/* Save & Exit button */}
+              {dockContent.onSave && (
+                <button
+                  onClick={dockContent.onSave}
+                  className="h-12 px-4 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors border bg-white/20 text-white border-white/30 hover:bg-white/30 gap-1.5"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Save</span>
+                </button>
+              )}
+
               {/* Voice button (only for non-edit mode) */}
               {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
                 <button
