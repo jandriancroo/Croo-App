@@ -1426,7 +1426,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isReorderMode
                                     ? pickedItemIds.has(item.id) && pickedGroupKey === "__unassigned__"
                                       ? "picked"
-                                      : pickedItemIds.size > 0 && pickedGroupKey === "__unassigned__"
+                                       : isPlacingMode && pickedItemIds.size > 0 && pickedGroupKey === "__unassigned__"
                                       ? "target"
                                       : "idle"
                                     : "idle"
