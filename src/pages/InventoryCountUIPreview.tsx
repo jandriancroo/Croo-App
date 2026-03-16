@@ -333,8 +333,9 @@ const Option6Combo = () => (
               <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">${item.totalCost.toFixed(2)}</p>
               <p className="text-[9px] text-primary-foreground/70 text-center">{item.cases * item.packQuantity + item.units} units</p>
             </div>
+          </div>
 
-          <div className="p-3">
+          <div className="p-3 pt-5">
             <div className="grid grid-cols-2 gap-2">
               <SharpCounter label="Cases" value={item.cases} height="h-11" borderClass="border-foreground/20" />
               <SharpCounter label={`Units (${item.packQuantity}/case)`} value={item.units} height="h-11" borderClass="border-foreground/20" />
