@@ -685,7 +685,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${
-                          po.vendor === "PFG" ? "bg-red-100 text-red-400" : "bg-green-100 text-green-400"
+                          po.vendor === "PFG" ? "bg-red-500 text-red-200" : "bg-green-500 text-green-200"
                         }`}>
                           {po.vendor}
                         </div>
