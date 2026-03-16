@@ -163,6 +163,29 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
             }));
             sessionCookies = mergeCookies(sessionCookies, `tokenStore=${tokenStoreValue}`);
             console.log('[PA Auth] Added tokenStore cookie for JSP auth');
+
+            // Hit /ProduceAlliance.jsp to establish PA designation in server session.
+            // The JSP pages now return a localStorage redirect script unless the
+            // server-side session knows we're a PA user (set by visiting this page).
+            try {
+              const paDesigResp = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+                method: 'GET',
+                headers: {
+                  'Cookie': sessionCookies,
+                  'User-Agent': UA,
+                  'Accept': 'text/html,application/xhtml+xml,*/*',
+                  'Referer': `${PA_BASE_URL}/ng/`,
+                  'Authorization': `Bearer ${json.access_token}`,
+                },
+                redirect: 'follow',
+              });
+              const desigCookies = extractCookies(paDesigResp.headers);
+              if (desigCookies) sessionCookies = mergeCookies(sessionCookies, desigCookies);
+              await paDesigResp.text().catch(() => '');
+              console.log('[PA Auth] PA designation page:', paDesigResp.status);
+            } catch (e) {
+              console.warn('[PA Auth] PA designation warmup failed:', e);
+            }
             
             return {
               accessToken: json.access_token,
@@ -550,21 +573,24 @@ async function fetchOrderDetail(session: PASession, webOrderId: string, startDat
   // 
   // Strategy: Hit a page with Bearer+cookies to ensure session is warm, then fetch JSP.
   try {
-    // Warm up the servlet session by hitting the Angular app's base page with full auth
-    const warmupResp = await fetch(`${PA_BASE_URL}/ng/`, {
-      method: 'GET',
-      headers: {
-        ...getAuthHeaders(session),
-        'Accept': 'text/html,application/xhtml+xml,*/*',
-      },
-      redirect: 'manual',
-    });
-    const warmupCookies = extractCookies(warmupResp.headers);
-    if (warmupCookies) {
-      session.cookies = mergeCookies(session.cookies, warmupCookies);
+    // Warm up: hit /ProduceAlliance.jsp to establish PA designation in server session,
+    // then hit /ng/ to ensure Angular session context is active
+    for (const warmupUrl of [`${PA_BASE_URL}/ProduceAlliance.jsp`, `${PA_BASE_URL}/ng/`]) {
+      const warmupResp = await fetch(warmupUrl, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(session),
+          'Accept': 'text/html,application/xhtml+xml,*/*',
+        },
+        redirect: 'follow',
+      });
+      const warmupCookies = extractCookies(warmupResp.headers);
+      if (warmupCookies) {
+        session.cookies = mergeCookies(session.cookies, warmupCookies);
+      }
+      await warmupResp.text().catch(() => '');
     }
-    await warmupResp.text().catch(() => '');
-    console.log('[PA Detail] Session warmup:', warmupResp.status, 'JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'yes' : 'no');
+    console.log('[PA Detail] Session warmup (with PA designation): JSESSIONID:', session.cookies.includes('JSESSIONID') ? 'yes' : 'no');
   } catch (e) {
     console.warn('[PA Detail] Session warmup failed:', e);
   }
@@ -1021,9 +1047,11 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
     return d.toISOString().split('T')[0];
   };
 
-  // Persist to pa_orders
+  // Persist to pa_orders — save from details when available, otherwise from summary
   let persisted = 0;
   const orderDetails = orderDetailsWithDate; // keep variable name for response
+  const persistedOrderIds = new Set<string>();
+
   for (const detail of orderDetailsWithDate) {
     const items = detail.lineItems.map(li => ({
       name: li.description,
@@ -1035,8 +1063,6 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
       total: li.cost,
     }));
 
-    // Use the order summary's orderDate as the true order_date
-    // Derive delivery_date as next day (all Blaze locations are next-day delivery)
     const orderDate = detail.summaryOrderDate || new Date().toISOString().split('T')[0];
     const deliveryDate = nextDay(orderDate);
 
@@ -1052,6 +1078,31 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
         total_amount: detail.totalAmount,
         items,
         raw_data: detail,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (!error) { persisted++; persistedOrderIds.add(detail.webOrderId); }
+  }
+
+  // Fallback: persist orders from summary data when detail fetch failed
+  for (const order of orderList) {
+    if (persistedOrderIds.has(order.webOrderId)) continue;
+    
+    const orderDateRaw = order.orderDate?.split(' ')[0] || new Date().toISOString().split('T')[0];
+    const deliveryDate = order.deliveryDate || nextDay(orderDateRaw);
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: order.webOrderId,
+        order_number: order.webOrderId,
+        order_date: orderDateRaw,
+        delivery_date: deliveryDate,
+        status: order.status || 'delivered',
+        total_amount: order.totalAmount,
+        items: [],
+        raw_data: order,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'location_id,pa_order_id' });
 
@@ -1112,10 +1163,9 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   let ordersProcessed = 0;
   
   for (const order of orderList.slice(0, 5)) {
-    const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
-    if (detail) {
+   const detail = await fetchOrderDetail(session, order.webOrderId, startDate, endDate, credentials);
+    if (detail && detail.lineItems.length > 0) {
       for (const li of detail.lineItems) {
-        // Use pa_product_id as unique key
         allItems.set(li.pa_product_id || li.item_code, li);
       }
       ordersProcessed++;
@@ -1128,9 +1178,41 @@ async function handleSyncItems(supabase: any, body: any): Promise<Response> {
   
   console.log('[PA Sync] Got', allItems.size, 'unique items from', ordersProcessed, 'orders,', pricing.length, 'from pricing');
 
+  // Persist orders to pa_orders from summary data (even without line items)
+  // This ensures they show up in the Order Reconciliation Picker for COGS
+  const nextDay = (dateStr: string): string => {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  };
+  
+  let ordersPersisted = 0;
+  for (const order of orderList) {
+    const orderDateRaw = order.orderDate?.split(' ')[0] || new Date().toISOString().split('T')[0];
+    const deliveryDate = order.deliveryDate || nextDay(orderDateRaw);
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: order.webOrderId,
+        order_number: order.webOrderId,
+        order_date: orderDateRaw,
+        delivery_date: deliveryDate,
+        status: order.status || 'delivered',
+        total_amount: order.totalAmount,
+        items: [],
+        raw_data: order,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (!error) ordersPersisted++;
+  }
+  console.log('[PA Sync] Persisted', ordersPersisted, 'orders to pa_orders');
+
   if (allItems.size === 0 && pricing.length === 0) {
-    await updateSyncLog(supabase, syncLogId, 'completed', 0, 0, [], { message: 'No items found' });
-    return jsonResponse({ success: true, message: 'No items found', synced: 0 });
+    await updateSyncLog(supabase, syncLogId, 'completed', 0, ordersPersisted, [], { message: ordersPersisted > 0 ? `${ordersPersisted} orders saved (no line items available)` : 'No items found' });
+    return jsonResponse({ success: true, message: ordersPersisted > 0 ? `${ordersPersisted} orders saved` : 'No items found', synced: 0, ordersPersisted });
   }
 
   // Sync items to inventory
