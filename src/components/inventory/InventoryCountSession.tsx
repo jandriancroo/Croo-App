@@ -1390,17 +1390,28 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
           const showUnits = countBy === 'inherit' || countBy === 'cases_and_units' || countBy === 'units_only';
           
           return (
-            <Card 
+            <div 
               key={splitKey}
               className={cn(
-                "overflow-hidden transition-all duration-300",
+                "bg-card rounded-md border border-border overflow-hidden flex relative transition-all duration-300",
                 isHighlighted && "ring-2 ring-green-500 ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-green-500/20",
                 isErrorHighlighted && "ring-2 ring-destructive ring-offset-2 ring-offset-background scale-[1.02] shadow-lg shadow-destructive/20 animate-pulse"
               )}
             >
-              <CardContent className="p-0">
-                {/* Item header with details */}
-                <div className="p-3 border-b border-border bg-primary text-primary-foreground">
+              {/* Left accent bar (Vault) */}
+              <div className="w-1 bg-primary flex-shrink-0" />
+
+              {/* Value badge — pinned to top-right corner */}
+              <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
+                <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
+                <p className="text-[9px] text-accent-foreground/70 text-center">
+                  {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
+                </p>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                {/* Item header with badge chips */}
+                <div className="px-3 py-3 border-b border-border pr-28">
                   <div className="flex items-start gap-3">
                     {item.image_url && (
                       <img 
@@ -1410,26 +1421,25 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.item_name}</p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-primary-foreground/70 mt-1">
-                          {item.item_number && <span>#{item.item_number}</span>}
-                          <span>{item.pack_size || item.unit || 'ea'}</span>
-                          {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
-                            <span className="text-primary-foreground font-medium">
-                              {item.cost_per_unit 
-                                ? `${formatCurrency(item.cost_per_unit)}/case`
-                                : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
-                              }
-                            </span>
-                          )}
+                      <p className="font-bold text-sm text-foreground truncate tracking-tight">{item.item_name}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          {item.pack_size || item.unit || 'ea'}
+                        </span>
+                        {item.item_number && (
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            #{item.item_number}
+                          </span>
+                        )}
+                        {(item.cost_per_unit || recipeCosts?.get(item.item_id)) && (
+                          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            {item.cost_per_unit 
+                              ? `${formatCurrency(item.cost_per_unit)}/cs`
+                              : `${formatCurrency(recipeCosts?.get(item.item_id) || 0)}/ea`
+                            }
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    {/* Item value */}
-                    <div className="text-right flex-shrink-0">
-                        <p className="text-2xl font-bold text-primary-foreground">{formatCurrency(itemCost)}</p>
-                        <p className="text-xs text-primary-foreground/70">
-                          {getTotalQuantity(splitKey, item.pack_quantity, item.pan_sizes)} units
-                        </p>
                     </div>
                   </div>
                 </div>
