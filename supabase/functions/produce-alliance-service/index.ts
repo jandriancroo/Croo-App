@@ -163,6 +163,29 @@ async function loginToPA(credentials: PACredentials): Promise<PASession | null> 
             }));
             sessionCookies = mergeCookies(sessionCookies, `tokenStore=${tokenStoreValue}`);
             console.log('[PA Auth] Added tokenStore cookie for JSP auth');
+
+            // Hit /ProduceAlliance.jsp to establish PA designation in server session.
+            // The JSP pages now return a localStorage redirect script unless the
+            // server-side session knows we're a PA user (set by visiting this page).
+            try {
+              const paDesigResp = await fetch(`${PA_BASE_URL}/ProduceAlliance.jsp`, {
+                method: 'GET',
+                headers: {
+                  'Cookie': sessionCookies,
+                  'User-Agent': UA,
+                  'Accept': 'text/html,application/xhtml+xml,*/*',
+                  'Referer': `${PA_BASE_URL}/ng/`,
+                  'Authorization': `Bearer ${json.access_token}`,
+                },
+                redirect: 'follow',
+              });
+              const desigCookies = extractCookies(paDesigResp.headers);
+              if (desigCookies) sessionCookies = mergeCookies(sessionCookies, desigCookies);
+              await paDesigResp.text().catch(() => '');
+              console.log('[PA Auth] PA designation page:', paDesigResp.status);
+            } catch (e) {
+              console.warn('[PA Auth] PA designation warmup failed:', e);
+            }
             
             return {
               accessToken: json.access_token,
