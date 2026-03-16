@@ -329,12 +329,15 @@ export default function OrderReconciliationPicker({
                         ) : null}
                       </div>
 
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-muted/40">
-                        <img
-                          src={order.vendor === "PFG" ? pfgLogo : paLogo}
-                          alt={order.vendor}
-                          className="w-8 h-8 object-contain"
-                        />
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          order.vendor === "PFG"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-green-100 text-green-700"
+                        )}
+                      >
+                        {order.vendor}
                       </div>
 
                       <div className="text-left">
