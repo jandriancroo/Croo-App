@@ -1627,38 +1627,32 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Navigation bar with back/forward and location name */}
       {locationKeys.length > 1 && (
-        <div className="border-t border-primary/30 bg-primary text-primary-foreground rounded-lg">
+        <div className="bg-primary text-primary-foreground rounded-md">
           <div className="flex items-center justify-between px-2 py-3">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(prev => Math.max(0, prev - 1))}
               disabled={currentLocationIndex === 0}
-              className="h-10 px-3 text-primary-foreground hover:bg-primary-foreground/20"
             >
-              <ChevronLeft className="h-5 w-5 mr-1" />
-              Back
-            </Button>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             
-            <div className="flex-1 text-center px-2">
+            <div className="text-center">
               <p className="font-semibold text-sm truncate text-primary-foreground">
                 {itemsByLocation[currentLocation]?.name}
               </p>
-              <p className="text-xs text-primary-foreground/70">
+              <p className="text-xs text-primary-foreground/60">
                 {currentLocationIndex + 1} of {locationKeys.length}
               </p>
             </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              className="h-10 w-10 flex items-center justify-center rounded-md text-primary-foreground active:scale-95 transition-all disabled:opacity-40"
               onClick={() => setCurrentLocationIndex(prev => Math.min(locationKeys.length - 1, prev + 1))}
               disabled={currentLocationIndex === locationKeys.length - 1}
-              className="h-10 px-3 text-primary-foreground hover:bg-primary-foreground/20"
             >
-              Next
-              <ChevronRight className="h-5 w-5 ml-1" />
-            </Button>
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
           
           {/* Quick navigation dots */}
