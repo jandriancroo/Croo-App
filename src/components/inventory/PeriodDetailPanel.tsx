@@ -51,49 +51,89 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const isUpcoming = !!count._isUpcoming;
   
 
+  // Fetch previous count to check if it was flex (affects current period start)
+  const { data: prevCountData } = useQuery({
+    queryKey: ["prev-count-flex", locationId, count.period_end_date],
+    queryFn: async () => {
+      if (!count.period_end_date) return null;
+      const { data } = await supabase
+        .from("inventory_counts")
+        .select("id, period_end_date, is_late_close, counted_at")
+        .eq("location_id", locationId)
+        .eq("status", "completed")
+        .lt("period_end_date", count.period_end_date)
+        .order("period_end_date", { ascending: false })
+        .limit(1);
+      return data?.[0] || null;
+    },
+    enabled: !!count.period_end_date && !!locationId,
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Determine period date range for this count
   // For flex/late counts, extend sales end date to counted_at date
+  // If PREVIOUS count was flex, current period starts the day after prev counted_at
   const periodRange = useMemo(() => {
     if (!count.period_end_date) return null;
     const endDate = count.period_end_date;
     
     // For flex counts (is_late_close), sales window extends to counted_at date
-    // If still in progress (no counted_at), use yesterday as the sales cutoff
     let salesEndDate = endDate;
     if (count.is_late_close) {
       if (count.counted_at) {
         salesEndDate = formatInTimeZone(new Date(count.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
       } else {
-        // In-progress flex: use yesterday (last completed business day)
         const yesterday = subDays(new Date(), 1);
         const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
-        // Only extend if yesterday is after the period end date
         if (yesterdayStr > endDate) {
           salesEndDate = yesterdayStr;
         }
       }
     }
-    
+
+    // Calculate standard start date
+    let standardStart: string;
     if (count.period_type === "weekly") {
       const end = new Date(endDate + "T12:00:00");
       const start = subDays(end, 6);
-      return {
-        startStr: format(start, "yyyy-MM-dd"),
-        endStr: endDate,
-        salesEndStr: salesEndDate,
-      };
-    }
-    if (count.period_type === "monthly") {
+      standardStart = format(start, "yyyy-MM-dd");
+    } else if (count.period_type === "monthly") {
       const end = new Date(endDate + "T12:00:00");
       const start = new Date(end.getFullYear(), end.getMonth(), 1);
-      return {
-        startStr: format(start, "yyyy-MM-dd"),
-        endStr: endDate,
-        salesEndStr: salesEndDate,
-      };
+      standardStart = format(start, "yyyy-MM-dd");
+    } else {
+      return null;
     }
-    return null;
-  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at]);
+
+    // If previous count was flex/late close, adjust start to day after its counted_at
+    let adjustedStart = standardStart;
+    let isFlexAdjusted = false;
+    if (prevCountData?.is_late_close && prevCountData?.counted_at) {
+      const prevCountedDate = formatInTimeZone(new Date(prevCountData.counted_at), 'America/Los_Angeles', 'yyyy-MM-dd');
+      const dayAfterPrevCount = format(
+        new Date(new Date(prevCountedDate + "T12:00:00").getTime() + 86400000),
+        "yyyy-MM-dd"
+      );
+      // Only adjust if the day after prev count is later than standard start
+      if (dayAfterPrevCount > standardStart) {
+        adjustedStart = dayAfterPrevCount;
+        isFlexAdjusted = true;
+      }
+    }
+
+    // Calculate active days
+    const startMs = new Date(adjustedStart + "T12:00:00").getTime();
+    const endMs = new Date(endDate + "T12:00:00").getTime();
+    const activeDays = Math.round((endMs - startMs) / 86400000) + 1;
+
+    return {
+      startStr: adjustedStart,
+      endStr: endDate,
+      salesEndStr: salesEndDate,
+      isFlexAdjusted,
+      activeDays,
+    };
+  }, [count.period_end_date, count.period_type, count.is_late_close, count.counted_at, prevCountData]);
 
   // Fetch COGS data — now uses bound orders instead of date-range
   const { data: cogsData, isLoading: cogsLoading } = useQuery({
@@ -400,6 +440,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
                     Current
                   </Badge>
+                  {periodRange?.isFlexAdjusted && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
+                      {periodRange.activeDays}d
+                    </Badge>
+                  )}
                 </div>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
@@ -426,11 +471,16 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
                   {count.is_late_close && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      Flex Period
+                      Flex
+                    </Badge>
+                  )}
+                  {periodRange?.isFlexAdjusted && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
+                      {periodRange.activeDays}d
                     </Badge>
                   )}
                 </div>
