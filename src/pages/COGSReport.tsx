@@ -85,27 +85,9 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
     enabled: !!locationId,
   });
 
-  // Derive the actual period dates from counts (purchases & sales should span count-to-count)
-  const periodStartDate = useMemo(() => {
-    if (!counts?.beginning) return weekStartStr;
-    const d = counts.beginning.period_end_date || counts.beginning.count_date;
-    // Purchases start the day AFTER the beginning count
-    if (d) {
-      const next = new Date(d + "T00:00:00");
-      next.setDate(next.getDate() + 1);
-      return format(next, "yyyy-MM-dd");
-    }
-    return weekStartStr;
-  }, [counts, weekStartStr]);
-
-  const periodEndDate = useMemo(() => {
-    if (!counts?.ending) return weekEndStr;
-    return counts.ending.period_end_date || counts.ending.count_date || weekEndStr;
-  }, [counts, weekEndStr]);
-
-  // Fetch purchases (PFG + PA orders) for the full count-to-count period
+  // Fetch purchases (PFG + PA orders) within the week
   const { data: purchases, isLoading: purchasesLoading } = useQuery({
-    queryKey: ["cogs-purchases", locationId, periodStartDate, periodEndDate, "v3"],
+    queryKey: ["cogs-purchases", locationId, weekStartStr, weekEndStr, "v2"],
     queryFn: async () => {
       if (!locationId) return { pfg: [], pa: [], totalCost: 0 };
       
@@ -114,26 +96,25 @@ export const COGSReportContent = ({ locationId }: { locationId: string }) => {
           .from("pfg_orders")
           .select("*")
           .eq("location_id", locationId)
-          .gte("delivery_date", periodStartDate)
-          .lte("delivery_date", periodEndDate),
+          .gte("delivery_date", weekStartStr)
+          .lte("delivery_date", weekEndStr),
         supabase
           .from("pa_orders")
           .select("*")
           .eq("location_id", locationId)
-          .gte("delivery_date", periodStartDate)
-          .lte("delivery_date", periodEndDate),
+          .gte("delivery_date", weekStartStr)
+          .lte("delivery_date", weekEndStr),
       ]);
 
       const pfg = pfgResult.data || [];
       const pa = paResult.data || [];
-      console.log("[COGS] Period:", periodStartDate, "to", periodEndDate);
       console.log("[COGS] PA orders fetched:", pa.length, pa.map((o: any) => ({ id: o.pa_order_id, delivery: o.delivery_date, amount: o.total_amount })));
       console.log("[COGS] PFG orders fetched:", pfg.length);
       const totalCost = [...pfg, ...pa].reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
       return { pfg, pa, totalCost };
     },
-    enabled: !!locationId && !!counts,
+    enabled: !!locationId,
   });
 
   // Fetch sales for the full count-to-count period
