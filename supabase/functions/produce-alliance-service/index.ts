@@ -495,7 +495,16 @@ function extractOrdersFromJson(data: any): PAOrderSummary[] {
     status: o.status || o.Status || 'unknown',
     totalAmount: o.orderTotal || o.totalAmount || o.TotalAmount || o.total || null,
     totalCases: o.caseCount || o.totalCases || o.TotalCases || null,
-  })).filter((o: PAOrderSummary) => o.webOrderId);
+  })).filter((o: PAOrderSummary) => {
+    // Only include submitted orders — SAVED orders are drafts not yet finalized
+    if (!o.webOrderId) return false;
+    const status = (o.status || '').toUpperCase();
+    if (status === 'SAVED') {
+      console.log('[PA Orders] Skipping SAVED order:', o.webOrderId);
+      return false;
+    }
+    return true;
+  });
 }
 
 function extractOrdersFromHtml(html: string): PAOrderSummary[] {
