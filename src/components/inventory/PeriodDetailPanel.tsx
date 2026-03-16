@@ -440,6 +440,11 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
                     Current
                   </Badge>
+                  {periodRange?.isFlexAdjusted && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
+                      {periodRange.activeDays}d
+                    </Badge>
+                  )}
                 </div>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
