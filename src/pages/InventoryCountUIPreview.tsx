@@ -102,18 +102,18 @@ const Option1Current = () => (
             </div>
           </div>
         </div>
-        {/* Pill steppers */}
+        {/* Rounded counters (Option 6 style) */}
         <div className="p-4">
-          <div className="flex items-center gap-3">
-            <PillStepper label="Cases" value={item.cases} />
-            <PillStepper label={`Units (${item.packQuantity}/case)`} value={item.units} />
+          <div className="grid grid-cols-2 gap-3">
+            <RoundedCounter label="Cases" value={item.cases} primary />
+            <RoundedCounter label={`Units (${item.packQuantity}/case)`} value={item.units} />
           </div>
           {/* Pan sizes */}
           <div className="mt-3 pt-3 border-t border-border/40">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Pan / Cambro Sizes</p>
             <div className="grid grid-cols-2 gap-3">
               {item.panSizes.slice(0, 2).map((pan, pi) => (
-                <PillStepper key={pi} label={`${pan.label} (${pan.unitsEach}/ea)`} value={0} />
+                <RoundedCounter key={pi} label={`${pan.label} (${pan.unitsEach}/ea)`} value={0} />
               ))}
             </div>
           </div>
