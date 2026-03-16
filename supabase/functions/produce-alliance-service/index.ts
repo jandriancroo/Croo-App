@@ -1047,9 +1047,11 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
     return d.toISOString().split('T')[0];
   };
 
-  // Persist to pa_orders
+  // Persist to pa_orders — save from details when available, otherwise from summary
   let persisted = 0;
   const orderDetails = orderDetailsWithDate; // keep variable name for response
+  const persistedOrderIds = new Set<string>();
+
   for (const detail of orderDetailsWithDate) {
     const items = detail.lineItems.map(li => ({
       name: li.description,
@@ -1061,8 +1063,6 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
       total: li.cost,
     }));
 
-    // Use the order summary's orderDate as the true order_date
-    // Derive delivery_date as next day (all Blaze locations are next-day delivery)
     const orderDate = detail.summaryOrderDate || new Date().toISOString().split('T')[0];
     const deliveryDate = nextDay(orderDate);
 
@@ -1078,6 +1078,31 @@ async function handleOrders(supabase: any, body: any): Promise<Response> {
         total_amount: detail.totalAmount,
         items,
         raw_data: detail,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'location_id,pa_order_id' });
+
+    if (!error) { persisted++; persistedOrderIds.add(detail.webOrderId); }
+  }
+
+  // Fallback: persist orders from summary data when detail fetch failed
+  for (const order of orderList) {
+    if (persistedOrderIds.has(order.webOrderId)) continue;
+    
+    const orderDateRaw = order.orderDate?.split(' ')[0] || new Date().toISOString().split('T')[0];
+    const deliveryDate = order.deliveryDate || nextDay(orderDateRaw);
+
+    const { error } = await supabase
+      .from('pa_orders')
+      .upsert({
+        location_id: locationId,
+        pa_order_id: order.webOrderId,
+        order_number: order.webOrderId,
+        order_date: orderDateRaw,
+        delivery_date: deliveryDate,
+        status: order.status || 'delivered',
+        total_amount: order.totalAmount,
+        items: [],
+        raw_data: order,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'location_id,pa_order_id' });
 
