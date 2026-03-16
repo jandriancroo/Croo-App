@@ -42,7 +42,7 @@ const mockItems = [
 // SHARED: Location Nav Bar
 // ─────────────────────────────────────────────
 const LocationNav = ({ className, textClass }: { className?: string; textClass?: string }) => (
-  <div className={cn("flex items-center justify-between p-2", className)}>
+  <div className={cn("flex items-center justify-between px-2 py-3", className)}>
     <button className={cn("h-9 w-9 flex items-center justify-center rounded-md", textClass)}>
       <ChevronLeft className="h-5 w-5" />
     </button>
