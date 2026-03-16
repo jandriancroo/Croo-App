@@ -1172,9 +1172,9 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
           {itemsSubView === "list" && <>
           {isReorderMode && (
             <p className="text-xs text-muted-foreground px-1">
-              {pickedItemId 
-                ? "Now tap where you want to place it. Tap the same item to cancel."
-                : "Tap an item to pick it up, then tap where to place it."}
+              {pickedItemIds.size > 0 
+                ? `${pickedItemIds.size} item${pickedItemIds.size > 1 ? 's' : ''} selected — tap a target to place ${pickedItemIds.size > 1 ? 'them' : 'it'} above. Tap selected to deselect.`
+                : "Tap items to select, then tap where to place them."}
             </p>
           )}
           {items && items.length > 0 ? (
