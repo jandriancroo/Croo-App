@@ -111,9 +111,20 @@ const Option1Current = () => (
           {/* Pan sizes */}
           <div className="mt-3 pt-3 border-t border-border/40">
             <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Pan / Cambro Sizes</p>
-            <div className="grid grid-cols-2 gap-3">
-              {item.panSizes.slice(0, 2).map((pan, pi) => (
-                <RoundedCounter key={pi} label={`${pan.label} (${pan.unitsEach}/ea)`} value={0} />
+            <div className="grid grid-cols-3 gap-2">
+              {item.panSizes.map((pan, pi) => (
+                <div key={pi} className="text-center">
+                  <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">{pan.label} ({pan.unitsEach})</p>
+                  <div className="flex items-center bg-background rounded-lg border border-border overflow-hidden">
+                    <button className="h-8 w-8 flex items-center justify-center text-muted-foreground active:scale-95 flex-shrink-0">
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <input type="text" inputMode="numeric" defaultValue="0" className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0" />
+                    <button className="h-8 w-8 flex items-center justify-center text-primary active:scale-95 flex-shrink-0">
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
