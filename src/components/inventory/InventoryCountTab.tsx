@@ -74,10 +74,12 @@ export default function InventoryCountTab({
       ? completedCounts
       : completedCounts.filter((c) => c.period_type === typeFilter);
 
-    if (currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")) {
-      return [currentPeriodEntry, ...base];
-    }
-    return base;
+    const combined = currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")
+      ? [currentPeriodEntry, ...base]
+      : [...base];
+
+    // Sort by period_end_date descending (newest first)
+    return combined.sort((a, b) => (b.period_end_date || "").localeCompare(a.period_end_date || ""));
   }, [completedCounts, typeFilter, currentPeriodEntry]);
 
   const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
