@@ -26,6 +26,7 @@ interface TrackedItem {
   pack_size: string | null;
   pan_sizes: PanSizesConfig | null;
   storage_location_name: string | null;
+  cost_per_unit: number | null;
   /** Shortcut-level overrides */
   count_by: string;
   pan_enabled_keys: string[] | null;
