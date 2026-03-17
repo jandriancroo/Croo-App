@@ -419,7 +419,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
     staleTime: 5 * 60 * 1000,
   });
 
-  const spotCount = spotChecks?.length || 0;
+  
 
   return (
     <motion.div
