@@ -482,6 +482,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
             {count.period_type === "weekly" && (
               <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} />
             )}
+          </CardContent>
         </Card>
       ) : cogsData ? (
         <Card className="relative">
