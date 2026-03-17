@@ -292,12 +292,12 @@ function DetailCardContent({ count }: { count: any }) {
 function StatusBadge({ status, isUpcoming }: { status: string; isUpcoming: boolean }) {
   if (isUpcoming) return (
     <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 uppercase border-emerald-500/40 text-emerald-600 bg-emerald-500/5">
-      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" /> Current
+      Current
     </Badge>
   );
   if (status === "in_progress") return (
     <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 uppercase border-amber-500/40 text-amber-600 bg-amber-500/5">
-      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" /> In Progress
+      In Progress
     </Badge>
   );
   return (
