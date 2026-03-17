@@ -42,6 +42,7 @@ interface StartCountDialogProps {
   onOpenChange: (open: boolean) => void;
   locationId: string;
   onStartCount: (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => void;
+  onStartDailyCount?: () => void;
   isPending: boolean;
 }
 
