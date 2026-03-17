@@ -19,6 +19,7 @@ interface InventoryCountTabProps {
   onStartCount: () => void;
   onDeleteCount: (count: any) => void;
   onCreateCountForPeriod?: (periodType: string, periodEndDate: string) => void;
+  onStartDailyCount?: () => void;
 }
 
 export default function InventoryCountTab({
@@ -28,6 +29,7 @@ export default function InventoryCountTab({
   onStartCount,
   onDeleteCount,
   onCreateCountForPeriod,
+  onStartDailyCount,
 }: InventoryCountTabProps) {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
@@ -246,6 +248,7 @@ export default function InventoryCountTab({
                 locationId={locationId}
                 onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
                 onCreateCountForPeriod={onCreateCountForPeriod}
+                onStartDailyCount={onStartDailyCount}
               />
             </motion.div>
           )}

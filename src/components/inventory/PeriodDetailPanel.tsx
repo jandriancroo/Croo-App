@@ -39,9 +39,10 @@ interface PeriodDetailPanelProps {
   locationId: string;
   onDeleteCount?: (count: any) => void;
   onCreateCountForPeriod?: (periodType: string, periodEndDate: string) => void;
+  onStartDailyCount?: () => void;
 }
 
-export default function PeriodDetailPanel({ count, locationId, onDeleteCount, onCreateCountForPeriod }: PeriodDetailPanelProps) {
+export default function PeriodDetailPanel({ count, locationId, onDeleteCount, onCreateCountForPeriod, onStartDailyCount }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -482,7 +483,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               </div>
             )}
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
             )}
           </CardContent>
         </Card>
@@ -568,7 +569,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             </div>
 
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
             )}
 
             {canManageOrders && onDeleteCount && (
@@ -846,15 +847,15 @@ const DAY_INITIALS: Record<number, string> = { 0: "Su", 1: "M", 2: "T", 3: "W", 
 function DailySpotChecksGrid({
   periodRange,
   spotChecks,
-  locationId,
   todayStr,
+  onStartDailyCount,
 }: {
   periodRange: { startStr: string; endStr: string } | null;
   spotChecks: any[] | undefined;
   locationId: string;
   todayStr: string;
+  onStartDailyCount?: () => void;
 }) {
-  const navigate = useNavigate();
   const [previewCheck, setPreviewCheck] = useState<any | null>(null);
 
   if (!periodRange) return null;
@@ -905,8 +906,8 @@ function DailySpotChecksGrid({
                   onClick={() => {
                     if (isCompleted) {
                       setPreviewCheck(completedMap.get(day.key));
-                    } else if (isToday) {
-                      navigate(`/inventory/${locationId}/daily-count?date=${day.key}`);
+                    } else if (isToday && onStartDailyCount) {
+                      onStartDailyCount();
                     }
                   }}
                   className={`
