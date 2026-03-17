@@ -39,6 +39,7 @@ const Inventory = () => {
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
+  const [preselectedPeriod, setPreselectedPeriod] = useState<{ type: string; endDate: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
