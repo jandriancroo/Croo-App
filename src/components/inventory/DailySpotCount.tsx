@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Minus, Plus, Check, TrendingDown, TrendingUp, Loader2, History, Sun, DollarSign } from "lucide-react";
+import { Minus, Plus, Check, Loader2, History, Sun, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
