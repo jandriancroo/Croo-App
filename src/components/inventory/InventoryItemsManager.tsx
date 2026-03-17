@@ -1191,28 +1191,10 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             </div>
             <div className="flex items-center gap-2">
               {itemsSubView === "list" && (
-                <>
-                  <Button
-                    size="sm"
-                    variant={isReorderMode ? "default" : "outline"}
-                    onClick={() => {
-                      const next = !isReorderMode;
-                      setIsReorderMode(next);
-                      if (!next) {
-                        setPickedItemIds(new Set());
-                        setPickedGroupKey(null);
-                        setIsPlacingMode(false);
-                      }
-                    }}
-                  >
-                    <ListOrdered className="h-4 w-4 mr-1" />
-                    {isReorderMode ? "Done" : "Reorder"}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
-                    <Settings2 className="h-4 w-4 mr-1" />
-                    Locations
-                  </Button>
-                </>
+                <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
+                  <Settings2 className="h-4 w-4 mr-1" />
+                  Locations
+                </Button>
               )}
             </div>
           </div>
