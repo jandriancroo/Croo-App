@@ -292,7 +292,7 @@ function DetailCardContent({ count }: { count: any }) {
 
         {/* Daily Spot Counts within this period */}
         {count.period_type === "weekly" && (
-          <DailyCountsSection periodEndDate={count.period_end_date} status={count.status} />
+          <DailyCountsSection periodEndDate={count.period_end_date} />
         )}
       </div>
     </>
