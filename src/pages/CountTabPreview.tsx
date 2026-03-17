@@ -145,12 +145,11 @@ function NotchTabConcept() {
                     </span>
                   )}
 
-                  {/* Status dot for upcoming/in-progress */}
-                  {count._isUpcoming && (
-                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-emerald-400 ${!isActive ? "animate-pulse" : ""}`} />
-                  )}
-                  {isInProgress && (
-                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ${!isActive ? "animate-pulse" : ""}`} />
+                  {/* Left accent bar for upcoming/in-progress */}
+                  {(count._isUpcoming || isInProgress) && (
+                    <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${
+                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
+                    } ${!isActive ? "animate-pulse" : ""}`} />
                   )}
 
                   <div className="flex flex-col items-center gap-0.5">
