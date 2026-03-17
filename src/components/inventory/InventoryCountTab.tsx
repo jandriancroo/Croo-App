@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import DailySpotCount from "@/components/inventory/DailySpotCount";
+
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPeriodSettings, computePeriodEndDate } from "@/hooks/useInventoryPeriodSettings";
