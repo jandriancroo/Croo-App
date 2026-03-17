@@ -550,14 +550,22 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
             <div className="grid grid-cols-3 gap-3">
               <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
-              <SummaryMetric label="PURCHASES" value={`$${Math.round(cogsData.purchasesTotal).toLocaleString()}`} />
-              {/* ENDING box is tappable — opens View/Edit options */}
+              {/* PURCHASES box — tappable to expand purchases list */}
+              <button 
+                className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 active:scale-[0.97] transition-all cursor-pointer relative ring-1 ring-border/30"
+                onClick={() => setShowPurchases(!showPurchases)}
+              >
+                <p className="text-base font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">PURCHASES</p>
+                <ChevronDown className={`h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/60 transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+              </button>
+              {/* ENDING box — tappable for View/Edit options */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors cursor-pointer relative">
+                  <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 active:scale-[0.97] transition-all cursor-pointer relative ring-1 ring-border/30">
                     <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">ENDING</p>
-                    <Eye className="h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/50" />
+                    <ChevronDown className="h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/60" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-40 p-1.5">
