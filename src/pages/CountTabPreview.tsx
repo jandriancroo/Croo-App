@@ -121,6 +121,7 @@ function NotchTabConcept() {
             const isActive = idx === safeIdx;
             const endDate = new Date(count.period_end_date + "T12:00:00");
             const isInProgress = count.status === "in_progress";
+            const isCompleted = count.status === "completed";
 
             return (
               <div key={count.id} className="flex flex-col items-center" data-active={isActive}
@@ -128,18 +129,28 @@ function NotchTabConcept() {
                 <button
                   onClick={() => setSelectedIdx(idx)}
                   className={`
-                    w-full py-2.5 rounded-xl border transition-all duration-200 relative
+                    w-full py-2.5 rounded-xl border transition-all duration-200 relative overflow-hidden
                     ${isActive
                       ? "bg-primary text-primary-foreground border-primary shadow-md"
-                      : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
+                      : isCompleted
+                        ? "bg-muted/60 text-muted-foreground border-border/30"
+                        : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
                     }
                   `}
                 >
-                  {/* Status dot */}
-                  {(count._isUpcoming || isInProgress) && (
-                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full ${
-                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
-                    } ${!isActive ? "animate-pulse" : ""}`} />
+                  {/* Completed checkmark */}
+                  {isCompleted && !isActive && (
+                    <span className="absolute top-1 right-1">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500/60" />
+                    </span>
+                  )}
+
+                  {/* Status dot for upcoming/in-progress */}
+                  {count._isUpcoming && (
+                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-emerald-400 ${!isActive ? "animate-pulse" : ""}`} />
+                  )}
+                  {isInProgress && (
+                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full bg-amber-400 ${!isActive ? "animate-pulse" : ""}`} />
                   )}
 
                   <div className="flex flex-col items-center gap-0.5">
@@ -148,12 +159,14 @@ function NotchTabConcept() {
                     }`}>
                       {count.period_type === "monthly" ? "Month" : "Week"}
                     </span>
-                    <span className="text-[12px] font-bold leading-tight whitespace-nowrap">
+                    <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
+                      isCompleted && !isActive ? "text-muted-foreground" : ""
+                    }`}>
                       {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
                     {count._stats.totalCost > 0 && (
                       <span className={`text-[9px] tabular-nums leading-none ${
-                        isActive ? "text-primary-foreground/70" : "text-muted-foreground"
+                        isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
                       }`}>
                         ${(count._stats.totalCost / 1000).toFixed(1)}k
                       </span>
