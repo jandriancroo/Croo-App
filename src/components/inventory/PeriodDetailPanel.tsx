@@ -586,7 +586,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       onClick={() => onDeleteCount(count)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Period
+                      Reset Count
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
