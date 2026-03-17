@@ -713,11 +713,44 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </Card>
       )}
 
-      {/* 4-tab layout */}
-      <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-11">
-          <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
-            <Truck className="h-3.5 w-3.5" />
+      {/* Standalone Variance Section */}
+      {!isUpcoming && varianceData && varianceData.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variance</p>
+            </div>
+            <div className="space-y-0 divide-y divide-border/40">
+              {varianceData.map((v, i) => (
+                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      v.diff < 0 ? "bg-destructive/10" : "bg-accent/60"
+                    }`}>
+                      {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{v.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Previous {v.expected} → Current {v.actual}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${v.diff < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.diff > 0 ? "+" : ""}{v.diff} units
+                    </p>
+                    <p className={`text-xs ${v.cost < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.cost < 0 ? "−" : "+"}${Math.abs(v.cost).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
             <span className="hidden sm:inline">Purchases</span>
             <span className="sm:hidden">Orders</span>
           </TabsTrigger>
