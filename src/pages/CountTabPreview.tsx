@@ -283,6 +283,11 @@ function DetailCardContent({ count }: { count: any }) {
             <Button size="sm" variant="outline" className="flex-1 text-xs">COGS Report</Button>
           </div>
         )}
+
+        {/* Daily Spot Counts within this period */}
+        {count.period_type === "weekly" && (
+          <DailyCountsSection periodEndDate={count.period_end_date} status={count.status} />
+        )}
       </div>
     </>
   );
