@@ -162,7 +162,7 @@ function NotchTabConcept() {
                     <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
                       isActive ? "text-primary-foreground/60" : "text-muted-foreground"
                     }`}>
-                      {count.period_type === "monthly" ? "Month" : "Week"}
+                      {count.period_type === "monthly" ? "Mo. Ending" : "Wk Ending"}
                     </span>
                     <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
                       isCompleted && !isActive ? "text-muted-foreground" : ""
