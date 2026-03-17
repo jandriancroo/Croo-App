@@ -152,7 +152,7 @@ function NotchTabConcept() {
                     } ${!isActive ? "animate-pulse" : ""}`} />
                   )}
 
-                  <div className="flex flex-col items-center gap-0.5">
+                  <div className="flex flex-col items-center gap-0.5 min-h-[40px] justify-center">
                     <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
                       isActive ? "text-primary-foreground/60" : "text-muted-foreground"
                     }`}>
@@ -163,20 +163,20 @@ function NotchTabConcept() {
                     }`}>
                       {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
-                    {count._stats.cogsPct != null ? (
-                      <span className={`text-[9px] tabular-nums font-semibold leading-none ${
-                        isActive ? "text-primary-foreground/70"
-                          : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70"
-                      }`}>
-                        {count._stats.cogsPct}%
-                      </span>
-                    ) : count._stats.totalCost > 0 ? (
-                      <span className={`text-[9px] tabular-nums leading-none ${
-                        isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
-                      }`}>
-                        ${(count._stats.totalCost / 1000).toFixed(1)}k
-                      </span>
-                    ) : null}
+                    <span className={`text-[9px] tabular-nums font-semibold leading-none h-[11px] ${
+                      count._stats.cogsPct != null
+                        ? (isActive ? "text-primary-foreground/70"
+                            : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
+                        : count._stats.totalCost > 0
+                          ? (isActive ? "text-primary-foreground/70" : "text-muted-foreground/70")
+                          : "invisible"
+                    }`}>
+                      {count._stats.cogsPct != null
+                        ? `${count._stats.cogsPct}%`
+                        : count._stats.totalCost > 0
+                          ? `$${(count._stats.totalCost / 1000).toFixed(1)}k`
+                          : "—"}
+                    </span>
                   </div>
                 </button>
 
