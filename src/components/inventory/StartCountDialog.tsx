@@ -639,6 +639,11 @@ const StartCountDialog = ({
   };
 
   const handleContinueToSync = () => {
+    if (selectedPeriod === "daily") {
+      onOpenChange(false);
+      onStartDailyCount?.();
+      return;
+    }
     if (selectedPeriod === "flex") {
       setStep("flex-period");
       return;
