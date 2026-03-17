@@ -707,33 +707,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
                   {count.status === "completed" ? "Submitted" : hasCountedItems ? "In Progress" : "Not Started"}
                 </Badge>
-                {canManageOrders && onDeleteCount && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {!isUpcoming && (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit Count
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
             </div>
           </CardContent>
