@@ -50,7 +50,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
-  const isUpcoming = !!count._isUpcoming;
+  const hasCountedItems = (_stats.countedItems || 0) > 0;
+  const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
   const { getTodayInTimezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   
