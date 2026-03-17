@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, DollarSign, Upload, Rocket, FileText } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -20,7 +20,6 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
-import { COGSReportContent } from "@/pages/COGSReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
@@ -357,14 +356,10 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Count</span>
-            </TabsTrigger>
-            <TabsTrigger value="cogs-variance" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">COGS</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
@@ -384,11 +379,6 @@ const Inventory = () => {
               onStartCount={handleStartCount}
               onDeleteCount={handleDeleteClick}
             />
-          </TabsContent>
-
-          <TabsContent value="cogs-variance" className="mt-4 space-y-6">
-            <COGSReportContent locationId={locationId!} />
-            <InventoryVarianceReport locationId={locationId!} />
           </TabsContent>
 
           <TabsContent value="items" className="mt-4">
