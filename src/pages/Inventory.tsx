@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText } from "lucide-react";
+import { ClipboardList, Settings, Package, MapPin, Upload, Rocket, FileText, ArrowLeft } from "lucide-react";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -45,6 +45,7 @@ const Inventory = () => {
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [showBOMImport, setShowBOMImport] = useState(false);
   const [showDailyCount, setShowDailyCount] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -341,33 +342,25 @@ const Inventory = () => {
             <h1 className="text-2xl font-bold">Inventory</h1>
             <p className="text-muted-foreground">Fast mobile counting</p>
           </div>
-          {brandInfo && isBrandLevel && (
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowExportMaster(true)}>
-                <Upload className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Export</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowDeployDialog(true)}>
-                <Rocket className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">Deploy</span>
-              </Button>
-            </div>
-          )}
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 rounded-xl"
+            onClick={() => setShowSettings(true)}
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">Count</span>
+              <span>Count</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Items</span>
-            </TabsTrigger>
-            <TabsTrigger value="setup" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Setup</span>
+              <span>Items</span>
             </TabsTrigger>
           </TabsList>
 
@@ -386,18 +379,42 @@ const Inventory = () => {
           <TabsContent value="items" className="mt-4">
             <InventoryItemsManager locationId={locationId!} mode="items" />
           </TabsContent>
+        </Tabs>
+      </div>
 
-          <TabsContent value="setup" className="mt-4 space-y-4">
+      {/* Settings Slide-over */}
+      <Sheet open={showSettings} onOpenChange={setShowSettings}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto">
+          <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 flex items-center gap-3">
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowSettings(false)}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h2 className="text-lg font-semibold">Settings</h2>
+          </div>
+          <div className="p-4 space-y-4">
+            {brandInfo && isBrandLevel && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Brand Tools</h3>
+                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowExportMaster(true); }} className="w-full justify-start">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Export to Master
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowDeployDialog(true); }} className="w-full justify-start">
+                  <Rocket className="h-4 w-4 mr-2" />
+                  Deploy to Location
+                </Button>
+              </div>
+            )}
             {isBrandLevel && (
-              <Button variant="outline" size="sm" onClick={() => setShowBOMImport(true)} className="w-full">
+              <Button variant="outline" size="sm" onClick={() => { setShowSettings(false); setShowBOMImport(true); }} className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
                 Recipe Import Pipeline
               </Button>
             )}
             <InventoryItemsManager locationId={locationId!} mode="setup" />
-          </TabsContent>
-        </Tabs>
-      </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <StartCountDialog
         open={showStartDialog}
