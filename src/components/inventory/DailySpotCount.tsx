@@ -51,7 +51,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
       const { data: items, error } = await supabase
         .from("inventory_items")
         .select(`
-          id, name, common_name, unit, category, par_level, pack_quantity, pack_size, pan_sizes,
+          id, name, common_name, unit, category, par_level, pack_quantity, pack_size, pan_sizes, cost_per_unit,
           storage_location_id,
           storage_location:inventory_locations!inventory_items_storage_location_id_fkey(name)
         `)
