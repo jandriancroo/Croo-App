@@ -490,6 +490,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     Submitted
                   </Badge>
                 )}
+                {count.status === "in_progress" && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
+                    In Progress
+                  </Badge>
                 {count.is_late_close && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
                     Flex
