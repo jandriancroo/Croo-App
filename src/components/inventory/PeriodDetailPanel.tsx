@@ -483,12 +483,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                 )}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0 ml-3">
-                <div className="text-right">
-                  <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
-                    {cogsData.cogsPct.toFixed(1)}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
-                </div>
+                {count.status === "completed" && (
+                  <div className="text-right">
+                    <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+                      {cogsData.cogsPct.toFixed(1)}%
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
+                  </div>
+                )}
                 {canManageOrders && onDeleteCount && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
