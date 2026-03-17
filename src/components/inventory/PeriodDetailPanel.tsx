@@ -848,13 +848,14 @@ function DailySpotChecksGrid({
   spotChecks,
   locationId,
   todayStr,
+  onStartDailyCount,
 }: {
   periodRange: { startStr: string; endStr: string } | null;
   spotChecks: any[] | undefined;
   locationId: string;
   todayStr: string;
+  onStartDailyCount?: () => void;
 }) {
-  const navigate = useNavigate();
   const [previewCheck, setPreviewCheck] = useState<any | null>(null);
 
   if (!periodRange) return null;
