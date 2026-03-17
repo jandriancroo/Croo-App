@@ -154,60 +154,22 @@ function NotchTabConcept() {
         </div>
 
         {/* Detail card */}
-        <div className="relative">
-          {filteredCounts.length > 1 && (
-            <>
-              <button
-                onClick={() => setSelectedIdx(Math.max(0, safeIdx - 1))}
-                disabled={safeIdx === 0}
-                className="absolute -left-2 top-10 z-20 w-8 h-8 rounded-full bg-card border border-border/50 shadow-sm flex items-center justify-center disabled:opacity-20 transition-opacity"
-              >
-                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button
-                onClick={() => setSelectedIdx(Math.min(filteredCounts.length - 1, safeIdx + 1))}
-                disabled={safeIdx === filteredCounts.length - 1}
-                className="absolute -right-2 top-10 z-20 w-8 h-8 rounded-full bg-card border border-border/50 shadow-sm flex items-center justify-center disabled:opacity-20 transition-opacity"
-              >
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </>
+        <AnimatePresence mode="wait">
+          {selectedCount && (
+            <motion.div
+              key={selectedCount.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+            >
+              <Card>
+                <DetailCardContent count={selectedCount} />
+              </Card>
+            </motion.div>
           )}
-
-          <AnimatePresence mode="wait">
-            {selectedCount && (
-              <motion.div
-                key={selectedCount.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-              >
-                <Card>
-                  <DetailCardContent count={selectedCount} />
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        </AnimatePresence>
       </div>
-
-      {/* Pagination dots */}
-      {filteredCounts.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-1">
-          {filteredCounts.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedIdx(idx)}
-              className={`rounded-full transition-all duration-200 ${
-                idx === safeIdx
-                  ? "w-5 h-1.5 bg-primary"
-                  : "w-1.5 h-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/40"
-              }`}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
