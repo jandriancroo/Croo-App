@@ -634,7 +634,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
 
       {/* 4-tab layout */}
       <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-11">
+        <TabsList className="grid w-full grid-cols-3 h-11">
           <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
             <Truck className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Purchases</span>
@@ -645,16 +645,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </TabsTrigger>
           <TabsTrigger value="count" className="text-xs sm:text-sm gap-1">
             <ClipboardCheck className="h-3.5 w-3.5" /> Count
-          </TabsTrigger>
-          <TabsTrigger value="spotcheck" className="text-xs sm:text-sm gap-1 relative">
-            <Crosshair className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Daily Spot</span>
-            <span className="sm:hidden">Spot</span>
-            {spotCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                {spotCount}
-              </span>
-            )}
           </TabsTrigger>
         </TabsList>
 
