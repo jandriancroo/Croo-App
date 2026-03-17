@@ -136,18 +136,16 @@ export function SortableInventoryItem({
         )}
       </div>
 
-      {/* Fixed-width badge columns — hidden in reorder mode */}
+      {/* Badge columns — hidden in reorder mode, responsive on mobile */}
       {!isReorderMode && (
-        <div className="flex items-center gap-1.5 flex-shrink-0 w-[120px] justify-end">
+        <div className="flex items-center gap-1 flex-shrink-0 justify-end">
           {(item as any).category && !isShortcut ? (
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap">
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground whitespace-nowrap hidden sm:inline-flex">
               {(item as any).category}
             </Badge>
-          ) : !isShortcut ? (
-            <span className="w-1" />
           ) : null}
           {(item as any).pan_sizes?.enabled && !isShortcut && (
-            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap">
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 whitespace-nowrap hidden sm:inline-flex">
               Pans
             </Badge>
           )}
@@ -156,10 +154,10 @@ export function SortableInventoryItem({
 
       {/* Price/unit column — hidden in reorder mode */}
       {!isReorderMode && (
-        <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
-          <span className="text-xs">{item.pack_size || item.unit || "ea"}</span>
+        <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground flex-shrink-0">
+          <span className="text-[10px] sm:text-xs">{item.pack_size || item.unit || "ea"}</span>
           {item.cost_per_unit && !isShortcut && (
-            <span className="text-xs text-primary">
+            <span className="text-[10px] sm:text-xs text-primary">
               ${Number(item.cost_per_unit).toFixed(2)}
             </span>
           )}
