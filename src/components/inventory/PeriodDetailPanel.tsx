@@ -563,36 +563,19 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                   </div>
                 </div>
               </button>
-              {/* ENDING box — tappable for View/Edit options */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25">
-                    <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
-                    <div className="flex items-center justify-center gap-1.5 mt-0.5">
-                      <p className="text-[11px] text-primary uppercase tracking-wide font-medium">ENDING</p>
-                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                        <ChevronDown className="h-2.5 w-2.5 text-primary" />
-                      </div>
-                    </div>
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-40 p-1.5">
-                  <button
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
-                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Count
-                  </button>
-                  <button
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
-                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit Count
-                  </button>
-                </PopoverContent>
-              </Popover>
+              {/* ENDING box — tappable, navigates to review screen */}
+              <button
+                className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
+                onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+              >
+                <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
+                <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                  <p className="text-[11px] text-primary uppercase tracking-wide font-medium">REVIEW</p>
+                  <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <Eye className="h-2.5 w-2.5 text-primary" />
+                  </div>
+                </div>
+              </button>
             </div>
 
             <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
