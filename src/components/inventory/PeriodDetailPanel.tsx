@@ -788,51 +788,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </Card>
         </TabsContent>
 
-        {/* Count */}
-        <TabsContent value="count" className="mt-3">
-          <Card>
-            <CardContent className="p-6 text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
-                <Package className="h-7 w-7 text-muted-foreground" />
-              </div>
-              {isUpcoming ? (
-                <div>
-                  <p className="text-lg font-bold">Not Started</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This period's count hasn't been started yet. Use "Start Count" above when ready.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-lg font-bold">{stats.countedItems} / {stats.totalItems} items</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      On-hand value: <span className="font-semibold text-foreground">
-                        ${stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" /> View Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" /> Edit Count
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
       </Tabs>
 
