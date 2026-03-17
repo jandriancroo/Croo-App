@@ -90,7 +90,25 @@ function NotchTabConcept() {
             }`}>{l}</button>
         ))}
         <div className="flex-1" />
-        <span className="text-[11px] text-muted-foreground font-medium tabular-nums">{safeIdx + 1} of {filteredCounts.length}</span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" });
+            }}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <span className="text-[11px] text-muted-foreground font-medium tabular-nums min-w-[3ch] text-center">{safeIdx + 1}/{filteredCounts.length}</span>
+          <button
+            onClick={() => {
+              if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" });
+            }}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
+          >
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Notch tabs + detail card */}
