@@ -465,9 +465,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </CardContent>
         </Card>
       ) : cogsData ? (
-        <Card>
+        <Card className="relative">
           <CardContent className="p-4 sm:p-5">
-            {/* Top row: COGS % pinned right, dots far right */}
+            {/* Top row: COGS % pinned right */}
             <div className="flex items-start justify-between mb-1">
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                 <p className="text-base font-bold leading-tight">{formatPeriodLabel(count)}</p>
@@ -482,34 +482,14 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0 ml-3">
-                {count.status === "completed" && (
-                  <div className="text-right">
-                    <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
-                      {cogsData.cogsPct.toFixed(1)}%
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
-                  </div>
-                )}
-                {canManageOrders && onDeleteCount && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 -mr-1">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => onDeleteCount(count)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Period
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              {count.status === "completed" && (
+                <div className="text-right flex-shrink-0 ml-3">
+                  <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+                    {cogsData.cogsPct.toFixed(1)}%
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
+                </div>
+              )}
             </div>
             {/* Sub-details */}
             <div className="mb-4">
@@ -546,6 +526,28 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                 <span className="text-sm font-medium">${Math.round(cogsData.netSales).toLocaleString()}</span>
               </div>
             </div>
+
+            {/* Edit dots — bottom right */}
+            {canManageOrders && onDeleteCount && (
+              <div className="flex justify-end mt-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => onDeleteCount(count)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Period
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
 
           </CardContent>
         </Card>
