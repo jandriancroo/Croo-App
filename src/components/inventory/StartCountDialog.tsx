@@ -964,10 +964,10 @@ const StartCountDialog = ({
             ) : (
               <div className="space-y-3">
                 {periodOptions.map((option, index) => {
-                  // Add a subtle separator before Flex Count / Quick Count
-                  const isBottomOption = option.id === "daily" || option.id === "flex" || option.id === "adhoc";
+                  // Add a subtle separator before Flex Count
+                  const isBottomOption = option.id === "flex";
                   const prevOption = index > 0 ? periodOptions[index - 1] : null;
-                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "daily" && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex";
                   
                   // Show dismiss button for past-due scheduled periods
                   const todayStr = getTodayInTimezone(timezone);
