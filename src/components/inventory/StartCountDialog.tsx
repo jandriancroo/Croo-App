@@ -70,6 +70,7 @@ const StartCountDialog = ({
   onOpenChange,
   locationId,
   onStartCount,
+  onStartDailyCount,
   isPending,
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
