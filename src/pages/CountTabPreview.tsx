@@ -302,23 +302,31 @@ function DetailCardContent({ count }: { count: any }) {
 // ——— Daily Counts Section ———
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "Su"];
 
-function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; status: string }) {
+// Mock daily count detail data
+const MOCK_DAILY_ITEMS = [
+  { name: "Chicken Breast", expected: 12, counted: 11, unit: "lbs" },
+  { name: "Brisket", expected: 8, counted: 8, unit: "lbs" },
+  { name: "Pulled Pork", expected: 6, counted: 5, unit: "pans" },
+  { name: "Mac & Cheese", expected: 4, counted: 4, unit: "pans" },
+  { name: "Coleslaw", expected: 3, counted: 3, unit: "pans" },
+  { name: "Baked Beans", expected: 3, counted: 2, unit: "pans" },
+  { name: "Cornbread", expected: 24, counted: 24, unit: "pcs" },
+  { name: "Banana Pudding", expected: 4, counted: 4, unit: "pans" },
+];
+
+function DailyCountsSection({ periodEndDate }: { periodEndDate: string }) {
+  const [previewDay, setPreviewDay] = useState<string | null>(null);
   const endDate = new Date(periodEndDate + "T12:00:00");
   const today = format(new Date(), "yyyy-MM-dd");
 
-  // Build Mon–Sun for this week (period ends on a Tuesday, so we go back to Monday)
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(endDate);
     d.setDate(d.getDate() - (6 - i));
     return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_LABELS[i] };
   });
 
-  // Mock completed days
-  const completedDays = new Set([
-    days[0].key, days[1].key, days[2].key, days[4].key,
-  ]);
-
-  const completedCount = days.filter(d => completedDays.has(d.key)).length;
+  const completedDays = new Set([days[0].key, days[1].key, days[2].key, days[4].key]);
+  const completedCount = days.filter((d) => completedDays.has(d.key)).length;
 
   return (
     <div className="mt-4 pt-3 border-t border-border/20">
@@ -340,38 +348,30 @@ function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; 
           return (
             <button
               key={day.key}
-              disabled={isFuture || (isCompleted && !isToday)}
+              disabled={isFuture || isPast}
               onClick={() => {
-                if (isToday && !isCompleted) {
-                  // Would trigger: navigate to daily count flow
-                  console.log("Start daily count for", day.key);
-                }
-                if (isCompleted) {
-                  console.log("View daily count for", day.key);
-                }
+                if (isCompleted) setPreviewDay(day.key);
+                else if (isToday) console.log("Start daily count for", day.key);
               }}
               className={`
                 flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative
                 ${isCompleted
-                  ? "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/15"
+                  ? "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/15 cursor-pointer"
                   : isToday
                     ? "bg-primary/8 border-2 border-primary/50 hover:bg-primary/12 shadow-sm"
                     : isFuture
                       ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
                       : isPast
-                        ? "bg-muted/30 border border-border/20 opacity-50"
+                        ? "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
                         : "bg-muted/30 border border-transparent"
                 }
               `}
             >
-              {/* Day label */}
               <span className={`text-[10px] font-bold leading-none tracking-wide ${
                 isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
               }`}>
                 {day.label}
               </span>
-
-              {/* Status icon area */}
               <div className="h-5 w-5 flex items-center justify-center">
                 {isCompleted ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -383,8 +383,6 @@ function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; 
                   <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
                 )}
               </div>
-
-              {/* Today label */}
               {isToday && !isCompleted && (
                 <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Count</span>
               )}
@@ -393,10 +391,66 @@ function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; 
         })}
       </div>
 
-      {/* End-of-business note */}
       <p className="text-[9px] text-muted-foreground/60 mt-1.5 text-center italic">
         Daily counts are locked until end of business
       </p>
+
+      {/* Daily Count Preview Dialog */}
+      <Dialog open={!!previewDay} onOpenChange={(open) => !open && setPreviewDay(null)}>
+        <DialogContent className="max-w-sm p-0 gap-0 rounded-2xl">
+          <DialogHeader className="px-4 pt-4 pb-3 border-b border-border/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-base font-bold">
+                  {previewDay ? format(new Date(previewDay + "T12:00:00"), "EEEE, MMM d") : ""}
+                </DialogTitle>
+                <span className="text-[11px] text-muted-foreground">Sarah M. · 9:42 PM</span>
+              </div>
+              <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 uppercase border-emerald-500/40 text-emerald-600 bg-emerald-500/5">
+                <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          <div className="px-4 py-3 max-h-[50vh] overflow-y-auto">
+            <div className="space-y-0.5">
+              {MOCK_DAILY_ITEMS.map((item, i) => {
+                const hasVariance = item.counted !== item.expected;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between py-2 px-2.5 rounded-lg ${
+                      hasVariance ? "bg-amber-500/5" : ""
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-sm font-bold tabular-nums ${
+                        hasVariance ? "text-amber-600" : "text-foreground"
+                      }`}>
+                        {item.counted}
+                      </span>
+                      {hasVariance && (
+                        <span className="text-[10px] text-muted-foreground tabular-nums">/ {item.expected}</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">{item.unit}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-border/20 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-medium">
+                {MOCK_DAILY_ITEMS.length} items counted
+              </span>
+              <span className="text-xs font-semibold text-amber-600">
+                {MOCK_DAILY_ITEMS.filter((i) => i.counted !== i.expected).length} variances
+              </span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
