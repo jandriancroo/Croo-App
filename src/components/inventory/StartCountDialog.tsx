@@ -365,19 +365,9 @@ const StartCountDialog = ({
       return bEnd.getTime() - aEnd.getTime();
     });
 
-    // Append Daily Count, Flex Count, and Quick Count at the bottom
+    // Append Flex Count at the bottom
     const finalOptions: PeriodOption[] = [
       ...scheduledOptions,
-      {
-        id: "daily",
-        type: "adhoc",
-        label: "Daily Count",
-        description: "Quick count for daily-tracked items",
-        periodEndDate: null,
-        periodStartDate: null,
-        icon: <Sun className="h-5 w-5" />,
-        isConfigured: false,
-      },
       {
         id: "flex",
         type: "adhoc",
@@ -386,16 +376,6 @@ const StartCountDialog = ({
         periodEndDate: null,
         periodStartDate: null,
         icon: <RefreshCw className="h-5 w-5" />,
-        isConfigured: false,
-      },
-      {
-        id: "adhoc",
-        type: "adhoc",
-        label: "Quick Count",
-        description: "Count without a specific period",
-        periodEndDate: null,
-        periodStartDate: null,
-        icon: <Check className="h-5 w-5" />,
         isConfigured: false,
       },
     ];
