@@ -5,7 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +26,7 @@ import {
 import {
   Eye, Pencil, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, Loader2,
-  Settings2, MoreVertical, UtensilsCrossed, Carrot,
+  Settings2, UtensilsCrossed, Carrot, ChevronDown,
   Play, Plus, CheckCircle2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
@@ -54,6 +58,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
   const [creatingCount, setCreatingCount] = useState(false);
   const hasCountedItems = (_stats.countedItems || 0) > 0;
   const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
+  const [showPurchases, setShowPurchases] = useState(false);
   const { getTodayInTimezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   
@@ -552,12 +557,124 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             <div className="grid grid-cols-3 gap-3">
               <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
               <SummaryMetric label="PURCHASES" value={`$${Math.round(cogsData.purchasesTotal).toLocaleString()}`} />
-              <SummaryMetric label="ENDING" value={`$${Math.round(cogsData.endValue).toLocaleString()}`} />
+              {/* ENDING box is tappable — opens View/Edit options */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors cursor-pointer relative">
+                    <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">ENDING</p>
+                    <Eye className="h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-40 p-1.5">
+                  <button
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Count
+                  </button>
+                  <button
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Count
+                  </button>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
               <FormulaRow label="Beginning Inventory" value={cogsData.beginValue} />
-              <FormulaRow label="+ Purchases" value={cogsData.purchasesTotal} />
+              
+              {/* Expandable Purchases row */}
+              <button 
+                className="flex items-center justify-between w-full group"
+                onClick={() => setShowPurchases(!showPurchases)}
+              >
+                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">+ Purchases</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+                </div>
+              </button>
+              
+              {/* Inline purchases list */}
+              {showPurchases && (
+                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1.5 pb-1">
+                  {cogsData.purchases && cogsData.purchases.length > 0 ? (
+                    <>
+                      {cogsData.purchases.map((po: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
+                              po.vendor === "PFG" ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600"
+                            }`}>
+                              {po.vendor === "PFG" ? <UtensilsCrossed className="h-3 w-3" /> : <Carrot className="h-3 w-3" />}
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium font-mono">{po.vendor} #{po.id}</p>
+                              <p className="text-[10px] text-muted-foreground">Delivered {po.deliveryDate || po.date}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs font-semibold">${po.amount.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No orders found</p>
+                  )}
+                  {canManageOrders && periodRange && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs mt-1"
+                      disabled={creatingCount}
+                      onClick={async () => {
+                        if (isUpcoming && !realCountId) {
+                          setCreatingCount(true);
+                          try {
+                            const { data, error } = await supabase
+                              .from("inventory_counts")
+                              .insert({
+                                location_id: locationId,
+                                counted_by: user?.id,
+                                count_date: new Date().toISOString().split("T")[0],
+                                period_type: count.period_type,
+                                period_end_date: count.period_end_date,
+                                status: "in_progress",
+                              })
+                              .select()
+                              .single();
+                            if (error) throw error;
+                            setRealCountId(data.id);
+                            queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+                            queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+                            toast.success("Period created — you can now bind orders");
+                            setShowOrderDialog(true);
+                          } catch (err) {
+                            console.error("Failed to create count:", err);
+                            toast.error("Failed to create period");
+                          } finally {
+                            setCreatingCount(false);
+                          }
+                        } else {
+                          setShowOrderDialog(true);
+                        }
+                      }}
+                    >
+                      {creatingCount ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Settings2 className="h-3 w-3 mr-1" />
+                      )}
+                      Manage Orders
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
                 <FormulaRow label="= Cost of Goods Sold" value={cogsData.cogsTotal} bold />
@@ -570,32 +687,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
             {count.period_type === "weekly" && (
               <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
-            )}
-
-            {canManageOrders && onDeleteCount && (
-              <div className="flex justify-end mt-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Count
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit Count
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
             )}
 
           </CardContent>
@@ -616,58 +707,92 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
                   {count.status === "completed" ? "Submitted" : hasCountedItems ? "In Progress" : "Not Started"}
                 </Badge>
-                {canManageOrders && onDeleteCount && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {!isUpcoming && (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit Count
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* 4-tab layout */}
-      <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-11">
-          <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
-            <Truck className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Purchases</span>
-            <span className="sm:hidden">Orders</span>
-          </TabsTrigger>
-          <TabsTrigger value="variance" className="text-xs sm:text-sm gap-1">
-            <BarChart3 className="h-3.5 w-3.5" /> Variance
-          </TabsTrigger>
-        </TabsList>
+      {/* Standalone Variance Section */}
+      {!isUpcoming && varianceData && varianceData.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variance</p>
+            </div>
+            <div className="space-y-0 divide-y divide-border/40">
+              {varianceData.map((v, i) => (
+                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      v.diff < 0 ? "bg-destructive/10" : "bg-accent/60"
+                    }`}>
+                      {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{v.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Previous {v.expected} → Current {v.actual}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${v.diff < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.diff > 0 ? "+" : ""}{v.diff} units
+                    </p>
+                    <p className={`text-xs ${v.cost < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.cost < 0 ? "−" : "+"}${Math.abs(v.cost).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Purchases */}
-        <TabsContent value="purchases" className="mt-3">
-          <Card>
-            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-              {/* Manage Orders button for manager+ */}
-              {canManageOrders && periodRange && (
+      {/* Standalone Variance Section */}
+      {!isUpcoming && varianceData && varianceData.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Variance</p>
+            </div>
+            <div className="space-y-0 divide-y divide-border/40">
+              {varianceData.map((v, i) => (
+                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      v.diff < 0 ? "bg-destructive/10" : "bg-accent/60"
+                    }`}>
+                      {v.diff < 0 ? <TrendingDown className="h-4 w-4 text-destructive" /> : <TrendingUp className="h-4 w-4 text-primary" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{v.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Previous {v.expected} → Current {v.actual}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${v.diff < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.diff > 0 ? "+" : ""}{v.diff} units
+                    </p>
+                    <p className={`text-xs ${v.cost < 0 ? "text-destructive" : "text-primary"}`}>
+                      {v.cost < 0 ? "−" : "+"}${Math.abs(v.cost).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
+
                 <div className="pb-3">
                   <Button
                     variant="outline"
