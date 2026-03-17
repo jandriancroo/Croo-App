@@ -791,8 +791,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
         </Card>
       )}
 
-        {/* Purchases */}
-              {canManageOrders && periodRange && (
+
+
                 <div className="pb-3">
                   <Button
                     variant="outline"
