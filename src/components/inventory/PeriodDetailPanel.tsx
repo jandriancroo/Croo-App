@@ -968,6 +968,7 @@ function DailySpotChecksGrid({
   todayStr: string;
 }) {
   const navigate = useNavigate();
+  const [previewCheck, setPreviewCheck] = useState<any | null>(null);
 
   if (!periodRange) return null;
 
@@ -981,77 +982,122 @@ function DailySpotChecksGrid({
     return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_INITIALS[d.getDay()] };
   });
 
-  const completedDates = new Set((spotChecks || []).filter((sc: any) => sc.completed_at).map((sc: any) => sc.count_date));
-  const completedCount = days.filter((d) => completedDates.has(d.key)).length;
+  const completedMap = new Map<string, any>();
+  for (const sc of (spotChecks || [])) {
+    if (sc.completed_at) completedMap.set(sc.count_date, sc);
+  }
+  const completedCount = days.filter((d) => completedMap.has(d.key)).length;
 
   return (
-    <div className="mt-4 pt-3 border-t border-border/20">
-      <div className="flex items-center justify-between mb-2.5">
-        <div className="flex items-center gap-1.5">
-          <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
+    <>
+      <div className="mt-4 pt-3 border-t border-border/20">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-1.5">
+            <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/{dayCount}</span>
         </div>
-        <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/{dayCount}</span>
-      </div>
 
-      <div className={`grid gap-1.5 ${dayCount <= 7 ? "grid-cols-7" : dayCount === 8 ? "grid-cols-8" : "grid-cols-7"}`}>
-        {days.map((day) => {
-          const isToday = day.key === todayStr;
-          const isFuture = day.key > todayStr;
-          const isCompleted = completedDates.has(day.key);
-          const isPast = day.key < todayStr && !isCompleted;
+        <div className={`grid gap-1.5 ${dayCount <= 7 ? "grid-cols-7" : dayCount === 8 ? "grid-cols-8" : "grid-cols-7"}`}>
+          {days.map((day) => {
+            const isToday = day.key === todayStr;
+            const isFuture = day.key > todayStr;
+            const isCompleted = completedMap.has(day.key);
+            const isPast = day.key < todayStr && !isCompleted;
 
-          return (
-            <div key={day.key} className="flex flex-col items-center">
-              {isToday && !isCompleted ? (
-                <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-primary mb-0.5" />
-              ) : (
-                <div className="h-[7px]" />
-              )}
-              <button
-                disabled={isFuture || isPast}
-                onClick={() => {
-                  if (isToday && !isCompleted) {
-                    navigate(`/inventory/${locationId}/daily-count?date=${day.key}`);
-                  }
-                }}
-                className={`
-                  w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-all
-                  ${isCompleted
-                    ? "bg-emerald-500/10 border border-emerald-500/30"
-                    : isToday
-                      ? "bg-primary/8 border-2 border-primary/50 shadow-sm"
-                      : isFuture
-                        ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
-                        : "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
-                  }
-                `}
-              >
-                <span className={`text-[10px] font-bold leading-none tracking-wide ${
-                  isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
-                }`}>
-                  {day.label}
-                </span>
-                <div className="h-5 w-5 flex items-center justify-center">
-                  {isCompleted ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  ) : isToday ? (
-                    <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-                      <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
-                    </div>
-                  ) : (
-                    <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
-                  )}
-                </div>
-                {isToday && !isCompleted && (
-                  <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
+            return (
+              <div key={day.key} className="flex flex-col items-center">
+                {isToday && !isCompleted ? (
+                  <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-primary mb-0.5" />
+                ) : (
+                  <div className="h-[7px]" />
                 )}
-              </button>
-            </div>
-          );
-        })}
+                <button
+                  disabled={isFuture || isPast}
+                  onClick={() => {
+                    if (isCompleted) {
+                      setPreviewCheck(completedMap.get(day.key));
+                    } else if (isToday) {
+                      navigate(`/inventory/${locationId}/daily-count?date=${day.key}`);
+                    }
+                  }}
+                  className={`
+                    w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-all
+                    ${isCompleted
+                      ? "bg-emerald-500/10 border border-emerald-500/30 cursor-pointer"
+                      : isToday
+                        ? "bg-primary/8 border-2 border-primary/50 shadow-sm"
+                        : isFuture
+                          ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
+                          : "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
+                    }
+                  `}
+                >
+                  <span className={`text-[10px] font-bold leading-none tracking-wide ${
+                    isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
+                  }`}>
+                    {day.label}
+                  </span>
+                  <div className="h-5 w-5 flex items-center justify-center">
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    ) : isToday ? (
+                      <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                        <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
+                      </div>
+                    ) : (
+                      <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
+                    )}
+                  </div>
+                  {isToday && !isCompleted && (
+                    <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Spot Check Preview Dialog */}
+      <Dialog open={!!previewCheck} onOpenChange={(open) => !open && setPreviewCheck(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crosshair className="h-4 w-4 text-primary" />
+              Spot Check — {previewCheck?.count_date ? format(new Date(previewCheck.count_date + "T12:00:00"), "EEE, MMM d") : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {previewCheck?.completed_at
+                ? `Completed ${formatInTimeZone(new Date(previewCheck.completed_at), "America/Los_Angeles", "h:mm a")}`
+                : "In progress"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto -mx-2 px-2 space-y-1.5">
+            {previewCheck?.items?.length > 0 ? (
+              previewCheck.items.map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/40">
+                  <span className="text-sm font-medium truncate mr-2">
+                    {item.inventory_item?.name || "Unknown"}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {item.previous_quantity != null && item.previous_quantity !== item.quantity && (
+                      <span className="text-xs text-muted-foreground line-through">{item.previous_quantity}</span>
+                    )}
+                    <Badge variant="secondary" className="text-sm font-bold min-w-[2rem] justify-center">
+                      {item.quantity}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No items recorded.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
