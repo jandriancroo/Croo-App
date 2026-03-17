@@ -821,14 +821,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </Card>
         </TabsContent>
 
-        {/* Daily Spot Check */}
-        <TabsContent value="spotcheck" className="mt-3">
-          <Card>
-            <CardContent className="p-4">
-              <SpotCheckList checks={spotChecks || []} />
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Manage Orders Dialog */}
