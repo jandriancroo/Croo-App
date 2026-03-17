@@ -113,6 +113,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
           pack_quantity: item.pack_quantity,
           pack_size: item.pack_size,
           pan_sizes: effectivePanSizes,
+          cost_per_unit: item.cost_per_unit,
           storage_location_name: item.storage_location?.name || null,
           count_by: shortcut?.count_by || "inherit",
           pan_enabled_keys: shortcut?.pan_enabled_keys || null,
