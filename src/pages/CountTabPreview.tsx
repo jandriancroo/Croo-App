@@ -164,13 +164,20 @@ function NotchTabConcept() {
                     }`}>
                       {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
-                    {count._stats.totalCost > 0 && (
+                    {count._stats.cogsPct != null ? (
+                      <span className={`text-[9px] tabular-nums font-semibold leading-none ${
+                        isActive ? "text-primary-foreground/70"
+                          : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70"
+                      }`}>
+                        {count._stats.cogsPct}%
+                      </span>
+                    ) : count._stats.totalCost > 0 ? (
                       <span className={`text-[9px] tabular-nums leading-none ${
                         isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
                       }`}>
                         ${(count._stats.totalCost / 1000).toFixed(1)}k
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </button>
 
