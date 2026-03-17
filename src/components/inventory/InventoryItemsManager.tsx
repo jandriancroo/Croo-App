@@ -1208,49 +1208,19 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
           {/* List sub-view */}
           {itemsSubView === "list" && <>
-          {isReorderMode && (
+          {isPlacingMode && (
             <div className="flex items-center gap-2 px-1">
               <p className="text-xs text-muted-foreground flex-1">
-                {isPlacingMode
-                  ? `Tap where to place ${pickedItemIds.size} item${pickedItemIds.size > 1 ? 's' : ''}.`
-                  : pickedItemIds.size > 0 
-                  ? `${pickedItemIds.size} selected — tap "Move" then tap target.`
-                  : "Tap items to select, then press Move."}
+                Tap where to place {pickedItemIds.size} item{pickedItemIds.size > 1 ? 's' : ''}.
               </p>
-              {pickedItemIds.size > 0 && !isPlacingMode && (
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="h-7 text-xs px-3"
-                  onClick={() => setIsPlacingMode(true)}
-                >
-                  Move
-                </Button>
-              )}
-              {isPlacingMode && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs px-3"
-                  onClick={() => setIsPlacingMode(false)}
-                >
-                  Back
-                </Button>
-              )}
-              {pickedItemIds.size > 0 && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs px-2"
-                  onClick={() => {
-                    setPickedItemIds(new Set());
-                    setPickedGroupKey(null);
-                    setIsPlacingMode(false);
-                  }}
-                >
-                  Clear
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-3"
+                onClick={() => setIsPlacingMode(false)}
+              >
+                Cancel
+              </Button>
             </div>
           )}
           {items && items.length > 0 ? (
