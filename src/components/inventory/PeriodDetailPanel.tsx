@@ -547,13 +547,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
               </div>
             </div>
 
-            {/* Order binding indicator */}
-            {!cogsData.hasBoundOrders && cogsData.purchases.length > 0 && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-amber-600">
-                <Settings2 className="h-3.5 w-3.5" />
-                <span>Using date-range purchases — bind orders for accuracy</span>
-              </div>
-            )}
           </CardContent>
         </Card>
       ) : (
