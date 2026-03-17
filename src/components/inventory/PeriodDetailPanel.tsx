@@ -44,7 +44,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
+  const _stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
