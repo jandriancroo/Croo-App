@@ -293,6 +293,81 @@ function DetailCardContent({ count }: { count: any }) {
   );
 }
 
+// ——— Daily Counts Section ———
+function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; status: string }) {
+  // Mock daily counts for this week
+  const endDate = new Date(periodEndDate + "T12:00:00");
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(endDate);
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+
+  // Mock: some days have counts, some don't
+  const mockDailyCounts: Record<string, { items: number; total: number; flagged: number }> = {
+    [format(days[0], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 0 },
+    [format(days[1], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 1 },
+    [format(days[2], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 0 },
+    [format(days[4], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 2 },
+    [format(days[5], "yyyy-MM-dd")]: { items: 6, total: 8, flagged: 0 },
+  };
+
+  return (
+    <div className="mt-4 pt-3 border-t border-border/20">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{Object.keys(mockDailyCounts).length}/7 days</span>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day) => {
+          const key = format(day, "yyyy-MM-dd");
+          const data = mockDailyCounts[key];
+          const isToday = format(new Date(), "yyyy-MM-dd") === key;
+
+          return (
+            <button
+              key={key}
+              className={`
+                flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all text-center
+                ${data
+                  ? data.flagged > 0
+                    ? "bg-amber-500/10 border border-amber-500/30"
+                    : "bg-emerald-500/8 border border-emerald-500/20"
+                  : isToday
+                    ? "bg-primary/5 border border-primary/30 border-dashed"
+                    : "bg-muted/30 border border-transparent"
+                }
+              `}
+            >
+              <span className="text-[9px] font-medium text-muted-foreground leading-none">
+                {format(day, "EEE").charAt(0)}
+              </span>
+              <span className={`text-[11px] font-bold leading-none ${isToday ? "text-primary" : ""}`}>
+                {format(day, "d")}
+              </span>
+              {data ? (
+                <span className={`text-[8px] font-semibold leading-none ${
+                  data.flagged > 0 ? "text-amber-600" : "text-emerald-600"
+                }`}>
+                  {data.flagged > 0 ? `${data.flagged}!` : "✓"}
+                </span>
+              ) : isToday ? (
+                <span className="text-[8px] text-primary font-medium leading-none">—</span>
+              ) : (
+                <span className="text-[8px] text-muted-foreground/40 leading-none">·</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ——— Small components ———
 function StatusBadge({ status, isUpcoming }: { status: string; isUpcoming: boolean }) {
   if (isUpcoming) return (
