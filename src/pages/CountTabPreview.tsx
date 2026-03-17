@@ -345,7 +345,7 @@ function DailyCountsSection({ periodEndDate, periodStartDate }: { periodEndDate:
         <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/{dayCount}</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className={`grid gap-1.5 ${dayCount <= 7 ? "grid-cols-7" : dayCount === 8 ? "grid-cols-8" : "grid-cols-7"}`}>
         {days.map((day) => {
           const isToday = day.key === today;
           const isFuture = day.key > today;
