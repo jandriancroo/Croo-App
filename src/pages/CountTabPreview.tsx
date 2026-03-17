@@ -147,7 +147,7 @@ function NotchTabConcept() {
 
                   {/* Left accent bar for upcoming/in-progress */}
                   {(count._isUpcoming || isInProgress) && (
-                    <div className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${
+                    <div className={`absolute left-1.5 top-3 bottom-3 w-[2.5px] rounded-full ${
                       isInProgress ? "bg-amber-400" : "bg-emerald-400"
                     } ${!isActive ? "animate-pulse" : ""}`} />
                   )}
