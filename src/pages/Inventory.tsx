@@ -378,6 +378,7 @@ const Inventory = () => {
               recentCounts={recentCounts}
               onStartCount={handleStartCount}
               onDeleteCount={handleDeleteClick}
+              onCreateCountForPeriod={(periodType, periodEndDate) => handleConfirmStart(periodType, periodEndDate)}
             />
           </TabsContent>
 
