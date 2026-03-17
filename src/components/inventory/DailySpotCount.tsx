@@ -385,6 +385,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
           const showSimple = countBy === "inherit" || (!showCases && !showUnits);
           const hasPans = item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0;
           const packQty = item.pack_quantity || 1;
+          const itemCost = (item.cost_per_unit || 0) * totalQty / packQty;
 
           return (
             <div
@@ -394,19 +395,13 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
               {/* Left accent bar (Vault) */}
               <div className="w-1 bg-primary flex-shrink-0" />
 
-              {/* Delta badge — pinned to top-right */}
-              {delta != null && delta !== 0 && (
-                <div className={cn(
-                  "absolute top-0 right-0 px-2.5 py-1 rounded-bl-lg text-xs font-semibold",
-                  delta > 0 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
-                  "bg-destructive/15 text-destructive"
-                )}>
-                  <div className="flex items-center gap-0.5">
-                    {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {delta > 0 ? `+${delta}` : delta}
-                  </div>
-                </div>
-              )}
+              {/* Value badge — pinned to top-right corner */}
+              <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
+                <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
+                <p className="text-[9px] text-accent-foreground/70 text-center">
+                  {totalQty} units
+                </p>
+              </div>
 
               <div className="flex-1 min-w-0">
                 {/* Item header */}
