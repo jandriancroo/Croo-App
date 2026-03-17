@@ -422,11 +422,16 @@ const Inventory = () => {
 
       <StartCountDialog
         open={showStartDialog}
-        onOpenChange={setShowStartDialog}
+        onOpenChange={(open) => {
+          setShowStartDialog(open);
+          if (!open) setPreselectedPeriod(null);
+        }}
         locationId={locationId!}
         onStartCount={handleConfirmStart}
         onStartDailyCount={() => setShowDailyCount(true)}
         isPending={startCountMutation.isPending}
+        preselectedPeriodType={preselectedPeriod?.type}
+        preselectedPeriodEndDate={preselectedPeriod?.endDate}
       />
 
       <DeleteCountDialog
