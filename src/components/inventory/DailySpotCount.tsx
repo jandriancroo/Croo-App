@@ -271,6 +271,8 @@ const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
       toast.success("Daily spot count saved!");
       queryClient.invalidateQueries({ queryKey: ["daily-spot-count", locationId, today] });
       queryClient.invalidateQueries({ queryKey: ["daily-spot-history", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["daily-spot-check-completed"] });
+      onSaved?.();
     },
     onError: () => {
       toast.error("Failed to save spot count");
