@@ -22,7 +22,7 @@ import {
 import {
   Eye, Pencil, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, Loader2,
-  Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
+  Settings2, MoreVertical, UtensilsCrossed, Carrot,
   Play, Plus, CheckCircle2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
@@ -593,13 +593,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit Count
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => onDeleteCount(count)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Reset Count
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -647,13 +640,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                           </DropdownMenuItem>
                         </>
                       )}
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => onDeleteCount(count)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Reset Count
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
