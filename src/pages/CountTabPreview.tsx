@@ -391,7 +391,7 @@ function DailyCountsSection({ periodEndDate, periodStartDate }: { periodEndDate:
                 )}
               </div>
               {isToday && !isCompleted && (
-                <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Count</span>
+                <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
               )}
             </button>
           );
