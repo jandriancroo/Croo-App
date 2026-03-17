@@ -100,6 +100,7 @@ const LocationSwitchPreview = lazyWithRetry(() => import("./pages/LocationSwitch
 const TimelineStylePreview = lazyWithRetry(() => import("./pages/TimelineStylePreview"));
 const SchedulePreview = lazyWithRetry(() => import("./pages/SchedulePreview"));
 const DashboardStylePreview = lazyWithRetry(() => import("./pages/DashboardStylePreview"));
+const CountTabPreview = lazyWithRetry(() => import("./pages/CountTabPreview"));
 
 const queryClient = new QueryClient();
 
