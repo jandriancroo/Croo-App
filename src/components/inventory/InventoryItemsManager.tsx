@@ -418,10 +418,68 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
         .eq("id", itemId);
       
       if (error) throw error;
+
+      // Auto-create "Daily Spot Check" storage location + shortcut when enabling daily tracking
+      if (is_daily_tracked) {
+        // Check if "Daily Spot Check" storage location exists
+        const { data: existing } = await supabase
+          .from("inventory_locations")
+          .select("id")
+          .eq("location_id", locationId)
+          .eq("name", "Daily Spot Check")
+          .maybeSingle();
+
+        let spotCheckLocId = existing?.id;
+
+        if (!spotCheckLocId) {
+          // Get max display_order to put it at the end
+          const { data: maxOrder } = await supabase
+            .from("inventory_locations")
+            .select("display_order")
+            .eq("location_id", locationId)
+            .order("display_order", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const nextOrder = ((maxOrder?.display_order as number) || 0) + 1;
+
+          const { data: newLoc, error: locErr } = await supabase
+            .from("inventory_locations")
+            .insert({ location_id: locationId, name: "Daily Spot Check", display_order: nextOrder } as any)
+            .select("id")
+            .single();
+
+          if (locErr) {
+            console.error("Failed to create Daily Spot Check location:", locErr);
+          } else {
+            spotCheckLocId = newLoc.id;
+          }
+        }
+
+        // Create shortcut entry if the item's primary location is different
+        if (spotCheckLocId) {
+          const { data: itemData } = await supabase
+            .from("inventory_items")
+            .select("storage_location_id")
+            .eq("id", itemId)
+            .single();
+
+          if (itemData?.storage_location_id !== spotCheckLocId) {
+            await supabase
+              .from("inventory_item_locations")
+              .upsert(
+                { item_id: itemId, storage_location_id: spotCheckLocId } as any,
+                { onConflict: "item_id,storage_location_id" }
+              );
+          }
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Item updated");
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-item-shortcuts", locationId] });
       setEditingItem(null);
     },
     onError: () => {
