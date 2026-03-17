@@ -13,7 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Eye, Pencil, Truck, BarChart3, ClipboardCheck,
+  Eye, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, Loader2,
   Settings2, UtensilsCrossed, Carrot, ChevronDown,
   Play, Plus, CheckCircle2,
