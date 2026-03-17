@@ -2100,6 +2100,20 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
               <Button
                 size="sm"
                 variant="secondary"
+                onClick={() => {
+                  // Enter reorder placing mode: use selected items as picked items
+                  setPickedItemIds(new Set(selectedItemIds));
+                  setPickedGroupKey(activeSelectGroup);
+                  setIsPlacingMode(true);
+                }}
+                className="gap-1.5"
+              >
+                <ListOrdered className="h-4 w-4" />
+                Reorder
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
                 onClick={() => { setBulkMoveTargets(new Set()); setShowBulkMoveDialog(true); }}
                 className="gap-1.5"
               >
@@ -2137,7 +2151,13 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => { setSelectedItemIds(new Set()); setActiveSelectGroup(null); }}
+              onClick={() => {
+                setSelectedItemIds(new Set());
+                setActiveSelectGroup(null);
+                setPickedItemIds(new Set());
+                setPickedGroupKey(null);
+                setIsPlacingMode(false);
+              }}
               className="hover:bg-primary-foreground/10"
             >
               <X className="h-4 w-4" />
