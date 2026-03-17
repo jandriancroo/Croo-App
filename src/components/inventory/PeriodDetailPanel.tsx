@@ -607,7 +607,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                  {count.status === "completed" ? "Submitted" : "In Progress"}
+                  {count.status === "completed" ? "Submitted" : hasCountedItems ? "In Progress" : "Not Started"}
                 </Badge>
                 {canManageOrders && onDeleteCount && (
                   <DropdownMenu>
