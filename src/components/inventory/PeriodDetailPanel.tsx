@@ -412,7 +412,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
       if (error) return [];
       return data || [];
     },
-    enabled: !!periodRange && (count.status === "completed" || isUpcoming),
+    enabled: !!periodRange,
     staleTime: 5 * 60 * 1000,
   });
 
