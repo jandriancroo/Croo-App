@@ -45,6 +45,8 @@ interface StartCountDialogProps {
   onStartCount: (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => void;
   onStartDailyCount?: () => void;
   isPending: boolean;
+  preselectedPeriodType?: string;
+  preselectedPeriodEndDate?: string;
 }
 
 interface PeriodOption {
@@ -73,6 +75,8 @@ const StartCountDialog = ({
   onStartCount,
   onStartDailyCount,
   isPending,
+  preselectedPeriodType,
+  preselectedPeriodEndDate,
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -383,6 +387,18 @@ const StartCountDialog = ({
     // Filter out dismissed past-due periods
     return finalOptions.filter((o) => !dismissedPeriods.includes(o.id));
   }, [scheduleSettings, existingCounts, periodConfig, timezone, dismissedPeriods]);
+
+  // Auto-select period when opened with preselected values (e.g. from ➕ button on period card)
+  useEffect(() => {
+    if (open && preselectedPeriodType && preselectedPeriodEndDate && periodOptions.length > 0) {
+      const match = periodOptions.find(
+        (p) => p.type === preselectedPeriodType && p.periodEndDate === preselectedPeriodEndDate
+      );
+      if (match) {
+        setSelectedPeriod(match.id);
+      }
+    }
+  }, [open, preselectedPeriodType, preselectedPeriodEndDate, periodOptions]);
 
   // Auto-sync when entering sync step
   useEffect(() => {

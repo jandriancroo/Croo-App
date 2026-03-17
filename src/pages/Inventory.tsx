@@ -39,6 +39,7 @@ const Inventory = () => {
   const canAccessInventory = isAdmin || hasPermission('manage_inventory');
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
+  const [preselectedPeriod, setPreselectedPeriod] = useState<{ type: string; endDate: string } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
   const [showExportMaster, setShowExportMaster] = useState(false);
@@ -371,7 +372,10 @@ const Inventory = () => {
               recentCounts={recentCounts}
               onStartCount={handleStartCount}
               onDeleteCount={handleDeleteClick}
-              onCreateCountForPeriod={(periodType, periodEndDate) => handleConfirmStart(periodType, periodEndDate)}
+              onCreateCountForPeriod={(periodType, periodEndDate) => {
+                setPreselectedPeriod({ type: periodType, endDate: periodEndDate });
+                setShowStartDialog(true);
+              }}
               onStartDailyCount={() => setShowDailyCount(true)}
             />
           </TabsContent>
@@ -418,11 +422,16 @@ const Inventory = () => {
 
       <StartCountDialog
         open={showStartDialog}
-        onOpenChange={setShowStartDialog}
+        onOpenChange={(open) => {
+          setShowStartDialog(open);
+          if (!open) setPreselectedPeriod(null);
+        }}
         locationId={locationId!}
         onStartCount={handleConfirmStart}
         onStartDailyCount={() => setShowDailyCount(true)}
         isPending={startCountMutation.isPending}
+        preselectedPeriodType={preselectedPeriod?.type}
+        preselectedPeriodEndDate={preselectedPeriod?.endDate}
       />
 
       <DeleteCountDialog
