@@ -162,7 +162,7 @@ function NotchTabConcept() {
                     <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
                       isActive ? "text-primary-foreground/60" : "text-muted-foreground"
                     }`}>
-                      {count.period_type === "monthly" ? "Month" : "Week"}
+                      {count.period_type === "monthly" ? "Mo. Ending" : "Wk Ending"}
                     </span>
                     <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
                       isCompleted && !isActive ? "text-muted-foreground" : ""
@@ -300,7 +300,7 @@ function DetailCardContent({ count }: { count: any }) {
 }
 
 // ——— Daily Counts Section ———
-const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "Su"];
+const DAY_INITIALS: Record<number, string> = { 0: "Su", 1: "M", 2: "T", 3: "W", 4: "T", 5: "F", 6: "S" };
 
 // Mock daily count detail data
 const MOCK_DAILY_ITEMS = [
@@ -314,15 +314,22 @@ const MOCK_DAILY_ITEMS = [
   { name: "Banana Pudding", expected: 4, counted: 4, unit: "pans" },
 ];
 
-function DailyCountsSection({ periodEndDate }: { periodEndDate: string }) {
+function DailyCountsSection({ periodEndDate, periodStartDate }: { periodEndDate: string; periodStartDate?: string }) {
   const [previewDay, setPreviewDay] = useState<string | null>(null);
   const endDate = new Date(periodEndDate + "T12:00:00");
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(endDate);
-    d.setDate(d.getDate() - (6 - i));
-    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_LABELS[i] };
+  // Calculate start date: use provided start or default to 6 days before end (standard 7-day week)
+  const startDate = periodStartDate
+    ? new Date(periodStartDate + "T12:00:00")
+    : (() => { const d = new Date(endDate); d.setDate(d.getDate() - 6); return d; })();
+
+  // Build dynamic day array based on actual period range
+  const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const days = Array.from({ length: dayCount }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_INITIALS[d.getDay()] };
   });
 
   const completedDays = new Set([days[0].key, days[1].key, days[2].key, days[4].key]);
@@ -335,10 +342,10 @@ function DailyCountsSection({ periodEndDate }: { periodEndDate: string }) {
           <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
         </div>
-        <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/7</span>
+        <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/{dayCount}</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className={`grid gap-1.5 ${dayCount <= 7 ? "grid-cols-7" : dayCount === 8 ? "grid-cols-8" : "grid-cols-7"}`}>
         {days.map((day) => {
           const isToday = day.key === today;
           const isFuture = day.key > today;
