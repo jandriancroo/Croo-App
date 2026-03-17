@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Plus, Play, Package, ArrowRight, ChevronLeft, ChevronRight,
-  DollarSign, CheckCircle2, BarChart3, ArrowLeft,
+  DollarSign, CheckCircle2, BarChart3, ArrowLeft, ClipboardCheck, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
