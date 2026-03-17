@@ -446,6 +446,17 @@ const Inventory = () => {
         onOpenChange={setShowBOMImport}
         locationId={locationId!}
       />
+
+      <Sheet open={showDailyCount} onOpenChange={setShowDailyCount}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl pb-safe overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Daily Count</SheetTitle>
+          </SheetHeader>
+          <div className="pt-2">
+            <DailySpotCount locationId={locationId!} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 };
