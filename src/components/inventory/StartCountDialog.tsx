@@ -971,9 +971,9 @@ const StartCountDialog = ({
               <div className="space-y-3">
                 {periodOptions.map((option, index) => {
                   // Add a subtle separator before Flex Count / Quick Count
-                  const isBottomOption = option.id === "flex" || option.id === "adhoc";
+                  const isBottomOption = option.id === "daily" || option.id === "flex" || option.id === "adhoc";
                   const prevOption = index > 0 ? periodOptions[index - 1] : null;
-                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "daily" && prevOption.id !== "flex" && prevOption.id !== "adhoc";
                   
                   return (
                     <div key={option.id}>
