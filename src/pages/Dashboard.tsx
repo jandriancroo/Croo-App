@@ -755,7 +755,12 @@ export default function Dashboard() {
       <AssignedTemporaryTasks 
         compact 
         includeEventTasks 
-        afterEventsContent={<CashHandlingTasks locationHours={locationSettings} timezone={timezone} />}
+        afterEventsContent={
+          <>
+            <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+            <DailySpotCheckTask locationHours={locationSettings} timezone={timezone} />
+          </>
+        }
       />
       
       {/* OvationUp Reviews */}
