@@ -12,15 +12,15 @@ import { useNavigate } from "react-router-dom";
 
 // ——— Mock data ———
 const MOCK_COUNTS = [
-  { id: "current-week", status: "upcoming", period_type: "weekly", period_end_date: "2026-03-17", count_date: "2026-03-16", _isUpcoming: true, _stats: { totalItems: 202, countedItems: 0, totalCost: 0 } },
-  { id: "week-mar-10", status: "in_progress", period_type: "weekly", period_end_date: "2026-03-10", count_date: "2026-03-10", _stats: { totalItems: 202, countedItems: 167, totalCost: 14230 } },
-  { id: "week-mar-3", status: "completed", period_type: "weekly", period_end_date: "2026-03-03", count_date: "2026-03-03", _stats: { totalItems: 202, countedItems: 202, totalCost: 13870 } },
-  { id: "me-feb", status: "completed", period_type: "monthly", period_end_date: "2026-02-28", count_date: "2026-02-28", _stats: { totalItems: 202, countedItems: 202, totalCost: 15420 } },
-  { id: "week-feb-24", status: "completed", period_type: "weekly", period_end_date: "2026-02-24", count_date: "2026-02-24", _stats: { totalItems: 198, countedItems: 198, totalCost: 12980 } },
-  { id: "week-feb-17", status: "completed", period_type: "weekly", period_end_date: "2026-02-17", count_date: "2026-02-17", _stats: { totalItems: 198, countedItems: 198, totalCost: 13150 } },
-  { id: "week-feb-10", status: "completed", period_type: "weekly", period_end_date: "2026-02-10", count_date: "2026-02-10", _stats: { totalItems: 195, countedItems: 195, totalCost: 12640 } },
-  { id: "week-feb-3", status: "completed", period_type: "weekly", period_end_date: "2026-02-03", count_date: "2026-02-03", _stats: { totalItems: 195, countedItems: 195, totalCost: 12200 } },
-  { id: "me-jan", status: "completed", period_type: "monthly", period_end_date: "2026-01-31", count_date: "2026-01-31", _stats: { totalItems: 195, countedItems: 195, totalCost: 14800 } },
+  { id: "current-week", status: "upcoming", period_type: "weekly", period_end_date: "2026-03-17", count_date: "2026-03-16", _isUpcoming: true, _stats: { totalItems: 202, countedItems: 0, totalCost: 0, cogsPct: null } },
+  { id: "week-mar-10", status: "in_progress", period_type: "weekly", period_end_date: "2026-03-10", count_date: "2026-03-10", _stats: { totalItems: 202, countedItems: 167, totalCost: 14230, cogsPct: null } },
+  { id: "week-mar-3", status: "completed", period_type: "weekly", period_end_date: "2026-03-03", count_date: "2026-03-03", _stats: { totalItems: 202, countedItems: 202, totalCost: 13870, cogsPct: 21.4 } },
+  { id: "me-feb", status: "completed", period_type: "monthly", period_end_date: "2026-02-28", count_date: "2026-02-28", _stats: { totalItems: 202, countedItems: 202, totalCost: 15420, cogsPct: 22.1 } },
+  { id: "week-feb-24", status: "completed", period_type: "weekly", period_end_date: "2026-02-24", count_date: "2026-02-24", _stats: { totalItems: 198, countedItems: 198, totalCost: 12980, cogsPct: 20.8 } },
+  { id: "week-feb-17", status: "completed", period_type: "weekly", period_end_date: "2026-02-17", count_date: "2026-02-17", _stats: { totalItems: 198, countedItems: 198, totalCost: 13150, cogsPct: 23.1 } },
+  { id: "week-feb-10", status: "completed", period_type: "weekly", period_end_date: "2026-02-10", count_date: "2026-02-10", _stats: { totalItems: 195, countedItems: 195, totalCost: 12640, cogsPct: 21.7 } },
+  { id: "week-feb-3", status: "completed", period_type: "weekly", period_end_date: "2026-02-03", count_date: "2026-02-03", _stats: { totalItems: 195, countedItems: 195, totalCost: 12200, cogsPct: 22.4 } },
+  { id: "me-jan", status: "completed", period_type: "monthly", period_end_date: "2026-01-31", count_date: "2026-01-31", _stats: { totalItems: 195, countedItems: 195, totalCost: 14800, cogsPct: 21.9 } },
 ];
 
 export default function CountTabPreview() {
@@ -164,13 +164,20 @@ function NotchTabConcept() {
                     }`}>
                       {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
                     </span>
-                    {count._stats.totalCost > 0 && (
+                    {count._stats.cogsPct != null ? (
+                      <span className={`text-[9px] tabular-nums font-semibold leading-none ${
+                        isActive ? "text-primary-foreground/70"
+                          : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70"
+                      }`}>
+                        {count._stats.cogsPct}%
+                      </span>
+                    ) : count._stats.totalCost > 0 ? (
                       <span className={`text-[9px] tabular-nums leading-none ${
                         isActive ? "text-primary-foreground/70" : "text-muted-foreground/70"
                       }`}>
                         ${(count._stats.totalCost / 1000).toFixed(1)}k
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </button>
 
