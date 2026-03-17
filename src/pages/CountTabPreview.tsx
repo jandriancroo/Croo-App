@@ -96,65 +96,61 @@ function NotchTabConcept() {
       {/* Notch tabs + detail card */}
       <div>
         {/* Tab strip */}
-        <div className="relative">
-          {/* Edge fades */}
-          <div className="absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+        <div ref={tabsRef} className="grid gap-1.5 pb-0" style={{
+          gridTemplateColumns: `repeat(${filteredCounts.length}, minmax(0, 1fr))`,
+        }}>
+          {filteredCounts.map((count, idx) => {
+            const isActive = idx === safeIdx;
+            const endDate = new Date(count.period_end_date + "T12:00:00");
+            const isInProgress = count.status === "in_progress";
 
-          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto px-1 pb-0" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-            {filteredCounts.map((count, idx) => {
-              const isActive = idx === safeIdx;
-              const endDate = new Date(count.period_end_date + "T12:00:00");
-              const isInProgress = count.status === "in_progress";
-
-              return (
-                <div key={count.id} className="flex-shrink-0 flex flex-col items-center" data-active={isActive}>
-                  <button
-                    onClick={() => setSelectedIdx(idx)}
-                    className={`
-                      px-3.5 py-2.5 min-w-[76px] rounded-xl border transition-all duration-200 relative
-                      ${isActive
-                        ? "bg-primary text-primary-foreground border-primary shadow-md"
-                        : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
-                      }
-                    `}
-                  >
-                    {/* Status dot */}
-                    {(count._isUpcoming || isInProgress) && (
-                      <span className={`absolute top-1.5 right-1.5 h-2 w-2 rounded-full ${
-                        isInProgress ? "bg-amber-400" : "bg-emerald-400"
-                      } ${!isActive ? "animate-pulse" : ""}`} />
-                    )}
-
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className={`text-[9px] uppercase font-bold tracking-widest leading-none ${
-                        isActive ? "text-primary-foreground/60" : "text-muted-foreground"
-                      }`}>
-                        {count.period_type === "monthly" ? "Month" : "Week"}
-                      </span>
-                      <span className="text-[13px] font-bold leading-tight whitespace-nowrap">
-                        {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
-                      </span>
-                      {count._stats.totalCost > 0 && (
-                        <span className={`text-[10px] tabular-nums leading-none ${
-                          isActive ? "text-primary-foreground/70" : "text-muted-foreground"
-                        }`}>
-                          ${(count._stats.totalCost / 1000).toFixed(1)}k
-                        </span>
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Notch arrow — only on active */}
-                  {isActive ? (
-                    <div className="w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
-                  ) : (
-                    <div className="h-[10px]" />
+            return (
+              <div key={count.id} className="flex flex-col items-center" data-active={isActive}>
+                <button
+                  onClick={() => setSelectedIdx(idx)}
+                  className={`
+                    w-full py-2 rounded-xl border transition-all duration-200 relative
+                    ${isActive
+                      ? "bg-primary text-primary-foreground border-primary shadow-md"
+                      : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
+                    }
+                  `}
+                >
+                  {/* Status dot */}
+                  {(count._isUpcoming || isInProgress) && (
+                    <span className={`absolute top-1 right-1 h-2 w-2 rounded-full ${
+                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
+                    } ${!isActive ? "animate-pulse" : ""}`} />
                   )}
-                </div>
-              );
-            })}
-          </div>
+
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
+                      isActive ? "text-primary-foreground/60" : "text-muted-foreground"
+                    }`}>
+                      {count.period_type === "monthly" ? "Month" : "Week"}
+                    </span>
+                    <span className="text-[12px] font-bold leading-tight whitespace-nowrap">
+                      {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
+                    </span>
+                    {count._stats.totalCost > 0 && (
+                      <span className={`text-[9px] tabular-nums leading-none ${
+                        isActive ? "text-primary-foreground/70" : "text-muted-foreground"
+                      }`}>
+                        ${(count._stats.totalCost / 1000).toFixed(1)}k
+                      </span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Notch arrow — only on active */}
+                {isActive ? (
+                  <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
+                ) : (
+                  <div className="h-[8px]" />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Detail card */}
