@@ -568,7 +568,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             </div>
 
             {count.period_type === "weekly" && (
-              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} />
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
             )}
 
             {canManageOrders && onDeleteCount && (
