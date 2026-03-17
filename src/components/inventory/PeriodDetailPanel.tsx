@@ -751,8 +751,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
           </CardContent>
         </Card>
       )}
-            <span className="hidden sm:inline">Purchases</span>
-            <span className="sm:hidden">Orders</span>
           </TabsTrigger>
           <TabsTrigger value="variance" className="text-xs sm:text-sm gap-1">
             <BarChart3 className="h-3.5 w-3.5" /> Variance
