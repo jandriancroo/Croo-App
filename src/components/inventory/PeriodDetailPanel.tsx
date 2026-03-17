@@ -906,8 +906,8 @@ function DailySpotChecksGrid({
                   onClick={() => {
                     if (isCompleted) {
                       setPreviewCheck(completedMap.get(day.key));
-                    } else if (isToday) {
-                      navigate(`/inventory/${locationId}/daily-count?date=${day.key}`);
+                    } else if (isToday && onStartDailyCount) {
+                      onStartDailyCount();
                     }
                   }}
                   className={`
