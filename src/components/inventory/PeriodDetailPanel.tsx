@@ -476,9 +476,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                       Flex
                     </Badge>
                   )}
-                  {periodRange?.isNonStandard && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      {periodRange.activeDays}d
+                  {count.status === "completed" && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-emerald-500/50 text-emerald-600">
+                      Submitted
                     </Badge>
                   )}
                 </div>
