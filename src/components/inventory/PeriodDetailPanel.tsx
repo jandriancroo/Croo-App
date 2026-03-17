@@ -38,9 +38,10 @@ interface PeriodDetailPanelProps {
   count: any;
   locationId: string;
   onDeleteCount?: (count: any) => void;
+  onStartCount?: () => void;
 }
 
-export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: PeriodDetailPanelProps) {
+export default function PeriodDetailPanel({ count, locationId, onDeleteCount, onStartCount }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
