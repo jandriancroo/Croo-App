@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Truck,
-  Sun,
+  
   X
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
