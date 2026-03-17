@@ -496,14 +496,27 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   </Badge>
                 )}
               </div>
-              {count.status === "completed" && (
-                <div className="text-right flex-shrink-0 ml-3">
-                  <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <div className="text-right">
+                  <p className={`text-2xl font-bold leading-none ${
+                    count.status === "completed"
+                      ? (cogsData.cogsPct > 22 ? "text-destructive" : "")
+                      : "text-muted-foreground"
+                  }`}>
                     {cogsData.cogsPct.toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
                 </div>
-              )}
+                {count.status === "in_progress" && (
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?continue=true`)}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             {/* Sub-details */}
             <div className="mb-4">
