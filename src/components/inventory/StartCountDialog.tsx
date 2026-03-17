@@ -75,6 +75,8 @@ const StartCountDialog = ({
   onStartCount,
   onStartDailyCount,
   isPending,
+  preselectedPeriodType,
+  preselectedPeriodEndDate,
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
