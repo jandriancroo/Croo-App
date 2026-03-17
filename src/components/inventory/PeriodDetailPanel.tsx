@@ -962,6 +962,108 @@ function SpotCheckList({ checks }: { checks: any[] }) {
   );
 }
 
+// ——— Daily Spot Checks Grid ———
+const DAY_INITIALS: Record<number, string> = { 0: "Su", 1: "M", 2: "T", 3: "W", 4: "Th", 5: "F", 6: "S" };
+
+function DailySpotChecksGrid({
+  periodRange,
+  spotChecks,
+  locationId,
+  todayStr,
+}: {
+  periodRange: { startStr: string; endStr: string } | null;
+  spotChecks: any[] | undefined;
+  locationId: string;
+  todayStr: string;
+}) {
+  const navigate = useNavigate();
+
+  if (!periodRange) return null;
+
+  const startDate = new Date(periodRange.startStr + "T12:00:00");
+  const endDate = new Date(periodRange.endStr + "T12:00:00");
+  const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  const days = Array.from({ length: dayCount }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_INITIALS[d.getDay()] };
+  });
+
+  const completedDates = new Set((spotChecks || []).filter((sc: any) => sc.completed_at).map((sc: any) => sc.count_date));
+  const completedCount = days.filter((d) => completedDates.has(d.key)).length;
+
+  return (
+    <div className="mt-4 pt-3 border-t border-border/20">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-1.5">
+          <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/{dayCount}</span>
+      </div>
+
+      <div className={`grid gap-1.5 ${dayCount <= 7 ? "grid-cols-7" : dayCount === 8 ? "grid-cols-8" : "grid-cols-7"}`}>
+        {days.map((day) => {
+          const isToday = day.key === todayStr;
+          const isFuture = day.key > todayStr;
+          const isCompleted = completedDates.has(day.key);
+          const isPast = day.key < todayStr && !isCompleted;
+
+          return (
+            <div key={day.key} className="flex flex-col items-center">
+              {isToday && !isCompleted ? (
+                <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-primary mb-0.5" />
+              ) : (
+                <div className="h-[7px]" />
+              )}
+              <button
+                disabled={isFuture || isPast}
+                onClick={() => {
+                  if (isToday && !isCompleted) {
+                    navigate(`/inventory/${locationId}/daily-count?date=${day.key}`);
+                  }
+                }}
+                className={`
+                  w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-all
+                  ${isCompleted
+                    ? "bg-emerald-500/10 border border-emerald-500/30"
+                    : isToday
+                      ? "bg-primary/8 border-2 border-primary/50 shadow-sm"
+                      : isFuture
+                        ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
+                        : "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
+                  }
+                `}
+              >
+                <span className={`text-[10px] font-bold leading-none tracking-wide ${
+                  isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
+                }`}>
+                  {day.label}
+                </span>
+                <div className="h-5 w-5 flex items-center justify-center">
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  ) : isToday ? (
+                    <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                      <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
+                    </div>
+                  ) : (
+                    <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
+                  )}
+                </div>
+                {isToday && !isCompleted && (
+                  <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ——— Helpers ———
 
 function formatPeriodLabel(count: any): string {
