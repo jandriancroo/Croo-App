@@ -582,6 +582,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
+                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Count
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Count
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
                       onClick={() => onDeleteCount(count)}
                     >
