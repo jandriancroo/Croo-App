@@ -71,23 +71,7 @@ function NotchTabConcept() {
 
   return (
     <div className="space-y-3">
-      {/* Start Count card */}
-      <Card>
-        <CardContent className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Package className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm">Start Inventory Count</h3>
-              <p className="text-muted-foreground text-xs">Select a period and begin counting</p>
-            </div>
-          </div>
-          <Button size="sm"><Plus className="h-4 w-4 mr-1.5" /> New</Button>
-        </CardContent>
-      </Card>
-
-      {/* Filter chips + counter */}
+      {/* Filter chips + New button */}
       <div className="flex items-center gap-2">
         {([["all", "All"], ["weekly", "Weekly"], ["monthly", "Monthly"]] as const).map(([v, l]) => (
           <button key={v} onClick={() => setTypeFilter(v as any)}
@@ -96,33 +80,27 @@ function NotchTabConcept() {
             }`}>{l}</button>
         ))}
         <div className="flex-1" />
+        <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5">
+          <Plus className="h-3.5 w-3.5" /> New
+        </Button>
+      </div>
+
+      {/* Notch tabs + detail card */}
+      <div>
+        {/* Tab strip with inline chevrons */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => {
               if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" });
             }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
-          <span className="text-[11px] text-muted-foreground font-medium tabular-nums min-w-[3ch] text-center">{safeIdx + 1}/{filteredCounts.length}</span>
-          <button
-            onClick={() => {
-              if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" });
-            }}
-            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
-          >
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
-      </div>
 
-      {/* Notch tabs + detail card */}
-      <div>
-        {/* Tab strip */}
-        <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto pb-0" style={{
-          scrollbarWidth: "none", msOverflowStyle: "none",
-        }}>
+          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1 pb-0" style={{
+            scrollbarWidth: "none", msOverflowStyle: "none",
+          }}>
           {filteredCounts.map((count, idx) => {
             const isActive = idx === safeIdx;
             const endDate = new Date(count.period_end_date + "T12:00:00");
