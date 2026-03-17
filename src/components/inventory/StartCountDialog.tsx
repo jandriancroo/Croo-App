@@ -45,6 +45,8 @@ interface StartCountDialogProps {
   onStartCount: (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => void;
   onStartDailyCount?: () => void;
   isPending: boolean;
+  preselectedPeriodType?: string;
+  preselectedPeriodEndDate?: string;
 }
 
 interface PeriodOption {
