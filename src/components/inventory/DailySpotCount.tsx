@@ -345,80 +345,6 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
     });
   }
 
-  const renderStepper = (
-    value: number,
-    onMinus: () => void,
-    onPlus: () => void,
-    onChange: (v: number) => void,
-    label?: string,
-  ) => (
-    <div className="flex items-center gap-1 flex-shrink-0">
-      {label && <span className="text-[10px] text-muted-foreground font-medium mr-1 w-5">{label}</span>}
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-8 w-8 rounded-full"
-        onClick={onMinus}
-      >
-        <Minus className="h-3 w-3" />
-      </Button>
-      <input
-        type="text"
-        inputMode="decimal"
-        className="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-md py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-      />
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-8 w-8 rounded-full"
-        onClick={onPlus}
-      >
-        <Plus className="h-3 w-3" />
-      </Button>
-    </div>
-  );
-
-  return (
-    <div className="space-y-3">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm">
-            Daily Spot Check
-          </h3>
-          <Badge variant="outline" className="text-xs">
-            {format(new Date(), "EEE, MMM d")}
-          </Badge>
-          {isAlreadySaved && (
-            <Badge variant="secondary" className="text-xs">Saved</Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            <History className="h-4 w-4 mr-1" />
-            <span className="text-xs">7-Day</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={saveMutation.isPending}
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-            ) : (
-              <Check className="h-4 w-4 mr-1" />
-            )}
-            Save
-          </Button>
-        </div>
-      </div>
-
       {/* Item list */}
       <div className="space-y-1.5">
         {trackedItems.map((item) => {
@@ -431,132 +357,202 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
           const showUnits = countBy === "units_only" || countBy === "cases_and_units";
           const showSimple = countBy === "inherit" || (!showCases && !showUnits);
           const hasPans = item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0;
-
-          // Determine unit label
-          let unitLabel = item.unit;
-          if (showCases && !showUnits) unitLabel = "cs";
-          else if (showUnits && !showCases) unitLabel = "ea";
-          else if (showCases && showUnits) unitLabel = "cs + ea";
+          const packQty = item.pack_quantity || 1;
 
           return (
-            <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  {/* Item info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{displayName}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{unitLabel}</span>
-                      {item.par_level != null && (
-                        <span className="text-xs text-muted-foreground">
-                          · par {item.par_level}
-                        </span>
-                      )}
-                    </div>
+            <div
+              key={item.id}
+              className="bg-card rounded-md border border-border overflow-hidden flex relative"
+            >
+              {/* Left accent bar (Vault) */}
+              <div className="w-1 bg-primary flex-shrink-0" />
+
+              {/* Delta badge — pinned to top-right */}
+              {delta != null && delta !== 0 && (
+                <div className={cn(
+                  "absolute top-0 right-0 px-2.5 py-1 rounded-bl-lg text-xs font-semibold",
+                  delta > 0 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" :
+                  "bg-destructive/15 text-destructive"
+                )}>
+                  <div className="flex items-center gap-0.5">
+                    {delta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {delta > 0 ? `+${delta}` : delta}
                   </div>
+                </div>
+              )}
 
-                  {/* Delta indicator */}
-                  {delta != null && (
-                    <div className={cn(
-                      "flex items-center gap-0.5 text-xs font-medium",
-                      delta > 0 ? "text-emerald-600 dark:text-emerald-400" :
-                      delta < 0 ? "text-destructive" :
-                      "text-muted-foreground"
-                    )}>
-                      {delta > 0 ? <TrendingUp className="h-3 w-3" /> :
-                       delta < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-                      {delta > 0 ? `+${delta}` : delta}
-                    </div>
-                  )}
-
-                  {/* Simple stepper (inherit mode, no cases/units split) */}
-                  {showSimple && renderStepper(
-                    quantities[item.id] || 0,
-                    () => adjustQuantity(item.id, -1),
-                    () => adjustQuantity(item.id, 1),
-                    (v) => setQuantity(item.id, v),
-                  )}
+              <div className="flex-1 min-w-0">
+                {/* Item header */}
+                <div className="px-3 py-2.5 border-b border-border pr-20">
+                  <p className="font-bold text-sm text-foreground truncate tracking-tight">{displayName}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      {item.pack_size || item.unit || 'ea'}
+                    </span>
+                    {item.par_level != null && (
+                      <span className="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        par {item.par_level}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Cases / Units inputs */}
-                {(showCases || showUnits) && (
-                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border">
-                    {showCases && renderStepper(
-                      caseInputs[item.id] || 0,
-                      () => adjustCases(item.id, -1),
-                      () => adjustCases(item.id, 1),
-                      (v) => setCaseInputs(prev => ({ ...prev, [item.id]: Math.max(0, v) })),
-                      "cs",
-                    )}
-                    {showUnits && renderStepper(
-                      unitInputs[item.id] || 0,
-                      () => adjustUnits(item.id, -1),
-                      () => adjustUnits(item.id, 1),
-                      (v) => setUnitInputs(prev => ({ ...prev, [item.id]: Math.max(0, v) })),
-                      "ea",
-                    )}
-                  </div>
-                )}
-
-
-                {/* Pan size inputs */}
-                {hasPans && (
-                  <div className="mt-2 pt-2 border-t border-border">
-                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
-                      Pan / Cambro
-                    </p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {item.pan_sizes!.enabled_keys.map(panKey => {
-                        const container = ALL_CONTAINERS.find(c => c.key === panKey);
-                        if (!container) return null;
-                        const unitsEach = getPanUnits(item.pan_sizes!, panKey);
-                        const panQty = panCounts[item.id]?.[panKey] || 0;
-                        return (
-                          <div key={panKey} className="text-center">
-                            <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
-                              {container.label}
-                              {unitsEach != null && ` (${unitsEach})`}
-                            </p>
-                            <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
-                              <button
-                                type="button"
-                                className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                                onClick={() => updatePanCount(item.id, panKey, -0.5)}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </button>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={panQty}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
-                                  setPanCounts(prev => ({
-                                    ...prev,
-                                    [item.id]: {
-                                      ...(prev[item.id] || {}),
-                                      [panKey]: Math.max(0, val),
-                                    },
-                                  }));
-                                }}
-                                className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
-                              />
-                              <button
-                                type="button"
-                                className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
-                                onClick={() => updatePanCount(item.id, panKey, 0.5)}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                {/* Count controls */}
+                <div className="p-3">
+                  {showSimple ? (
+                    /* Single stepper for inherit mode */
+                    <div className="max-w-xs mx-auto">
+                      <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider text-center">
+                        Count ({item.unit || 'ea'})
+                      </p>
+                      <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                        <button
+                          type="button"
+                          className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                          onClick={() => adjustQuantity(item.id, -1)}
+                        >
+                          <Minus className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={quantities[item.id] || 0}
+                          onChange={(e) => setQuantity(item.id, parseFloat(e.target.value) || 0)}
+                          className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                        />
+                        <button
+                          type="button"
+                          className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                          onClick={() => adjustQuantity(item.id, 1)}
+                        >
+                          <Plus className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  ) : (
+                    /* Cases / Units grid */
+                    <div className="grid grid-cols-2 gap-2">
+                      {showCases && (
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">Cases</p>
+                          <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                            <button
+                              type="button"
+                              className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                              onClick={() => adjustCases(item.id, -1)}
+                            >
+                              <Minus className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={caseInputs[item.id] || 0}
+                              onChange={(e) => setCaseInputs(prev => ({ ...prev, [item.id]: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                              className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                            />
+                            <button
+                              type="button"
+                              className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                              onClick={() => adjustCases(item.id, 1)}
+                            >
+                              <Plus className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {showUnits && (
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-semibold mb-1.5 uppercase tracking-wider">
+                            Units
+                            {packQty > 1 && <span className="ml-1 normal-case tracking-normal">({packQty}/case)</span>}
+                          </p>
+                          <div className="flex items-center rounded-lg overflow-hidden border border-foreground/20">
+                            <button
+                              type="button"
+                              className="h-11 w-11 flex items-center justify-center text-muted-foreground border-r border-inherit active:bg-muted transition-colors flex-shrink-0"
+                              onClick={() => adjustUnits(item.id, -1)}
+                            >
+                              <Minus className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={unitInputs[item.id] || 0}
+                              onChange={(e) => setUnitInputs(prev => ({ ...prev, [item.id]: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                              className="flex-1 text-center text-2xl font-bold text-foreground tabular-nums bg-transparent outline-none w-0"
+                            />
+                            <button
+                              type="button"
+                              className="h-11 w-11 flex items-center justify-center text-muted-foreground border-l border-inherit active:bg-muted transition-colors flex-shrink-0"
+                              onClick={() => adjustUnits(item.id, 1)}
+                            >
+                              <Plus className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pan size rows */}
+                  {hasPans && (
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
+                        Pan / Cambro
+                      </p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {item.pan_sizes!.enabled_keys.map(panKey => {
+                          const container = ALL_CONTAINERS.find(c => c.key === panKey);
+                          if (!container) return null;
+                          const unitsEach = getPanUnits(item.pan_sizes!, panKey);
+                          const panQty = panCounts[item.id]?.[panKey] || 0;
+                          return (
+                            <div key={panKey} className="text-center">
+                              <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
+                                {container.label}
+                                {unitsEach != null && ` (${unitsEach})`}
+                              </p>
+                              <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
+                                <button
+                                  type="button"
+                                  className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                  onClick={() => updatePanCount(item.id, panKey, -0.5)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={panQty}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setPanCounts(prev => ({
+                                      ...prev,
+                                      [item.id]: {
+                                        ...prev[item.id],
+                                        [panKey]: Math.max(0, val),
+                                      },
+                                    }));
+                                  }}
+                                  className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
+                                />
+                                <button
+                                  type="button"
+                                  className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                  onClick={() => updatePanCount(item.id, panKey, 0.5)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
       </div>
