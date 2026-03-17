@@ -353,47 +353,54 @@ function DailyCountsSection({ periodEndDate, periodStartDate }: { periodEndDate:
           const isPast = day.key < today && !isCompleted;
 
           return (
-            <button
-              key={day.key}
-              disabled={isFuture || isPast}
-              onClick={() => {
-                if (isCompleted) setPreviewDay(day.key);
-                else if (isToday) console.log("Start daily count for", day.key);
-              }}
-              className={`
-                flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative
-                ${isCompleted
-                  ? "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/15 cursor-pointer"
-                  : isToday
-                    ? "bg-primary/8 border-2 border-primary/50 hover:bg-primary/12 shadow-sm"
-                    : isFuture
-                      ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
-                      : isPast
-                        ? "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
-                        : "bg-muted/30 border border-transparent"
-                }
-              `}
-            >
-              <span className={`text-[10px] font-bold leading-none tracking-wide ${
-                isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
-              }`}>
-                {day.label}
-              </span>
-              <div className="h-5 w-5 flex items-center justify-center">
-                {isCompleted ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                ) : isToday ? (
-                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-                    <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
-                  </div>
-                ) : (
-                  <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
-                )}
-              </div>
-              {isToday && !isCompleted && (
-                <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
+            <div key={day.key} className="flex flex-col items-center">
+              {/* Triangle pointer for today */}
+              {isToday && !isCompleted ? (
+                <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-primary mb-0.5" />
+              ) : (
+                <div className="h-[7px]" />
               )}
-            </button>
+              <button
+                disabled={isFuture || isPast}
+                onClick={() => {
+                  if (isCompleted) setPreviewDay(day.key);
+                  else if (isToday) console.log("Start daily count for", day.key);
+                }}
+                className={`
+                  w-full flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative
+                  ${isCompleted
+                    ? "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/15 cursor-pointer"
+                    : isToday
+                      ? "bg-primary/8 border-2 border-primary/50 hover:bg-primary/12 shadow-sm"
+                      : isFuture
+                        ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
+                        : isPast
+                          ? "bg-muted/30 border border-border/20 opacity-50 cursor-not-allowed"
+                          : "bg-muted/30 border border-transparent"
+                  }
+                `}
+              >
+                <span className={`text-[10px] font-bold leading-none tracking-wide ${
+                  isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
+                }`}>
+                  {day.label}
+                </span>
+                <div className="h-5 w-5 flex items-center justify-center">
+                  {isCompleted ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  ) : isToday ? (
+                    <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                      <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
+                    </div>
+                  ) : (
+                    <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
+                  )}
+                </div>
+                {isToday && !isCompleted && (
+                  <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Start</span>
+                )}
+              </button>
+            </div>
           );
         })}
       </div>
