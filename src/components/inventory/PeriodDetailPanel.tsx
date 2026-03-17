@@ -23,6 +23,7 @@ import {
   Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, ChevronDown, Loader2,
   Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
+  Play, Plus,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
@@ -433,26 +434,39 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </CardContent>
         </Card>
       ) : isUpcoming ? (
-        /* Upcoming period: simplified header with purchases only */
+        /* Upcoming period: no count started */
         <Card className="border-primary/20">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-lg font-bold">{formatPeriodLabel(count)}</p>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
-                    Current
-                  </Badge>
-                </div>
-                {periodRange && (
-                  <p className="text-xs font-medium text-primary/80 mt-0.5">
-                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
-                  </p>
-                )}
-                <p className="text-sm text-muted-foreground mt-1">
-                  Count not started yet — manage orders below
-                </p>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start justify-between mb-1">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <p className="text-base font-bold leading-tight">{formatPeriodLabel(count)}</p>
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-primary/40 text-primary">
+                  Current
+                </Badge>
               </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <div className="text-right">
+                  <p className="text-2xl font-bold leading-none text-muted-foreground/40">--.--%</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
+                </div>
+                <Button
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => navigate(`/inventory/${locationId}/count/new`)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="mb-4">
+              {periodRange && (
+                <p className="text-xs font-medium text-primary/80">
+                  {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Count not started yet
+              </p>
             </div>
             {cogsData && cogsData.purchases.length > 0 && (
               <div className="p-3 rounded-xl bg-muted/40">
@@ -476,20 +490,38 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     Submitted
                   </Badge>
                 )}
+                {count.status === "in_progress" && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
+                    In Progress
+                  </Badge>
+                )}
                 {count.is_late_close && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
                     Flex
                   </Badge>
                 )}
               </div>
-              {count.status === "completed" && (
-                <div className="text-right flex-shrink-0 ml-3">
-                  <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                <div className="text-right">
+                  <p className={`text-2xl font-bold leading-none ${
+                    count.status === "completed"
+                      ? (cogsData.cogsPct > 22 ? "text-destructive" : "")
+                      : "text-muted-foreground"
+                  }`}>
                     {cogsData.cogsPct.toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
                 </div>
-              )}
+                {count.status === "in_progress" && (
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?continue=true`)}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             {/* Sub-details */}
             <div className="mb-4">
