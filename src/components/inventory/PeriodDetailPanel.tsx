@@ -50,7 +50,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
-  const isUpcoming = !!count._isUpcoming;
+  const hasCountedItems = (_stats.countedItems || 0) > 0;
+  const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
   const { getTodayInTimezone } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
   
@@ -496,7 +497,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                     Submitted
                   </Badge>
                 )}
-                {count.status === "in_progress" && (
+                {count.status === "in_progress" && hasCountedItems && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
                     In Progress
                   </Badge>
@@ -518,7 +519,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
                 </div>
-                {count.status === "in_progress" && (
+                {count.status === "in_progress" && hasCountedItems && (
                   <Button
                     size="icon"
                     className="h-9 w-9 rounded-full"
@@ -606,7 +607,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                  {count.status === "completed" ? "Submitted" : "In Progress"}
+                  {count.status === "completed" ? "Submitted" : hasCountedItems ? "In Progress" : "Not Started"}
                 </Badge>
                 {canManageOrders && onDeleteCount && (
                   <DropdownMenu>
