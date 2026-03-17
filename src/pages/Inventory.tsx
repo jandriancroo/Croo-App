@@ -45,6 +45,7 @@ const Inventory = () => {
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [showBOMImport, setShowBOMImport] = useState(false);
+  const [showDailyCount, setShowDailyCount] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
