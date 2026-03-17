@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
+  Eye, Pencil, Truck, BarChart3,
   Crosshair, TrendingDown, TrendingUp, Loader2,
   Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
   Play, Plus, CheckCircle2,
