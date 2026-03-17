@@ -587,7 +587,94 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
             <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
               <FormulaRow label="Beginning Inventory" value={cogsData.beginValue} />
-              <FormulaRow label="+ Purchases" value={cogsData.purchasesTotal} />
+              
+              {/* Expandable Purchases row */}
+              <button 
+                className="flex items-center justify-between w-full group"
+                onClick={() => setShowPurchases(!showPurchases)}
+              >
+                <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">+ Purchases</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">${Math.round(cogsData.purchasesTotal).toLocaleString()}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+                </div>
+              </button>
+              
+              {/* Inline purchases list */}
+              {showPurchases && (
+                <div className="pl-3 border-l-2 border-border/60 ml-1 space-y-2 pt-1.5 pb-1">
+                  {cogsData.purchases && cogsData.purchases.length > 0 ? (
+                    <>
+                      {cogsData.purchases.map((po: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
+                              po.vendor === "PFG" ? "bg-red-500/15 text-red-600" : "bg-green-500/15 text-green-600"
+                            }`}>
+                              {po.vendor === "PFG" ? <UtensilsCrossed className="h-3 w-3" /> : <Carrot className="h-3 w-3" />}
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium font-mono">{po.vendor} #{po.id}</p>
+                              <p className="text-[10px] text-muted-foreground">Delivered {po.deliveryDate || po.date}</p>
+                            </div>
+                          </div>
+                          <p className="text-xs font-semibold">${po.amount.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No orders found</p>
+                  )}
+                  {canManageOrders && periodRange && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs mt-1"
+                      disabled={creatingCount}
+                      onClick={async () => {
+                        if (isUpcoming && !realCountId) {
+                          setCreatingCount(true);
+                          try {
+                            const { data, error } = await supabase
+                              .from("inventory_counts")
+                              .insert({
+                                location_id: locationId,
+                                counted_by: user?.id,
+                                count_date: new Date().toISOString().split("T")[0],
+                                period_type: count.period_type,
+                                period_end_date: count.period_end_date,
+                                status: "in_progress",
+                              })
+                              .select()
+                              .single();
+                            if (error) throw error;
+                            setRealCountId(data.id);
+                            queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+                            queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+                            toast.success("Period created — you can now bind orders");
+                            setShowOrderDialog(true);
+                          } catch (err) {
+                            console.error("Failed to create count:", err);
+                            toast.error("Failed to create period");
+                          } finally {
+                            setCreatingCount(false);
+                          }
+                        } else {
+                          setShowOrderDialog(true);
+                        }
+                      }}
+                    >
+                      {creatingCount ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Settings2 className="h-3 w-3 mr-1" />
+                      )}
+                      Manage Orders
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <FormulaRow label="− Ending Inventory" value={cogsData.endValue} />
               <div className="border-t border-border/60 pt-1.5 mt-1.5">
                 <FormulaRow label="= Cost of Goods Sold" value={cogsData.cogsTotal} bold />
@@ -600,32 +687,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
 
             {count.period_type === "weekly" && (
               <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} onStartDailyCount={onStartDailyCount} />
-            )}
-
-            {canManageOrders && onDeleteCount && (
-              <div className="flex justify-end mt-3">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Count
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Edit Count
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
             )}
 
           </CardContent>
