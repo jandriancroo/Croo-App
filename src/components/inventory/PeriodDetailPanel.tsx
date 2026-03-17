@@ -569,7 +569,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <PopoverTrigger asChild>
                   <button className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25">
                     <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
-                    <p className="text-[11px] text-primary uppercase tracking-wide mt-0.5 font-medium">ENDING</p>
+                    <div className="flex items-center justify-center gap-1 mt-0.5">
+                      <p className="text-[11px] text-primary uppercase tracking-wide font-medium">ENDING</p>
+                      <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                        <ChevronDown className="h-2.5 w-2.5 text-primary" />
+                      </div>
+                    </div>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-40 p-1.5">
