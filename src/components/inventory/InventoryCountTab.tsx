@@ -188,8 +188,6 @@ export default function InventoryCountTab({
         />
       )}
 
-      {/* Daily Spot Check */}
-      <DailySpotCount locationId={locationId} />
 
       {/* Period selector: filter chips + dropdown */}
       {(completedCounts.length > 0 || currentPeriodEntry) && (
