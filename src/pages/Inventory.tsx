@@ -357,14 +357,10 @@ const Inventory = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="count" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
               <span className="hidden sm:inline">Count</span>
-            </TabsTrigger>
-            <TabsTrigger value="cogs-variance" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">COGS</span>
             </TabsTrigger>
             <TabsTrigger value="items" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
@@ -384,11 +380,6 @@ const Inventory = () => {
               onStartCount={handleStartCount}
               onDeleteCount={handleDeleteClick}
             />
-          </TabsContent>
-
-          <TabsContent value="cogs-variance" className="mt-4 space-y-6">
-            <COGSReportContent locationId={locationId!} />
-            <InventoryVarianceReport locationId={locationId!} />
           </TabsContent>
 
           <TabsContent value="items" className="mt-4">
