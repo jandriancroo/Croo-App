@@ -20,7 +20,6 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useInventoryPermissions } from "@/hooks/useInventoryPermissions";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
-import { COGSReportContent } from "@/pages/COGSReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
 import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
