@@ -50,6 +50,8 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const [realCountId, setRealCountId] = useState<string | null>(null);
   const [creatingCount, setCreatingCount] = useState(false);
   const isUpcoming = !!count._isUpcoming;
+  const { getTodayInTimezone } = useLocationTimezone();
+  const todayStr = getTodayInTimezone();
   
 
   // Fetch previous count to check if it was flex (affects current period start)
