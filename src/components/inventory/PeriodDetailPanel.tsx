@@ -519,7 +519,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
                 </div>
-                {count.status === "in_progress" && (
+                {count.status === "in_progress" && hasCountedItems && (
                   <Button
                     size="icon"
                     className="h-9 w-9 rounded-full"
