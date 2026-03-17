@@ -4,11 +4,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Plus, Play, Package, ArrowRight, ChevronLeft, ChevronRight,
-  DollarSign, CheckCircle2, BarChart3, ArrowLeft, ClipboardCheck,
+  DollarSign, CheckCircle2, BarChart3, ArrowLeft, ClipboardCheck, X, Clock, User,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // ——— Mock data ———
 const MOCK_COUNTS = [
