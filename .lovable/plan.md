@@ -1,30 +1,73 @@
 
+## Scaling Optimization Roadmap
 
-## Fix: Daily Spot Check Value Badge — Wrong Cost and Unit Label
+### ✅ Phase 1 — Completed (March 2026)
+
+**Indexes Added (40+ composite indexes):**
+- sales_cache, labor_cache, time_punches, checklists, alert_queue, maintenance_queue, email_queue, logbook, alarm tasks, user_locations, user_roles, messages, chat_members, availability, wages, tips, notifications, certifications, writeups, location_hours
+
+**Queue Functions Rewritten (FOR loops → set-based SQL):**
+- `queue_nightly_maintenance()` — single bulk INSERT instead of per-location loop
+- `queue_nightly_emails()` — single bulk INSERT with EXISTS subquery instead of per-location loop
+
+### 🔲 Phase 2 — Before 40 Locations
+
+**Rewrite `check_alerts_sql()` to set-based:**
+- Current: FOR loop iterates each location, runs nested queries per checklist
+- Target: Single CTE-based query that checks all locations/checklists in one pass, bulk-inserts into alert_queue
+- Risk: Medium (complex function with many alert types)
+
+**Rewrite `trigger_alarm_tasks_sql()` to set-based:**
+- Current: FOR loop per alarm task with time window calculations
+- Target: Window functions + joins to process all tasks in parallel
+- Risk: Medium (touches alarm task system — verify with locked features list)
+
+**Rewrite `send_hourly_sales_pulse()` to set-based:**
+- Current: FOR loop per location with sales/labor lookups
+- Target: Single query joining locations → sales_cache → labor_cache → user_roles
+
+**Stagger QuBeyond Sales Sync:**
+- Hash location_id to offset sync timing across the 7-min window
+- Implementation: Add offset calculation to sales-service edge function
+
+### 🔲 Phase 3 — Before 100 Locations
+
+- Connection pooling awareness in edge functions
+- Read replicas for dashboard reads
+- Regional sharding for maintenance/alert processing
+
+---
+
+## Make Checklist Completion More Robust on Manager Dashboard
 
 ### Problem
-Two bugs in `DailySpotCount.tsx`:
+The checklist section in the Punch Clock Manager Dashboard currently shows a simple complete/incomplete indicator (circle vs checkmark) with no progress detail. The data already includes `completedItems` and `totalItems` counts from the query, but the UI doesn't display them.
 
-1. **Wrong cost**: Line 390 always divides by `packQty`, but in "inherit" (simple) mode the stepper value represents whatever the item's `unit` is. For Shredded Mozzarella (`unit: cs`, `cost_per_unit: $52.72`, `pack_quantity: 6`), entering 1 should mean 1 case = $52.72. Instead it computes $52.72 × 1 / 6 = $8.79.
+### Changes
 
-2. **Wrong label**: Line 404 hardcodes "units" in the badge. Should reflect the actual counting unit (cs, ea, etc.).
+**File: `src/components/punchclock/ManagerDashboardOverlay.tsx`** (lines ~1536-1566)
 
-### Root Cause
-The cost formula `cost_per_unit * totalQty / packQty` assumes totalQty is always in individual units. But in `inherit` mode, the quantity is in whatever the item's native `unit` is. When `unit = cs`, the stepper value is already in cases, so dividing by packQty is wrong.
+Update the checklist row rendering to show:
 
-For `cases_only` and `cases_and_units` modes, `getTotalQuantity` already converts to individual units (multiplies by packQty), so the `/packQty` in the cost formula cancels out correctly. But for `inherit` mode, no such conversion happens.
+1. **Progress fraction** instead of just a frequency badge — display `3/7` or `Done` when complete
+2. **Mini progress bar** under the checklist title showing visual completion percentage
+3. Keep the green checkmark circle for fully complete items and the open circle for incomplete ones
 
-### Fix (in `DailySpotCount.tsx`)
+The updated row layout:
 
-**Line 390 — Cost calculation**: Make the formula context-aware:
-- If `showCases` or `showUnits` (explicit mode): totalQty is in individual units → keep `/ packQty`
-- If `showSimple` (inherit): totalQty is in the item's native unit. If unit is "cs" or similar, treat as cases (multiply by packQty before the cost calc, i.e., don't divide). Otherwise treat as individual units.
+```text
+[Circle] Checklist Title          [3/7]
+         [======----] progress bar
+```
 
-Simplified: when in simple/inherit mode and item unit suggests cases, cost = `cost_per_unit * totalQty`. When unit suggests individual units, cost = `cost_per_unit * totalQty / packQty`.
+- Replace the badge content from `frequency` to `{completedItems}/{totalItems}` when incomplete, and `Done` when complete
+- Add a thin progress bar (2px height) below the title using the existing `Progress` component or a simple styled div
+- Color coding: green for 100%, yellow/amber for partial, muted for 0%
 
-**Lines 403-404 — Badge label**: Replace hardcoded "units" with the appropriate unit label based on count mode (cs/ea/units).
+### Technical Details
 
-### Scope
-- Single file change: `src/components/inventory/DailySpotCount.tsx`
-- Lines ~390 and ~403-404
+- The query at line 499 already returns `completedItems` and `totalItems` per checklist — no backend changes needed
+- Only the JSX rendering block (lines 1536-1566) needs modification
+- Uses existing `isDayMode` theme logic for proper dark/light styling
+- Progress bar width calculated as `(completedItems / totalItems) * 100`
 

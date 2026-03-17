@@ -387,7 +387,17 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
           const showSimple = countBy === "inherit" || (!showCases && !showUnits);
           const hasPans = item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0;
           const packQty = item.pack_quantity || 1;
-          const itemCost = (item.cost_per_unit || 0) * totalQty / packQty;
+          // In explicit modes (cases_only, cases_and_units, units_only), getTotalQuantity
+          // returns individual units, so dividing by packQty gives case-cost correctly.
+          // In inherit/simple mode, totalQty is in the item's native unit — no conversion needed
+          // when the native unit is cases (cost_per_unit is already per-case).
+          const isSimpleCaseUnit = showSimple && ['cs', 'case', 'cases'].includes((item.unit || '').toLowerCase());
+          const itemCost = isSimpleCaseUnit
+            ? (item.cost_per_unit || 0) * totalQty
+            : (item.cost_per_unit || 0) * totalQty / packQty;
+          const unitLabel = showSimple
+            ? (item.unit || 'ea')
+            : showCases && !showUnits ? 'cs' : 'ea';
 
           return (
             <div
@@ -401,7 +411,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
               <div className="absolute top-0 right-0 bg-accent text-accent-foreground px-3 py-1.5 rounded-bl-lg">
                 <p className="text-[15px] font-semibold tabular-nums leading-tight tracking-tight">{formatCurrency(itemCost)}</p>
                 <p className="text-[9px] text-accent-foreground/70 text-center">
-                  {totalQty} units
+                  {totalQty} {unitLabel}
                 </p>
               </div>
 
