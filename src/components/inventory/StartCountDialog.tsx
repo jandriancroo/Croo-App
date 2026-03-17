@@ -31,7 +31,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Truck,
-  Sun
+  Sun,
+  X
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -90,7 +91,19 @@ const StartCountDialog = ({
   // Temp count ID for order binding (created before counting starts)
   const [tempCountId, setTempCountId] = useState<string | null>(null);
   const [lateCloseNotes, setLateCloseNotes] = useState("");
+  const [dismissedPeriods, setDismissedPeriods] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`dismissed-periods-${locationId}`) || "[]");
+    } catch { return []; }
+  });
 
+  const dismissPeriod = (periodKey: string) => {
+    const updated = [...dismissedPeriods, periodKey];
+    setDismissedPeriods(updated);
+    localStorage.setItem(`dismissed-periods-${locationId}`, JSON.stringify(updated));
+    // Clear selection if dismissed
+    if (selectedPeriod === periodKey) setSelectedPeriod(null);
+  };
   // Reset state when dialog opens/closes
   useEffect(() => {
     if (!open) {
@@ -387,8 +400,9 @@ const StartCountDialog = ({
       },
     ];
 
-    return finalOptions;
-  }, [scheduleSettings, existingCounts, periodConfig, timezone]);
+    // Filter out dismissed past-due periods
+    return finalOptions.filter((o) => !dismissedPeriods.includes(o.id));
+  }, [scheduleSettings, existingCounts, periodConfig, timezone, dismissedPeriods]);
 
   // Auto-sync when entering sync step
   useEffect(() => {
@@ -975,6 +989,10 @@ const StartCountDialog = ({
                   const prevOption = index > 0 ? periodOptions[index - 1] : null;
                   const showSeparator = isBottomOption && prevOption && prevOption.id !== "daily" && prevOption.id !== "flex" && prevOption.id !== "adhoc";
                   
+                  // Show dismiss button for past-due scheduled periods
+                  const todayStr = getTodayInTimezone(timezone);
+                  const isPastDue = option.isConfigured && option.periodEndDate && option.periodEndDate < todayStr;
+
                   return (
                     <div key={option.id}>
                       {showSeparator && (
@@ -982,7 +1000,7 @@ const StartCountDialog = ({
                       )}
                       <Card
                         className={cn(
-                          "cursor-pointer transition-all",
+                          "cursor-pointer transition-all relative",
                           selectedPeriod === option.id
                             ? "border-primary ring-2 ring-primary/20"
                             : "hover:border-primary/50"
@@ -992,7 +1010,7 @@ const StartCountDialog = ({
                         <CardContent className="p-4 flex items-center gap-4">
                           <div
                             className={cn(
-                              "h-10 w-10 rounded-full flex items-center justify-center",
+                              "h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0",
                               selectedPeriod === option.id
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-muted text-muted-foreground"
@@ -1000,7 +1018,7 @@ const StartCountDialog = ({
                           >
                             {option.icon}
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium">{option.label}</p>
                               {option.isConfigured && !option.isLateClose && (
@@ -1013,13 +1031,30 @@ const StartCountDialog = ({
                                   Flex Period
                                 </Badge>
                               )}
+                              {isPastDue && (
+                                <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">
+                                  Past Due
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-muted-foreground">
                               {option.description}
                             </p>
                           </div>
-                          {selectedPeriod === option.id && (
-                            <Check className="h-5 w-5 text-primary" />
+                          {isPastDue && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                dismissPeriod(option.id);
+                              }}
+                              className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                              title="Dismiss this period"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                          {!isPastDue && selectedPeriod === option.id && (
+                            <Check className="h-5 w-5 text-primary flex-shrink-0" />
                           )}
                         </CardContent>
                       </Card>
