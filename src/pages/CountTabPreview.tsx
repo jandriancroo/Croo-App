@@ -90,89 +90,87 @@ function NotchTabConcept() {
         {/* Tab strip with inline chevrons */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => {
-              if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" });
-            }}
+            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
             className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
-          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1 pb-0" style={{
-            scrollbarWidth: "none", msOverflowStyle: "none",
-          }}>
-          {filteredCounts.map((count, idx) => {
-            const isActive = idx === safeIdx;
-            const endDate = new Date(count.period_end_date + "T12:00:00");
-            const isInProgress = count.status === "in_progress";
-            const isCompleted = count.status === "completed";
+          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            {filteredCounts.map((count, idx) => {
+              const isActive = idx === safeIdx;
+              const endDate = new Date(count.period_end_date + "T12:00:00");
+              const isInProgress = count.status === "in_progress";
+              const isCompleted = count.status === "completed";
 
-            return (
-              <div key={count.id} className="flex flex-col items-center" data-active={isActive}
-                style={{ minWidth: "calc((100% - 3 * 0.375rem) / 4)", flex: "0 0 calc((100% - 3 * 0.375rem) / 4)" }}>
-                <button
-                  onClick={() => setSelectedIdx(idx)}
-                  className={`
-                    w-full py-2.5 rounded-xl border transition-all duration-200 relative overflow-hidden
-                    ${isActive
-                      ? "bg-primary text-primary-foreground border-primary shadow-md"
-                      : isCompleted
-                        ? "bg-muted/60 text-muted-foreground border-border/30"
-                        : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
-                    }
-                  `}
-                >
-                  {/* Completed checkmark */}
-                  {isCompleted && !isActive && (
-                    <span className="absolute top-1 right-1">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-500/60" />
-                    </span>
+              return (
+                <div key={count.id} className="flex flex-col items-center" data-active={isActive}
+                  style={{ minWidth: "calc((100% - 3 * 0.375rem) / 4)", flex: "0 0 calc((100% - 3 * 0.375rem) / 4)" }}>
+                  <button
+                    onClick={() => setSelectedIdx(idx)}
+                    className={`
+                      w-full py-2.5 rounded-xl border transition-all duration-200 relative overflow-hidden
+                      ${isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-md"
+                        : isCompleted
+                          ? "bg-muted/60 text-muted-foreground border-border/30"
+                          : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
+                      }
+                    `}
+                  >
+                    {isCompleted && !isActive && (
+                      <span className="absolute top-1 right-1">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500/60" />
+                      </span>
+                    )}
+                    {(count._isUpcoming || isInProgress) && (
+                      <div className={`absolute left-1.5 top-3 bottom-3 w-[2.5px] rounded-full ${
+                        isInProgress ? "bg-amber-400" : "bg-emerald-400"
+                      } ${!isActive ? "animate-pulse" : ""}`} />
+                    )}
+                    <div className="flex flex-col items-center gap-0.5 min-h-[40px] justify-center">
+                      <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
+                        isActive ? "text-primary-foreground/60" : "text-muted-foreground"
+                      }`}>
+                        {count.period_type === "monthly" ? "Mo. Ending" : "Wk Ending"}
+                      </span>
+                      <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
+                        isCompleted && !isActive ? "text-muted-foreground" : ""
+                      }`}>
+                        {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
+                      </span>
+                      <span className={`text-[9px] tabular-nums font-semibold leading-none h-[11px] ${
+                        count._stats.cogsPct != null
+                          ? (isActive ? "text-primary-foreground/70"
+                              : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
+                          : count._stats.totalCost > 0
+                            ? (isActive ? "text-primary-foreground/70" : "text-muted-foreground/70")
+                            : "invisible"
+                      }`}>
+                        {count._stats.cogsPct != null
+                          ? `${count._stats.cogsPct}%`
+                          : count._stats.totalCost > 0
+                            ? `$${(count._stats.totalCost / 1000).toFixed(1)}k`
+                            : "—"}
+                      </span>
+                    </div>
+                  </button>
+                  {isActive ? (
+                    <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
+                  ) : (
+                    <div className="h-[8px]" />
                   )}
+                </div>
+              );
+            })}
+          </div>
 
-                  {/* Left accent bar for upcoming/in-progress */}
-                  {(count._isUpcoming || isInProgress) && (
-                    <div className={`absolute left-1.5 top-3 bottom-3 w-[2.5px] rounded-full ${
-                      isInProgress ? "bg-amber-400" : "bg-emerald-400"
-                    } ${!isActive ? "animate-pulse" : ""}`} />
-                  )}
-
-                  <div className="flex flex-col items-center gap-0.5 min-h-[40px] justify-center">
-                    <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
-                      isActive ? "text-primary-foreground/60" : "text-muted-foreground"
-                    }`}>
-                      {count.period_type === "monthly" ? "Mo. Ending" : "Wk Ending"}
-                    </span>
-                    <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
-                      isCompleted && !isActive ? "text-muted-foreground" : ""
-                    }`}>
-                      {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
-                    </span>
-                    <span className={`text-[9px] tabular-nums font-semibold leading-none h-[11px] ${
-                      count._stats.cogsPct != null
-                        ? (isActive ? "text-primary-foreground/70"
-                            : count._stats.cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
-                        : count._stats.totalCost > 0
-                          ? (isActive ? "text-primary-foreground/70" : "text-muted-foreground/70")
-                          : "invisible"
-                    }`}>
-                      {count._stats.cogsPct != null
-                        ? `${count._stats.cogsPct}%`
-                        : count._stats.totalCost > 0
-                          ? `$${(count._stats.totalCost / 1000).toFixed(1)}k`
-                          : "—"}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Notch arrow — only on active */}
-                {isActive ? (
-                  <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
-                ) : (
-                  <div className="h-[8px]" />
-                )}
-              </div>
-            );
-          })}
+          <button
+            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" }); }}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
         </div>
 
         {/* Detail card */}
@@ -195,7 +193,6 @@ function NotchTabConcept() {
     </div>
   );
 }
-
 // ——— Detail card content ———
 function DetailCardContent({ count }: { count: any }) {
   const pct = count._stats.totalItems > 0
