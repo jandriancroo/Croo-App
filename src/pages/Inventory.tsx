@@ -412,6 +412,7 @@ const Inventory = () => {
         onOpenChange={setShowStartDialog}
         locationId={locationId!}
         onStartCount={handleConfirmStart}
+        onStartDailyCount={() => setShowDailyCount(true)}
         isPending={startCountMutation.isPending}
       />
 
