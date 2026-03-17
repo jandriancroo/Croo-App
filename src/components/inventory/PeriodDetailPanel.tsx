@@ -26,7 +26,7 @@ import {
 import {
   Eye, Pencil, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, Loader2,
-  Settings2, MoreVertical, UtensilsCrossed, Carrot,
+  Settings2, UtensilsCrossed, Carrot, ChevronDown,
   Play, Plus, CheckCircle2,
 } from "lucide-react";
 import { format, subDays } from "date-fns";
