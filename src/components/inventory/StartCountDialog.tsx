@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Truck,
-  Sun,
+  
   X
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
@@ -365,19 +365,9 @@ const StartCountDialog = ({
       return bEnd.getTime() - aEnd.getTime();
     });
 
-    // Append Daily Count, Flex Count, and Quick Count at the bottom
+    // Append Flex Count at the bottom
     const finalOptions: PeriodOption[] = [
       ...scheduledOptions,
-      {
-        id: "daily",
-        type: "adhoc",
-        label: "Daily Count",
-        description: "Quick count for daily-tracked items",
-        periodEndDate: null,
-        periodStartDate: null,
-        icon: <Sun className="h-5 w-5" />,
-        isConfigured: false,
-      },
       {
         id: "flex",
         type: "adhoc",
@@ -386,16 +376,6 @@ const StartCountDialog = ({
         periodEndDate: null,
         periodStartDate: null,
         icon: <RefreshCw className="h-5 w-5" />,
-        isConfigured: false,
-      },
-      {
-        id: "adhoc",
-        type: "adhoc",
-        label: "Quick Count",
-        description: "Count without a specific period",
-        periodEndDate: null,
-        periodStartDate: null,
-        icon: <Check className="h-5 w-5" />,
         isConfigured: false,
       },
     ];
@@ -984,10 +964,10 @@ const StartCountDialog = ({
             ) : (
               <div className="space-y-3">
                 {periodOptions.map((option, index) => {
-                  // Add a subtle separator before Flex Count / Quick Count
-                  const isBottomOption = option.id === "daily" || option.id === "flex" || option.id === "adhoc";
+                  // Add a subtle separator before Flex Count
+                  const isBottomOption = option.id === "flex";
                   const prevOption = index > 0 ? periodOptions[index - 1] : null;
-                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "daily" && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex";
                   
                   // Show dismiss button for past-due scheduled periods
                   const todayStr = getTodayInTimezone(timezone);
