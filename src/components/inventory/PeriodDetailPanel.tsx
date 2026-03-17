@@ -443,11 +443,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary">
                     Current
                   </Badge>
-                  {periodRange?.isNonStandard && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      {periodRange.activeDays}d
-                    </Badge>
-                  )}
                 </div>
                 {periodRange && (
                   <p className="text-xs font-medium text-primary/80 mt-0.5">
@@ -481,9 +476,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                       Flex
                     </Badge>
                   )}
-                  {periodRange?.isNonStandard && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      {periodRange.activeDays}d
+                  {count.status === "completed" && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-emerald-500/50 text-emerald-600">
+                      Submitted
                     </Badge>
                   )}
                 </div>
@@ -571,7 +566,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                  {count.status === "completed" ? "Complete" : "In Progress"}
+                  {count.status === "completed" ? "Submitted" : "In Progress"}
                 </Badge>
                 {canManageOrders && onDeleteCount && (
                   <DropdownMenu>
