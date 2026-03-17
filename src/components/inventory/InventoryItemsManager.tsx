@@ -1164,12 +1164,12 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
 
       {mode === "items" && <>
       <Card>
-        <div className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <Package className="h-4 w-4" />
-              Items ({items?.length || 0})
-              <div className="flex items-center rounded-md border border-border overflow-hidden ml-2">
+        <div className="p-3 sm:p-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 font-semibold text-sm min-w-0">
+              <Package className="h-4 w-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">Items ({items?.length || 0})</span>
+              <div className="flex items-center rounded-md border border-border overflow-hidden">
                 <button
                   className={`px-2 py-1 text-xs font-medium transition-colors ${
                     itemsSubView === "list" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -1189,11 +1189,11 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {itemsSubView === "list" && (
-                <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)}>
-                  <Settings2 className="h-4 w-4 mr-1" />
-                  Locations
+                <Button size="sm" variant="outline" onClick={() => setShowStorageManager(true)} className="gap-1">
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Locations</span>
                 </Button>
               )}
             </div>
