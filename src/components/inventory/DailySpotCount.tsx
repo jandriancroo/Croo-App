@@ -469,7 +469,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
                     </div>
                   )}
 
-                  {/* Simple stepper (inherit mode, no cases/units split) */}
+                  {/* Simple stepper (inherit mode, no cases/units split, no pans) */}
                   {showSimple && !hasPans && renderStepper(
                     quantities[item.id] || 0,
                     () => adjustQuantity(item.id, -1),
