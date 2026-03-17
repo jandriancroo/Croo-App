@@ -364,9 +364,8 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)}>
-            <History className="h-4 w-4 mr-1" />
-            <span className="text-xs">7-Day</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowHistory(!showHistory)} title="7-Day History">
+            <History className="h-4 w-4" />
           </Button>
           <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
