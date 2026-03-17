@@ -552,24 +552,18 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
               {/* PURCHASES box — tappable to expand purchases list */}
               <button 
-                className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 active:scale-[0.97] transition-all cursor-pointer relative ring-1 ring-border/30"
+                className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25"
                 onClick={() => setShowPurchases(!showPurchases)}
               >
                 <p className="text-base font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</p>
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">PURCHASES</p>
-                <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
-                  <BarChart3 className="h-3 w-3 text-primary" />
-                </div>
+                <p className="text-[11px] text-primary uppercase tracking-wide mt-0.5 font-medium">PURCHASES</p>
               </button>
               {/* ENDING box — tappable for View/Edit options */}
               <Popover>
                 <PopoverTrigger asChild>
-                  <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 active:scale-[0.97] transition-all cursor-pointer relative ring-1 ring-border/30">
+                  <button className="text-center p-2 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.97] transition-all cursor-pointer ring-1 ring-primary/25">
                     <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
-                    <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">ENDING</p>
-                    <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
-                      <ClipboardCheck className="h-3 w-3 text-primary" />
-                    </div>
+                    <p className="text-[11px] text-primary uppercase tracking-wide mt-0.5 font-medium">ENDING</p>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-40 p-1.5">
