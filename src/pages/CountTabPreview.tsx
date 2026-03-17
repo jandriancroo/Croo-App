@@ -294,76 +294,103 @@ function DetailCardContent({ count }: { count: any }) {
 }
 
 // ——— Daily Counts Section ———
+const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "Su"];
+
 function DailyCountsSection({ periodEndDate, status }: { periodEndDate: string; status: string }) {
-  // Mock daily counts for this week
   const endDate = new Date(periodEndDate + "T12:00:00");
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  // Build Mon–Sun for this week (period ends on a Tuesday, so we go back to Monday)
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(endDate);
     d.setDate(d.getDate() - (6 - i));
-    return d;
+    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_LABELS[i] };
   });
 
-  // Mock: some days have counts, some don't
-  const mockDailyCounts: Record<string, { items: number; total: number; flagged: number }> = {
-    [format(days[0], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 0 },
-    [format(days[1], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 1 },
-    [format(days[2], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 0 },
-    [format(days[4], "yyyy-MM-dd")]: { items: 8, total: 8, flagged: 2 },
-    [format(days[5], "yyyy-MM-dd")]: { items: 6, total: 8, flagged: 0 },
-  };
+  // Mock completed days
+  const completedDays = new Set([
+    days[0].key, days[1].key, days[2].key, days[4].key,
+  ]);
+
+  const completedCount = days.filter(d => completedDays.has(d.key)).length;
 
   return (
     <div className="mt-4 pt-3 border-t border-border/20">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5">
           <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daily Spot Checks</span>
         </div>
-        <span className="text-[10px] text-muted-foreground">{Object.keys(mockDailyCounts).length}/7 days</span>
+        <span className="text-[10px] text-muted-foreground font-medium">{completedCount}/7</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const data = mockDailyCounts[key];
-          const isToday = format(new Date(), "yyyy-MM-dd") === key;
+          const isToday = day.key === today;
+          const isFuture = day.key > today;
+          const isCompleted = completedDays.has(day.key);
+          const isPast = day.key < today && !isCompleted;
 
           return (
             <button
-              key={key}
+              key={day.key}
+              disabled={isFuture || (isCompleted && !isToday)}
+              onClick={() => {
+                if (isToday && !isCompleted) {
+                  // Would trigger: navigate to daily count flow
+                  console.log("Start daily count for", day.key);
+                }
+                if (isCompleted) {
+                  console.log("View daily count for", day.key);
+                }
+              }}
               className={`
-                flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all text-center
-                ${data
-                  ? data.flagged > 0
-                    ? "bg-amber-500/10 border border-amber-500/30"
-                    : "bg-emerald-500/8 border border-emerald-500/20"
+                flex flex-col items-center gap-1 py-2 rounded-xl transition-all relative
+                ${isCompleted
+                  ? "bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/15"
                   : isToday
-                    ? "bg-primary/5 border border-primary/30 border-dashed"
-                    : "bg-muted/30 border border-transparent"
+                    ? "bg-primary/8 border-2 border-primary/50 hover:bg-primary/12 shadow-sm"
+                    : isFuture
+                      ? "bg-muted/20 border border-transparent opacity-35 cursor-not-allowed"
+                      : isPast
+                        ? "bg-muted/30 border border-border/20 opacity-50"
+                        : "bg-muted/30 border border-transparent"
                 }
               `}
             >
-              <span className="text-[9px] font-medium text-muted-foreground leading-none">
-                {format(day, "EEE").charAt(0)}
+              {/* Day label */}
+              <span className={`text-[10px] font-bold leading-none tracking-wide ${
+                isToday ? "text-primary" : isCompleted ? "text-emerald-700" : "text-muted-foreground"
+              }`}>
+                {day.label}
               </span>
-              <span className={`text-[11px] font-bold leading-none ${isToday ? "text-primary" : ""}`}>
-                {format(day, "d")}
-              </span>
-              {data ? (
-                <span className={`text-[8px] font-semibold leading-none ${
-                  data.flagged > 0 ? "text-amber-600" : "text-emerald-600"
-                }`}>
-                  {data.flagged > 0 ? `${data.flagged}!` : "✓"}
-                </span>
-              ) : isToday ? (
-                <span className="text-[8px] text-primary font-medium leading-none">—</span>
-              ) : (
-                <span className="text-[8px] text-muted-foreground/40 leading-none">·</span>
+
+              {/* Status icon area */}
+              <div className="h-5 w-5 flex items-center justify-center">
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : isToday ? (
+                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                    <Play className="h-2.5 w-2.5 text-primary-foreground ml-[1px]" />
+                  </div>
+                ) : (
+                  <div className={`h-1.5 w-1.5 rounded-full ${isFuture ? "bg-muted-foreground/20" : "bg-muted-foreground/30"}`} />
+                )}
+              </div>
+
+              {/* Today label */}
+              {isToday && !isCompleted && (
+                <span className="text-[7px] font-bold text-primary uppercase leading-none tracking-wider">Count</span>
               )}
             </button>
           );
         })}
       </div>
+
+      {/* End-of-business note */}
+      <p className="text-[9px] text-muted-foreground/60 mt-1.5 text-center italic">
+        Daily counts are locked until end of business
+      </p>
     </div>
   );
 }
