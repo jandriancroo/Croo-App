@@ -37,7 +37,7 @@ interface TrackedItem {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
+const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const today = format(new Date(), "yyyy-MM-dd");
