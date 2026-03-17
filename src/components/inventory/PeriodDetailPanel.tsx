@@ -556,6 +556,12 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 onClick={() => setShowPurchases(!showPurchases)}
               >
                 <p className="text-base font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</p>
+                <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <p className="text-[11px] text-primary uppercase tracking-wide font-medium">PURCHASES</p>
+                  <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                    <ChevronDown className={`h-2.5 w-2.5 text-primary transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+                  </div>
+                </div>
                 <p className="text-[11px] text-primary uppercase tracking-wide mt-0.5 font-medium">PURCHASES</p>
               </button>
               {/* ENDING box — tappable for View/Edit options */}
