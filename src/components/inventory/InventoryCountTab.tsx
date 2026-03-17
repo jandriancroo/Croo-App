@@ -1,11 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, Play, Package,
-  Calendar, ChevronDown, ArrowRight,
+  Plus, Play, ArrowRight, ChevronLeft, ChevronRight,
+  CheckCircle2, ClipboardCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PeriodDetailPanel from "@/components/inventory/PeriodDetailPanel";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useInventoryPeriodSettings, computePeriodEndDate } from "@/hooks/useInventoryPeriodSettings";
+
 interface InventoryCountTabProps {
   locationId: string;
   inProgressCount: any | null;
@@ -21,70 +21,6 @@ interface InventoryCountTabProps {
   onDeleteCount: (count: any) => void;
 }
 
-// ——— In-progress banner ———
-function InProgressBanner({
-  count,
-  locationId,
-}: {
-  count: any;
-  locationId: string;
-}) {
-  const navigate = useNavigate();
-  const stats = count._stats || { totalItems: 0, countedItems: 0 };
-  const pct = stats.totalItems > 0 ? Math.round((stats.countedItems / stats.totalItems) * 100) : 0;
-
-  const shortLabel = formatPeriodShort(count);
-  const hasStarted = stats.countedItems > 0;
-
-  return (
-    <Card className="border-primary/30 bg-primary/5 overflow-hidden">
-      <CardContent className="p-4 pb-12 relative">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center relative flex-shrink-0">
-            <Play className="h-5 w-5 text-primary" />
-            {hasStarted && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary" />
-              </span>
-            )}
-          </div>
-          <div>
-            <p className="text-base font-bold">
-              {shortLabel} — {hasStarted ? "In Progress" : "Ready to Count"}
-            </p>
-            {hasStarted && (
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm text-muted-foreground">
-                  {stats.countedItems} of {stats.totalItems} items
-                </span>
-                <div className="w-24 bg-muted rounded-full h-2">
-                  <div
-                    className="bg-primary rounded-full h-2 transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <Button
-          size="sm"
-          className="absolute bottom-3 right-3 flex-shrink-0"
-          onClick={() =>
-            navigate(`/inventory/${locationId}/count/${count.id}?continue=true`)
-          }
-        >
-          {hasStarted ? "Resume" : "Start"} <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-// PeriodDetailPanel is now imported from ./PeriodDetailPanel
-
-// ——— Main component ———
 export default function InventoryCountTab({
   locationId,
   inProgressCount,
@@ -92,11 +28,10 @@ export default function InventoryCountTab({
   onStartCount,
   onDeleteCount,
 }: InventoryCountTabProps) {
-  const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">(
-    "all"
-  );
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   // Merge in-progress into recentCounts stats if available
   const inProgressWithStats = useMemo(() => {
@@ -105,10 +40,9 @@ export default function InventoryCountTab({
     return match || { ...inProgressCount, _stats: { totalItems: 0, countedItems: 0, totalCost: 0 } };
   }, [inProgressCount, recentCounts]);
 
-  // Completed + in-progress counts for the dropdown
+  // Completed + in-progress counts
   const completedCounts = useMemo(
-    () =>
-      (recentCounts || []).filter((c) => c.status === "completed" || c.status === "in_progress"),
+    () => (recentCounts || []).filter((c) => c.status === "completed" || c.status === "in_progress"),
     [recentCounts]
   );
 
@@ -119,14 +53,12 @@ export default function InventoryCountTab({
     const todayStr = getTodayInTimezone();
     const weekEndStr = computePeriodEndDate(todayStr, periodConfig.periodEndDay);
 
-    // Check if any count (completed or in-progress) already covers this period
     const allCounts = recentCounts || [];
     const exists = allCounts.some(
       (c) => c.period_type === "weekly" && c.period_end_date === weekEndStr
     );
     if (exists) return null;
 
-    // Return a virtual entry
     return {
       id: `_upcoming_weekly_${weekEndStr}`,
       status: "upcoming",
@@ -143,248 +75,219 @@ export default function InventoryCountTab({
       ? completedCounts
       : completedCounts.filter((c) => c.period_type === typeFilter);
 
-    // Prepend current period if it matches the filter and exists
     if (currentPeriodEntry && (typeFilter === "all" || typeFilter === "weekly")) {
       return [currentPeriodEntry, ...base];
     }
     return base;
   }, [completedCounts, typeFilter, currentPeriodEntry]);
 
-  // Auto-select first completed count if none selected
-  const effectiveSelectedId = selectedId && filteredCounts.some((c) => c.id === selectedId)
-    ? selectedId
-    : filteredCounts[0]?.id || null;
+  const safeIdx = Math.min(selectedIdx, Math.max(filteredCounts.length - 1, 0));
+  const selectedCount = filteredCounts[safeIdx] || null;
 
-  const selectedCount = filteredCounts.find((c) => c.id === effectiveSelectedId);
+  useEffect(() => { setSelectedIdx(0); }, [typeFilter]);
+
+  useEffect(() => {
+    if (!tabsRef.current) return;
+    const el = tabsRef.current.querySelector('[data-active="true"]');
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [safeIdx]);
+
+  if (!filteredCounts.length && !currentPeriodEntry) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <FilterChips typeFilter={typeFilter} setTypeFilter={setTypeFilter} />
+          <div className="flex-1" />
+          <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5" onClick={onStartCount}>
+            <Plus className="h-3.5 w-3.5" /> New
+          </Button>
+        </div>
+        <div className="text-center py-12 text-muted-foreground text-sm">No counts yet. Start your first count!</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Start Count */}
-      <Card>
-        <CardContent className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Package className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm">Start Inventory Count</h3>
-              <p className="text-muted-foreground text-xs">
-                Select a period and begin counting
-              </p>
-            </div>
-          </div>
-          <Button size="sm" onClick={onStartCount}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Start Count
-          </Button>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      {/* Filter chips + New button */}
+      <div className="flex items-center gap-2">
+        <FilterChips typeFilter={typeFilter} setTypeFilter={setTypeFilter} />
+        <div className="flex-1" />
+        <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5" onClick={onStartCount}>
+          <Plus className="h-3.5 w-3.5" /> New
+        </Button>
+      </div>
 
-      {/* In-progress banner */}
-      {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && (
-        <InProgressBanner
-          count={inProgressWithStats}
-          locationId={locationId}
-        />
-      )}
+      {/* Notch tabs + detail panel */}
+      <div>
+        {/* Tab strip with inline chevrons */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: -200, behavior: "smooth" }); }}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          </button>
 
+          <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto flex-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            {filteredCounts.map((count, idx) => {
+              const isActive = idx === safeIdx;
+              const endDate = new Date(count.period_end_date + "T12:00:00");
+              const isInProgress = count.status === "in_progress";
+              const isCompleted = count.status === "completed";
+              const isUpcoming = !!count._isUpcoming;
+              const cogsPct = count._stats?.cogsPct;
+              const totalCost = count._stats?.totalCost || 0;
 
-      {/* Period selector: filter chips + dropdown */}
-      {(completedCounts.length > 0 || currentPeriodEntry) && (
-        <>
-          <div className="flex items-center gap-2">
-            {/* Filter chips */}
-            <div className="flex gap-1 flex-shrink-0">
-              {(
-                [
-                  ["all", "All", "All"],
-                  ["weekly", "Wk", "Weekly"],
-                  ["monthly", "Mo", "Monthly"],
-                ] as const
-              ).map(([value, mobileLabel, desktopLabel]) => (
-                <button
-                  key={value}
-                  onClick={() => setTypeFilter(value as any)}
-                  className={`px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                    typeFilter === value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  <span className="md:hidden">{mobileLabel}</span>
-                  <span className="hidden md:inline">{desktopLabel}</span>
-                </button>
-              ))}
-            </div>
+              return (
+                <div key={count.id} className="flex flex-col items-center" data-active={isActive}
+                  style={{ minWidth: "calc((100% - 3 * 0.375rem) / 4)", flex: "0 0 calc((100% - 3 * 0.375rem) / 4)" }}>
+                  <button
+                    onClick={() => setSelectedIdx(idx)}
+                    className={`
+                      w-full py-2.5 rounded-xl border transition-all duration-200 relative overflow-hidden
+                      ${isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-md"
+                        : isCompleted
+                          ? "bg-muted/60 text-muted-foreground border-border/30"
+                          : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
+                      }
+                    `}
+                  >
+                    {/* Completed checkmark */}
+                    {isCompleted && !isActive && (
+                      <span className="absolute top-1 right-1">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-500/60" />
+                      </span>
+                    )}
 
-            {/* Period dropdown */}
-            <div className="relative flex-1">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl bg-card border border-border/50 hover:bg-muted/40 transition-all"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-sm font-bold truncate">
-                    {selectedCount
-                      ? formatPeriodShort(selectedCount)
-                      : "Select period"}
-                  </span>
-                  {selectedCount?._isUpcoming && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 h-4 uppercase flex-shrink-0 border-primary/40 text-primary"
-                    >
-                      Current
-                    </Badge>
-                  )}
-                  {selectedCount?.period_type === "monthly" && (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-1.5 py-0 h-4 uppercase flex-shrink-0"
-                    >
-                      Mo
-                    </Badge>
+                    {/* Left accent bar for upcoming/in-progress */}
+                    {(isUpcoming || isInProgress) && (
+                      <div className={`absolute left-1.5 top-3 bottom-3 w-[2.5px] rounded-full ${
+                        isInProgress ? "bg-amber-400" : "bg-emerald-400"
+                      } ${!isActive ? "animate-pulse" : ""}`} />
+                    )}
+
+                    <div className="flex flex-col items-center gap-0.5 min-h-[40px] justify-center">
+                      <span className={`text-[8px] uppercase font-bold tracking-widest leading-none ${
+                        isActive ? "text-primary-foreground/60" : "text-muted-foreground"
+                      }`}>
+                        {count.period_type === "monthly" ? "Mo. Ending" : "Wk Ending"}
+                      </span>
+                      <span className={`text-[12px] font-bold leading-tight whitespace-nowrap ${
+                        isCompleted && !isActive ? "text-muted-foreground" : ""
+                      }`}>
+                        {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
+                      </span>
+                      <span className={`text-[9px] tabular-nums font-semibold leading-none h-[11px] ${
+                        cogsPct != null
+                          ? (isActive ? "text-primary-foreground/70"
+                              : cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
+                          : totalCost > 0
+                            ? (isActive ? "text-primary-foreground/70" : "text-muted-foreground/70")
+                            : "invisible"
+                      }`}>
+                        {cogsPct != null
+                          ? `${cogsPct.toFixed(1)}%`
+                          : totalCost > 0
+                            ? `$${(totalCost / 1000).toFixed(1)}k`
+                            : "—"}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Notch arrow — only on active */}
+                  {isActive ? (
+                    <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-primary -mb-px relative z-10" />
+                  ) : (
+                    <div className="h-[8px]" />
                   )}
                 </div>
-                <ChevronDown
-                  className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ml-1 ${
-                    dropdownOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.12 }}
-                    className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border/60 rounded-2xl shadow-lg overflow-hidden max-h-80 overflow-y-auto"
-                  >
-                    {filteredCounts.map((count) => (
-                      <button
-                        key={count.id}
-                        onClick={() => {
-                          setSelectedId(count.id);
-                          setDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-3 flex items-center justify-between transition-all ${
-                          effectiveSelectedId === count.id
-                            ? "bg-primary/10"
-                            : "hover:bg-muted/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">
-                            {formatPeriodShort(count)}
-                          </span>
-                          {count._isUpcoming && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0 h-4 uppercase border-primary/40 text-primary"
-                            >
-                              Current
-                            </Badge>
-                          )}
-                          {count.is_late_close && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600"
-                            >
-                              Flex
-                            </Badge>
-                          )}
-                          {count.period_type === "monthly" && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0 h-4 uppercase"
-                            >
-                              Monthly
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {count._stats?.totalCost > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              $
-                              {count._stats.totalCost.toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
-                                }
-                              )}
-                            </span>
-                          )}
-                          <Badge
-                            variant="secondary"
-                            className="text-xs px-2"
-                          >
-                            {count._stats?.countedItems || 0}/
-                            {count._stats?.totalItems || 0}
-                          </Badge>
-                        </div>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+              );
+            })}
           </div>
 
-          {/* Detail panel for selected period */}
+          <button
+            onClick={() => { if (tabsRef.current) tabsRef.current.scrollBy({ left: 200, behavior: "smooth" }); }}
+            className="w-7 h-7 rounded-lg bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* In-progress resume banner (compact, inside detail area) */}
+        {inProgressWithStats && (inProgressWithStats._stats?.countedItems > 0) && selectedCount?.id === inProgressWithStats.id && (
+          <div className="mt-2 flex items-center justify-between px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+            <div className="flex items-center gap-2">
+              <div className="flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </div>
+              <span className="text-sm font-semibold">
+                {inProgressWithStats._stats.countedItems} of {inProgressWithStats._stats.totalItems} items counted
+              </span>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/inventory/${locationId}/count/${inProgressWithStats.id}?continue=true`)}
+            >
+              Resume <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* Detail panel */}
+        <AnimatePresence mode="wait">
           {selectedCount && (
-            <PeriodDetailPanel
-              count={selectedCount}
-              locationId={locationId}
-              onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
-            />
+            <motion.div
+              key={selectedCount.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="mt-1"
+            >
+              <PeriodDetailPanel
+                count={selectedCount}
+                locationId={locationId}
+                onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
+              />
+            </motion.div>
           )}
-        </>
-      )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-// ——— Helpers ———
-
-function formatPeriodLabel(count: any): string {
-  if (!count.period_type || !count.period_end_date) {
-    return format(
-      new Date(count.count_date + "T12:00:00"),
-      "MMM d, yyyy"
-    );
-  }
-  const endDate = new Date(count.period_end_date + "T12:00:00");
-  switch (count.period_type) {
-    case "weekly":
-      return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
-    case "monthly":
-      return `${format(endDate, "MMMM yyyy")} Month End`;
-    case "yearly":
-      return `${format(endDate, "yyyy")} Year End`;
-    default:
-      return format(new Date(count.count_date + "T12:00:00"), "MMM d, yyyy");
-  }
-}
-
-function formatPeriodShort(count: any): string {
-  if (!count.period_type || !count.period_end_date) {
-    return format(
-      new Date(count.count_date + "T12:00:00"),
-      "MMM d, yyyy"
-    );
-  }
-  const endDate = new Date(count.period_end_date + "T12:00:00");
-  switch (count.period_type) {
-    case "weekly":
-      return `Week Ending ${format(endDate, "MMM d")}`;
-    case "monthly":
-      return `ME ${format(endDate, "MMM ''yy")}`;
-    case "yearly":
-      return `YE ${format(endDate, "yyyy")}`;
-    default:
-      return format(new Date(count.count_date + "T12:00:00"), "MMM d");
-  }
+// ——— Filter chips ———
+function FilterChips({
+  typeFilter,
+  setTypeFilter,
+}: {
+  typeFilter: "all" | "weekly" | "monthly";
+  setTypeFilter: (v: "all" | "weekly" | "monthly") => void;
+}) {
+  return (
+    <div className="flex gap-1 flex-shrink-0">
+      {([
+        ["all", "All", "All"],
+        ["weekly", "Wk", "Weekly"],
+        ["monthly", "Mo", "Monthly"],
+      ] as const).map(([value, mobileLabel, desktopLabel]) => (
+        <button
+          key={value}
+          onClick={() => setTypeFilter(value as any)}
+          className={`px-2.5 md:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            typeFilter === value
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+        >
+          <span className="md:hidden">{mobileLabel}</span>
+          <span className="hidden md:inline">{desktopLabel}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
