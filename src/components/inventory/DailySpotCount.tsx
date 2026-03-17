@@ -13,6 +13,7 @@ import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/i
 
 interface DailySpotCountProps {
   locationId: string;
+  onSaved?: () => void;
 }
 
 interface TrackedItem {
@@ -36,7 +37,7 @@ interface TrackedItem {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 
-const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
+const DailySpotCount = ({ locationId, onSaved }: DailySpotCountProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const today = format(new Date(), "yyyy-MM-dd");
@@ -270,6 +271,8 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
       toast.success("Daily spot count saved!");
       queryClient.invalidateQueries({ queryKey: ["daily-spot-count", locationId, today] });
       queryClient.invalidateQueries({ queryKey: ["daily-spot-history", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["daily-spot-check-completed"] });
+      onSaved?.();
     },
     onError: () => {
       toast.error("Failed to save spot count");
