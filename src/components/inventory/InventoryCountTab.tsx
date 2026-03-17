@@ -136,15 +136,15 @@ export default function InventoryCountTab({
               const isCompleted = count.status === "completed";
               const isUpcoming = !!count._isUpcoming;
               const cogsPct = count._stats?.cogsPct;
-              const totalCost = count._stats?.totalCost || 0;
+              
 
               return (
                 <div key={count.id} className="flex flex-col items-center" data-active={isActive}
-                  style={{ minWidth: 80, flex: "0 0 80px" }}>
+                  style={{ minWidth: 88, flex: "0 0 88px" }}>
                   <button
                     onClick={() => setSelectedIdx(idx)}
                     className={`
-                      w-full px-1.5 py-2 rounded-xl border transition-all duration-200 relative
+                      w-full px-1.5 py-2.5 rounded-xl border transition-all duration-200 relative h-[68px]
                       ${isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-md"
                         : isCompleted
@@ -160,13 +160,13 @@ export default function InventoryCountTab({
                       } ${!isActive ? "animate-pulse" : ""}`} />
                     )}
 
-                    <div className="flex flex-col items-center gap-0.5 justify-center">
-                      <span className={`text-[7px] uppercase font-bold tracking-wider leading-none ${
+                    <div className="flex flex-col items-center gap-0.5 justify-center h-full">
+                      <span className={`text-[8px] uppercase font-bold tracking-wider leading-none ${
                         isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"
                       }`}>
                         {count.period_type === "monthly" ? "Mo" : "Wk"} Ending
                       </span>
-                      <span className={`text-[11px] font-bold leading-tight whitespace-nowrap flex items-center gap-0.5 ${
+                      <span className={`text-[13px] font-bold leading-tight whitespace-nowrap flex items-center gap-0.5 ${
                         isCompleted && !isActive ? "text-muted-foreground" : ""
                       }`}>
                         {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
@@ -174,18 +174,14 @@ export default function InventoryCountTab({
                           <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500/50 flex-shrink-0" />
                         )}
                       </span>
-                      {(cogsPct != null || totalCost > 0) && (
-                        <span className={`text-[9px] tabular-nums font-semibold leading-none ${
-                          cogsPct != null
-                            ? (isActive ? "text-primary-foreground/70"
-                                : cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
-                            : (isActive ? "text-primary-foreground/70" : "text-muted-foreground/70")
-                        }`}>
-                          {cogsPct != null
-                            ? `${cogsPct.toFixed(1)}%`
-                            : `$${(totalCost / 1000).toFixed(1)}k`}
-                        </span>
-                      )}
+                      <span className={`text-[10px] tabular-nums font-semibold leading-none ${
+                        cogsPct != null
+                          ? (isActive ? "text-primary-foreground/70"
+                              : cogsPct <= 22 ? "text-emerald-600/70" : "text-amber-600/70")
+                          : "invisible"
+                      }`}>
+                        {cogsPct != null ? `${cogsPct.toFixed(1)}%` : "—"}
+                      </span>
                     </div>
                   </button>
 
