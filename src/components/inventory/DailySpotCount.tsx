@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 
 interface DailySpotCountProps {
   locationId: string;
@@ -21,7 +22,13 @@ interface TrackedItem {
   unit: string;
   category: string | null;
   par_level: number | null;
+  pack_quantity: number | null;
+  pack_size: string | null;
+  pan_sizes: PanSizesConfig | null;
   storage_location_name: string | null;
+  /** Shortcut-level overrides */
+  count_by: string;
+  pan_enabled_keys: string[] | null;
 }
 
 
@@ -30,16 +37,21 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
   const { user } = useAuth();
   const today = format(new Date(), "yyyy-MM-dd");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [caseInputs, setCaseInputs] = useState<Record<string, number>>({});
+  const [unitInputs, setUnitInputs] = useState<Record<string, number>>({});
+  const [panCounts, setPanCounts] = useState<Record<string, Record<string, number>>>({});
   const [showHistory, setShowHistory] = useState(false);
 
-  // Fetch daily-tracked items
+  // Fetch daily-tracked items with shortcut overrides
   const { data: trackedItems, isLoading: loadingItems } = useQuery({
     queryKey: ["daily-tracked-items", locationId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Get items
+      const { data: items, error } = await supabase
         .from("inventory_items")
         .select(`
-          id, name, common_name, unit, category, par_level,
+          id, name, common_name, unit, category, par_level, pack_quantity, pack_size, pan_sizes,
+          storage_location_id,
           storage_location:inventory_locations!inventory_items_storage_location_id_fkey(name)
         `)
         .eq("location_id", locationId)
@@ -49,10 +61,62 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
         .order("display_order", { ascending: true });
 
       if (error) throw error;
-      return (data || []).map((item: any) => ({
-        ...item,
-        storage_location_name: item.storage_location?.name || null,
-      })) as TrackedItem[];
+      if (!items || items.length === 0) return [];
+
+      // 2. Find the "Daily Spot Check" storage location
+      const { data: spotCheckLoc } = await supabase
+        .from("inventory_locations")
+        .select("id")
+        .eq("location_id", locationId)
+        .eq("name", "Daily Spot Check")
+        .maybeSingle();
+
+      // 3. Fetch shortcut overrides from inventory_item_locations
+      let shortcutMap = new Map<string, { count_by: string; pan_enabled_keys: string[] | null }>();
+      if (spotCheckLoc) {
+        const itemIds = items.map(i => i.id);
+        const { data: shortcuts } = await supabase
+          .from("inventory_item_locations")
+          .select("item_id, count_by, pan_enabled_keys")
+          .eq("storage_location_id", spotCheckLoc.id)
+          .in("item_id", itemIds);
+
+        for (const s of shortcuts || []) {
+          shortcutMap.set(s.item_id, {
+            count_by: s.count_by || "inherit",
+            pan_enabled_keys: s.pan_enabled_keys as string[] | null,
+          });
+        }
+      }
+
+      return items.map((item: any) => {
+        const shortcut = shortcutMap.get(item.id);
+        const panSizes = item.pan_sizes as unknown as PanSizesConfig | null;
+        
+        // If shortcut has custom pan_enabled_keys, filter the item's pan config
+        let effectivePanSizes = panSizes;
+        if (panSizes?.enabled && shortcut?.pan_enabled_keys && shortcut.pan_enabled_keys.length > 0) {
+          effectivePanSizes = {
+            ...panSizes,
+            enabled_keys: shortcut.pan_enabled_keys,
+          };
+        }
+
+        return {
+          id: item.id,
+          name: item.name,
+          common_name: item.common_name,
+          unit: item.unit,
+          category: item.category,
+          par_level: item.par_level,
+          pack_quantity: item.pack_quantity,
+          pack_size: item.pack_size,
+          pan_sizes: effectivePanSizes,
+          storage_location_name: item.storage_location?.name || null,
+          count_by: shortcut?.count_by || "inherit",
+          pan_enabled_keys: shortcut?.pan_enabled_keys || null,
+        } as TrackedItem;
+      });
     },
   });
 
@@ -118,10 +182,38 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
     }
   }, [todaysCount]);
 
+  // Calculate total quantity for an item based on count_by and pans
+  const getTotalQuantity = useCallback((itemId: string, item: TrackedItem): number => {
+    const cases = caseInputs[itemId] || 0;
+    const units = unitInputs[itemId] || 0;
+    const packQty = item.pack_quantity || 1;
+    
+    // Pan units
+    let panUnitsTotal = 0;
+    if (item.pan_sizes?.enabled && panCounts[itemId]) {
+      panUnitsTotal = Object.entries(panCounts[itemId]).reduce((sum, [key, qty]) => {
+        const unitsPer = getPanUnits(item.pan_sizes!, key);
+        return sum + (unitsPer ?? 0) * qty;
+      }, 0);
+    }
+
+    const countBy = item.count_by;
+    if (countBy === "cases_only") {
+      return Math.round((cases * packQty + panUnitsTotal) * 100) / 100;
+    } else if (countBy === "units_only") {
+      return Math.round((units + panUnitsTotal) * 100) / 100;
+    } else if (countBy === "cases_and_units") {
+      return Math.round((cases * packQty + units + panUnitsTotal) * 100) / 100;
+    }
+    // inherit — use simple quantity stepper
+    return (quantities[itemId] || 0) + panUnitsTotal;
+  }, [caseInputs, unitInputs, quantities, panCounts]);
+
   // Save/upsert mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Upsert the spot count session
+      if (!trackedItems) throw new Error("No items");
+      
       const { data: spotCount, error: countError } = await supabase
         .from("daily_spot_counts")
         .upsert(
@@ -138,7 +230,6 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
 
       if (countError) throw countError;
 
-      // Build item entries with previous quantities from yesterday
       const yesterdayMap: Record<string, number> = {};
       if (yesterdaysCount?.items) {
         (yesterdaysCount.items as any[]).forEach((item: any) => {
@@ -146,17 +237,16 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
         });
       }
 
-      const entries = Object.entries(quantities)
-        .filter(([_, qty]) => qty >= 0)
-        .map(([item_id, quantity]) => ({
+      const entries = trackedItems
+        .map((item) => ({
           spot_count_id: spotCount.id,
-          item_id,
-          quantity,
-          previous_quantity: yesterdayMap[item_id] ?? null,
-        }));
+          item_id: item.id,
+          quantity: getTotalQuantity(item.id, item),
+          previous_quantity: yesterdayMap[item.id] ?? null,
+        }))
+        .filter((e) => e.quantity >= 0);
 
       if (entries.length > 0) {
-        // Delete existing items for this count, then re-insert
         await supabase
           .from("daily_spot_count_items")
           .delete()
@@ -195,6 +285,30 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
     }));
   }, []);
 
+  const adjustCases = useCallback((itemId: string, delta: number) => {
+    setCaseInputs((prev) => ({
+      ...prev,
+      [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
+    }));
+  }, []);
+
+  const adjustUnits = useCallback((itemId: string, delta: number) => {
+    setUnitInputs((prev) => ({
+      ...prev,
+      [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
+    }));
+  }, []);
+
+  const updatePanCount = useCallback((itemId: string, panKey: string, delta: number) => {
+    setPanCounts((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || {}),
+        [panKey]: Math.max(0, (prev[itemId]?.[panKey] || 0) + delta),
+      },
+    }));
+  }, []);
+
   if (loadingItems) {
     return (
       <Card>
@@ -230,6 +344,41 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
       yesterdayMap[item.item_id] = Number(item.quantity);
     });
   }
+
+  const renderStepper = (
+    value: number,
+    onMinus: () => void,
+    onPlus: () => void,
+    onChange: (v: number) => void,
+    label?: string,
+  ) => (
+    <div className="flex items-center gap-1 flex-shrink-0">
+      {label && <span className="text-[10px] text-muted-foreground font-medium mr-1 w-5">{label}</span>}
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8 rounded-full"
+        onClick={onMinus}
+      >
+        <Minus className="h-3 w-3" />
+      </Button>
+      <input
+        type="number"
+        inputMode="decimal"
+        className="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-md py-1"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+      />
+      <Button
+        variant="outline"
+        size="icon"
+        className="h-8 w-8 rounded-full"
+        onClick={onPlus}
+      >
+        <Plus className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
@@ -273,67 +422,151 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
       {/* Item list */}
       <div className="space-y-1.5">
         {trackedItems.map((item) => {
-          const qty = quantities[item.id] || 0;
+          const countBy = item.count_by;
+          const totalQty = getTotalQuantity(item.id, item);
           const prevQty = yesterdayMap[item.id];
-          const delta = prevQty != null ? qty - prevQty : null;
+          const delta = prevQty != null ? totalQty - prevQty : null;
           const displayName = item.common_name || item.name;
+          const showCases = countBy === "cases_only" || countBy === "cases_and_units";
+          const showUnits = countBy === "units_only" || countBy === "cases_and_units";
+          const showSimple = countBy === "inherit" || (!showCases && !showUnits);
+          const hasPans = item.pan_sizes?.enabled && item.pan_sizes.enabled_keys?.length > 0;
+
+          // Determine unit label
+          let unitLabel = item.unit;
+          if (showCases && !showUnits) unitLabel = "cs";
+          else if (showUnits && !showCases) unitLabel = "ea";
+          else if (showCases && showUnits) unitLabel = "cs + ea";
 
           return (
             <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-3 flex items-center gap-3">
-                {/* Item info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{displayName}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-muted-foreground">{item.unit}</span>
-                    {item.par_level != null && (
-                      <span className="text-xs text-muted-foreground">
-                        · par {item.par_level}
-                      </span>
-                    )}
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  {/* Item info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{displayName}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{unitLabel}</span>
+                      {item.par_level != null && (
+                        <span className="text-xs text-muted-foreground">
+                          · par {item.par_level}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Delta indicator */}
+                  {delta != null && (
+                    <div className={cn(
+                      "flex items-center gap-0.5 text-xs font-medium",
+                      delta > 0 ? "text-emerald-600 dark:text-emerald-400" :
+                      delta < 0 ? "text-destructive" :
+                      "text-muted-foreground"
+                    )}>
+                      {delta > 0 ? <TrendingUp className="h-3 w-3" /> :
+                       delta < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+                      {delta > 0 ? `+${delta}` : delta}
+                    </div>
+                  )}
+
+                  {/* Simple stepper (inherit mode, no cases/units split) */}
+                  {showSimple && !hasPans && renderStepper(
+                    quantities[item.id] || 0,
+                    () => adjustQuantity(item.id, -1),
+                    () => adjustQuantity(item.id, 1),
+                    (v) => setQuantity(item.id, v),
+                  )}
                 </div>
 
-                {/* Delta indicator */}
-                {delta != null && (
-                  <div className={cn(
-                    "flex items-center gap-0.5 text-xs font-medium",
-                    delta > 0 ? "text-emerald-600 dark:text-emerald-400" :
-                    delta < 0 ? "text-destructive" :
-                    "text-muted-foreground"
-                  )}>
-                    {delta > 0 ? <TrendingUp className="h-3 w-3" /> :
-                     delta < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-                    {delta > 0 ? `+${delta}` : delta}
+                {/* Cases / Units inputs */}
+                {(showCases || showUnits) && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border">
+                    {showCases && renderStepper(
+                      caseInputs[item.id] || 0,
+                      () => adjustCases(item.id, -1),
+                      () => adjustCases(item.id, 1),
+                      (v) => setCaseInputs(prev => ({ ...prev, [item.id]: Math.max(0, v) })),
+                      "cs",
+                    )}
+                    {showUnits && renderStepper(
+                      unitInputs[item.id] || 0,
+                      () => adjustUnits(item.id, -1),
+                      () => adjustUnits(item.id, 1),
+                      (v) => setUnitInputs(prev => ({ ...prev, [item.id]: Math.max(0, v) })),
+                      "ea",
+                    )}
                   </div>
                 )}
 
-                {/* Stepper */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    onClick={() => adjustQuantity(item.id, -1)}
-                  >
-                    <Minus className="h-3 w-3" />
-                  </Button>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    className="w-14 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-md py-1"
-                    value={qty}
-                    onChange={(e) => setQuantity(item.id, parseFloat(e.target.value) || 0)}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    onClick={() => adjustQuantity(item.id, 1)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
+                {/* Simple stepper when inherit + has pans */}
+                {showSimple && hasPans && (
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
+                    {renderStepper(
+                      quantities[item.id] || 0,
+                      () => adjustQuantity(item.id, -1),
+                      () => adjustQuantity(item.id, 1),
+                      (v) => setQuantity(item.id, v),
+                      "ea",
+                    )}
+                  </div>
+                )}
+
+                {/* Pan size inputs */}
+                {hasPans && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1.5">
+                      Pan / Cambro
+                    </p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {item.pan_sizes!.enabled_keys.map(panKey => {
+                        const container = ALL_CONTAINERS.find(c => c.key === panKey);
+                        if (!container) return null;
+                        const unitsEach = getPanUnits(item.pan_sizes!, panKey);
+                        const panQty = panCounts[item.id]?.[panKey] || 0;
+                        return (
+                          <div key={panKey} className="text-center">
+                            <p className="text-[9px] text-muted-foreground font-medium mb-1 truncate">
+                              {container.label}
+                              {unitsEach != null && ` (${unitsEach})`}
+                            </p>
+                            <div className="flex items-center bg-background rounded-md border border-foreground/15 overflow-hidden">
+                              <button
+                                type="button"
+                                className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                onClick={() => updatePanCount(item.id, panKey, -0.5)}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={panQty}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setPanCounts(prev => ({
+                                    ...prev,
+                                    [item.id]: {
+                                      ...(prev[item.id] || {}),
+                                      [panKey]: Math.max(0, val),
+                                    },
+                                  }));
+                                }}
+                                className="flex-1 text-center text-sm font-bold bg-transparent outline-none w-0"
+                              />
+                              <button
+                                type="button"
+                                className="h-8 w-8 flex items-center justify-center text-muted-foreground active:bg-muted transition-colors flex-shrink-0"
+                                onClick={() => updatePanCount(item.id, panKey, 0.5)}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
