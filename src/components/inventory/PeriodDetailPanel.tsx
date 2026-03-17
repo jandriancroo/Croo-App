@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Eye, Pencil, Package, Truck, BarChart3, ClipboardCheck,
+  Eye, Pencil, Truck, BarChart3, ClipboardCheck,
   Crosshair, TrendingDown, TrendingUp, Loader2,
   Settings2, MoreVertical, Trash2, UtensilsCrossed, Carrot,
   Play, Plus, CheckCircle2,
@@ -44,7 +44,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
+  const _stats = count._stats || { totalItems: 0, countedItems: 0, totalCost: 0 };
   const { isManager, isAdmin } = useUserRole();
   const canManageOrders = isManager || isAdmin;
   const [showOrderDialog, setShowOrderDialog] = useState(false);
@@ -616,12 +616,28 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {!isUpcoming && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit Count
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => onDeleteCount(count)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Period
+                        Reset Count
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -634,7 +650,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
 
       {/* 4-tab layout */}
       <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11">
+        <TabsList className="grid w-full grid-cols-2 h-11">
           <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
             <Truck className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Purchases</span>
@@ -642,9 +658,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </TabsTrigger>
           <TabsTrigger value="variance" className="text-xs sm:text-sm gap-1">
             <BarChart3 className="h-3.5 w-3.5" /> Variance
-          </TabsTrigger>
-          <TabsTrigger value="count" className="text-xs sm:text-sm gap-1">
-            <ClipboardCheck className="h-3.5 w-3.5" /> Count
           </TabsTrigger>
         </TabsList>
 
@@ -775,51 +788,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </Card>
         </TabsContent>
 
-        {/* Count */}
-        <TabsContent value="count" className="mt-3">
-          <Card>
-            <CardContent className="p-6 text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
-                <Package className="h-7 w-7 text-muted-foreground" />
-              </div>
-              {isUpcoming ? (
-                <div>
-                  <p className="text-lg font-bold">Not Started</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This period's count hasn't been started yet. Use "Start Count" above when ready.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-lg font-bold">{stats.countedItems} / {stats.totalItems} items</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      On-hand value: <span className="font-semibold text-foreground">
-                        ${stats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" /> View Details
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" /> Edit Count
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
       </Tabs>
 
