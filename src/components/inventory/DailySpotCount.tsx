@@ -579,6 +579,25 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
         })}
       </div>
 
+      {/* Running total */}
+      {trackedItems && trackedItems.length > 0 && (
+        <div className="flex items-center justify-between bg-card rounded-md border border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Total Value</span>
+          </div>
+          <span className="text-lg font-bold text-primary tabular-nums">
+            {formatCurrency(
+              trackedItems.reduce((sum, item) => {
+                const qty = getTotalQuantity(item.id, item);
+                const packQty = item.pack_quantity || 1;
+                return sum + (item.cost_per_unit || 0) * qty / packQty;
+              }, 0)
+            )}
+          </span>
+        </div>
+      )}
+
       {/* 7-Day History */}
       {showHistory && recentHistory && recentHistory.length > 0 && (
         <Card>
