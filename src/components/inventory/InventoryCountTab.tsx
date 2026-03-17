@@ -266,10 +266,10 @@ function FilterChips({
   return (
     <div className="flex gap-1 flex-shrink-0">
       {([
-        ["all", "All", "All"],
-        ["weekly", "Wk", "Weekly"],
-        ["monthly", "Mo", "Monthly"],
-      ] as const).map(([value, mobileLabel, desktopLabel]) => (
+        ["all", "All"],
+        ["weekly", "Weekly"],
+        ["monthly", "Monthly"],
+      ] as const).map(([value, label]) => (
         <button
           key={value}
           onClick={() => setTypeFilter(value as any)}
@@ -279,8 +279,7 @@ function FilterChips({
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
         >
-          <span className="md:hidden">{mobileLabel}</span>
-          <span className="hidden md:inline">{desktopLabel}</span>
+          {label}
         </button>
       ))}
     </div>
