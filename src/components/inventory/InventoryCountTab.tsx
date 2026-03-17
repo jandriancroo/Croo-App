@@ -18,6 +18,7 @@ interface InventoryCountTabProps {
   recentCounts: any[] | undefined;
   onStartCount: () => void;
   onDeleteCount: (count: any) => void;
+  onCreateCountForPeriod?: (periodType: string, periodEndDate: string) => void;
 }
 
 export default function InventoryCountTab({
@@ -26,6 +27,7 @@ export default function InventoryCountTab({
   recentCounts,
   onStartCount,
   onDeleteCount,
+  onCreateCountForPeriod,
 }: InventoryCountTabProps) {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<"all" | "weekly" | "monthly">("all");
