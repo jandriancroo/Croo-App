@@ -792,10 +792,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
       )}
 
         {/* Purchases */}
-        <TabsContent value="purchases" className="mt-3">
-          <Card>
-            <CardContent className="p-4 space-y-0 divide-y divide-border/40">
-              {/* Manage Orders button for manager+ */}
               {canManageOrders && periodRange && (
                 <div className="pb-3">
                   <Button
