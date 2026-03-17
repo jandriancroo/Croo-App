@@ -30,7 +30,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Truck
+  Truck,
+  Sun
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
