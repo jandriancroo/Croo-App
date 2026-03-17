@@ -237,6 +237,7 @@ const AppContent = () => {
         <Route path="/timeline-style-preview" element={<ProtectedRoute><TimelineStylePreview /></ProtectedRoute>} />
         <Route path="/schedule-preview" element={<ProtectedRoute><SchedulePreview /></ProtectedRoute>} />
         <Route path="/dashboard-style-preview" element={<ProtectedRoute><DashboardStylePreview /></ProtectedRoute>} />
+        <Route path="/count-tab-preview" element={<ProtectedRoute><CountTabPreview /></ProtectedRoute>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>
