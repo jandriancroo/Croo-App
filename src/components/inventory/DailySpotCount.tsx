@@ -13,6 +13,7 @@ import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/i
 
 interface DailySpotCountProps {
   locationId: string;
+  onSaved?: () => void;
 }
 
 interface TrackedItem {
