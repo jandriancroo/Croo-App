@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useAuth } from "@/lib/auth";
