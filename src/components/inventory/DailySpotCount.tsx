@@ -469,7 +469,7 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
                     </div>
                   )}
 
-                  {/* Simple stepper (inherit mode, no cases/units split) */}
+                  {/* Simple stepper (inherit mode, no cases/units split, no pans) */}
                   {showSimple && !hasPans && renderStepper(
                     quantities[item.id] || 0,
                     () => adjustQuantity(item.id, -1),
@@ -498,18 +498,6 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
                   </div>
                 )}
 
-                {/* Simple stepper when inherit + has pans */}
-                {showSimple && hasPans && (
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
-                    {renderStepper(
-                      quantities[item.id] || 0,
-                      () => adjustQuantity(item.id, -1),
-                      () => adjustQuantity(item.id, 1),
-                      (v) => setQuantity(item.id, v),
-                      "ea",
-                    )}
-                  </div>
-                )}
 
                 {/* Pan size inputs */}
                 {hasPans && (
