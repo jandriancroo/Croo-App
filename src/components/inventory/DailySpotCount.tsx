@@ -345,6 +345,31 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
     });
   }
 
+  return (
+    <div className="space-y-3">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-sm">Daily Spot Check</h3>
+          <Badge variant="outline" className="text-xs">
+            {format(new Date(), "EEE, MMM d")}
+          </Badge>
+          {isAlreadySaved && (
+            <Badge variant="secondary" className="text-xs">Saved</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)}>
+            <History className="h-4 w-4 mr-1" />
+            <span className="text-xs">7-Day</span>
+          </Button>
+          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
+            Save
+          </Button>
+        </div>
+      </div>
+
       {/* Item list */}
       <div className="space-y-1.5">
         {trackedItems.map((item) => {
