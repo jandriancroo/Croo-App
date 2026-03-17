@@ -363,9 +363,9 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
         <Minus className="h-3 w-3" />
       </Button>
       <input
-        type="number"
+        type="text"
         inputMode="decimal"
-        className="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-md py-1"
+        className="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/30 rounded-md py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
       />
@@ -469,8 +469,8 @@ const DailySpotCount = ({ locationId }: DailySpotCountProps) => {
                     </div>
                   )}
 
-                  {/* Simple stepper (inherit mode, no cases/units split, no pans) */}
-                  {showSimple && !hasPans && renderStepper(
+                  {/* Simple stepper (inherit mode, no cases/units split) */}
+                  {showSimple && renderStepper(
                     quantities[item.id] || 0,
                     () => adjustQuantity(item.id, -1),
                     () => adjustQuantity(item.id, 1),
