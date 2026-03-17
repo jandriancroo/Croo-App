@@ -91,7 +91,19 @@ const StartCountDialog = ({
   // Temp count ID for order binding (created before counting starts)
   const [tempCountId, setTempCountId] = useState<string | null>(null);
   const [lateCloseNotes, setLateCloseNotes] = useState("");
+  const [dismissedPeriods, setDismissedPeriods] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`dismissed-periods-${locationId}`) || "[]");
+    } catch { return []; }
+  });
 
+  const dismissPeriod = (periodKey: string) => {
+    const updated = [...dismissedPeriods, periodKey];
+    setDismissedPeriods(updated);
+    localStorage.setItem(`dismissed-periods-${locationId}`, JSON.stringify(updated));
+    // Clear selection if dismissed
+    if (selectedPeriod === periodKey) setSelectedPeriod(null);
+  };
   // Reset state when dialog opens/closes
   useEffect(() => {
     if (!open) {
