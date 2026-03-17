@@ -120,7 +120,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
   const [shortcutCountBy, setShortcutCountBy] = useState<string>('inherit');
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [shortcutConfigItem, setShortcutConfigItem] = useState<{ itemId: string; itemName: string; storageLocationId: string; storageLocationName: string } | null>(null);
-  const [isReorderMode, setIsReorderMode] = useState(false);
+  // isReorderMode removed — reorder now integrated into floating bulk action bar
   const [pickedItemIds, setPickedItemIds] = useState<Set<string>>(new Set());
   const [pickedGroupKey, setPickedGroupKey] = useState<string | null>(null);
   const [isPlacingMode, setIsPlacingMode] = useState(false);
