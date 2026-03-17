@@ -400,8 +400,9 @@ const StartCountDialog = ({
       },
     ];
 
-    return finalOptions;
-  }, [scheduleSettings, existingCounts, periodConfig, timezone]);
+    // Filter out dismissed past-due periods
+    return finalOptions.filter((o) => !dismissedPeriods.includes(o.id));
+  }, [scheduleSettings, existingCounts, periodConfig, timezone, dismissedPeriods]);
 
   // Auto-sync when entering sync step
   useEffect(() => {
