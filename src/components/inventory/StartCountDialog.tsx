@@ -388,6 +388,18 @@ const StartCountDialog = ({
     return finalOptions.filter((o) => !dismissedPeriods.includes(o.id));
   }, [scheduleSettings, existingCounts, periodConfig, timezone, dismissedPeriods]);
 
+  // Auto-select period when opened with preselected values (e.g. from ➕ button on period card)
+  useEffect(() => {
+    if (open && preselectedPeriodType && preselectedPeriodEndDate && periodOptions.length > 0) {
+      const match = periodOptions.find(
+        (p) => p.type === preselectedPeriodType && p.periodEndDate === preselectedPeriodEndDate
+      );
+      if (match) {
+        setSelectedPeriod(match.id);
+      }
+    }
+  }, [open, preselectedPeriodType, preselectedPeriodEndDate, periodOptions]);
+
   // Auto-sync when entering sync step
   useEffect(() => {
     if (step === "sync" && !autoSyncTriggered) {
