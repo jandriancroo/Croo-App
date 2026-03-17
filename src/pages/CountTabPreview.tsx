@@ -96,8 +96,8 @@ function NotchTabConcept() {
       {/* Notch tabs + detail card */}
       <div>
         {/* Tab strip */}
-        <div ref={tabsRef} className="grid gap-1.5 pb-0" style={{
-          gridTemplateColumns: `repeat(${filteredCounts.length}, minmax(0, 1fr))`,
+        <div ref={tabsRef} className="flex gap-1.5 overflow-x-auto pb-0" style={{
+          scrollbarWidth: "none", msOverflowStyle: "none",
         }}>
           {filteredCounts.map((count, idx) => {
             const isActive = idx === safeIdx;
@@ -105,11 +105,12 @@ function NotchTabConcept() {
             const isInProgress = count.status === "in_progress";
 
             return (
-              <div key={count.id} className="flex flex-col items-center" data-active={isActive}>
+              <div key={count.id} className="flex flex-col items-center" data-active={isActive}
+                style={{ minWidth: "calc((100% - 3 * 0.375rem) / 4)", flex: "0 0 calc((100% - 3 * 0.375rem) / 4)" }}>
                 <button
                   onClick={() => setSelectedIdx(idx)}
                   className={`
-                    w-full py-2 rounded-xl border transition-all duration-200 relative
+                    w-full py-2.5 rounded-xl border transition-all duration-200 relative
                     ${isActive
                       ? "bg-primary text-primary-foreground border-primary shadow-md"
                       : "bg-card text-foreground border-border/40 hover:bg-muted/40 hover:border-border"
