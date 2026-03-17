@@ -557,7 +557,32 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
             <div className="grid grid-cols-3 gap-3">
               <SummaryMetric label="BEGINNING" value={`$${Math.round(cogsData.beginValue).toLocaleString()}`} />
               <SummaryMetric label="PURCHASES" value={`$${Math.round(cogsData.purchasesTotal).toLocaleString()}`} />
-              <SummaryMetric label="ENDING" value={`$${Math.round(cogsData.endValue).toLocaleString()}`} />
+              {/* ENDING box is tappable — opens View/Edit options */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 transition-colors cursor-pointer relative">
+                    <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">ENDING</p>
+                    <Eye className="h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-40 p-1.5">
+                  <button
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Count
+                  </button>
+                  <button
+                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted transition-colors"
+                    onClick={() => navigate(`/inventory/${locationId}/count/${count.id}?edit=true`)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Count
+                  </button>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="mt-4 p-3 rounded-xl bg-muted/40 space-y-1.5">
