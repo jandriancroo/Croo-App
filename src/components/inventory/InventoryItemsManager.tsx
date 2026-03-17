@@ -2091,7 +2091,7 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
       </Dialog>
 
       {/* Floating Bulk Action Bar — scoped to active location group */}
-      {activeSelectGroup && selectedItemIds.size > 0 && (
+      {activeSelectGroup && selectedItemIds.size > 0 && !isPlacingMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
           <div className="bg-primary text-primary-foreground rounded-lg shadow-lg px-6 py-3 flex items-center gap-4 border-2 border-primary-foreground/20">
             <span className="font-semibold whitespace-nowrap">{selectedItemIds.size} selected</span>
