@@ -1,10 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, Play, ArrowRight, ChevronLeft, ChevronRight,
-  CheckCircle2, ClipboardCheck,
+  Plus, ArrowRight, ChevronLeft, ChevronRight,
+  CheckCircle2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
