@@ -134,9 +134,10 @@ export default function InventoryCountTab({
             {filteredCounts.map((count, idx) => {
               const isActive = idx === safeIdx;
               const endDate = new Date(count.period_end_date + "T12:00:00");
-              const isInProgress = count.status === "in_progress";
+              const hasCountedItems = (count._stats?.countedItems || 0) > 0;
+              const isInProgress = count.status === "in_progress" && hasCountedItems;
               const isCompleted = count.status === "completed";
-              const isUpcoming = !!count._isUpcoming;
+              const isUpcoming = !!count._isUpcoming || (count.status === "in_progress" && !hasCountedItems);
               const cogsPct = count._stats?.cogsPct;
               
 
@@ -146,7 +147,7 @@ export default function InventoryCountTab({
                   <button
                     onClick={() => setSelectedIdx(idx)}
                     className={`
-                      w-full px-1.5 py-2.5 rounded-xl border transition-all duration-200 relative h-[68px]
+                      w-full px-1.5 py-1.5 rounded-xl border transition-all duration-200 relative h-[54px]
                       ${isActive
                         ? "bg-primary text-primary-foreground border-primary shadow-md"
                         : isCompleted
@@ -157,18 +158,18 @@ export default function InventoryCountTab({
                   >
                     {/* Left accent bar for upcoming/in-progress */}
                     {(isUpcoming || isInProgress) && (
-                      <div className={`absolute left-1 top-2.5 bottom-2.5 w-[2.5px] rounded-full ${
+                      <div className={`absolute left-1 top-2 bottom-2 w-[2.5px] rounded-full ${
                         isInProgress ? "bg-amber-400" : "bg-emerald-400"
                       } ${!isActive ? "animate-pulse" : ""}`} />
                     )}
 
-                    <div className="flex flex-col items-center gap-0.5 justify-center h-full">
-                      <span className={`text-[8px] uppercase font-bold tracking-wider leading-none ${
+                    <div className="flex flex-col items-center gap-0 justify-center h-full">
+                      <span className={`text-[9px] uppercase font-bold tracking-wider leading-none ${
                         isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"
                       }`}>
                         {count.period_type === "monthly" ? "Mo" : "Wk"} Ending
                       </span>
-                      <span className={`text-[13px] font-bold leading-tight whitespace-nowrap flex items-center gap-0.5 ${
+                      <span className={`text-sm font-bold leading-tight whitespace-nowrap flex items-center gap-0.5 ${
                         isCompleted && !isActive ? "text-muted-foreground" : ""
                       }`}>
                         {count.period_type === "monthly" ? format(endDate, "MMM ''yy") : format(endDate, "MMM d")}
