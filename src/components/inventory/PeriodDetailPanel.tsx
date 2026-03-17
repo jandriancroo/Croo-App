@@ -38,9 +38,10 @@ interface PeriodDetailPanelProps {
   count: any;
   locationId: string;
   onDeleteCount?: (count: any) => void;
+  onStartCount?: () => void;
 }
 
-export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: PeriodDetailPanelProps) {
+export default function PeriodDetailPanel({ count, locationId, onDeleteCount, onStartCount }: PeriodDetailPanelProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -456,7 +457,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                 <Button
                   size="icon"
                   className="h-9 w-9 rounded-full"
-                  onClick={() => navigate(`/inventory/${locationId}/count/new`)}
+                  onClick={() => onStartCount?.()}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
