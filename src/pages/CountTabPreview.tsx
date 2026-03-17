@@ -300,7 +300,7 @@ function DetailCardContent({ count }: { count: any }) {
 }
 
 // ——— Daily Counts Section ———
-const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "Su"];
+const DAY_INITIALS: Record<number, string> = { 0: "Su", 1: "M", 2: "T", 3: "W", 4: "T", 5: "F", 6: "S" };
 
 // Mock daily count detail data
 const MOCK_DAILY_ITEMS = [
@@ -314,15 +314,22 @@ const MOCK_DAILY_ITEMS = [
   { name: "Banana Pudding", expected: 4, counted: 4, unit: "pans" },
 ];
 
-function DailyCountsSection({ periodEndDate }: { periodEndDate: string }) {
+function DailyCountsSection({ periodEndDate, periodStartDate }: { periodEndDate: string; periodStartDate?: string }) {
   const [previewDay, setPreviewDay] = useState<string | null>(null);
   const endDate = new Date(periodEndDate + "T12:00:00");
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(endDate);
-    d.setDate(d.getDate() - (6 - i));
-    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_LABELS[i] };
+  // Calculate start date: use provided start or default to 6 days before end (standard 7-day week)
+  const startDate = periodStartDate
+    ? new Date(periodStartDate + "T12:00:00")
+    : (() => { const d = new Date(endDate); d.setDate(d.getDate() - 6); return d; })();
+
+  // Build dynamic day array based on actual period range
+  const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const days = Array.from({ length: dayCount }, (_, i) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    return { date: d, key: format(d, "yyyy-MM-dd"), label: DAY_INITIALS[d.getDay()] };
   });
 
   const completedDays = new Set([days[0].key, days[1].key, days[2].key, days[4].key]);
