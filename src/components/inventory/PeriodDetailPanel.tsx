@@ -557,7 +557,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
               >
                 <p className="text-base font-bold">${Math.round(cogsData.purchasesTotal).toLocaleString()}</p>
                 <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">PURCHASES</p>
-                <ChevronDown className={`h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/60 transition-transform ${showPurchases ? "rotate-180" : ""}`} />
+                <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
+                  <BarChart3 className="h-3 w-3 text-primary" />
+                </div>
               </button>
               {/* ENDING box — tappable for View/Edit options */}
               <Popover>
@@ -565,7 +567,9 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                   <button className="text-center p-2 rounded-xl bg-muted/40 hover:bg-muted/60 active:scale-[0.97] transition-all cursor-pointer relative ring-1 ring-border/30">
                     <p className="text-base font-bold">${Math.round(cogsData.endValue).toLocaleString()}</p>
                     <p className="text-[11px] text-muted-foreground uppercase tracking-wide mt-0.5">ENDING</p>
-                    <ChevronDown className="h-3 w-3 absolute top-1.5 right-1.5 text-muted-foreground/60" />
+                    <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
+                      <ClipboardCheck className="h-3 w-3 text-primary" />
+                    </div>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-40 p-1.5">
