@@ -8,7 +8,7 @@ import { Minus, Plus, Check, Loader2, History, Sun, DollarSign } from "lucide-re
 import { toast } from "sonner";
 import { format, subDays } from "date-fns";
 import { useAuth } from "@/lib/auth";
-import { cn } from "@/lib/utils";
+
 import { ALL_CONTAINERS, getPanUnits, type PanSizesConfig } from "@/components/inventory/PanSizesSection";
 
 interface DailySpotCountProps {
