@@ -565,7 +565,10 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
               </div>
             </div>
 
-            {/* Edit dots — bottom right */}
+            {count.period_type === "weekly" && (
+              <DailySpotChecksGrid periodRange={periodRange} spotChecks={spotChecks} locationId={locationId} todayStr={todayStr} />
+            )}
+
             {canManageOrders && onDeleteCount && (
               <div className="flex justify-end mt-3">
                 <DropdownMenu>
