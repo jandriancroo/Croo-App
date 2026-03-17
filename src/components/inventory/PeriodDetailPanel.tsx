@@ -847,7 +847,6 @@ const DAY_INITIALS: Record<number, string> = { 0: "Su", 1: "M", 2: "T", 3: "W", 
 function DailySpotChecksGrid({
   periodRange,
   spotChecks,
-  locationId,
   todayStr,
   onStartDailyCount,
 }: {
