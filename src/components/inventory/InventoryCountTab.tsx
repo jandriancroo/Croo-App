@@ -160,6 +160,9 @@ export default function InventoryCountTab({
 
   return (
     <div className="space-y-4">
+      {/* Daily Spot Count */}
+      <DailySpotCount locationId={locationId} />
+
       {/* Start Count */}
       <Card>
         <CardContent className="p-4 flex items-center justify-between">
