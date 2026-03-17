@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Plus, Play, Package, ArrowRight, ChevronLeft, ChevronRight,
+  Plus, Play, ArrowRight, ChevronLeft, ChevronRight,
   DollarSign, CheckCircle2, BarChart3, ArrowLeft, ClipboardCheck,
 } from "lucide-react";
 import { format } from "date-fns";
