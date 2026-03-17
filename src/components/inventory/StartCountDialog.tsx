@@ -30,7 +30,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Truck
+  Truck,
+  Sun
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ interface StartCountDialogProps {
   onOpenChange: (open: boolean) => void;
   locationId: string;
   onStartCount: (periodType: string | null, periodEndDate: string | null, isLateClose?: boolean, lateCloseNotes?: string) => void;
+  onStartDailyCount?: () => void;
   isPending: boolean;
 }
 
@@ -68,6 +70,7 @@ const StartCountDialog = ({
   onOpenChange,
   locationId,
   onStartCount,
+  onStartDailyCount,
   isPending,
 }: StartCountDialogProps) => {
   const queryClient = useQueryClient();
@@ -349,9 +352,19 @@ const StartCountDialog = ({
       return bEnd.getTime() - aEnd.getTime();
     });
 
-    // Append Flex Count and Quick Count at the bottom
+    // Append Daily Count, Flex Count, and Quick Count at the bottom
     const finalOptions: PeriodOption[] = [
       ...scheduledOptions,
+      {
+        id: "daily",
+        type: "adhoc",
+        label: "Daily Count",
+        description: "Quick count for daily-tracked items",
+        periodEndDate: null,
+        periodStartDate: null,
+        icon: <Sun className="h-5 w-5" />,
+        isConfigured: false,
+      },
       {
         id: "flex",
         type: "adhoc",
@@ -626,6 +639,11 @@ const StartCountDialog = ({
   };
 
   const handleContinueToSync = () => {
+    if (selectedPeriod === "daily") {
+      onOpenChange(false);
+      onStartDailyCount?.();
+      return;
+    }
     if (selectedPeriod === "flex") {
       setStep("flex-period");
       return;
@@ -953,9 +971,9 @@ const StartCountDialog = ({
               <div className="space-y-3">
                 {periodOptions.map((option, index) => {
                   // Add a subtle separator before Flex Count / Quick Count
-                  const isBottomOption = option.id === "flex" || option.id === "adhoc";
+                  const isBottomOption = option.id === "daily" || option.id === "flex" || option.id === "adhoc";
                   const prevOption = index > 0 ? periodOptions[index - 1] : null;
-                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "flex" && prevOption.id !== "adhoc";
+                  const showSeparator = isBottomOption && prevOption && prevOption.id !== "daily" && prevOption.id !== "flex" && prevOption.id !== "adhoc";
                   
                   return (
                     <div key={option.id}>

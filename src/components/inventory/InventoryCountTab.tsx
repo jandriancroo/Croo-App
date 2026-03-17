@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import DailySpotCount from "@/components/inventory/DailySpotCount";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -160,9 +159,6 @@ export default function InventoryCountTab({
 
   return (
     <div className="space-y-4">
-      {/* Daily Spot Count */}
-      <DailySpotCount locationId={locationId} />
-
       {/* Start Count */}
       <Card>
         <CardContent className="p-4 flex items-center justify-between">

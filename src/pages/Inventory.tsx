@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { getTodayInTimezone } from "@/utils/timezoneUtils";
 import { useParams, useNavigate } from "react-router-dom";
@@ -25,6 +26,7 @@ import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 import ExportToMasterDialog from "@/components/inventory/ExportToMasterDialog";
 import DeployToLocationDialog from "@/components/inventory/DeployToLocationDialog";
 import BOMImportSheet from "@/components/inventory/BOMImportSheet";
+import DailySpotCount from "@/components/inventory/DailySpotCount";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -43,6 +45,7 @@ const Inventory = () => {
   const [showExportMaster, setShowExportMaster] = useState(false);
   const [showDeployDialog, setShowDeployDialog] = useState(false);
   const [showBOMImport, setShowBOMImport] = useState(false);
+  const [showDailyCount, setShowDailyCount] = useState(false);
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -409,6 +412,7 @@ const Inventory = () => {
         onOpenChange={setShowStartDialog}
         locationId={locationId!}
         onStartCount={handleConfirmStart}
+        onStartDailyCount={() => setShowDailyCount(true)}
         isPending={startCountMutation.isPending}
       />
 
@@ -442,6 +446,17 @@ const Inventory = () => {
         onOpenChange={setShowBOMImport}
         locationId={locationId!}
       />
+
+      <Sheet open={showDailyCount} onOpenChange={setShowDailyCount}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl pb-safe overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Daily Count</SheetTitle>
+          </SheetHeader>
+          <div className="pt-2">
+            <DailySpotCount locationId={locationId!} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 };
