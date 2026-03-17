@@ -650,7 +650,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
 
       {/* 4-tab layout */}
       <Tabs defaultValue="purchases" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-11">
+        <TabsList className="grid w-full grid-cols-2 h-11">
           <TabsTrigger value="purchases" className="text-xs sm:text-sm gap-1">
             <Truck className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Purchases</span>
@@ -658,9 +658,6 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
           </TabsTrigger>
           <TabsTrigger value="variance" className="text-xs sm:text-sm gap-1">
             <BarChart3 className="h-3.5 w-3.5" /> Variance
-          </TabsTrigger>
-          <TabsTrigger value="count" className="text-xs sm:text-sm gap-1">
-            <ClipboardCheck className="h-3.5 w-3.5" /> Count
           </TabsTrigger>
         </TabsList>
 
