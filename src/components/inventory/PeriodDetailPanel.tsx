@@ -466,47 +466,33 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
         </Card>
       ) : cogsData ? (
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-nowrap">
-                  <p className="text-base sm:text-lg font-bold whitespace-nowrap">{formatPeriodLabel(count)}</p>
-                  {count.is_late_close && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-amber-500/50 text-amber-600">
-                      Flex
-                    </Badge>
-                  )}
-                  {count.status === "completed" && (
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 uppercase border-emerald-500/50 text-emerald-600">
-                      Submitted
-                    </Badge>
-                  )}
-                </div>
-                {periodRange && (
-                  <p className="text-xs font-medium text-primary/80 mt-0.5">
-                    {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
-                    {count.is_late_close && periodRange.salesEndStr !== periodRange.endStr && (
-                      <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
-                    )}
-                  </p>
+          <CardContent className="p-4 sm:p-5">
+            {/* Top row: COGS % pinned right, dots far right */}
+            <div className="flex items-start justify-between mb-1">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <p className="text-base font-bold leading-tight">{formatPeriodLabel(count)}</p>
+                {count.status === "completed" && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-emerald-500/50 text-emerald-600">
+                    Submitted
+                  </Badge>
                 )}
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {count.counted_by_profile?.full_name || "Unknown"}
-                  {count.completed_at &&
-                    ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
-                </p>
+                {count.is_late_close && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-[18px] uppercase border-amber-500/50 text-amber-600">
+                    Flex
+                  </Badge>
+                )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 flex-shrink-0 ml-3">
                 <div className="text-right">
-                  <p className={`text-2xl font-bold ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
+                  <p className={`text-2xl font-bold leading-none ${cogsData.cogsPct > 22 ? "text-destructive" : ""}`}>
                     {cogsData.cogsPct.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-muted-foreground">COGS</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">COGS</p>
                 </div>
                 {canManageOrders && onDeleteCount && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 -mr-1">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -522,6 +508,22 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount }: 
                   </DropdownMenu>
                 )}
               </div>
+            </div>
+            {/* Sub-details */}
+            <div className="mb-4">
+              {periodRange && (
+                <p className="text-xs font-medium text-primary/80">
+                  {format(new Date(periodRange.startStr + "T12:00:00"), "EEE, MMM d")} – {format(new Date(periodRange.endStr + "T12:00:00"), "EEE, MMM d, yyyy")}
+                  {count.is_late_close && periodRange.salesEndStr !== periodRange.endStr && (
+                    <span className="text-amber-600 ml-1">(sales thru {format(new Date(periodRange.salesEndStr + "T12:00:00"), "MMM d")})</span>
+                  )}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {count.counted_by_profile?.full_name || "Unknown"}
+                {count.completed_at &&
+                  ` • ${format(new Date(count.completed_at), "MMM d 'at' h:mm a")}`}
+              </p>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
