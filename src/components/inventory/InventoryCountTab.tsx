@@ -136,7 +136,7 @@ export default function InventoryCountTab({
               const isCompleted = count.status === "completed";
               const isUpcoming = !!count._isUpcoming;
               const cogsPct = count._stats?.cogsPct;
-              const totalCost = count._stats?.totalCost || 0;
+              
 
               return (
                 <div key={count.id} className="flex flex-col items-center" data-active={isActive}
