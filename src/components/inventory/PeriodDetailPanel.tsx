@@ -457,7 +457,7 @@ export default function PeriodDetailPanel({ count, locationId, onDeleteCount, on
                 <Button
                   size="icon"
                   className="h-9 w-9 rounded-full"
-                  onClick={() => navigate(`/inventory/${locationId}/count/new`)}
+                  onClick={() => onStartCount?.()}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>

@@ -243,6 +243,7 @@ export default function InventoryCountTab({
                 count={selectedCount}
                 locationId={locationId}
                 onDeleteCount={!selectedCount._isUpcoming ? onDeleteCount : undefined}
+                onStartCount={onStartCount}
               />
             </motion.div>
           )}
