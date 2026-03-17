@@ -1338,20 +1338,16 @@ const InventoryItemsManager = ({ locationId, mode = "setup" }: InventoryItemsMan
                                   isShortcut={isShortcut}
                                   isSelected={selectedItemIds.has(item.id)}
                                   isSelectingThisGroup={isSelectingThisGroup}
-                                  isDragDisabled={isSelectingThisGroup || isReorderMode}
-                                  isReorderMode={isReorderMode}
+                                  isDragDisabled={isSelectingThisGroup || isPlacingMode}
+                                  isReorderMode={isPlacingMode}
                                   reorderState={
-                                    isReorderMode
-                                      ? pickedItemIds.has(item.id) && pickedGroupKey === loc.id
-                                        ? "picked"
-                                         : isPlacingMode && pickedItemIds.size > 0 && pickedGroupKey === loc.id
-                                        ? "target"
-                                        : "idle"
+                                    isPlacingMode && pickedGroupKey === loc.id
+                                      ? pickedItemIds.has(item.id) ? "picked" : "target"
                                       : "idle"
                                   }
                                   pickedCount={pickedItemIds.size}
                                   onClick={() => {
-                                    if (isReorderMode) {
+                                    if (isPlacingMode) {
                                       handleReorderClick(item.id, loc.id, allLocItems, shortcutIdSet);
                                     } else if (isSelectingThisGroup) {
                                       const next = new Set(selectedItemIds);
