@@ -78,3 +78,6 @@ verify_jwt = false
 
 [functions.fresh-kds-service]
 verify_jwt = false
+
+[functions.labor-intelligence]
+verify_jwt = false

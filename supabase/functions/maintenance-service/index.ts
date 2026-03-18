@@ -299,6 +299,18 @@ async function handleNightlyMaintenance(
     return { locations: sentLocations, day: "Monday" };
   }));
 
+  // Task 7: Generate Labor Intelligence insights
+  results.push(await runResumableTask(supabase, runDate, completedSet, "labor-intelligence", async () => {
+    const response = await fetch(`${supabaseUrl}/functions/v1/labor-intelligence?action=analyze-all`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    return { analyzed: result.analyzed || 0, skipped: result.skipped || 0 };
+  }));
+
   const completedCount = results.filter(r => r.status === "success").length;
   const skippedCount = results.filter(r => r.status === "skipped_already_done").length;
   const errorCount = results.filter(r => r.status === "error").length;
