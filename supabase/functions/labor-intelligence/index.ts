@@ -331,7 +331,7 @@ async function generateInsight(
         staffCount: staffWorking.length,
       };
     }),
-    scheduleVsActual: buildScheduleVsActual(scheduledShifts || [], punches || [], yesterday),
+    scheduleVsActual: buildScheduleVsActual(enrichedScheduledShifts, punches, yesterday),
     todaySchedule: (todayShifts || []).map((s: any) => ({
       name: s.profiles?.full_name || "Unknown",
       startTime: s.start_time,
