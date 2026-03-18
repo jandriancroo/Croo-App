@@ -501,30 +501,32 @@ function calculateScheduledHours(startTime: string, endTime: string): number {
 // CALL AI FOR ANALYSIS
 // ============================================================================
 async function callAI(data: any, apiKey: string): Promise<any | null> {
-  const systemPrompt = `You are a restaurant labor optimization analyst. You analyze yesterday's hourly sales data, actual staffing levels (from punch clock data), and scheduled vs actual hours to generate actionable insights.
+  const systemPrompt = `You are a concise restaurant labor analyst. Analyze yesterday's data and generate brief, actionable insights.
 
 CRITICAL RULES:
-- Only state facts supported by the data. Never fabricate or assume staffing counts.
-- "activeStaff" in the hourly breakdown shows EXACTLY who was working that hour (clocked in and NOT on break). Trust this data completely.
-- When referencing staff counts, use the exact numbers from activeStaff arrays.
-- Calculate labor % as (laborCost / sales * 100). Flag hours over 35% as concerning.
-- For schedule vs actual, note employees who worked significantly more or less than scheduled.
-- For today's suggestions, reference specific employees from today's schedule by name with specific times.
+- Only state facts supported by the data. Never fabricate staffing counts.
+- "activeStaff" arrays show EXACTLY who was clocked in (not on break). Trust this completely.
+- Labor % = laborCost / sales * 100. Flag hours over 35% as concerning.
+- CONTEXT MATTERS: Before flagging an hour as overstaffed, consider the surrounding hours. If sending someone home at that hour would leave the next 2-3 hours short-staffed, it's NOT actionable — don't flag it as a savings opportunity. Only flag overstaffing when there's a realistic window to cut (e.g., end of a shift, multiple consecutive slow hours, or someone's shift ends soon after).
+- Consider whether a pattern repeats on this specific day of week vs being a one-off. Note this in findings.
+- employeeComparisons data is PRE-FILTERED to only employees with meaningful variance (>15 min). Only include these in your output.
+- Keep it tight: max 3 key findings, max 3 today suggestions. Quality over quantity.
+- For today's suggestions, reference specific employees and times from today's schedule.
 
-Return a JSON object with this exact structure:
+Return JSON:
 {
   "summary": {
-    "headline": "One-sentence summary of yesterday's labor efficiency",
-    "overallGrade": "A" | "B" | "C" | "D" | "F",
-    "totalSavingsOpportunity": <number in dollars>,
+    "headline": "One concise sentence on yesterday's labor efficiency",
+    "overallGrade": "A"|"B"|"C"|"D"|"F",
+    "totalSavingsOpportunity": <realistic dollar amount considering schedule context>,
     "laborPercent": <number>
   },
   "keyFindings": [
     {
-      "type": "overstaffed" | "understaffed" | "schedule_drift" | "efficiency_win" | "pattern",
-      "severity": "high" | "medium" | "low",
+      "type": "overstaffed"|"understaffed"|"schedule_drift"|"efficiency_win"|"pattern",
+      "severity": "high"|"medium"|"low",
       "title": "Short title",
-      "detail": "Specific detail with numbers",
+      "detail": "Brief detail with numbers",
       "hourRange": "e.g. 3-5 PM",
       "savingsOpportunity": <number or null>
     }
@@ -536,30 +538,29 @@ Return a JSON object with this exact structure:
       "laborCost": <number>,
       "laborPercent": <number>,
       "staffCount": <number>,
-      "staffNames": ["name1", "name2"],
-      "flag": "efficient" | "warning" | "critical" | null
+      "staffNames": ["name1"],
+      "flag": "efficient"|"warning"|"critical"|null
     }
   ],
   "employeeComparisons": [
     {
-      "name": "Employee Name",
+      "name": "Name",
       "scheduledHours": <number>,
       "actualHours": <number>,
       "varianceHours": <number>,
       "varianceCost": <number>,
-      "note": "Brief note about the variance"
+      "note": "Brief note"
     }
   ],
   "todaySuggestions": [
     {
-      "priority": "high" | "medium",
-      "suggestion": "Specific actionable suggestion referencing employee names and times from today's schedule",
+      "priority": "high"|"medium",
+      "suggestion": "Specific suggestion with employee name and time",
       "estimatedSavings": <number or null>,
-      "basedOn": "Brief explanation of what data supports this"
+      "basedOn": "Brief basis"
     }
   ]
 }`;
-
   const userPrompt = `Analyze this restaurant labor data and provide insights:
 
 ${JSON.stringify(data, null, 2)}
