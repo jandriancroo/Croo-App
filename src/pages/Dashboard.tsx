@@ -14,6 +14,7 @@ import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { DailySpotCheckTask } from '@/components/dashboard/DailySpotCheckTask';
+import { LaborIntelligenceCard } from '@/components/dashboard/LaborIntelligenceCard';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { OvationReviewsCube } from '@/components/dashboard/OvationReviewsCube';
