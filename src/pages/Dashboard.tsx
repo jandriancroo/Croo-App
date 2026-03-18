@@ -743,6 +743,9 @@ export default function Dashboard() {
   // Quick tasks content - mounted at the top of the dashboard with scrollable area
   const quickTasksContent = (
     <div className="flex flex-col gap-2 w-full">
+      {/* Labor Intelligence - AI analysis of yesterday's labor */}
+      <LaborIntelligenceCard />
+      
       {/* Unread Announcements - High priority */}
       <UnreadAnnouncementsAlert />
       
