@@ -198,41 +198,94 @@ async function generateInsight(
     .maybeSingle();
 
   // 3. Get yesterday's time punches with break tracking
-  const yesterdayStart = `${yesterday}T00:00:00-07:00`;
-  const yesterdayEnd = `${yesterday}T23:59:59-07:00`;
   // Use a wider window to catch overnight shifts
-  const { data: punches } = await supabase
+  const today = getTodayInLA();
+  const { data: rawPunches } = await supabase
     .from("time_punches")
-    .select("user_id, punch_time, punch_type, notes, profiles!inner(full_name, hourly_wage)")
+    .select("user_id, punch_time, punch_type, notes")
     .eq("location_id", locationId)
-    .gte("punch_time", `${yesterday}T07:00:00Z`) // ~midnight PST
-    .lt("punch_time", `${getTodayInLA()}T07:00:00Z`)
+    .gte("punch_time", `${yesterday}T07:00:00Z`) // ~midnight PDT
+    .lt("punch_time", `${today}T10:00:00Z`) // catch late night shifts (3 AM PDT)
     .order("punch_time");
+
+  // Get profile info for punched users
+  const punchUserIds = [...new Set((rawPunches || []).map((p: any) => p.user_id))];
+  let profileMap: Record<string, { full_name: string; hourly_wage: number }> = {};
+  if (punchUserIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, hourly_wage")
+      .in("id", punchUserIds);
+    for (const p of profiles || []) {
+      profileMap[p.id] = { full_name: p.full_name || "Unknown", hourly_wage: p.hourly_wage || 0 };
+    }
+  }
+
+  // Merge profiles into punches
+  const punches = (rawPunches || []).map((p: any) => ({
+    ...p,
+    profiles: profileMap[p.user_id] || { full_name: "Unknown", hourly_wage: 0 },
+  }));
 
   // 4. Get yesterday's scheduled shifts
   const { data: scheduledShifts } = await supabase
     .from("scheduled_shifts")
     .select(`
       user_id, shift_date, start_time, end_time, is_time_off,
-      schedules!inner(location_id),
-      profiles!inner(full_name, hourly_wage)
+      schedules!inner(location_id)
     `)
     .eq("schedules.location_id", locationId)
     .eq("shift_date", yesterday)
     .eq("is_time_off", false);
 
+  // Get profile info for scheduled users
+  const schedUserIds = [...new Set((scheduledShifts || []).map((s: any) => s.user_id))];
+  const allUserIds = [...new Set([...punchUserIds, ...schedUserIds])];
+  // Enrich profileMap with any missing users
+  const missingIds = allUserIds.filter(id => !profileMap[id]);
+  if (missingIds.length > 0) {
+    const { data: moreProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, hourly_wage")
+      .in("id", missingIds);
+    for (const p of moreProfiles || []) {
+      profileMap[p.id] = { full_name: p.full_name || "Unknown", hourly_wage: p.hourly_wage || 0 };
+    }
+  }
+
+  // Merge profiles into scheduled shifts
+  const enrichedScheduledShifts = (scheduledShifts || []).map((s: any) => ({
+    ...s,
+    profiles: profileMap[s.user_id] || { full_name: "Unknown", hourly_wage: 0 },
+  }));
+
   // 5. Get today's scheduled shifts (for forward-looking suggestions)
-  const today = getTodayInLA();
-  const { data: todayShifts } = await supabase
+  const { data: rawTodayShifts } = await supabase
     .from("scheduled_shifts")
     .select(`
       user_id, shift_date, start_time, end_time, is_time_off,
-      schedules!inner(location_id),
-      profiles!inner(full_name, hourly_wage)
+      schedules!inner(location_id)
     `)
     .eq("schedules.location_id", locationId)
     .eq("shift_date", today)
     .eq("is_time_off", false);
+
+  // Enrich today's shifts with profiles
+  const todayUserIds = [...new Set((rawTodayShifts || []).map((s: any) => s.user_id))];
+  const todayMissing = todayUserIds.filter(id => !profileMap[id]);
+  if (todayMissing.length > 0) {
+    const { data: todayProfiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, hourly_wage")
+      .in("id", todayMissing);
+    for (const p of todayProfiles || []) {
+      profileMap[p.id] = { full_name: p.full_name || "Unknown", hourly_wage: p.hourly_wage || 0 };
+    }
+  }
+  const todayShifts = (rawTodayShifts || []).map((s: any) => ({
+    ...s,
+    profiles: profileMap[s.user_id] || { full_name: "Unknown", hourly_wage: 0 },
+  }));
 
   // 6. Get location hours
   const dayOfWeek = getDayOfWeekInLA(yesterday);
