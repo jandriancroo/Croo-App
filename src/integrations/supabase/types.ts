@@ -3656,6 +3656,41 @@ export type Database = {
           },
         ]
       }
+      labor_insights: {
+        Row: {
+          analysis: Json
+          created_at: string
+          dismissed_by: string[] | null
+          id: string
+          insight_date: string
+          location_id: string
+        }
+        Insert: {
+          analysis?: Json
+          created_at?: string
+          dismissed_by?: string[] | null
+          id?: string
+          insight_date: string
+          location_id: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string
+          dismissed_by?: string[] | null
+          id?: string
+          insight_date?: string
+          location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_insights_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_rules: {
         Row: {
           allow_early_clock_in: boolean
