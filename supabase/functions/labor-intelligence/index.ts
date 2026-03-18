@@ -331,7 +331,8 @@ async function generateInsight(
         staffCount: staffWorking.length,
       };
     }),
-    scheduleVsActual: buildScheduleVsActual(enrichedScheduledShifts, punches, yesterday),
+    scheduleVsActual: buildScheduleVsActual(enrichedScheduledShifts, punches, yesterday)
+      .filter((e: any) => Math.abs(e.varianceHours) >= 0.25), // Only employees with 15+ min variance
     todaySchedule: (todayShifts || []).map((s: any) => ({
       name: s.profiles?.full_name || "Unknown",
       startTime: s.start_time,
