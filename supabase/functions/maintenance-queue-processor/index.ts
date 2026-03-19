@@ -237,6 +237,29 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
 }
 
 // ============================================================================
+// LABOR INTELLIGENCE — calls labor-intelligence edge function
+// ============================================================================
+async function processLaborIntelligence(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/labor-intelligence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({
+      action: "analyze",
+      location_id: task.location_id,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  if (result.error) throw new Error(result.error);
+  return result;
+}
+
+// ============================================================================
 // AUTO-CREATE SUPPORT TICKET ON PERMANENT PFG FAILURE
 // ============================================================================
 async function createSystemSupportTicket(
