@@ -110,6 +110,8 @@ async function processTask(
       return await processWeeklySummary(supabaseUrl, supabaseKey, task);
     case "refresh_pfg_token":
       return await processRefreshPfgToken(supabaseUrl, supabaseKey, task);
+    case "labor_intelligence":
+      return await processLaborIntelligence(supabaseUrl, supabaseKey, task);
     default:
       throw new Error(`Unknown task type: ${task.task_type}`);
   }
@@ -231,6 +233,29 @@ async function processRefreshPfgToken(supabaseUrl: string, supabaseKey: string, 
   console.log(`[QUEUE] PFG refresh OK for location ${task.location_id}:`, 
     result.grantIssued ? `grant issued=${result.grantIssued}, expires=${result.grantExpiration}` : 'token refreshed');
 
+  return result;
+}
+
+// ============================================================================
+// LABOR INTELLIGENCE — calls labor-intelligence edge function
+// ============================================================================
+async function processLaborIntelligence(supabaseUrl: string, supabaseKey: string, task: any) {
+  const response = await fetch(`${supabaseUrl}/functions/v1/labor-intelligence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${supabaseKey}` },
+    body: JSON.stringify({
+      action: "analyze",
+      location_id: task.location_id,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`HTTP ${response.status}: ${text}`);
+  }
+
+  const result = await response.json();
+  if (result.error) throw new Error(result.error);
   return result;
 }
 
