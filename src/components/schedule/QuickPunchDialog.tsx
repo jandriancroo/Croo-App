@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -69,9 +70,7 @@ export function QuickPunchDialog({
   // Check if a time is in the future (using location timezone, not device time)
   const isTimeInFuture = (time: string): boolean => {
     if (!time || punchDate !== getTodayInTimezone()) return false;
-    const { formatTime } = useLocationTimezone ? {} : {};
     // Compare against location's current time, not device time
-    const { formatInTimeZone } = require('date-fns-tz');
     const nowTime = formatInTimeZone(new Date(), timezone, 'HH:mm');
     return time > nowTime;
   };
