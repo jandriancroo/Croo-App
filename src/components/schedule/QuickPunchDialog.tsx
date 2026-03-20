@@ -51,10 +51,9 @@ export function QuickPunchDialog({
   // Reset and set defaults when dialog opens
   useEffect(() => {
     if (open) {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      setStartTime(`${hours}:${minutes}`);
+      // Use location timezone for default time, not device time
+      const nowTime = formatInTimeZone(new Date(), timezone, 'HH:mm');
+      setStartTime(nowTime);
       setEndTime('');
       setShowClockOut(false);
       setBreakStartTime('');
