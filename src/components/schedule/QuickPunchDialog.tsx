@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, subDays } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -50,10 +51,9 @@ export function QuickPunchDialog({
   // Reset and set defaults when dialog opens
   useEffect(() => {
     if (open) {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      setStartTime(`${hours}:${minutes}`);
+      // Use location timezone for default time, not device time
+      const nowTime = formatInTimeZone(new Date(), timezone, 'HH:mm');
+      setStartTime(nowTime);
       setEndTime('');
       setShowClockOut(false);
       setBreakStartTime('');
@@ -66,14 +66,12 @@ export function QuickPunchDialog({
     }
   }, [open, selectedDate]);
 
-  // Check if a time is in the future (only relevant for today)
+  // Check if a time is in the future (using location timezone, not device time)
   const isTimeInFuture = (time: string): boolean => {
     if (!time || punchDate !== getTodayInTimezone()) return false;
-    const now = new Date();
-    const [hours, minutes] = time.split(':').map(Number);
-    const timeDate = new Date();
-    timeDate.setHours(hours, minutes, 0, 0);
-    return timeDate > now;
+    // Compare against location's current time, not device time
+    const nowTime = formatInTimeZone(new Date(), timezone, 'HH:mm');
+    return time > nowTime;
   };
 
   // Calculate break duration in minutes

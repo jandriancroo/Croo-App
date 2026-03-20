@@ -239,6 +239,9 @@ export function EditShiftForm({
       const nowMs = Date.now();
 
       // Helper: reject any punch time set in the future
+      // NOTE: This compares UTC timestamps, so it's timezone-safe.
+      // The punch time is converted to UTC via toISOStringInTimezone(),
+      // and Date.now() is already UTC.
       const validateNotFuture = (isoTime: string, label: string): boolean => {
         if (new Date(isoTime).getTime() > nowMs + 60_000) { // 1 min buffer
           toast.error(`${label} cannot be set in the future`);
