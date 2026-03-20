@@ -236,9 +236,16 @@ export function EditShiftForm({
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
       const now = new Date().toISOString();
-      const nowMs = Date.now();
+      // Use location timezone for "now" to avoid device-timezone mismatch
+      // (e.g., editing a CA store's punches from Hawaii would falsely reject valid times)
+      const nowInLocationTz = toISOStringInTimezone(
+        formatDateTimeInTimezone(new Date(), timezone).split(' ')[0], // date part
+        formatDateTimeInTimezone(new Date(), timezone).split(' ')[1], // time part
+        timezone
+      );
+      const nowMs = new Date(nowInLocationTz).getTime();
 
-      // Helper: reject any punch time set in the future
+      // Helper: reject any punch time set in the future (relative to location timezone)
       const validateNotFuture = (isoTime: string, label: string): boolean => {
         if (new Date(isoTime).getTime() > nowMs + 60_000) { // 1 min buffer
           toast.error(`${label} cannot be set in the future`);

@@ -66,14 +66,14 @@ export function QuickPunchDialog({
     }
   }, [open, selectedDate]);
 
-  // Check if a time is in the future (only relevant for today)
+  // Check if a time is in the future (using location timezone, not device time)
   const isTimeInFuture = (time: string): boolean => {
     if (!time || punchDate !== getTodayInTimezone()) return false;
-    const now = new Date();
-    const [hours, minutes] = time.split(':').map(Number);
-    const timeDate = new Date();
-    timeDate.setHours(hours, minutes, 0, 0);
-    return timeDate > now;
+    const { formatTime } = useLocationTimezone ? {} : {};
+    // Compare against location's current time, not device time
+    const { formatInTimeZone } = require('date-fns-tz');
+    const nowTime = formatInTimeZone(new Date(), timezone, 'HH:mm');
+    return time > nowTime;
   };
 
   // Calculate break duration in minutes
