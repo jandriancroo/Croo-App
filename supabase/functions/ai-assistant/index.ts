@@ -85,15 +85,14 @@ const tools = [
     type: "function",
     function: {
       name: "query_checklists",
-      description: "Query checklist completion data including individual item responses. Use for questions like 'who temped the tomatoes on AM Line check', 'what was the walk-in temp', 'did anyone complete the opening checklist'. Returns each checklist item question, the response text (including temperatures), who completed it, and when.",
+      description: "Query checklist completion data. ALWAYS returns full item-level responses (questions, answers, temperatures, who completed each item). Use for ANY checklist question: 'who temped the tomatoes', 'what time did they flip the line', 'was the shift change checklist done', 'what was the walk-in temp'. Use checklist_title to find the right checklist and item_keyword to find specific items within it.",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location" },
           date: { type: "string", description: "Date YYYY-MM-DD" },
-          checklist_title: { type: "string", description: "Filter by checklist title (partial match, e.g. 'AM Line' or 'opening')" },
-          item_keyword: { type: "string", description: "Filter checklist items by keyword in the question (e.g. 'tomato', 'walk-in', 'temp')" },
-          include_responses: { type: "boolean", description: "Include individual item-level responses with who completed each item. Default true." },
+          checklist_title: { type: "string", description: "Filter by checklist title (partial match, e.g. 'AM Line', 'shift change', 'opening', 'closing'). ALWAYS set this when the user mentions a checklist name." },
+          item_keyword: { type: "string", description: "Filter items by keyword in the question text (e.g. 'tomato', 'walk-in', 'flip', 'temp'). Set this when asking about a specific item." },
         },
         required: ["location_id", "date"],
       },
@@ -239,7 +238,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       case "query_checklists": {
         const startTs = `${args.date}T00:00:00${offset}`;
         const endTs = `${args.date}T23:59:59${offset}`;
-        const includeResponses = args.include_responses !== false;
+        const includeResponses = true; // Always include item-level responses
 
         const { data, error } = await supabase
           .from("checklist_submissions")
@@ -508,7 +507,7 @@ Guidelines:
 - When comparing dates, query both dates.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
 - For employee punch questions (clock in/out, late arrivals), use query_labor with include_punches=true. To find late arrivals, also use query_schedule to compare scheduled start times with actual clock-in times.
-- For checklist detail questions (e.g. "who temped the tomatoes"), use query_checklists with include_responses=true and item_keyword to filter.
+- For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name (e.g. "shift change" → checklist_title="shift change", "AM line check" → checklist_title="AM Line"). Set item_keyword when asking about a specific item (e.g. "flip the line" → item_keyword="flip", "tomato temp" → item_keyword="tomato"). The tool ALWAYS returns full item details.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
