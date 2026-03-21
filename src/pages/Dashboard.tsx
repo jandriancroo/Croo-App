@@ -81,10 +81,7 @@ export default function Dashboard() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
-  // userName derived from auth context below
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
-  // salesOverviewOpen state moved to WidgetsSection
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -93,19 +90,17 @@ export default function Dashboard() {
   const { canSeeSales } = useTeamSalesVisibility();
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
-  const { currentLocation, isChecklistOnlyLocation, organizationId } = useAppLocation();
+  const { currentLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone, closeTime, loading: timezoneLoading } = useLocationTimezone();
-  const { animationAmount } = useCrooCashAnimation();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
-  const { isSectionVisible, refreshSections } = useDashboardSections();
+  const { isSectionVisible } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
     currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
   );
   const queryClient = useQueryClient();
-  const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
   
   // Light DB reads — always refetch on pull
   const ALWAYS_REFRESH_KEYS = [
