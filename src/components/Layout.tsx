@@ -18,6 +18,7 @@ import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { AiAssistantBubble } from '@/components/ai/AiAssistantBubble';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
@@ -1213,6 +1214,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         logoUrl={switchingTo?.id ? (localStorage.getItem(`brand-logo-${switchingTo.id}`) || orgLogo?.logo_url) : orgLogo?.logo_url}
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
+
+      {/* AI Assistant floating bubble */}
+      <AiAssistantBubble />
 
     </div>;
 };
