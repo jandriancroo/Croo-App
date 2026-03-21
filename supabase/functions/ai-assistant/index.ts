@@ -238,7 +238,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
       case "query_checklists": {
         const startTs = `${args.date}T00:00:00${offset}`;
         const endTs = `${args.date}T23:59:59${offset}`;
-        const includeResponses = args.include_responses !== false;
+        const includeResponses = true; // Always include item-level responses
 
         const { data, error } = await supabase
           .from("checklist_submissions")
@@ -507,7 +507,7 @@ Guidelines:
 - When comparing dates, query both dates.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true.
 - For employee punch questions (clock in/out, late arrivals), use query_labor with include_punches=true. To find late arrivals, also use query_schedule to compare scheduled start times with actual clock-in times.
-- For checklist detail questions (e.g. "who temped the tomatoes"), use query_checklists with include_responses=true and item_keyword to filter.
+- For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name (e.g. "shift change" → checklist_title="shift change", "AM line check" → checklist_title="AM Line"). Set item_keyword when asking about a specific item (e.g. "flip the line" → item_keyword="flip", "tomato temp" → item_keyword="tomato"). The tool ALWAYS returns full item details.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
