@@ -194,8 +194,7 @@ export function AiAssistantBubble() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="crooai-orb fixed right-4 z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.5rem)' }}
+          className="crooai-orb crooai-orb-floating z-[55] h-14 w-14 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center"
           aria-label="Open AI Assistant"
         >
           <Sparkles className="h-5 w-5 text-[hsl(43_80%_62%)] drop-shadow-[0_0_6px_hsl(43_80%_55%/0.6)]" />
