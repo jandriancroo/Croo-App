@@ -10,6 +10,7 @@ import { getTodayInTimezone, getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { getTimezoneOffset } from '@/utils/timezoneUtils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getDisplayName } from '@/utils/displayName';
 
 interface TeamTasksViewProps {
   locationId: string;
@@ -368,11 +369,11 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                                     <Avatar className="h-5 w-5">
                                       <AvatarImage src={completion.profile.profile_photo_url || undefined} />
                                       <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
-                                        {completion.profile.full_name?.charAt(0)}
+                                        {getDisplayName(completion.profile.full_name, completion.profile.nickname)?.charAt(0)}
                                       </AvatarFallback>
                                     </Avatar>
                                     <span className={`text-[10px] ${isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                                      {completion.profile.full_name?.split(' ')[0]}
+                                      {getDisplayName(completion.profile.full_name, completion.profile.nickname)?.split(' ')[0]}
                                     </span>
                                   </div>
                                 )}
@@ -496,12 +497,12 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                               <Avatar className="h-24 w-24 border-3 border-white/30">
                                 <AvatarImage src={employee.profile_photo_url || undefined} />
                                 <AvatarFallback className="text-3xl bg-white/20 text-white">
-                                  {employee.full_name.charAt(0).toUpperCase()}
+                                  {getDisplayName(employee.full_name, employee.nickname)?.charAt(0)?.toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                             </div>
                             <span className="text-white font-semibold text-base max-w-[100px] truncate">
-                              {employee.full_name.split(' ')[0]}
+                              {getDisplayName(employee.full_name, employee.nickname)?.split(' ')[0]}
                             </span>
                           </motion.button>
                         ))}
