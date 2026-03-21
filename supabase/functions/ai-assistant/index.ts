@@ -116,6 +116,23 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_logbook",
+      description: "Query logbook entries (Safe Count, Drawer Count, Pass Down, Incident Report, Maintenance Request, and any custom categories). Returns full details including JSON data for financial entries (denomination counts, totals, variance, deposit amounts). Use for questions about drawer counts, safe counts, deposits, pass downs, incidents, maintenance, or any logbook category.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          date: { type: "string", description: "Date YYYY-MM-DD" },
+          category_name: { type: "string", description: "Filter by category name (partial match, e.g. 'safe', 'drawer', 'pass down', 'incident', 'maintenance')" },
+          entry_keyword: { type: "string", description: "Filter entries by keyword in title or value text" },
+        },
+        required: ["location_id", "date"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
