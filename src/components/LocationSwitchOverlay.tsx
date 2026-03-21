@@ -16,10 +16,14 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
       <AnimatePresence>
         {visible && (
           <>
-            {/* Dimmed backdrop */}
+            {/* Blurred backdrop */}
             <motion.div
               className="fixed inset-0 z-[9998]"
-              style={{ background: "hsl(var(--foreground)/0.4)" }}
+              style={{
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                background: "hsl(var(--foreground)/0.25)",
+              }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
