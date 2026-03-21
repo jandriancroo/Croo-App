@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { formatLocationName } from '@/utils/locationUtils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Organization {
   id: string;
@@ -52,47 +53,44 @@ export function LocationPickerDialog({
   const { user } = useAuth();
   const { role } = useUserRole();
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   
-  // Check if user has multi-location access
   const hasMultiLocationAccess = role === 'super_admin' || role === 'brand_admin' || role === 'org_admin';
   const isSuperAdmin = role === 'super_admin';
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [brands, setBrands] = useState<BrandInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
-  const [allLocationsEnabled, setAllLocationsEnabled] = useState(false);
-
-  // Fetch user's default location and all_locations_enabled flag
-  useEffect(() => {
-    if (user) {
-      supabase
-        .from('profiles')
-        .select('default_location_id, all_locations_enabled')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setDefaultLocationId(data?.default_location_id || null);
-          setAllLocationsEnabled(data?.all_locations_enabled || false);
-        });
-    }
-  }, [user]);
-
-  // For now, admins can see all orgs/locations they have access to
   const canSeeAllOrgs = role === 'admin' || role === 'super_admin';
   const isOrgLevel = role === 'manager' || role === 'org_admin';
 
-  useEffect(() => {
-    if (open && user) {
-      fetchData();
-    }
-  }, [open, user, role]);
+  // Cache user profile data (default location, all_locations flag)
+  const { data: profileData } = useQuery({
+    queryKey: ['location-picker-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('default_location_id, all_locations_enabled')
+        .eq('id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 min cache
+  });
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
+  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
+  const allLocationsEnabled = profileData?.all_locations_enabled || false;
+
+  // Sync default location from cache
+  const effectiveDefaultId = defaultLocationId ?? profileData?.default_location_id ?? null;
+
+  // Cache all location picker data — survives dialog close/open
+  const { data: pickerData, isLoading: loading } = useQuery({
+    queryKey: ['location-picker-data', user?.id, role, allLocationsEnabled],
+    queryFn: async () => {
+      const orgs: Organization[] = [];
+      const locs: Location[] = [];
+      let brandsList: BrandInfo[] = [];
+
       if (canSeeAllOrgs) {
-        // Super admin: see all orgs and all locations
         const [orgsResult, locsResult, brandsResult] = await Promise.all([
           supabase.from('organizations').select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)').eq('is_active', true).order('name'),
           supabase.from('locations').select('*, organizations(name, brand_name, brands(name))').order('name'),
@@ -101,8 +99,7 @@ export function LocationPickerDialog({
             : Promise.resolve({ data: [] }),
         ]);
 
-        // Map organizations to include brand name/logo fallback from the brands table
-        const orgs = (orgsResult.data || []).map((org: any) => {
+        const mappedOrgs = (orgsResult.data || []).map((org: any) => {
           const brand = org.brands;
           return {
             ...org,
@@ -111,16 +108,15 @@ export function LocationPickerDialog({
             brand_id: org.brand_id || null,
           };
         });
-        setOrganizations(orgs as Organization[]);
-        setBrands((brandsResult.data || []) as BrandInfo[]);
-        setLocations(
-          (locsResult.data || []).map((loc: any) => ({
+        orgs.push(...mappedOrgs);
+        brandsList = (brandsResult.data || []) as BrandInfo[];
+        locs.push(
+          ...(locsResult.data || []).map((loc: any) => ({
             ...loc,
             org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
           }))
         );
       } else if (isOrgLevel) {
-        // Org admin: see their org's locations
         const { data: orgMemberships } = await supabase
           .from('organization_members')
           .select('organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url))')
@@ -128,7 +124,7 @@ export function LocationPickerDialog({
           .eq('org_role', 'admin');
 
         const orgIds = orgMemberships?.map((m: any) => m.organization_id) || [];
-        const orgs = orgMemberships?.map((m: any) => {
+        const mappedOrgs = orgMemberships?.map((m: any) => {
           const org = m.organizations;
           if (org) {
             return { 
@@ -140,25 +136,22 @@ export function LocationPickerDialog({
           }
           return null;
         }).filter(Boolean) || [];
-
-        setOrganizations(orgs);
+        orgs.push(...mappedOrgs);
 
         if (orgIds.length > 0) {
-          const { data: locs } = await supabase
+          const { data: orgLocs } = await supabase
             .from('locations')
             .select('*, organizations(name, brand_name, brands(name))')
             .in('organization_id', orgIds)
             .order('name');
-
-          setLocations(
-            (locs || []).map((loc: any) => ({
+          locs.push(
+            ...(orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
             }))
           );
         }
       } else if (allLocationsEnabled) {
-        // User has all_locations_enabled - get all locations in their org
         const { data: userLocs } = await supabase
           .from('user_locations')
           .select('locations(organization_id, organizations(id, name, brand_name, logo_url, brand_id, brands(name, logo_url)))')
@@ -175,60 +168,61 @@ export function LocationPickerDialog({
             logo_url: rawOrgData.logo_url || rawOrgData.brands?.logo_url || null,
             brand_id: (rawOrgData as any).brand_id || null,
           };
-          setOrganizations([orgData as Organization]);
+          orgs.push(orgData as Organization);
           
           const { data: orgLocs } = await supabase
             .from('locations')
             .select('*, organizations(name, brand_name, brands(name))')
             .eq('organization_id', orgId)
             .order('name');
-
-          setLocations(
-            (orgLocs || []).map((loc: any) => ({
+          locs.push(
+            ...(orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
             }))
           );
         }
       } else {
-        // Regular admin/user: see their assigned locations
         const { data: userLocs } = await supabase
           .from('user_locations')
           .select('location_id, locations(*, organizations(name, brand_name, brands(name)))')
           .eq('user_id', user!.id);
 
-        const locs = userLocs?.map((ul: any) => ul.locations).filter(Boolean) || [];
-        
-        // Group by org
-        const orgIds = [...new Set(locs.map((l: any) => l.organization_id).filter(Boolean))];
+        const mappedLocs = userLocs?.map((ul: any) => ul.locations).filter(Boolean) || [];
+        const orgIds = [...new Set(mappedLocs.map((l: any) => l.organization_id).filter(Boolean))];
         
         if (orgIds.length > 0) {
           const { data: orgsData } = await supabase
             .from('organizations')
             .select('id, name, brand_name, logo_url, brand_id, brands(name, logo_url)')
             .in('id', orgIds);
-          const orgs = (orgsData || []).map((org: any) => ({
+          const mappedOrgs = (orgsData || []).map((org: any) => ({
             ...org,
             brand_name: org.brand_name || org.brands?.name || null,
             logo_url: org.logo_url || org.brands?.logo_url || null,
             brand_id: org.brand_id || null,
           }));
-          setOrganizations(orgs as Organization[]);
+          orgs.push(...mappedOrgs);
         }
 
-        setLocations(
-          locs.map((loc: any) => ({
+        locs.push(
+          ...mappedLocs.map((loc: any) => ({
             ...loc,
             org_name: loc.organizations?.brand_name || loc.organizations?.brands?.name || loc.organizations?.name,
           }))
         );
       }
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      return { organizations: orgs, locations: locs, brands: brandsList };
+    },
+    enabled: !!user?.id && !!role,
+    staleTime: 10 * 60 * 1000, // 10 min cache — locations rarely change
+    placeholderData: (prev) => prev, // Show previous data instantly
+  });
+
+  const organizations = pickerData?.organizations || [];
+  const locations = pickerData?.locations || [];
+  const brands = pickerData?.brands || [];
 
   const handleSelectLocation = (location: Location) => {
     onSelectLocation({
@@ -244,7 +238,7 @@ export function LocationPickerDialog({
     e.stopPropagation();
     if (!user) return;
     
-    const newDefault = defaultLocationId === locationId ? null : locationId;
+    const newDefault = effectiveDefaultId === locationId ? null : locationId;
     
     const { error } = await supabase
       .from('profiles')
@@ -257,6 +251,10 @@ export function LocationPickerDialog({
     }
 
     setDefaultLocationId(newDefault);
+    queryClient.setQueryData(['location-picker-profile', user.id], (old: any) => ({
+      ...old,
+      default_location_id: newDefault,
+    }));
     toast.success(newDefault ? 'Default location set' : 'Default location cleared');
   };
 
@@ -285,7 +283,6 @@ export function LocationPickerDialog({
       }
     }
     
-    // Only show brand grouping if there's at least one brand with orgs
     if (grouped.size === 0) return null;
     
     return { grouped, ungrouped };
@@ -302,11 +299,11 @@ export function LocationPickerDialog({
         <button
           onClick={(e) => handleSetDefault(e, location.id)}
           className="p-0.5 hover:scale-110 transition-transform"
-          title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
+          title={effectiveDefaultId === location.id ? 'Remove as default' : 'Set as default'}
         >
           <Star 
             className={`h-3.5 w-3.5 ${
-              defaultLocationId === location.id 
+              effectiveDefaultId === location.id 
                 ? 'fill-yellow-400 text-yellow-400' 
                 : 'text-muted-foreground hover:text-yellow-400'
             }`} 
@@ -364,7 +361,7 @@ export function LocationPickerDialog({
 
   const content = (
     <>
-      {loading ? (
+      {loading && !pickerData ? (
         <div className="space-y-4 p-4">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-16 w-full" />
@@ -381,7 +378,6 @@ export function LocationPickerDialog({
                   const brandOrgs = orgsByBrand.grouped.get(brand.id) || [];
                   return (
                     <div key={brand.id} className="space-y-2">
-                      {/* Brand header */}
                       <button
                         className="flex items-center gap-2 text-xs font-bold px-1 w-full text-left group hover:bg-muted/50 rounded-md py-1.5 -my-1 cursor-pointer transition-colors"
                         onClick={() => {
@@ -400,26 +396,22 @@ export function LocationPickerDialog({
                         </span>
                         <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
-                      {/* Orgs within brand */}
                       <div className="pl-3 space-y-3 border-l-2 border-primary/20 ml-2">
                         {brandOrgs.map(org => renderOrgSection(org))}
                       </div>
                     </div>
                   );
                 })}
-              {/* Ungrouped orgs (no brand) */}
               {orgsByBrand.ungrouped.map(org => renderOrgSection(org))}
             </>
           ) : organizations.length > 0 ? (
             organizations.map(org => renderOrgSection(org))
           ) : (
-            // No organizations, just show locations flat
             <div className="space-y-0.5">
               {locations.map(renderLocationItem)}
             </div>
           )}
 
-          {/* Unassigned locations (no org) */}
           {locationsByOrg['unassigned']?.length > 0 && organizations.length > 0 && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
@@ -436,7 +428,6 @@ export function LocationPickerDialog({
     </>
   );
 
-  // Use Drawer on mobile for smooth vertical slide transition
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
