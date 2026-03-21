@@ -106,6 +106,15 @@ function getTimezoneOffsetMs(date: Date, timezone: string): number {
   return sign * (hours * 60 + minutes) * 60 * 1000;
 }
 
+function getDateStringForTimezone(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
 // Convert a date string (YYYY-MM-DD) in a given timezone to UTC start/end times
 function getUtcRangeForLocalDate(dateStr: string, timezone: string): { startUtc: string; endUtc: string } {
   // Parse the date string as components
