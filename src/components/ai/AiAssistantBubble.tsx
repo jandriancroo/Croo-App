@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send, Loader2, Sparkles, Mic, MicOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
@@ -187,7 +188,7 @@ export function AiAssistantBubble() {
     }
   };
 
-  return (
+  return createPortal(
     <>
       {/* Floating bubble */}
       {!open && (
@@ -330,6 +331,7 @@ export function AiAssistantBubble() {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
