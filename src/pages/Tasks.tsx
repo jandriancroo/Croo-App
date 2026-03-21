@@ -86,52 +86,58 @@ export default function Tasks() {
           </div>
 
           <TabsContent value="history" className="space-y-4">
-            {/* View toggle + Date navigator row */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-muted rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode('grouped')}
-                  className={cn(
-                    'p-1.5 rounded-md transition-colors',
-                    viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                  )}
-                  aria-label="Grouped view"
-                >
-                  <Layers className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('timeline')}
-                  className={cn(
-                    'p-1.5 rounded-md transition-colors',
-                    viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                  )}
-                  aria-label="Timeline view"
-                >
-                  <LayoutList className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="flex-1">
-                <DateNavigator
-                  onPrev={() => setHistoryDate(subDays(historyDate, 1))}
-                  onNext={() => setHistoryDate(addDays(historyDate, 1))}
-                  label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
-                    ? `Today, ${format(historyDate, 'MMM d')}` 
-                    : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
-                  canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
-                  className="w-full"
-                />
-              </div>
-            </div>
+            {isInitialLoading ? (
+              <PageSkeleton variant="grid" />
+            ) : (
+              <>
+                {/* View toggle + Date navigator row */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-muted rounded-lg p-0.5">
+                    <button
+                      onClick={() => setViewMode('grouped')}
+                      className={cn(
+                        'p-1.5 rounded-md transition-colors',
+                        viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                      )}
+                      aria-label="Grouped view"
+                    >
+                      <Layers className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setViewMode('timeline')}
+                      className={cn(
+                        'p-1.5 rounded-md transition-colors',
+                        viewMode === 'timeline' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                      )}
+                      aria-label="Timeline view"
+                    >
+                      <LayoutList className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1">
+                    <DateNavigator
+                      onPrev={() => setHistoryDate(subDays(historyDate, 1))}
+                      onNext={() => setHistoryDate(addDays(historyDate, 1))}
+                      label={format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') 
+                        ? `Today, ${format(historyDate, 'MMM d')}` 
+                        : `${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
+                      canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
 
-            <TasksHistoryTimeline
-              historyStats={historyStats}
-              completedTempTasks={completedTempTasks}
-              eventCompletions={eventCompletions}
-              logbookEntries={logbookEntries}
-              selectedDate={historyDate}
-              viewMode={viewMode}
-              onTaskClick={setSelectedCompletedTask}
-            />
+                <TasksHistoryTimeline
+                  historyStats={historyStats}
+                  completedTempTasks={completedTempTasks}
+                  eventCompletions={eventCompletions}
+                  logbookEntries={logbookEntries}
+                  selectedDate={historyDate}
+                  viewMode={viewMode}
+                  onTaskClick={setSelectedCompletedTask}
+                />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="edit" className="space-y-6">
