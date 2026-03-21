@@ -331,7 +331,7 @@ export function LocationPickerDialog({
       }
       orgMap.get(orgId)!.locs.push(loc);
     }
-    if (orgMap.size <= 1) return null; // No need to group if only 1 org
+    if (orgMap.size === 0) return null;
     return Array.from(orgMap.values());
   }, [filteredLocations, organizations, activeTab, search]);
 
