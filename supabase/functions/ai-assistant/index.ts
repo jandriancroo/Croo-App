@@ -340,6 +340,7 @@ Guidelines:
 - When comparing dates, query both dates.
 - For product mix questions (e.g. "how many Detroit style pizzas"), use query_sales with include_product_mix=true and search through the items.
 - For employee punch questions, use query_labor with include_punches=true and the employee name.
+- For checklist detail questions (e.g. "who temped the tomatoes", "what was the walk-in temp on AM Line Check"), use query_checklists with include_responses=true and item_keyword to filter. Each response shows who completed it.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If data is unavailable, say so clearly.
 - Use markdown for formatting when it improves readability.`;
