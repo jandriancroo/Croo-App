@@ -85,11 +85,6 @@ export function AiAssistantBubble() {
     }
   };
 
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 200);
-    }
-  }, [open]);
 
   return (
     <>
