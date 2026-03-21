@@ -266,9 +266,7 @@ export function AiAssistantBubble() {
                   )}
                 >
                   {msg.role === 'assistant' ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5 [&_table]:text-xs">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                    <AiMarkdownRenderer content={msg.content} />
                   ) : (
                     msg.content
                   )}
