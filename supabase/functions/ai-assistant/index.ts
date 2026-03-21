@@ -116,6 +116,23 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "query_logbook",
+      description: "Query logbook entries (Safe Count, Drawer Count, Pass Down, Incident Report, Maintenance Request, and any custom categories). Returns full details including JSON data for financial entries (denomination counts, totals, variance, deposit amounts). Use for questions about drawer counts, safe counts, deposits, pass downs, incidents, maintenance, or any logbook category.",
+      parameters: {
+        type: "object",
+        properties: {
+          location_id: { type: "string", description: "UUID of the location" },
+          date: { type: "string", description: "Date YYYY-MM-DD" },
+          category_name: { type: "string", description: "Filter by category name (partial match, e.g. 'safe', 'drawer', 'pass down', 'incident', 'maintenance')" },
+          entry_keyword: { type: "string", description: "Filter entries by keyword in title or value text" },
+        },
+        required: ["location_id", "date"],
+      },
+    },
+  },
 ];
 
 // Execute tool calls against the database
@@ -332,6 +349,86 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         return JSON.stringify(results.length ? results : { message: "No checklist submissions found for this date." });
       }
 
+      case "query_logbook": {
+        // Fetch logbook entries with their values and category info
+        let catFilter: string[] = [];
+        if (args.category_name) {
+          const { data: cats } = await supabase
+            .from("logbook_categories")
+            .select("id, name")
+            .eq("location_id", args.location_id)
+            .eq("is_active", true)
+            .ilike("name", `%${args.category_name}%`);
+          catFilter = (cats || []).map((c: any) => c.id);
+          if (catFilter.length === 0) {
+            return JSON.stringify({ message: `No logbook category matching "${args.category_name}" found.` });
+          }
+        }
+
+        let query = supabase
+          .from("logbook_entries")
+          .select(`
+            id, entry_date, created_at, title,
+            logbook_categories(name),
+            profiles(full_name),
+            logbook_entry_values(field_id, value_text, value_number, logbook_fields(field_name, field_type))
+          `)
+          .eq("location_id", args.location_id)
+          .eq("entry_date", args.date)
+          .order("created_at", { ascending: false });
+
+        if (catFilter.length > 0) {
+          query = query.in("category_id", catFilter);
+        }
+
+        const { data: entries, error: logError } = await query.limit(50);
+        if (logError) {
+          console.error("query_logbook error:", logError);
+          return JSON.stringify({ error: logError.message });
+        }
+
+        const results = (entries || []).map((e: any) => {
+          const entry: any = {
+            category: e.logbook_categories?.name,
+            title: e.title,
+            submitted_by: e.profiles?.full_name,
+            submitted_at: e.created_at,
+          };
+
+          // Process values - parse JSON for structured entries (safe/drawer counts)
+          const values: any[] = [];
+          (e.logbook_entry_values || []).forEach((v: any) => {
+            const fieldName = v.logbook_fields?.field_name || "value";
+            const fieldType = v.logbook_fields?.field_type;
+            
+            if (v.value_text) {
+              try {
+                const parsed = JSON.parse(v.value_text);
+                // Structured data (safe count, drawer count)
+                values.push({ field: fieldName, type: fieldType, data: parsed });
+              } catch {
+                values.push({ field: fieldName, type: fieldType, text: v.value_text });
+              }
+            } else if (v.value_number !== null && v.value_number !== undefined) {
+              values.push({ field: fieldName, type: fieldType, number: v.value_number });
+            }
+          });
+
+          if (values.length > 0) entry.details = values;
+
+          // Filter by keyword if provided
+          if (args.entry_keyword) {
+            const kw = args.entry_keyword.toLowerCase();
+            const searchText = JSON.stringify(entry).toLowerCase();
+            if (!searchText.includes(kw)) return null;
+          }
+
+          return entry;
+        }).filter(Boolean);
+
+        return JSON.stringify(results.length ? results : { message: "No logbook entries found for this date." });
+      }
+
       case "query_tasks": {
         const activeOnly = args.active_only !== false;
         let query = supabase
@@ -539,6 +636,7 @@ CRITICAL RULES:
 - For ANY checklist question, use query_checklists. ALWAYS set checklist_title when the user mentions a checklist name. Set item_keyword when asking about a specific item.
 - DOMAIN KNOWLEDGE: "Flip the line" or "flipping the line" means the Shift Change Line Check was completed. The submission time IS when the line was flipped. Answer with the submitter name and submitted_at time. Each response also has a completed_at timestamp and completed_by name — use these for item-level detail.
 - For task questions (e.g. "what's incomplete on CrooHQ ideas"), use query_tasks with the task title.
+- For logbook questions (drawer count, safe count, pass down, incident, maintenance, deposit), use query_logbook. Drawer counts contain denomination-level detail (coins, bills) and variance. Safe counts contain denomination counts per shift (AM/PM). Always show the specific details the user asks about — e.g. if they ask "how many quarters in the safe count", look in the counts object for quarters.
 - "Today" = ${today}, "yesterday" = ${yesterday}.
 - If a tool returns empty results, tell the user no data was found — don't say you encountered an error.
 - Use markdown for formatting when it improves readability.`;
