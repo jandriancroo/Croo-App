@@ -139,6 +139,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           profile:profiles (
             id,
             full_name,
+            nickname,
             profile_photo_url
           )
         `)

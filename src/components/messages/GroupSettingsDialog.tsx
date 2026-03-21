@@ -101,7 +101,7 @@ export function GroupSettingsDialog({
 
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, profile_photo_url')
+          .select('id, full_name, nickname, profile_photo_url')
           .eq('is_active', true)
           .eq('appears_on_schedule', true)
           .in('id', locationUserIds.filter(id => !memberIds.includes(id)))
@@ -113,7 +113,7 @@ export function GroupSettingsDialog({
         // Fallback: no location scoping (shouldn't happen for normal chats)
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, full_name, profile_photo_url')
+          .select('id, full_name, nickname, profile_photo_url')
           .eq('is_active', true)
           .eq('appears_on_schedule', true)
           .not('id', 'in', `(${memberIds.join(',')})`)
