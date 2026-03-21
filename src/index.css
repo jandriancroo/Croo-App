@@ -1547,15 +1547,14 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   box-shadow: 0 0 12px hsl(43 80% 55% / 0.4), 0 0 24px hsl(43 80% 55% / 0.15);
 }
 
-/* Location chase border effect after switching */
+/* Location chase border glow after switching */
 @keyframes location-chase-spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
-@keyframes chase-border-fade {
-  0% { opacity: 1; }
-  70% { opacity: 0.8; }
+@keyframes chase-glow-fade {
+  0%, 60% { opacity: 1; }
   100% { opacity: 0; }
 }
 
@@ -1565,44 +1564,89 @@ html[data-theme="beach"] body.beach-dashboard .glass-card {
   overflow: visible;
 }
 
-.location-chase-effect::before,
-.location-chase-effect::after {
-  content: '';
+/* Glow layer — blurred conic gradient for the soft aura */
+.location-chase-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 16px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -2;
+  overflow: hidden;
+}
+
+.location-chase-glow > div {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 200deg,
+    hsl(var(--accent)) 250deg,
+    hsl(22 90% 55%) 280deg,
+    hsl(var(--primary)) 310deg,
+    hsl(280 60% 55%) 340deg,
+    transparent 360deg
+  );
+  filter: blur(10px);
+}
+
+/* Sharp border layer — thin crisp ring */
+.location-chase-border {
   position: absolute;
   inset: -2px;
   border-radius: 10px;
   opacity: 0;
   pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
 }
 
-/* Spinning conic gradient — the "light" */
-.location-chase-effect::before {
+.location-chase-border > div {
+  position: absolute;
+  inset: -50%;
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    transparent 260deg,
-    hsl(var(--primary)) 300deg,
-    hsl(var(--accent)) 330deg,
-    hsl(var(--primary)) 345deg,
+    transparent 220deg,
+    hsl(var(--accent)) 260deg,
+    hsl(22 90% 55%) 290deg,
+    hsl(var(--primary)) 320deg,
+    hsl(280 60% 55%) 345deg,
     transparent 360deg
   );
-  z-index: -2;
 }
 
-/* Inner mask — punches out the center so only the border ring shows */
-.location-chase-effect::after {
-  inset: 0px;
+/* Inner fill to punch out center — match header bg */
+.location-chase-fill {
+  position: absolute;
+  inset: 0;
   border-radius: 8px;
   background: hsl(var(--primary));
+  opacity: 0;
+  pointer-events: none;
   z-index: -1;
 }
 
-.location-chase-effect.chase-active::before {
+.location-chase-effect.chase-active .location-chase-glow {
   opacity: 1;
-  animation: location-chase-spin 1.2s linear 2, chase-border-fade 2.4s ease-out forwards;
+  animation: chase-glow-fade 2.4s ease-out forwards;
 }
 
-.location-chase-effect.chase-active::after {
+.location-chase-effect.chase-active .location-chase-glow > div {
+  animation: location-chase-spin 1.2s linear infinite;
+}
+
+.location-chase-effect.chase-active .location-chase-border {
   opacity: 1;
-  animation: chase-border-fade 2.4s ease-out forwards;
+  animation: chase-glow-fade 2.4s ease-out forwards;
+}
+
+.location-chase-effect.chase-active .location-chase-border > div {
+  animation: location-chase-spin 1.2s linear infinite;
+}
+
+.location-chase-effect.chase-active .location-chase-fill {
+  opacity: 1;
+  animation: chase-glow-fade 2.4s ease-out forwards;
 }
