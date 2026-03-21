@@ -67,13 +67,15 @@ const tools = [
     type: "function",
     function: {
       name: "query_checklists",
-      description: "Query checklist completion data: which checklists were completed, by whom, completion rates, and individual item responses.",
+      description: "Query checklist completion data including individual item responses. Use for questions like 'who temped the tomatoes on AM Line check', 'what was the walk-in temp', 'did anyone complete the opening checklist'. Returns each checklist item question, the response text (including temperatures), who completed it, and when.",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location" },
           date: { type: "string", description: "Date YYYY-MM-DD" },
-          checklist_title: { type: "string", description: "Filter by checklist title (partial match)" },
+          checklist_title: { type: "string", description: "Filter by checklist title (partial match, e.g. 'AM Line' or 'opening')" },
+          item_keyword: { type: "string", description: "Filter checklist items by keyword in the question (e.g. 'tomato', 'walk-in', 'temp')" },
+          include_responses: { type: "boolean", description: "Include individual item-level responses with who completed each item. Default true." },
         },
         required: ["location_id", "date"],
       },
@@ -194,23 +196,73 @@ async function executeTool(supabase: any, toolName: string, args: any): Promise<
       case "query_checklists": {
         const startTs = `${args.date}T00:00:00-08:00`;
         const endTs = `${args.date}T23:59:59-08:00`;
+        const includeResponses = args.include_responses !== false;
 
-        let query = supabase
+        // Get submissions with full response detail
+        const { data, error } = await supabase
           .from("checklist_submissions")
-          .select("submitted_at, submitted_by, profiles(full_name), checklists(title, checklist_items(count)), checklist_responses(item_id, response_text)")
+          .select(`
+            submitted_at, submitted_by, 
+            profiles(full_name), 
+            checklists(title),
+            checklist_responses(
+              item_id, response_text, response_image_url, 
+              extracted_temperature, temperature_valid, completed_by,
+              checklist_items(question, item_type, requires_temperature_validation)
+            )
+          `)
           .eq("location_id", args.location_id)
           .gte("submitted_at", startTs)
           .lte("submitted_at", endTs);
 
-        const { data, error } = await query;
         if (error) return JSON.stringify({ error: error.message });
 
-        let results = (data || []).map((s: any) => ({
-          checklist: s.checklists?.title,
-          submitted_by: s.profiles?.full_name,
-          submitted_at: s.submitted_at,
-          responses_count: s.checklist_responses?.length || 0,
-        }));
+        // Get profiles for completed_by IDs
+        const completedByIds = new Set<string>();
+        (data || []).forEach((s: any) => {
+          s.checklist_responses?.forEach((r: any) => {
+            if (r.completed_by) completedByIds.add(r.completed_by);
+          });
+        });
+        
+        let profileMap: Record<string, string> = {};
+        if (completedByIds.size > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", Array.from(completedByIds));
+          (profiles || []).forEach((p: any) => { profileMap[p.id] = p.full_name; });
+        }
+
+        let results = (data || []).map((s: any) => {
+          const base: any = {
+            checklist: s.checklists?.title,
+            submitted_by: s.profiles?.full_name,
+            submitted_at: s.submitted_at,
+            responses_count: s.checklist_responses?.length || 0,
+          };
+
+          if (includeResponses && s.checklist_responses) {
+            let responses = s.checklist_responses.map((r: any) => ({
+              question: r.checklist_items?.question,
+              item_type: r.checklist_items?.item_type,
+              answer: r.response_text,
+              temperature: r.extracted_temperature,
+              temp_valid: r.temperature_valid,
+              completed_by: r.completed_by ? profileMap[r.completed_by] || r.completed_by : s.profiles?.full_name,
+              has_photo: !!r.response_image_url,
+            }));
+
+            // Filter by item keyword if provided
+            if (args.item_keyword) {
+              const kw = args.item_keyword.toLowerCase();
+              responses = responses.filter((r: any) => r.question?.toLowerCase().includes(kw));
+            }
+
+            base.responses = responses;
+          }
+          return base;
+        });
 
         if (args.checklist_title) {
           const q = args.checklist_title.toLowerCase();
