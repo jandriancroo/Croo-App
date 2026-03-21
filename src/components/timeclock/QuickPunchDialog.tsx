@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, LogOut, Plus, X } from 'lucide-react';
+import { getDisplayName } from '@/utils/displayName';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 
