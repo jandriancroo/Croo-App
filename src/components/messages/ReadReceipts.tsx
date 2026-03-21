@@ -18,6 +18,7 @@ interface Receipt {
   read_at: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
@@ -26,6 +27,7 @@ interface ChatMember {
   user_id: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }

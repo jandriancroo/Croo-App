@@ -37,12 +37,13 @@ interface SubtaskCompletion {
   subtask_id: string;
   completed_by: string;
   completed_at: string;
-  profile?: { full_name: string; profile_photo_url: string | null };
+  profile?: { full_name: string; nickname?: string | null; profile_photo_url: string | null };
 }
 
 interface ClockedInEmployee {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
 }
 
