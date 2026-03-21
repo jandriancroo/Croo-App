@@ -766,7 +766,8 @@ export default function Dashboard() {
               variant="row"
             />
           );
-        })}
+        });
+        })()}
       </div>
     </Card>
   );
