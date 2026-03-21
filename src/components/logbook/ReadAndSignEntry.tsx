@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, PenLine, CheckCircle2, Clock, Users, MoreVer
 import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
+import { getDisplayName } from "@/utils/displayName";
 import { EditReadAndSignDialog } from "./EditReadAndSignDialog";
 
 interface ReadAndSignEntryProps {
@@ -75,7 +76,7 @@ export function ReadAndSignEntry({
           .from("read_and_sign_assignments")
           .select(`
             *,
-            employee:profiles!read_and_sign_assignments_employee_id_fkey(full_name, profile_photo_url)
+            employee:profiles!read_and_sign_assignments_employee_id_fkey(full_name, nickname, profile_photo_url)
           `)
           .eq("document_id", documentId),
       ]);
@@ -286,10 +287,10 @@ export function ReadAndSignEntry({
                               <Avatar className="h-5 w-5">
                                 <AvatarImage src={a.employee?.profile_photo_url} />
                                 <AvatarFallback className="text-[10px]">
-                                  {a.employee?.full_name?.charAt(0) || "?"}
+                                  {getDisplayName(a.employee?.full_name, a.employee?.nickname)?.charAt(0) || "?"}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-xs font-medium">{a.employee?.full_name}</span>
+                              <span className="text-xs font-medium">{getDisplayName(a.employee?.full_name, a.employee?.nickname)}</span>
                               <span className="text-xs text-muted-foreground">
                                 {format(new Date(a.signed_at), "MMM d")}
                               </span>
@@ -314,10 +315,10 @@ export function ReadAndSignEntry({
                               <Avatar className="h-5 w-5">
                                 <AvatarImage src={a.employee?.profile_photo_url} />
                                 <AvatarFallback className="text-[10px]">
-                                  {a.employee?.full_name?.charAt(0) || "?"}
+                                  {getDisplayName(a.employee?.full_name, a.employee?.nickname)?.charAt(0) || "?"}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-xs">{a.employee?.full_name}</span>
+                              <span className="text-xs">{getDisplayName(a.employee?.full_name, a.employee?.nickname)}</span>
                             </div>
                           ))}
                       </div>

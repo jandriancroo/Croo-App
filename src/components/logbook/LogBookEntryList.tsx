@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreVertical, Trash2, Pencil, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getDisplayName } from "@/utils/displayName";
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted } from "@/components/logbook/SafeCountEntry";
 import { BankDepositEntry, parseBankDepositData } from "@/components/logbook/BankDepositEntry";
@@ -61,10 +62,10 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                       <div className="flex items-center gap-2">
                         <Avatar className="h-7 w-7">
                           {entry.profiles?.profile_photo_url && <AvatarImage src={entry.profiles.profile_photo_url} />}
-                          <AvatarFallback>{entry.profiles?.full_name?.split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}</AvatarFallback>
+                          <AvatarFallback>{getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname)?.split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium leading-tight">{entry.profiles?.full_name || 'Unknown'}</p>
+                          <p className="text-sm font-medium leading-tight">{getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname) || 'Unknown'}</p>
                           <p className="text-xs text-muted-foreground">
                             {entry.logbook_categories?.name} • {format(new Date(entry.created_at), 'h:mm a')}
                           </p>
