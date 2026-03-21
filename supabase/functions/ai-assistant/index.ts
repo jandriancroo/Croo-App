@@ -85,15 +85,14 @@ const tools = [
     type: "function",
     function: {
       name: "query_checklists",
-      description: "Query checklist completion data including individual item responses. Use for questions like 'who temped the tomatoes on AM Line check', 'what was the walk-in temp', 'did anyone complete the opening checklist'. Returns each checklist item question, the response text (including temperatures), who completed it, and when.",
+      description: "Query checklist completion data. ALWAYS returns full item-level responses (questions, answers, temperatures, who completed each item). Use for ANY checklist question: 'who temped the tomatoes', 'what time did they flip the line', 'was the shift change checklist done', 'what was the walk-in temp'. Use checklist_title to find the right checklist and item_keyword to find specific items within it.",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location" },
           date: { type: "string", description: "Date YYYY-MM-DD" },
-          checklist_title: { type: "string", description: "Filter by checklist title (partial match, e.g. 'AM Line' or 'opening')" },
-          item_keyword: { type: "string", description: "Filter checklist items by keyword in the question (e.g. 'tomato', 'walk-in', 'temp')" },
-          include_responses: { type: "boolean", description: "Include individual item-level responses with who completed each item. Default true." },
+          checklist_title: { type: "string", description: "Filter by checklist title (partial match, e.g. 'AM Line', 'shift change', 'opening', 'closing'). ALWAYS set this when the user mentions a checklist name." },
+          item_keyword: { type: "string", description: "Filter items by keyword in the question text (e.g. 'tomato', 'walk-in', 'flip', 'temp'). Set this when asking about a specific item." },
         },
         required: ["location_id", "date"],
       },
