@@ -85,10 +85,9 @@ export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Ange
   const [currentHours, currentMins] = currentTimeInTz.split(":").map(Number);
   const currentMinutes = currentHours * 60 + currentMins;
 
-  // DEBUG: temporarily bypass time window check
-  // const windowStart = closeMinutes;
-  // const windowEnd = closeMinutes + 120;
-  // if (currentMinutes < windowStart || currentMinutes > windowEnd) return null;
+  const windowStart = closeMinutes;
+  const windowEnd = closeMinutes + 120;
+  if (currentMinutes < windowStart || currentMinutes > windowEnd) return null;
 
   return (
     <>
