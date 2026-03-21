@@ -284,6 +284,18 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
+  const [justSwitched, setJustSwitched] = useState(false);
+  const prevSwitchingRef = useRef(false);
+  
+  // Detect when switching ends → trigger chase effect
+  useEffect(() => {
+    if (prevSwitchingRef.current && !isSwitching) {
+      setJustSwitched(true);
+      const timer = setTimeout(() => setJustSwitched(false), 1800);
+      return () => clearTimeout(timer);
+    }
+    prevSwitchingRef.current = isSwitching;
+  }, [isSwitching]);
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
   const { hasPermission } = useRolePermissions();
@@ -947,7 +959,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
-                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                className={`gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground location-chase-effect ${justSwitched ? 'chase-active' : ''}`}
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
