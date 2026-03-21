@@ -29,6 +29,12 @@ export function AiAssistantBubble() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
+  }, [open]);
+
   // Don't render for non-managers
   if (!isShiftManager) return null;
 
