@@ -354,7 +354,7 @@ export default function Dashboard() {
     enabled: !!currentLocation,
   });
   // Catering orders with React Query (cached, instant on revisit)
-  const { data: todaysCateringOrders = [] } = useQuery({
+  useQuery({
     queryKey: ['todays-catering-orders', currentLocation?.id, getTodayInTimezone()],
     staleTime: 2 * 60 * 1000, // 2 min cache
     queryFn: async () => {
@@ -491,58 +491,10 @@ export default function Dashboard() {
   });
 
   const checklists = checklistData?.checklists || [];
-  const stats = checklistData?.stats || {};
+  
 
-  // Fetch Croo Cash balance + subscribe once per user (prevents channel leaks)
-  useEffect(() => {
-    if (!user?.id) {
-      setCrooCashBalance(0);
-      return;
-    }
 
-    let cancelled = false;
 
-    const load = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('croo_cash_balance')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-        if (!cancelled) setCrooCashBalance(data?.croo_cash_balance || 0);
-      } catch (error) {
-        console.error('Error fetching Croo Cash balance:', error);
-      }
-    };
-
-    load();
-
-    const channel = supabase
-      .channel(`croo-cash-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          setCrooCashBalance(payload.new.croo_cash_balance || 0);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
-  // User name is derived from auth context - no need for separate fetch
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
     // Wait for timezone to load before calculating completion data.
@@ -579,13 +531,6 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
-    console.log('[Dashboard] loadCompletionData:', {
-      businessDateStr,
-      currentDay,
-      periodStartBusiness: periodStartBusiness.toISOString(),
-      periodEndBusiness: periodEndBusiness.toISOString(),
-      closeTime
-    });
     
     // Monthly period
     const now = new Date();
@@ -644,14 +589,7 @@ export default function Dashboard() {
     // Combine responses
     const allResponses = [...(dailyResponses || []), ...(monthlyResponses || [])];
     
-    console.log('[Dashboard] Query results:', {
-      itemCount: allChecklistItems?.length || 0,
-      dailyResponseCount: dailyResponses?.length || 0,
-      monthlyResponseCount: monthlyResponses?.length || 0,
-      totalResponseCount: allResponses.length,
-      periodStart: periodStartBusiness.toISOString(),
-      periodEnd: periodEndBusiness.toISOString()
-    });
+    
     // Group items by checklist_id
     const itemsByChecklist = new Map<string, typeof allChecklistItems>();
     allChecklistItems?.forEach(item => {
@@ -714,13 +652,6 @@ export default function Dashboard() {
       };
     }
     setCompletionData(dataMap);
-  };
-  // fetchData is now replaced by React Query above (dashboard-checklists query)
-  const toggleEditMode = () => {
-    setIsEditMode(!isEditMode);
-    if (isEditMode) {
-      toast.success('Layout saved');
-    }
   };
   const getCompletionData = (checklistId: string) => {
     return completionData[checklistId] || {
