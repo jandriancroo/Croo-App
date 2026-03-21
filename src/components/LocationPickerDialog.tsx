@@ -477,6 +477,7 @@ export function LocationPickerDialog({
               </p>
             ) : groupedByOrg ? (
               // Grouped by org within a brand
+              groupedByOrg.map(group => (
                 <div key={group.orgId} className="mb-2">
                   <button
                     onClick={() => {
