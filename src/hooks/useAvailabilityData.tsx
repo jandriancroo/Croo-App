@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, isBefore, isThisWeek, addWeeks, isSameWeek } from "date-fns";
+import { format, startOfWeek, isBefore, isThisWeek, addWeeks, isSameWeek } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";

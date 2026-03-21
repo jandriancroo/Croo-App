@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getDisplayName } from "@/utils/displayName";
 
 interface ShiftOffer {
   id: string;
@@ -23,11 +24,13 @@ interface ShiftOffer {
   offered_by: {
     id: string;
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string;
   };
   claimed_by: {
     id: string;
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string;
   } | null;
 }
@@ -56,11 +59,13 @@ export function ShiftPoolSection() {
           offered_by:profiles!shift_offers_offered_by_user_id_fkey (
             id,
             full_name,
+            nickname,
             profile_photo_url
           ),
           claimed_by:profiles!shift_offers_claimed_by_user_id_fkey (
             id,
             full_name,
+            nickname,
             profile_photo_url
           )
         `)
@@ -196,11 +201,11 @@ export function ShiftPoolSection() {
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={offer.offered_by.profile_photo_url} />
                       <AvatarFallback>
-                        {offer.offered_by.full_name?.charAt(0)}
+                        {getDisplayName(offer.offered_by.full_name, offer.offered_by.nickname)?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{offer.offered_by.full_name}</p>
+                      <p className="font-medium">{getDisplayName(offer.offered_by.full_name, offer.offered_by.nickname)}</p>
                       <p className="text-muted-foreground text-xs">Offering</p>
                     </div>
                   </div>
@@ -211,11 +216,11 @@ export function ShiftPoolSection() {
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={offer.claimed_by?.profile_photo_url} />
                       <AvatarFallback>
-                        {offer.claimed_by?.full_name?.charAt(0)}
+                        {getDisplayName(offer.claimed_by?.full_name, offer.claimed_by?.nickname)?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{offer.claimed_by?.full_name}</p>
+                      <p className="font-medium">{getDisplayName(offer.claimed_by?.full_name, offer.claimed_by?.nickname)}</p>
                       <p className="text-muted-foreground text-xs">Claiming</p>
                     </div>
                   </div>
