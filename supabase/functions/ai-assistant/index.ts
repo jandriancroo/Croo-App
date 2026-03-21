@@ -260,7 +260,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const endTs = `${endDate}T23:59:59${offset}`;
           const { data: punches, error: punchError } = await supabase
             .from("time_punches")
-            .select("user_id, punch_type, punch_time, notes, profiles(full_name)")
+            .select("user_id, punch_type, punch_time, notes, profiles!time_punches_user_id_fkey(full_name)")
             .eq("location_id", args.location_id)
             .gte("punch_time", startTs)
             .lte("punch_time", endTs)
@@ -292,7 +292,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         // Query shifts with schedule join for location filtering
         const { data, error } = await supabase
           .from("scheduled_shifts")
-          .select("shift_date, start_time, end_time, position, is_time_off, user_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date)")
+          .select("shift_date, start_time, end_time, is_time_off, user_id, template_id, schedule_id, schedules!inner(location_id, week_start_date, week_end_date), shift_templates(position, template_name)")
           .eq("schedules.location_id", args.location_id)
           .gte("shift_date", args.start_date)
           .lte("shift_date", endDate)
@@ -329,7 +329,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           name: profileMap[s.user_id] || "Unknown",
           start: s.start_time,
           end: s.end_time,
-          position: s.position,
+          position: s.shift_templates?.position || s.shift_templates?.template_name || null,
           time_off: s.is_time_off,
         }));
 
