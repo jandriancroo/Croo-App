@@ -1215,5 +1215,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
 
+      {/* AI Assistant floating bubble */}
+      <AiAssistantBubble />
+
     </div>;
 };
