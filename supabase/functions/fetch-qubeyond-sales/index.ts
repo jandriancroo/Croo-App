@@ -438,9 +438,7 @@ async function fetchHourlySales(
 
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
-    headers: {
     headers: getV4Headers(tokenGw),
-    },
     body: JSON.stringify(requestPayload),
   });
 
