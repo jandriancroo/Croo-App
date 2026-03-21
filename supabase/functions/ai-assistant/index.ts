@@ -437,7 +437,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         let query = supabase
           .from("logbook_entries")
           .select(`
-            id, entry_date, created_at, title,
+            id, entry_date, created_at, category_id,
             logbook_categories(name),
             profiles(full_name),
             logbook_entry_values(field_id, value_text, value_number, logbook_fields(field_name, field_type))
