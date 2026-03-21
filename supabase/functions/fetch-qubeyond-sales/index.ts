@@ -70,7 +70,7 @@ function getV4Headers(accessToken: string): Record<string, string> {
   };
 }
 
-
+function getLocalDate(date: Date, timezone: string): string {
   // Use Intl.DateTimeFormat with formatToParts for reliable timezone conversion
   const formatter = new Intl.DateTimeFormat('en-US', { 
     timeZone: timezone, 
