@@ -279,23 +279,24 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const mobileHeaderRef = useRef<HTMLElement>(null);
+  const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo } = useAppLocation();
-  const [justSwitched, setJustSwitched] = useState(false);
+  const [flyingText, setFlyingText] = useState<{ name: string; storeNumber?: string | null } | null>(null);
   const prevSwitchingRef = useRef(false);
   
-  // Detect when switching ends → trigger chase effect
+  // Detect when switching ends → trigger flying text animation
   useEffect(() => {
-    if (prevSwitchingRef.current && !isSwitching) {
-      setJustSwitched(true);
-      const timer = setTimeout(() => setJustSwitched(false), 1800);
+    if (prevSwitchingRef.current && !isSwitching && switchingTo) {
+      setFlyingText({ name: switchingTo.name, storeNumber: switchingTo.store_number });
+      const timer = setTimeout(() => setFlyingText(null), 800);
       return () => clearTimeout(timer);
     }
     prevSwitchingRef.current = isSwitching;
-  }, [isSwitching]);
+  }, [isSwitching, switchingTo]);
   const { counts: chatUnreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const unreadCount = chatUnreadCounts.total;
   const { hasPermission } = useRolePermissions();
