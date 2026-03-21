@@ -959,7 +959,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
-                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                className={`gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground location-chase-effect ${justSwitched ? 'chase-active' : ''}`}
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
