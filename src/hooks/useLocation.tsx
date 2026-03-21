@@ -184,7 +184,12 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         locations,
         setCurrentLocation,
         loading,
-        refetchLocations: fetchLocations,
+      refetchLocations: async () => {
+        await fetchLocations();
+        // Also invalidate the location picker cache so new locations appear immediately
+        queryClient.invalidateQueries({ queryKey: ['location-picker-data'] });
+        queryClient.invalidateQueries({ queryKey: ['location-picker-profile'] });
+      },
         isChecklistOnlyLocation,
         organizationId: effectiveOrganizationId,
         isSwitching,
