@@ -956,24 +956,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           
           {/* Mobile Location Picker - centered */}
           {(currentLocation || isOnOrgDash) && (
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <div className={`relative location-chase-effect ${justSwitched ? 'chase-active' : ''}`}>
-                {/* Chase glow layers — absolutely positioned, don't affect layout */}
-                <div className="location-chase-glow"><div /></div>
-                <div className="location-chase-border"><div /></div>
-                <div className="location-chase-fill" />
-                <Button 
-                  variant="ghost" 
-                  className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground relative z-10"
-                  onClick={() => setLocationDialogOpen(true)}
-                >
-                  <MapPin className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate max-w-[160px]">
-                    {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                </Button>
-              </div>
+            <div className="absolute left-1/2 -translate-x-1/2" ref={headerLocationRef}>
+              <Button 
+                variant="ghost" 
+                className="gap-1.5 h-10 text-base font-medium text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+                onClick={() => setLocationDialogOpen(true)}
+              >
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate max-w-[160px]">
+                  {isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+              </Button>
             </div>
           )}
           
