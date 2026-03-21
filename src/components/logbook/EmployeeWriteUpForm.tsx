@@ -13,6 +13,7 @@ import { AlertTriangle, Camera, Check, ChevronsUpDown, Loader2, Plus, Settings, 
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
+import { getDisplayName } from "@/utils/displayName";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { compressImage } from "@/utils/imageCompression";
@@ -271,7 +272,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
                     <AvatarImage src={selectedEmployee.profile_photo_url} />
                     <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
                   </Avatar>
-                  {selectedEmployee.full_name}
+                  {getDisplayName(selectedEmployee.full_name, selectedEmployee.nickname)}
                 </div>
               ) : (
                 "Select employee..."
@@ -288,7 +289,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
                   {employees.map((employee: any) => (
                     <CommandItem
                       key={employee.id}
-                      value={employee.full_name}
+                      value={getDisplayName(employee.full_name, employee.nickname)}
                       onSelect={() => {
                         setSelectedEmployee(employee);
                         setEmployeeOpen(false);
@@ -299,7 +300,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
                           <AvatarImage src={employee.profile_photo_url} />
                           <AvatarFallback><User className="h-3 w-3" /></AvatarFallback>
                         </Avatar>
-                        {employee.full_name}
+                        {getDisplayName(employee.full_name, employee.nickname)}
                       </div>
                       <Check
                         className={cn(

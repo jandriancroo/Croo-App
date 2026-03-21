@@ -34,6 +34,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { getDisplayName } from "@/utils/displayName";
 
 interface AutoScheduleWizardProps {
   open: boolean;
@@ -198,7 +199,7 @@ export function AutoScheduleWizard({
         .from("availability_requests")
         .select(`
           *,
-          profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+          profiles!availability_requests_user_id_fkey(full_name, nickname, profile_photo_url)
         `)
         .eq("location_id", locationId)
         .in("status", ["pending", "approved"])
@@ -557,12 +558,12 @@ export function AutoScheduleWizard({
                                   <Avatar className="h-7 w-7">
                                     <AvatarImage src={request.profiles.profile_photo_url || undefined} />
                                     <AvatarFallback className="text-xs">
-                                      {getInitials(request.profiles.full_name)}
+                                      {getInitials(getDisplayName(request.profiles.full_name, (request.profiles as any).nickname))}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="min-w-0">
                                     <div className="text-sm font-medium truncate">
-                                      {request.profiles.full_name}
+                                      {getDisplayName(request.profiles.full_name, (request.profiles as any).nickname)}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                       {formatTimeScope(request)} • {request.hours_requested}h
@@ -616,10 +617,10 @@ export function AutoScheduleWizard({
                               <Avatar className="h-6 w-6">
                                 <AvatarImage src={request.profiles.profile_photo_url || undefined} />
                                 <AvatarFallback className="text-xs">
-                                  {getInitials(request.profiles.full_name)}
+                                  {getInitials(getDisplayName(request.profiles.full_name, (request.profiles as any).nickname))}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium truncate">{request.profiles.full_name}</span>
+                              <span className="font-medium truncate">{getDisplayName(request.profiles.full_name, (request.profiles as any).nickname)}</span>
                               <span className="text-muted-foreground text-xs">
                                 {formatTimeScope(request)}
                               </span>

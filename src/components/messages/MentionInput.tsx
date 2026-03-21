@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
+import { getDisplayName } from '@/utils/displayName';
 
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
 }
 
@@ -56,7 +58,7 @@ export function MentionInput({
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('chat_members')
-        .select('profiles(id, full_name, profile_photo_url, is_active, appears_on_schedule)')
+        .select('profiles(id, full_name, nickname, profile_photo_url, is_active, appears_on_schedule)')
         .eq('chat_id', chatId);
 
       if (error) throw error;
@@ -108,7 +110,8 @@ export function MentionInput({
     const cursorPos = textareaRef.current?.selectionStart || (mentionStartIndex + mentionQuery.length + 1);
     const afterMention = value.substring(cursorPos);
     // Build new value, trimming any extra whitespace at start if mention is at beginning
-    const newValue = beforeMention + `@${member.full_name} ` + afterMention.replace(/^\s+/, '');
+    const displayName = getDisplayName(member.full_name, member.nickname)!;
+    const newValue = beforeMention + `@${displayName} ` + afterMention.replace(/^\s+/, '');
     
     onChange(newValue);
     setShowSuggestions(false);
@@ -119,7 +122,7 @@ export function MentionInput({
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        const newCursorPos = beforeMention.length + member.full_name.length + 2;
+        const newCursorPos = beforeMention.length + displayName.length + 2;
         textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
       }
     }, 0);
@@ -197,10 +200,10 @@ export function MentionInput({
                 {member.profile_photo_url ? (
                   <img src={member.profile_photo_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xs font-medium">{member.full_name.charAt(0)}</span>
+                  <span className="text-xs font-medium">{getDisplayName(member.full_name, member.nickname)?.charAt(0)}</span>
                 )}
               </div>
-              <span className="text-sm font-medium">{member.full_name}</span>
+              <span className="text-sm font-medium">{getDisplayName(member.full_name, member.nickname)}</span>
             </button>
           ))}
         </div>

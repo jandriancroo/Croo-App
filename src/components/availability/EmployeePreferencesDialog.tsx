@@ -13,10 +13,12 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2 } from "lucide-react";
 import type { WeeklyAvailability, DayAvailability } from "./SchedulingPreferencesSection";
+import { getDisplayName } from "@/utils/displayName";
 
 interface Employee {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
   min_weekly_hours: number | null;
   max_weekly_hours: number | null;
@@ -135,9 +137,9 @@ export function EmployeePreferencesDialog({
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarImage src={employee.profile_photo_url || undefined} />
-              <AvatarFallback>{getInitials(employee.full_name)}</AvatarFallback>
+              <AvatarFallback>{getInitials(getDisplayName(employee.full_name, employee.nickname))}</AvatarFallback>
             </Avatar>
-            <DialogTitle>{employee.full_name}</DialogTitle>
+            <DialogTitle>{getDisplayName(employee.full_name, employee.nickname)}</DialogTitle>
           </div>
         </DialogHeader>
 

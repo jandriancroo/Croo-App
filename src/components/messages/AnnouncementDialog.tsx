@@ -13,10 +13,12 @@ import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { format, addDays, setHours, setMinutes, isAfter } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getDisplayName } from '@/utils/displayName';
 
 interface Profile {
   id: string;
   full_name: string;
+  nickname?: string | null;
   profile_photo_url: string | null;
   role?: string;
 }
@@ -546,10 +548,10 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={profile.profile_photo_url || undefined} />
                         <AvatarFallback className="text-xs">
-                          {profile.full_name?.charAt(0) || '?'}
+                          {getDisplayName(profile.full_name, profile.nickname)?.charAt(0) || '?'}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="flex-1 text-sm">{profile.full_name}</span>
+                      <span className="flex-1 text-sm">{getDisplayName(profile.full_name, profile.nickname)}</span>
                       <span className="text-xs text-muted-foreground capitalize">{profile.role?.replace('_', ' ')}</span>
                     </label>
                   ))}

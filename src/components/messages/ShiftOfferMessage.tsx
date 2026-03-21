@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Clock, Calendar, User, Check, X } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useCrooCashAnimation } from "@/contexts/CrooCashAnimationContext";
+import { getDisplayName } from "@/utils/displayName";
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ interface ShiftClaim {
   profile: {
     id: string;
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
@@ -107,11 +109,13 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           ),
           offered_by:profiles!shift_offers_offered_by_user_id_fkey (
             id,
-            full_name
+            full_name,
+            nickname
           ),
           claimed_by:profiles!shift_offers_claimed_by_user_id_fkey (
             id,
-            full_name
+            full_name,
+            nickname
           )
         `)
         .eq("id", offerId)
@@ -137,6 +141,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           profile:profiles (
             id,
             full_name,
+            nickname,
             profile_photo_url
           )
         `)
@@ -434,7 +439,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           <div>
             <h4 className="font-semibold text-lg text-white">{offer.shift.template?.position || "Shift"}</h4>
             <p className="text-sm text-white/80">
-              Offered by {offer.offered_by.full_name}
+              Offered by {getDisplayName(offer.offered_by.full_name, offer.offered_by.nickname)}
             </p>
           </div>
           {statusBadge()}
@@ -462,13 +467,13 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
                   {claim.profile.profile_photo_url ? (
                     <img 
                       src={claim.profile.profile_photo_url} 
-                      alt={claim.profile.full_name}
+                      alt={getDisplayName(claim.profile.full_name, claim.profile.nickname)}
                       className="w-6 h-6 rounded-full border-2 border-white/30"
                     />
                   ) : (
                     <User className="w-6 h-6 text-white/80" />
                   )}
-                  <span>{claim.profile.full_name}</span>
+                  <span>{getDisplayName(claim.profile.full_name, claim.profile.nickname)}</span>
                   <span className="text-xs text-white/70 ml-auto">
                     {new Date(claim.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -499,7 +504,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
                 <SelectContent className="bg-white z-50">
                   {claims.map((claim) => (
                     <SelectItem key={claim.id} value={claim.user_id}>
-                      {claim.profile.full_name}
+                      {getDisplayName(claim.profile.full_name, claim.profile.nickname)}
                     </SelectItem>
                   ))}
                 </SelectContent>

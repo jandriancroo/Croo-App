@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { getDisplayName } from "@/utils/displayName";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,7 +122,7 @@ export function AvailabilityRequestCard({
         {/* Mobile layout */}
         <div className="md:hidden">
           <div className="font-medium truncate">
-            {canApproveRequests ? request.profiles.full_name : "You"}
+            {canApproveRequests ? getDisplayName(request.profiles.full_name, request.profiles.nickname) : "You"}
           </div>
           <div className="flex items-start justify-between mt-1">
             <div className="font-semibold text-primary">
@@ -156,7 +157,7 @@ export function AvailabilityRequestCard({
         <div className="hidden md:flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0 flex flex-row items-center gap-4">
             <div className="font-medium truncate w-32 lg:w-48 shrink-0">
-              {canApproveRequests ? request.profiles.full_name : "You"}
+              {canApproveRequests ? getDisplayName(request.profiles.full_name, request.profiles.nickname) : "You"}
             </div>
             <div className="font-semibold text-primary w-44 lg:w-56 shrink-0">
               <div className="text-xs text-muted-foreground font-medium mb-0.5">

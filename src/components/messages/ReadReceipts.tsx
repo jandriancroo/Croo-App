@@ -4,6 +4,7 @@ import { Check, CheckCheck, Eye } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { getDisplayName } from '@/utils/displayName';
 
 interface ReadReceiptsProps {
   messageId: string;
@@ -17,6 +18,7 @@ interface Receipt {
   read_at: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
@@ -25,6 +27,7 @@ interface ChatMember {
   user_id: string;
   profiles: {
     full_name: string;
+    nickname: string | null;
     profile_photo_url: string | null;
   };
 }
@@ -52,11 +55,11 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
       const [receiptsRes, membersRes] = await Promise.all([
         supabase
           .from('message_read_receipts')
-          .select('user_id, read_at, profiles(full_name, profile_photo_url, is_active, appears_on_schedule)')
+          .select('user_id, read_at, profiles(full_name, nickname, profile_photo_url, is_active, appears_on_schedule)')
           .eq('message_id', messageId),
         supabase
           .from('chat_members')
-          .select('user_id, profiles(full_name, profile_photo_url, is_active, appears_on_schedule)')
+          .select('user_id, profiles(full_name, nickname, profile_photo_url, is_active, appears_on_schedule)')
           .eq('chat_id', chatId)
       ]);
 
@@ -114,9 +117,9 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
                 <div key={r.user_id} className="flex items-center gap-2.5 px-3 py-2">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={r.profiles.profile_photo_url || undefined} />
-                    <AvatarFallback className="text-[10px]">{r.profiles.full_name?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-[10px]">{getDisplayName(r.profiles.full_name, r.profiles.nickname)?.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm truncate flex-1">{r.profiles.full_name}</span>
+                  <span className="text-sm truncate flex-1">{getDisplayName(r.profiles.full_name, r.profiles.nickname)}</span>
                   <CheckCheck className="h-3 w-3 text-primary flex-shrink-0" />
                 </div>
               ))}
@@ -136,9 +139,9 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
                 <div key={m.user_id} className="flex items-center gap-2.5 px-3 py-2 opacity-50">
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={m.profiles.profile_photo_url || undefined} />
-                    <AvatarFallback className="text-[10px]">{m.profiles.full_name?.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-[10px]">{getDisplayName(m.profiles.full_name, m.profiles.nickname)?.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <span className="text-sm truncate flex-1">{m.profiles.full_name}</span>
+                  <span className="text-sm truncate flex-1">{getDisplayName(m.profiles.full_name, m.profiles.nickname)}</span>
                   <Check className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 </div>
               ))}
