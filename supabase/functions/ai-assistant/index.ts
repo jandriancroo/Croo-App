@@ -483,12 +483,24 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             console.error("query_labor punches error:", punchError);
             result.punches_error = punchError.message;
           } else {
-            let punchResults = (punches || []).map((p: any) => ({
-              name: p.profiles?.full_name,
-              type: p.punch_type,
-              time: p.punch_time,
-              notes: p.notes,
-            }));
+            let punchResults = (punches || []).map((p: any) => {
+              // Convert UTC punch_time to local timezone for accurate display
+              const utcDate = new Date(p.punch_time);
+              const localTime = utcDate.toLocaleString("en-US", { 
+                timeZone: timezone, 
+                hour: "numeric", 
+                minute: "2-digit", 
+                hour12: true 
+              });
+              const localDate = utcDate.toLocaleDateString("en-CA", { timeZone: timezone });
+              return {
+                name: p.profiles?.full_name,
+                type: p.punch_type,
+                time: localTime,
+                date: localDate,
+                notes: p.notes,
+              };
+            });
             if (args.employee_name) {
               const q = args.employee_name.toLowerCase();
               punchResults = punchResults.filter((p: any) => p.name?.toLowerCase().includes(q));
