@@ -1208,7 +1208,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         visible={isSwitching}
         locationName={switchingTo?.name ?? ''}
         storeNumber={switchingTo?.store_number}
-        logoUrl={orgLogo?.logo_url}
+        logoUrl={switchingTo?.id ? (localStorage.getItem(`brand-logo-${switchingTo.id}`) || orgLogo?.logo_url) : orgLogo?.logo_url}
         brandName={orgLogo?.brand_name ?? orgLogo?.name}
       />
     </div>;
