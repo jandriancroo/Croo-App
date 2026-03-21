@@ -119,13 +119,11 @@ export default function Dashboard() {
     ['daily-tips'],
   ];
   
-  // Handle pull-to-refresh
-  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
-    setLastSyncDisplay(timestamp);
-  }, []);
+  // Handle pull-to-refresh (no-op callback, PullToRefresh handles invalidation)
+  const handleRefresh = useCallback(() => {}, []);
   
   // Role-based cubes for TM/SM/Manager (locked by Org Admin)
-  const { shouldUseRoleCubes, roleCubes, isLoading: roleCubesLoading } = useShouldUseRoleCubes(organizationId);
+  const { shouldUseRoleCubes, roleCubes } = useShouldUseRoleCubes(organizationId);
   
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
