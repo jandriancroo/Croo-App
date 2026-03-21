@@ -1,8 +1,6 @@
 
 import { useState } from 'react';
-import { MapPin, Search, Star, ChevronRight, Building2, Check, Clock, ArrowRight, Command, CornerDownLeft, Layers } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'framer-motion';
+import { MapPin, Search, Star, ChevronRight, Check, Clock, Command, CornerDownLeft } from 'lucide-react';
 
 const LOCATIONS = [
   { id: '1', name: 'Pasadena', num: '#001', brand: 'Blaze Pizza', code: 'PAS', color: 'hsl(189 45% 42%)' },
