@@ -454,10 +454,13 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           const mixMap: Record<string, number> = {};
           for (const row of (data || [])) {
             if (row.product_mix && Array.isArray(row.product_mix)) {
-              for (const item of row.product_mix) {
-                const name = item.name || item.item_name || 'Unknown';
+              for (const item of row.product_mix as any[]) {
+                const name = item.itemName || item.name || item.item_name || 'Unknown';
                 const qty = Number(item.quantity || item.qty || item.count || 0);
-                mixMap[name] = (mixMap[name] || 0) + qty;
+                const sales = Number(item.netSales || item.sales || item.net_sales || 0);
+                if (!mixMap[name]) mixMap[name] = { quantity: 0, sales: 0 };
+                mixMap[name].quantity += qty;
+                mixMap[name].sales += sales;
               }
             }
           }
