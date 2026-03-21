@@ -1,9 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { Button } from '@/components/ui/button';
-import { Building2, MapPin, ChevronRight, Star, ExternalLink, Layers } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Star, ExternalLink, Layers, Search, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -43,6 +42,23 @@ interface LocationPickerDialogProps {
   currentLocationId?: string;
 }
 
+const RECENTS_THRESHOLD = 10;
+const RECENTS_STORAGE_KEY = 'croo-recent-locations';
+const MAX_RECENTS = 5;
+
+function getRecentLocationIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function pushRecentLocation(id: string) {
+  const recents = getRecentLocationIds().filter(r => r !== id);
+  recents.unshift(id);
+  localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(recents.slice(0, MAX_RECENTS)));
+}
+
 export function LocationPickerDialog({
   open,
   onOpenChange,
@@ -54,11 +70,15 @@ export function LocationPickerDialog({
   const { role } = useUserRole();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const searchRef = useRef<HTMLInputElement>(null);
   
   const hasMultiLocationAccess = role === 'super_admin' || role === 'brand_admin' || role === 'org_admin';
   const isSuperAdmin = role === 'super_admin';
   const canSeeAllOrgs = role === 'admin' || role === 'super_admin';
   const isOrgLevel = role === 'manager' || role === 'org_admin';
+
+  const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<string>('');
 
   // Cache user profile data (default location, all_locations flag)
   const { data: profileData } = useQuery({
@@ -73,16 +93,14 @@ export function LocationPickerDialog({
       return data;
     },
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // 5 min cache
+    staleTime: 5 * 60 * 1000,
   });
 
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
   const allLocationsEnabled = profileData?.all_locations_enabled || false;
-
-  // Sync default location from cache
   const effectiveDefaultId = defaultLocationId ?? profileData?.default_location_id ?? null;
 
-  // Cache all location picker data — survives dialog close/open
+  // Cache all location picker data
   const { data: pickerData, isLoading: loading } = useQuery({
     queryKey: ['location-picker-data', user?.id, role, allLocationsEnabled],
     queryFn: async () => {
@@ -216,15 +234,90 @@ export function LocationPickerDialog({
       return { organizations: orgs, locations: locs, brands: brandsList };
     },
     enabled: !!user?.id && !!role,
-    staleTime: 10 * 60 * 1000, // 10 min cache — locations rarely change
-    placeholderData: (prev) => prev, // Show previous data instantly
+    staleTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
 
   const organizations = pickerData?.organizations || [];
   const locations = pickerData?.locations || [];
   const brands = pickerData?.brands || [];
 
+  // Build tabs from available data
+  const showRecents = locations.length >= RECENTS_THRESHOLD;
+
+  const tabs = useMemo(() => {
+    const t: { id: string; label: string; icon?: 'clock' | 'building' }[] = [];
+    if (showRecents) t.push({ id: '__recents__', label: 'Recent', icon: 'clock' });
+
+    // If brands exist (super_admin), use brands as tabs
+    if (brands.length > 0) {
+      brands.forEach(b => t.push({ id: `brand:${b.id}`, label: b.name }));
+      // Add "Other" if there are unbranded orgs
+      const brandedOrgIds = new Set(organizations.filter(o => o.brand_id).map(o => o.id));
+      const unbrandedLocs = locations.filter(l => !l.organization_id || !brandedOrgIds.has(l.organization_id));
+      if (unbrandedLocs.length > 0) t.push({ id: '__other__', label: 'Other' });
+    } else if (organizations.length > 1) {
+      // Multiple orgs, use org tabs
+      organizations.forEach(o => t.push({ id: `org:${o.id}`, label: o.brand_name || o.name }));
+    }
+    // If only 1 org or no orgs, no tabs needed (just show flat list)
+    return t;
+  }, [showRecents, brands, organizations, locations]);
+
+  // Set default active tab when data loads
+  useEffect(() => {
+    if (tabs.length > 0 && !activeTab) {
+      // Default to recents if available, otherwise first tab
+      setActiveTab(showRecents ? '__recents__' : tabs[0].id);
+    }
+  }, [tabs, showRecents]);
+
+  // Reset search when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSearch('');
+      // Focus search on desktop
+      if (!isMobile) {
+        setTimeout(() => searchRef.current?.focus(), 100);
+      }
+    }
+  }, [open, isMobile]);
+
+  // Filter locations based on active tab + search
+  const filteredLocations = useMemo(() => {
+    let locs = locations;
+
+    // Tab filtering
+    if (activeTab === '__recents__') {
+      const recentIds = getRecentLocationIds();
+      locs = recentIds.map(id => locations.find(l => l.id === id)).filter(Boolean) as Location[];
+    } else if (activeTab.startsWith('brand:')) {
+      const brandId = activeTab.replace('brand:', '');
+      const brandOrgIds = new Set(organizations.filter(o => o.brand_id === brandId).map(o => o.id));
+      locs = locations.filter(l => l.organization_id && brandOrgIds.has(l.organization_id));
+    } else if (activeTab.startsWith('org:')) {
+      const orgId = activeTab.replace('org:', '');
+      locs = locations.filter(l => l.organization_id === orgId);
+    } else if (activeTab === '__other__') {
+      const brandedOrgIds = new Set(organizations.filter(o => o.brand_id).map(o => o.id));
+      locs = locations.filter(l => !l.organization_id || !brandedOrgIds.has(l.organization_id));
+    }
+
+    // Search filtering
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      locs = locs.filter(l => 
+        l.name.toLowerCase().includes(q) || 
+        (l.store_number && l.store_number.toLowerCase().includes(q)) ||
+        (l.org_name && l.org_name.toLowerCase().includes(q))
+      );
+    }
+
+    return locs;
+  }, [locations, organizations, activeTab, search]);
+
   const handleSelectLocation = (location: Location) => {
+    pushRecentLocation(location.id);
     onSelectLocation({
       id: location.id,
       name: location.name,
@@ -258,171 +351,94 @@ export function LocationPickerDialog({
     toast.success(newDefault ? 'Default location set' : 'Default location cleared');
   };
 
-  // Group locations by organization
-  const locationsByOrg = locations.reduce((acc, loc) => {
-    const orgId = loc.organization_id || 'unassigned';
-    if (!acc[orgId]) acc[orgId] = [];
-    acc[orgId].push(loc);
-    return acc;
-  }, {} as Record<string, Location[]>);
-
-  // Group organizations by brand for super_admin
-  const orgsByBrand = useMemo(() => {
-    if (!isSuperAdmin || brands.length === 0) return null;
-    
-    const grouped = new Map<string, Organization[]>();
-    const ungrouped: Organization[] = [];
-    
-    for (const org of organizations) {
-      if (org.brand_id) {
-        const existing = grouped.get(org.brand_id) || [];
-        existing.push(org);
-        grouped.set(org.brand_id, existing);
-      } else {
-        ungrouped.push(org);
-      }
-    }
-    
-    if (grouped.size === 0) return null;
-    
-    return { grouped, ungrouped };
-  }, [isSuperAdmin, brands, organizations]);
-
-  const renderLocationItem = (location: Location) => (
-    <Button
-      key={location.id}
-      variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-      className="w-full justify-between h-auto py-2 px-2"
-      onClick={() => handleSelectLocation(location)}
-    >
-      <div className="flex items-center gap-2">
-        <button
-          onClick={(e) => handleSetDefault(e, location.id)}
-          className="p-0.5 hover:scale-110 transition-transform"
-          title={effectiveDefaultId === location.id ? 'Remove as default' : 'Set as default'}
-        >
-          <Star 
-            className={`h-3.5 w-3.5 ${
-              effectiveDefaultId === location.id 
-                ? 'fill-yellow-400 text-yellow-400' 
-                : 'text-muted-foreground hover:text-yellow-400'
-            }`} 
-          />
-        </button>
-        <div className="text-left">
-          <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
-          {location.location_type === 'checklist_only' && (
-            <div className="text-xs text-muted-foreground">Checklist Only</div>
-          )}
-        </div>
-      </div>
-      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-    </Button>
-  );
-
-  const renderOrgSection = (org: Organization, indent = true) => (
-    <div key={org.id} className="space-y-1">
-      <button
-        className={`flex items-center gap-2 text-xs font-medium px-1 w-full text-left group ${
-          hasMultiLocationAccess 
-            ? 'hover:bg-muted/50 rounded-md py-1 -my-1 cursor-pointer transition-colors' 
-            : 'text-muted-foreground cursor-default'
-        }`}
-        onClick={() => {
-          if (hasMultiLocationAccess) {
-            onOpenChange(false);
-            navigate(`/org-dash?org=${org.id}`);
-          }
-        }}
-        disabled={!hasMultiLocationAccess}
-      >
-        {org.logo_url ? (
-          <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
-        ) : (
-          <Building2 className="h-3 w-3" />
-        )}
-        {org.brand_name && !orgsByBrand ? (
-          <span className="flex-1">
-            <span className="text-foreground font-semibold">{org.brand_name}</span>
-            <span className="text-muted-foreground"> — {org.name}</span>
-          </span>
-        ) : (
-          <span className="flex-1 text-muted-foreground">{org.name}</span>
-        )}
-        {hasMultiLocationAccess && (
-          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-        )}
-      </button>
-      <div className={`space-y-0.5 ${indent ? 'pl-5' : 'pl-5'}`}>
-        {locationsByOrg[org.id]?.map(renderLocationItem)}
-      </div>
-    </div>
-  );
+  const hasTabs = tabs.length > 1 || (tabs.length === 1 && tabs[0].id === '__recents__');
 
   const content = (
     <>
       {loading && !pickerData ? (
         <div className="space-y-4 p-4">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full" />
+            <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
       ) : (
-        <div className="space-y-4 p-4">
-          {/* Brand-grouped layout for super_admin */}
-          {orgsByBrand ? (
-            <>
-              {brands
-                .filter(brand => orgsByBrand.grouped.has(brand.id))
-                .map(brand => {
-                  const brandOrgs = orgsByBrand.grouped.get(brand.id) || [];
-                  return (
-                    <div key={brand.id} className="space-y-2">
-                      <button
-                        className="flex items-center gap-2 text-xs font-bold px-1 w-full text-left group hover:bg-muted/50 rounded-md py-1.5 -my-1 cursor-pointer transition-colors"
-                        onClick={() => {
-                          onOpenChange(false);
-                          navigate(`/org-dash?brand=${brand.id}`);
-                        }}
-                      >
-                        {brand.logo_url ? (
-                          <img src={brand.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
-                        ) : (
-                          <Layers className="h-4 w-4 text-primary" />
-                        )}
-                        <span className="flex-1 text-foreground uppercase tracking-wide">{brand.name}</span>
-                        <span className="text-[10px] text-muted-foreground font-normal opacity-0 group-hover:opacity-100 transition-opacity">
-                          Brand Dash
-                        </span>
-                        <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </button>
-                      <div className="pl-3 space-y-3 border-l-2 border-primary/20 ml-2">
-                        {brandOrgs.map(org => renderOrgSection(org))}
-                      </div>
-                    </div>
-                  );
-                })}
-              {orgsByBrand.ungrouped.map(org => renderOrgSection(org))}
-            </>
-          ) : organizations.length > 0 ? (
-            organizations.map(org => renderOrgSection(org))
-          ) : (
-            <div className="space-y-0.5">
-              {locations.map(renderLocationItem)}
+        <div className="p-3 space-y-3">
+          {/* Brand / Org tabs */}
+          {hasTabs && (
+            <div className="flex bg-muted/50 rounded-lg p-1 gap-0.5 overflow-x-auto">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setSearch(''); }}
+                  className={`flex-1 min-w-0 text-xs font-medium text-center py-1.5 rounded-md transition-all flex items-center justify-center gap-1 whitespace-nowrap px-2 ${
+                    activeTab === tab.id
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.icon === 'clock' && <Clock className="h-3 w-3 flex-shrink-0" />}
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              ))}
             </div>
           )}
 
-          {locationsByOrg['unassigned']?.length > 0 && organizations.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
-                <MapPin className="h-3 w-3" />
-                Other Locations
-              </div>
-              <div className="space-y-0.5 pl-5">
-                {locationsByOrg['unassigned'].map(renderLocationItem)}
-              </div>
-            </div>
-          )}
+          {/* Search */}
+          <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-primary/30 transition-all">
+            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={activeTab === '__recents__' ? 'Search recents...' : 'Search locations...'}
+              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
+            />
+          </div>
+
+          {/* Location list */}
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+            {filteredLocations.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {activeTab === '__recents__' && !search ? 'No recent locations yet' : 'No locations found'}
+              </p>
+            ) : (
+              filteredLocations.map(loc => (
+                <button
+                  key={loc.id}
+                  onClick={() => handleSelectLocation(loc)}
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg transition-all text-left ${
+                    loc.id === currentLocationId
+                      ? 'bg-primary/10 ring-2 ring-primary'
+                      : 'hover:bg-muted/50'
+                  }`}
+                >
+                  <button
+                    onClick={(e) => handleSetDefault(e, loc.id)}
+                    className="p-0.5 hover:scale-110 transition-transform"
+                    title={effectiveDefaultId === loc.id ? 'Remove as default' : 'Set as default'}
+                  >
+                    <Star 
+                      className={`h-3.5 w-3.5 flex-shrink-0 ${
+                        effectiveDefaultId === loc.id 
+                          ? 'fill-yellow-400 text-yellow-400' 
+                          : 'text-muted-foreground hover:text-yellow-400'
+                      }`} 
+                    />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm ${loc.id === currentLocationId ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {formatLocationName(loc.name, loc.store_number)}
+                    </div>
+                    {loc.location_type === 'checklist_only' && (
+                      <div className="text-[10px] text-muted-foreground">Checklist Only</div>
+                    )}
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </>
@@ -432,7 +448,7 @@ export function LocationPickerDialog({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="text-left">
+          <DrawerHeader className="text-left pb-0">
             <DrawerTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
               Select Location
@@ -448,8 +464,8 @@ export function LocationPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden p-0">
+        <DialogHeader className="p-4 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
             Select Location
